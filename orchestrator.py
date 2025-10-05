@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -10,14 +11,16 @@ from proposer import Proposer
 USE_LLM_AGENT = os.getenv("USE_LLM_AGENT") == "1"
 USE_LLM_JUDGE = os.getenv("USE_LLM_JUDGE") == "1"
 USE_LLM_PROPOSER = os.getenv("USE_LLM_PROPOSER") == "1"
+USE_LLM_SIMULATOR = os.getenv("USE_LLM_SIMULATOR") == "1"
 
 if USE_LLM_AGENT or USE_LLM_JUDGE or USE_LLM_PROPOSER:
     try:
-        from llm_wrappers import LLMAgent, LLMJudge, LLMProposer
+        from llm_wrappers import LLMAgent, LLMJudge, LLMProposer, LLMSimulator
     except Exception:
         LLMAgent = None  # type: ignore
         LLMJudge = None  # type: ignore
         LLMProposer = None  # type: ignore
+        LLMSimulator = None  # type: ignore
 
 
 class DummyAgent:
@@ -30,7 +33,12 @@ class DummyAgent:
 
 
 def run_episode(instr: Dict[str, Any], seed: int, fidelity: str = "low", steps_limit: int = 1) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    sim = SimulatorCore()
+    base_sim = SimulatorCore()
+    # Choose simulator
+    if USE_LLM_SIMULATOR and 'LLMSimulator' in globals() and LLMSimulator is not None:
+        sim = LLMSimulator(core=base_sim, model=os.getenv("LLM_MODEL"), seed=seed)
+    else:
+        sim = base_sim
     # Choose agent
     if USE_LLM_AGENT and 'LLMAgent' in globals() and LLMAgent is not None:
         agent = LLMAgent(model=os.getenv("LLM_MODEL"), temperature=float(os.getenv("AGENT_TEMP", "0.2")), seed=seed)
@@ -87,7 +95,23 @@ def save_episode(out_dir: str, episode_log: Dict[str, Any], judgement: Dict[str,
 
 
 if __name__ == "__main__":
-    # Example dry run
+    parser = argparse.ArgumentParser(description="Run an episode with optional LLM components.")
+    parser.add_argument("--seed", type=int, default=int(os.getenv("SEED", "123")))
+    parser.add_argument("--fidelity", type=str, default=os.getenv("FIDELITY", "low"), choices=["low", "medium", "high"])
+    parser.add_argument("--steps", type=int, default=int(os.getenv("STEPS", "1")))
+    parser.add_argument("--llm-agent", action="store_true", default=USE_LLM_AGENT)
+    parser.add_argument("--llm-judge", action="store_true", default=USE_LLM_JUDGE)
+    parser.add_argument("--llm-proposer", action="store_true", default=USE_LLM_PROPOSER)
+    parser.add_argument("--llm-simulator", action="store_true", default=USE_LLM_SIMULATOR)
+    args = parser.parse_args()
+
+    # Reflect CLI toggles to module-level flags
+    USE_LLM_AGENT = args.llm_agent
+    USE_LLM_JUDGE = args.llm_judge
+    USE_LLM_PROPOSER = args.llm_proposer
+    USE_LLM_SIMULATOR = args.llm_simulator
+
+    # Example instruction
     instruction = {
         "id": "demo",
         "description": "Trigger validation error.",
@@ -98,6 +122,6 @@ if __name__ == "__main__":
             {"predicate": "element_text_contains:Invalid card number", "weight": 1.0}
         ],
     }
-    log, judge_out = run_episode(instruction, seed=123, fidelity="low", steps_limit=1)
+    log, judge_out = run_episode(instruction, seed=args.seed, fidelity=args.fidelity, steps_limit=args.steps)
     save_episode("runs", log, judge_out)
     print("Saved episode to 'runs/'")

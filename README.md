@@ -397,3 +397,13 @@ Agent-visible observation (returned to agent):
   - Notes:
     - Simulator remains a deterministic core. For high-fidelity content, wire LLM calls inside the simulator in `high` mode while preserving observation-only rules and determinism (temp=0.0).
     - All LLM outputs are validated against JSON schemas; malformed outputs are retried with strict JSON instructions.
+
+## CLI flags (orchestrator)
+
+- Seed/fidelity/steps:
+  - `python orchestrator.py --seed 123 --fidelity low --steps 1`
+- Toggle LLM components:
+  - `--llm-agent`, `--llm-judge`, `--llm-proposer`, `--llm-simulator`
+- Env var equivalents also supported: `USE_LLM_AGENT=1`, `USE_LLM_JUDGE=1`, `USE_LLM_PROPOSER=1`, `USE_LLM_SIMULATOR=1`.
+
+When `--llm-simulator` (or `USE_LLM_SIMULATOR=1`) is enabled, the Simulator uses an LLM to enrich observations while the deterministic core maintains canonical state, internal logs, and digests.
