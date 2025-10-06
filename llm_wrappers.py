@@ -74,7 +74,7 @@ class LLMSimulator:
         # Prompts
         self.system = _read(os.path.join(PROMPTS_DIR, "simulator.system.txt"))
         # This runtime prompt explains enrichment of base observation only
-        self.enrich = _read(os.path.join(PROMPTS_DIR, "simulator.runtime.txt"))
+        self.enrich_text = _read(os.path.join(PROMPTS_DIR, "simulator.runtime.txt"))
 
     def reset(self, instruction: Dict[str, Any], seed: int, fidelity: str = "low"):
         base_obs, start_digest, episode_id = self.core.reset(instruction, seed, fidelity)
@@ -124,6 +124,12 @@ class LLMSimulator:
         internal_result: Dict[str, Any],
         last_action: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
+        # Parse enrichment content if JSON, else pass as text
+        try:
+            enrich_content = json.loads(self.enrich_text)
+        except Exception:
+            enrich_content = {"notes": self.enrich_text}
+
         user_payload = {
             "seed": seed,
             "fidelity": fidelity,
@@ -135,8 +141,9 @@ class LLMSimulator:
             "base_observation": base_observation,
             # Only the verdict enum; no internal reason must surface
             "internal_outcome": internal_result.get("result", "ok"),
-            "guidance": "Adjust ui_elements text and attributes realistically. Do not add keys other than observation fields. Do not include internal_result or reason. If outcome is 'rejected', reflect via error banner visibility and a beep in audio_events.",
-            "guidance_examples": self.enrich
+            "enrichment_contract": enrich_content.get("output_contract"),
+            "few_shot_examples": enrich_content.get("few_shot_examples"),
+            "guidance": "Start from base_observation; preserve unrelated elements; modify only impacted ones; copy timestamp and screenshot_id exactly; do not leak internal reasons."
         }
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=user_payload, max_retries=2)
