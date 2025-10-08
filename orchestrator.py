@@ -4,23 +4,22 @@ import os
 import time
 from typing import Any, Dict, Tuple
 
-from simulator_core import SimulatorCore
 from judge import Judge
 from proposer import Proposer
 
 USE_LLM_AGENT = os.getenv("USE_LLM_AGENT") == "1"
 USE_LLM_JUDGE = os.getenv("USE_LLM_JUDGE") == "1"
 USE_LLM_PROPOSER = os.getenv("USE_LLM_PROPOSER") == "1"
-USE_LLM_SIMULATOR = os.getenv("USE_LLM_SIMULATOR") == "1"
+USE_LLM_SIMULATOR = True  # Simulator is LLM-only now
 
 # Always attempt to import LLM wrappers; they lazily create clients.
 try:
-    from llm_wrappers import LLMAgent, LLMJudge, LLMProposer, LLMSimulator
+    from llm_wrappers import LLMAgent, LLMJudge, LLMProposer, PureLLMSimulator
 except Exception:
     LLMAgent = None  # type: ignore
     LLMJudge = None  # type: ignore
     LLMProposer = None  # type: ignore
-    LLMSimulator = None  # type: ignore
+    PureLLMSimulator = None  # type: ignore
 
 
 class DummyAgent:
@@ -43,12 +42,11 @@ def run_episode(
     log_dir: str | None = None,
     log_state_snapshots: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    base_sim = SimulatorCore()
-    # Choose simulator
-    if USE_LLM_SIMULATOR and 'LLMSimulator' in globals() and LLMSimulator is not None:
-        sim = LLMSimulator(core=base_sim, model=os.getenv("LLM_MODEL"), seed=seed)
+    # Choose simulator (LLM-only)
+    if 'PureLLMSimulator' in globals() and PureLLMSimulator is not None:
+        sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed)
     else:
-        sim = base_sim
+        raise RuntimeError("PureLLMSimulator not available. Ensure llm_wrappers.py is present.")
     # Choose agent
     if USE_LLM_AGENT and 'LLMAgent' in globals() and LLMAgent is not None:
         agent = LLMAgent(model=os.getenv("LLM_MODEL"), temperature=float(os.getenv("AGENT_TEMP", "1")), seed=seed)
@@ -100,7 +98,7 @@ def run_episode(
         "start_digest": start_digest,
         "steps": [],
         "components": {
-            "simulator": "llm" if USE_LLM_SIMULATOR else "core",
+            "simulator": "llm",
             "agent": "llm" if USE_LLM_AGENT else "dummy",
             "judge": "llm" if USE_LLM_JUDGE else "det",
             "proposer": "llm" if USE_LLM_PROPOSER else "simple",
@@ -161,7 +159,7 @@ def run_episode(
             if log_state_snapshots:
                 try:
                     # type: ignore[attr-defined]
-                    snapshot = sim.snapshot(episode_id)  # LLMSimulator forwards to core
+                    snapshot = sim.snapshot(episode_id)
                     sim_entry["state_snapshot"] = snapshot
                 except Exception:
                     pass
@@ -240,7 +238,6 @@ if __name__ == "__main__":
     parser.add_argument("--llm-agent", action="store_true", default=USE_LLM_AGENT)
     parser.add_argument("--llm-judge", action="store_true", default=USE_LLM_JUDGE)
     parser.add_argument("--llm-proposer", action="store_true", default=USE_LLM_PROPOSER)
-    parser.add_argument("--llm-simulator", action="store_true", default=USE_LLM_SIMULATOR)
     parser.add_argument("--instr-file", type=str, default=os.getenv("INSTR_FILE"), help="Path to instruction JSON file")
     parser.add_argument("--instr-json", type=str, default=os.getenv("INSTR_JSON"), help="Instruction JSON string")
     parser.add_argument("--instruction", "--instr-text", dest="instr_text", type=str, default=os.getenv("INSTRUCTION"), help="Freeform instruction text to compile")
@@ -256,7 +253,7 @@ if __name__ == "__main__":
     USE_LLM_AGENT = args.llm_agent
     USE_LLM_JUDGE = args.llm_judge
     USE_LLM_PROPOSER = args.llm_proposer
-    USE_LLM_SIMULATOR = args.llm_simulator
+    USE_LLM_SIMULATOR = True  # Always LLM simulator
 
     # Prepare runtime log path early
     os.makedirs(args.log_dir, exist_ok=True)
@@ -378,7 +375,7 @@ if __name__ == "__main__":
         instruction = preset_instruction("open-settings")
     print(
         "Components:",
-        f"simulator={'LLM' if USE_LLM_SIMULATOR else 'core'}",
+        f"simulator=llm",
         f"agent={'LLM' if USE_LLM_AGENT else 'dummy'}",
         f"judge={'LLM' if USE_LLM_JUDGE else 'det'}",
         f"proposer={'LLM' if USE_LLM_PROPOSER else 'simple'}",
@@ -392,7 +389,7 @@ if __name__ == "__main__":
             "seed": args.seed,
             "fidelity": args.fidelity,
             "components": {
-                "simulator": "llm" if USE_LLM_SIMULATOR else "core",
+                "simulator": "llm",
                 "agent": "llm" if USE_LLM_AGENT else "dummy",
                 "judge": "llm" if USE_LLM_JUDGE else "det",
                 "proposer": "llm" if USE_LLM_PROPOSER else "simple",

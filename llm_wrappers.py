@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from llm_client import LLMClient
-from validation import validate_action, validate_instruction, validate_judge_output, validate_observation
+from validation import validate_action, validate_instruction, validate_judge_output, validate_observation, validate_state
 
 
 def _read(path: str) -> str:
@@ -127,214 +127,211 @@ class InstructionCompiler:
         return out
 
 
-# Simulator wrapper note: The deterministic core is already implemented in simulator_core.SimulatorCore.
-# If desired, wire an LLM in 'high' fidelity mode to generate richer internal reasons/text while preserving
-# state transitions in the deterministic core. This keeps determinism at temp=0 while leveraging LLM content.
+# Simulator note: The system runs with a pure LLM simulator maintaining canonical state.
 
 
-class LLMSimulator:
-    """Adapter that uses LLM to enrich observations while delegating state and transitions to SimulatorCore.
 
-    - Keeps determinism by using temperature=0.0 and seed.
-    - Does not leak internal reasons to the agent; only uses them to inform percepts.
-    - Validates final observation against schema; falls back to base observation if invalid.
+
+class PureLLMSimulator:
+    """Stateful simulator implemented purely with an LLM.
+
+    - Maintains canonical state internally per episode (no SimulatorCore use).
+    - Given current state + last action, the LLM returns the next full state and the agent-visible observation.
+    - Enforces schema validation for state and observation. Deterministic with temperature=0 and provided seed.
     """
 
-    def __init__(self, core, model: Optional[str] = None, seed: Optional[int] = None):
-        self.core = core
+    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None):
         self.client = LLMClient(model=model, temperature=0.0, seed=seed)
-        # Prompts
-        self.system = _read(os.path.join(PROMPTS_DIR, "simulator.system.txt"))
-        # This runtime prompt explains enrichment of base observation only
-        self.enrich_text = _read(os.path.join(PROMPTS_DIR, "simulator.runtime.txt"))
-        # Store the full instruction received at reset for step-time context
-        self._instruction: Optional[Dict[str, Any]] = None
+        self.system = _read(os.path.join(PROMPTS_DIR, "pure_simulator.system.txt"))
+        self._episodes: Dict[str, Dict[str, Any]] = {}
+        self._meta: Dict[str, Dict[str, Any]] = {}
+
+    def _now_iso(self) -> str:
+        import time
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    def _sha256_digest(self, obj: Any) -> str:
+        import hashlib, json as _json
+        data = _json.dumps(obj, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+    def _load_template(self, name: str) -> Dict[str, Any]:
+        base = os.path.join(os.path.dirname(__file__), "templates", f"{name}.json")
+        with open(base, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _seed_state(self, template_name: str, seed: int, fidelity: str) -> Dict[str, Any]:
+        tmpl = self._load_template(template_name)
+        # Deterministic initial state based on template assets (not a core transition)
+        ui_sorted = sorted(tmpl.get("ui_elements", []), key=lambda e: e.get("element_id", ""))
+        state: Dict[str, Any] = {
+            "seed": int(seed),
+            "fidelity": fidelity,
+            "template": template_name,
+            "windows": [{"id": "win-main", "title": tmpl.get("title", template_name), "focused": True}],
+            "page": tmpl.get("page", template_name),
+            "ui_elements": ui_sorted,
+            "forms": tmpl.get("forms", {}),
+            "filesystem": tmpl.get("filesystem", {}),
+            "clipboard": "",
+            "network_logs": [],
+            "processes": ["simulator"],
+            "random_seed": int(seed),
+        }
+        return state
+
+    def _make_observation_from_state(self, state: Dict[str, Any], internal_result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # Visible ui elements only
+        visible = []
+        for el in state.get("ui_elements", []):
+            attrs = el.get("attributes", {})
+            if attrs.get("visible", True):
+                visible.append({
+                    "element_id": el.get("element_id"),
+                    "role": el.get("role"),
+                    "text": el.get("text", ""),
+                    "attributes": attrs,
+                })
+        audio_events = []
+        if internal_result and internal_result.get("result") == "rejected":
+            audio_events.append({"type": "beep", "volume": 0.6, "timestamp": self._now_iso()})
+        obs = {
+            "timestamp": self._now_iso(),
+            "screenshot_id": f"s-{state.get('template')}-{state.get('seed')}",
+            "ui_elements": visible,
+            "audio_events": audio_events,
+            "meta": {"page": state.get("page")},
+        }
+        return obs
 
     def reset(self, instruction: Dict[str, Any], seed: int, fidelity: str = "low"):
-        base_obs, start_digest, episode_id = self.core.reset(instruction, seed, fidelity)
-        # Persist instruction for future steps
-        self._instruction = instruction
-        enriched, sp = self._llm_transition(
-            instruction=instruction,
-            episode_id=episode_id,
-            seed=seed,
-            fidelity=fidelity,
-            base_observation=base_obs,
-            internal_result={"result": "ok"},
-            last_action=None,
-        )
-        self._last_call = {"phase": "reset", "input": {"instruction": instruction, "base_observation": base_obs}, "output": {"observation": enriched, "state_patch": sp}, "raw": getattr(self.client, "_last_io", None)}
-        return enriched, start_digest, episode_id
-
-    def step(self, episode_id: str, action: Dict[str, Any], timestamp_iso: str, time_delta_ms: int) -> Dict[str, Any]:
-        out = self.core.step(episode_id, action, timestamp_iso, time_delta_ms)
-        # Enrich observation and optionally mutate canonical state via state_patch
-        state_summary = self.core.get_state_summary(episode_id)
-        seed = self.core._episodes[episode_id]["seed"]
-        fidelity = self.core._episodes[episode_id]["fidelity"]
-        # Use the full original instruction if available; else fallback to template only
-        inst_for_step: Dict[str, Any] = self._instruction or {"template": state_summary.get("template")}
-        enriched, state_patch = self._llm_transition(
-            instruction=inst_for_step,
-            episode_id=episode_id,
-            seed=seed,
-            fidelity=fidelity,
-            base_observation=out["observation"],
-            internal_result={"result": out.get("internal_result", {}).get("result", "ok")},
-            last_action=action,
-        )
-        self._last_call = {
-            "phase": "step",
-            "input": {
-                "instruction": inst_for_step,
-                "base_observation": out.get("observation"),
-                "last_action": action,
-                "internal_outcome": out.get("internal_result", {}).get("result")
-            },
-            "output": {"observation": enriched, "state_patch": state_patch},
-            "raw": getattr(self.client, "_last_io", None),
-        }
-        if state_patch:
-            try:
-                self._apply_state_patch(episode_id, state_patch)
-                # Refresh digest after mutation
-                new_state = self.core._episodes[episode_id]
-                from simulator_core import _sha256_digest  # local import to avoid cycle
-                out["state_digest"] = _sha256_digest(new_state)
-                out["state_diff"] = list(state_patch.keys())
-            except Exception:
-                # If patch application fails, keep original state
-                self._last_call["output"]["state_patch_error"] = True
-        out["observation"] = enriched
-        return out
-
-    def get_state_summary(self, episode_id: str) -> Dict[str, Any]:
-        return self.core.get_state_summary(episode_id)
-
-    def snapshot(self, episode_id: str):
-        return self.core.snapshot(episode_id)
-
-    def _llm_transition(
-        self,
-        instruction: Dict[str, Any],
-        episode_id: str,
-        seed: int,
-        fidelity: str,
-        base_observation: Dict[str, Any],
-        internal_result: Dict[str, Any],
-        last_action: Optional[Dict[str, Any]],
-    ) -> tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-        # Parse enrichment content if JSON, else pass as text
-        try:
-            enrich_content = json.loads(self.enrich_text)
-        except Exception:
-            enrich_content = {"notes": self.enrich_text}
-
-        # Merge few-shot examples (include additional_examples if present)
-        few_shots = []
-        if isinstance(enrich_content.get("few_shot_examples"), list):
-            few_shots.extend(enrich_content.get("few_shot_examples"))
-        if isinstance(enrich_content.get("additional_examples"), list):
-            few_shots.extend(enrich_content.get("additional_examples"))
-
-        # Detect desktop open intent for stronger guidance and retry if needed
-        target_eid = (last_action or {}).get("target", {}).get("element_id") if isinstance(last_action, dict) else None
-        is_desktop = (base_observation.get("meta") or {}).get("page") == "desktop"
-        is_open_attempt = (last_action or {}).get("type") == "double_click" and isinstance(target_eid, str) and target_eid.startswith("icon_")
-        page_hint = None
-        if is_open_attempt:
-            if target_eid == "icon_settings":
-                page_hint = "settings"
-            elif target_eid == "icon_files":
-                page_hint = "files"
-            elif target_eid == "icon_browser":
-                page_hint = "browser"
-
-        user_payload = {
+        # Initialize an episode with a canonical starting state (template-based)
+        template_name = instruction.get("template", "desktop")
+        episode_id = f"ep-{seed}-{instruction.get('id','instr')}"
+        init_state = self._seed_state(template_name, seed, fidelity)
+        # Ask the LLM to optionally refine/confirm init state + produce first observation
+        payload = {
+            "phase": "reset",
             "seed": seed,
             "fidelity": fidelity,
             "episode_id": episode_id,
             "instruction": instruction,
-            "last_action": last_action,
-            "timestamp": base_observation.get("timestamp"),
-            "time_delta_ms": 0,
-            "base_observation": base_observation,
-            # Only the verdict enum; no internal reason must surface
-            "internal_outcome": internal_result.get("result", "ok"),
-            "enrichment_contract": enrich_content.get("output_contract"),
-            "few_shot_examples": few_shots,
-            "state_patch_contract": enrich_content.get("state_patch_contract"),
-            "require_state_patch": bool(is_desktop and is_open_attempt and internal_result.get("result") == "ok"),
-            "page_hint": page_hint,
-            "guidance": "Start from base_observation; preserve unrelated elements; modify only impacted ones; copy timestamp and screenshot_id exactly; do not leak internal reasons."
+            "current_state": init_state,
+            "timestamp": self._now_iso(),
         }
+        self._last_call = {"phase": "reset", "input": payload}
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=user_payload, max_retries=2)
-            obs = out.get("observation") if "observation" in out else out
-            validate_observation(obs)
-            # Normalize possible state patch keys
-            sp = None
-            if isinstance(out, dict):
-                sp = out.get("state_patch")
-                if sp is None and "statePatch" in out:
-                    sp = out.get("statePatch")
-                if sp is None and "statepatch" in out:
-                    sp = out.get("statepatch")
-            if sp and not isinstance(sp, dict):
-                sp = None
-            # If model omitted state_patch but clearly changed page in observation, infer a minimal patch from observation
-            if (sp is None
-                and internal_result.get("result") == "ok"
-                and isinstance(base_observation, dict)
-                and isinstance(obs, dict)):
-                base_page = (base_observation.get("meta") or {}).get("page")
-                obs_page = (obs.get("meta") or {}).get("page")
-                if obs_page and base_page and obs_page != base_page:
-                    sp = {"page": obs_page, "ui_elements": obs.get("ui_elements", [])}
-            # If still no patch but it's a desktop open attempt, issue a second, stricter call once
-            if sp is None and is_desktop and is_open_attempt and internal_result.get("result") == "ok":
-                strict_payload = dict(user_payload)
-                strict_payload["require_state_patch"] = True
-                strict_payload["guidance"] = (
-                    "On desktop app open (double_click icons), you MUST return a state_patch that sets the new page and full ui_elements. "
-                    "Use page_hint if provided."
-                )
-                out2 = self.client.complete_json(system_prompt=self.system, user_json=strict_payload, max_retries=1)
-                obs2 = out2.get("observation") if isinstance(out2, dict) and "observation" in out2 else out2
-                try:
-                    validate_observation(obs2)
-                    obs = obs2
-                except Exception:
-                    pass
-                if isinstance(out2, dict):
-                    sp2 = out2.get("state_patch") or out2.get("statePatch") or out2.get("statepatch")
-                    if isinstance(sp2, dict):
-                        sp = sp2
-                # As a last consistency step, if obs2 indicates a new page, infer patch
-                if sp is None and isinstance(obs2, dict):
-                    base_page = (base_observation.get("meta") or {}).get("page")
-                    obs_page = (obs2.get("meta") or {}).get("page")
-                    if obs_page and base_page and obs_page != base_page:
-                        sp = {"page": obs_page, "ui_elements": obs2.get("ui_elements", [])}
-            return obs, sp
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            next_state = out.get("state", init_state)
+            observation = out.get("observation")
+            # Validate; if invalid, fall back to a locally derived observation
+            validate_state(next_state)
+            if observation is None:
+                observation = self._make_observation_from_state(next_state)
+            validate_observation(observation)
         except Exception:
-            # Fallback to base observation
-            return base_observation, None
+            # Fallback: keep initial state, synthesize observation locally
+            next_state = init_state
+            observation = self._make_observation_from_state(next_state)
+        self._episodes[episode_id] = next_state
+        self._meta[episode_id] = {"fidelity": fidelity, "seed": seed, "instruction": instruction}
+        self._last_call.update({"output": {"state": next_state, "observation": observation}, "raw": getattr(self.client, "_last_io", None)})
+        # Digest is used by orchestrator for book-keeping; we mimic core naming
+        start_digest = self._sha256_digest(next_state)
+        return observation, start_digest, episode_id
 
-    def _apply_state_patch(self, episode_id: str, patch: Dict[str, Any]) -> None:
-        st = self.core._episodes[episode_id]
-        allowed_top = {"page", "ui_elements", "windows", "forms", "filesystem"}
-        patch = {k: v for k, v in patch.items() if k in allowed_top}
-        if "page" in patch and isinstance(patch["page"], str):
-            st["page"] = patch["page"]
-        if "ui_elements" in patch and isinstance(patch["ui_elements"], list):
-            # Replace full UI element list
-            st["ui_elements"] = patch["ui_elements"]
-        if "windows" in patch and isinstance(patch["windows"], list):
-            st["windows"] = patch["windows"]
-        if "forms" in patch and isinstance(patch["forms"], dict):
-            st["forms"] = patch["forms"]
-        if "filesystem" in patch and isinstance(patch["filesystem"], dict):
-            # Shallow merge
-            fs = st.setdefault("filesystem", {})
-            fs.update(patch["filesystem"])
+    def step(self, episode_id: str, action: Dict[str, Any], timestamp_iso: str, time_delta_ms: int) -> Dict[str, Any]:
+        if episode_id not in self._episodes:
+            raise KeyError("Unknown episode_id")
+        validate_action(action)
+        prev_state = self._episodes[episode_id]
+        meta = self._meta.get(episode_id, {})
+        payload = {
+            "phase": "step",
+            "seed": meta.get("seed"),
+            "fidelity": meta.get("fidelity"),
+            "episode_id": episode_id,
+            "instruction": meta.get("instruction"),
+            "current_state": prev_state,
+            "last_action": action,
+            "timestamp": timestamp_iso,
+            "time_delta_ms": int(time_delta_ms),
+        }
+        self._last_call = {"phase": "step", "input": payload}
+        internal_result = {"result": "ok", "reason": ""}
+        event_log: list[Dict[str, Any]] = []
+        terminal = False
+        try:
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            next_state = out.get("state", prev_state)
+            observation = out.get("observation")
+            # Optional fields from LLM
+            if isinstance(out.get("internal_result"), dict):
+                internal_result = out["internal_result"]
+            if isinstance(out.get("event_log"), list):
+                event_log = out["event_log"]
+            if isinstance(out.get("terminal"), bool):
+                terminal = bool(out["terminal"]) 
+            # Validate
+            validate_state(next_state)
+            if observation is None:
+                observation = self._make_observation_from_state(next_state, internal_result)
+            # Ensure timestamp and screenshot semantics
+            try:
+                if isinstance(observation, dict):
+                    observation["timestamp"] = timestamp_iso
+                    observation["screenshot_id"] = f"s-{next_state.get('template')}-{next_state.get('seed')}"
+            except Exception:
+                pass
+            validate_observation(observation)
+        except Exception:
+            # On failure, keep state and synthesize observation; mark rejection
+            next_state = prev_state
+            internal_result = {"result": "rejected", "reason": "llm_transition_failed"}
+            observation = self._make_observation_from_state(next_state, internal_result)
+            event_log = [{"t": timestamp_iso, "event": "rejected", "action": action, "reason": internal_result.get("reason")}]
+            terminal = False
+
+        # Compute diffs and digest
+        def _top_level_diff(a: Dict[str, Any], b: Dict[str, Any]) -> list[str]:
+            keys = set((a or {}).keys()) | set((b or {}).keys())
+            changed = []
+            for k in sorted(keys):
+                if (k not in a) or (k not in b) or (a.get(k) != b.get(k)):
+                    changed.append(k)
+            return changed
+
+        state_diff = _top_level_diff(prev_state, next_state)
+        self._episodes[episode_id] = next_state
+        state_digest = self._sha256_digest(next_state)
+        self._last_call.update({
+            "output": {"state": next_state, "observation": observation, "internal_result": internal_result, "event_log": event_log, "terminal": terminal},
+            "raw": getattr(self.client, "_last_io", None)
+        })
+        return {
+            "observation": observation,
+            "internal_result": internal_result,
+            "event_log": event_log,
+            "state_diff": state_diff,
+            "state_digest": state_digest,
+            "terminal": terminal,
+            "reward_hint": None,
+        }
+
+    def get_state_summary(self, episode_id: str) -> Dict[str, Any]:
+        if episode_id not in self._episodes:
+            raise KeyError("Unknown episode_id")
+        st = self._episodes[episode_id]
+        return {
+            "template": st.get("template"),
+            "page": st.get("page"),
+            "filesystem_paths": sorted(list(st.get("filesystem", {}).keys())),
+            "ui_element_ids": [e.get("element_id") for e in st.get("ui_elements", [])],
+        }
+
+    def snapshot(self, episode_id: str) -> Dict[str, Any]:
+        if episode_id not in self._episodes:
+            raise KeyError("Unknown episode_id")
+        # Return a copy of canonical state
+        from copy import deepcopy
+        return deepcopy(self._episodes[episode_id])

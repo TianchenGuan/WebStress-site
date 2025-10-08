@@ -386,13 +386,13 @@ Agent-visible observation (returned to agent):
     - `--stop-on-success --success-threshold 0.99`
 
 - Replay verification:
-  - `python replay.py runs/<episode_id>.log.json` → prints `replay_verification: ok` on success.
+  - Replay verification is not supported in LLM-only simulator mode.
 
 - Run tests (pytest or unittest):
   - `python -m pytest -q` (if pytest available) or `python -m unittest`.
 
 - Fidelity setting:
-  - Pass `fidelity` into `SimulatorCore.reset(instruction, seed, fidelity)`; current implementation supports `low` behavior scripts.
+  - Fidelity is passed to the LLM simulator as a hint for UI richness (low/medium/high).
 
 - Switching to LLM wrappers:
   - Prompts are under `prompts/`. LLM wrappers for Agent, Judge, and Proposer are implemented in `llm_wrappers.py` using `llm_client.py`.
@@ -403,8 +403,9 @@ Agent-visible observation (returned to agent):
     - `export USE_LLM_AGENT=1` (optional)
     - `export USE_LLM_JUDGE=1` (optional)
     - `export USE_LLM_PROPOSER=1` (optional)
-  - Then run: `python orchestrator.py --task open-settings --llm-simulator`
-  - Or compile from text: `python orchestrator.py --instruction "Open the Settings" --llm-simulator`
+  - Run with the LLM-only simulator (default):
+    - `python orchestrator.py --instruction "Open the Settings and toggle Wi‑Fi" --llm-agent`
+    - Requires `OPENAI_API_KEY` and `openai` package. The LLM produces both state and observation each step.
 
 Logging
 - Per-episode logs are saved under the log dir (default `runs/`):
@@ -425,12 +426,12 @@ Logging
 - Seed/fidelity/steps:
   - `python orchestrator.py --seed 123 --fidelity low --steps 1`
 - Toggle LLM components:
-  - `--llm-agent`, `--llm-judge`, `--llm-proposer`, `--llm-simulator`
-- Env var equivalents also supported: `USE_LLM_AGENT=1`, `USE_LLM_JUDGE=1`, `USE_LLM_PROPOSER=1`, `USE_LLM_SIMULATOR=1`.
- - Agent history window:
+  - `--llm-agent`, `--llm-judge`, `--llm-proposer`
+- Env var equivalents also supported: `USE_LLM_AGENT=1`, `USE_LLM_JUDGE=1`, `USE_LLM_PROPOSER=1`.
+- Agent history window:
    - `--agent-history 5` passes the last 5 (action, observation) steps to the agent each turn (observation-only; no internals).
 
-When `--llm-simulator` (or `USE_LLM_SIMULATOR=1`) is enabled, the Simulator uses an LLM to enrich observations while the deterministic core maintains canonical state, internal logs, and digests.
+The simulator is LLM-only: it maintains the full canonical state internally and returns both the next `state` and the agent-visible `observation` each step (validated against schemas). There is no deterministic core in this configuration.
 
 ## Strict JSON Schema validation
 
