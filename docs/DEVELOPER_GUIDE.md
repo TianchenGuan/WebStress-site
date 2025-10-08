@@ -153,8 +153,13 @@ Location: `orchestrator.py`
   - Early stopping: `--stop-on-success` with `--success-threshold`
 - Environment var equivalents: `USE_LLM_SIMULATOR`, `USE_LLM_AGENT`, etc.
 - Prints selected components at startup.
-- Episode log structure (saved in `runs/`):
-  - `{ episode_id, instruction_id, seed, start_digest, steps: [ { t, action, internal_result, event_log, state_diff, state_digest, observation } ] }`
+- Logs (saved in `runs/` by default):
+  - Summary per episode: `runs/<episode_id>.log.json` with `{ episode_id, instruction_id, seed, start_digest, steps: [...] }`
+  - Judge output: `runs/<episode_id>.judge.json`
+  - Agent log: `runs/<episode_id>/agent.log.jsonl` — one JSON per line with `{ t, step, instruction_id, history_len, action, llm? }` (llm contains payload + output if available)
+  - Simulator log: `runs/<episode_id>/simulator.log.jsonl` — one JSON per line with `{ t, step, action, internal_result, event_log, state_diff, state_digest, observation, llm?, state_snapshot? }`
+  - Runtime log: `runs/runtime.log.jsonl` — startup events including components and instruction
+  - Use `--log-dir` to redirect logs and `--log-state-snapshots` to include full canonical state in simulator logs.
 
 
 ## Replay and Determinism

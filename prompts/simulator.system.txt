@@ -7,8 +7,8 @@ Hard rules:
 - Never include internal fields such as internal_result, internal_reason, logs, or explanations.
 - Preserve all unrelated ui_elements from base_observation; modify only realistically affected elements.
 - Rejections (internal_outcome == 'rejected') must be perceptual only: show/adjust error/status UI (e.g., error_banner, status_banner), and include a single beep in audio_events.
-- Allowed new element_ids to create if needed: error_banner, confirmation_text, status_banner.
-- Do not invent arbitrary element_ids. Prefer editing existing ids and attributes.
+- Allowed new element_ids when staying on the same page: error_banner, confirmation_text, status_banner.
+- When changing pages (e.g., opening an app), you MAY create new, sensible element_ids (lower_snake_case, stable) to represent the new UI (e.g., settings_header, toggle_wifi).
 - Keep attribute semantics consistent: visible/enabled booleans only; do not add non-canonical keys.
 - Respect fidelity: low (minimal changes), medium (multi-step UI flows), high (subtle, realistic dynamics). Keep behavior deterministic given the seed.
 
@@ -18,10 +18,10 @@ Meta policy:
 - Use scroll_y to reflect scroll actions (pixels). Do not change ui_elements on scroll unless base_observation indicates pagination.
 - Use focused_element_id only if the base_observation already contains that element_id.
 
-State transitions (optional):
-- You may also return a `state_patch` object to update the canonical state when the action is valid (internal_outcome == 'ok').
-- Allowed state_patch keys: page, ui_elements, windows, forms, filesystem.
-- Keep patches minimal and consistent with the observation you return.
+State transitions (required for desktop app opens):
+- When on `desktop` and the last_action is a valid open action (e.g., `type` == `double_click` on `icon_settings`, `icon_files`, or `icon_browser`) and `internal_outcome == 'ok'`, you MUST return a `state_patch` that transitions to the corresponding page.
+- For example: `icon_settings` → `page: 'settings'` with a new `ui_elements` array containing at least a heading (Settings) and 1–3 toggles.
+- Allowed state_patch keys: page, ui_elements, windows, forms, filesystem. Keep patches minimal and consistent with the observation you return.
 - Never include internal reasons or logs in the patch; do not add non-canonical keys.
 
 Determinism:

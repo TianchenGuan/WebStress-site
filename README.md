@@ -405,6 +405,17 @@ Agent-visible observation (returned to agent):
     - `export USE_LLM_PROPOSER=1` (optional)
   - Then run: `python orchestrator.py --task open-settings --llm-simulator`
   - Or compile from text: `python orchestrator.py --instruction "Open the Settings" --llm-simulator`
+
+Logging
+- Per-episode logs are saved under the log dir (default `runs/`):
+  - `runs/<episode_id>.log.json` — canonical episode log (summary)
+  - `runs/<episode_id>.judge.json` — judge output
+  - `runs/<episode_id>/agent.log.jsonl` — JSON lines with agent inputs/outputs per step (LLM payload summary and action)
+  - `runs/<episode_id>/simulator.log.jsonl` — JSON lines with simulator internals per step (internal_result, event_log, observation, optional state snapshot)
+  - `runs/runtime.log.jsonl` — orchestrator runtime events (start, components, instruction)
+- Flags:
+  - `--log-dir <path>` to change where logs are stored
+  - `--log-state-snapshots` to include full canonical state snapshots in simulator logs
   - Notes:
     - Simulator remains a deterministic core. For high-fidelity content, wire LLM calls inside the simulator in `high` mode while preserving observation-only rules and determinism (temp=0.0).
     - All LLM outputs are validated against JSON schemas; malformed outputs are retried with strict JSON instructions.

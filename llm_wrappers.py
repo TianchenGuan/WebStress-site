@@ -24,13 +24,16 @@ class LLMAgent:
         if history:
             # Only pass agent-visible items; orchestrator already strips internals
             payload["history"] = history
+        self._last_call = {"payload": payload}
         out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
         try:
             validate_action(out)
+            self._last_call.update({"output": out, "normalized": False, "raw": getattr(self.client, "_last_io", None)})
             return out
         except Exception:
             norm = self._normalize_action(out)
             validate_action(norm)
+            self._last_call.update({"output": out, "normalized": True, "normalized_action": norm, "raw": getattr(self.client, "_last_io", None)})
             return norm
 
     def _normalize_action(self, raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -85,8 +88,10 @@ class LLMJudge:
             "end_state_summary": end_state_summary,
             "episode_log": episode_log,
         }
+        self._last_call = {"payload": payload}
         out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
         validate_judge_output(out)
+        self._last_call.update({"output": out, "raw": getattr(self.client, "_last_io", None)})
         return out
 
 
@@ -97,8 +102,10 @@ class LLMProposer:
 
     def propose_next(self, agent_id: str, recent_episodes: List[Dict[str, Any]], global_task_pool: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         payload = {"agent_id": agent_id, "recent_episodes": recent_episodes, "global_task_pool": global_task_pool or []}
+        self._last_call = {"payload": payload}
         out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
         validate_instruction(out)
+        self._last_call.update({"output": out, "raw": getattr(self.client, "_last_io", None)})
         return out
 
 class InstructionCompiler:
@@ -113,8 +120,10 @@ class InstructionCompiler:
 
     def compile(self, instruction_text: str) -> Dict[str, Any]:
         payload = {"task": instruction_text, "environment": "desktop"}
+        self._last_call = {"payload": payload}
         out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
         validate_instruction(out)
+        self._last_call.update({"output": out, "raw": getattr(self.client, "_last_io", None)})
         return out
 
 
@@ -138,10 +147,14 @@ class LLMSimulator:
         self.system = _read(os.path.join(PROMPTS_DIR, "simulator.system.txt"))
         # This runtime prompt explains enrichment of base observation only
         self.enrich_text = _read(os.path.join(PROMPTS_DIR, "simulator.runtime.txt"))
+        # Store the full instruction received at reset for step-time context
+        self._instruction: Optional[Dict[str, Any]] = None
 
     def reset(self, instruction: Dict[str, Any], seed: int, fidelity: str = "low"):
         base_obs, start_digest, episode_id = self.core.reset(instruction, seed, fidelity)
-        enriched, _ = self._llm_transition(
+        # Persist instruction for future steps
+        self._instruction = instruction
+        enriched, sp = self._llm_transition(
             instruction=instruction,
             episode_id=episode_id,
             seed=seed,
@@ -150,6 +163,7 @@ class LLMSimulator:
             internal_result={"result": "ok"},
             last_action=None,
         )
+        self._last_call = {"phase": "reset", "input": {"instruction": instruction, "base_observation": base_obs}, "output": {"observation": enriched, "state_patch": sp}, "raw": getattr(self.client, "_last_io", None)}
         return enriched, start_digest, episode_id
 
     def step(self, episode_id: str, action: Dict[str, Any], timestamp_iso: str, time_delta_ms: int) -> Dict[str, Any]:
@@ -158,8 +172,10 @@ class LLMSimulator:
         state_summary = self.core.get_state_summary(episode_id)
         seed = self.core._episodes[episode_id]["seed"]
         fidelity = self.core._episodes[episode_id]["fidelity"]
+        # Use the full original instruction if available; else fallback to template only
+        inst_for_step: Dict[str, Any] = self._instruction or {"template": state_summary.get("template")}
         enriched, state_patch = self._llm_transition(
-            instruction={"template": state_summary.get("template")},
+            instruction=inst_for_step,
             episode_id=episode_id,
             seed=seed,
             fidelity=fidelity,
@@ -167,6 +183,17 @@ class LLMSimulator:
             internal_result={"result": out.get("internal_result", {}).get("result", "ok")},
             last_action=action,
         )
+        self._last_call = {
+            "phase": "step",
+            "input": {
+                "instruction": inst_for_step,
+                "base_observation": out.get("observation"),
+                "last_action": action,
+                "internal_outcome": out.get("internal_result", {}).get("result")
+            },
+            "output": {"observation": enriched, "state_patch": state_patch},
+            "raw": getattr(self.client, "_last_io", None),
+        }
         if state_patch:
             try:
                 self._apply_state_patch(episode_id, state_patch)
@@ -177,7 +204,7 @@ class LLMSimulator:
                 out["state_diff"] = list(state_patch.keys())
             except Exception:
                 # If patch application fails, keep original state
-                pass
+                self._last_call["output"]["state_patch_error"] = True
         out["observation"] = enriched
         return out
 
@@ -203,6 +230,26 @@ class LLMSimulator:
         except Exception:
             enrich_content = {"notes": self.enrich_text}
 
+        # Merge few-shot examples (include additional_examples if present)
+        few_shots = []
+        if isinstance(enrich_content.get("few_shot_examples"), list):
+            few_shots.extend(enrich_content.get("few_shot_examples"))
+        if isinstance(enrich_content.get("additional_examples"), list):
+            few_shots.extend(enrich_content.get("additional_examples"))
+
+        # Detect desktop open intent for stronger guidance and retry if needed
+        target_eid = (last_action or {}).get("target", {}).get("element_id") if isinstance(last_action, dict) else None
+        is_desktop = (base_observation.get("meta") or {}).get("page") == "desktop"
+        is_open_attempt = (last_action or {}).get("type") == "double_click" and isinstance(target_eid, str) and target_eid.startswith("icon_")
+        page_hint = None
+        if is_open_attempt:
+            if target_eid == "icon_settings":
+                page_hint = "settings"
+            elif target_eid == "icon_files":
+                page_hint = "files"
+            elif target_eid == "icon_browser":
+                page_hint = "browser"
+
         user_payload = {
             "seed": seed,
             "fidelity": fidelity,
@@ -215,17 +262,60 @@ class LLMSimulator:
             # Only the verdict enum; no internal reason must surface
             "internal_outcome": internal_result.get("result", "ok"),
             "enrichment_contract": enrich_content.get("output_contract"),
-            "few_shot_examples": enrich_content.get("few_shot_examples"),
+            "few_shot_examples": few_shots,
             "state_patch_contract": enrich_content.get("state_patch_contract"),
+            "require_state_patch": bool(is_desktop and is_open_attempt and internal_result.get("result") == "ok"),
+            "page_hint": page_hint,
             "guidance": "Start from base_observation; preserve unrelated elements; modify only impacted ones; copy timestamp and screenshot_id exactly; do not leak internal reasons."
         }
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=user_payload, max_retries=2)
             obs = out.get("observation") if "observation" in out else out
             validate_observation(obs)
-            sp = out.get("state_patch") if isinstance(out, dict) else None
+            # Normalize possible state patch keys
+            sp = None
+            if isinstance(out, dict):
+                sp = out.get("state_patch")
+                if sp is None and "statePatch" in out:
+                    sp = out.get("statePatch")
+                if sp is None and "statepatch" in out:
+                    sp = out.get("statepatch")
             if sp and not isinstance(sp, dict):
                 sp = None
+            # If model omitted state_patch but clearly changed page in observation, infer a minimal patch from observation
+            if (sp is None
+                and internal_result.get("result") == "ok"
+                and isinstance(base_observation, dict)
+                and isinstance(obs, dict)):
+                base_page = (base_observation.get("meta") or {}).get("page")
+                obs_page = (obs.get("meta") or {}).get("page")
+                if obs_page and base_page and obs_page != base_page:
+                    sp = {"page": obs_page, "ui_elements": obs.get("ui_elements", [])}
+            # If still no patch but it's a desktop open attempt, issue a second, stricter call once
+            if sp is None and is_desktop and is_open_attempt and internal_result.get("result") == "ok":
+                strict_payload = dict(user_payload)
+                strict_payload["require_state_patch"] = True
+                strict_payload["guidance"] = (
+                    "On desktop app open (double_click icons), you MUST return a state_patch that sets the new page and full ui_elements. "
+                    "Use page_hint if provided."
+                )
+                out2 = self.client.complete_json(system_prompt=self.system, user_json=strict_payload, max_retries=1)
+                obs2 = out2.get("observation") if isinstance(out2, dict) and "observation" in out2 else out2
+                try:
+                    validate_observation(obs2)
+                    obs = obs2
+                except Exception:
+                    pass
+                if isinstance(out2, dict):
+                    sp2 = out2.get("state_patch") or out2.get("statePatch") or out2.get("statepatch")
+                    if isinstance(sp2, dict):
+                        sp = sp2
+                # As a last consistency step, if obs2 indicates a new page, infer patch
+                if sp is None and isinstance(obs2, dict):
+                    base_page = (base_observation.get("meta") or {}).get("page")
+                    obs_page = (obs2.get("meta") or {}).get("page")
+                    if obs_page and base_page and obs_page != base_page:
+                        sp = {"page": obs_page, "ui_elements": obs2.get("ui_elements", [])}
             return obs, sp
         except Exception:
             # Fallback to base observation

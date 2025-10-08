@@ -32,7 +32,17 @@ class DummyAgent:
         return {"type": "double_click", "target": {"element_id": "icon_settings"}}
 
 
-def run_episode(instr: Dict[str, Any], seed: int, fidelity: str = "low", steps_limit: int = 1, stop_on_success: bool = False, success_threshold: float = 0.99, agent_history: int = 0) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def run_episode(
+    instr: Dict[str, Any],
+    seed: int,
+    fidelity: str = "low",
+    steps_limit: int = 1,
+    stop_on_success: bool = False,
+    success_threshold: float = 0.99,
+    agent_history: int = 0,
+    log_dir: str | None = None,
+    log_state_snapshots: bool = False,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     base_sim = SimulatorCore()
     # Choose simulator
     if USE_LLM_SIMULATOR and 'LLMSimulator' in globals() and LLMSimulator is not None:
@@ -51,6 +61,38 @@ def run_episode(instr: Dict[str, Any], seed: int, fidelity: str = "low", steps_l
         judge = Judge()
 
     obs, start_digest, episode_id = sim.reset(instr, seed, fidelity)
+
+    # Prepare episode-specific logs
+    episode_dir = None
+    agent_log_path = None
+    sim_log_path = None
+    if log_dir:
+        episode_dir = os.path.join(log_dir, episode_id)
+        os.makedirs(episode_dir, exist_ok=True)
+        agent_log_path = os.path.join(episode_dir, "agent.log.jsonl")
+        sim_log_path = os.path.join(episode_dir, "simulator.log.jsonl")
+        llm_dir = os.path.join(episode_dir, "llm")
+        os.makedirs(llm_dir, exist_ok=True)
+        # Write initial simulator log for reset
+        with open(sim_log_path, "a", encoding="utf-8") as sf:
+            entry = {
+                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "phase": "reset",
+                "observation": obs,
+                "start_digest": start_digest,
+            }
+            if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+                entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
+            sf.write(json.dumps(entry) + "\n")
+        # Save raw LLM IO for reset if present
+        try:
+            if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+                raw = getattr(sim, "_last_call").get("raw")  # type: ignore[index]
+                if raw:
+                    with open(os.path.join(llm_dir, "simulator_reset.json"), "w", encoding="utf-8") as f:
+                        json.dump(raw, f, indent=2, sort_keys=True)
+        except Exception:
+            pass
     episode_log: Dict[str, Any] = {
         "episode_id": episode_id,
         "instruction_id": instr.get("id"),
@@ -77,6 +119,63 @@ def run_episode(instr: Dict[str, Any], seed: int, fidelity: str = "low", steps_l
             action = agent.act(obs, instr)  # type: ignore[call-arg]
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         out = sim.step(episode_id, action, now, 0)
+
+        # Agent log (LLM or dummy)
+        if agent_log_path:
+            agent_entry = {
+                "t": now,
+                "step": steps,
+                "instruction_id": instr.get("id"),
+                "history_len": len(hist_slice),
+                "action": action,
+            }
+            # Include LLM payload/output if available
+            if hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
+                agent_entry["llm"] = getattr(agent, "_last_call")  # type: ignore[assignment]
+            with open(agent_log_path, "a", encoding="utf-8") as af:
+                af.write(json.dumps(agent_entry) + "\n")
+        # Save raw agent LLM IO to separate file per step
+        try:
+            if 'llm_dir' in locals() and hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
+                raw = getattr(agent, "_last_call").get("raw")  # type: ignore[index]
+                if raw:
+                    with open(os.path.join(llm_dir, f"agent_step_{steps:04d}.json"), "w", encoding="utf-8") as f:
+                        json.dump(raw, f, indent=2, sort_keys=True)
+        except Exception:
+            pass
+
+        # Simulator log entry
+        if sim_log_path:
+            sim_entry = {
+                "t": now,
+                "step": steps,
+                "action": action,
+                "internal_result": out.get("internal_result"),
+                "event_log": out.get("event_log"),
+                "state_diff": out.get("state_diff"),
+                "state_digest": out.get("state_digest"),
+                "observation": out.get("observation"),
+            }
+            if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+                sim_entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
+            if log_state_snapshots:
+                try:
+                    # type: ignore[attr-defined]
+                    snapshot = sim.snapshot(episode_id)  # LLMSimulator forwards to core
+                    sim_entry["state_snapshot"] = snapshot
+                except Exception:
+                    pass
+            with open(sim_log_path, "a", encoding="utf-8") as sf:
+                sf.write(json.dumps(sim_entry) + "\n")
+        # Save raw simulator LLM IO per step
+        try:
+            if 'llm_dir' in locals() and hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+                raw = getattr(sim, "_last_call").get("raw")  # type: ignore[index]
+                if raw:
+                    with open(os.path.join(llm_dir, f"simulator_step_{steps:04d}.json"), "w", encoding="utf-8") as f:
+                        json.dump(raw, f, indent=2, sort_keys=True)
+        except Exception:
+            pass
 
         episode_log["steps"].append({
             "t": now,
@@ -111,6 +210,16 @@ def run_episode(instr: Dict[str, Any], seed: int, fidelity: str = "low", steps_l
     end_summary = sim.get_state_summary(episode_id)
     start_summary = {"start_digest": start_digest}
     judgement = judge.evaluate(instr, start_summary, end_summary, episode_log)
+    # Log LLM judge I/O if applicable
+    if episode_dir and hasattr(judge, "_last_call") and isinstance(getattr(judge, "_last_call"), dict):
+        judge_log_path = os.path.join(episode_dir, "judge.log.jsonl")
+        with open(judge_log_path, "a", encoding="utf-8") as jf:
+            jf.write(json.dumps({
+                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "phase": "final",
+                "llm": getattr(judge, "_last_call"),  # type: ignore[arg-type]
+                "judgement": judgement,
+            }) + "\n")
     return episode_log, judgement
 
 
@@ -139,6 +248,8 @@ if __name__ == "__main__":
     parser.add_argument("--stop-on-success", action="store_true", help="Stop the episode early when success criteria are met")
     parser.add_argument("--success-threshold", type=float, default=float(os.getenv("SUCCESS_THRESHOLD", "0.99")), help="Score threshold to stop when --stop-on-success is set")
     parser.add_argument("--agent-history", type=int, default=int(os.getenv("AGENT_HISTORY", "0")), help="Number of recent (action, observation) steps to pass to the agent")
+    parser.add_argument("--log-dir", type=str, default=os.getenv("LOG_DIR", "runs"), help="Directory for logs")
+    parser.add_argument("--log-state-snapshots", action="store_true", help="Include full state snapshots in simulator logs")
     args = parser.parse_args()
 
     # Reflect CLI toggles to module-level flags
@@ -146,6 +257,10 @@ if __name__ == "__main__":
     USE_LLM_JUDGE = args.llm_judge
     USE_LLM_PROPOSER = args.llm_proposer
     USE_LLM_SIMULATOR = args.llm_simulator
+
+    # Prepare runtime log path early
+    os.makedirs(args.log_dir, exist_ok=True)
+    runtime_log_path = os.path.join(args.log_dir, "runtime.log.jsonl")
 
     def preset_instruction(name: str) -> Dict[str, Any]:
         name = (name or "").strip().lower()
@@ -207,6 +322,17 @@ if __name__ == "__main__":
             from llm_wrappers import InstructionCompiler
             compiler = InstructionCompiler(model=os.getenv("LLM_MODEL"), temperature=0.0, seed=args.seed)
             instruction = compiler.compile(args.instr_text)
+            # Log compiler I/O
+            try:
+                if hasattr(compiler, "_last_call") and isinstance(getattr(compiler, "_last_call"), dict):
+                    with open(runtime_log_path, "a", encoding="utf-8") as rf:
+                        rf.write(json.dumps({
+                            "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                            "event": "compile_instruction",
+                            "llm": getattr(compiler, "_last_call"),  # type: ignore[arg-type]
+                        }) + "\n")
+            except Exception:
+                pass
         except Exception:
             # Heuristic fallback for desktop
             txt = (args.instr_text or "").lower()
@@ -257,6 +383,24 @@ if __name__ == "__main__":
         f"judge={'LLM' if USE_LLM_JUDGE else 'det'}",
         f"proposer={'LLM' if USE_LLM_PROPOSER else 'simple'}",
     )
+    # Runtime log boot message
+    # Ensure runtime log dir exists (already created above)
+    with open(runtime_log_path, "a", encoding="utf-8") as rf:
+        rf.write(json.dumps({
+            "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "event": "start",
+            "seed": args.seed,
+            "fidelity": args.fidelity,
+            "components": {
+                "simulator": "llm" if USE_LLM_SIMULATOR else "core",
+                "agent": "llm" if USE_LLM_AGENT else "dummy",
+                "judge": "llm" if USE_LLM_JUDGE else "det",
+                "proposer": "llm" if USE_LLM_PROPOSER else "simple",
+            },
+            "instruction": instruction,
+        }) + "\n")
+
+    # Run episode
     log, judge_out = run_episode(
         instruction,
         seed=args.seed,
@@ -265,6 +409,10 @@ if __name__ == "__main__":
         stop_on_success=args.stop_on_success,
         success_threshold=args.success_threshold,
         agent_history=args.agent_history,
+        log_dir=args.log_dir,
+        log_state_snapshots=args.log_state_snapshots,
     )
-    save_episode("runs", log, judge_out)
-    print("Saved episode to 'runs/'")
+    # Save standard episode summary files
+    episode_dir = os.path.join(args.log_dir)
+    save_episode(episode_dir, log, judge_out)
+    print(f"Saved episode to '{episode_dir}/'")

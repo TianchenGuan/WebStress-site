@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 
@@ -19,6 +20,7 @@ class LLMClient:
         self.temperature = float(temperature)
         self.seed = seed
         self._client = None
+        self._last_io: Optional[Dict[str, Any]] = None
 
     def _ensure_client(self):
         if self._client is not None:
@@ -58,6 +60,16 @@ class LLMClient:
                 seed=self.seed,
             )
             txt = resp.choices[0].message.content or "{}"
+            # Record last raw IO for debugging
+            self._last_io = {
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "model": self.model,
+                "temperature": self.temperature,
+                "seed": self.seed,
+                "system_prompt": system_prompt,
+                "user_json": user_json,
+                "response_text": txt,
+            }
             try:
                 return json.loads(txt)
             except Exception as e:
@@ -67,4 +79,3 @@ class LLMClient:
         if last_err:
             raise last_err
         return {}
-
