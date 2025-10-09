@@ -60,8 +60,8 @@ Location: `llm_wrappers.py`
 
 Responsibilities
 - Maintain canonical `state` per `episode_id` inside the simulator.
-- On `reset`: seed a state from `templates/<template>.json`, ask the LLM (prompt: `prompts/pure_simulator.system.txt`) to refine/confirm it, and return the first `observation`.
-- On `step`: provide `{current_state, last_action, seed, fidelity, timestamp}` to the LLM; expect `{state, observation, internal_result, event_log, terminal}` back; validate and persist.
+- On `reset`: seed a state from `templates/<template>.json`, ask the LLM (prompt: `prompts/pure_simulator.system.txt`) to optionally refine it via `state_ops` (JSON Patch), and return the first `observation`.
+- On `step`: provide `{current_state, last_action, seed, fidelity, sim_history, timestamp}` to the LLM; expect `{state_ops, observation, internal_result, event_log, terminal}` back; apply `state_ops`, validate, and persist.
 - Provide `get_state_summary` and `snapshot` for logging and judging.
 
 Validation & Fallbacks
@@ -87,18 +87,26 @@ Location: `orchestrator.py`
 - CLI flags: `--seed`, `--fidelity {low,medium,high}`, `--steps`, `--llm-agent`, `--llm-judge`, `--llm-proposer`, plus instruction sources `--instruction|--instr-file|--instr-json|--task`. Early stop: `--stop-on-success --success-threshold`.
 - Instruction text is compiled to JSON via `InstructionCompiler` (LLM) or a heuristic fallback.
 - Logs in `runs/`:
-  - `runs/<episode_id>.log.json` — episode summary (agent‑visible obs per step).
-  - `runs/<episode_id>.judge.json` — judge output.
-  - `runs/<episode_id>/agent.log.jsonl` — per‑step agent actions and (if LLM) payload traces.
-  - `runs/<episode_id>/simulator.log.jsonl` — per‑step `{internal_result, event_log, state_diff, state_digest, observation}` and optional `state_snapshot`.
-  - `runs/runtime.log.jsonl` — start event with components and instruction.
+  - Verbose (machine/detailed):
+    - `runs/<episode_id>.log.json` — episode summary (agent‑visible obs per step).
+    - `runs/<episode_id>.judge.json` — judge output.
+    - `runs/<episode_id>/agent.log.jsonl` — per‑step agent actions and (if LLM) payload traces.
+    - `runs/<episode_id>/simulator.log.jsonl` — per‑step `{internal_result, event_log, state_diff, state_digest, observation}`; optional `state_snapshot` if `--log-state-snapshots`.
+    - `runs/<episode_id>/llm/*.json` — raw LLM request/response dumps per phase/step.
+    - `runs/runtime.log.jsonl` — start events with components and instruction.
+  - Concise (human‑readable):
+    - `runs/runtime.readable.log` — one‑line startup and compile summaries.
+    - `runs/<episode_id>/agent.readable.log` — step, time, action type, target, keys/text.
+    - `runs/<episode_id>/simulator.readable.log` — step, time, result, page, state diff keys.
+    - `runs/<episode_id>/judge.readable.log` — final score and feedback.
+  - Select via `--log-profile {verbose|concise|both}` (default: `both`).
 
 Replay verification is not supported in LLM‑only mode.
 
 
 ## Prompts
 
-- `prompts/pure_simulator.system.txt` — strict contract for `{state, observation, internal_result, event_log, terminal}`.
+- `prompts/pure_simulator.system.txt` — strict contract for `{state_ops, observation, internal_result, event_log, terminal, request?}` (state changes via JSON Patch only).
 - `prompts/agent.system.txt` — action schema and examples.
 - `prompts/compiler.system.txt` — instruction compiler contract.
 - `prompts/judge.system.txt`, `prompts/proposer.system.txt` — optional LLM modules.
@@ -132,4 +140,3 @@ New judge predicate
 - Schema validation is strict when `jsonschema` is installed. Prefer adding tests that validate shapes and contracts rather than exact byte‑equality of states.
 - Legacy tests referencing the old deterministic core will not apply. Update or remove them when migrating fully to LLM‑only simulation.
 - For stability, keep prompts concise and explicit; run with temperature=0 and fixed seeds.
-

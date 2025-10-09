@@ -28,6 +28,7 @@ Build an LLM-backed, modular training & evaluation system where the **Simulator 
 * Exposes only **`observation`** to agent (UI elements, screenshot_id, bounding boxes, text, audio_events, notifications, focused_element_id, event_visuals).
 * Validates and applies atomic `action`s. If action is rejected, produce *only* agent-visible artifacts (error banner, modal, beep, unchanged UI).
 * Returns for orchestrator/judge: `internal_result` (`ok` | `rejected` | `partial`), `event_log`, `state_diff`, `state_digest`, `reward_hint` (optional).
+* LLM simulator updates state via JSON Patch — it emits `state_ops` (array of `{op, path, value?}`), which are applied to the current state to produce the next state. No full-state overwrites.
 * Seeded deterministic content generation (templates) and timers (network delay, downloads).
 * Fidelity levels: `low` (simple), `medium` (multi-step flows), `high` (complex dynamics, race conditions, OCR noise).
 
@@ -408,17 +409,25 @@ Agent-visible observation (returned to agent):
     - Requires `OPENAI_API_KEY` and `openai` package. The LLM produces both state and observation each step.
 
 Logging
-- Per-episode logs are saved under the log dir (default `runs/`):
-  - `runs/<episode_id>.log.json` — canonical episode log (summary)
-  - `runs/<episode_id>.judge.json` — judge output
-  - `runs/<episode_id>/agent.log.jsonl` — JSON lines with agent inputs/outputs per step (LLM payload summary and action)
-  - `runs/<episode_id>/simulator.log.jsonl` — JSON lines with simulator internals per step (internal_result, event_log, observation, optional state snapshot)
-  - `runs/runtime.log.jsonl` — orchestrator runtime events (start, components, instruction)
+- Per-episode logs are saved under the log dir (default `runs/`). Two profiles are supported:
+  - Verbose (machine/detailed):
+    - `runs/<episode_id>.log.json` — canonical episode log (summary)
+    - `runs/<episode_id>.judge.json` — judge output
+    - `runs/<episode_id>/agent.log.jsonl` — agent actions and (if LLM) payload/output snapshot
+    - `runs/<episode_id>/simulator.log.jsonl` — simulator per-step internals (internal_result, event_log, state_diff, state_digest, observation, optional state_snapshot)
+    - `runs/<episode_id>/llm/*.json` — raw LLM request/response per phase/step
+    - `runs/runtime.log.jsonl` — orchestrator runtime events (start, components, instruction)
+  - Concise (human-readable summaries):
+    - `runs/runtime.readable.log` — one-line startup/compile summaries
+    - `runs/<episode_id>/agent.readable.log` — per-step: time, step, action type, target, keys/text
+    - `runs/<episode_id>/simulator.readable.log` — per-step: time, step, result, page, state diff keys
+    - `runs/<episode_id>/judge.readable.log` — final score + feedback
 - Flags:
   - `--log-dir <path>` to change where logs are stored
-  - `--log-state-snapshots` to include full canonical state snapshots in simulator logs
+  - `--log-state-snapshots` to include full canonical state snapshots (verbose profile)
+  - `--log-profile {verbose|concise|both}` to control which sets are written (default: both)
   - Notes:
-    - Simulator remains a deterministic core. For high-fidelity content, wire LLM calls inside the simulator in `high` mode while preserving observation-only rules and determinism (temp=0.0).
+    - Fidelity is passed to the LLM simulator as a hint for UI richness (low/medium/high).
     - All LLM outputs are validated against JSON schemas; malformed outputs are retried with strict JSON instructions.
 
 ## CLI flags (orchestrator)

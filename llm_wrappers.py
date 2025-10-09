@@ -140,11 +140,14 @@ class PureLLMSimulator:
     - Enforces schema validation for state and observation. Deterministic with temperature=0 and provided seed.
     """
 
-    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None):
+    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None, history_window: int = 5):
         self.client = LLMClient(model=model, temperature=0.0, seed=seed)
         self.system = _read(os.path.join(PROMPTS_DIR, "pure_simulator.system.txt"))
         self._episodes: Dict[str, Dict[str, Any]] = {}
         self._meta: Dict[str, Dict[str, Any]] = {}
+        # Simulator-private bounded history for LLM context
+        self._history: Dict[str, list] = {}
+        self._history_window = max(0, int(history_window))
 
     def _now_iso(self) -> str:
         import time
@@ -154,6 +157,108 @@ class PureLLMSimulator:
         import hashlib, json as _json
         data = _json.dumps(obj, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+    # --- JSON Patch helpers (subset of RFC 6902 with JSON Pointer RFC 6901) ---
+    def _ptr_tokens(self, pointer: str) -> List[str]:
+        if pointer == "" or pointer == "/":
+            return []
+        if not pointer.startswith("/"):
+            raise ValueError("json-pointer must start with '/'")
+        def unesc(s: str) -> str:
+            return s.replace("~1", "/").replace("~0", "~")
+        return [unesc(p) for p in pointer.split("/")[1:]]
+
+    def _resolve_parent(self, doc: Any, pointer: str) -> tuple[Any, str]:
+        tokens = self._ptr_tokens(pointer)
+        if not tokens:
+            raise ValueError("cannot operate on document root directly")
+        *parents, last = tokens
+        cur = doc
+        for t in parents:
+            if isinstance(cur, list):
+                idx = int(t)
+                cur = cur[idx]
+            elif isinstance(cur, dict):
+                cur = cur.setdefault(t, {})
+            else:
+                raise ValueError("invalid path into non-container")
+        return cur, last
+
+    def _get_at(self, doc: Any, pointer: str) -> Any:
+        tokens = self._ptr_tokens(pointer)
+        cur = doc
+        for t in tokens:
+            if isinstance(cur, list):
+                cur = cur[int(t)]
+            elif isinstance(cur, dict):
+                cur = cur[t]
+            else:
+                raise ValueError("invalid path into non-container")
+        return cur
+
+    def _remove_at(self, doc: Any, pointer: str) -> None:
+        parent, last = self._resolve_parent(doc, pointer)
+        if isinstance(parent, list):
+            del parent[int(last)]
+        elif isinstance(parent, dict):
+            if last in parent:
+                del parent[last]
+            else:
+                raise KeyError("path not found for remove")
+        else:
+            raise ValueError("invalid remove parent container")
+
+    def _add_at(self, doc: Any, pointer: str, value: Any) -> None:
+        parent, last = self._resolve_parent(doc, pointer)
+        if isinstance(parent, list):
+            if last == "-":
+                parent.append(value)
+            else:
+                parent.insert(int(last), value)
+        elif isinstance(parent, dict):
+            parent[last] = value
+        else:
+            raise ValueError("invalid add parent container")
+
+    def _replace_at(self, doc: Any, pointer: str, value: Any) -> None:
+        parent, last = self._resolve_parent(doc, pointer)
+        if isinstance(parent, list):
+            parent[int(last)] = value
+        elif isinstance(parent, dict):
+            if last not in parent:
+                raise KeyError("path not found for replace")
+            parent[last] = value
+        else:
+            raise ValueError("invalid replace parent container")
+
+    def _apply_state_ops(self, base: Dict[str, Any], ops: Any) -> Dict[str, Any]:
+        from copy import deepcopy
+        if not ops:
+            return deepcopy(base)
+        if not isinstance(ops, list):
+            raise ValueError("state_ops must be an array of operations")
+        doc = deepcopy(base)
+        for op in ops:
+            if not isinstance(op, dict) or "op" not in op or "path" not in op:
+                raise ValueError("invalid state_op entry")
+            o = op["op"]
+            path = op["path"]
+            if o == "add":
+                self._add_at(doc, path, op.get("value"))
+            elif o == "remove":
+                self._remove_at(doc, path)
+            elif o == "replace":
+                self._replace_at(doc, path, op.get("value"))
+            elif o == "move":
+                from_path = op.get("from")
+                if not isinstance(from_path, str):
+                    raise ValueError("move op requires 'from' path")
+                val = self._get_at(doc, from_path)
+                self._remove_at(doc, from_path)
+                self._add_at(doc, path, val)
+            else:
+                raise ValueError(f"unsupported op '{o}'")
+        return doc
 
     def _load_template(self, name: str) -> Dict[str, Any]:
         base = os.path.join(os.path.dirname(__file__), "templates", f"{name}.json")
@@ -179,6 +284,78 @@ class PureLLMSimulator:
             "random_seed": int(seed),
         }
         return state
+
+    def _coerce_state(self, candidate: Any, prev_state: Dict[str, Any], seed: int) -> Dict[str, Any]:
+        """Fill missing required fields from previous state; keep structure minimal and valid."""
+        st: Dict[str, Any] = dict(prev_state) if not isinstance(candidate, dict) else dict(candidate)
+        # Required keys
+        if "seed" not in st:
+            st["seed"] = prev_state.get("seed", int(seed))
+        if "random_seed" not in st:
+            st["random_seed"] = prev_state.get("random_seed", int(seed))
+        if "fidelity" not in st:
+            st["fidelity"] = prev_state.get("fidelity", "low")
+        if "template" not in st:
+            st["template"] = prev_state.get("template", "desktop")
+        if "windows" not in st or not isinstance(st.get("windows"), list):
+            st["windows"] = prev_state.get("windows", [{"id": "win-main", "title": st.get("template", ""), "focused": True}])
+        if "page" not in st or not isinstance(st.get("page"), str):
+            st["page"] = prev_state.get("page", st.get("template", "desktop"))
+        if "ui_elements" not in st or not isinstance(st.get("ui_elements"), list):
+            st["ui_elements"] = prev_state.get("ui_elements", [])
+        if "filesystem" not in st or not isinstance(st.get("filesystem"), dict):
+            st["filesystem"] = prev_state.get("filesystem", {})
+        # Optional maps
+        if "forms" not in st or not isinstance(st.get("forms"), dict):
+            st["forms"] = prev_state.get("forms", {})
+        if "clipboard" not in st or not isinstance(st.get("clipboard"), str):
+            st["clipboard"] = prev_state.get("clipboard", "")
+        if "network_logs" not in st or not isinstance(st.get("network_logs"), list):
+            st["network_logs"] = prev_state.get("network_logs", [])
+        if "processes" not in st or not isinstance(st.get("processes"), list):
+            st["processes"] = prev_state.get("processes", ["simulator"])
+        return st
+
+    def _normalize_observation(self, obs: Any, template: str, seed: int, timestamp_iso: str) -> Dict[str, Any]:
+        """Strip unknown keys and ensure required fields for observation and ui elements."""
+        if not isinstance(obs, dict):
+            obs = {}
+        out: Dict[str, Any] = {}
+        # Top-level allowed keys
+        allowed_top = {"timestamp", "screenshot_id", "ui_elements", "audio_events", "meta"}
+        for k in allowed_top:
+            if k in obs:
+                out[k] = obs[k]
+        # Ensure required keys
+        out["timestamp"] = timestamp_iso
+        out["screenshot_id"] = f"s-{template}-{seed}"
+        # ui_elements
+        ui = out.get("ui_elements")
+        if not isinstance(ui, list):
+            ui = []
+        norm_ui = []
+        for el in ui:
+            if not isinstance(el, dict):
+                continue
+            keep = {
+                "element_id": el.get("element_id"),
+                "role": el.get("role"),
+                "text": el.get("text", ""),
+                "attributes": el.get("attributes", {}),
+            }
+            # basic sanity
+            if keep["element_id"] and keep["role"]:
+                if not isinstance(keep["attributes"], dict):
+                    keep["attributes"] = {}
+                norm_ui.append(keep)
+        out["ui_elements"] = norm_ui
+        # audio_events
+        ae = out.get("audio_events")
+        out["audio_events"] = ae if isinstance(ae, list) else []
+        # meta
+        meta = out.get("meta")
+        out["meta"] = meta if isinstance(meta, dict) else {"page": None}
+        return out
 
     def _make_observation_from_state(self, state: Dict[str, Any], internal_result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         # Visible ui elements only
@@ -218,16 +395,26 @@ class PureLLMSimulator:
             "instruction": instruction,
             "current_state": init_state,
             "timestamp": self._now_iso(),
+            "sim_history": [],
         }
         self._last_call = {"phase": "reset", "input": payload}
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
-            next_state = out.get("state", init_state)
-            observation = out.get("observation")
+            # Prefer state_ops contract; fallback to full state for back-compat
+            if isinstance(out.get("state_ops"), list):
+                patched = self._apply_state_ops(init_state, out.get("state_ops"))
+                next_state = self._coerce_state(patched, init_state, seed)
+            else:
+                next_state_raw = out.get("state", init_state)
+                # Coerce state to valid shape before validation
+                next_state = self._coerce_state(next_state_raw, init_state, seed)
+            observation_raw = out.get("observation")
+            if observation_raw is None:
+                observation = self._make_observation_from_state(next_state)
+            else:
+                observation = self._normalize_observation(observation_raw, next_state.get("template", template_name), next_state.get("seed", seed), payload["timestamp"])
             # Validate; if invalid, fall back to a locally derived observation
             validate_state(next_state)
-            if observation is None:
-                observation = self._make_observation_from_state(next_state)
             validate_observation(observation)
         except Exception:
             # Fallback: keep initial state, synthesize observation locally
@@ -235,6 +422,7 @@ class PureLLMSimulator:
             observation = self._make_observation_from_state(next_state)
         self._episodes[episode_id] = next_state
         self._meta[episode_id] = {"fidelity": fidelity, "seed": seed, "instruction": instruction}
+        self._history[episode_id] = []
         self._last_call.update({"output": {"state": next_state, "observation": observation}, "raw": getattr(self.client, "_last_io", None)})
         # Digest is used by orchestrator for book-keeping; we mimic core naming
         start_digest = self._sha256_digest(next_state)
@@ -246,6 +434,9 @@ class PureLLMSimulator:
         validate_action(action)
         prev_state = self._episodes[episode_id]
         meta = self._meta.get(episode_id, {})
+        # Include bounded simulator history slice
+        sim_hist = self._history.get(episode_id, [])
+        sim_hist_slice = sim_hist[-self._history_window:] if self._history_window > 0 else []
         payload = {
             "phase": "step",
             "seed": meta.get("seed"),
@@ -256,6 +447,7 @@ class PureLLMSimulator:
             "last_action": action,
             "timestamp": timestamp_iso,
             "time_delta_ms": int(time_delta_ms),
+            "sim_history": sim_hist_slice,
         }
         self._last_call = {"phase": "step", "input": payload}
         internal_result = {"result": "ok", "reason": ""}
@@ -263,8 +455,21 @@ class PureLLMSimulator:
         terminal = False
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
-            next_state = out.get("state", prev_state)
-            observation = out.get("observation")
+            # Allow explicit no-op read request
+            if out.get("request") == "read_state":
+                next_state = prev_state
+                internal_result = {"result": "ok", "reason": "read_state"}
+            elif isinstance(out.get("state_ops"), list):
+                try:
+                    patched = self._apply_state_ops(prev_state, out.get("state_ops"))
+                except Exception:
+                    patched = prev_state
+                    internal_result = {"result": "rejected", "reason": "invalid_state_ops"}
+                next_state = self._coerce_state(patched, prev_state, meta.get("seed", 0) or 0)
+            else:
+                next_state_raw = out.get("state", prev_state)
+                next_state = self._coerce_state(next_state_raw, prev_state, meta.get("seed", 0) or 0)
+            observation_raw = out.get("observation")
             # Optional fields from LLM
             if isinstance(out.get("internal_result"), dict):
                 internal_result = out["internal_result"]
@@ -274,15 +479,10 @@ class PureLLMSimulator:
                 terminal = bool(out["terminal"]) 
             # Validate
             validate_state(next_state)
-            if observation is None:
+            if observation_raw is None:
                 observation = self._make_observation_from_state(next_state, internal_result)
-            # Ensure timestamp and screenshot semantics
-            try:
-                if isinstance(observation, dict):
-                    observation["timestamp"] = timestamp_iso
-                    observation["screenshot_id"] = f"s-{next_state.get('template')}-{next_state.get('seed')}"
-            except Exception:
-                pass
+            else:
+                observation = self._normalize_observation(observation_raw, next_state.get("template", "desktop"), next_state.get("seed", 0) or 0, timestamp_iso)
             validate_observation(observation)
         except Exception:
             # On failure, keep state and synthesize observation; mark rejection
@@ -308,6 +508,14 @@ class PureLLMSimulator:
             "output": {"state": next_state, "observation": observation, "internal_result": internal_result, "event_log": event_log, "terminal": terminal},
             "raw": getattr(self.client, "_last_io", None)
         })
+        # Update simulator history (bounded)
+        try:
+            entry = {"t": timestamp_iso, "action": action, "result": internal_result, "state_diff": state_diff}
+            self._history.setdefault(episode_id, []).append(entry)
+            if self._history_window > 0 and len(self._history[episode_id]) > self._history_window:
+                self._history[episode_id] = self._history[episode_id][-self._history_window:]
+        except Exception:
+            pass
         return {
             "observation": observation,
             "internal_result": internal_result,
