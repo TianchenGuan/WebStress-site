@@ -73,7 +73,8 @@ Simulator (LLM) — compact I/O model
 - Step: sends compact inputs by default: `{phase, episode_id, seed, fidelity, instruction, state_digest, state_summary, sim_history, ops_recent, last_action, timestamp, time_delta_ms}`.
 - Read‑state handshake: if the model needs the full state, it returns `request:"read_state"`; the simulator immediately recalls it with `{current_state, request_granted:"read_state"}`.
 - Output: `state_ops` (JSON Patch), `observation`, `internal_result`, `event_log`, `terminal`.
-- Fidelity: controls output richness (not logic). Low = minimal detail, Medium = moderate context, High = richer but still compact observation/event logs; deterministic for identical inputs.
+- Fidelity: controls output richness (not logic). Low = minimal detail, Medium = moderate context, High = richer but still compact observation/event logs.
+- Simulator modes: `--sim-mode {deterministic|diverse}`. Deterministic uses a stable prompt with low temperature; Diverse uses a diversity-oriented prompt and higher temperature for varied but plausible outputs.
 
 Agent (LLM)
 - Receives only the observation (plus a small history slice if enabled).
@@ -110,6 +111,7 @@ Important flags
 - `--seed`, `--fidelity {low|medium|high}`, `--steps N`
 - `--agent-history N` (default 5), `--sim-history N` (default 5)
 - `--sim-include-state` (force full current_state each step; debug/compat)
+- `--sim-mode {deterministic|diverse}` (default `deterministic`)
 - `--log-dir runs`, `--log-profile {verbose|concise|both}`, `--log-state-snapshots`
 - `--stop-on-success`, `--success-threshold 0.99`
 - Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text). If none are provided, an instruction is generated via the LLM proposer.

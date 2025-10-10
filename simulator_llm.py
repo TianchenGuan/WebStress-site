@@ -15,11 +15,21 @@ PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
 
 
 class PureLLMSimulator:
-    """Stateful simulator implemented purely with an LLM."""
+    """Stateful simulator implemented purely with an LLM.
 
-    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None, history_window: int = 5, include_full_state: bool = False):
-        self.client = LLMClient(model=model, temperature=0.0, seed=seed)
-        self.system = _read(os.path.join(PROMPTS_DIR, "pure_simulator.system.txt"))
+    Modes:
+    - deterministic: temperature 0.0 and deterministic prompt
+    - diverse: higher temperature and a diversity-oriented prompt
+    """
+
+    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None, history_window: int = 5, include_full_state: bool = False, mode: str = "deterministic", temperature: Optional[float] = None):
+        mode = (mode or "deterministic").lower()
+        self._mode = mode if mode in {"deterministic", "diverse"} else "deterministic"
+        # Choose temperature based on mode if not provided
+        sim_temp = float(temperature) if temperature is not None else (0.7 if self._mode == "diverse" else 0.0)
+        self.client = LLMClient(model=model, temperature=sim_temp, seed=seed)
+        prompt_file = "pure_simulator.diverse.system.txt" if self._mode == "diverse" else "pure_simulator.system.txt"
+        self.system = _read(os.path.join(PROMPTS_DIR, prompt_file))
         self._episodes: Dict[str, Dict[str, Any]] = {}
         self._meta: Dict[str, Dict[str, Any]] = {}
         self._history: Dict[str, list] = {}
@@ -43,7 +53,27 @@ class PureLLMSimulator:
 
     def _seed_state(self, template_name: str, seed: int, fidelity: str) -> Dict[str, Any]:
         tmpl = self._load_template(template_name)
-        ui_sorted = sorted(tmpl.get("ui_elements", []), key=lambda e: e.get("element_id", ""))
+        ui_all = list(tmpl.get("ui_elements", []))
+        # Deterministic default: stable ordering
+        ui_sorted = sorted(ui_all, key=lambda e: e.get("element_id", ""))
+        # In diverse mode, pick and shuffle a subset based on fidelity for variety
+        if self._mode == "diverse":
+            try:
+                import random
+                rng = random.SystemRandom()  # non-deterministic
+                n_total = len(ui_sorted)
+                if fidelity == "low":
+                    n_min, n_max = 3, min(5, n_total)
+                elif fidelity == "medium":
+                    n_min, n_max = 5, min(8, n_total)
+                else:  # high
+                    n_min, n_max = min(8, n_total), n_total
+                count = rng.randint(max(1, min(n_min, n_total)), max(1, min(n_max, n_total))) if n_total > 0 else 0
+                sample = rng.sample(ui_sorted, count) if count and count < n_total else ui_sorted
+                rng.shuffle(sample)
+                ui_sorted = sample
+            except Exception:
+                pass
         state: Dict[str, Any] = {
             "seed": int(seed),
             "fidelity": fidelity,
@@ -447,4 +477,3 @@ class PureLLMSimulator:
             raise KeyError("Unknown episode_id")
         from copy import deepcopy
         return deepcopy(self._episodes[episode_id])
-

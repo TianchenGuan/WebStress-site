@@ -44,10 +44,11 @@ def run_episode(
     log_dir: str | None = None,
     log_state_snapshots: bool = False,
     log_profile: str = "both",
+    sim_mode: str = "deterministic",
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # Choose simulator (LLM-only)
     if 'PureLLMSimulator' in globals() and PureLLMSimulator is not None:
-        sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed, history_window=sim_history, include_full_state=sim_include_state)
+        sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed, history_window=sim_history, include_full_state=sim_include_state, mode=sim_mode)
     else:
         raise RuntimeError("PureLLMSimulator not available. Ensure simulator_llm.py is present.")
     # Choose agent
@@ -336,6 +337,7 @@ if __name__ == "__main__":
     parser.add_argument("--agent-history", type=int, default=int(os.getenv("AGENT_HISTORY", "5")), help="Number of recent (action, observation) steps to pass to the agent")
     parser.add_argument("--sim-history", type=int, default=int(os.getenv("SIM_HISTORY", "5")), help="Number of recent simulator steps to include in simulator input")
     parser.add_argument("--sim-include-state", action="store_true", default=os.getenv("SIM_INCLUDE_STATE", "0") == "1", help="Always include full current_state in simulator LLM input (compat mode)")
+    parser.add_argument("--sim-mode", type=str, default=os.getenv("SIM_MODE", "deterministic"), choices=["deterministic", "diverse"], help="Simulator mode: deterministic (stable) or diverse (varied)")
     parser.add_argument("--log-dir", type=str, default=os.getenv("LOG_DIR", "runs"), help="Directory for logs")
     parser.add_argument("--log-state-snapshots", action="store_true", help="Include full state snapshots in simulator logs (verbose only)")
     parser.add_argument(
@@ -414,7 +416,7 @@ if __name__ == "__main__":
             pass
     print(
         "Components:",
-        f"simulator=llm",
+        f"simulator=llm({args.sim_mode})",
         f"agent={'LLM' if USE_LLM_AGENT else 'dummy'}",
         f"judge={'LLM' if USE_LLM_JUDGE else 'det'}",
         f"proposer={'LLM' if USE_LLM_PROPOSER else 'simple'}",
@@ -434,6 +436,7 @@ if __name__ == "__main__":
                 "judge": "llm" if USE_LLM_JUDGE else "det",
                 "proposer": "llm" if USE_LLM_PROPOSER else "simple",
             },
+            "sim_mode": args.sim_mode,
             "instruction": instruction,
             "log_profile": args.log_profile,
         }) + "\n")
@@ -441,7 +444,7 @@ if __name__ == "__main__":
         try:
             with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
                 rrf.write(
-                    f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} start seed={args.seed} fidelity={args.fidelity} comp=sim:llm,agent:{'LLM' if USE_LLM_AGENT else 'dummy'},judge:{'LLM' if USE_LLM_JUDGE else 'det'} instr={instruction.get('id')}\n"
+                    f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} start seed={args.seed} fidelity={args.fidelity} sim_mode={args.sim_mode} comp=sim:llm,agent:{'LLM' if USE_LLM_AGENT else 'dummy'},judge:{'LLM' if USE_LLM_JUDGE else 'det'} instr={instruction.get('id')}\n"
                 )
         except Exception:
             pass
@@ -460,6 +463,7 @@ if __name__ == "__main__":
         log_state_snapshots=args.log_state_snapshots,
         log_profile=args.log_profile,
         sim_include_state=args.sim_include_state,
+        sim_mode=args.sim_mode,
     )
     # Save standard episode summary files
     episode_dir = os.path.join(args.log_dir)

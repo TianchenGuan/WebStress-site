@@ -37,7 +37,7 @@ Inputs
 - Reset: full initial `current_state` plus `state_digest`, `state_summary`.
 - Step (compact by default): `{phase, episode_id, seed, fidelity, instruction, state_digest, state_summary, sim_history, ops_recent, last_action, timestamp, time_delta_ms}`.
 - Read‑state handshake: if the LLM needs the full state, it returns `request:"read_state"`; the simulator immediately reissues the step including `{current_state, request_granted:"read_state"}`.
-- Fidelity semantics: forwarded to the simulator LLM to modulate output richness only. Low = minimal UI lists/logs, Medium = moderate, High = richer details (still compact and deterministic). Schemas and minimal-diff rules always apply.
+- Fidelity semantics: forwarded to the simulator LLM to modulate output richness only. Low = minimal UI lists/logs, Medium = moderate, High = richer details (still compact). Schemas and minimal-diff rules always apply.
 
 Outputs
 - `state_ops`: JSON Patch ops to apply to the previous state (subset of RFC‑6902).
@@ -96,6 +96,10 @@ LLM client nuances
 - Temperature fallback: some models disallow `temperature=0.0`; client retries without the parameter and records `used_temperature`.
 - Seeds are passed where supported (not all models honor them).
 
+
+Modes
+- Deterministic: `pure_simulator.system.txt` prompt, temperature ~0.0.
+- Diverse: `pure_simulator.diverse.system.txt` prompt, higher temperature; initial UI elements may be shuffled/sampled per fidelity for variety.
 
 Logging layout
 - Verbose (`runs/<episode_id>/`): `agent.log.jsonl`, `simulator.log.jsonl`, `judge.log.jsonl` (when applicable), and `llm/*.json` raw dumps per phase/step (plus `*.error.json` on failures).
