@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from llm_client import LLMClient
 from validation import validate_judge_output
