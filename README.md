@@ -396,7 +396,11 @@ Agent-visible observation (returned to agent):
   - Fidelity is passed to the LLM simulator as a hint for UI richness (low/medium/high).
 
 - Switching to LLM wrappers:
-  - Prompts are under `prompts/`. LLM wrappers for Agent, Judge, and Proposer are implemented in `llm_wrappers.py` using `llm_client.py`.
+  - Prompts are under `prompts/`. LLM modules are implemented using `llm_client.py`:
+    - `agent_llm.py` — LLMAgent
+    - `judge_llm.py` — LLMJudge
+    - `proposer_llm.py` — LLMProposer, InstructionCompiler
+    - `simulator_llm.py` — PureLLMSimulator
   - Enable via env flags (example uses GPT-5 as a model name; set to your deployment):
     - `pip install openai`
     - `export OPENAI_API_KEY=...`

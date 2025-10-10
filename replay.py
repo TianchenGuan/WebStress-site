@@ -3,7 +3,7 @@ import sys
 from typing import Any, Dict
 
 try:
-    from llm_wrappers import PureLLMSimulator
+    from simulator_llm import PureLLMSimulator
 except Exception:
     PureLLMSimulator = None  # type: ignore
 

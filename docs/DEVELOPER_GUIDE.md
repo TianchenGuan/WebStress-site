@@ -28,11 +28,14 @@ Internal reasons never leak to the Agent. Invalid actions result in perceptual c
 
 ## Directory Layout
 
-- `llm_wrappers.py` — LLM wrappers: `PureLLMSimulator`, `LLMAgent`, `LLMJudge`, `LLMProposer`.
+- LLM modules:
+  - `agent_llm.py` — `LLMAgent`
+  - `judge_llm.py` — `LLMJudge`
+  - `proposer_llm.py` — `LLMProposer`, `InstructionCompiler`
+  - `simulator_llm.py` — `PureLLMSimulator`
 - `orchestrator.py` — Episode loop, CLI, logs. Uses `PureLLMSimulator` by default.
 - `llm_client.py` — OpenAI‑compatible JSON client (response_format json_object) with retries.
-- `judge.py` — Deterministic judge (predicate evaluation + weighted aggregation).
-- `proposer.py` — Adaptive proposer (difficulty from average scores).
+  (Removed) `judge.py`, `proposer.py` — project now uses LLM-based Judge/Proposer exclusively.
 - `templates/*.json` — Base UI assets used to seed initial states (e.g., `desktop.json`).
 - `schema/*.json` — JSON Schemas for Action, Observation, Instruction, State, and Judge Output.
 - `validation.py` — Minimal validators; uses `jsonschema` if available.
@@ -56,7 +59,7 @@ When adding fields, update both the schema and `validation.py`.
 
 ## PureLLMSimulator
 
-Location: `llm_wrappers.py`
+Locations: `agent_llm.py`, `judge_llm.py`, `proposer_llm.py`, `simulator_llm.py`
 
 Responsibilities
 - Maintain canonical `state` per `episode_id` inside the simulator.

@@ -4,17 +4,17 @@ import os
 import time
 from typing import Any, Dict, Tuple
 
-from judge import Judge
-from proposer import Proposer
-
-USE_LLM_AGENT = os.getenv("USE_LLM_AGENT") == "1"
-USE_LLM_JUDGE = os.getenv("USE_LLM_JUDGE") == "1"
-USE_LLM_PROPOSER = os.getenv("USE_LLM_PROPOSER") == "1"
-USE_LLM_SIMULATOR = True  # Simulator is LLM-only now
+USE_LLM_AGENT = True
+USE_LLM_JUDGE = True
+USE_LLM_PROPOSER = True
+USE_LLM_SIMULATOR = True
 
 # Always attempt to import LLM wrappers; they lazily create clients.
 try:
-    from llm_wrappers import LLMAgent, LLMJudge, LLMProposer, PureLLMSimulator
+    from agent_llm import LLMAgent
+    from judge_llm import LLMJudge
+    from proposer_llm import LLMProposer
+    from simulator_llm import PureLLMSimulator
 except Exception:
     LLMAgent = None  # type: ignore
     LLMJudge = None  # type: ignore
@@ -49,17 +49,17 @@ def run_episode(
     if 'PureLLMSimulator' in globals() and PureLLMSimulator is not None:
         sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed, history_window=sim_history, include_full_state=sim_include_state)
     else:
-        raise RuntimeError("PureLLMSimulator not available. Ensure llm_wrappers.py is present.")
+        raise RuntimeError("PureLLMSimulator not available. Ensure simulator_llm.py is present.")
     # Choose agent
     if USE_LLM_AGENT and 'LLMAgent' in globals() and LLMAgent is not None:
         agent = LLMAgent(model=os.getenv("LLM_MODEL"), temperature=float(os.getenv("AGENT_TEMP", "1")), seed=seed)
     else:
         agent = DummyAgent()
-    # Choose judge
-    if USE_LLM_JUDGE and 'LLMJudge' in globals() and LLMJudge is not None:
+    # Choose judge (LLM-only)
+    if 'LLMJudge' in globals() and LLMJudge is not None:
         judge = LLMJudge(model=os.getenv("LLM_MODEL"), temperature=0.0, seed=seed)
     else:
-        judge = Judge()
+        raise RuntimeError("LLMJudge not available. Ensure judge_llm.py is present.")
 
     obs, start_digest, episode_id = sim.reset(instr, seed, fidelity)
 
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     elif args.instr_text:
         # Compile freeform instruction to Instruction JSON
         try:
-            from llm_wrappers import InstructionCompiler
+            from proposer_llm import InstructionCompiler
             compiler = InstructionCompiler(model=os.getenv("LLM_MODEL"), temperature=0.0, seed=args.seed)
             instruction = compiler.compile(args.instr_text)
             # Log compiler I/O
