@@ -347,6 +347,9 @@ if __name__ == "__main__":
         choices=["verbose", "concise", "both"],
         help="Logging profile: verbose (detailed JSON + raw LLM IO), concise (human-readable summaries), or both",
     )
+    parser.add_argument("--propose-count", type=int, default=int(os.getenv("PROPOSE_COUNT", "0")), help="Run propose→run loop for N episodes (LLMProposer adapts using recent_episodes)")
+    parser.add_argument("--global-task-pool", type=str, default=os.getenv("GLOBAL_TASK_POOL"), help="Optional JSON file: array of candidate instructions to bias the proposer")
+    parser.add_argument("--agent-id", type=str, default=os.getenv("AGENT_ID", "agent"), help="Agent identifier to pass to the proposer")
     args = parser.parse_args()
 
     # Reflect CLI toggles to module-level flags
@@ -449,23 +452,94 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    # Run episode
-    log, judge_out = run_episode(
-        instruction,
-        seed=args.seed,
-        fidelity=args.fidelity,
-        steps_limit=args.steps,
-        stop_on_success=args.stop_on_success,
-        success_threshold=args.success_threshold,
-        agent_history=args.agent_history,
-        sim_history=args.sim_history,
-        log_dir=args.log_dir,
-        log_state_snapshots=args.log_state_snapshots,
-        log_profile=args.log_profile,
-        sim_include_state=args.sim_include_state,
-        sim_mode=args.sim_mode,
-    )
-    # Save standard episode summary files
-    episode_dir = os.path.join(args.log_dir)
-    save_episode(episode_dir, log, judge_out)
-    print(f"Saved episode to '{episode_dir}/'")
+    # Propose→run loop if requested; otherwise run single episode
+    if args.propose_count and args.propose_count > 0:
+        # Load optional global task pool
+        global_task_pool = None
+        if args.global_task_pool:
+            try:
+                with open(args.global_task_pool, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        global_task_pool = data
+            except Exception:
+                pass
+        # Proposer instance
+        if 'LLMProposer' not in globals() or LLMProposer is None:
+            raise RuntimeError("LLMProposer not available. Ensure proposer_llm.py is present.")
+        proposer = LLMProposer(model=os.getenv("LLM_MODEL"), temperature=0.2, seed=args.seed)
+        # Keep a small recent window
+        recent_episodes: list[Dict[str, Any]] = []
+        # If instruction not provided, the earlier branch already proposed one.
+        for i in range(int(args.propose_count)):
+            log, judge_out = run_episode(
+                instruction,
+                seed=args.seed,
+                fidelity=args.fidelity,
+                steps_limit=args.steps,
+                stop_on_success=args.stop_on_success,
+                success_threshold=args.success_threshold,
+                agent_history=args.agent_history,
+                sim_history=args.sim_history,
+                log_dir=args.log_dir,
+                log_state_snapshots=args.log_state_snapshots,
+                log_profile=args.log_profile,
+                sim_include_state=args.sim_include_state,
+                sim_mode=args.sim_mode,
+            )
+            episode_dir = os.path.join(args.log_dir)
+            save_episode(episode_dir, log, judge_out)
+            print(f"Saved episode to '{episode_dir}/'")
+            # Append summary for proposer
+            try:
+                recent_episodes.append({
+                    "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "instruction_id": instruction.get("id") if isinstance(instruction, dict) else None,
+                    "score": judge_out.get("score"),
+                    "feedback": judge_out.get("feedback"),
+                    "subscores": judge_out.get("subscores"),
+                })
+                if len(recent_episodes) > 10:
+                    recent_episodes = recent_episodes[-10:]
+            except Exception:
+                pass
+            # Propose next if more episodes remain
+            if (i + 1) < int(args.propose_count):
+                next_instr = proposer.propose_next(agent_id=args.agent_id, recent_episodes=recent_episodes, global_task_pool=global_task_pool)
+                # Log proposer I/O
+                try:
+                    if hasattr(proposer, "_last_call") and isinstance(getattr(proposer, "_last_call"), dict):
+                        with open(runtime_log_path, "a", encoding="utf-8") as rf:
+                            rf.write(json.dumps({
+                                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "event": "propose_instruction",
+                                "llm": getattr(proposer, "_last_call"),
+                            }) + "\n")
+                        if args.log_profile in ("concise", "both"):
+                            try:
+                                with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
+                                    rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} proposed instruction via LLM id={next_instr.get('id')}\n")
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                instruction = next_instr
+    else:
+        log, judge_out = run_episode(
+            instruction,
+            seed=args.seed,
+            fidelity=args.fidelity,
+            steps_limit=args.steps,
+            stop_on_success=args.stop_on_success,
+            success_threshold=args.success_threshold,
+            agent_history=args.agent_history,
+            sim_history=args.sim_history,
+            log_dir=args.log_dir,
+            log_state_snapshots=args.log_state_snapshots,
+            log_profile=args.log_profile,
+            sim_include_state=args.sim_include_state,
+            sim_mode=args.sim_mode,
+        )
+        episode_dir = os.path.join(args.log_dir)
+        save_episode(episode_dir, log, judge_out)
+        print(f"Saved episode to '{episode_dir}/'")

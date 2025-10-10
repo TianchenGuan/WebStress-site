@@ -102,6 +102,9 @@ Install and configure
 Examples
 - Default (LLM proposer picks a task):
   - `python orchestrator.py --steps 2`
+- Propose→run loop (adaptive):
+  - `python orchestrator.py --propose-count 3 --steps 3`
+    - Uses LLMProposer to generate a task, runs it, summarizes the result, then proposes the next task using recent_episodes.
 - Free‑text instruction compiled by LLM:
   - `python orchestrator.py --instruction "Open the Settings and toggle Wi‑Fi" --llm-agent --steps 6`
 - Compact/verbose logs and snapshots:
@@ -115,6 +118,7 @@ Important flags
 - `--log-dir runs`, `--log-profile {verbose|concise|both}`, `--log-state-snapshots`
 - `--stop-on-success`, `--success-threshold 0.99`
 - Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text). If none are provided, an instruction is generated via the LLM proposer.
+- Proposer loop: `--propose-count N`, `--agent-id agent`, `--global-task-pool path/to/pool.json`
 
 
 Logging

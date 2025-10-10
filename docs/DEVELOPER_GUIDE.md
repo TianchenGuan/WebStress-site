@@ -73,6 +73,11 @@ Proposer details (LLMProposer, InstructionCompiler)
 - Proposer: generates desktop tasks with machine‑testable `success_criteria`. Emphasizes diversity, determinism for identical inputs, and neutrality.
 - InstructionCompiler: converts free‑text into an Instruction JSON (desktop template).
 
+Propose→Run loop
+- The CLI supports `--propose-count N` to run N episodes back‑to‑back.
+- After each episode, a compact summary `{instruction_id, score, feedback, subscores}` is appended to `recent_episodes` and passed to `LLMProposer.propose_next(...)` to adapt difficulty/diversity.
+- Optional `--global-task-pool` can provide a JSON array of candidate instructions to bias selection.
+
 
 Prompts (contract‑first, neutral)
 - `prompts/pure_simulator.system.txt` — compact inputs, JSON Patch `state_ops`, read‑state handshake, self‑checklist.
