@@ -40,13 +40,14 @@ def run_episode(
     success_threshold: float = 0.99,
     agent_history: int = 5,
     sim_history: int = 5,
+    sim_include_state: bool = False,
     log_dir: str | None = None,
     log_state_snapshots: bool = False,
     log_profile: str = "both",
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # Choose simulator (LLM-only)
     if 'PureLLMSimulator' in globals() and PureLLMSimulator is not None:
-        sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed, history_window=sim_history)
+        sim = PureLLMSimulator(model=os.getenv("LLM_MODEL"), seed=seed, history_window=sim_history, include_full_state=sim_include_state)
     else:
         raise RuntimeError("PureLLMSimulator not available. Ensure llm_wrappers.py is present.")
     # Choose agent
@@ -335,6 +336,7 @@ if __name__ == "__main__":
     parser.add_argument("--success-threshold", type=float, default=float(os.getenv("SUCCESS_THRESHOLD", "0.99")), help="Score threshold to stop when --stop-on-success is set")
     parser.add_argument("--agent-history", type=int, default=int(os.getenv("AGENT_HISTORY", "5")), help="Number of recent (action, observation) steps to pass to the agent")
     parser.add_argument("--sim-history", type=int, default=int(os.getenv("SIM_HISTORY", "5")), help="Number of recent simulator steps to include in simulator input")
+    parser.add_argument("--sim-include-state", action="store_true", default=os.getenv("SIM_INCLUDE_STATE", "0") == "1", help="Always include full current_state in simulator LLM input (compat mode)")
     parser.add_argument("--log-dir", type=str, default=os.getenv("LOG_DIR", "runs"), help="Directory for logs")
     parser.add_argument("--log-state-snapshots", action="store_true", help="Include full state snapshots in simulator logs (verbose only)")
     parser.add_argument(
@@ -530,6 +532,7 @@ if __name__ == "__main__":
         log_dir=args.log_dir,
         log_state_snapshots=args.log_state_snapshots,
         log_profile=args.log_profile,
+        sim_include_state=args.sim_include_state,
     )
     # Save standard episode summary files
     episode_dir = os.path.join(args.log_dir)

@@ -140,7 +140,7 @@ class PureLLMSimulator:
     - Enforces schema validation for state and observation. Deterministic with temperature=0 and provided seed.
     """
 
-    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None, history_window: int = 5):
+    def __init__(self, model: Optional[str] = None, seed: Optional[int] = None, history_window: int = 5, include_full_state: bool = False):
         self.client = LLMClient(model=model, temperature=0.0, seed=seed)
         self.system = _read(os.path.join(PROMPTS_DIR, "pure_simulator.system.txt"))
         self._episodes: Dict[str, Dict[str, Any]] = {}
@@ -148,6 +148,9 @@ class PureLLMSimulator:
         # Simulator-private bounded history for LLM context
         self._history: Dict[str, list] = {}
         self._history_window = max(0, int(history_window))
+        self._include_full_state = bool(include_full_state)
+        # Keep recent state_ops returned by the LLM per episode
+        self._ops_history: Dict[str, list] = {}
 
     def _now_iso(self) -> str:
         import time
@@ -285,6 +288,16 @@ class PureLLMSimulator:
         }
         return state
 
+    def _state_summary(self, st: Dict[str, Any]) -> Dict[str, Any]:
+        # Compact, deterministic summary that helps the LLM reason without full state
+        return {
+            "template": st.get("template"),
+            "page": st.get("page"),
+            "windows_count": len(st.get("windows", [])) if isinstance(st.get("windows"), list) else 0,
+            "ui_count": len(st.get("ui_elements", [])) if isinstance(st.get("ui_elements"), list) else 0,
+            "files_count": len(st.get("filesystem", {})) if isinstance(st.get("filesystem"), dict) else 0,
+        }
+
     def _coerce_state(self, candidate: Any, prev_state: Dict[str, Any], seed: int) -> Dict[str, Any]:
         """Fill missing required fields from previous state; keep structure minimal and valid."""
         st: Dict[str, Any] = dict(prev_state) if not isinstance(candidate, dict) else dict(candidate)
@@ -393,7 +406,10 @@ class PureLLMSimulator:
             "fidelity": fidelity,
             "episode_id": episode_id,
             "instruction": instruction,
+            # Always include the initial full state on reset
             "current_state": init_state,
+            "state_digest": self._sha256_digest(init_state),
+            "state_summary": self._state_summary(init_state),
             "timestamp": self._now_iso(),
             "sim_history": [],
         }
@@ -435,6 +451,7 @@ class PureLLMSimulator:
         self._episodes[episode_id] = next_state
         self._meta[episode_id] = {"fidelity": fidelity, "seed": seed, "instruction": instruction}
         self._history[episode_id] = []
+        self._ops_history[episode_id] = []
         self._last_call.update({"output": {"state": next_state, "observation": observation}, "raw": getattr(self.client, "_last_io", None)})
         # Digest is used by orchestrator for book-keeping; we mimic core naming
         start_digest = self._sha256_digest(next_state)
@@ -446,27 +463,42 @@ class PureLLMSimulator:
         validate_action(action)
         prev_state = self._episodes[episode_id]
         meta = self._meta.get(episode_id, {})
-        # Include bounded simulator history slice
+        # Include bounded simulator history slice and recent ops
         sim_hist = self._history.get(episode_id, [])
         sim_hist_slice = sim_hist[-self._history_window:] if self._history_window > 0 else []
+        ops_hist = self._ops_history.get(episode_id, [])
+        ops_hist_slice = ops_hist[-self._history_window:] if self._history_window > 0 else []
         payload = {
             "phase": "step",
             "seed": meta.get("seed"),
             "fidelity": meta.get("fidelity"),
             "episode_id": episode_id,
             "instruction": meta.get("instruction"),
-            "current_state": prev_state,
             "last_action": action,
             "timestamp": timestamp_iso,
             "time_delta_ms": int(time_delta_ms),
             "sim_history": sim_hist_slice,
+            "state_digest": self._sha256_digest(prev_state),
+            "state_summary": self._state_summary(prev_state),
+            "ops_recent": ops_hist_slice,
         }
+        # Optionally include the full state (compat mode)
+        if self._include_full_state:
+            payload["current_state"] = prev_state
         self._last_call = {"phase": "step", "input": payload}
         internal_result = {"result": "ok", "reason": ""}
         event_log: list[Dict[str, Any]] = []
         terminal = False
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            # Allow explicit no-op read request (second chance with full state)
+            if (not self._include_full_state) and out.get("request") == "read_state":
+                # Re-issue with full current_state and a grant flag
+                payload2 = dict(payload)
+                payload2["current_state"] = prev_state
+                payload2["request_granted"] = "read_state"
+                self._last_call = {"phase": "step", "input": payload2}
+                out = self.client.complete_json(system_prompt=self.system, user_json=payload2, max_retries=1)
             # Allow explicit no-op read request
             if out.get("request") == "read_state":
                 next_state = prev_state
@@ -538,6 +570,21 @@ class PureLLMSimulator:
             self._history.setdefault(episode_id, []).append(entry)
             if self._history_window > 0 and len(self._history[episode_id]) > self._history_window:
                 self._history[episode_id] = self._history[episode_id][-self._history_window:]
+            # Record state_ops when available for compact payloads
+            try:
+                ops = None
+                out_last = getattr(self, "_last_call", {})
+                if isinstance(out_last, dict):
+                    raw_out = out_last.get("output")
+                    # The last returned LLM output is in self._last_call["raw"] as text; but we directly have parsed 'out' in scope
+                # Safely take from the parsed 'out' closure above
+                ops = out.get("state_ops") if isinstance(out, dict) else None
+                if isinstance(ops, list):
+                    self._ops_history.setdefault(episode_id, []).append(ops)
+                    if self._history_window > 0 and len(self._ops_history[episode_id]) > self._history_window:
+                        self._ops_history[episode_id] = self._ops_history[episode_id][-self._history_window:]
+            except Exception:
+                pass
         except Exception:
             pass
         return {

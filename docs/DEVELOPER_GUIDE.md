@@ -61,7 +61,7 @@ Location: `llm_wrappers.py`
 Responsibilities
 - Maintain canonical `state` per `episode_id` inside the simulator.
 - On `reset`: seed a state from `templates/<template>.json`, ask the LLM (prompt: `prompts/pure_simulator.system.txt`) to optionally refine it via `state_ops` (JSON Patch), and return the first `observation`.
-- On `step`: provide `{current_state, last_action, seed, fidelity, sim_history, timestamp}` to the LLM; expect `{state_ops, observation, internal_result, event_log, terminal}` back; apply `state_ops`, validate, and persist.
+- On `step` (compact mode, default): provide `{state_digest, state_summary, last_action, seed, fidelity, sim_history, ops_recent, timestamp}`; expect `{state_ops, observation, internal_result, event_log, terminal}` back; apply `state_ops`, validate, and persist. If the model needs full state, it returns `request:"read_state"` and the simulator will immediately re-invoke it with `{current_state, request_granted:"read_state"}` added.
 - Provide `get_state_summary` and `snapshot` for logging and judging.
 
 Validation & Fallbacks
