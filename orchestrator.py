@@ -330,8 +330,7 @@ if __name__ == "__main__":
     parser.add_argument("--llm-proposer", action="store_true", default=USE_LLM_PROPOSER)
     parser.add_argument("--instr-file", type=str, default=os.getenv("INSTR_FILE"), help="Path to instruction JSON file")
     parser.add_argument("--instr-json", type=str, default=os.getenv("INSTR_JSON"), help="Instruction JSON string")
-    parser.add_argument("--instruction", "--instr-text", dest="instr_text", type=str, default=os.getenv("INSTRUCTION"), help="Freeform instruction text to compile")
-    parser.add_argument("--task", type=str, default=os.getenv("TASK"), help="Preset task name (e.g., open-settings)")
+    parser.add_argument("--instruction", "--instr-text", dest="instr_text", type=str, default=os.getenv("INSTRUCTION"), help="Freeform instruction text to compile (LLM)")
     parser.add_argument("--stop-on-success", action="store_true", help="Stop the episode early when success criteria are met")
     parser.add_argument("--success-threshold", type=float, default=float(os.getenv("SUCCESS_THRESHOLD", "0.99")), help="Score threshold to stop when --stop-on-success is set")
     parser.add_argument("--agent-history", type=int, default=int(os.getenv("AGENT_HISTORY", "5")), help="Number of recent (action, observation) steps to pass to the agent")
@@ -359,52 +358,7 @@ if __name__ == "__main__":
     runtime_log_path = os.path.join(args.log_dir, "runtime.log.jsonl")
     runtime_readable_path = os.path.join(args.log_dir, "runtime.readable.log")
 
-    def preset_instruction(name: str) -> Dict[str, Any]:
-        name = (name or "").strip().lower()
-        if name == "open-settings":
-            return {
-                "id": "open-settings",
-                "description": "Open the Settings from the desktop.",
-                "template": "desktop",
-                "difficulty": "easy",
-                "time_limit": 45,
-                "success_criteria": [
-                    {"predicate": "element_text_contains:Settings", "weight": 1.0}
-                ],
-            }
-        if name == "open-files":
-            return {
-                "id": "open-files",
-                "description": "Open the Files app from the desktop.",
-                "template": "desktop",
-                "difficulty": "easy",
-                "time_limit": 45,
-                "success_criteria": [
-                    {"predicate": "element_text_contains:Files", "weight": 1.0}
-                ],
-            }
-        if name == "open-browser":
-            return {
-                "id": "open-browser",
-                "description": "Open the Browser from the desktop.",
-                "template": "desktop",
-                "difficulty": "easy",
-                "time_limit": 45,
-                "success_criteria": [
-                    {"predicate": "element_text_contains:Browser", "weight": 1.0}
-                ],
-            }
-        # default preset
-        return {
-            "id": "desktop_demo",
-            "description": "Open the Settings from the desktop.",
-            "template": "desktop",
-            "difficulty": "easy",
-            "time_limit": 30,
-            "success_criteria": [
-                {"predicate": "element_text_contains:Settings", "weight": 1.0}
-            ],
-        }
+    # Removed preset rule-based tasks; default to LLMProposer below.
 
     # Resolve instruction from CLI/env
     instruction: Dict[str, Any]
@@ -414,77 +368,50 @@ if __name__ == "__main__":
     elif args.instr_json:
         instruction = json.loads(args.instr_json)
     elif args.instr_text:
-        # Compile freeform instruction to Instruction JSON
+        # Compile freeform instruction using LLM (no heuristic fallback)
+        from proposer_llm import InstructionCompiler
+        compiler = InstructionCompiler(model=os.getenv("LLM_MODEL"), temperature=0.0, seed=args.seed)
+        instruction = compiler.compile(args.instr_text)
+        # Log compiler I/O
         try:
-            from proposer_llm import InstructionCompiler
-            compiler = InstructionCompiler(model=os.getenv("LLM_MODEL"), temperature=0.0, seed=args.seed)
-            instruction = compiler.compile(args.instr_text)
-            # Log compiler I/O
-            try:
-                if hasattr(compiler, "_last_call") and isinstance(getattr(compiler, "_last_call"), dict):
-                    with open(runtime_log_path, "a", encoding="utf-8") as rf:
-                        rf.write(json.dumps({
-                            "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                            "event": "compile_instruction",
-                            "llm": getattr(compiler, "_last_call"),  # type: ignore[arg-type]
-                        }) + "\n")
-                    if args.log_profile in ("concise", "both"):
-                        try:
-                            with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                                rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} compiled instruction via LLM id={instruction.get('id')}\n")
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+            if hasattr(compiler, "_last_call") and isinstance(getattr(compiler, "_last_call"), dict):
+                with open(runtime_log_path, "a", encoding="utf-8") as rf:
+                    rf.write(json.dumps({
+                        "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "event": "compile_instruction",
+                        "llm": getattr(compiler, "_last_call"),  # type: ignore[arg-type]
+                    }) + "\n")
+                if args.log_profile in ("concise", "both"):
+                    try:
+                        with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
+                            rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} compiled instruction via LLM id={instruction.get('id')}\n")
+                    except Exception:
+                        pass
         except Exception:
-            # Heuristic fallback for desktop
-            txt = (args.instr_text or "").lower()
-            if "settings" in txt:
-                instruction = {
-                    "id": "open-settings",
-                    "description": args.instr_text,
-                    "template": "desktop",
-                    "difficulty": "easy",
-                    "time_limit": 60,
-                    "success_criteria": [{"predicate": "element_text_contains:Settings", "weight": 1.0}],
-                }
-            elif "files" in txt:
-                instruction = {
-                    "id": "open-files",
-                    "description": args.instr_text,
-                    "template": "desktop",
-                    "difficulty": "easy",
-                    "time_limit": 60,
-                    "success_criteria": [{"predicate": "element_text_contains:Files", "weight": 1.0}],
-                }
-            elif "browser" in txt:
-                instruction = {
-                    "id": "open-browser",
-                    "description": args.instr_text,
-                    "template": "desktop",
-                    "difficulty": "easy",
-                    "time_limit": 60,
-                    "success_criteria": [{"predicate": "element_text_contains:Browser", "weight": 1.0}],
-                }
-            else:
-                instruction = {
-                    "id": "desktop-goal",
-                    "description": args.instr_text,
-                    "template": "desktop",
-                    "difficulty": "medium",
-                    "time_limit": 90,
-                    "success_criteria": [{"predicate": "element_text_contains:Done|Success|Settings|Files|Browser", "weight": 1.0}],
-                }
-            if args.log_profile in ("concise", "both"):
-                try:
-                    with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                        rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} compiled instruction via heuristic id={instruction.get('id')}\n")
-                except Exception:
-                    pass
-    elif args.task:
-        instruction = preset_instruction(args.task)
+            pass
     else:
-        instruction = preset_instruction("open-settings")
+        # Default: Use LLMProposer to propose the next instruction
+        if 'LLMProposer' not in globals() or LLMProposer is None:
+            raise RuntimeError("LLMProposer not available. Ensure proposer_llm.py is present.")
+        proposer = LLMProposer(model=os.getenv("LLM_MODEL"), temperature=0.2, seed=args.seed)
+        instruction = proposer.propose_next(agent_id="agent", recent_episodes=[])
+        # Log proposer I/O
+        try:
+            if hasattr(proposer, "_last_call") and isinstance(getattr(proposer, "_last_call"), dict):
+                with open(runtime_log_path, "a", encoding="utf-8") as rf:
+                    rf.write(json.dumps({
+                        "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "event": "propose_instruction",
+                        "llm": getattr(proposer, "_last_call"),  # type: ignore[arg-type]
+                    }) + "\n")
+                if args.log_profile in ("concise", "both"):
+                    try:
+                        with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
+                            rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} proposed instruction via LLM id={instruction.get('id')}\n")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
     print(
         "Components:",
         f"simulator=llm",

@@ -98,10 +98,10 @@ Install and configure
   - `AGENT_TEMP` (optional; agent exploration temperature)
 
 Examples
-- Free‑text instruction (LLM agent):
+- Default (LLM proposer picks a task):
+  - `python orchestrator.py --steps 2`
+- Free‑text instruction compiled by LLM:
   - `python orchestrator.py --instruction "Open the Settings and toggle Wi‑Fi" --llm-agent --steps 6`
-- Preset tasks:
-  - `python orchestrator.py --task open-settings --steps 2`
 - Compact/verbose logs and snapshots:
   - `python orchestrator.py --instruction "..." --log-profile both --log-state-snapshots`
 
@@ -111,7 +111,7 @@ Important flags
 - `--sim-include-state` (force full current_state each step; debug/compat)
 - `--log-dir runs`, `--log-profile {verbose|concise|both}`, `--log-state-snapshots`
 - `--stop-on-success`, `--success-threshold 0.99`
-- Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text), or `--task`
+- Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text). If none are provided, an instruction is generated via the LLM proposer.
 
 
 Logging

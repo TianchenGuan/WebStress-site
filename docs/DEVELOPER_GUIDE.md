@@ -87,7 +87,7 @@ CLI (orchestrator)
 - Debug/compat: `--sim-include-state` (send full current_state every step).
 - Logging: `--log-dir`, `--log-profile {verbose|concise|both}`, `--log-state-snapshots`.
 - Early stop: `--stop-on-success`, `--success-threshold`.
-- Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text, compiled by LLM), `--task` (preset shortcuts).
+- Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text, compiled by LLM). If none provided, the LLM proposer is used by default.
 
 
 LLM client nuances
@@ -112,4 +112,3 @@ Gotchas
 - The simulator produces realistic observations only; internal reasons never appear in observations.
 - Replay verification is not supported in LLM‑only mode due to external model variability.
 - Ensure `OPENAI_API_KEY` is set and `LLM_MODEL` points to a model supporting JSON output formatting.
-
