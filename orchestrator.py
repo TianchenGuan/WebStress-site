@@ -277,15 +277,38 @@ def run_episode(
         hist_slice = history[-agent_history:] if agent_history and agent_history > 0 else []
         try:
             action = agent.act(obs, instr, hist_slice)  # type: ignore[arg-type]
-            print("Agent action:", action)
         except TypeError:
             action = agent.act(obs, instr)  # type: ignore[call-arg]
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        out = sim.step(episode_id, action, now, 0)
-
         _log_agent_verbose(handles, agent, instr.get("id"), len(hist_slice), steps, now, action)  # type: ignore[arg-type]
         _log_agent_readable(handles, agent, steps, now, action)  # type: ignore[arg-type]
         _dump_llm_io(handles.llm_dir, "agent", getattr(agent, "_last_call", None), step=steps)
+
+        stop_signal = isinstance(action, dict) and action.get("type") == "finish"
+        if stop_signal:
+            episode_log.setdefault("agent_stop", True)
+            episode_log["steps"].append({
+                "t": now,
+                "action": action,
+                "internal_result": {"result": "agent_stop", "reason": "agent_signaled_stop"},
+                "event_log": [],
+                "state_diff": [],
+                "state_digest": None,
+                "observation": obs,
+            })
+            if agent_history and agent_history > 0:
+                history.append({
+                    "t": now,
+                    "action": action,
+                    "observation": obs,
+                    "result_observation": obs,
+                })
+                if len(history) > agent_history:
+                    history = history[-agent_history:]
+            steps += 1
+            break
+
+        out = sim.step(episode_id, action, now, 0)
 
         _log_sim_verbose(handles, sim, episode_id, steps, now, action, out)
         _log_sim_readable(handles, steps, now, action, out)
@@ -300,7 +323,6 @@ def run_episode(
             "state_digest": out["state_digest"],
             "observation": out["observation"],  # store agent-visible obs for replay/judge
         })
-        # Append to history for next step
         if agent_history and agent_history > 0:
             history.append({
                 "t": now,

@@ -5,16 +5,20 @@ Context fields in the payload JSON:
 - `instruction`, `instruction_keywords`: textual description of the goal and important keywords.
 - `observation`: full structured view of the current screen (includes the UI elements with `element_id`).
 - `history`: raw list of recent {observation, action, result_observation} items when available.
-- `action_space`: reminder of available action types and required fields.
+- `action_space`: reminder of available action types, required fields, and examples.
+
+Finishing convention (agreed with the orchestrator):
+- When you are convinced the task is complete and success cues are visible, emit exactly `{ "type": "finish" }`. This stops the episode immediately.
+- Use `{ "type": "noop" }` only for short waits when you expect to continue acting on the task.
 
 Key requirement for pointer actions:
-- If you return `"type": "click"`, `"double_click"`, `"right_click"`, or `"drag"`, you MUST include a concrete `target`. Prefer `target.element_id` that appears in `ui_summary.elements`. Coordinates are allowed only when no element id exists.
-- If the required target is missing, the action will be rejected. Always copy the exact `element_id` string from the summary.
+- If you return `"type": "click"`, `"double_click"`, `"right_click"`, or `"drag"`, you MUST include a concrete `target`. Prefer `target.element_id` from `observation.ui_elements`. Coordinates are allowed only when no element id exists.
+- If the required target is missing, the action will be rejected. Always copy the exact `element_id` string from the observation list.
 
 Output contract (strict):
 - Return exactly ONE JSON object with only these keys:
   {
-    "type": "click|double_click|right_click|drag|scroll|keypress|input_text|hotkey|noop",
+    "type": "click|double_click|right_click|drag|scroll|keypress|input_text|hotkey|noop|finish",
     "target": {"element_id": "..."} | {"x": 100, "y": 200},
     "text": "..."        // required for input_text
     "keys": ["CTRL","F"] // required for hotkey/keypress
@@ -23,14 +27,14 @@ Output contract (strict):
   }
 - No extra keys, arrays, markdown, XML, <think> tags, or narration. Output ONLY the JSON object.
 - Pointer actions (click/double_click/right_click/drag) MUST include a concrete target (prefer `element_id`).
-- If nothing safe or useful exists, emit `{ "type": "noop" }` exactly (never `{}` or null).
+- Use `{ "type": "finish" }` only when the task is truly complete. If nothing safe or useful exists but you still expect to continue, emit `{ "type": "noop" }` (never `{}` or natural-language output).
 
 Decision procedure:
 1. Internalize the goal from `instruction` and `instruction_keywords`.
 2. Inspect `observation.ui_elements` to locate relevant elements; copy `element_id` exactly from there.
 3. Review `history` to avoid repeating actions that already failed.
-4. Use the `action_space` guidance to ensure required fields are present, then choose the single best next action.
-5. Output only the action JSON.
+4. Use the `action_space` guidance to ensure required fields are present.
+5. If the task is complete, output `{ "type": "finish" }`; otherwise output the JSON for the next UI action (or `{ "type": "noop" }` only for a brief pause).
 
 Quick examples (for intuition only — do not copy literally):
 - Desktop example:
@@ -40,11 +44,12 @@ Quick examples (for intuition only — do not copy literally):
   → Output exactly `{ "type": "double_click", "target": { "element_id": "icon_browser" } }`
 - Browser menu open and `menu_item_settings` available for a settings task → `{ "type": "click", "target": { "element_id": "menu_item_settings" } }`
 - Search-engine dropdown visible with `option_bing` → `{ "type": "click", "target": { "element_id": "option_bing" } }`
-- Nothing changed and you must wait → `{ "type": "noop" }`
+- Task complete (success cues visible) → `{ "type": "finish" }`
+- Need to pause briefly but continue later → `{ "type": "noop" }`
 
 Self-check before sending:
 - JSON is valid and schema-compliant.
 - Pointer actions *must* include `target.element_id` (or coordinates). If you leave it out, the action will be rejected.
 - Required fields included: `text` for `input_text`, `keys` for `hotkey`/`keypress`, `delta_y` for `scroll`.
 - Action is consistent with the latest observation and not a recently failed duplicate.
-- If intentionally idling, use `{ "type": "noop" }` exactly; never return `{}` or natural-language output.
+- If intentionally idling, use `{ "type": "noop" }` exactly. To finish the task, use `{ "type": "finish" }`. Never return `{}` or natural-language output.

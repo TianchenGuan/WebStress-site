@@ -4,6 +4,12 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+# python tools/convert_osworld_examples_to_instructions.py \                                  ─╯
+#     --test-index ../OSWorld/evaluation_examples/test_small.json \
+#     --examples-dir ../OSWorld/evaluation_examples/examples \
+#     --out-dir instructions/osworld_small \
+#     --out-jsonl instructions/osworld_small.jsonl
+
 
 # Try to reuse validator from this repo; fall back to a no-op if import path differs
 try:
@@ -161,6 +167,9 @@ def convert_one(category: str, example: Dict[str, Any]) -> Dict[str, Any]:
         "time_limit": 90,
         "success_criteria": _criteria_from_example(category, desc, example),
     }
+    cfg = example.get("config")
+    if isinstance(cfg, list) and cfg:
+        out["config"] = cfg
     validate_instruction(out)
     return out
 
@@ -220,4 +229,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

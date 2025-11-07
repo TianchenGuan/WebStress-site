@@ -45,13 +45,11 @@ class LLMAgent:
         self._last_call = {"payload": payload}
         try:
             out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
-            print("LLM Output:", out)
             normalized = False
             action = out if isinstance(out, dict) else {}
             try:
                 validate_action(action)
             except Exception:
-                print(Exception)
                 action = {}
             if not self._action_is_complete(action):
                 normalized = True
@@ -73,7 +71,6 @@ class LLMAgent:
             return action
         except Exception as e:
             # LLM call failed; synthesize a safe fallback action via normalization
-            print("LLM Error:", e)
             action = self._normalize_action({}, observation, instruction)
             if not isinstance(action, dict):
                 action = {"type": "noop"}
@@ -92,7 +89,7 @@ class LLMAgent:
         if not isinstance(raw, dict):
             return {"type": "noop"}
         allowed_top = {"type", "target", "text", "keys", "delta_y", "delta_x"}
-        allowed_types = {"click", "double_click", "right_click", "drag", "scroll", "keypress", "input_text", "hotkey", "noop"}
+        allowed_types = {"click", "double_click", "right_click", "drag", "scroll", "keypress", "input_text", "hotkey", "noop", "finish"}
         out: Dict[str, Any] = dict(raw)
         if "action" in out and "type" not in out:
             out["type"] = out.pop("action")

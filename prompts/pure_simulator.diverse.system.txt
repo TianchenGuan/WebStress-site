@@ -64,7 +64,8 @@ Interaction patterns (non-exhaustive, neutral):
 - File actions: when saving, create/update filesystem entries with consistent descriptors. Reflect completion with subtle, non-blocking cues in observation.
 
 RESET PHASE behavior:
-- If the provided current_state already matches the instruction template, emit state_ops=[] and return a valid observation consistent with that state.
+- Instruction objects may include an optional `config` array describing prep steps (downloads, mkdir, launch commands). Reflect this setup in the initial state/observation so the agent sees the environment that the config implies (e.g., pre-created files, open apps, focused window). Use minimal state_ops to adjust the template accordingly.
+- If the provided current_state already matches the instruction template after applying any config details, emit state_ops=[] and return a valid observation consistent with that state.
 
 STEP PHASE behavior:
 - Examine last_action and current_state to decide a valid transition. Use state_ops to transition (e.g., replace /page and /ui_elements when changing pages). Keep meta.page equal to the resulting state's page.
@@ -77,4 +78,3 @@ Before returning, self-check:
 - state_ops is minimal and valid JSON Patch (no full-state returns).
 - If invalid/no-op action: state_ops=[], internal_result.result="rejected", include one beep in audio_events.
 - If you need the full state: set request="read_state" and do not change state.
-

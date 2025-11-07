@@ -17,13 +17,6 @@ class LLMJudge:
     def __init__(self, model: Optional[str] = None, temperature: float = 0.0, seed: Optional[int] = None, base_url: Optional[str] = None, api_key: Optional[str] = None):
         self.client = LLMClient(model=model, temperature=temperature, seed=seed, base_url=base_url, api_key=api_key)
         self.system = _read(os.path.join(PROMPTS_DIR, "judge.system.txt"))
-        # Preload judge schema if available (for structured outputs when supported)
-        try:
-            import json as _json
-            with open(os.path.join(os.path.dirname(__file__), "schema", "judge_output.json"), "r", encoding="utf-8") as _f:
-                self._judge_schema = _json.load(_f)
-        except Exception:
-            self._judge_schema = None
 
     def evaluate(self, instruction: Dict[str, Any], start_state_summary: Dict[str, Any], end_state_summary: Dict[str, Any], episode_log: Dict[str, Any]) -> Dict[str, Any]:
         payload = {
@@ -34,7 +27,7 @@ class LLMJudge:
         }
         self._last_call = {"payload": payload}
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=payload, json_schema=getattr(self, "_judge_schema", None), max_retries=2)
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
             norm = self._normalize_output(out)
             validate_judge_output(norm)
             self._last_call.update({"output": norm, "raw": getattr(self.client, "_last_io", None)})
@@ -70,10 +63,7 @@ class LLMJudge:
                 subs_list.append({"predicate": str(k), "score": max(0.0, min(1.0, sc)), "weight": 1.0})
         elif isinstance(subs, list):
             for item in subs:
-                if not isinstance(item, dict):
-                    # attempt to coerce string to a 0 score predicate
-                    subs_list.append({"predicate": str(item), "score": 0.0, "weight": 1.0})
-                else:
+                if isinstance(item, dict):
                     pred = str(item.get("predicate", ""))
                     try:
                         sc = float(item.get("score", 0.0))
@@ -85,6 +75,14 @@ class LLMJudge:
                     except Exception:
                         wt = 1.0
                     subs_list.append({"predicate": pred, "score": max(0.0, min(1.0, sc)), "weight": wt})
+                elif isinstance(item, (int, float)):
+                    subs_list.append({
+                        "predicate": f"criterion_{len(subs_list)}",
+                        "score": max(0.0, min(1.0, float(item))),
+                        "weight": 1.0,
+                    })
+                else:
+                    subs_list.append({"predicate": str(item), "score": 0.0, "weight": 1.0})
         else:
             subs_list = []
         out["subscores"] = subs_list
