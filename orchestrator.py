@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Optional
 
 USE_LLM_AGENT = True
@@ -31,6 +32,157 @@ class DummyAgent:
         return {"type": "double_click", "target": {"element_id": "icon_settings"}}
 
 
+@dataclass
+class LogHandles:
+    agent_log: Optional[str] = None
+    agent_readable: Optional[str] = None
+    sim_log: Optional[str] = None
+    sim_readable: Optional[str] = None
+    judge_readable: Optional[str] = None
+    llm_dir: Optional[str] = None
+    log_state_snapshots: bool = False
+
+
+def _dump_llm_io(llm_dir: Optional[str], role: str, call: Any, step: Optional[int] = None, phase: str = "step") -> None:
+    if not llm_dir or not isinstance(call, dict):
+        return
+    raw = call.get("raw")
+    err = call.get("error")
+    os.makedirs(llm_dir, exist_ok=True)
+    if raw:
+        name = f"{role}_{phase}.json" if step is None else f"{role}_step_{step:04d}.json"
+        with open(os.path.join(llm_dir, name), "w", encoding="utf-8") as f:
+            json.dump(raw, f, indent=2, sort_keys=True)
+    if err:
+        payload = {"error": err}
+        input_payload = call.get("input") or call.get("payload")
+        if input_payload:
+            payload["input"] = input_payload
+        name = f"{role}_{phase}.error.json" if step is None else f"{role}_step_{step:04d}.error.json"
+        with open(os.path.join(llm_dir, name), "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+
+
+def _log_sim_reset(handles: LogHandles, sim: Any, obs: Dict[str, Any], start_digest: str) -> None:
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if handles.sim_log:
+        entry = {"t": timestamp, "phase": "reset", "observation": obs, "start_digest": start_digest}
+        if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+            entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
+        with open(handles.sim_log, "a", encoding="utf-8") as sf:
+            sf.write(json.dumps(entry) + "\n")
+    if handles.sim_readable:
+        try:
+            pg = (obs.get("meta") or {}).get("page") if isinstance(obs, dict) else None
+            with open(handles.sim_readable, "a", encoding="utf-8") as rf:
+                rf.write(f"{timestamp} reset page={pg} start_digest={start_digest[:10]}...\n")
+        except Exception:
+            pass
+    call = getattr(sim, "_last_call", None)
+    _dump_llm_io(handles.llm_dir, "simulator", call, phase="reset")
+
+
+def _log_agent_verbose(handles: LogHandles, agent: Any, instr_id: Any, hist_len: int, step: int, now: str, action: Dict[str, Any]) -> None:
+    if not handles.agent_log:
+        return
+    entry = {"t": now, "step": step, "instruction_id": instr_id, "history_len": hist_len, "action": action}
+    if hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
+        entry["llm"] = getattr(agent, "_last_call")  # type: ignore[assignment]
+    with open(handles.agent_log, "a", encoding="utf-8") as af:
+        af.write(json.dumps(entry) + "\n")
+
+
+def _log_agent_readable(handles: LogHandles, agent: Any, step: int, now: str, action: Dict[str, Any]) -> None:
+    if not handles.agent_readable:
+        return
+    try:
+        tgt = (action.get("target") or {}) if isinstance(action, dict) else {}
+        tid = tgt.get("element_id") if isinstance(tgt, dict) else None
+        txt = action.get("text") if isinstance(action, dict) else None
+        keys = action.get("keys") if isinstance(action, dict) else None
+        summary = [f"{now}", f"step={step}", f"type={action.get('type')}" if isinstance(action, dict) else "type=?"]
+        if tid:
+            summary.append(f"target={tid}")
+        elif isinstance(tgt, dict) and ("x" in tgt or "y" in tgt):
+            summary.append(f"target=({tgt.get('x')},{tgt.get('y')})")
+        if txt:
+            summary.append(f"text={txt}")
+        if keys:
+            summary.append(f"keys={keys}")
+        try:
+            if hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
+                lc = getattr(agent, "_last_call")  # type: ignore[index]
+                if lc.get("normalized"):
+                    summary.append("normalized=1")
+                    raw_txt = None
+                    raw = lc.get("raw") if isinstance(lc.get("raw"), dict) else None
+                    if raw:
+                        raw_txt = raw.get("response_text")
+                    if isinstance(raw_txt, str) and raw_txt:
+                        trimmed = raw_txt.strip().replace("\n", " ")
+                        if len(trimmed) > 160:
+                            trimmed = trimmed[:160] + "..."
+                        summary.append(f"raw={trimmed}")
+        except Exception:
+            pass
+        with open(handles.agent_readable, "a", encoding="utf-8") as rf:
+            rf.write(" ".join(summary) + "\n")
+    except Exception:
+        pass
+
+
+def _log_sim_verbose(handles: LogHandles, sim: Any, episode_id: str, step: int, now: str, action: Dict[str, Any], out: Dict[str, Any]) -> None:
+    if not handles.sim_log:
+        return
+    entry = {
+        "t": now,
+        "step": step,
+        "action": action,
+        "internal_result": out.get("internal_result"),
+        "event_log": out.get("event_log"),
+        "state_diff": out.get("state_diff"),
+        "state_digest": out.get("state_digest"),
+        "observation": out.get("observation"),
+    }
+    if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
+        entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
+    if handles.log_state_snapshots:
+        try:
+            snapshot = sim.snapshot(episode_id)
+            entry["state_snapshot"] = snapshot
+        except Exception:
+            pass
+    with open(handles.sim_log, "a", encoding="utf-8") as sf:
+        sf.write(json.dumps(entry) + "\n")
+
+
+def _log_sim_readable(handles: LogHandles, step: int, now: str, action: Dict[str, Any], out: Dict[str, Any]) -> None:
+    if not handles.sim_readable:
+        return
+    try:
+        ir = out.get("internal_result") or {}
+        res = ir.get("result") if isinstance(ir, dict) else None
+        reason = ir.get("reason") if isinstance(ir, dict) else None
+        pg = None
+        obs = out.get("observation") or {}
+        if isinstance(obs, dict):
+            meta = obs.get("meta") or {}
+            if isinstance(meta, dict):
+                pg = meta.get("page")
+        diffs = out.get("state_diff")
+        diff_str = ",".join(diffs) if isinstance(diffs, list) else ""
+        atype = action.get("type") if isinstance(action, dict) else None
+        tgt = action.get("target") if isinstance(action, dict) else None
+        tid = tgt.get("element_id") if isinstance(tgt, dict) else None
+        tgt_str = tid or (f"({tgt.get('x')},{tgt.get('y')})" if isinstance(tgt, dict) and ("x" in tgt or "y" in tgt) else "-")
+        line = f"{now} step={step} result={res}"
+        if reason:
+            line += f" reason={reason}"
+        line += f" page={pg} diff=[{diff_str}] action={atype}:{tgt_str}"
+        with open(handles.sim_readable, "a", encoding="utf-8") as rf:
+            rf.write(line + "\n")
+    except Exception:
+        pass
 def run_episode(
     instr: Dict[str, Any],
     seed: int,
@@ -77,60 +229,26 @@ def run_episode(
 
     # Prepare episode-specific logs
     episode_dir = None
-    agent_log_path = None
-    sim_log_path = None
-    agent_readable_path = None
-    sim_readable_path = None
-    judge_readable_path = None
+    handles = LogHandles(log_state_snapshots=log_state_snapshots)
+    judge_readable_path: Optional[str] = None
     if log_dir:
         episode_dir = os.path.join(log_dir, episode_id)
         os.makedirs(episode_dir, exist_ok=True)
         want_verbose = log_profile in ("verbose", "both")
         want_concise = log_profile in ("concise", "both")
-        if want_verbose:
-            agent_log_path = os.path.join(episode_dir, "agent.log.jsonl")
-            sim_log_path = os.path.join(episode_dir, "simulator.log.jsonl")
-        if want_concise:
-            agent_readable_path = os.path.join(episode_dir, "agent.readable.log")
-            sim_readable_path = os.path.join(episode_dir, "simulator.readable.log")
-            judge_readable_path = os.path.join(episode_dir, "judge.readable.log")
-        llm_dir = os.path.join(episode_dir, "llm")
-        os.makedirs(llm_dir, exist_ok=True)
-        # Write initial simulator log for reset (verbose)
-        if sim_log_path:
-            with open(sim_log_path, "a", encoding="utf-8") as sf:
-                entry = {
-                    "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "phase": "reset",
-                    "observation": obs,
-                    "start_digest": start_digest,
-                }
-                if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
-                    entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
-                sf.write(json.dumps(entry) + "\n")
-        # Readable reset summary (concise)
-        if agent_readable_path and sim_readable_path:
-            t0 = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            try:
-                with open(sim_readable_path, "a", encoding="utf-8") as rf:
-                    pg = (obs.get("meta") or {}).get("page") if isinstance(obs, dict) else None
-                    rf.write(f"{t0} reset page={pg} start_digest={start_digest[:10]}...\n")
-            except Exception:
-                pass
-        # Save raw/error LLM IO for reset if present
-        try:
-            if sim_log_path and hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
-                lc = getattr(sim, "_last_call")  # type: ignore[index]
-                raw = lc.get("raw")
-                err = lc.get("error")
-                if raw:
-                    with open(os.path.join(llm_dir, "simulator_reset.json"), "w", encoding="utf-8") as f:
-                        json.dump(raw, f, indent=2, sort_keys=True)
-                if err:
-                    with open(os.path.join(llm_dir, "simulator_reset.error.json"), "w", encoding="utf-8") as f:
-                        json.dump({"input": lc.get("input"), "error": err}, f, indent=2, sort_keys=True)
-        except Exception:
-            pass
+        handles = LogHandles(
+            agent_log=os.path.join(episode_dir, "agent.log.jsonl") if want_verbose else None,
+            agent_readable=os.path.join(episode_dir, "agent.readable.log") if want_concise else None,
+            sim_log=os.path.join(episode_dir, "simulator.log.jsonl") if want_verbose else None,
+            sim_readable=os.path.join(episode_dir, "simulator.readable.log") if want_concise else None,
+            judge_readable=os.path.join(episode_dir, "judge.readable.log") if want_concise else None,
+            llm_dir=os.path.join(episode_dir, "llm"),
+            log_state_snapshots=log_state_snapshots,
+        )
+        if handles.llm_dir:
+            os.makedirs(handles.llm_dir, exist_ok=True)
+        judge_readable_path = handles.judge_readable
+        _log_sim_reset(handles, sim, obs, start_digest)
     episode_log: Dict[str, Any] = {
         "episode_id": episode_id,
         "instruction_id": instr.get("id"),
@@ -159,120 +277,19 @@ def run_episode(
         hist_slice = history[-agent_history:] if agent_history and agent_history > 0 else []
         try:
             action = agent.act(obs, instr, hist_slice)  # type: ignore[arg-type]
+            print("Agent action:", action)
         except TypeError:
             action = agent.act(obs, instr)  # type: ignore[call-arg]
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         out = sim.step(episode_id, action, now, 0)
 
-        # Agent log (LLM or dummy) — verbose JSON
-        if agent_log_path:
-            agent_entry = {
-                "t": now,
-                "step": steps,
-                "instruction_id": instr.get("id"),
-                "history_len": len(hist_slice),
-                "action": action,
-            }
-            # Include LLM payload/output if available
-            if hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
-                agent_entry["llm"] = getattr(agent, "_last_call")  # type: ignore[assignment]
-            with open(agent_log_path, "a", encoding="utf-8") as af:
-                af.write(json.dumps(agent_entry) + "\n")
-        # Agent human-readable summary — concise
-        if agent_readable_path:
-            try:
-                tgt = (action.get("target") or {}) if isinstance(action, dict) else {}
-                tid = tgt.get("element_id") if isinstance(tgt, dict) else None
-                txt = action.get("text") if isinstance(action, dict) else None
-                keys = action.get("keys") if isinstance(action, dict) else None
-                summary = [f"{now}", f"step={steps}", f"type={action.get('type')}" if isinstance(action, dict) else "type=?"]
-                if tid:
-                    summary.append(f"target={tid}")
-                elif isinstance(tgt, dict) and ("x" in tgt or "y" in tgt):
-                    summary.append(f"target=({tgt.get('x')},{tgt.get('y')})")
-                if txt:
-                    summary.append(f"text={txt}")
-                if keys:
-                    summary.append(f"keys={keys}")
-                with open(agent_readable_path, "a", encoding="utf-8") as rf:
-                    rf.write(" ".join(summary) + "\n")
-            except Exception:
-                pass
-        # Save raw agent LLM IO to separate file per step (verbose)
-        try:
-            if agent_log_path and 'llm_dir' in locals() and hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
-                raw = getattr(agent, "_last_call").get("raw")  # type: ignore[index]
-                if raw:
-                    with open(os.path.join(llm_dir, f"agent_step_{steps:04d}.json"), "w", encoding="utf-8") as f:
-                        json.dump(raw, f, indent=2, sort_keys=True)
-        except Exception:
-            pass
+        _log_agent_verbose(handles, agent, instr.get("id"), len(hist_slice), steps, now, action)  # type: ignore[arg-type]
+        _log_agent_readable(handles, agent, steps, now, action)  # type: ignore[arg-type]
+        _dump_llm_io(handles.llm_dir, "agent", getattr(agent, "_last_call", None), step=steps)
 
-        # Simulator log entry — verbose JSON
-        if sim_log_path:
-            sim_entry = {
-                "t": now,
-                "step": steps,
-                "action": action,
-                "internal_result": out.get("internal_result"),
-                "event_log": out.get("event_log"),
-                "state_diff": out.get("state_diff"),
-                "state_digest": out.get("state_digest"),
-                "observation": out.get("observation"),
-            }
-            if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
-                sim_entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
-            if log_state_snapshots:
-                try:
-                    # type: ignore[attr-defined]
-                    snapshot = sim.snapshot(episode_id)
-                    sim_entry["state_snapshot"] = snapshot
-                except Exception:
-                    pass
-            with open(sim_log_path, "a", encoding="utf-8") as sf:
-                sf.write(json.dumps(sim_entry) + "\n")
-        # Simulator human-readable summary — concise
-        if sim_readable_path:
-            try:
-                ir = out.get("internal_result") or {}
-                res = ir.get("result") if isinstance(ir, dict) else None
-                reason = ir.get("reason") if isinstance(ir, dict) else None
-                pg = None
-                obs = out.get("observation") or {}
-                if isinstance(obs, dict):
-                    meta = obs.get("meta") or {}
-                    if isinstance(meta, dict):
-                        pg = meta.get("page")
-                diffs = out.get("state_diff")
-                diff_str = ",".join(diffs) if isinstance(diffs, list) else ""
-                # include action summary for readability
-                a = action if isinstance(action, dict) else {}
-                atype = a.get("type")
-                tgt = a.get("target") if isinstance(a.get("target"), dict) else {}
-                tid = tgt.get("element_id") if isinstance(tgt, dict) else None
-                tgt_str = tid or (f"({tgt.get('x')},{tgt.get('y')})" if isinstance(tgt, dict) and ("x" in tgt or "y" in tgt) else "-")
-                with open(sim_readable_path, "a", encoding="utf-8") as rf:
-                    line = f"{now} step={steps} result={res}"
-                    if reason:
-                        line += f" reason={reason}"
-                    line += f" page={pg} diff=[{diff_str}] action={atype}:{tgt_str}"
-                    rf.write(line + "\n")
-            except Exception:
-                pass
-        # Save raw/error simulator LLM IO per step (verbose)
-        try:
-            if sim_log_path and 'llm_dir' in locals() and hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
-                lc = getattr(sim, "_last_call")  # type: ignore[index]
-                raw = lc.get("raw")
-                err = lc.get("error")
-                if raw:
-                    with open(os.path.join(llm_dir, f"simulator_step_{steps:04d}.json"), "w", encoding="utf-8") as f:
-                        json.dump(raw, f, indent=2, sort_keys=True)
-                if err:
-                    with open(os.path.join(llm_dir, f"simulator_step_{steps:04d}.error.json"), "w", encoding="utf-8") as f:
-                        json.dump({"input": lc.get("input"), "error": err}, f, indent=2, sort_keys=True)
-        except Exception:
-            pass
+        _log_sim_verbose(handles, sim, episode_id, steps, now, action, out)
+        _log_sim_readable(handles, steps, now, action, out)
+        _dump_llm_io(handles.llm_dir, "simulator", getattr(sim, "_last_call", None), step=steps)
 
         episode_log["steps"].append({
             "t": now,

@@ -2,6 +2,7 @@ import json
 import os
 import time
 from typing import Any, Dict, List, Optional
+import re
 
 
 class LLMClient:
@@ -41,19 +42,16 @@ class LLMClient:
             self._client = OpenAI(api_key=api_key)
         return self._client
 
-    def complete_json(self, system_prompt: str, user_json: Dict[str, Any], json_schema: Optional[Dict[str, Any]] = None, max_retries: int = 1) -> Dict[str, Any]:
-        """Get a JSON object from the model using chat.completions with json_object formatting.
-
-        If json_schema is provided, we include it as a guideline in the user message; for strict schema enforcement, use external validation.
-        """
+    def complete_json(self, system_prompt: str, user_json: Dict[str, Any], max_retries: int = 1) -> Dict[str, Any]:
+        """Get a JSON object from the model using chat.completions with json_object formatting."""
         client = self._ensure_client()
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_json, separators=(",", ":"))},
         ]
-        response_format = {"type": "json_object"}
+        response_format: Dict[str, Any] = {"type": "json_object"}
         last_err = None
-        tried_without_temp = False
+        temp_supported = True  # assume temperature is supported until server proves otherwise
 
         def _call(with_temp: bool):
             params: Dict[str, Any] = {
@@ -67,19 +65,47 @@ class LLMClient:
                 params["seed"] = self.seed
             return client.chat.completions.create(**params), params
 
-        attempts = max_retries + 1
-        for _ in range(attempts + 1):  # allow one extra attempt without temperature when needed
+        # Exactly (max_retries + 1) attempts total, with a same-iteration fallback if temperature is unsupported
+        for attempt in range(max_retries + 1):
             try:
-                resp, used_params = _call(with_temp=not tried_without_temp)
+                resp, used_params = _call(with_temp=(self.temperature is not None and temp_supported))
             except Exception as e:
-                estr = str(e)
+                estr = str(e).lower()
                 last_err = e
-                # Fallback: some models reject explicit temperature; retry omitting it once
-                if (not tried_without_temp) and ("unsupported" in estr.lower() and "temperature" in estr.lower()):
-                    tried_without_temp = True
-                    continue
-                raise
-            txt = resp.choices[0].message.content or "{}"
+                # Fallback: some models reject explicit temperature; retry once without it in the same attempt
+                if temp_supported and ("unsupported" in estr and "temperature" in estr):
+                    temp_supported = False
+                    try:
+                        resp, used_params = _call(with_temp=False)
+                    except Exception as e2:
+                        last_err = e2
+                        raise
+                else:
+                    raise
+            message_obj = resp.choices[0].message
+            txt_raw = message_obj.content or ""
+            tool_calls = getattr(message_obj, "tool_calls", None)
+            if not txt_raw:
+                # Many providers (including OpenRouter/Qwen) return JSON via tool/function calls
+                if tool_calls and isinstance(tool_calls, (list, tuple)):
+                    for tc in tool_calls:
+                        try:
+                            fn = getattr(tc, "function", None)
+                            args = getattr(fn, "arguments", None) if fn is not None else None
+                            if not args and isinstance(tc, dict):
+                                args = ((tc.get("function") or {}).get("arguments"))
+                            if isinstance(args, str) and args.strip():
+                                txt_raw = args
+                                break
+                        except Exception:
+                            continue
+                if (not txt_raw) and hasattr(message_obj, "function_call"):
+                    fn_call = getattr(message_obj, "function_call", None)
+                    args = getattr(fn_call, "arguments", None) if fn_call is not None else None
+                    if not args and isinstance(fn_call, dict):
+                        args = fn_call.get("arguments")
+                    if isinstance(args, str) and args.strip():
+                        txt_raw = args
             # Record last raw IO for debugging
             self._last_io = {
                 "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -89,14 +115,144 @@ class LLMClient:
                 "seed": self.seed,
                 "system_prompt": system_prompt,
                 "user_json": user_json,
-                "response_text": txt,
+                "response_text": txt_raw,
             }
             try:
-                return json.loads(txt)
+                # Try primary content first
+                if not txt_raw or txt_raw.strip() == "":
+                    raise ValueError("empty content from model")
+                parsed = json.loads(txt_raw)
+                if isinstance(parsed, dict) and not parsed:
+                    raise ValueError("empty JSON object from model")
+                return parsed
             except Exception as e:
                 last_err = e
-                # Ask the model to reformat strictly as JSON
-                messages.append({"role": "system", "content": "Return strictly valid JSON object only."})
+                # Tolerant JSON extraction for models that prepend thoughts/markdown
+                try:
+                    extracted = self._extract_json_object(txt_raw)
+                    if extracted is not None:
+                        out = json.loads(extracted)
+                        if isinstance(out, dict):
+                            # Note extraction for debugging
+                            if isinstance(self._last_io, dict):
+                                self._last_io["extracted_json"] = extracted[:5000]
+                            return out
+                except Exception as _e2:
+                    last_err = _e2
+                # Some providers return function/tool calls with JSON args instead of content
+                try:
+                    choice0 = getattr(resp, "choices", [None])[0]
+                    message = getattr(choice0, "message", None)
+                    tool_calls = getattr(message, "tool_calls", None) if message is not None else None
+                    function_call = getattr(message, "function_call", None) if message is not None else None
+                    # Prefer tool_calls
+                    if tool_calls and isinstance(tool_calls, (list, tuple)):
+                        for tc in tool_calls:
+                            fn = getattr(tc, "function", None)
+                            args = None
+                            if fn is not None:
+                                args = getattr(fn, "arguments", None)
+                            if not args and isinstance(tc, dict):
+                                args = ((tc.get("function") or {}).get("arguments"))
+                            if isinstance(args, str) and args.strip():
+                                out = json.loads(args)
+                                if isinstance(out, dict):
+                                    if isinstance(self._last_io, dict):
+                                        self._last_io["extracted_from_tool_call"] = args[:5000]
+                                    return out
+                    # Legacy function_call
+                    if function_call:
+                        args = getattr(function_call, "arguments", None)
+                        if not args and isinstance(function_call, dict):
+                            args = function_call.get("arguments")
+                        if isinstance(args, str) and args.strip():
+                            out = json.loads(args)
+                            if isinstance(out, dict):
+                                if isinstance(self._last_io, dict):
+                                    self._last_io["extracted_from_function_call"] = args[:5000]
+                                return out
+                except Exception as _e3:
+                    last_err = _e3
+                # Ask the model to reformat strictly as JSON — only if more retries remain
+                if attempt < max_retries:
+                    messages.append({
+                        "role": "system",
+                        "content": "Return strictly valid JSON object only. Output a single JSON object with no extra text, no markdown, no <think> tags.",
+                    })
+                    continue
+                break
         if last_err:
             raise last_err
         return {}
+
+    def _extract_json_object(self, text: str) -> Optional[str]:
+        """Best-effort extraction of a single JSON object from free-form text.
+
+        Heuristics:
+        - Prefer fenced blocks ```json { ... } ``` or ``` { ... } ```
+        - Otherwise, scan for the first balanced {...} object considering quotes/escapes
+        - As a fallback, scan for the last balanced object
+        Returns the substring of the JSON object if found, else None.
+        """
+        # 1) Code fences with json
+        try:
+            m = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
+            if m:
+                return m.group(1)
+            m = re.search(r"```\s*(\{[\s\S]*?\})\s*```", text)
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+
+        def _scan_from(s: str, start: int) -> Optional[str]:
+            depth = 0
+            in_str = False
+            esc = False
+            first = -1
+            for i in range(start, len(s)):
+                ch = s[i]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                    continue
+                else:
+                    if ch == '"':
+                        in_str = True
+                        continue
+                    if ch == '{':
+                        if depth == 0:
+                            first = i
+                        depth += 1
+                        continue
+                    if ch == '}':
+                        if depth > 0:
+                            depth -= 1
+                            if depth == 0 and first != -1:
+                                return s[first:i + 1]
+            return None
+
+        # 2) First balanced brace object
+        try:
+            first_brace = text.find('{')
+            if first_brace != -1:
+                got = _scan_from(text, first_brace)
+                if got:
+                    return got
+        except Exception:
+            pass
+
+        # 3) Last balanced brace object
+        try:
+            last_brace = text.rfind('{')
+            if last_brace != -1:
+                got = _scan_from(text, last_brace)
+                if got:
+                    return got
+        except Exception:
+            pass
+        return None

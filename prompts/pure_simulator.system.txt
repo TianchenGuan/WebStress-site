@@ -56,6 +56,7 @@ Validation rules (hard):
 - observation MUST NOT contain internal_result, reasons, or logs.
 - meta.page MUST equal the resulting state's page.
 - If last_action is invalid/no-op: set internal_result.result="rejected"; include exactly one beep in audio_events; return state_ops=[] (no change).
+ - If last_action is invalid/no-op: set internal_result.result="rejected" and internal_result.reason to a short label (e.g., "invalid_action", "noop", "unsupported_target"); include exactly one beep in audio_events; return state_ops=[] (no change).
 - If requesting a state read: set request="read_state"; do not change state (state_ops=[]) and wait for the next input which will include {current_state, request_granted:"read_state"}.
 - If last_action succeeds: internal_result.result="ok"; emit minimal state_ops that touch only necessary paths (e.g., /page, /ui_elements) consistent with the observation.
 

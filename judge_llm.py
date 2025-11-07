@@ -17,6 +17,13 @@ class LLMJudge:
     def __init__(self, model: Optional[str] = None, temperature: float = 0.0, seed: Optional[int] = None, base_url: Optional[str] = None, api_key: Optional[str] = None):
         self.client = LLMClient(model=model, temperature=temperature, seed=seed, base_url=base_url, api_key=api_key)
         self.system = _read(os.path.join(PROMPTS_DIR, "judge.system.txt"))
+        # Preload judge schema if available (for structured outputs when supported)
+        try:
+            import json as _json
+            with open(os.path.join(os.path.dirname(__file__), "schema", "judge_output.json"), "r", encoding="utf-8") as _f:
+                self._judge_schema = _json.load(_f)
+        except Exception:
+            self._judge_schema = None
 
     def evaluate(self, instruction: Dict[str, Any], start_state_summary: Dict[str, Any], end_state_summary: Dict[str, Any], episode_log: Dict[str, Any]) -> Dict[str, Any]:
         payload = {
@@ -26,11 +33,20 @@ class LLMJudge:
             "episode_log": episode_log,
         }
         self._last_call = {"payload": payload}
-        out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
-        norm = self._normalize_output(out)
-        validate_judge_output(norm)
-        self._last_call.update({"output": norm, "raw": getattr(self.client, "_last_io", None)})
-        return norm
+        try:
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, json_schema=getattr(self, "_judge_schema", None), max_retries=2)
+            norm = self._normalize_output(out)
+            validate_judge_output(norm)
+            self._last_call.update({"output": norm, "raw": getattr(self.client, "_last_io", None)})
+            return norm
+        except Exception as e:
+            fallback = {"score": 0.0, "feedback": "LLM judge unavailable", "subscores": []}
+            self._last_call.update({
+                "output": fallback,
+                "error": {"type": e.__class__.__name__, "message": str(e)},
+                "raw": getattr(self.client, "_last_io", None),
+            })
+            return fallback
 
     def _normalize_output(self, raw: Dict[str, Any]) -> Dict[str, Any]:
         """Coerce common LLM shape mistakes into the strict judge schema.
