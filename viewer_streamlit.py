@@ -1,5 +1,6 @@
 import os
 import json
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
@@ -77,6 +78,32 @@ def _selected_element(obs: Dict[str, Any], element_id: Optional[str]) -> Optiona
             if isinstance(e, dict) and str(e.get('element_id')) == str(element_id):
                 return e
     return None
+
+
+def _llm_payload_path(log_dir: str, eid: str, role: str, step: int) -> Optional[str]:
+    if not log_dir or not eid:
+        return None
+    base = os.path.join(log_dir, str(eid), 'llm')
+    if role == 'agent':
+        fname = f"agent_step_{step:04d}.json"
+    elif role == 'simulator':
+        fname = 'simulator_reset.json' if step < 0 else f"simulator_step_{step:04d}.json"
+    else:
+        return None
+    return os.path.join(base, fname)
+
+
+@lru_cache(maxsize=256)
+def _read_json_file(path: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not path:
+        return None
+    try:
+        if not os.path.exists(path):
+            return None
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def step_rows(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -271,6 +298,34 @@ def render_episode(title: str, ep: Dict[str, Any], jd: Dict[str, Any], log_dir: 
         else:
             st.write('- diff_keys:', s.get('state_diff'))
             st.write('- digest:', s.get('state_digest'))
+        agent_path = _llm_payload_path(log_dir, eid, 'agent', idx)
+        agent_payload = _read_json_file(agent_path)
+        with st.expander('Agent LLM input (real system prompt + payload)', expanded=False):
+            if agent_payload:
+                if agent_path:
+                    st.caption(f'Source: {agent_path}')
+                system_prompt = agent_payload.get('system_prompt')
+                if system_prompt:
+                    st.markdown('**System prompt**')
+                    st.code(system_prompt, language='markdown')
+                st.markdown('**User payload JSON**')
+                st.json(agent_payload.get('user_json'))
+            else:
+                st.info('Agent input payload not found. Enable verbose LLM logging to capture it.')
+        sim_path = _llm_payload_path(log_dir, eid, 'simulator', idx)
+        sim_payload = _read_json_file(sim_path)
+        with st.expander('Simulator LLM input (real system prompt + payload)', expanded=False):
+            if sim_payload:
+                if sim_path:
+                    st.caption(f'Source: {sim_path}')
+                system_prompt = sim_payload.get('system_prompt')
+                if system_prompt:
+                    st.markdown('**System prompt**')
+                    st.code(system_prompt, language='markdown')
+                st.markdown('**User payload JSON**')
+                st.json(sim_payload.get('user_json'))
+            else:
+                st.info('Simulator input payload not found. Enable verbose LLM logging to capture it.')
     with st.expander('Raw episode JSON'):
         st.json(ep)
     if jd:

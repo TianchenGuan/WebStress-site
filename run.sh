@@ -22,7 +22,17 @@ export COMPILER_OPENAI_API_KEY=sk-Ay4jrZcS2qDNxtGT9QLlJQ
 export COMPILER_OPENAI_BASE_URL=https://litellm.oit.duke.edu/v1
 export COMPILER_MODEL=gpt-5
 
-python orchestrator.py --steps 16 --sim-feature-config prompts/simulator_features.example.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_small.jsonl --success-threshold 0.9
+python orchestrator.py --steps 16 --sim-feature-config prompts/feature_easy.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_two_task.jsonl --success-threshold 0.9
+
+
+python orchestrator.py --steps 16 --sim-feature-config prompts/feature_easy2.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_two_task.jsonl --success-threshold 0.9
+
+python orchestrator.py --steps 16 --sim-feature-config prompts/feature_medium.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_two_task.jsonl --success-threshold 0.9
+
+python orchestrator.py --steps 16 --sim-feature-config prompts/feature_hard.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_two_task.jsonl --success-threshold 0.9
+
+python orchestrator.py --steps 16 --sim-feature-config prompts/feature_hard2.json --log-profile both --log-state-snapshots --instr-jsonl instructions/osworld_two_task.jsonl --success-threshold 0.9
+
 
 
 # python tools/profile_runner.py --instr-jsonl instructions/osworld_small.jsonl --instr-id bb5e4c0d-f964-439c-97b6-bdb9747de3f4 --steps 16 --sim-feature-config prompts/simulator_features.example.json
@@ -31,3 +41,7 @@ python orchestrator.py --steps 16 --sim-feature-config prompts/simulator_feature
 # python replay_agent_call.py \
 #       --payload runs/ep-123-bb5e4c0d-f964-439c-97b6-bdb9747de3f4/llm/agent_step_0000.json \
 #       --with-schema
+
+
+# streamlit run viewer_streamlit.py --server.address 0.0.0.0 --server.port 8501 --server.headless true
+# ssh -L 8501:localhost:8501 xy200@cs-login

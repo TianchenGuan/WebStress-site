@@ -1,7 +1,8 @@
 import json
 import os
 import html
-from typing import Any, Dict, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def _safe_get(d: Dict[str, Any], path: List[str], default=None):
@@ -45,6 +46,37 @@ def _describe_feature_config(cfg: Optional[Dict[str, Any]]) -> str:
         if fb_flags:
             parts.append("failure=" + ",".join(fb_flags))
     return "; ".join(parts) if parts else "custom"
+
+
+@lru_cache(maxsize=512)
+def _read_json_file(path: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not path:
+        return None
+    try:
+        if not os.path.exists(path):
+            return None
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _load_llm_payload(log_dir: str, episode_id: str, role: str, step: int) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not log_dir or not episode_id:
+        return None, None
+    llm_dir = os.path.join(log_dir, str(episode_id), "llm")
+    if role == "agent":
+        fname = f"agent_step_{step:04d}.json"
+    elif role == "simulator":
+        fname = f"simulator_step_{step:04d}.json"
+    else:
+        return None, None
+    path = os.path.join(llm_dir, fname)
+    payload = _read_json_file(path)
+    if not payload:
+        return None, None
+    rel = f"../{episode_id}/llm/{fname}"
+    return payload, rel
 
 
 def _render_table_rows(steps: List[Dict[str, Any]]) -> str:
@@ -212,6 +244,48 @@ def _state_block(step: Dict[str, Any], sim_entry: Optional[Dict[str, Any]]) -> s
     return "<div class=card><div class=empty>no state info</div></div>"
 
 
+def _llm_context_block(title: str, payload: Optional[Dict[str, Any]], rel_path: Optional[str]) -> str:
+    if not payload:
+        return (
+            f"<details class=ctx>"
+            f"<summary>{_escape(title)}</summary>"
+            f"<div class=card><div class=empty>payload not found (enable verbose LLM logging)</div></div>"
+            f"</details>"
+        )
+    meta_bits: List[str] = []
+    model = payload.get("model")
+    if model:
+        meta_bits.append(f"model {_escape(model)}")
+    ts = payload.get("ts")
+    if ts:
+        meta_bits.append(f"ts {_escape(ts)}")
+    if rel_path:
+        meta_bits.append(f"<a href=\"{_escape(rel_path)}\">source JSON</a>")
+    meta_html = f"<div class=meta>{' | '.join(meta_bits)}</div>" if meta_bits else ""
+    sys_prompt = payload.get("system_prompt")
+    sys_html = (
+        f"<div><strong>System prompt</strong><pre>{_escape(sys_prompt)}</pre></div>"
+        if sys_prompt
+        else "<div class=muted>no system prompt recorded</div>"
+    )
+    user_json = payload.get("user_json")
+    user_html = (
+        f"<div><strong>User payload JSON</strong><pre>{_pretty(user_json)}</pre></div>"
+        if user_json is not None
+        else "<div class=muted>no user payload recorded</div>"
+    )
+    return (
+        f"<details class=ctx>"
+        f"<summary>{_escape(title)}</summary>"
+        f"<div class=card>"
+        f"{meta_html}"
+        f"{sys_html}"
+        f"{user_html}"
+        f"</div>"
+        f"</details>"
+    )
+
+
 def _instruction_block(instr: Optional[Dict[str, Any]], fallback_id: Optional[str] = None) -> str:
     if not isinstance(instr, dict):
         if fallback_id:
@@ -371,6 +445,14 @@ def _render_html(episode: Dict[str, Any], judgement: Dict[str, Any], log_dir: st
         action_html = _action_block(action)
         obs_html = _obs_block(obs, highlight_element_id=highlight_eid)
         state_html = _state_block(st, sim_entry)
+        agent_payload, agent_rel = _load_llm_payload(log_dir, str(eid), "agent", idx)
+        sim_payload, sim_rel = _load_llm_payload(log_dir, str(eid), "simulator", idx)
+        ctx_row = (
+            f"<div class=row>"
+            f"  <div class=col>{_llm_context_block('Agent LLM input', agent_payload, agent_rel)}</div>"
+            f"  <div class=col>{_llm_context_block('Simulator LLM input', sim_payload, sim_rel)}</div>"
+            f"</div>"
+        )
         detail_cards.append(
             (
                 f"<section class=step id='step-{idx}'>"
@@ -382,6 +464,7 @@ def _render_html(episode: Dict[str, Any], judgement: Dict[str, Any], log_dir: st
                 f"<div class=row>"
                 f"  <div class=col>{state_html}</div>"
                 f"</div>"
+                f"{ctx_row}"
                 f"</section>"
             )
         )
