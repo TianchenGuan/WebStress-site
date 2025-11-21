@@ -449,6 +449,38 @@ if __name__ == "__main__":
     parser.add_argument("--no-export-html", action="store_true", help="Disable HTML summary export")
     args = parser.parse_args()
 
+    def _sanitize_component(raw: Optional[str]) -> str:
+        if not raw:
+            return "none"
+        allowed = []
+        for ch in raw:
+            allowed.append(ch if (ch.isalnum() or ch in ("-", "_", ".")) else "-")
+        cleaned = "".join(allowed).strip("-_.")
+        return cleaned or "none"
+
+    def _instruction_label(ns: argparse.Namespace) -> str:
+        if ns.instr_jsonl:
+            return _sanitize_component(os.path.basename(ns.instr_jsonl))
+        if ns.instr_file:
+            return _sanitize_component(os.path.basename(ns.instr_file))
+        if ns.instr_json:
+            return "instr-json"
+        if ns.instr_text:
+            return "instr-text"
+        return "proposer"
+
+    def _feature_label(path: Optional[str]) -> str:
+        if not path:
+            return "default"
+        return _sanitize_component(os.path.basename(path))
+
+    timestamp_label = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+    instr_label = _instruction_label(args)
+    feature_label = _feature_label(args.sim_feature_config)
+    base_log_dir = args.log_dir or "runs"
+    run_dir_name = f"{timestamp_label}_{instr_label}_{feature_label}"
+    args.log_dir = os.path.join(base_log_dir, run_dir_name)
+
     sim_feature_config_raw: Optional[Dict[str, Any]] = None
     sim_feature_config: Optional[SimulatorPromptFeatures] = None
     if args.sim_feature_config:
