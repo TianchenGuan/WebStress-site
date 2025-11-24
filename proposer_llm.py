@@ -21,7 +21,13 @@ class LLMProposer:
     def propose_next(self, agent_id: str, recent_episodes: List[Dict[str, Any]], global_task_pool: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         payload = {"agent_id": agent_id, "recent_episodes": recent_episodes, "global_task_pool": global_task_pool or []}
         self._last_call = {"payload": payload}
-        out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+        context = {
+            "role": "proposer",
+            "phase": "propose",
+            "iteration": len(recent_episodes),
+            "agent_id": agent_id,
+        }
+        out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2, context=context)
         # Normalize success_criteria to schema: only {predicate, weight?, notes?}
         try:
             sc = out.get("success_criteria") if isinstance(out, dict) else None
@@ -77,7 +83,12 @@ class InstructionCompiler:
     def compile(self, instruction_text: str) -> Dict[str, Any]:
         payload = {"task": instruction_text, "environment": "desktop"}
         self._last_call = {"payload": payload}
-        out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+        context = {
+            "role": "compiler",
+            "phase": "compile_instruction",
+            "iteration": 0,
+        }
+        out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2, context=context)
         validate_instruction(out)
         self._last_call.update({"output": out, "raw": getattr(self.client, "_last_io", None)})
         return out

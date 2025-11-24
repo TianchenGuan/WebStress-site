@@ -162,26 +162,47 @@ def _obs_block(obs: Dict[str, Any], highlight_element_id: Optional[str] = None) 
     auds = obs.get("audio_events") or []
     count_ui = len(uis) if isinstance(uis, list) else 0
     count_aud = len(auds) if isinstance(auds, list) else 0
-    # Build a small table of up to 15 elements
-    rows = []
+    # Build UI table for all elements (folded when long)
+    rows_all: List[str] = []
     if isinstance(uis, list):
-        for e in uis[:15]:
+        for e in uis:
             if not isinstance(e, dict):
                 continue
             eid = str(e.get('element_id')) if 'element_id' in e else ''
             cls = ' class=hit' if highlight_element_id and str(highlight_element_id) == eid else ''
-            rows.append(
+            rows_all.append(
                 f"<tr{cls}>"
                 f"<td>{_escape(eid)}</td>"
                 f"<td>{_escape(e.get('role'))}</td>"
-                f"<td>{_escape(_truncate(e.get('text'), 60))}</td>"
+                f"<td>{_escape(_truncate(e.get('text'), 80))}</td>"
                 f"</tr>"
             )
-    ui_table = (
-        "<table class=mini>\n<thead><tr><th>element_id</th><th>role</th><th>text</th></tr></thead>\n<tbody>" + "\n".join(rows) + "</tbody></table>"
-        if rows
-        else "<div class=muted>no ui elements</div>"
-    )
+    if rows_all:
+        preview_rows = rows_all[:15]
+        preview_table = (
+            "<table class=mini>\n<thead><tr><th>element_id</th><th>role</th><th>text</th></tr></thead>\n<tbody>"
+            + "\n".join(preview_rows)
+            + "</tbody></table>"
+        )
+        if len(rows_all) > 15:
+            details_attr = "" if count_ui and count_ui > 40 else " open"
+            full_table = (
+                "<table class=mini>\n<thead><tr><th>element_id</th><th>role</th><th>text</th></tr></thead>\n<tbody>"
+                + "\n".join(rows_all)
+                + "</tbody></table>"
+            )
+            ui_table = (
+                preview_table
+                + f"<div class=muted>showing first 15 of {count_ui} elements</div>"
+                + f"<details class=ui-elements{details_attr}>"
+                + f"<summary>Expand to see all {count_ui} elements</summary>"
+                + f"<div class=scroll>{full_table}</div>"
+                + "</details>"
+            )
+        else:
+            ui_table = preview_table
+    else:
+        ui_table = "<div class=muted>no ui elements</div>"
     # Selected element details (if we can locate it)
     sel_html = ""
     if highlight_element_id and isinstance(uis, list):
@@ -504,6 +525,7 @@ def _render_html(episode: Dict[str, Any], judgement: Dict[str, Any], log_dir: st
       table.mini tr.hit{background:#fffbeb}
       details{margin:10px 0}
       details > summary{cursor:pointer;font-weight:600}
+      .scroll{max-height:320px;overflow:auto;margin-top:6px}
     </style>
     """
     script = """

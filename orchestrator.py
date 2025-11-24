@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Optional
 
 from simulator_prompt_features import SimulatorPromptFeatures
+from llm_client import configure_api_logger
 
 USE_LLM_AGENT = True
 USE_LLM_JUDGE = True
@@ -319,9 +320,12 @@ def run_episode(
         hist_slice = history[-agent_history:] if agent_history and agent_history > 0 else []
         agent_instr = _agent_instruction_view(instr)
         try:
-            action = agent.act(obs, agent_instr, hist_slice)  # type: ignore[arg-type]
+            action = agent.act(obs, agent_instr, hist_slice, step=steps)  # type: ignore[arg-type]
         except TypeError:
-            action = agent.act(obs, agent_instr)  # type: ignore[call-arg]
+            try:
+                action = agent.act(obs, agent_instr, hist_slice)  # type: ignore[arg-type]
+            except TypeError:
+                action = agent.act(obs, agent_instr)  # type: ignore[call-arg]
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         _log_agent_verbose(handles, agent, instr.get("id"), len(hist_slice), steps, now, action)  # type: ignore[arg-type]
         _log_agent_readable(handles, agent, steps, now, action)  # type: ignore[arg-type]
@@ -351,7 +355,7 @@ def run_episode(
             steps += 1
             break
 
-        out = sim.step(episode_id, action, now, 0)
+        out = sim.step(episode_id, action, now, 0, step_index=steps)
 
         _log_sim_verbose(handles, sim, episode_id, steps, now, action, out)
         _log_sim_readable(handles, steps, now, action, out)
@@ -552,6 +556,8 @@ if __name__ == "__main__":
     os.makedirs(args.log_dir, exist_ok=True)
     runtime_log_path = os.path.join(args.log_dir, "runtime.log.jsonl")
     runtime_readable_path = os.path.join(args.log_dir, "runtime.readable.log")
+    api_log_path = os.path.join(args.log_dir, "api_calls.log.jsonl")
+    configure_api_logger(api_log_path)
 
     # Removed preset rule-based tasks; default to LLMProposer below.
 

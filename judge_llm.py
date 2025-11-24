@@ -26,8 +26,15 @@ class LLMJudge:
             "episode_log": episode_log,
         }
         self._last_call = {"payload": payload}
+        context = {
+            "role": "judge",
+            "phase": "final_evaluation",
+            "iteration": "final",
+            "instruction_id": instruction.get("id") if isinstance(instruction, dict) else None,
+            "episode_id": episode_log.get("episode_id") if isinstance(episode_log, dict) else None,
+        }
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2, context=context)
             norm = self._normalize_output(out)
             validate_judge_output(norm)
             self._last_call.update({"output": norm, "raw": getattr(self.client, "_last_io", None)})
