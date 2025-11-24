@@ -34,7 +34,7 @@ class LLMAgent:
         except Exception:
             self._action_space_doc = None
 
-    def act(self, observation: Dict[str, Any], instruction: Dict[str, Any], history: Optional[list] = None) -> Dict[str, Any]:
+    def act(self, observation: Dict[str, Any], instruction: Dict[str, Any], history: Optional[list] = None, step: Optional[int] = None) -> Dict[str, Any]:
         history = history or []
         payload = {
             "instruction": instruction,
@@ -43,8 +43,15 @@ class LLMAgent:
             "action_space": self._action_space_doc,
         }
         self._last_call = {"payload": payload}
+        context = {
+            "role": "agent",
+            "phase": "act",
+            "iteration": step,
+            "instruction_id": instruction.get("id") if isinstance(instruction, dict) else None,
+            "history_len": len(history),
+        }
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2, context=context)
             normalized = False
             action = out if isinstance(out, dict) else {}
             try:

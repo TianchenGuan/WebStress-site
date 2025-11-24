@@ -222,7 +222,17 @@ class PureLLMSimulator:
         }
         self._last_call = {"phase": "reset", "input": payload}
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            out = self.client.complete_json(
+                system_prompt=self.system,
+                user_json=payload,
+                max_retries=2,
+                context={
+                    "role": "simulator",
+                    "phase": "reset",
+                    "iteration": -1,
+                    "episode_id": episode_id,
+                },
+            )
             if isinstance(out.get("state_ops"), list):
                 patched = self._apply_state_ops(init_state, out.get("state_ops"))
                 next_state = self._coerce_state(patched, init_state, seed)
@@ -358,7 +368,7 @@ class PureLLMSimulator:
                 raise ValueError(f"unsupported op '{o}'")
         return doc
 
-    def step(self, episode_id: str, action: Dict[str, Any], timestamp_iso: str, time_delta_ms: int) -> Dict[str, Any]:
+    def step(self, episode_id: str, action: Dict[str, Any], timestamp_iso: str, time_delta_ms: int, step_index: Optional[int] = None) -> Dict[str, Any]:
         if episode_id not in self._episodes:
             raise KeyError("Unknown episode_id")
         validate_action(action)
@@ -382,14 +392,22 @@ class PureLLMSimulator:
         internal_result = {"result": "ok", "reason": ""}
         event_log: list[Dict[str, Any]] = []
         terminal = False
+        context = {
+            "role": "simulator",
+            "phase": "step",
+            "iteration": step_index,
+            "episode_id": episode_id,
+        }
         try:
-            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2)
+            out = self.client.complete_json(system_prompt=self.system, user_json=payload, max_retries=2, context=context)
             if (not self._include_full_state) and out.get("request") == "read_state":
                 payload2 = dict(payload)
                 payload2["current_state"] = prev_state
                 payload2["request_granted"] = "read_state"
                 self._last_call = {"phase": "step", "input": payload2}
-                out = self.client.complete_json(system_prompt=self.system, user_json=payload2, max_retries=1)
+                read_context = dict(context)
+                read_context["phase"] = "step_read_state"
+                out = self.client.complete_json(system_prompt=self.system, user_json=payload2, max_retries=1, context=read_context)
             if out.get("request") == "read_state":
                 next_state = prev_state
                 internal_result = {"result": "ok", "reason": "read_state"}
