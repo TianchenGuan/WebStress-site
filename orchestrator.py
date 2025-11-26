@@ -46,6 +46,35 @@ class LogHandles:
     log_state_snapshots: bool = False
 
 
+def _now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _write_jsonl(path: Optional[str], payload: Dict[str, Any]) -> None:
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload) + "\n")
+
+
+def _write_line(path: Optional[str], text: str) -> None:
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(text + "\n")
+    except Exception:
+        pass
+
+
+def _role_conf(role: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    r = role.upper()
+    model = os.getenv(f"{r}_MODEL") or os.getenv("LLM_MODEL")
+    base = os.getenv(f"{r}_OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    key = os.getenv(f"{r}_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    return model, base, key
+
+
 def _agent_instruction_view(instr: Any) -> Dict[str, Any]:
     if not isinstance(instr, dict):
         return {}
@@ -73,20 +102,15 @@ def _dump_llm_io(llm_dir: Optional[str], role: str, call: Any, step: Optional[in
 
 
 def _log_sim_reset(handles: LogHandles, sim: Any, obs: Dict[str, Any], start_digest: str) -> None:
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    timestamp = _now()
     if handles.sim_log:
         entry = {"t": timestamp, "phase": "reset", "observation": obs, "start_digest": start_digest}
         if hasattr(sim, "_last_call") and isinstance(getattr(sim, "_last_call"), dict):
             entry["llm"] = getattr(sim, "_last_call")  # type: ignore[assignment]
-        with open(handles.sim_log, "a", encoding="utf-8") as sf:
-            sf.write(json.dumps(entry) + "\n")
+        _write_jsonl(handles.sim_log, entry)
     if handles.sim_readable:
-        try:
-            pg = (obs.get("meta") or {}).get("page") if isinstance(obs, dict) else None
-            with open(handles.sim_readable, "a", encoding="utf-8") as rf:
-                rf.write(f"{timestamp} reset page={pg} start_digest={start_digest[:10]}...\n")
-        except Exception:
-            pass
+        pg = (obs.get("meta") or {}).get("page") if isinstance(obs, dict) else None
+        _write_line(handles.sim_readable, f"{timestamp} reset page={pg} start_digest={start_digest[:10]}...")
     call = getattr(sim, "_last_call", None)
     _dump_llm_io(handles.llm_dir, "simulator", call, phase="reset")
 
@@ -97,8 +121,7 @@ def _log_agent_verbose(handles: LogHandles, agent: Any, instr_id: Any, hist_len:
     entry = {"t": now, "step": step, "instruction_id": instr_id, "history_len": hist_len, "action": action}
     if hasattr(agent, "_last_call") and isinstance(getattr(agent, "_last_call"), dict):
         entry["llm"] = getattr(agent, "_last_call")  # type: ignore[assignment]
-    with open(handles.agent_log, "a", encoding="utf-8") as af:
-        af.write(json.dumps(entry) + "\n")
+    _write_jsonl(handles.agent_log, entry)
 
 
 def _log_agent_readable(handles: LogHandles, agent: Any, step: int, now: str, action: Dict[str, Any]) -> None:
@@ -134,8 +157,7 @@ def _log_agent_readable(handles: LogHandles, agent: Any, step: int, now: str, ac
                         summary.append(f"raw={trimmed}")
         except Exception:
             pass
-        with open(handles.agent_readable, "a", encoding="utf-8") as rf:
-            rf.write(" ".join(summary) + "\n")
+        _write_line(handles.agent_readable, " ".join(summary))
     except Exception:
         pass
 
@@ -161,8 +183,7 @@ def _log_sim_verbose(handles: LogHandles, sim: Any, episode_id: str, step: int, 
             entry["state_snapshot"] = snapshot
         except Exception:
             pass
-    with open(handles.sim_log, "a", encoding="utf-8") as sf:
-        sf.write(json.dumps(entry) + "\n")
+    _write_jsonl(handles.sim_log, entry)
 
 
 def _log_sim_readable(handles: LogHandles, step: int, now: str, action: Dict[str, Any], out: Dict[str, Any]) -> None:
@@ -188,8 +209,7 @@ def _log_sim_readable(handles: LogHandles, step: int, now: str, action: Dict[str
         if reason:
             line += f" reason={reason}"
         line += f" page={pg} diff=[{diff_str}] action={atype}:{tgt_str}"
-        with open(handles.sim_readable, "a", encoding="utf-8") as rf:
-            rf.write(line + "\n")
+        _write_line(handles.sim_readable, line)
     except Exception:
         pass
 
@@ -206,6 +226,8 @@ def _resolve_fidelity(cli_value: str, raw_cfg: Optional[Dict[str, Any]], obj_cfg
         if lowered in {"low", "medium", "high"}:
             return lowered
     return cli_value
+
+
 def run_episode(
     instr: Dict[str, Any],
     seed: int,
@@ -220,14 +242,6 @@ def run_episode(
     log_profile: str = "both",
     sim_feature_config: Optional[Any] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    # Helper to resolve role-specific configuration
-    def _role_conf(role: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        r = role.upper()
-        model = os.getenv(f"{r}_MODEL") or os.getenv("LLM_MODEL")
-        base = os.getenv(f"{r}_OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-        key = os.getenv(f"{r}_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-        return model, base, key
-
     feature_payload: Optional[Any] = None
     feature_obj: Optional[SimulatorPromptFeatures] = None
     if isinstance(sim_feature_config, SimulatorPromptFeatures):
@@ -326,7 +340,7 @@ def run_episode(
                 action = agent.act(obs, agent_instr, hist_slice)  # type: ignore[arg-type]
             except TypeError:
                 action = agent.act(obs, agent_instr)  # type: ignore[call-arg]
-        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        now = _now()
         _log_agent_verbose(handles, agent, instr.get("id"), len(hist_slice), steps, now, action)  # type: ignore[arg-type]
         _log_agent_readable(handles, agent, steps, now, action)  # type: ignore[arg-type]
         _dump_llm_io(handles.llm_dir, "agent", getattr(agent, "_last_call", None), step=steps)
@@ -397,21 +411,18 @@ def run_episode(
     if episode_dir and hasattr(judge, "_last_call") and isinstance(getattr(judge, "_last_call"), dict):
         want_verbose = log_profile in ("verbose", "both")
         want_concise = log_profile in ("concise", "both")
+        timestamp = _now()
         if want_verbose:
             judge_log_path = os.path.join(episode_dir, "judge.log.jsonl")
-            with open(judge_log_path, "a", encoding="utf-8") as jf:
-                jf.write(json.dumps({
-                    "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "phase": "final",
-                    "llm": getattr(judge, "_last_call"),  # type: ignore[arg-type]
-                    "judgement": judgement,
-                }) + "\n")
+            _write_jsonl(judge_log_path, {
+                "t": timestamp,
+                "phase": "final",
+                "llm": getattr(judge, "_last_call"),  # type: ignore[arg-type]
+                "judgement": judgement,
+            })
         if want_concise:
-            try:
-                with open(os.path.join(episode_dir, "judge.readable.log"), "a", encoding="utf-8") as rf:
-                    rf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} final score={judgement.get('score')} feedback={judgement.get('feedback')}\n")
-            except Exception:
-                pass
+            readable_path = os.path.join(episode_dir, "judge.readable.log")
+            _write_line(readable_path, f"{timestamp} final score={judgement.get('score')} feedback={judgement.get('feedback')}")
     return episode_log, judgement
 
 
@@ -581,21 +592,17 @@ if __name__ == "__main__":
             raise RuntimeError(f"Failed to read --instr-jsonl {args.instr_jsonl}: {e}")
 
         # Batch start log
-        with open(runtime_log_path, "a", encoding="utf-8") as rf:
-            rf.write(json.dumps({
-                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "event": "batch_start",
-                "count": len(instrs),
-                "seed": args.seed,
-                "fidelity": effective_fidelity,
-                "sim_feature_descriptor": feature_desc,
-            }) + "\n")
+        batch_ts = _now()
+        _write_jsonl(runtime_log_path, {
+            "t": batch_ts,
+            "event": "batch_start",
+            "count": len(instrs),
+            "seed": args.seed,
+            "fidelity": effective_fidelity,
+            "sim_feature_descriptor": feature_desc,
+        })
         if args.log_profile in ("concise", "both"):
-            try:
-                with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                    rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} batch start count={len(instrs)} sim_features={feature_desc}\n")
-            except Exception:
-                pass
+            _write_line(runtime_readable_path, f"{batch_ts} batch start count={len(instrs)} sim_features={feature_desc}")
 
         total = 0
         successes = 0
@@ -642,7 +649,7 @@ if __name__ == "__main__":
         print(f"Batch complete: total={total} success={successes} accuracy={acc:.3f} mean_score={mean_score:.3f}")
         # Persist batch summary
         summary = {
-            "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "t": _now(),
             "total": total,
             "successes": successes,
             "accuracy": acc,
@@ -655,20 +662,14 @@ if __name__ == "__main__":
                 json.dump(summary, f, indent=2, sort_keys=True)
         except Exception:
             pass
-        with open(runtime_log_path, "a", encoding="utf-8") as rf:
-            rf.write(json.dumps({
-                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "event": "batch_end",
-                "summary": {k: v for k, v in summary.items() if k != "items"},
-            }) + "\n")
+        end_ts = _now()
+        _write_jsonl(runtime_log_path, {
+            "t": end_ts,
+            "event": "batch_end",
+            "summary": {k: v for k, v in summary.items() if k != "items"},
+        })
         if args.log_profile in ("concise", "both"):
-            try:
-                with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                    rrf.write(
-                        f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} batch end total={total} success={successes} acc={acc:.3f} mean={mean_score:.3f}\n"
-                    )
-            except Exception:
-                pass
+            _write_line(runtime_readable_path, f"{end_ts} batch end total={total} success={successes} acc={acc:.3f} mean={mean_score:.3f}")
         raise SystemExit(0)
 
     # Resolve single instruction from CLI/env (non-batch)
@@ -681,60 +682,40 @@ if __name__ == "__main__":
     elif args.instr_text:
         # Compile freeform instruction using LLM (no heuristic fallback)
         from proposer_llm import InstructionCompiler
-        def _role_conf(role: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-            r = role.upper()
-            model = os.getenv(f"{r}_MODEL") or os.getenv("LLM_MODEL")
-            base = os.getenv(f"{r}_OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-            key = os.getenv(f"{r}_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-            return model, base, key
         comp_model, comp_base, comp_key = _role_conf("COMPILER")
         compiler = InstructionCompiler(model=comp_model, temperature=0.0, seed=args.seed, base_url=comp_base, api_key=comp_key)
         instruction = compiler.compile(args.instr_text)
         # Log compiler I/O
         try:
             if hasattr(compiler, "_last_call") and isinstance(getattr(compiler, "_last_call"), dict):
-                with open(runtime_log_path, "a", encoding="utf-8") as rf:
-                    rf.write(json.dumps({
-                        "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "event": "compile_instruction",
-                        "llm": getattr(compiler, "_last_call"),  # type: ignore[arg-type]
-                    }) + "\n")
+                ts = _now()
+                _write_jsonl(runtime_log_path, {
+                    "t": ts,
+                    "event": "compile_instruction",
+                    "llm": getattr(compiler, "_last_call"),  # type: ignore[arg-type]
+                })
                 if args.log_profile in ("concise", "both"):
-                    try:
-                        with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                            rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} compiled instruction via LLM id={instruction.get('id')}\n")
-                    except Exception:
-                        pass
+                    _write_line(runtime_readable_path, f"{ts} compiled instruction via LLM id={instruction.get('id')}")
         except Exception:
             pass
     else:
         # Default: Use LLMProposer to propose the next instruction
         if 'LLMProposer' not in globals() or LLMProposer is None:
             raise RuntimeError("LLMProposer not available. Ensure proposer_llm.py is present.")
-        def _role_conf(role: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-            r = role.upper()
-            model = os.getenv(f"{r}_MODEL") or os.getenv("LLM_MODEL")
-            base = os.getenv(f"{r}_OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-            key = os.getenv(f"{r}_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-            return model, base, key
         prop_model, prop_base, prop_key = _role_conf("PROPOSER")
         proposer = LLMProposer(model=prop_model, temperature=0.2, seed=args.seed, base_url=prop_base, api_key=prop_key)
         instruction = proposer.propose_next(agent_id="agent", recent_episodes=[])
         # Log proposer I/O
         try:
             if hasattr(proposer, "_last_call") and isinstance(getattr(proposer, "_last_call"), dict):
-                with open(runtime_log_path, "a", encoding="utf-8") as rf:
-                    rf.write(json.dumps({
-                        "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "event": "propose_instruction",
-                        "llm": getattr(proposer, "_last_call"),  # type: ignore[arg-type]
-                    }) + "\n")
+                ts = _now()
+                _write_jsonl(runtime_log_path, {
+                    "t": ts,
+                    "event": "propose_instruction",
+                    "llm": getattr(proposer, "_last_call"),  # type: ignore[arg-type]
+                })
                 if args.log_profile in ("concise", "both"):
-                    try:
-                        with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                            rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} proposed instruction via LLM id={instruction.get('id')}\n")
-                    except Exception:
-                        pass
+                    _write_line(runtime_readable_path, f"{ts} proposed instruction via LLM id={instruction.get('id')}")
         except Exception:
             pass
     print(
@@ -747,30 +728,27 @@ if __name__ == "__main__":
     # Runtime log boot message
     # Ensure runtime log dir exists (already created above)
     # Start runtime logs
-    with open(runtime_log_path, "a", encoding="utf-8") as rf:
-        rf.write(json.dumps({
-            "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "event": "start",
-            "seed": args.seed,
-            "fidelity": effective_fidelity,
-            "components": {
-                "simulator": "llm",
-                "agent": "llm" if USE_LLM_AGENT else "dummy",
-                "judge": "llm" if USE_LLM_JUDGE else "det",
-                "proposer": "llm" if USE_LLM_PROPOSER else "simple",
-            },
-            "sim_feature_descriptor": feature_desc,
-            "instruction": instruction,
-            "log_profile": args.log_profile,
-        }) + "\n")
+    start_ts = _now()
+    _write_jsonl(runtime_log_path, {
+        "t": start_ts,
+        "event": "start",
+        "seed": args.seed,
+        "fidelity": effective_fidelity,
+        "components": {
+            "simulator": "llm",
+            "agent": "llm" if USE_LLM_AGENT else "dummy",
+            "judge": "llm" if USE_LLM_JUDGE else "det",
+            "proposer": "llm" if USE_LLM_PROPOSER else "simple",
+        },
+        "sim_feature_descriptor": feature_desc,
+        "instruction": instruction,
+        "log_profile": args.log_profile,
+    })
     if args.log_profile in ("concise", "both"):
-        try:
-            with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                rrf.write(
-                    f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} start seed={args.seed} fidelity={effective_fidelity} sim_features={feature_desc} comp=sim:llm,agent:{'LLM' if USE_LLM_AGENT else 'dummy'},judge:{'LLM' if USE_LLM_JUDGE else 'det'} instr={instruction.get('id')}\n"
-                )
-        except Exception:
-            pass
+        _write_line(
+            runtime_readable_path,
+            f"{start_ts} start seed={args.seed} fidelity={effective_fidelity} sim_features={feature_desc} comp=sim:llm,agent:{'LLM' if USE_LLM_AGENT else 'dummy'},judge:{'LLM' if USE_LLM_JUDGE else 'det'} instr={instruction.get('id')}",
+        )
 
     # Propose→run loop if requested; otherwise run single episode
     if args.propose_count and args.propose_count > 0:
@@ -787,12 +765,6 @@ if __name__ == "__main__":
         # Proposer instance
         if 'LLMProposer' not in globals() or LLMProposer is None:
             raise RuntimeError("LLMProposer not available. Ensure proposer_llm.py is present.")
-        def _role_conf(role: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-            r = role.upper()
-            model = os.getenv(f"{r}_MODEL") or os.getenv("LLM_MODEL")
-            base = os.getenv(f"{r}_OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-            key = os.getenv(f"{r}_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-            return model, base, key
         prop_model, prop_base, prop_key = _role_conf("PROPOSER")
         proposer = LLMProposer(model=prop_model, temperature=0.2, seed=args.seed, base_url=prop_base, api_key=prop_key)
         # Keep a small recent window
@@ -815,7 +787,7 @@ if __name__ == "__main__":
             # Append summary for proposer
             try:
                 recent_episodes.append({
-                    "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "t": _now(),
                     "instruction_id": instruction.get("id") if isinstance(instruction, dict) else None,
                     "score": judge_out.get("score"),
                     "feedback": judge_out.get("feedback"),
@@ -831,18 +803,14 @@ if __name__ == "__main__":
                 # Log proposer I/O
                 try:
                     if hasattr(proposer, "_last_call") and isinstance(getattr(proposer, "_last_call"), dict):
-                        with open(runtime_log_path, "a", encoding="utf-8") as rf:
-                            rf.write(json.dumps({
-                                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                "event": "propose_instruction",
-                                "llm": getattr(proposer, "_last_call"),
-                            }) + "\n")
+                        ts = _now()
+                        _write_jsonl(runtime_log_path, {
+                            "t": ts,
+                            "event": "propose_instruction",
+                            "llm": getattr(proposer, "_last_call"),
+                        })
                         if args.log_profile in ("concise", "both"):
-                            try:
-                                with open(runtime_readable_path, "a", encoding="utf-8") as rrf:
-                                    rrf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} proposed instruction via LLM id={next_instr.get('id')}\n")
-                            except Exception:
-                                pass
+                            _write_line(runtime_readable_path, f"{ts} proposed instruction via LLM id={next_instr.get('id')}")
                 except Exception:
                     pass
                 instruction = next_instr

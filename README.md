@@ -1,189 +1,60 @@
-# LLMOS — LLM‑only desktop simulator for training and evaluating computer‑use agents
+# LLMOS — LLM‑only desktop simulator
 
-LLMOS is an LLM‑backed environment where the Simulator is “the computer,” the Agent acts on observations only, the Judge scores results deterministically, and the Proposer generates diverse tasks. The system is fully LLM‑based by default (Agent/Judge/Proposer/Simulator) with strict, schema‑first contracts and deterministic controls (seeds, temperature policies) to improve repeatability.
+LLMOS is a self‑contained playground for training and evaluating computer‑use agents where every major role (Simulator, Agent, Judge, Proposer) is implemented via an LLM. Runs are deterministic when seeds and temperature settings are fixed, and every boundary is validated through JSON schemas so that you can iterate on prompts without breaking the contracts.
 
-Key properties
-- Contract‑first: every boundary uses strict JSON contracts and schema validation in `schema/`.
-- LLM‑only: all major roles are implemented as LLM wrappers; no rule‑based fallbacks.
-- Deterministic‑by‑design: runs attempt repeatability via seeds and fixed temperature settings (with safe fallbacks when models restrict temperature).
-- Compact state: the simulator exchanges small, structured inputs by default and applies JSON Patch (`state_ops`) to evolve state.
+## Run it quickly
 
-Logic diagram
+1. **Install core deps**
+   ```bash
+   pip install openai jsonschema
+   # optional
+   pip install streamlit google-generativeai
+   ```
+2. **Configure credentials** via environment variables (at minimum `OPENAI_API_KEY` and `LLM_MODEL`). Override per role with `SIMULATOR_*`, `AGENT_*`, `JUDGE_*`, `PROPOSER_*`, or `COMPILER_*` if needed.
+3. **Launch an episode** with the orchestrator:
+   - Auto‑proposed task: `python orchestrator.py --steps 2`
+   - Provide instruction text: `python orchestrator.py --instruction "Open Settings and toggle Wi-Fi" --steps 6`
+   - Batch accuracy: `python orchestrator.py --instr-jsonl instructions/osworld_small.jsonl --steps 4 --success-threshold 0.9`
+   - Adaptive propose→run loop: `python orchestrator.py --propose-count 3 --steps 3`
 
-```
-                +-------------------+
-                |   Proposer (LLM)  |
-                |  propose_next(...)|
-                +---------+---------+
-                          |
-                          v   Instruction JSON
-+-------------------------+-------------------------+
-|                     Orchestrator                  |
-|  reset → step loop, logging, early stop, judging |
-+-------------------------+-------------------------+
-                          |
-                          v
-                +---------+---------+
-                |  Simulator (LLM)  |
-                |  PureLLMSimulator |
-                |  • reset: full init state
-                |  • step: compact input → state_ops
-                +---------+---------+
-                          |
-         observation (agent‑visible only)
-                          v
-                +---------+---------+
-                |    Agent (LLM)    |
-                |     LLMAgent      |
-                +---------+---------+
-                          |
-                     action JSON
-                          |
-                          v
-                +---------+---------+
-                |     Judge (LLM)   |
-                |     LLMJudge      |
-                +-------------------+
+Helpful switches: `--seed`, `--fidelity {low|medium|high}`, `--agent-history N`, `--sim-feature-config features.json`, `--log-profile {concise|verbose|both}`, `--log-state-snapshots`, `--stop-on-success`, `--success-threshold 0.99`.
+
+or you can run a little demo script:
+
+```bash
+bash run.sh
 ```
 
-Repository layout (LLM‑only modules)
-- `agent_llm.py` — LLMAgent (acts on observations to emit one action per step)
-- `judge_llm.py` — LLMJudge (scores an episode given summaries + log)
-- `proposer_llm.py` — LLMProposer (diverse task generation), `InstructionCompiler` (free‑text → Instruction JSON)
-- `simulator_llm.py` — PureLLMSimulator (canonical state + observation)
-- `llm_client.py` — OpenAI‑compatible client with JSON‑only responses and robust fallbacks
-- `validation.py` — schema validation helpers (uses `jsonschema` when available)
-- `prompts/*.txt` — contract‑first prompts for each role
-- `schema/*.json` — Action, Observation, Instruction, State, Judge Output
-- `templates/*.json` — initial UI assets per template (e.g., `desktop.json`)
-- `orchestrator.py` — episode loop, logging, CLI
-- `replay.py` — placeholder (replay verification unsupported for pure LLM simulator)
 
+## Outputs and logs
 
-Core contracts
+Every run lands in `runs/<episode_id>/` and always includes a compact HTML summary (`index.html`) unless `--no-export-html` is set.
 
-- Action (Agent → Simulator): single JSON object per step. See `schema/action.json` and `prompts/agent.system.txt`.
-- Observation (Simulator → Agent): agent‑visible only. See `schema/observation.json` and `prompts/pure_simulator.system.txt`.
-- State (private to Simulator): validated but not sent to Agent directly. See `schema/state.json`.
-- Simulator step output (internal to logs): `{observation, internal_result, event_log, state_diff, state_digest, terminal}`.
-- Simulator state updates: JSON Patch array `state_ops` that applies to the previous state (no full‑state overwrite).
+- **Readable logs** (`--log-profile concise|both`):
+  - `agent.readable.log` — action type/target snippets per step.
+  - `simulator.readable.log` — state change highlights and reasons.
+  - `judge.readable.log` — final score plus evidence summary.
+- **Structured JSON** (`--log-profile verbose|both`):
+  - `agent.log.jsonl`, `simulator.log.jsonl`, and `judge.log.jsonl` capture full payloads including `state_ops`, `observation`, and scoring breakdowns.
+  - `llm/` holds per‑request dumps plus `*.error.json` when schema validation fails.
+- **Runtime context**: `runs/runtime.log.jsonl` and `runs/runtime.readable.log` track CLI arguments, seeds, durations, and high‑level outcomes across episodes.
+- **Visual review**: run `streamlit run viewer_streamlit.py` to browse runs/, compare two episodes, and inspect diffs without opening raw logs.
 
-Simulator (LLM) — compact I/O model
-- Reset: sends the full initial state; returns a consistent observation.
-- Step: sends compact inputs by default: `{phase, episode_id, seed, fidelity, instruction, current_state, state_digest, state_summary, last_action, timestamp, time_delta_ms}`.
-- Read‑state handshake: if the model needs the full state, it returns `request:"read_state"`; the simulator immediately recalls it with `{current_state, request_granted:"read_state"}`.
-- Output: `state_ops` (JSON Patch), `observation`, `internal_result`, `event_log`, `terminal`.
-- Fidelity: controls output richness (not logic). Low = minimal detail, Medium = moderate context, High = richer but still compact observation/event logs.
-- Simulator features: `--sim-feature-config <path>` injects the “feature switchboard” described in `simulator_prompt_features.py`. Point it at a JSON file (see `prompts/simulator_features.example.json`) to toggle observation granularity, failure feedback, diversity, and robustness settings without swapping prompts.
+## What gets simulated
 
-Agent (LLM)
-- Receives only the observation (plus a small history slice if enabled).
-- Emits exactly one Action JSON per step; strict schema; no extra keys.
+- **Simulator (`simulator_llm.py`)** maintains private state, applies JSON Patch diffs (`state_ops`), and emits compact observations. If it needs the full state mid‑episode, it requests a read‑back handshake.
+- **Agent (`agent_llm.py`)** only sees observations plus a short history window and must emit exactly one Action JSON per step.
+- **Judge (`judge_llm.py`)** consumes instruction metadata, start/end summaries, and the episode log to output `{score, feedback, subscores}` deterministically.
+- **Proposer (`proposer_llm.py`)** creates diverse desktop tasks or compiles free‑text instructions via `InstructionCompiler`.
 
-Judge (LLM)
-- Input: instruction (with `success_criteria`), start_state_summary, end_state_summary, episode_log.
-- Output: `{score, feedback, subscores}` — deterministic for identical inputs.
+Prompts for each role live under `prompts/`, schemas under `schema/`, and starter desktop templates under `templates/`. Adjust simulator behavior without editing prompts by pointing `--sim-feature-config` at a JSON file (see `prompts/simulator_features.example.json`).
 
-Proposer (LLM)
-- Generates diverse desktop tasks with machine‑testable `success_criteria`.
-- Also includes `InstructionCompiler` for free‑text instructions → Instruction JSON.
+## Determinism and safety nets
 
+- Simulator and Judge run at temperature 0.0; the client retries without explicit temperature if a provider rejects the setting and records the applied value in raw logs.
+- Agent and Proposer can use higher temperatures (`AGENT_TEMP`, etc.) for exploration.
+- All payloads are schema‑validated (`validation.py`); malformed outputs trigger automatic retries or safe fallbacks, preventing silent corruption.
 
-Running
+## License
 
-Install and configure
-- Python deps: `pip install openai jsonschema` (jsonschema optional but recommended)
- - Optional for visualization: `pip install streamlit` (for an interactive viewer)
- - Optional for Gemini provider: `pip install google-generativeai`
-- Set environment variables:
-  - `OPENAI_API_KEY` (required)
-  - `OPENAI_BASE_URL` (optional; for self-hosted gateways)
-  - `LLM_MODEL` (e.g., `gpt-5` or your deployment ID)
-  - For Gemini provider, set `GOOGLE_API_KEY` (or reuse the role-specific `*_OPENAI_API_KEY`) and pick a Gemini model ID such as `models/gemini-3-pro-preview`.
-  - `AGENT_TEMP` (optional; agent exploration temperature)
-  - Role-specific overrides (optional; override the above per role):
-    - Simulator: `SIMULATOR_OPENAI_API_KEY`, `SIMULATOR_OPENAI_BASE_URL`, `SIMULATOR_MODEL`
-    - Agent: `AGENT_OPENAI_API_KEY`, `AGENT_OPENAI_BASE_URL`, `AGENT_MODEL`, `AGENT_TEMP`
-    - Judge: `JUDGE_OPENAI_API_KEY`, `JUDGE_OPENAI_BASE_URL`, `JUDGE_MODEL`
-    - Proposer: `PROPOSER_OPENAI_API_KEY`, `PROPOSER_OPENAI_BASE_URL`, `PROPOSER_MODEL`
-    - Compiler: `COMPILER_OPENAI_API_KEY`, `COMPILER_OPENAI_BASE_URL`, `COMPILER_MODEL`
-
-Examples
-- Default (LLM proposer picks a task):
-  - `python orchestrator.py --steps 2`
-- Propose→run loop (adaptive):
-  - `python orchestrator.py --propose-count 3 --steps 3`
-    - Uses LLMProposer to generate a task, runs it, summarizes the result, then proposes the next task using recent_episodes.
-- Free‑text instruction compiled by LLM:
-  - `python orchestrator.py --instruction "Open the Settings and toggle Wi‑Fi" --llm-agent --steps 6`
-- Batch from JSONL (compute accuracy):
-  - `python orchestrator.py --instr-jsonl instructions/osworld_small.jsonl --steps 4 --success-threshold 0.9`
-    - Runs each instruction line as an episode, prints accuracy, and writes `runs/batch_summary.json`.
-- Compact/verbose logs and snapshots:
-  - `python orchestrator.py --instruction "..." --log-profile both --log-state-snapshots`
- - HTML summary export is now default: after each run, a compact `index.html` is written under `runs/<episode_id>/`. Disable with `--no-export-html`.
-- Streamlit viewer (interactive, compare runs):
-   - `streamlit run viewer_streamlit.py`
-
-Important flags
-- `--seed`, `--fidelity {low|medium|high}`, `--steps N`
-- `--agent-history N` (default 5)
-- `--sim-include-state` / `--no-sim-include-state` (send full `current_state` each step; enabled by default)
-- `--sim-feature-config <path>` (optional; JSON describing observation granularity, failure feedback, diversity, and robustness toggles)
-- `--log-dir runs`, `--log-profile {verbose|concise|both}`, `--log-state-snapshots`
-- `--stop-on-success`, `--success-threshold 0.99`
-- Instruction sources: `--instr-file`, `--instr-json`, `--instruction` (free‑text). If none are provided, an instruction is generated via the LLM proposer.
-- Proposer loop: `--propose-count N`, `--agent-id agent`, `--global-task-pool path/to/pool.json`
-
-
-Logging
-- Per‑episode directory: `runs/<episode_id>/`
-- Verbose JSON (`--log-profile verbose|both`):
-  - `agent.log.jsonl` — agent payload/outputs
-  - `simulator.log.jsonl` — per‑step internals `{internal_result, event_log, state_diff, state_digest, observation}`
-  - `llm/` — raw LLM request/response dumps per phase/step; errors saved as `*.error.json`
-- Concise human-readable (`--log-profile concise|both`):
-  - `agent.readable.log` — action type, target, text/keys
-  - `simulator.readable.log` — step result, reason, page, diff keys
-  - `judge.readable.log` — final score + feedback
-- Runtime logs: `runs/runtime.log.jsonl`, `runs/runtime.readable.log`
-
-- Visualization (HTML + Streamlit)
-- Static HTML per-episode: by default, an episode summary is written to `runs/<episode_id>/index.html` with a compact table of steps and key fields (action, result, page, diffs), plus links to raw logs. Disable with `--no-export-html`.
-- Interactive viewer: `viewer_streamlit.py` lists episodes in `runs/`, shows concise tables, and can compare two episodes side-by-side. Install with `pip install streamlit`, then run `streamlit run viewer_streamlit.py`.
-
-
-Prompts (contract‑first)
-- `prompts/pure_simulator.system.txt` — strict Simulator contract (compact inputs, JSON Patch `state_ops`, read‑on‑demand). Contains a self‑checklist to prevent leakage or invalid outputs.
-- `prompts/agent.system.txt` — single‑action schema with a self‑checklist.
-- `prompts/judge.system.txt` — evidence‑only, deterministic scoring; exact one JSON object.
-- `prompts/proposer.system.txt` — diverse desktop tasks, deterministic for identical inputs; no brand‑specific content.
-- `prompts/compiler.system.txt` — free‑text instruction compiler → Instruction JSON.
-
-Simulator feature switchboard
-- `simulator_prompt_features.py` loads optional JSON configs (see `prompts/simulator_features.example.json`) and injects a “Feature switchboard” block into the simulator prompt.
-- Toggles cover observation granularity (low/medium/high), failure-feedback style (describe result / explain cause / offer hints), data vs. functional diversity, and robustness stressors (stochastic or unreliable transitions, adversarial logic, noise injection).
-- Use `--sim-feature-config` to point at a JSON object such as:
-  ```json
-  {
-    "observation_granularity": "high",
-    "failure_feedback": {"describe_result": true, "explain_cause": true, "provide_hints": true},
-    "data_diversity": true,
-    "functional_diversity": true,
-    "stochastic_transitions": false,
-    "unreliable_transitions": true,
-    "adversarial_logic": true,
-    "noise_injection": true
-  }
-  ```
-- Each toggle adds explicit instructions inside the simulator’s system prompt so the LLM can deterministically honor the requested behaviors without editing prompt files manually.
-
-
-Determinism and fallbacks
-- The Simulator and Judge run at temperature 0.0 for determinism. If a model rejects explicit temperature values, the client automatically retries without the parameter and records `used_temperature` in raw logs.
-- The Agent and Proposer can use higher temperatures for exploration/diversity.
-- All LLM outputs are validated against schemas; malformed outputs trigger retries or safe local fallbacks (the Simulator synthesizes a rejection percept).
-
-
-License
-- No license specified. Do not add headers automatically.
+No license has been specified for this repository.
