@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 import chz
 
+from tinker_cookbook.recipes.llmos_rl.env import LLMOSEnvGroupBuilder, LLMOSEnvOptions
 from tinker_cookbook.rl.types import EnvGroupBuilder, RLDataset, RLDatasetBuilder
 
 
@@ -45,26 +47,37 @@ class LLMOSInstructionDataset(RLDataset):
         self,
         rows: list[dict],
         groups_per_batch: int,
+        total_batches: int,
+        env_options: LLMOSEnvOptions,
     ):
+        if not rows:
+            raise ValueError("LLMOSInstructionDataset requires at least one instruction row")
+        if total_batches <= 0:
+            raise ValueError("total_batches must be positive")
         self.rows = rows
         self.groups_per_batch = groups_per_batch
+        self.total_batches = total_batches
+        self.env_options = env_options
 
     def __len__(self) -> int:
-        return (len(self.rows) + self.groups_per_batch - 1) // self.groups_per_batch
+        return self.total_batches
 
     def get_batch(self, index: int) -> Sequence[EnvGroupBuilder]:
-        start = index * self.groups_per_batch
-        end = min(len(self.rows), start + self.groups_per_batch)
         builders: list[EnvGroupBuilder] = []
-        for row in self.rows[start:end]:
+        row_count = len(self.rows)
+        for offset in range(self.groups_per_batch):
+            row_idx = (index * self.groups_per_batch + offset) % row_count
+            seed_offset = index * self.groups_per_batch + offset
+            row = self.rows[row_idx]
             builders.append(
                 LLMOSEnvGroupBuilder(
                     instruction=row["instruction"],
-                    seed=row["seed"],
+                    seed=row["seed"] + seed_offset,
                     fidelity=row["fidelity"],
                     max_steps=row["max_steps"],
                     agent_history=row["agent_history"],
                     sim_feature_config=row.get("sim_feature_config"),
+                    options=self.env_options,
                 )
             )
         return builders
@@ -82,6 +95,8 @@ class LLMOSInstructionDatasetBuilder(RLDatasetBuilder):
     dataset_seed: int | None = None
     shuffle: bool = True
     sim_feature_config: Dict[str, Any] | None = None
+    env_options: LLMOSEnvOptions | None = None
+    max_batches: int | None = None
 
     async def __call__(self) -> tuple[RLDataset, RLDataset | None]:
         path = Path(self.instruction_path)
@@ -89,7 +104,13 @@ class LLMOSInstructionDatasetBuilder(RLDatasetBuilder):
         if not raw:
             raise RuntimeError(f"No instructions found in {path}")
         rows = self._materialize_rows(raw)
-        dataset = LLMOSInstructionDataset(rows, self.groups_per_batch)
+        if self.env_options is None:
+            raise RuntimeError("LLMOSEnvOptions must be provided to build the dataset")
+        batches_per_epoch = max(1, math.ceil(len(rows) / self.groups_per_batch))
+        total_batches = (
+            self.max_batches if isinstance(self.max_batches, int) and self.max_batches > 0 else batches_per_epoch
+        )
+        dataset = LLMOSInstructionDataset(rows, self.groups_per_batch, total_batches, self.env_options)
         return dataset, None
 
     def _materialize_rows(self, instructions: list[dict]) -> list[dict]:
@@ -120,35 +141,3 @@ class LLMOSInstructionDatasetBuilder(RLDatasetBuilder):
                 }
             )
         return rows
-
-
-class LLMOSEnvGroupBuilder(EnvGroupBuilder):
-    def __init__(
-        self,
-        instruction: dict,
-        seed: int,
-        fidelity: str,
-        max_steps: int,
-        agent_history: int,
-        sim_feature_config: dict | None,
-    ):
-        self.instruction = instruction
-        self.seed = seed
-        self.fidelity = fidelity
-        self.max_steps = max_steps
-        self.agent_history = agent_history
-        self.sim_feature_config = sim_feature_config
-
-    async def make_envs(self):
-        return []
-
-    def logging_tags(self) -> list[str]:
-        tags: list[str] = []
-        difficulty = self.instruction.get("difficulty")
-        template = self.instruction.get("template")
-        if template:
-            tags.append(str(template))
-        if difficulty:
-            tags.append(f"difficulty:{difficulty}")
-        return tags
-

@@ -30,6 +30,7 @@ Additional useful flags:
 | `default_fidelity` | Simulator fidelity (`low`, `medium`, `high`). |
 | `sim_feature_config_path` | Path to a simulator feature JSON (same schema as `prompts/simulator_features.example.json`). |
 | `agent_history` | Number of previous interaction tuples supplied to the policy. |
+| `train_batches` | Number of training batches to run (dataset rows are cycled as needed). |
 
 The recipe keeps the simulator/judge behavior untouched: it simply replaces the
 LLM agent with the current Tinker policy and converts its token completions into
