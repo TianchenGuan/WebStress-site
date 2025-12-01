@@ -1,0 +1,67 @@
+[project]
+name = "llmos"
+version = "0.1.0"
+description = "LLMOS: A unified environment merging Tinker Cookbook and local requirements."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # --- From original requirements.txt ---
+    "openai>=1.40.0",
+    "jsonschema>=4.0.0",
+    "streamlit>=1.26.0",
+    "google-generativeai>=0.7.2",
+
+    # --- From original Tinker Cookbook core dependencies ---
+    "chz",
+    "datasets",
+    "numpy",
+    "rich",
+    "termcolor",
+    "tinker>=0.3.0",
+    "torch",
+    "transformers",
+    "blobfile",
+    "inspect-ai",
+    "anyio",
+    "pylatexenc",
+    "sympy",
+    "textarena>=0.7.4",
+    "math-verify",
+    "scipy",
+
+    # --- Integrated optional dependencies (for out-of-the-box usage) ---
+    "chromadb",          # Vector database
+    "huggingface_hub",
+    "wandb",             # Experiment tracking
+    "neptune-scale>=0.27.0",
+    "trackio<1.0.0",
+    "verifiers",
+    # Note: 'google-genai' was in toml, 'google-generativeai' in txt.
+    # Keeping both to ensure compatibility with all scripts.
+    "google-genai",
+]
+
+[project.optional-dependencies]
+# Only development tools are kept as optional
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "pyright",
+]
+
+# Key setting: tells uv this is an application/aggregation, not a package for distribution
+# This prevents uv from looking for a source directory or __init__.py
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- Tool Configuration ---
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py"]

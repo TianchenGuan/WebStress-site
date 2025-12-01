@@ -9,17 +9,19 @@ duke_key=sk-Ay4jrZcS2qDNxtGT9QLlJQ
 
 openai_url=https://api.openai.com/v1
 openai_key=***REDACTED***
-openai_model=gpt-5
+openai_model=gpt-5.1
 
 gemini_url=https://generativelanguage.googleapis.com/v1beta2/projects/202703895966/locations/us-central1/models/
 gemini_model=models/gemini-3-pro-preview
+# gemini_model=models/gemini-flash-latest
 gemini_key=AIzaSyC2mebI93Nn0O05tYl_5JcJsxc__iYDkVw
 
-# use_url=$openai_url
-# use_key=$openai_key
-use_url=$gemini_url
-use_key=$gemini_key
-use_model=$gemini_model
+use_url=$openai_url
+use_key=$openai_key
+use_model=$openai_model
+# use_url=$gemini_url
+# use_key=$gemini_key
+# use_model=$gemini_model
 
 export GOOGLE_API_KEY=$use_key
 

@@ -12,6 +12,26 @@ agents in a single workspace.
 | `tinker-cookbook/` | Lightweight RL recipes (see `recipes/llmos_rl`) built on the Tinker SDK for quick LoRA fine-tuning. |
 | `SkyRL/` | Modular full-stack RL framework (Gym environments, generators, Ray-based trainers) for large-scale experiments. |
 
+## Environment Setup
+
+This repo uses [uv](https://docs.astral.sh/uv/) for dependency management (the `pyproject.toml` and `uv.lock` are already checked in).
+
+1. Install dependencies and create the local virtual environment:
+
+   ```bash
+   uv sync
+   ```
+
+   - Add `--all-extras` if you need every optional dependency at once.
+
+2. Activate the environment when you need direct access to `python`, `uv run`, or CLI tools:
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+   - `uv` keeps everything under `.venv/` by default; remove it if you ever want a clean reinstall.
+
 ## How to use this repo
 
 ### Inference / simulator demos
