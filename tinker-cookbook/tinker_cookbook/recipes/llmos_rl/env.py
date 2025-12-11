@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -33,6 +34,31 @@ from validation import validate_action  # type: ignore
 
 AGENT_SYSTEM_PROMPT_PATH = LLMOS_SRC / "prompts" / "agent.system.txt"
 ACTION_SPACE_PATH = LLMOS_SRC / "prompts" / "action_space.agent.json"
+
+
+def _get_role_llm_config(role: str) -> tuple[str | None, str | None, str | None]:
+    """Fetch per-role model/base/key overrides with sensible fallbacks."""
+    role_upper = role.upper()
+    model = os.getenv(f"{role_upper}_MODEL") or os.getenv("LLM_MODEL")
+    base_url = (
+        os.getenv(f"{role_upper}_OPENAI_BASE_URL")
+        or os.getenv("OPENAI_BASE_URL")
+        or os.getenv(f"{role_upper}_BASE_URL")
+        or os.getenv("LLM_BASE_URL")
+    )
+    api_key = (
+        os.getenv(f"{role_upper}_OPENAI_API_KEY")
+        or os.getenv(f"{role_upper}_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("LLM_API_KEY")
+    )
+    if api_key is None:
+        api_key = (
+            os.getenv(f"{role_upper}_GOOGLE_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
+        )
+    return model, base_url, api_key
 
 
 def _now_iso() -> str:
@@ -263,12 +289,23 @@ class LLMOSDesktopEnv(Env):
         self._final_metrics: dict[str, float | int] | None = None
 
     async def initial_observation(self) -> tuple[tinker.ModelInput, StopCondition]:
+        sim_model, sim_base_url, sim_api_key = _get_role_llm_config("SIMULATOR")
         self.simulator = PureLLMSimulator(
+            model=sim_model,
             seed=self.seed,
             include_full_state=self.options.sim_include_state,
+            base_url=sim_base_url,
+            api_key=sim_api_key,
             feature_config=self.sim_feature_config,
         )
-        self.judge = LLMJudge(temperature=self.options.judge_temperature, seed=self.seed)
+        judge_model, judge_base_url, judge_api_key = _get_role_llm_config("JUDGE")
+        self.judge = LLMJudge(
+            model=judge_model,
+            temperature=self.options.judge_temperature,
+            seed=self.seed,
+            base_url=judge_base_url,
+            api_key=judge_api_key,
+        )
         observation, start_digest, episode_id = self.simulator.reset(
             self.instruction, self.seed, self.fidelity
         )
