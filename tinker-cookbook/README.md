@@ -10,6 +10,14 @@ We provide two libraries for the broader community to customize their language m
 
 ## Installation
 
+**If using LLMOS workspace:** This package is included in the workspace. From the repository root:
+```bash
+uv sync
+source .venv/bin/activate
+export TINKER_API_KEY="your-api-key"
+```
+
+**Standalone installation:**
 1. Sign up for Tinker [here](https://auth.thinkingmachines.ai/sign-up).
 2. Once you have access, create an API key from the [console](https://tinker-console.thinkingmachines.ai) and export it as environment variable `TINKER_API_KEY`.
 3. Install tinker python client via `pip install tinker`

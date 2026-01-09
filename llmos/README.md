@@ -40,10 +40,15 @@ LLMOS implements a **Sandwich Architecture** where code handles deterministic op
 
 ### Installation
 
+This project uses a workspace environment managed from the repository root:
+
 ```bash
-cd llmos
+# From the repository root (LLMOS/)
 uv sync
+source .venv/bin/activate
 ```
+
+See the [root README](../README.md) for full workspace setup instructions.
 
 ### Configuration
 
@@ -66,6 +71,8 @@ Edit `config.json` with your API keys:
 ```
 
 ### Run a Single Episode
+
+Run from the repository root with the venv activated:
 
 ```bash
 # Run with a task

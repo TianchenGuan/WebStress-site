@@ -15,16 +15,25 @@ A training environment for computer-use agents using LLMs as "physics engines" t
 
 ---
 
+## Setup (Workspace)
+
+This repository uses a unified workspace environment at the project root.
+
+```bash
+# Clone and setup
+cd LLMOS
+uv sync
+source .venv/bin/activate
+
+# Set API keys
+export TINKER_API_KEY="your-tinker-api-key"
+```
+
+---
+
 ## 1. LLMOS (Standalone Simulator)
 
 LLMOS uses LLMs to predict how UI state changes in response to agent actions, eliminating complex programmatic simulation.
-
-### Setup
-
-```bash
-cd llmos
-uv sync
-```
 
 ### Configuration
 
@@ -49,17 +58,17 @@ Create/edit `llmos/config.json`:
 ### Usage
 
 ```bash
-# Run a single episode
-uv run python -m llmos.main run --task "Click the Settings button"
+# Run a single episode (from project root with venv activated)
+python -m llmos.main run --task "Click the Settings button"
 
 # With specific template and difficulty
-uv run python -m llmos.main run --task "Fill out the form" --template form --difficulty hard
+python -m llmos.main run --task "Fill out the form" --template form --difficulty hard
 
 # Human agent (for debugging)
-uv run python -m llmos.main run --task "Navigate to Documents" --human
+python -m llmos.main run --task "Navigate to Documents" --human
 
 # Curriculum learning
-uv run python -m llmos.main curriculum --episodes 10 --auto-adjust
+python -m llmos.main curriculum --episodes 10 --auto-adjust
 ```
 
 
@@ -82,19 +91,7 @@ Train your own computer-use agents using the Tinker fine-tuning API.
 
 1. **Tinker API access** - Get API key from [Tinker Console](https://tinker-console.thinkingmachines.ai)
 2. **LLMOS configured** - Set up `llmos/config.json` with OpenAI/Gemini keys
-3. **Environment setup**:
-
-```bash
-# Install tinker-cookbook
-cd llmos
-source ../venv/bin/activate  # Activate LLMOS venv
-cd ../tinker-cookbook
-uv pip install -e .
-uv sync
-
-# Set Tinker API key
-export TINKER_API_KEY="your-api-key"
-```
+3. **Workspace setup** - Follow the [Setup](#setup-workspace) section above
 
 ### Training
 
