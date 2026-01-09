@@ -30,7 +30,7 @@ from tinker_cookbook.supervised.nll_evaluator import NLLEvaluator
 from tinker_cookbook.supervised.types import SupervisedDatasetBuilder
 from tinker_cookbook.tokenizer_utils import get_tokenizer
 from tinker_cookbook.utils import ml_log
-from tinker_cookbook.utils.lr_scheduling import compute_schedule_lr_multiplier
+from tinker_cookbook.utils.lr_scheduling import compute_schedule_lr_multiplier, LRSchedule
 from tinker_cookbook.utils.misc_utils import timed
 from tinker_cookbook.utils.trace import scope, update_scope_context, trace_init
 
@@ -49,7 +49,7 @@ class Config:
 
     # Training parameters
     learning_rate: float = 1e-4
-    lr_schedule: str = "linear"
+    lr_schedule: LRSchedule = "linear"
     num_epochs: int = 1
 
     # Model parameters
@@ -58,7 +58,7 @@ class Config:
     # Infrastructure parameters
     base_url: str | None = None
 
-    # Checkpointing and evaluation
+    # Checkpointing and evaluation (0 = disabled for *_every fields)
     evaluator_builders: list[EvaluatorBuilder] = chz.field(default_factory=list)
     infrequent_evaluator_builders: list[EvaluatorBuilder] = chz.field(default_factory=list)
     save_every: int = 20
@@ -189,19 +189,25 @@ async def main(config: Config):
         trace_init(output_file=os.path.join(config.log_path, "trace_events.jsonl"))
 
     service_client = tinker.ServiceClient(base_url=config.base_url)
-    load_state_path: str | None = (
-        resume_info["state_path"] if resume_info else config.load_checkpoint_path
-    )
 
     user_metadata: dict[str, str] = {}
     if wandb_link := ml_logger.get_logger_url():
         user_metadata["wandb_link"] = wandb_link
 
-    if load_state_path:
-        training_client = await service_client.create_training_client_from_state_async(
-            load_state_path, user_metadata
+    if resume_info:
+        # Resuming interrupted training - load optimizer state for proper continuation
+        training_client = (
+            await service_client.create_training_client_from_state_with_optimizer_async(
+                resume_info["state_path"], user_metadata
+            )
         )
-        logger.info(f"Loaded weights from {load_state_path}")
+        logger.info(f"Resumed training from {resume_info['state_path']}")
+    elif config.load_checkpoint_path:
+        # Starting fresh from a checkpoint - load weights only (fresh optimizer)
+        training_client = await service_client.create_training_client_from_state_async(
+            config.load_checkpoint_path, user_metadata
+        )
+        logger.info(f"Loaded weights from {config.load_checkpoint_path}")
     else:
         training_client = await service_client.create_lora_training_client_async(
             base_model=config.model_name,
@@ -292,7 +298,7 @@ async def main(config: Config):
         metrics = submitted.metrics
         metrics["progress"] = min((submitted.step + 1) / progress_denominator, 1.0)
 
-        if submitted.step % config.save_every == 0 and submitted.step > 0:
+        if config.save_every > 0 and submitted.step % config.save_every == 0 and submitted.step > 0:
             with timed("save_checkpoint", metrics):
                 # Enqueue a checkpoint save after the forward/backward and optimizer
                 # requests for this step; the snapshot will reflect post-step weights.

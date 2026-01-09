@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimulatorDifficulty",
+  "description": "Configuration for simulator difficulty/curriculum settings",
+  "type": "object",
+  "properties": {
+    "information_density": {
+      "type": "string",
+      "enum": ["simple", "moderate", "rich"],
+      "default": "simple",
+      "description": "Controls how much detail the simulator shows. 'simple' = abstracted, relevant only. 'rich' = full raw output with hidden files, metadata, etc."
+    },
+    "signal_noise_ratio": {
+      "type": "string",
+      "enum": ["clean", "moderate", "noisy"],
+      "default": "clean",
+      "description": "Controls output formatting quality. 'clean' = perfect formatting. 'noisy' = interleaved streams, ANSI codes, broken formatting."
+    },
+    "determinism": {
+      "type": "string",
+      "enum": ["idealized", "moderate", "hostile"],
+      "default": "idealized",
+      "description": "Controls system reliability. 'idealized' = always succeeds. 'hostile' = flaky, timeouts, partial failures."
+    },
+    "preset": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard", "expert", "custom"],
+      "default": "easy",
+      "description": "Preset difficulty level. Overrides individual settings unless 'custom'."
+    }
+  },
+  "additionalProperties": false
+}

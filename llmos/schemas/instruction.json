@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Instruction",
+  "description": "Task definition for the agent",
+  "type": "object",
+  "required": ["task_id", "instruction", "initial_state_template"],
+  "properties": {
+    "task_id": { "type": "string", "description": "Unique identifier for this task" },
+    "instruction": { "type": "string", "description": "Natural language instruction for the agent" },
+    "initial_state_template": { "type": "string", "description": "Name of the template file to use" },
+    "difficulty": { "type": "string", "enum": ["easy", "medium", "hard", "expert"] },
+    "category": { "type": "string", "description": "Task category" },
+    "success_criteria": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["state_match", "action_sequence", "output_match", "custom"] },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "operator": { "type": "string", "enum": ["equals", "contains", "exists", "not_exists", "greater_than", "less_than"] },
+              "value": {}
+            }
+          }
+        }
+      }
+    },
+    "hints": { "type": "array", "items": { "type": "string" } },
+    "time_limit_seconds": { "type": "integer" }
+  }
+}
