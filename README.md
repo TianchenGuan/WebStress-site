@@ -1,74 +1,139 @@
-# LLMOS Workspace
+# LLMOS - LLM-based Operating System Simulator
 
-This repository bundles the LLM-only desktop simulator together with two
-training stacks so you can run inference, collect trajectories, and fine-tune
-agents in a single workspace.
+A training environment for computer-use agents using LLMs as "physics engines" to simulate OS state transitions.
 
-## Directory Map
+## Repository Structure
 
-| Path | Role |
-|------|------|
-| `LLMOS/` | Upstream simulator, prompts, schemas, and CLI tooling. Use this when you want to run episodes or inspect logs. |
-| `tinker-cookbook/` | Lightweight RL recipes (see `recipes/llmos_rl`) built on the Tinker SDK for quick LoRA fine-tuning. |
-| `SkyRL/` | Modular full-stack RL framework (Gym environments, generators, Ray-based trainers) for large-scale experiments. |
+```
+.
+├── llmos/                    # Core simulator (standalone)
+└── tinker-cookbook/          # Tinker training library
+    └── tinker_cookbook/
+        └── recipes/
+            └── llmos_rl/     # RL training integration
+```
 
-## Environment Setup
+---
 
-This repo uses [uv](https://docs.astral.sh/uv/) for dependency management (the `pyproject.toml` and `uv.lock` are already checked in).
+## 1. LLMOS (Standalone Simulator)
 
-1. Install dependencies and create the local virtual environment:
+LLMOS uses LLMs to predict how UI state changes in response to agent actions, eliminating complex programmatic simulation.
 
-   ```bash
-   uv sync
-   ```
+### Setup
 
-   - Add `--all-extras` if you need every optional dependency at once.
+```bash
+cd llmos
+uv sync
+```
 
-2. Activate the environment when you need direct access to `python`, `uv run`, or CLI tools:
+### Configuration
 
-   ```bash
-   source .venv/bin/activate
-   ```
+Create/edit `llmos/config.json`:
 
-   - `uv` keeps everything under `.venv/` by default; remove it if you ever want a clean reinstall.
+```json
+{
+  "llm": {
+    "default_provider": "openai",
+    "openai": {
+      "api_key": "sk-...",
+      "default_model": "gpt-4o"
+    },
+    "gemini": {
+      "api_key": "...",
+      "default_model": "gemini-1.5-pro"
+    }
+  }
+}
+```
 
-## How to use this repo
+### Usage
 
-### Inference / simulator demos
+```bash
+# Run a single episode
+uv run python -m llmos.main run --task "Click the Settings button"
 
-1. `cd LLMOS`
-2. Follow the instructions in `LLMOS/README.md` to configure API keys and run
-   `python orchestrator.py` (or `bash run.sh`) for scripted episodes.
+# With specific template and difficulty
+uv run python -m llmos.main run --task "Fill out the form" --template form --difficulty hard
 
-All observation/action semantics, prompt feature toggles, and logging layouts
-are documented there.
+# Human agent (for debugging)
+uv run python -m llmos.main run --task "Navigate to Documents" --human
 
-### Training with Tinker-Cookbook (recommended starting point)
-
-1. `cd tinker-cookbook`
-2. Install dependencies (e.g. `uv sync` or `pip install -e .[verifiers]`)
-3. Export the same environment variables you use for inference
-   (`OPENAI_API_KEY`, `LLM_MODEL`, role-specific overrides like
-   `SIMULATOR_MODEL`, etc.).
-4. Launch the RL loop:
-
-   ```bash
-   uv run -- python -m tinker_cookbook.recipes.llmos_rl.train \
-     instruction_path=../LLMOS/instructions/osworld_two_task.jsonl \
-     groups_per_batch=4 group_size=2 max_tokens=512
-   ```
-
-The `recipes/llmos_rl/README.md` file lists additional flags for simulator
-feature configs, step caps, logging, and LoRA settings.
-
+# Curriculum learning
+uv run python -m llmos.main curriculum --episodes 10 --auto-adjust
+```
 
 
-## Notes
+### Difficulty Levels
 
-- The top-level `.git` tracks all three components so prompt changes, RL
-  recipes, and simulator tweaks stay versioned together.
-- Keep all simulator-specific assets under `LLMOS/LLMOS/` so both RL stacks can
-  import them without duplication.
-- When switching between inference and training, reuse the same credential
-  environment variables to ensure simulator, judge, and policy models stay in
-  sync.
+| Level | Information | Noise | Determinism |
+|-------|-------------|-------|-------------|
+| `easy` | Abstracted | Clean | Always succeeds |
+| `medium` | Moderate | Some noise | Mostly succeeds |
+| `hard` | Full details | Noisy | Occasional failures |
+| `expert` | Raw output | High noise | Flaky behavior |
+
+---
+
+## 2. LLMOS RL Training (with Tinker)
+
+Train your own computer-use agents using the Tinker fine-tuning API.
+
+### Prerequisites
+
+1. **Tinker API access** - Get API key from [Tinker Console](https://tinker-console.thinkingmachines.ai)
+2. **LLMOS configured** - Set up `llmos/config.json` with OpenAI/Gemini keys
+3. **Environment setup**:
+
+```bash
+# Install tinker-cookbook
+cd llmos
+source ../venv/bin/activate  # Activate LLMOS venv
+cd ../tinker-cookbook
+uv pip install -e .
+uv sync
+
+# Set Tinker API key
+export TINKER_API_KEY="your-api-key"
+```
+
+### Training
+
+```bash
+# Basic training with Qwen3
+python -m tinker_cookbook.recipes.llmos_rl.train \
+    --model_name Qwen/Qwen3-8B \
+    --difficulty easy \
+    --group_size 4 \
+    --groups_per_batch 8
+
+# With Llama
+python -m tinker_cookbook.recipes.llmos_rl.train \
+    --model_name meta-llama/Llama-3.1-8B-Instruct \
+    --renderer_name llama3 \
+    --difficulty medium
+
+# With logging
+python -m tinker_cookbook.recipes.llmos_rl.train \
+    --model_name Qwen/Qwen3-8B \
+    --wandb_project llmos-training \
+    --log_path ./runs/llmos_exp1 \
+    --eval_every 5 \
+    --save_every 10
+```
+
+### Key Training Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `model_name` | `Qwen/Qwen3-8B` | Base model to train |
+| `lora_rank` | `32` | LoRA rank for fine-tuning |
+| `renderer_name` | auto | Tokenization renderer (qwen3, llama3) |
+| `difficulty` | `easy` | Simulator difficulty level |
+| `max_steps` | `20` | Max steps per episode |
+| `group_size` | `4` | Rollouts per task (for GRPO) |
+| `groups_per_batch` | `8` | Tasks per training batch |
+| `learning_rate` | `4e-5` | Learning rate (higher for LoRA) |
+| `max_tokens` | `512` | Max tokens per model response |
+
+
+**Available actions:** `click`, `dblclick`, `hover`, `fill`, `press`, `scroll`, `keyboard_press`, `keyboard_type`, `goto`, `finish`, `noop`

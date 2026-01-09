@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JudgeOutput",
+  "description": "Scoring format for episode evaluation",
+  "type": "object",
+  "required": ["score", "success", "reasoning"],
+  "properties": {
+    "score": { "type": "number", "minimum": -1, "maximum": 1, "description": "Reward score: -1 (failure) to 1 (success)" },
+    "success": { "type": "boolean", "description": "Whether the task was completed successfully" },
+    "reasoning": { "type": "string", "description": "Explanation of the score" },
+    "partial_credits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion": { "type": "string" },
+          "met": { "type": "boolean" },
+          "weight": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "feedback": { "type": "string", "description": "Feedback for curriculum learning" },
+    "error_analysis": {
+      "type": "object",
+      "properties": {
+        "error_type": { "type": "string", "enum": ["none", "wrong_action", "incomplete", "timeout", "wrong_target", "misunderstanding"] },
+        "critical_mistake_step": { "type": ["integer", "null"] },
+        "suggestion": { "type": "string" }
+      }
+    }
+  }
+}

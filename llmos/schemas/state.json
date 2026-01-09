@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "State",
+  "description": "Canonical world state including hidden_state",
+  "type": "object",
+  "required": ["meta", "ui"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["tick", "status"],
+      "properties": {
+        "tick": { "type": "integer", "description": "Current time step" },
+        "status": { "type": "string", "enum": ["running", "completed", "failed"], "description": "Episode status" },
+        "random_seed": { "type": "integer", "description": "Random seed for reproducibility" }
+      }
+    },
+    "hidden_state": {
+      "type": "object",
+      "description": "Internal simulator state. NEVER shown to the agent.",
+      "properties": {
+        "clipboard_content": { "type": "string", "description": "Current clipboard content" },
+        "correct_answer_hash": { "type": "string", "description": "Hash of the correct answer for verification" },
+        "active_downloads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string" },
+              "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+              "url": { "type": "string" }
+            }
+          }
+        },
+        "pending_notifications": { "type": "array", "items": { "type": "object" } },
+        "task_completion_criteria": { "type": "object" }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "description": "AXTree structure. Nodes must have unique 'bid'.",
+      "properties": {
+        "bid": { "type": ["string", "integer"], "description": "Unique identifier for this node" },
+        "tag": { "type": "string", "description": "Element type (e.g., 'window', 'button', 'input')" },
+        "role": { "type": "string", "description": "Accessibility role" },
+        "text": { "type": "string", "description": "Text content" },
+        "value": { "type": ["string", "number", "boolean", "null"], "description": "Current value for inputs" },
+        "focused": { "type": "boolean", "description": "Whether element has focus" },
+        "checked": { "type": "boolean", "description": "Checked state for checkboxes/radios" },
+        "selected": { "type": "boolean", "description": "Selected state" },
+        "disabled": { "type": "boolean", "description": "Whether element is disabled" },
+        "visible": { "type": "boolean", "description": "Whether element is visible" },
+        "bounds": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        },
+        "attributes": { "type": "object", "additionalProperties": true },
+        "children": { "type": "array", "items": { "$ref": "#/properties/ui" } }
+      }
+    },
+    "filesystem": {
+      "type": "object",
+      "description": "Virtual filesystem",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["file", "directory"] },
+          "content": { "type": "string" },
+          "visible": { "type": "boolean", "default": true },
+          "modified": { "type": "string", "format": "date-time" },
+          "size": { "type": "integer" }
+        }
+      }
+    },
+    "tabs": {
+      "type": "array",
+      "description": "Browser tabs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "url": { "type": "string" },
+          "title": { "type": "string" },
+          "active": { "type": "boolean" }
+        }
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "title": { "type": "string" }
+        }
+      }
+    }
+  }
+}

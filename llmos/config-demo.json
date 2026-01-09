@@ -1,0 +1,57 @@
+{
+  "llm": {
+    "default_provider": "openai",
+    "openai": {
+      "api_key": "sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "default_model": "gpt-5.2",
+      "base_url": null
+    },
+    "gemini": {
+      "api_key": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "default_model": "gemini-3-flash-preview"
+    },
+    "roles": {
+      "simulator": {
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview"
+      },
+      "agent": {
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview"
+      },
+      "judge": {
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview"
+      },
+      "proposer": {
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview"
+      }
+    }
+  },
+  "simulator": {
+    "max_retries": 3,
+    "max_steps_per_episode": 50,
+    "difficulty": {
+      "preset": "easy",
+      "information_density": "simple",
+      "signal_noise_ratio": "clean",
+      "determinism": "idealized"
+    },
+    "curriculum": {
+      "enabled": false,
+      "auto_adjust": true,
+      "success_threshold": 0.8,
+      "failure_threshold": 0.3,
+      "progression": ["easy", "medium", "hard", "expert"]
+    }
+  },
+  "proposer": {
+    "history_window": 10
+  },
+  "logging": {
+    "level": "INFO",
+    "save_episodes": true,
+    "runs_dir": "runs"
+  }
+}
