@@ -4,6 +4,7 @@ Provides CLI interface and episode/curriculum loops.
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -19,6 +20,12 @@ from .core.judge import Judge
 from .core.proposer import Proposer
 from .tools.export_html import export_episode_to_html
 from .tools.export_runs_index import export_runs_index
+
+# Import benchmark types (lazy to avoid heavy dependencies)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .benchmarks.base import BenchmarkConfig
+    from .interfaces import TaskProvider, StateBuilder, Evaluator, Task
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +55,17 @@ def _configure_logging(
 class Orchestrator:
     """
     Main orchestrator for running episodes and curriculum loops.
+
+    Supports two modes:
+    1. Standard mode: Use built-in components (Simulator, Judge, Proposer)
+    2. Benchmark mode: Use benchmark-provided interfaces (TaskProvider, Evaluator, etc.)
     """
 
     def __init__(
         self,
         config_path: Optional[Union[str, Path]] = None,
         difficulty: Optional[str] = None,
+        benchmark: Optional["BenchmarkConfig"] = None,
     ):
         """
         Initialize the orchestrator.
@@ -61,6 +73,7 @@ class Orchestrator:
         Args:
             config_path: Path to config file.
             difficulty: Simulator difficulty preset ("easy", "medium", "hard", "expert").
+            benchmark: Optional BenchmarkConfig for benchmark-specific behavior.
         """
         if config_path is None:
             config_path = Path(__file__).parent / "config.json"
@@ -73,10 +86,28 @@ class Orchestrator:
         # Create shared LLM client
         self.llm_client = LLMClient(config_path)
 
+        # Store benchmark config
+        self.benchmark = benchmark
+
+        # Override difficulty from benchmark if provided
+        if benchmark and difficulty is None:
+            difficulty = benchmark.difficulty
+
         # Create components with difficulty setting
         self.simulator = Simulator(self.llm_client, config_path, difficulty=difficulty)
         self.judge = Judge(self.llm_client, config_path)
         self.proposer = Proposer(self.llm_client, config_path)
+
+        # Set up benchmark interfaces if provided
+        self._task_provider: Optional["TaskProvider"] = None
+        self._state_builder: Optional["StateBuilder"] = None
+        self._evaluator: Optional["Evaluator"] = None
+
+        if benchmark:
+            self._task_provider = benchmark.get_task_provider()
+            self._state_builder = benchmark.get_state_builder()
+            self._evaluator = benchmark.get_evaluator(str(config_path))
+            logger.info(f"Initialized with benchmark: {benchmark.name}")
 
         # Runs directory
         self.runs_dir = Path(__file__).parent / self.config.get("logging", {}).get("runs_dir", "runs")
@@ -97,6 +128,35 @@ class Orchestrator:
             self.current_difficulty_idx = self.difficulty_progression.index(starting_preset)
         else:
             self.current_difficulty_idx = 0
+
+    @classmethod
+    def from_benchmark(
+        cls,
+        benchmark_name: str,
+        config_path: Optional[Union[str, Path]] = None,
+        **benchmark_kwargs,
+    ) -> "Orchestrator":
+        """
+        Create an Orchestrator configured for a specific benchmark.
+
+        Args:
+            benchmark_name: Name of the benchmark ('workarena', 'webarena', etc.)
+            config_path: Path to LLMOS config file.
+            **benchmark_kwargs: Additional arguments passed to benchmark adapter.
+
+        Returns:
+            Configured Orchestrator instance.
+
+        Example:
+            orchestrator = Orchestrator.from_benchmark(
+                "workarena",
+                max_tasks=10,
+                shuffle=True,
+            )
+        """
+        from .benchmarks import get_benchmark
+        benchmark_config = get_benchmark(benchmark_name, **benchmark_kwargs)
+        return cls(config_path=config_path, benchmark=benchmark_config)
 
     def run_episode(
         self,
@@ -311,6 +371,144 @@ class Orchestrator:
                 if verbose:
                     print(f"\n>>> Difficulty DECREASED: {old_difficulty} -> {new_difficulty} (success rate: {recent_success_rate:.0%})")
 
+    def run_benchmark(
+        self,
+        num_episodes: Optional[int] = None,
+        agent: Optional[Union[Agent, HumanAgent]] = None,
+        verbose: bool = True,
+        auto_adjust_difficulty: bool = False,
+    ) -> list[dict]:
+        """
+        Run episodes using the configured benchmark's task provider.
+
+        This is the primary method for running benchmark evaluations.
+        Tasks are sourced from the benchmark's TaskProvider.
+
+        Args:
+            num_episodes: Number of episodes to run. If None, runs all tasks.
+            agent: Agent to use. If None, creates new LLM agent.
+            verbose: Whether to print progress.
+            auto_adjust_difficulty: Whether to auto-adjust simulator difficulty.
+
+        Returns:
+            List of episode results.
+
+        Raises:
+            ValueError: If no benchmark is configured.
+
+        Example:
+            orchestrator = Orchestrator.from_benchmark("workarena", max_tasks=10)
+            results = orchestrator.run_benchmark()
+        """
+        if self._task_provider is None:
+            raise ValueError(
+                "No benchmark configured. Use Orchestrator.from_benchmark() or pass "
+                "a BenchmarkConfig to __init__."
+            )
+
+        if agent is None:
+            agent = Agent(self.llm_client, str(self.config_path))
+
+        # Determine number of episodes
+        total_tasks = self._task_provider.total_tasks
+        if num_episodes is None:
+            num_episodes = total_tasks if total_tasks else 10
+
+        if verbose:
+            metadata = self._task_provider.get_metadata()
+            print(f"\n{'='*60}")
+            print(f"Benchmark: {metadata.get('name', 'unknown')}")
+            print(f"Version: {metadata.get('version', 'unknown')}")
+            print(f"Total tasks available: {total_tasks or 'unknown'}")
+            print(f"Episodes to run: {num_episodes}")
+            print(f"Categories: {metadata.get('categories', [])}")
+            print(f"{'='*60}\n")
+
+        results = []
+        self._task_provider.reset()
+
+        for episode_num in range(num_episodes):
+            if verbose:
+                print(f"\n{'#'*60}")
+                print(f"# Episode {episode_num + 1}/{num_episodes}")
+                print(f"{'#'*60}")
+
+            # Get next task from benchmark
+            try:
+                from .interfaces import Task
+                task = self._task_provider.get_task()
+                instruction = task.to_dict() if isinstance(task, Task) else task
+            except StopIteration:
+                if verbose:
+                    print("No more tasks available from benchmark")
+                break
+
+            # Run episode
+            result = self.run_episode(instruction, agent, save=True, verbose=verbose)
+            results.append(result)
+
+            # Update performance history
+            self.performance_history.append({
+                "task_id": instruction.get("task_id"),
+                "instruction": instruction.get("instruction"),
+                "score": result["score"],
+                "success": result["success"],
+                "category": result["category"],
+                "difficulty": result["difficulty"],
+                "simulator_difficulty": self.simulator.get_difficulty().preset,
+                "feedback": result["feedback"],
+                "benchmark": self.benchmark.name if self.benchmark else None,
+            })
+
+            # Auto-adjust simulator difficulty
+            if auto_adjust_difficulty:
+                self._maybe_adjust_difficulty(verbose)
+
+        # Print summary
+        if verbose:
+            self._print_benchmark_summary(results)
+
+        return results
+
+    def _print_benchmark_summary(self, results: list[dict]):
+        """Print benchmark results summary."""
+        print(f"\n{'='*60}")
+        print(f"Benchmark Results: {self.benchmark.name if self.benchmark else 'custom'}")
+        print(f"{'='*60}")
+
+        total = len(results)
+        if total == 0:
+            print("No episodes completed")
+            return
+
+        successes = sum(1 for r in results if r["success"])
+        avg_score = sum(r["score"] for r in results) / total
+        avg_steps = sum(r["steps"] for r in results) / total
+
+        print(f"Total Episodes: {total}")
+        print(f"Successes: {successes} ({100*successes/total:.1f}%)")
+        print(f"Average Score: {avg_score:.2f}")
+        print(f"Average Steps: {avg_steps:.1f}")
+
+        # Category breakdown
+        categories: dict[str, dict] = {}
+        for r in results:
+            cat = r["category"]
+            if cat not in categories:
+                categories[cat] = {"total": 0, "success": 0, "score_sum": 0}
+            categories[cat]["total"] += 1
+            categories[cat]["success"] += 1 if r["success"] else 0
+            categories[cat]["score_sum"] += r["score"]
+
+        if categories:
+            print("\nBy Category:")
+            for cat, stats in sorted(categories.items()):
+                cat_avg = stats["score_sum"] / stats["total"]
+                success_pct = 100 * stats["success"] / stats["total"]
+                print(f"  {cat}: {stats['success']}/{stats['total']} ({success_pct:.0f}%) success, avg score {cat_avg:.2f}")
+
+        print(f"{'='*60}\n")
+
     def _save_episode(self, result: dict):
         """Save an episode to disk and export HTML visualization."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -404,6 +602,12 @@ Examples:
 
   # Use a specific template
   python -m llmos.main run --task "Fill out the form" --template form
+
+  # Run a benchmark
+  python -m llmos.main benchmark workarena --episodes 10
+
+  # Run benchmark with specific options
+  python -m llmos.main benchmark workarena --episodes 5 --max-tasks 20 --shuffle
 """
     )
 
@@ -436,9 +640,27 @@ Examples:
                             help="Auto-adjust difficulty based on performance")
     curr_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
 
+    # Benchmark command
+    bench_parser = subparsers.add_parser("benchmark", help="Run a benchmark evaluation")
+    bench_parser.add_argument("name", type=str, help="Benchmark name (e.g., workarena, webarena)")
+    bench_parser.add_argument("--episodes", "-n", type=int, help="Number of episodes (default: all tasks)")
+    bench_parser.add_argument("--max-tasks", type=int, help="Maximum tasks to load from benchmark")
+    bench_parser.add_argument("--shuffle", action="store_true", help="Shuffle task order")
+    bench_parser.add_argument("--seed", type=int, help="Random seed for shuffling")
+    bench_parser.add_argument("--filter", type=str, nargs="+", help="Filter tasks by name patterns")
+    bench_parser.add_argument("--difficulty", "-d", type=str, choices=["easy", "medium", "hard", "expert"],
+                             help="Simulator difficulty level")
+    bench_parser.add_argument("--auto-adjust", action="store_true",
+                             help="Auto-adjust difficulty based on performance")
+    bench_parser.add_argument("--human", action="store_true", help="Use human agent")
+    bench_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
+
     # Config command
     config_parser = subparsers.add_parser("config", help="Show or edit configuration")
     config_parser.add_argument("--show", action="store_true", help="Show current config")
+
+    # List benchmarks command
+    list_parser = subparsers.add_parser("list-benchmarks", help="List available benchmarks")
 
     args = parser.parse_args()
 
@@ -508,6 +730,60 @@ Examples:
         # Exit with success rate
         success_rate = sum(1 for r in results if r["success"]) / len(results) if results else 0
         sys.exit(0 if success_rate >= 0.5 else 1)
+
+    elif args.command == "benchmark":
+        # Build benchmark kwargs from args
+        benchmark_kwargs = {
+            "shuffle": args.shuffle,
+        }
+        if args.max_tasks:
+            benchmark_kwargs["max_tasks"] = args.max_tasks
+        if args.seed:
+            benchmark_kwargs["seed"] = args.seed
+        if args.filter:
+            benchmark_kwargs["task_filter"] = args.filter
+
+        # Create orchestrator with benchmark
+        try:
+            orchestrator = Orchestrator.from_benchmark(
+                args.name,
+                difficulty=args.difficulty,
+                **benchmark_kwargs,
+            )
+        except (ValueError, NotImplementedError) as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+
+        # Configure logging
+        logging_cfg = orchestrator.config.get("logging", {})
+        _configure_logging(
+            logging_cfg.get("level", "INFO"),
+            third_party_level=logging_cfg.get("third_party_level", "WARNING"),
+            silence_loggers=logging_cfg.get("silence_loggers"),
+        )
+
+        # Create agent
+        agent = HumanAgent() if args.human else None
+
+        # Run benchmark
+        results = orchestrator.run_benchmark(
+            num_episodes=args.episodes,
+            agent=agent,
+            verbose=not args.quiet,
+            auto_adjust_difficulty=args.auto_adjust,
+        )
+
+        # Exit with success rate
+        success_rate = sum(1 for r in results if r["success"]) / len(results) if results else 0
+        sys.exit(0 if success_rate >= 0.5 else 1)
+
+    elif args.command == "list-benchmarks":
+        print("Available benchmarks:")
+        print("  workarena    - WorkArena L1 benchmark for ServiceNow web agent tasks")
+        print("  webarena     - (not yet implemented)")
+        print("  osworld      - (not yet implemented)")
+        print("  miniwob      - (not yet implemented)")
+        sys.exit(0)
 
     elif args.command == "config":
         if args.show:
