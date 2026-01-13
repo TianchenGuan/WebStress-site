@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLMOS Playground</title>
+    <link rel="stylesheet" href="/static/css/os.css">
+</head>
+<body>
+    <div class="playground-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-section">
+                <h2>LLMOS Playground</h2>
+                <div class="control-row">
+                    <label for="template-select">Template:</label>
+                    <select id="template-select">
+                        <option value="desktop">Desktop</option>
+                        <option value="browser">Browser</option>
+                        <option value="form">Form</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label for="difficulty-select">Difficulty:</label>
+                    <select id="difficulty-select">
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label for="instruction-input">Instruction:</label>
+                    <input type="text" id="instruction-input" placeholder="Optional task instruction">
+                </div>
+                <div class="control-row">
+                    <button id="reset-btn" class="btn btn-primary">Reset Episode</button>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="control-section">
+                <h3>Status</h3>
+                <div class="status-row">
+                    <span class="status-label">Tick:</span>
+                    <span id="tick-display">0</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Status:</span>
+                    <span id="status-display">Not started</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Last Action:</span>
+                    <span id="last-action-display">-</span>
+                </div>
+            </div>
+
+            <!-- Events -->
+            <div class="control-section">
+                <h3>Events</h3>
+                <div id="events-display" class="events-list">
+                    <div class="event-item placeholder">No events yet</div>
+                </div>
+            </div>
+
+            <!-- Thought -->
+            <div class="control-section">
+                <h3>Simulator Thought</h3>
+                <div id="thought-display" class="thought-box">
+                    <span class="placeholder">Waiting for action...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- OS Viewport -->
+        <div class="os-viewport-wrapper">
+            <div class="os-viewport" id="os-viewport">
+                <div class="os-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Click "Reset Episode" to start</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Log (collapsible) -->
+        <div class="action-log-panel">
+            <div class="log-header" onclick="toggleActionLog()">
+                <span>Action Log</span>
+                <span id="log-toggle-icon">+</span>
+            </div>
+            <div id="action-log" class="action-log collapsed">
+                <div class="log-entry placeholder">No actions yet</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/renderer.js"></script>
+    <script src="/static/js/input.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
