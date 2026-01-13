@@ -277,6 +277,10 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
         The modified state (same object, modified in-place).
     """
     for op in state_ops:
+        if not isinstance(op, dict):
+            logger.warning(f"Skipping non-dict operation: {type(op)}")
+            continue
+
         op_type = op.get("op")
 
         try:

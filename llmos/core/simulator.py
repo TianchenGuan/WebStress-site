@@ -226,8 +226,9 @@ Supported Operations:
         if action.get("action_type") == "finish":
             self.current_state["meta"]["tick"] += 1
             # Treat finish as "agent claims it is done", not authoritative success/failure.
-            # The Judge should determine success based on evidence in state/history.
-            self.current_state["meta"]["status"] = "terminated"
+            # We still mark the episode ended using a schema-valid status; the Judge
+            # determines success based on evidence in state/history.
+            self.current_state["meta"]["status"] = "completed"
 
             events = [action.get("text")] if action.get("text") else []
 
@@ -258,8 +259,20 @@ Supported Operations:
 
         # Extract operations
         state_ops = llm_response.get("state_ops", [])
+        if not isinstance(state_ops, list):
+            logger.warning(f"Simulator returned non-list state_ops ({type(state_ops)}); ignoring")
+            state_ops = []
+
         thought = llm_response.get("thought", "")
+        if not isinstance(thought, str):
+            thought = str(thought)
+
         events = llm_response.get("events", [])
+        if isinstance(events, str):
+            events = [events]
+        elif not isinstance(events, list):
+            logger.warning(f"Simulator returned non-list events ({type(events)}); ignoring")
+            events = []
 
         # Validate operations
         op_errors = validate_ops(state_ops)
