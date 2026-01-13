@@ -49,6 +49,7 @@
         "selected": { "type": "boolean", "description": "Selected state" },
         "disabled": { "type": "boolean", "description": "Whether element is disabled" },
         "visible": { "type": "boolean", "description": "Whether element is visible" },
+        "z_index": { "type": "integer", "description": "Stacking order. Higher values appear on top of lower values. Default is 0." },
         "bounds": {
           "type": "object",
           "properties": {
@@ -56,6 +57,19 @@
             "y": { "type": "number" },
             "width": { "type": "number" },
             "height": { "type": "number" }
+          }
+        },
+        "invisible_area": {
+          "type": "array",
+          "description": "Regions of this element that are occluded by elements with higher z_index",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
           }
         },
         "attributes": { "type": "object", "additionalProperties": true },

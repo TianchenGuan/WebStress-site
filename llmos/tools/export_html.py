@@ -86,12 +86,64 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: #fff;
             padding: 12px 16px;
             border-radius: 8px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             border: 1px solid #ddd;
             display: flex;
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
+        }}
+
+        /* Main UI Viewer */
+        .main-ui-viewer {{
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        .main-ui-viewer .collapsible-header {{
+            border: none;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #e1e4e8;
+        }}
+        .main-ui-viewer.expanded .collapsible-header {{
+            border-radius: 8px 8px 0 0;
+        }}
+        .main-ui-viewer .collapsible-content {{
+            border: none;
+            border-radius: 0 0 8px 8px;
+        }}
+        .main-ui-canvas-container {{
+            position: relative;
+            background: #1a1a2e;
+            min-height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }}
+        .main-ui-canvas {{
+            position: relative;
+            background: #16213e;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }}
+        .main-ui-step-info {{
+            padding: 12px 16px;
+            background: #f6f8fa;
+            border-top: 1px solid #e1e4e8;
+            font-size: 0.85rem;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .main-ui-step-info strong {{
+            color: #333;
+        }}
+        .main-ui-step-info .step-events {{
+            color: #22863a;
         }}
         .timeline-controls button {{
             background: #f0f0f0;
@@ -599,6 +651,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <button onclick="collapseAll()">Collapse All</button>
         </div>
 
+        <!-- Main UI Viewer (collapsible) -->
+        <div class="main-ui-viewer collapsible" id="main-ui-viewer">
+            <div class="collapsible-header" onclick="toggleMainUiViewer()">
+                <span class="collapsible-icon">▶</span>
+                UI Viewer
+            </div>
+            <div class="collapsible-content">
+                <div class="main-ui-canvas-container" id="main-ui-canvas-container">
+                    <div class="main-ui-canvas" id="main-ui-canvas"></div>
+                </div>
+                <div class="main-ui-step-info" id="main-ui-step-info">
+                    <strong>Step 0:</strong> Initial State
+                </div>
+            </div>
+        </div>
+
         <!-- Steps -->
         <div id="step-cards"></div>
 
@@ -997,7 +1065,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 </div>
             </div>`;
 
-            // Thought
+            // Agent Thought (stored in agent_llm_data.thought)
+            const agentThought = step.agent_llm_data?.thought || step.agent_thought;
+            if (agentThought) {{
+                html += `<div class="section">
+                    <div class="section-title">Agent Thought</div>
+                    ${{createCodeBlock(agentThought, 'Agent Thought - Step ' + stepNum, false)}}
+                </div>`;
+            }}
+
+            // Simulator Thought
             if (step.thought) {{
                 html += `<div class="section">
                     <div class="section-title">Simulator Thought</div>
@@ -1169,15 +1246,99 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function goToStep(step) {{
             currentStep = parseInt(step);
             updateActiveStep();
-            const card = document.querySelector(`.step-card[data-step="${{currentStep}}"]`);
-            if (card) {{
-                card.classList.add('expanded');
-                card.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+            // Only render main UI viewer if it's expanded
+            if (document.getElementById('main-ui-viewer')?.classList.contains('expanded')) {{
+                renderMainUiViewer();
             }}
         }}
 
         function prevStep() {{ if (currentStep > 0) goToStep(currentStep - 1); }}
         function nextStep() {{ if (currentStep < historyData.length) goToStep(currentStep + 1); }}
+
+        function toggleMainUiViewer() {{
+            const viewer = document.getElementById('main-ui-viewer');
+            viewer.classList.toggle('expanded');
+            if (viewer.classList.contains('expanded')) {{
+                renderMainUiViewer();
+            }}
+        }}
+
+        function renderMainUiViewer() {{
+            const canvas = document.getElementById('main-ui-canvas');
+            const container = document.getElementById('main-ui-canvas-container');
+            const stepInfo = document.getElementById('main-ui-step-info');
+            if (!canvas || !container) return;
+
+            // Get UI for current step (use observation, step 0 = initial, step N = after step N)
+            const uiRoot = currentStep === 0 ? uiFramesObs[0] : uiFramesObs[currentStep];
+
+            canvas.innerHTML = '';
+            if (!uiRoot) {{
+                canvas.style.width = '400px';
+                canvas.style.height = '300px';
+                canvas.innerHTML = '<div style="padding:20px;color:#e5e7eb;text-align:center;">(no UI data)</div>';
+                stepInfo.innerHTML = '<strong>Step ' + currentStep + ':</strong> No UI data available';
+                return;
+            }}
+
+            const bounds = uiRoot.bounds || {{ x: 0, y: 0, width: 1920, height: 1080 }};
+            const rootW = Math.max(1, Number(bounds.width || 1920));
+            const rootH = Math.max(1, Number(bounds.height || 1080));
+            const maxW = Math.min(900, container.clientWidth - 32);
+            const maxH = 600;
+            const scale = Math.min(maxW / rootW, maxH / rootH);
+            const canvasW = Math.round(rootW * scale);
+            const canvasH = Math.round(rootH * scale);
+
+            canvas.style.width = canvasW + 'px';
+            canvas.style.height = canvasH + 'px';
+
+            const flat = flattenUi(uiRoot);
+            flat.sort((a, b) => a.depth - b.depth);
+
+            for (const {{ node, depth }} of flat) {{
+                const b = node.bounds;
+                if (!b || b.x === undefined || b.y === undefined || b.width === undefined || b.height === undefined) continue;
+
+                const x = Number(b.x) * scale;
+                const y = Number(b.y) * scale;
+                const w = Math.max(1, Number(b.width) * scale);
+                const h = Math.max(1, Number(b.height) * scale);
+
+                const el = document.createElement('div');
+                el.className = 'ui-node';
+                if (nodeIsInteractive(node)) el.classList.add('interactive');
+                if (node.disabled) el.classList.add('disabled');
+                if (node.focused) el.classList.add('focused');
+
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.style.width = w + 'px';
+                el.style.height = h + 'px';
+                el.style.zIndex = String(10 + depth);
+
+                const label = document.createElement('div');
+                label.className = 'ui-node-label';
+                label.textContent = nodeLabel(node);
+                el.title = nodeLabel(node);
+                el.appendChild(label);
+
+                canvas.appendChild(el);
+            }}
+
+            // Update step info
+            if (currentStep === 0) {{
+                stepInfo.innerHTML = '<span><strong>Step 0:</strong> Initial State</span><span class="step-events"></span>';
+            }} else {{
+                const step = historyData[currentStep - 1];
+                const actionType = step?.action?.action_type || 'unknown';
+                const target = summarizeActionTarget(step?.action);
+                const events = step?.events || [];
+                const eventsText = events.length > 0 ? events.join(' | ') : '';
+                stepInfo.innerHTML = '<span><strong>Step ' + currentStep + ':</strong> ' + actionType + (target ? ' (' + escapeHtml(target) + ')' : '') + '</span>' +
+                    '<span class="step-events">' + (eventsText ? escapeHtml(eventsText) : '') + '</span>';
+            }}
+        }}
 
         function togglePlay() {{
             playing = !playing;
@@ -1198,6 +1359,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 const n = parseInt(el.dataset.uiStep);
                 if (!isNaN(n)) renderUiPreview(n);
             }});
+            // Render main UI viewer if expanded
+            if (document.getElementById('main-ui-viewer')?.classList.contains('expanded')) {{
+                renderMainUiViewer();
+            }}
         }}
 
         function collapseAll() {{

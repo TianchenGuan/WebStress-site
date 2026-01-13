@@ -7,6 +7,8 @@ import copy
 import logging
 from typing import Optional
 
+from .occlusion import compute_occlusion_precise, filter_occluded_nodes
+
 logger = logging.getLogger(__name__)
 
 # Maximum content length before truncation
@@ -14,7 +16,11 @@ MAX_CONTENT_LENGTH = 1000
 TRUNCATION_SUFFIX = "... [truncated]"
 
 
-def render_observation(state: dict, include_meta: bool = True) -> dict:
+def render_observation(
+    state: dict,
+    include_meta: bool = True,
+    apply_occlusion: bool = True,
+) -> dict:
     """
     Render an observation from the full state by filtering sensitive data.
 
@@ -23,10 +29,13 @@ def render_observation(state: dict, include_meta: bool = True) -> dict:
     2. Removes meta.random_seed
     3. Hides files marked visible: false
     4. Truncates long file contents
+    5. Filters out fully occluded UI elements (based on z_index and bounds)
+    6. Marks partially occluded elements with invisible_area
 
     Args:
         state: The full state object (with hidden_state).
         include_meta: Whether to include meta information.
+        apply_occlusion: Whether to filter occluded elements based on z_index.
 
     Returns:
         A filtered observation safe for the agent.
@@ -54,6 +63,11 @@ def render_observation(state: dict, include_meta: bool = True) -> dict:
     # 4. Filter UI tree (remove any nodes marked not visible)
     if "ui" in obs:
         obs["ui"] = _filter_ui_tree(obs["ui"])
+
+    # 5. Apply occlusion filtering (remove fully occluded, mark partially occluded)
+    if apply_occlusion and "ui" in obs and obs["ui"] is not None:
+        occlusion_map = compute_occlusion_precise(obs["ui"])
+        obs["ui"] = filter_occluded_nodes(obs["ui"], occlusion_map)
 
     return obs
 

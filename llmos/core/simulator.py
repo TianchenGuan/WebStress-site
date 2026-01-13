@@ -233,11 +233,11 @@ Supported Operations:
 
             self.history.append({
                 "tick": self.current_state["meta"]["tick"],
-                "action": action_for_history,
+                "action": copy.deepcopy(action_for_history),
                 "thought": "",
                 "state_ops": [],
-                "events": events,
-                "agent_llm_data": agent_llm_data,
+                "events": copy.deepcopy(events),
+                "agent_llm_data": copy.deepcopy(agent_llm_data),
                 "simulator_llm_data": {},
             })
 
@@ -278,14 +278,15 @@ Supported Operations:
             self.current_state["meta"]["status"] = "completed"
 
         # Record history with LLM data flow
+        # IMPORTANT: Deep copy mutable data to prevent reference corruption
         self.history.append({
             "tick": self.current_state["meta"]["tick"],
-            "action": action_for_history,
+            "action": copy.deepcopy(action_for_history),
             "thought": thought,
-            "state_ops": state_ops,
-            "events": events,
-            "agent_llm_data": agent_llm_data,  # Agent's LLM input/output
-            "simulator_llm_data": llm_response.get("_llm_data", {}),  # Simulator's LLM input/output
+            "state_ops": copy.deepcopy(state_ops),
+            "events": copy.deepcopy(events),
+            "agent_llm_data": copy.deepcopy(agent_llm_data),  # Agent's LLM input/output
+            "simulator_llm_data": copy.deepcopy(llm_response.get("_llm_data", {})),  # Simulator's LLM input/output
         })
 
         # Render observation
