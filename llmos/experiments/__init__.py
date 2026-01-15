@@ -65,6 +65,21 @@ from .design_space import (
     get_experiment_configs,
     get_hypothesis,
     get_interaction_experiments,
+    get_all_experiments,
+    # Factory functions
+    design_to_simulator_config,
+    create_simulator_from_design,
+    create_simulators_for_experiment,
+    get_simulator_for_config,
+)
+from .run_experiment import (
+    ExperimentRunner as BenchmarkRunner,  # Backward compatibility alias
+    ExperimentResult as BenchmarkResult,  # Backward compatibility alias
+    ExperimentRunner,
+    ExperimentResult,
+    EpisodeResult,
+    load_workarena_tasks,
+    create_sample_tasks,
 )
 
 __all__ = [
@@ -107,7 +122,21 @@ __all__ = [
     "GroundingStrategy",
     "DESIGN_EXPERIMENTS",
     "get_experiment",
+    "get_all_experiments",
     "get_experiment_configs",
     "get_hypothesis",
     "get_interaction_experiments",
+    # Factory functions (ExperimentalDesign → ExperimentalSimulator)
+    "design_to_simulator_config",
+    "create_simulator_from_design",
+    "create_simulators_for_experiment",
+    "get_simulator_for_config",
+    # Experiment runner (with backward compatibility aliases)
+    "ExperimentRunner",
+    "ExperimentResult",
+    "BenchmarkRunner",  # Alias for ExperimentRunner
+    "BenchmarkResult",  # Alias for ExperimentResult
+    "EpisodeResult",
+    "load_workarena_tasks",
+    "create_sample_tasks",
 ]

@@ -707,3 +707,225 @@ def get_interaction_experiments() -> list[ExperimentalDesign]:
     ))
 
     return configs
+
+
+# =============================================================================
+# Factory: ExperimentalDesign → ExperimentalSimulator
+# =============================================================================
+
+def design_to_simulator_config(design: ExperimentalDesign) -> dict:
+    """
+    Convert ExperimentalDesign to ExperimentalSimulator configuration dict.
+
+    This function bridges the experimental design space with the modular
+    simulator implementation. It handles enum mapping between the two systems.
+
+    Args:
+        design: The experimental design configuration.
+
+    Returns:
+        Dictionary of kwargs for ExperimentalSimulator or ExperimentalConfig.
+    """
+    # Import module enums (different from design_space enums)
+    from .modules.state_output import StateOutputMode as ModuleStateOutputMode
+    from .modules.abstraction import AbstractionLevel as ModuleAbstractionLevel
+    from .modules.memory import MemoryMode as ModuleMemoryMode
+    from .modules.reasoning import ReasoningMode as ModuleReasoningMode
+    from .modules.verification import VerificationMode as ModuleVerificationMode
+    from .modules.temporal import TemporalMode as ModuleTemporalMode
+    from .modules.uncertainty import UncertaintyMode as ModuleUncertaintyMode
+    from .modules.grounding import GroundingStrategy as ModuleGroundingStrategy
+
+    # Map state output modes
+    # Note: Module only supports FULL_STATE, DELTA_ONLY, SEMANTIC_DESCRIPTION
+    # DELTA_WITH_CONTEXT maps to DELTA_ONLY as closest approximation
+    state_output_map = {
+        StateOutputMode.FULL_STATE: ModuleStateOutputMode.FULL_STATE,
+        StateOutputMode.DELTA_ONLY: ModuleStateOutputMode.DELTA_ONLY,
+        StateOutputMode.DELTA_WITH_CONTEXT: ModuleStateOutputMode.DELTA_ONLY,  # Closest match
+        StateOutputMode.SEMANTIC_DESCRIPTION: ModuleStateOutputMode.SEMANTIC_DESCRIPTION,
+    }
+
+    # Map abstraction levels
+    abstraction_map = {
+        AbstractionLevel.FULL_DETAIL: ModuleAbstractionLevel.FULL_DOM,
+        AbstractionLevel.SEMANTIC_ELEMENTS: ModuleAbstractionLevel.SEMANTIC_ELEMENTS,
+        AbstractionLevel.TASK_RELEVANT: ModuleAbstractionLevel.TASK_RELEVANT,
+        AbstractionLevel.STATE_MACHINE: ModuleAbstractionLevel.SEMANTIC_ELEMENTS,  # Closest match
+        AbstractionLevel.ADAPTIVE: ModuleAbstractionLevel.FULL_DOM,  # Fallback
+    }
+
+    # Map context strategies to memory modes
+    memory_map = {
+        ContextStrategy.FULL_HISTORY: ModuleMemoryMode.FULL_HISTORY,
+        ContextStrategy.ROLLING_WINDOW: ModuleMemoryMode.ROLLING_WINDOW,
+        ContextStrategy.SUMMARIZED_HISTORY: ModuleMemoryMode.SUMMARIZED,
+        ContextStrategy.CHECKPOINTS: ModuleMemoryMode.CHECKPOINTS,
+        ContextStrategy.RETRIEVAL_AUGMENTED: ModuleMemoryMode.ROLLING_WINDOW,  # No RAG impl yet
+    }
+
+    # Map causal modes to reasoning modes
+    reasoning_map = {
+        CausalMode.DIRECT: ModuleReasoningMode.DIRECT,
+        CausalMode.CAUSAL_CHAIN: ModuleReasoningMode.CHAIN,
+        CausalMode.COUNTERFACTUAL: ModuleReasoningMode.CHAIN,  # Closest match
+    }
+
+    # Map verification modes
+    # Note: SELF_CONSISTENCY is not directly supported in module, mapped to SCHEMA
+    verification_map = {
+        VerificationMode.NONE: ModuleVerificationMode.NONE,
+        VerificationMode.SELF_CONSISTENCY: ModuleVerificationMode.SCHEMA,  # Not directly supported
+        VerificationMode.SCHEMA_ONLY: ModuleVerificationMode.SCHEMA,
+        VerificationMode.CONSTRAINT_CHECK: ModuleVerificationMode.CONSTRAINT_CHECK,
+        VerificationMode.BACKWARD_CHECK: ModuleVerificationMode.BACKWARD,
+    }
+
+    # Map temporal modes (should be 1:1)
+    temporal_map = {
+        TemporalMode.INSTANT: ModuleTemporalMode.INSTANT,
+        TemporalMode.ASYNC_AWARE: ModuleTemporalMode.ASYNC_AWARE,
+        TemporalMode.EVENT_DRIVEN: ModuleTemporalMode.EVENT_DRIVEN,
+    }
+
+    # Map uncertainty modes (should be 1:1)
+    uncertainty_map = {
+        UncertaintyMode.DETERMINISTIC: ModuleUncertaintyMode.DETERMINISTIC,
+        UncertaintyMode.WITH_CONFIDENCE: ModuleUncertaintyMode.WITH_CONFIDENCE,
+        UncertaintyMode.PROBABILISTIC: ModuleUncertaintyMode.PROBABILISTIC,
+        UncertaintyMode.ADMITS_UNCERTAINTY: ModuleUncertaintyMode.ADMITS_UNCERTAINTY,
+    }
+
+    # Map grounding strategies (should be 1:1)
+    grounding_map = {
+        GroundingStrategy.LLM_KNOWLEDGE: ModuleGroundingStrategy.LLM_KNOWLEDGE,
+        GroundingStrategy.EXAMPLE_GROUNDED: ModuleGroundingStrategy.EXAMPLE_GROUNDED,
+        GroundingStrategy.DOC_GROUNDED: ModuleGroundingStrategy.DOC_GROUNDED,
+        GroundingStrategy.TRACE_GROUNDED: ModuleGroundingStrategy.TRACE_GROUNDED,
+    }
+
+    return {
+        "state_output": state_output_map.get(
+            design.state_output, ModuleStateOutputMode.DELTA_ONLY
+        ),
+        "abstraction": abstraction_map.get(
+            design.abstraction_level, ModuleAbstractionLevel.FULL_DOM
+        ),
+        "memory": memory_map.get(
+            design.context_strategy, ModuleMemoryMode.ROLLING_WINDOW
+        ),
+        "memory_window": design.context_window_steps,
+        "reasoning": reasoning_map.get(
+            design.causal_mode, ModuleReasoningMode.DIRECT
+        ),
+        "verification": verification_map.get(
+            design.verification, ModuleVerificationMode.SCHEMA
+        ),
+        "temporal": temporal_map.get(
+            design.temporal_mode, ModuleTemporalMode.INSTANT
+        ),
+        "uncertainty": uncertainty_map.get(
+            design.uncertainty_mode, ModuleUncertaintyMode.DETERMINISTIC
+        ),
+        "uncertainty_min_confidence": design.confidence_threshold,
+        "grounding": grounding_map.get(
+            design.grounding, ModuleGroundingStrategy.LLM_KNOWLEDGE
+        ),
+    }
+
+
+def create_simulator_from_design(
+    design: ExperimentalDesign,
+    **kwargs,
+) -> "ExperimentalSimulator":
+    """
+    Create an ExperimentalSimulator from an ExperimentalDesign.
+
+    This is the main factory function for converting experimental designs
+    (hypothesis-driven configurations) into runnable simulators.
+
+    Args:
+        design: The experimental design to convert.
+        **kwargs: Additional arguments passed to ExperimentalSimulator
+                  (e.g., config_path, llm_client, domain).
+
+    Returns:
+        ExperimentalSimulator configured according to the design.
+
+    Example:
+        >>> # Run a specific experiment configuration
+        >>> design = get_experiment_configs("abstraction")[1]  # semantic_only
+        >>> simulator = create_simulator_from_design(design, domain="servicenow")
+        >>> obs = simulator.reset(template_name="browser", instruction=task)
+        >>> obs, done, info = simulator.step(action)
+
+        >>> # Run all configs for an experiment
+        >>> for design in get_experiment_configs("uncertainty"):
+        ...     simulator = create_simulator_from_design(design)
+        ...     results[design.name] = run_episode(simulator, task)
+    """
+    from .modules.experimental_simulator import ExperimentalSimulator
+
+    # Convert design to simulator config
+    config_dict = design_to_simulator_config(design)
+
+    # Merge with additional kwargs (kwargs override config_dict)
+    config_dict.update(kwargs)
+
+    return ExperimentalSimulator(**config_dict)
+
+
+def create_simulators_for_experiment(
+    experiment_name: str,
+    **kwargs,
+) -> list[tuple[ExperimentalDesign, "ExperimentalSimulator"]]:
+    """
+    Create simulators for all configurations in an experiment.
+
+    Args:
+        experiment_name: Name of the experiment (e.g., "abstraction", "uncertainty").
+        **kwargs: Additional arguments passed to each ExperimentalSimulator.
+
+    Returns:
+        List of (design, simulator) tuples for the experiment.
+
+    Example:
+        >>> # Run the abstraction experiment
+        >>> for design, sim in create_simulators_for_experiment("abstraction"):
+        ...     print(f"Testing: {design.name}")
+        ...     score = evaluate_simulator(sim, tasks)
+        ...     results[design.name] = score
+    """
+    designs = get_experiment_configs(experiment_name)
+    return [
+        (design, create_simulator_from_design(design, **kwargs))
+        for design in designs
+    ]
+
+
+def get_simulator_for_config(
+    config_name: str,
+    experiment_name: str,
+    **kwargs,
+) -> Optional["ExperimentalSimulator"]:
+    """
+    Get a simulator for a specific named configuration within an experiment.
+
+    Args:
+        config_name: Name of the configuration (e.g., "semantic_only").
+        experiment_name: Name of the experiment (e.g., "abstraction").
+        **kwargs: Additional arguments for the simulator.
+
+    Returns:
+        ExperimentalSimulator if found, None otherwise.
+
+    Example:
+        >>> sim = get_simulator_for_config("probabilistic", "uncertainty")
+        >>> if sim:
+        ...     results = run_episode(sim, task)
+    """
+    designs = get_experiment_configs(experiment_name)
+    for design in designs:
+        if design.name == config_name:
+            return create_simulator_from_design(design, **kwargs)
+    return None

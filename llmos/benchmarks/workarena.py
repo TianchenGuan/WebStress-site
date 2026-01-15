@@ -49,12 +49,20 @@ class WorkArenaTaskProvider:
     """
     Task provider that loads tasks from WorkArena benchmark.
 
-    Supports filtering by task category and difficulty.
+    Supports filtering by task category, difficulty, and task level (L1/L2/L3).
+
+    Task levels:
+        - l1: Atomic tasks (single-step actions)
+        - l2: Compositional tasks (multi-step compositions)
+        - l3: Long-horizon tasks (complex workflows)
+        - all: All available tasks
     """
 
     def __init__(
         self,
         task_filter: Optional[list[str]] = None,
+        task_level: str = "all",  # 'l1', 'l2', 'l3', 'all'
+        difficulty: str = "medium",  # Simulator difficulty: 'easy', 'medium', 'hard'
         split: str = "all",  # 'all', 'train', 'test' (WorkArena doesn't have official splits)
         shuffle: bool = True,
         seed: Optional[int] = None,
@@ -65,12 +73,23 @@ class WorkArenaTaskProvider:
 
         Args:
             task_filter: List of task class names to include (None = all).
+            task_level: WorkArena task complexity level ('l1', 'l2', 'l3', 'all').
+                - l1: Atomic tasks (single-step actions)
+                - l2: Compositional tasks (multi-step)
+                - l3: Long-horizon tasks (complex workflows)
+            difficulty: Simulator response difficulty ('easy', 'medium', 'hard').
+                - easy: Forgiving responses, clear feedback
+                - medium: Standard realistic responses
+                - hard: Challenging responses, potential errors, edge cases
+                Note: This is independent of task_level.
             split: Dataset split (WorkArena doesn't have official splits, ignored).
             shuffle: Whether to shuffle tasks.
             seed: Random seed.
             max_tasks: Maximum number of tasks to load.
         """
         self.task_filter = task_filter
+        self.task_level = task_level.lower()
+        self.difficulty = difficulty.lower()
         self.split = split
         self.shuffle = shuffle
         self.seed = seed
@@ -86,15 +105,57 @@ class WorkArenaTaskProvider:
         if self._loaded:
             return
 
-        try:
-            from browsergym.workarena import ATOMIC_TASKS
-        except ImportError:
-            raise ImportError(
-                "WorkArena not installed. Install with: pip install browsergym-workarena"
-            )
+        task_classes = []
 
-        # Get all atomic tasks
-        task_classes = list(ATOMIC_TASKS)
+        try:
+            # Try to import task sets based on level
+            # WorkArena exports:
+            #   L1: ATOMIC_TASKS, workarena_tasks_l1 (33 tasks)
+            #   L2: ALL_COMPOSITIONAL_TASKS_L2 (341 tasks)
+            #   L3: ALL_COMPOSITIONAL_TASKS_L3 (341 tasks)
+            #   All: ALL_WORKARENA_TASKS (716 tasks)
+
+            if self.task_level in ("l1", "all"):
+                try:
+                    from browsergym.workarena import ATOMIC_TASKS
+                    task_classes.extend(list(ATOMIC_TASKS))
+                    logger.info(f"Loaded {len(ATOMIC_TASKS)} L1 atomic tasks")
+                except ImportError:
+                    logger.warning("ATOMIC_TASKS not available")
+
+            if self.task_level in ("l2", "all"):
+                try:
+                    from browsergym.workarena import ALL_COMPOSITIONAL_TASKS_L2
+                    task_classes.extend(list(ALL_COMPOSITIONAL_TASKS_L2))
+                    logger.info(f"Loaded {len(ALL_COMPOSITIONAL_TASKS_L2)} L2 compositional tasks")
+                except ImportError:
+                    logger.warning("ALL_COMPOSITIONAL_TASKS_L2 not available")
+
+            if self.task_level in ("l3", "all"):
+                try:
+                    from browsergym.workarena import ALL_COMPOSITIONAL_TASKS_L3
+                    task_classes.extend(list(ALL_COMPOSITIONAL_TASKS_L3))
+                    logger.info(f"Loaded {len(ALL_COMPOSITIONAL_TASKS_L3)} L3 compositional tasks")
+                except ImportError:
+                    logger.warning("ALL_COMPOSITIONAL_TASKS_L3 not available")
+
+            if not task_classes:
+                # Fallback: try ALL_WORKARENA_TASKS
+                try:
+                    from browsergym.workarena import ALL_WORKARENA_TASKS
+                    task_classes = list(ALL_WORKARENA_TASKS)
+                    logger.info(f"Loaded {len(ALL_WORKARENA_TASKS)} tasks from ALL_WORKARENA_TASKS")
+                except ImportError:
+                    raise ImportError(
+                        "WorkArena not installed or no tasks found. "
+                        "Install with: pip install browsergym-workarena"
+                    )
+
+        except ImportError as e:
+            raise ImportError(
+                f"WorkArena not installed. Install with: pip install browsergym-workarena\n"
+                f"Error: {e}"
+            )
 
         # Apply filter
         if self.task_filter:
@@ -113,63 +174,159 @@ class WorkArenaTaskProvider:
         if self.max_tasks:
             task_classes = task_classes[:self.max_tasks]
 
-        # Convert to Task objects
+        # Convert to Task objects with level tracking
         self._workarena_tasks = task_classes
-        self._tasks = [self._convert_task(tc, idx) for idx, tc in enumerate(task_classes)]
+        self._task_levels = self._determine_task_levels(task_classes)
+        self._tasks = [
+            self._convert_task(tc, idx, self._task_levels.get(tc.__name__, "l1"))
+            for idx, tc in enumerate(task_classes)
+        ]
         self._loaded = True
 
-    def _convert_task(self, task_class: Any, index: int) -> Task:
+    def _determine_task_levels(self, task_classes: list) -> dict[str, str]:
+        """Determine which level each task belongs to."""
+        levels = {}
+
+        try:
+            from browsergym.workarena import ATOMIC_TASKS
+            for tc in ATOMIC_TASKS:
+                levels[tc.__name__] = "l1"
+        except ImportError:
+            pass
+
+        try:
+            from browsergym.workarena import ALL_COMPOSITIONAL_TASKS_L2
+            for tc in ALL_COMPOSITIONAL_TASKS_L2:
+                levels[tc.__name__] = "l2"
+        except ImportError:
+            pass
+
+        try:
+            from browsergym.workarena import ALL_COMPOSITIONAL_TASKS_L3
+            for tc in ALL_COMPOSITIONAL_TASKS_L3:
+                # Only mark as L3 if not already marked as L2
+                # (since L2 and L3 may have overlapping task classes)
+                if tc.__name__ not in levels:
+                    levels[tc.__name__] = "l3"
+        except ImportError:
+            pass
+
+        return levels
+
+    # Map WorkArena categories to LLMOS templates
+    CATEGORY_TO_TEMPLATE = {
+        "dashboard": "servicenow_dashboard",
+        "form": "servicenow_form",
+        "knowledge": "servicenow_knowledge",
+        "list-filter": "servicenow_list",
+        "list-sort": "servicenow_list",
+        "menu": "servicenow_menu",
+        "service catalog": "servicenow_catalog",
+        # Fallback for unknown categories
+        "general": "servicenow_menu",
+    }
+
+    def _convert_task(self, task_class: Any, index: int, level: str = "l1") -> Task:
         """Convert a WorkArena task class to LLMOS Task."""
         # Extract metadata from task class
         task_name = task_class.__name__
 
-        # Categorize based on class name patterns
-        category = self._infer_category(task_name)
-        difficulty = self._infer_difficulty(task_name)
+        # Get category from WorkArena's TASK_CATEGORY_MAP if available
+        category = self._get_workarena_category(task_class)
+        if not category:
+            category = self._infer_category(task_name)
+
+        # Map category to template
+        template = self.CATEGORY_TO_TEMPLATE.get(category, "servicenow_menu")
 
         # Generate instruction from task name
         # WorkArena tasks have descriptive names like "FilterHardwareListTask"
         instruction = self._generate_instruction(task_name, task_class)
 
         return Task(
-            task_id=f"workarena_{index:04d}_{task_name}",
+            task_id=f"workarena_{level}_{index:04d}_{task_name}",
             instruction=instruction,
-            initial_state_template="browser",  # WorkArena is browser-based
-            difficulty=difficulty,
+            initial_state_template=template,
+            difficulty=self.difficulty,  # Use provider's difficulty setting (simulator behavior)
             category=category,
             extra={
                 "workarena_task_class": task_name,
                 "workarena_task_index": index,
+                "workarena_level": level,  # WorkArena task complexity
+                "workarena_category": category,
             },
         )
 
-    def _infer_category(self, task_name: str) -> str:
-        """Infer task category from name."""
-        name_lower = task_name.lower()
-        if "filter" in name_lower or "list" in name_lower:
-            return "list_management"
-        elif "create" in name_lower or "form" in name_lower:
-            return "form_filling"
-        elif "search" in name_lower or "knowledge" in name_lower:
-            return "search"
-        elif "order" in name_lower or "catalog" in name_lower:
-            return "service_catalog"
-        elif "dashboard" in name_lower or "chart" in name_lower:
-            return "dashboard"
-        elif "navigation" in name_lower:
-            return "navigation"
-        else:
-            return "general"
+    def _get_workarena_category(self, task_class: Any) -> Optional[str]:
+        """Get category from WorkArena's TASK_CATEGORY_MAP."""
+        try:
+            from browsergym.workarena import TASK_CATEGORY_MAP
+            # TASK_CATEGORY_MAP keys are like "workarena.servicenow.create-incident"
+            # Try to match by task class name
+            task_name_lower = task_class.__name__.lower()
+            for key, category in TASK_CATEGORY_MAP.items():
+                # Extract the task part from key (e.g., "create-incident" from "workarena.servicenow.create-incident")
+                task_part = key.split(".")[-1].replace("-", "").replace("_", "")
+                # Match against class name
+                if task_part in task_name_lower.replace("task", "").replace("_", ""):
+                    return category
+        except ImportError:
+            pass
+        return None
 
-    def _infer_difficulty(self, task_name: str) -> str:
-        """Infer difficulty from task name."""
+    def _infer_category(self, task_name: str) -> str:
+        """Infer task category from name (fallback when TASK_CATEGORY_MAP not available).
+
+        For compositional tasks (L2/L3), infer the starting point from task name.
+        The first action keyword usually indicates where the task begins.
+        """
         name_lower = task_name.lower()
-        if "multi" in name_lower or "complex" in name_lower:
-            return "hard"
-        elif "simple" in name_lower or "basic" in name_lower:
-            return "easy"
-        else:
-            return "medium"
+
+        # L1 atomic task patterns
+        if "filter" in name_lower and "list" in name_lower:
+            return "list-filter"
+        elif "sort" in name_lower and "list" in name_lower:
+            return "list-sort"
+
+        # L2/L3 compositional task patterns - check what the task starts with
+        # FilterProblemsAndMarkDuplicates -> starts with list filter
+        if name_lower.startswith("filter") or name_lower.startswith("basicfilter") or \
+           name_lower.startswith("priorityfilter") or name_lower.startswith("highpriorityfilter"):
+            return "list-filter"
+
+        # Workload/Assignment tasks - typically start from list view
+        if "workload" in name_lower or "assignment" in name_lower or "balancing" in name_lower:
+            return "list-filter"
+
+        # ChangeRequest scheduling tasks - start with form or list
+        if "changerequest" in name_lower or "scheduling" in name_lower:
+            return "form"
+
+        # Dashboard/Chart tasks
+        if "chart" in name_lower or "dashboard" in name_lower or "retrieval" in name_lower:
+            return "dashboard"
+
+        # Form creation tasks
+        if "create" in name_lower:
+            return "form"
+
+        # Knowledge base tasks
+        if "knowledge" in name_lower or "search" in name_lower:
+            return "knowledge"
+
+        # Service catalog tasks
+        if "order" in name_lower or "catalog" in name_lower:
+            return "service catalog"
+
+        # Navigation/Menu tasks
+        if "menu" in name_lower or "navigation" in name_lower or "impersona" in name_lower:
+            return "menu"
+
+        # For unknown L2/L3 tasks, default to list (most common starting point)
+        if "taskl2" in name_lower or "taskl3" in name_lower:
+            return "list-filter"
+
+        return "general"
 
     def _generate_instruction(self, task_name: str, task_class: Any) -> str:
         """Generate natural language instruction from task class."""
@@ -206,15 +363,37 @@ class WorkArenaTaskProvider:
         return [self.get_task() for _ in range(n)]
 
     def get_metadata(self) -> dict:
+        """Get metadata about loaded tasks.
+
+        Returns dict with:
+            - task_level: WorkArena complexity level filter ('l1', 'l2', 'l3', 'all')
+            - simulator_difficulty: Simulator response difficulty ('easy', 'medium', 'hard')
+            - levels_loaded: Actual levels present in loaded tasks
+            - level_counts: Count of tasks per level
+            - categories: Task categories (form, list-filter, dashboard, etc.)
+            - total_tasks: Total number of tasks loaded
+        """
         self._load_tasks()
         categories = set(t.category for t in self._tasks if t.category)
-        difficulties = set(t.difficulty for t in self._tasks)
+        levels = set(t.extra.get("workarena_level", "l1") for t in self._tasks)
+
+        # Count tasks per level
+        level_counts = {}
+        for t in self._tasks:
+            level = t.extra.get("workarena_level", "l1")
+            level_counts[level] = level_counts.get(level, 0) + 1
+
         return {
             "name": self.name,
-            "version": "l1",  # WorkArena L1 (atomic tasks)
+            # WorkArena task complexity (which tasks to load)
+            "task_level": self.task_level,
+            "levels_loaded": sorted(levels),
+            "level_counts": level_counts,
+            # Simulator behavior setting (independent of task level)
+            "simulator_difficulty": self.difficulty,
+            # Task info
             "total_tasks": len(self._tasks),
             "categories": list(categories),
-            "difficulties": list(difficulties),
             "task_classes": [t.__name__ for t in self._workarena_tasks],
         }
 
@@ -583,15 +762,29 @@ class WorkArenaBenchmark(BenchmarkAdapter):
 
     Provides integration with the WorkArena benchmark for training
     and evaluating web agents on ServiceNow tasks.
+
+    Two independent settings:
+
+    Task Level (WorkArena complexity - which tasks to use):
+        - l1: Atomic tasks (single-step, ~33 tasks)
+        - l2: Compositional tasks (multi-step, ~341 tasks)
+        - l3: Long-horizon tasks (complex workflows, ~341 tasks)
+        - all: All available tasks
+
+    Simulator Difficulty (how the simulator responds):
+        - easy: Forgiving, clear feedback, no errors
+        - medium: Standard realistic responses
+        - hard: Challenging, potential errors, edge cases
     """
 
     name = "workarena"
-    version = "l1"
-    description = "WorkArena L1 benchmark for ServiceNow web agent tasks"
+    description = "WorkArena benchmark for ServiceNow web agent tasks"
 
     def __init__(
         self,
         task_filter: Optional[list[str]] = None,
+        task_level: str = "all",  # 'l1', 'l2', 'l3', 'all'
+        difficulty: str = "medium",  # 'easy', 'medium', 'hard'
         shuffle: bool = True,
         seed: Optional[int] = None,
         max_tasks: Optional[int] = None,
@@ -605,6 +798,9 @@ class WorkArenaBenchmark(BenchmarkAdapter):
 
         Args:
             task_filter: Filter tasks by name patterns.
+            task_level: WorkArena task complexity level ('l1', 'l2', 'l3', 'all').
+            difficulty: Simulator response difficulty ('easy', 'medium', 'hard').
+                Independent of task_level - controls how simulator responds.
             shuffle: Shuffle task order.
             seed: Random seed.
             max_tasks: Maximum tasks to load.
@@ -614,6 +810,8 @@ class WorkArenaBenchmark(BenchmarkAdapter):
         """
         super().__init__(**kwargs)
         self.task_filter = task_filter
+        self.task_level = task_level
+        self.difficulty = difficulty
         self.shuffle = shuffle
         self.seed = seed
         self.max_tasks = max_tasks
@@ -621,9 +819,15 @@ class WorkArenaBenchmark(BenchmarkAdapter):
         self.headless = headless
         self.config_path = config_path
 
+    @property
+    def version(self) -> str:
+        return self.task_level
+
     def create_task_provider(self) -> TaskProvider:
         return WorkArenaTaskProvider(
             task_filter=self.task_filter,
+            task_level=self.task_level,
+            difficulty=self.difficulty,
             shuffle=self.shuffle,
             seed=self.seed,
             max_tasks=self.max_tasks,
@@ -646,13 +850,21 @@ class WorkArenaBenchmark(BenchmarkAdapter):
         return WorkArenaObservationRenderer()
 
     def _get_config_kwargs(self) -> dict:
+        # Adjust max_steps based on task level
+        max_steps_by_level = {
+            "l1": 20,   # Atomic tasks need fewer steps
+            "l2": 50,   # Compositional tasks need more
+            "l3": 100,  # Long-horizon tasks need many steps
+            "all": 50,  # Conservative default
+        }
+
         return {
             "difficulty": "medium",
-            "max_steps": 30,  # WorkArena tasks typically need fewer steps
+            "max_steps": max_steps_by_level.get(self.task_level, 50),
             "use_llm_simulator": not self.use_real_browser,
             "extra": {
                 "benchmark_source": "browsergym-workarena",
-                "task_level": "l1",  # Atomic tasks
+                "task_level": self.task_level,
             },
         }
 

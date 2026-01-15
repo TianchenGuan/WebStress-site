@@ -14,7 +14,7 @@ from typing import Optional, Union
 
 from .utils.llm_client import LLMClient
 from .utils.rendering import summarize_state
-from .core.simulator import Simulator
+from .core import Simulator  # Unified Simulator from core/__init__.py
 from .core.agent import Agent, HumanAgent
 from .core.judge import Judge
 from .core.proposer import Proposer
@@ -94,7 +94,13 @@ class Orchestrator:
             difficulty = benchmark.difficulty
 
         # Create components with difficulty setting
-        self.simulator = Simulator(self.llm_client, config_path, difficulty=difficulty)
+        # Use "classic" preset to maintain original behavior, with optional difficulty override
+        self.simulator = Simulator.from_preset(
+            "classic",
+            llm_client=self.llm_client,
+            config_path=str(config_path),
+            difficulty=difficulty,
+        )
         self.judge = Judge(self.llm_client, config_path)
         self.proposer = Proposer(self.llm_client, config_path)
 

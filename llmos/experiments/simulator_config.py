@@ -148,7 +148,6 @@ class SimulatorConfig:
     # LLM Configuration
     llm_provider: LLMProvider = LLMProvider.OPENAI
     llm_model: str = "gpt-4o"
-    temperature: float = 0.0  # Deterministic by default for reproducibility
     max_tokens: int = 2048
 
     # Prompt Configuration
@@ -199,7 +198,6 @@ class SimulatorConfig:
             "description": self.description,
             "llm_provider": self.llm_provider.value,
             "llm_model": self.llm_model,
-            "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "prompt_config": self.prompt_config.to_dict(),
             "state_config": self.state_config.to_dict(),

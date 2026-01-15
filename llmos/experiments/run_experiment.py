@@ -1,21 +1,53 @@
 #!/usr/bin/env python
 """
-Practical experiment runner for LLMOS simulator fidelity studies.
+Unified Experiment Runner for LLMOS.
 
-This script provides a working example of how to run experiments.
+Runs experiments with real benchmark tasks (WorkArena) using the
+ExperimentalSimulator with modular configurations.
+
+WorkArena Task Levels:
+    - l1: Atomic tasks (single-step actions, ~33 tasks)
+    - l2: Compositional tasks (multi-step, ~50+ tasks)
+    - l3: Long-horizon tasks (complex workflows)
+    - all: All available tasks (default)
 
 Usage:
-    # Quick test with dummy agents
+    # List available tasks from WorkArena (all levels)
+    python -m llmos.experiments.run_experiment --list-tasks
+
+    # List only L1 atomic tasks
+    python -m llmos.experiments.run_experiment --list-tasks --task-level l1
+
+    # Run with L1 tasks only
+    python -m llmos.experiments.run_experiment \
+        --num-tasks 50 \
+        --task-level l1 \
+        --preset default
+
+    # Run with L2 compositional tasks
+    python -m llmos.experiments.run_experiment \
+        --num-tasks 50 \
+        --task-level l2 \
+        --preset default
+
+    # Run with custom modular configuration
+    python -m llmos.experiments.run_experiment \
+        --num-tasks 50 \
+        --task-level all \
+        --state-output delta_only \
+        --abstraction semantic \
+        --memory rolling \
+        --reasoning chain \
+        --verification constraint
+
+    # Compare multiple presets on L1 tasks
+    python -m llmos.experiments.run_experiment \
+        --num-tasks 50 \
+        --task-level l1 \
+        --compare default,efficient,thorough
+
+    # Quick test to verify setup
     python -m llmos.experiments.run_experiment --quick-test
-
-    # Run LLM backend comparison
-    python -m llmos.experiments.run_experiment --experiment llm_backend --num-tasks 10
-
-    # Run with your own agent
-    python -m llmos.experiments.run_experiment --experiment llm_backend --agent-script my_agent.py
-
-    # List what's implemented vs planned
-    python -m llmos.experiments.run_experiment --status
 """
 
 import argparse
@@ -36,446 +68,68 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Implementation Status
+# Task Loading
 # =============================================================================
 
-EXPERIMENT_STATUS = {
-    # Currently implemented (can run now)
-    "llm_backend": {
-        "status": "implemented",
-        "description": "Compare different LLM backends (GPT-4o, Gemini, etc.)",
-        "variables": ["llm_provider", "llm_model"],
-    },
-    "difficulty": {
-        "status": "implemented",
-        "description": "Compare difficulty settings (easy, medium, hard)",
-        "variables": ["information_density", "signal_noise_ratio", "determinism"],
-    },
-    "temperature": {
-        "status": "implemented",
-        "description": "Compare temperature settings for determinism",
-        "variables": ["temperature"],
-    },
-
-    # Designed but needs Simulator changes
-    "state_output": {
-        "status": "needs_implementation",
-        "description": "Full state vs delta-only vs semantic description",
-        "required_changes": "Modify Simulator._call_llm() to support different output modes",
-    },
-    "abstraction": {
-        "status": "needs_implementation",
-        "description": "Full DOM vs semantic elements vs task-relevant",
-        "required_changes": "Add state filtering in Simulator based on abstraction level",
-    },
-    "context_strategy": {
-        "status": "needs_implementation",
-        "description": "Full history vs rolling window vs summarized",
-        "required_changes": "Modify Simulator._build_prompt() to use different history strategies",
-    },
-    "uncertainty": {
-        "status": "needs_implementation",
-        "description": "Deterministic vs confidence scores vs probabilistic",
-        "required_changes": "Extend Simulator output schema to include confidence",
-    },
-    "verification": {
-        "status": "needs_implementation",
-        "description": "Self-consistency and constraint checking",
-        "required_changes": "Add verification layer in Simulator.step()",
-    },
-}
-
-
-def print_status():
-    """Print implementation status of all experiments."""
-    print("\n" + "=" * 70)
-    print("EXPERIMENT IMPLEMENTATION STATUS")
-    print("=" * 70)
-
-    implemented = []
-    needs_work = []
-
-    for name, info in EXPERIMENT_STATUS.items():
-        if info["status"] == "implemented":
-            implemented.append((name, info))
-        else:
-            needs_work.append((name, info))
-
-    print("\n✅ IMPLEMENTED (can run now):")
-    print("-" * 40)
-    for name, info in implemented:
-        print(f"  {name}")
-        print(f"    {info['description']}")
-        print(f"    Variables: {info['variables']}")
-        print()
-
-    print("\n⏳ NEEDS IMPLEMENTATION:")
-    print("-" * 40)
-    for name, info in needs_work:
-        print(f"  {name}")
-        print(f"    {info['description']}")
-        print(f"    Required: {info['required_changes']}")
-        print()
-
-    print("=" * 70)
-
-
-# =============================================================================
-# Simple Agent Interface
-# =============================================================================
-
-class SimpleAgent:
-    """Simple agent interface for experiments."""
-
-    def __init__(self, agent_id: str, act_fn: Callable[[dict], dict]):
-        self._agent_id = agent_id
-        self._act_fn = act_fn
-        self._instruction = ""
-
-    @property
-    def agent_id(self) -> str:
-        return self._agent_id
-
-    def reset(self, instruction: str) -> None:
-        self._instruction = instruction
-
-    def act(self, observation: dict) -> dict:
-        return self._act_fn(observation)
-
-
-def create_random_agent(agent_id: str = "random") -> SimpleAgent:
-    """Create a random action agent for testing."""
-    import random
-
-    def random_act(observation: dict) -> dict:
-        # Find clickable elements
-        def find_elements(node, elements=None):
-            if elements is None:
-                elements = []
-            if isinstance(node, dict):
-                if "bid" in node:
-                    elements.append(node)
-                for child in node.get("children", []):
-                    find_elements(child, elements)
-            return elements
-
-        ui = observation.get("ui", {})
-        elements = find_elements(ui)
-
-        if not elements or random.random() < 0.1:
-            return {"thought": "Finishing", "action": {"action_type": "finish", "success": False}}
-
-        element = random.choice(elements)
-        return {
-            "thought": f"Randomly clicking element {element.get('bid')}",
-            "action": {"action_type": "click", "bid": element.get("bid")}
-        }
-
-    return SimpleAgent(agent_id, random_act)
-
-
-def create_llm_agent(
-    agent_id: str,
-    model_name: str = "gpt-4o-mini",
-    config_path: Optional[str] = None,
-) -> SimpleAgent:
-    """Create an LLM-based agent."""
-    from ..core.agent import Agent
-
-    agent = Agent(config_path=config_path, model_name=model_name)
-
-    class LLMAgentWrapper:
-        def __init__(self):
-            self._agent_id = agent_id
-            self._agent = agent
-
-        @property
-        def agent_id(self) -> str:
-            return self._agent_id
-
-        def reset(self, instruction: str) -> None:
-            self._agent.reset(instruction)
-
-        def act(self, observation: dict) -> dict:
-            return self._agent.act(observation)
-
-    return LLMAgentWrapper()
-
-
-# =============================================================================
-# Experiment Configurations
-# =============================================================================
-
-@dataclass
-class ExperimentConfig:
-    """Configuration for a single experiment run."""
-    name: str
-    description: str
-    simulator_kwargs: dict = field(default_factory=dict)
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4o"
-    temperature: float = 0.0
-
-
-def get_llm_backend_configs() -> list[ExperimentConfig]:
-    """Get configurations for LLM backend comparison."""
-    return [
-        ExperimentConfig(
-            name="gpt4o",
-            description="GPT-4o (baseline)",
-            llm_provider="openai",
-            llm_model="gpt-4o",
-        ),
-        ExperimentConfig(
-            name="gpt4o_mini",
-            description="GPT-4o-mini (smaller, faster, cheaper)",
-            llm_provider="openai",
-            llm_model="gpt-4o-mini",
-        ),
-        ExperimentConfig(
-            name="gemini_pro",
-            description="Gemini 1.5 Pro",
-            llm_provider="gemini",
-            llm_model="gemini-1.5-pro",
-        ),
-        ExperimentConfig(
-            name="gemini_flash",
-            description="Gemini 1.5 Flash (faster)",
-            llm_provider="gemini",
-            llm_model="gemini-1.5-flash",
-        ),
-    ]
-
-
-def get_difficulty_configs() -> list[ExperimentConfig]:
-    """Get configurations for difficulty comparison."""
-    return [
-        ExperimentConfig(
-            name="easy",
-            description="Easy difficulty (clean, deterministic)",
-            simulator_kwargs={"difficulty": "easy"},
-        ),
-        ExperimentConfig(
-            name="medium",
-            description="Medium difficulty",
-            simulator_kwargs={"difficulty": "medium"},
-        ),
-        ExperimentConfig(
-            name="hard",
-            description="Hard difficulty",
-            simulator_kwargs={"difficulty": "hard"},
-        ),
-        ExperimentConfig(
-            name="expert",
-            description="Expert difficulty (noisy, stochastic)",
-            simulator_kwargs={"difficulty": "expert"},
-        ),
-    ]
-
-
-def get_temperature_configs() -> list[ExperimentConfig]:
-    """Get configurations for temperature comparison."""
-    return [
-        ExperimentConfig(
-            name="temp_0.0",
-            description="Temperature 0.0 (deterministic)",
-            temperature=0.0,
-        ),
-        ExperimentConfig(
-            name="temp_0.3",
-            description="Temperature 0.3 (slightly random)",
-            temperature=0.3,
-        ),
-        ExperimentConfig(
-            name="temp_0.7",
-            description="Temperature 0.7 (moderate randomness)",
-            temperature=0.7,
-        ),
-        ExperimentConfig(
-            name="temp_1.0",
-            description="Temperature 1.0 (high randomness)",
-            temperature=1.0,
-        ),
-    ]
-
-
-EXPERIMENT_CONFIGS = {
-    "llm_backend": get_llm_backend_configs,
-    "difficulty": get_difficulty_configs,
-    "temperature": get_temperature_configs,
-}
-
-
-# =============================================================================
-# Experiment Runner
-# =============================================================================
-
-@dataclass
-class TaskResult:
-    """Result from running a single task."""
-    task_id: str
-    score: float
-    success: bool
-    steps: int
-    error: Optional[str] = None
-
-
-@dataclass
-class ExperimentResult:
-    """Result from running an experiment configuration."""
-    config_name: str
-    agent_id: str
-    task_results: list[TaskResult]
-    mean_score: float
-    success_rate: float
-    mean_steps: float
-    total_time: float
-
-
-def run_single_task(
-    simulator,
-    agent,
-    task: dict,
-    max_steps: int = 30,
-) -> TaskResult:
-    """Run a single task and return the result."""
-    try:
-        # Reset simulator
-        template = task.get("initial_state_template", "browser")
-        observation = simulator.reset(
-            template_name=template,
-            instruction=task,
-        )
-
-        # Reset agent
-        agent.reset(task.get("instruction", ""))
-
-        # Run episode
-        done = False
-        step = 0
-        while not done and step < max_steps:
-            action = agent.act(observation)
-            observation, done, info = simulator.step(action)
-            step += 1
-
-        # Simple scoring based on completion
-        final_state = simulator.get_state()
-        status = final_state.get("meta", {}).get("status", "running")
-
-        if status == "completed":
-            score = 1.0
-            success = True
-        elif status == "failed":
-            score = -1.0
-            success = False
-        else:
-            # Timeout or still running
-            score = -0.5
-            success = False
-
-        return TaskResult(
-            task_id=task.get("task_id", "unknown"),
-            score=score,
-            success=success,
-            steps=step,
-        )
-
-    except Exception as e:
-        logger.error(f"Error running task: {e}")
-        return TaskResult(
-            task_id=task.get("task_id", "unknown"),
-            score=-1.0,
-            success=False,
-            steps=0,
-            error=str(e),
-        )
-
-
-def run_experiment(
-    experiment_name: str,
-    agents: list,
-    tasks: list[dict],
-    config_path: Optional[str] = None,
-    max_steps: int = 30,
-) -> list[ExperimentResult]:
+def load_workarena_tasks(
+    max_tasks: Optional[int] = None,
+    task_filter: Optional[list[str]] = None,
+    task_level: str = "all",  # 'l1', 'l2', 'l3', 'all'
+    shuffle: bool = False,
+    seed: Optional[int] = 42,
+) -> list[dict]:
     """
-    Run an experiment across all configurations and agents.
+    Load tasks from WorkArena benchmark.
 
     Args:
-        experiment_name: Name of experiment (llm_backend, difficulty, etc.)
-        agents: List of agents to evaluate
-        tasks: List of task dictionaries
-        config_path: Path to LLMOS config
-        max_steps: Maximum steps per episode
+        max_tasks: Maximum number of tasks to load.
+        task_filter: Filter tasks by name patterns.
+        task_level: Task complexity level ('l1', 'l2', 'l3', 'all').
+        shuffle: Whether to shuffle tasks.
+        seed: Random seed for shuffling.
 
     Returns:
-        List of ExperimentResult for each (config, agent) pair
+        List of task dictionaries.
     """
-    from ..core.simulator import Simulator
+    try:
+        from ..benchmarks.workarena import WorkArenaTaskProvider
 
-    # Get experiment configurations
-    if experiment_name not in EXPERIMENT_CONFIGS:
-        raise ValueError(f"Unknown experiment: {experiment_name}")
+        provider = WorkArenaTaskProvider(
+            task_filter=task_filter,
+            task_level=task_level,
+            shuffle=shuffle,
+            seed=seed,
+            max_tasks=max_tasks,
+        )
 
-    configs = EXPERIMENT_CONFIGS[experiment_name]()
-    results = []
+        tasks = []
+        for task in provider:
+            tasks.append({
+                "task_id": task.task_id,
+                "instruction": task.instruction,
+                "initial_state_template": task.initial_state_template or "browser",
+                "difficulty": task.difficulty,
+                "category": task.category,
+                "extra": task.extra,
+            })
 
-    total_runs = len(configs) * len(agents)
-    run_idx = 0
+        # Log level distribution
+        level_counts = {}
+        for t in tasks:
+            level = t["extra"].get("workarena_level", "unknown")
+            level_counts[level] = level_counts.get(level, 0) + 1
+        logger.info(f"Loaded tasks by level: {level_counts}")
 
-    for config in configs:
-        # Create simulator with this configuration
-        sim_kwargs = {"config_path": config_path}
-        sim_kwargs.update(config.simulator_kwargs)
+        return tasks
 
-        # Note: LLM provider/model would need to be passed through config
-        # For now, we use the default from config.json
-        simulator = Simulator(**sim_kwargs)
-
-        for agent in agents:
-            run_idx += 1
-            logger.info(f"\nRun {run_idx}/{total_runs}: {config.name} × {agent.agent_id}")
-
-            start_time = time.time()
-            task_results = []
-
-            for i, task in enumerate(tasks):
-                if (i + 1) % 5 == 0:
-                    logger.info(f"  Task {i + 1}/{len(tasks)}")
-
-                result = run_single_task(simulator, agent, task, max_steps)
-                task_results.append(result)
-
-            total_time = time.time() - start_time
-
-            # Compute aggregates
-            scores = [r.score for r in task_results]
-            mean_score = sum(scores) / len(scores) if scores else 0
-            success_rate = sum(1 for r in task_results if r.success) / len(task_results)
-            mean_steps = sum(r.steps for r in task_results) / len(task_results)
-
-            exp_result = ExperimentResult(
-                config_name=config.name,
-                agent_id=agent.agent_id,
-                task_results=task_results,
-                mean_score=mean_score,
-                success_rate=success_rate,
-                mean_steps=mean_steps,
-                total_time=total_time,
-            )
-            results.append(exp_result)
-
-            logger.info(
-                f"  Result: score={mean_score:.3f}, "
-                f"success={success_rate:.1%}, "
-                f"steps={mean_steps:.1f}"
-            )
-
-    return results
+    except ImportError as e:
+        logger.warning(f"Could not load WorkArena: {e}")
+        logger.info("Falling back to sample tasks")
+        return create_sample_tasks(max_tasks or 10)
 
 
 def create_sample_tasks(num_tasks: int = 10) -> list[dict]:
-    """Create sample tasks for testing."""
+    """Create sample tasks for testing when WorkArena is not available."""
     task_templates = [
         {
             "instruction": "Click the Settings button",
@@ -496,7 +150,7 @@ def create_sample_tasks(num_tasks: int = 10) -> list[dict]:
             "difficulty": "easy",
         },
         {
-            "instruction": "Navigate to google.com",
+            "instruction": "Navigate to the search page",
             "initial_state_template": "browser",
             "category": "navigation",
             "difficulty": "easy",
@@ -512,155 +166,692 @@ def create_sample_tasks(num_tasks: int = 10) -> list[dict]:
     tasks = []
     for i in range(num_tasks):
         template = task_templates[i % len(task_templates)].copy()
-        template["task_id"] = f"task_{i:03d}"
+        template["task_id"] = f"sample_{i:03d}"
+        template["extra"] = {"source": "sample"}
         tasks.append(template)
 
     return tasks
 
 
-def save_results(
-    results: list[ExperimentResult],
-    experiment_name: str,
-    output_dir: str = "./results",
-) -> str:
-    """Save experiment results to JSON."""
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+def list_tasks(max_display: int = 50, task_level: str = "all") -> None:
+    """List available tasks."""
+    tasks = load_workarena_tasks(max_tasks=max_display, task_level=task_level)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{experiment_name}_{timestamp}.json"
-    filepath = output_path / filename
+    print(f"\n{'='*70}")
+    print(f"Available Tasks - Level: {task_level.upper()} (showing {len(tasks)})")
+    print(f"{'='*70}")
 
-    data = {
-        "experiment": experiment_name,
-        "timestamp": timestamp,
-        "results": [
-            {
-                "config_name": r.config_name,
-                "agent_id": r.agent_id,
-                "mean_score": r.mean_score,
-                "success_rate": r.success_rate,
-                "mean_steps": r.mean_steps,
-                "total_time": r.total_time,
-                "num_tasks": len(r.task_results),
-                "task_results": [
-                    {
-                        "task_id": t.task_id,
-                        "score": t.score,
-                        "success": t.success,
-                        "steps": t.steps,
-                        "error": t.error,
-                    }
-                    for t in r.task_results
-                ],
-            }
-            for r in results
-        ],
-    }
+    # Group by level first, then by category
+    by_level = {}
+    for task in tasks:
+        level = task.get("extra", {}).get("workarena_level", "unknown")
+        if level not in by_level:
+            by_level[level] = []
+        by_level[level].append(task)
 
-    with open(filepath, "w") as f:
-        json.dump(data, f, indent=2)
+    for level in ["l1", "l2", "l3"]:
+        if level not in by_level:
+            continue
 
-    return str(filepath)
+        level_tasks = by_level[level]
+        level_names = {"l1": "Atomic", "l2": "Compositional", "l3": "Long-Horizon"}
+        print(f"\n{'='*70}")
+        print(f"Level {level.upper()} - {level_names.get(level, 'Unknown')} ({len(level_tasks)} tasks)")
+        print(f"{'='*70}")
+
+        # Group by category within level
+        by_category = {}
+        for task in level_tasks:
+            cat = task.get("category", "unknown")
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(task)
+
+        for category, cat_tasks in sorted(by_category.items()):
+            print(f"\n  {category} ({len(cat_tasks)} tasks):")
+            print("  " + "-" * 38)
+            for task in cat_tasks[:5]:  # Show fewer per category
+                task_id = task["task_id"]
+                instruction = task["instruction"]
+                if len(instruction) > 55:
+                    instruction = instruction[:55] + "..."
+                print(f"    {task_id}")
+                print(f"      {instruction}")
+            if len(cat_tasks) > 5:
+                print(f"      ... and {len(cat_tasks) - 5} more")
+
+    print(f"\n{'='*70}")
 
 
-def print_results_summary(results: list[ExperimentResult]):
-    """Print a summary table of results."""
-    print("\n" + "=" * 70)
-    print("EXPERIMENT RESULTS")
-    print("=" * 70)
+# =============================================================================
+# Results
+# =============================================================================
 
-    # Group by config
-    by_config = {}
-    for r in results:
-        if r.config_name not in by_config:
-            by_config[r.config_name] = []
-        by_config[r.config_name].append(r)
+@dataclass
+class EpisodeResult:
+    """Result from running a single episode."""
+    task_id: str
+    score: float
+    success: bool
+    steps: int
+    total_time: float
+    error: Optional[str] = None
+    events: list[str] = field(default_factory=list)
+    verification_errors: list[str] = field(default_factory=list)
 
-    print(f"\n{'Config':<20} {'Agent':<15} {'Score':<10} {'Success':<10} {'Steps':<10}")
-    print("-" * 70)
+    def to_dict(self) -> dict:
+        return {
+            "task_id": self.task_id,
+            "score": self.score,
+            "success": self.success,
+            "steps": self.steps,
+            "total_time": self.total_time,
+            "error": self.error,
+            "events": self.events,
+            "verification_errors": self.verification_errors,
+        }
 
-    for config_name, config_results in by_config.items():
-        for r in config_results:
-            print(
-                f"{r.config_name:<20} {r.agent_id:<15} "
-                f"{r.mean_score:>8.3f}  {r.success_rate:>8.1%}  {r.mean_steps:>8.1f}"
+
+@dataclass
+class ExperimentResult:
+    """Result from running an experiment with a configuration."""
+    config_name: str
+    config: dict
+    num_tasks: int
+    episode_results: list[EpisodeResult]
+    total_time: float
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    @property
+    def mean_score(self) -> float:
+        if not self.episode_results:
+            return 0.0
+        return sum(r.score for r in self.episode_results) / len(self.episode_results)
+
+    @property
+    def success_rate(self) -> float:
+        if not self.episode_results:
+            return 0.0
+        return sum(1 for r in self.episode_results if r.success) / len(self.episode_results)
+
+    @property
+    def mean_steps(self) -> float:
+        if not self.episode_results:
+            return 0.0
+        return sum(r.steps for r in self.episode_results) / len(self.episode_results)
+
+    @property
+    def error_rate(self) -> float:
+        if not self.episode_results:
+            return 0.0
+        return sum(1 for r in self.episode_results if r.error) / len(self.episode_results)
+
+    def to_dict(self) -> dict:
+        return {
+            "config_name": self.config_name,
+            "config": self.config,
+            "num_tasks": self.num_tasks,
+            "timestamp": self.timestamp,
+            "total_time": self.total_time,
+            "metrics": {
+                "mean_score": self.mean_score,
+                "success_rate": self.success_rate,
+                "mean_steps": self.mean_steps,
+                "error_rate": self.error_rate,
+            },
+            "episode_results": [r.to_dict() for r in self.episode_results],
+        }
+
+    def save(self, path: str) -> None:
+        """Save result to JSON file."""
+        with open(path, "w") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, path: str) -> "ExperimentResult":
+        """Load result from JSON file."""
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        episode_results = [
+            EpisodeResult(**r) for r in data.get("episode_results", [])
+        ]
+
+        return cls(
+            config_name=data["config_name"],
+            config=data["config"],
+            num_tasks=data["num_tasks"],
+            episode_results=episode_results,
+            total_time=data["total_time"],
+            timestamp=data.get("timestamp", ""),
+        )
+
+
+# =============================================================================
+# Experiment Runner
+# =============================================================================
+
+class ExperimentRunner:
+    """
+    Unified experiment runner for LLMOS simulator experiments.
+
+    Loads tasks from benchmarks and runs them with ExperimentalSimulator
+    using different modular configurations.
+
+    Usage:
+        runner = ExperimentRunner(config_path="llmos/config.json")
+
+        # Load tasks
+        tasks = runner.load_tasks(max_tasks=50)
+
+        # Run with preset
+        result = runner.run(tasks, preset="efficient")
+
+        # Run with custom config
+        result = runner.run(
+            tasks,
+            state_output="delta_only",
+            abstraction="semantic",
+            memory="rolling",
+            reasoning="chain",
+        )
+
+        # Compare multiple configurations
+        results = runner.compare(
+            tasks,
+            presets=["default", "efficient", "thorough"],
+        )
+    """
+
+    # Available presets (from unified Simulator)
+    PRESETS = ["classic", "default", "efficient", "thorough", "robust", "grounded"]
+
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        max_steps: int = 30,
+        verbose: bool = True,
+    ):
+        """
+        Initialize experiment runner.
+
+        Args:
+            config_path: Path to LLMOS config.json.
+            max_steps: Maximum steps per episode.
+            verbose: Print progress.
+        """
+        self.config_path = config_path
+        self.max_steps = max_steps
+        self.verbose = verbose
+
+    def load_tasks(
+        self,
+        max_tasks: Optional[int] = None,
+        task_filter: Optional[list[str]] = None,
+        task_level: str = "all",
+        shuffle: bool = False,
+        seed: Optional[int] = 42,
+        use_sample: bool = False,
+    ) -> list[dict]:
+        """
+        Load tasks for experiments.
+
+        Args:
+            max_tasks: Maximum tasks to load.
+            task_filter: Filter by name patterns.
+            task_level: Task complexity level ('l1', 'l2', 'l3', 'all').
+            shuffle: Shuffle task order.
+            seed: Random seed.
+            use_sample: Force use of sample tasks (for testing).
+
+        Returns:
+            List of task dictionaries.
+        """
+        if use_sample:
+            return create_sample_tasks(max_tasks or 10)
+
+        return load_workarena_tasks(
+            max_tasks=max_tasks,
+            task_filter=task_filter,
+            task_level=task_level,
+            shuffle=shuffle,
+            seed=seed,
+        )
+
+    def run(
+        self,
+        tasks: list[dict],
+        preset: Optional[str] = None,
+        # Modular configuration options
+        state_output: Optional[str] = None,
+        abstraction: Optional[str] = None,
+        memory: Optional[str] = None,
+        memory_window: int = 5,
+        reasoning: Optional[str] = None,
+        verification: Optional[str] = None,
+        domain: Optional[str] = None,
+        # Agent
+        agent: Optional[Any] = None,
+        # Output
+        output_dir: Optional[str] = None,
+    ) -> ExperimentResult:
+        """
+        Run experiment with a configuration.
+
+        Args:
+            tasks: List of task dicts.
+            preset: Preset name ("default", "efficient", "thorough", "robust").
+            state_output: "full_state", "delta_only", "semantic_description".
+            abstraction: "full_dom", "semantic_elements".
+            memory: "full_history", "rolling_window", "summarized", "checkpoints".
+            memory_window: Window size for rolling memory.
+            reasoning: "direct", "chain".
+            verification: "none", "schema", "constraint_check", "backward".
+            domain: "web", "desktop", "servicenow".
+            agent: Agent to run (None = random agent).
+            output_dir: Directory to save results.
+
+        Returns:
+            ExperimentResult with all episode results.
+        """
+        from ..core import Simulator
+        from .modules import (
+            StateOutputMode,
+            AbstractionLevel,
+            MemoryMode,
+            ReasoningMode,
+            VerificationMode,
+        )
+
+        # Create simulator
+        if preset:
+            sim = Simulator.from_preset(
+                preset,
+                config_path=self.config_path,
+            )
+            config_name = preset
+        else:
+            # Map string options to enums
+            state_output_mode = self._parse_enum(
+                state_output, StateOutputMode, StateOutputMode.DELTA_ONLY
+            )
+            abstraction_level = self._parse_enum(
+                abstraction, AbstractionLevel, AbstractionLevel.FULL_DOM
+            )
+            memory_mode = self._parse_enum(
+                memory, MemoryMode, MemoryMode.ROLLING_WINDOW
+            )
+            reasoning_mode = self._parse_enum(
+                reasoning, ReasoningMode, ReasoningMode.DIRECT
+            )
+            verification_mode = self._parse_enum(
+                verification, VerificationMode, VerificationMode.SCHEMA
             )
 
-    print("=" * 70)
+            sim = Simulator(
+                state_output=state_output_mode,
+                abstraction=abstraction_level,
+                memory=memory_mode,
+                memory_window=memory_window,
+                reasoning=reasoning_mode,
+                verification=verification_mode,
+                domain=domain,
+                config_path=self.config_path,
+            )
+
+            config_name = f"custom_{state_output_mode.value}_{abstraction_level.value}"
+
+        # Create agent if not provided
+        if agent is None:
+            agent = self._create_random_agent()
+
+        # Run episodes
+        episode_results = []
+        start_time = time.time()
+
+        for i, task in enumerate(tasks):
+            if self.verbose:
+                logger.info(f"Task {i+1}/{len(tasks)}: {task['task_id']}")
+
+            result = self._run_episode(sim, agent, task)
+            episode_results.append(result)
+
+            if self.verbose and (i + 1) % 10 == 0:
+                self._print_progress(episode_results)
+
+        total_time = time.time() - start_time
+
+        result = ExperimentResult(
+            config_name=config_name,
+            config=sim.get_config().to_dict(),
+            num_tasks=len(tasks),
+            episode_results=episode_results,
+            total_time=total_time,
+        )
+
+        # Save if requested
+        if output_dir:
+            self._save_result(result, output_dir)
+
+        return result
+
+    def compare(
+        self,
+        tasks: list[dict],
+        presets: Optional[list[str]] = None,
+        configs: Optional[list[dict]] = None,
+        agent: Optional[Any] = None,
+        output_dir: Optional[str] = None,
+    ) -> list[ExperimentResult]:
+        """
+        Compare multiple configurations on the same tasks.
+
+        Args:
+            tasks: List of task dicts.
+            presets: List of preset names to compare.
+            configs: List of custom config dicts (alternative to presets).
+            agent: Agent to run.
+            output_dir: Directory to save results.
+
+        Returns:
+            List of ExperimentResult for each configuration.
+        """
+        results = []
+
+        if presets:
+            for preset in presets:
+                logger.info(f"\n{'='*50}")
+                logger.info(f"Running preset: {preset}")
+                logger.info(f"{'='*50}")
+
+                result = self.run(
+                    tasks=tasks,
+                    preset=preset,
+                    agent=agent,
+                    output_dir=output_dir,
+                )
+                results.append(result)
+
+                logger.info(
+                    f"  Completed: score={result.mean_score:.3f}, "
+                    f"success={result.success_rate:.1%}"
+                )
+
+        if configs:
+            for i, config in enumerate(configs):
+                config_name = config.pop("name", f"config_{i}")
+                logger.info(f"\n{'='*50}")
+                logger.info(f"Running config: {config_name}")
+                logger.info(f"{'='*50}")
+
+                result = self.run(
+                    tasks=tasks,
+                    agent=agent,
+                    output_dir=output_dir,
+                    **config,
+                )
+                results.append(result)
+
+        return results
+
+    def _parse_enum(self, value: Optional[str], enum_class, default):
+        """Parse string to enum value."""
+        if value is None:
+            return default
+
+        # Try direct match
+        value_lower = value.lower().replace("-", "_")
+        for member in enum_class:
+            if member.value == value_lower or member.name.lower() == value_lower:
+                return member
+
+        logger.warning(f"Unknown value '{value}' for {enum_class.__name__}, using default")
+        return default
+
+    def _run_episode(
+        self,
+        sim,
+        agent,
+        task: dict,
+    ) -> EpisodeResult:
+        """Run a single episode."""
+        start_time = time.time()
+        events = []
+        verification_errors = []
+
+        try:
+            # Reset simulator
+            observation = sim.reset(
+                template_name=task.get("initial_state_template", "browser"),
+                instruction=task,
+            )
+
+            # Reset agent
+            if hasattr(agent, "reset"):
+                agent.reset(task.get("instruction", ""))
+
+            # Run episode
+            done = False
+            step = 0
+            while not done and step < self.max_steps:
+                # Get action from agent
+                action = agent.act(observation)
+
+                # Step simulator
+                observation, done, info = sim.step(action)
+                step += 1
+
+                # Collect events and verification info
+                events.extend(info.get("events", []))
+                exp_info = info.get("experimental", {})
+                if not exp_info.get("verification_valid", True):
+                    verification_errors.extend(exp_info.get("verification_errors", []))
+
+            # Determine score
+            final_state = sim.get_state()
+            status = final_state.get("meta", {}).get("status", "running")
+
+            if status == "completed":
+                score = 1.0
+                success = True
+            elif status == "failed":
+                score = -1.0
+                success = False
+            else:
+                score = -0.5
+                success = False
+
+            return EpisodeResult(
+                task_id=task["task_id"],
+                score=score,
+                success=success,
+                steps=step,
+                total_time=time.time() - start_time,
+                events=events,
+                verification_errors=verification_errors,
+            )
+
+        except Exception as e:
+            logger.error(f"Episode error: {e}")
+            return EpisodeResult(
+                task_id=task["task_id"],
+                score=-1.0,
+                success=False,
+                steps=0,
+                total_time=time.time() - start_time,
+                error=str(e),
+            )
+
+    def _create_random_agent(self):
+        """Create a random agent for testing."""
+        import random
+
+        class RandomAgent:
+            def reset(self, instruction: str):
+                pass
+
+            def act(self, observation: dict) -> dict:
+                elements = []
+                self._find_elements(observation.get("ui", {}), elements)
+
+                if not elements or random.random() < 0.1:
+                    return {
+                        "thought": "Finishing",
+                        "action_type": "finish",
+                        "success": False,
+                    }
+
+                element = random.choice(elements)
+                return {
+                    "thought": f"Randomly clicking element {element.get('bid')}",
+                    "action_type": "click",
+                    "bid": element.get("bid"),
+                }
+
+            def _find_elements(self, node, elements):
+                if isinstance(node, dict):
+                    if "bid" in node:
+                        elements.append(node)
+                    for child in node.get("children", []):
+                        self._find_elements(child, elements)
+
+        return RandomAgent()
+
+    def _print_progress(self, results: list[EpisodeResult]) -> None:
+        """Print progress summary."""
+        mean_score = sum(r.score for r in results) / len(results)
+        success_rate = sum(1 for r in results if r.success) / len(results)
+        logger.info(f"  Progress: score={mean_score:.3f}, success={success_rate:.1%}")
+
+    def _save_result(self, result: ExperimentResult, output_dir: str) -> str:
+        """Save result to file."""
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"experiment_{result.config_name}_{timestamp}.json"
+        filepath = output_path / filename
+
+        result.save(str(filepath))
+        logger.info(f"Saved result to: {filepath}")
+
+        return str(filepath)
+
+
+# =============================================================================
+# Result Analysis
+# =============================================================================
+
+def print_result(result: ExperimentResult) -> None:
+    """Print single result summary."""
+    print(f"\n{'='*60}")
+    print(f"RESULT: {result.config_name}")
+    print(f"{'='*60}")
+    print(f"Tasks:        {result.num_tasks}")
+    print(f"Mean Score:   {result.mean_score:.3f}")
+    print(f"Success Rate: {result.success_rate:.1%}")
+    print(f"Mean Steps:   {result.mean_steps:.1f}")
+    print(f"Error Rate:   {result.error_rate:.1%}")
+    print(f"Total Time:   {result.total_time:.1f}s")
+    print(f"{'='*60}")
+
+
+def print_comparison(results: list[ExperimentResult]) -> None:
+    """Print comparison table of results."""
+    print("\n" + "=" * 80)
+    print("EXPERIMENT COMPARISON")
+    print("=" * 80)
+
+    header = f"{'Config':<20} {'Score':<12} {'Success':<12} {'Steps':<12} {'Errors':<12} {'Time':<12}"
+    print(f"\n{header}")
+    print("-" * 80)
+
+    for r in results:
+        print(
+            f"{r.config_name:<20} "
+            f"{r.mean_score:>10.3f}  "
+            f"{r.success_rate:>10.1%}  "
+            f"{r.mean_steps:>10.1f}  "
+            f"{r.error_rate:>10.1%}  "
+            f"{r.total_time:>10.1f}s"
+        )
+
+    print("=" * 80)
+
+    if results:
+        best = max(results, key=lambda r: r.mean_score)
+        print(f"\nBest configuration: {best.config_name} (score={best.mean_score:.3f})")
+
+
+def analyze_by_category(results: list[ExperimentResult], tasks: list[dict]) -> None:
+    """Analyze results by task category."""
+    task_categories = {t["task_id"]: t.get("category", "unknown") for t in tasks}
+
+    print("\n" + "=" * 80)
+    print("RESULTS BY CATEGORY")
+    print("=" * 80)
+
+    for result in results:
+        print(f"\n{result.config_name}:")
+        print("-" * 40)
+
+        by_category = {}
+        for ep in result.episode_results:
+            cat = task_categories.get(ep.task_id, "unknown")
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(ep)
+
+        for cat, episodes in sorted(by_category.items()):
+            cat_score = sum(e.score for e in episodes) / len(episodes)
+            cat_success = sum(1 for e in episodes if e.success) / len(episodes)
+            print(
+                f"  {cat:<20}: score={cat_score:>6.3f}, "
+                f"success={cat_success:>6.1%} ({len(episodes)} tasks)"
+            )
 
 
 # =============================================================================
 # Quick Test
 # =============================================================================
 
-def run_quick_test():
+def run_quick_test() -> None:
     """Run a quick test to verify the experiment framework works."""
     print("\n" + "=" * 70)
     print("QUICK TEST - Verifying experiment framework")
     print("=" * 70)
 
-    # Create dummy tasks
-    tasks = create_sample_tasks(num_tasks=2)
+    runner = ExperimentRunner(verbose=False)
+
+    # Create sample tasks
+    tasks = runner.load_tasks(max_tasks=3, use_sample=True)
     print(f"\nCreated {len(tasks)} sample tasks")
 
-    # Create a simple agent
-    agents = [create_random_agent("random_agent")]
-    print(f"Created {len(agents)} test agent(s)")
+    # Test with default preset
+    print("\nRunning with 'default' preset...")
+    result = runner.run(tasks, preset="default")
 
-    # Run a minimal experiment
-    print("\nRunning difficulty experiment with 2 configs...")
+    print(f"\nResults:")
+    print(f"  Score: {result.mean_score:.3f}")
+    print(f"  Success: {result.success_rate:.1%}")
+    print(f"  Config: {result.config}")
 
-    # Use only 2 difficulty configs for quick test
-    from ..core.simulator import Simulator
-
-    results = []
-    for difficulty in ["easy", "medium"]:
-        simulator = Simulator(difficulty=difficulty)
-        agent = agents[0]
-
-        logger.info(f"Testing difficulty={difficulty}")
-        task_results = []
-
-        for task in tasks:
-            result = run_single_task(simulator, agent, task, max_steps=5)
-            task_results.append(result)
-
-        scores = [r.score for r in task_results]
-        mean_score = sum(scores) / len(scores) if scores else 0
-
-        results.append(ExperimentResult(
-            config_name=difficulty,
-            agent_id=agent.agent_id,
-            task_results=task_results,
-            mean_score=mean_score,
-            success_rate=sum(1 for r in task_results if r.success) / len(task_results),
-            mean_steps=sum(r.steps for r in task_results) / len(task_results),
-            total_time=0,
-        ))
-
-    print_results_summary(results)
     print("\n✅ Quick test completed successfully!")
     print("The experiment framework is working.\n")
 
 
 # =============================================================================
-# Main
+# CLI
 # =============================================================================
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run LLMOS simulator fidelity experiments",
+        description="Run LLMOS simulator experiments",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
 
-    parser.add_argument(
-        "--experiment", "-e",
-        type=str,
-        choices=list(EXPERIMENT_CONFIGS.keys()),
-        help="Experiment to run",
-    )
+    # Task options
     parser.add_argument(
         "--num-tasks", "-n",
         type=int,
@@ -668,15 +859,110 @@ def main():
         help="Number of tasks to run (default: 10)",
     )
     parser.add_argument(
+        "--task-filter",
+        type=str,
+        help="Filter tasks by name pattern (comma-separated)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed (default: 42)",
+    )
+    parser.add_argument(
+        "--use-sample",
+        action="store_true",
+        help="Use sample tasks instead of WorkArena",
+    )
+    parser.add_argument(
+        "--task-level",
+        type=str,
+        choices=["l1", "l2", "l3", "all"],
+        default="all",
+        help="WorkArena task level: l1 (atomic), l2 (compositional), l3 (long-horizon), all (default: all)",
+    )
+
+    # Configuration options
+    parser.add_argument(
+        "--preset", "-p",
+        type=str,
+        choices=["classic", "default", "efficient", "thorough", "robust", "grounded"],
+        help="Use a preset configuration",
+    )
+    parser.add_argument(
+        "--compare",
+        type=str,
+        help="Compare presets (comma-separated, e.g., 'default,efficient,thorough')",
+    )
+
+    # Modular configuration
+    parser.add_argument(
+        "--state-output",
+        type=str,
+        choices=["full_state", "delta_only", "semantic_description"],
+        help="State output mode",
+    )
+    parser.add_argument(
+        "--abstraction",
+        type=str,
+        choices=["full_dom", "semantic_elements", "semantic"],
+        help="Abstraction level",
+    )
+    parser.add_argument(
+        "--memory",
+        type=str,
+        choices=["full_history", "rolling_window", "rolling", "summarized", "checkpoints"],
+        help="Memory mode",
+    )
+    parser.add_argument(
+        "--memory-window",
+        type=int,
+        default=5,
+        help="Memory window size for rolling mode (default: 5)",
+    )
+    parser.add_argument(
+        "--reasoning",
+        type=str,
+        choices=["direct", "chain"],
+        help="Reasoning mode",
+    )
+    parser.add_argument(
+        "--verification",
+        type=str,
+        choices=["none", "schema", "constraint_check", "constraint", "backward"],
+        help="Verification mode",
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        choices=["web", "desktop", "servicenow"],
+        help="Domain knowledge to include",
+    )
+
+    # Output options
+    parser.add_argument(
         "--output-dir", "-o",
         type=str,
         default="./results",
-        help="Directory to save results",
+        help="Output directory for results (default: ./results)",
     )
     parser.add_argument(
-        "--config",
+        "--llmos-config",
         type=str,
         help="Path to LLMOS config.json",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=30,
+        help="Maximum steps per episode (default: 30)",
+    )
+
+    # Utility options
+    parser.add_argument(
+        "--list-tasks",
+        action="store_true",
+        help="List available tasks and exit",
     )
     parser.add_argument(
         "--quick-test",
@@ -684,71 +970,91 @@ def main():
         help="Run a quick test to verify framework",
     )
     parser.add_argument(
-        "--status",
+        "--quiet", "-q",
         action="store_true",
-        help="Show implementation status of experiments",
-    )
-    parser.add_argument(
-        "--use-llm-agent",
-        action="store_true",
-        help="Use LLM agent instead of random agent",
+        help="Reduce output verbosity",
     )
 
     args = parser.parse_args()
 
-    if args.status:
-        print_status()
+    # Utility commands
+    if args.list_tasks:
+        list_tasks(task_level=args.task_level)
         return 0
 
     if args.quick_test:
         run_quick_test()
         return 0
 
-    if not args.experiment:
-        parser.print_help()
-        print("\n\nExamples:")
-        print("  python -m llmos.experiments.run_experiment --quick-test")
-        print("  python -m llmos.experiments.run_experiment --status")
-        print("  python -m llmos.experiments.run_experiment -e llm_backend -n 10")
-        return 1
+    # Parse task filter
+    task_filter = None
+    if args.task_filter:
+        task_filter = [f.strip() for f in args.task_filter.split(",")]
 
-    # Check if experiment is implemented
-    status = EXPERIMENT_STATUS.get(args.experiment, {}).get("status")
-    if status == "needs_implementation":
-        print(f"\n⚠️  Experiment '{args.experiment}' is designed but not yet implemented.")
-        print(f"Required changes: {EXPERIMENT_STATUS[args.experiment]['required_changes']}")
-        print("\nYou can run these implemented experiments instead:")
-        for name, info in EXPERIMENT_STATUS.items():
-            if info["status"] == "implemented":
-                print(f"  --experiment {name}")
-        return 1
-
-    # Create tasks
-    tasks = create_sample_tasks(args.num_tasks)
-    logger.info(f"Created {len(tasks)} tasks")
-
-    # Create agents
-    if args.use_llm_agent:
-        agents = [create_llm_agent("gpt4o_mini_agent", model_name="gpt-4o-mini")]
-    else:
-        agents = [create_random_agent("random_agent")]
-
-    logger.info(f"Using {len(agents)} agent(s)")
-
-    # Run experiment
-    logger.info(f"\nRunning experiment: {args.experiment}")
-    results = run_experiment(
-        experiment_name=args.experiment,
-        agents=agents,
-        tasks=tasks,
-        config_path=args.config,
+    # Create runner
+    runner = ExperimentRunner(
+        config_path=args.llmos_config,
+        max_steps=args.max_steps,
+        verbose=not args.quiet,
     )
 
-    # Print and save results
-    print_results_summary(results)
+    # Load tasks
+    logger.info(f"Loading tasks (level={args.task_level})...")
+    tasks = runner.load_tasks(
+        max_tasks=args.num_tasks,
+        task_filter=task_filter,
+        task_level=args.task_level,
+        shuffle=True,
+        seed=args.seed,
+        use_sample=args.use_sample,
+    )
+    logger.info(f"Loaded {len(tasks)} tasks")
 
-    filepath = save_results(results, args.experiment, args.output_dir)
-    logger.info(f"\nResults saved to: {filepath}")
+    # Run experiments
+    if args.compare:
+        # Compare multiple presets
+        presets = [p.strip() for p in args.compare.split(",")]
+        results = runner.compare(
+            tasks=tasks,
+            presets=presets,
+            output_dir=args.output_dir,
+        )
+        print_comparison(results)
+        analyze_by_category(results, tasks)
+
+    elif args.preset:
+        # Single preset
+        result = runner.run(
+            tasks=tasks,
+            preset=args.preset,
+            output_dir=args.output_dir,
+        )
+        print_result(result)
+
+    elif any([args.state_output, args.abstraction, args.memory,
+              args.reasoning, args.verification]):
+        # Custom modular config
+        result = runner.run(
+            tasks=tasks,
+            state_output=args.state_output,
+            abstraction=args.abstraction,
+            memory=args.memory,
+            memory_window=args.memory_window,
+            reasoning=args.reasoning,
+            verification=args.verification,
+            domain=args.domain,
+            output_dir=args.output_dir,
+        )
+        print_result(result)
+
+    else:
+        # Default to default preset
+        result = runner.run(
+            tasks=tasks,
+            preset="default",
+            output_dir=args.output_dir,
+        )
+        print_result(result)
 
     return 0
 

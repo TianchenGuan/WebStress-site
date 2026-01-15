@@ -167,7 +167,7 @@ class Module:
     the components needed to implement it.
     """
 
-    name: str
+    name: str = ""  # Set in __post_init__ by subclasses
     description: str = ""
 
     def get_prompt_blocks(self) -> list[PromptBlock]:

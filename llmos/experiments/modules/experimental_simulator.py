@@ -18,6 +18,9 @@ from .abstraction import AbstractionLevel, AbstractionModule
 from .memory import MemoryMode, MemoryModule
 from .reasoning import ReasoningMode, ReasoningModule
 from .verification import VerificationMode, VerificationModule
+from .temporal import TemporalMode, TemporalModule
+from .uncertainty import UncertaintyMode, UncertaintyModule
+from .grounding import GroundingStrategy, GroundingModule
 from .prompt_blocks import PromptBlockLibrary, build_simulator_prompt
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,17 @@ class ExperimentalConfig:
     verification: VerificationMode = VerificationMode.SCHEMA
     verification_strict: bool = False
 
+    # Temporal
+    temporal: TemporalMode = TemporalMode.INSTANT
+
+    # Uncertainty
+    uncertainty: UncertaintyMode = UncertaintyMode.DETERMINISTIC
+    uncertainty_min_confidence: float = 0.0
+    uncertainty_selection_strategy: str = "most_likely"
+
+    # Grounding
+    grounding: GroundingStrategy = GroundingStrategy.LLM_KNOWLEDGE
+
     # Domain
     domain: Optional[str] = None  # "web", "desktop", "servicenow"
 
@@ -64,8 +78,36 @@ class ExperimentalConfig:
             "reasoning_include_examples": self.reasoning_include_examples,
             "verification": self.verification.value,
             "verification_strict": self.verification_strict,
+            "temporal": self.temporal.value,
+            "uncertainty": self.uncertainty.value,
+            "uncertainty_min_confidence": self.uncertainty_min_confidence,
+            "uncertainty_selection_strategy": self.uncertainty_selection_strategy,
+            "grounding": self.grounding.value,
             "domain": self.domain,
         }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ExperimentalConfig":
+        """Create config from dictionary."""
+        return cls(
+            state_output=StateOutputMode(d.get("state_output", "delta_only")),
+            abstraction=AbstractionLevel(d.get("abstraction", "full_dom")),
+            include_hidden_elements=d.get("include_hidden_elements", False),
+            memory=MemoryMode(d.get("memory", "rolling_window")),
+            memory_window=d.get("memory_window", 5),
+            memory_recent_steps=d.get("memory_recent_steps", 3),
+            memory_max_checkpoints=d.get("memory_max_checkpoints", 10),
+            reasoning=ReasoningMode(d.get("reasoning", "direct")),
+            reasoning_include_examples=d.get("reasoning_include_examples", True),
+            verification=VerificationMode(d.get("verification", "schema")),
+            verification_strict=d.get("verification_strict", False),
+            temporal=TemporalMode(d.get("temporal", "instant")),
+            uncertainty=UncertaintyMode(d.get("uncertainty", "deterministic")),
+            uncertainty_min_confidence=d.get("uncertainty_min_confidence", 0.0),
+            uncertainty_selection_strategy=d.get("uncertainty_selection_strategy", "most_likely"),
+            grounding=GroundingStrategy(d.get("grounding", "llm_knowledge")),
+            domain=d.get("domain"),
+        )
 
 
 class ExperimentalSimulator:
@@ -84,6 +126,9 @@ class ExperimentalSimulator:
             memory_window=5,
             reasoning=ReasoningMode.CHAIN,
             verification=VerificationMode.CONSTRAINT_CHECK,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
         )
 
         # Or from config object
@@ -106,6 +151,9 @@ class ExperimentalSimulator:
         memory: MemoryMode = MemoryMode.ROLLING_WINDOW,
         reasoning: ReasoningMode = ReasoningMode.DIRECT,
         verification: VerificationMode = VerificationMode.SCHEMA,
+        temporal: TemporalMode = TemporalMode.INSTANT,
+        uncertainty: UncertaintyMode = UncertaintyMode.DETERMINISTIC,
+        grounding: GroundingStrategy = GroundingStrategy.LLM_KNOWLEDGE,
         # Module parameters
         memory_window: int = 5,
         memory_recent_steps: int = 3,
@@ -113,6 +161,8 @@ class ExperimentalSimulator:
         include_hidden_elements: bool = False,
         reasoning_include_examples: bool = True,
         verification_strict: bool = False,
+        uncertainty_min_confidence: float = 0.0,
+        uncertainty_selection_strategy: str = "most_likely",
         # Domain knowledge
         domain: Optional[str] = None,
         # Base simulator configuration
@@ -151,6 +201,13 @@ class ExperimentalSimulator:
             strict=verification_strict,
             llm_client=llm_client,
         )
+        self._temporal_module = TemporalModule(mode=temporal)
+        self._uncertainty_module = UncertaintyModule(
+            mode=uncertainty,
+            min_confidence=uncertainty_min_confidence,
+            selection_strategy=uncertainty_selection_strategy,
+        )
+        self._grounding_module = GroundingModule(strategy=grounding)
 
         # Collect all modules
         self._modules = [
@@ -159,6 +216,9 @@ class ExperimentalSimulator:
             self._memory_module,
             self._reasoning_module,
             self._verification_module,
+            self._temporal_module,
+            self._uncertainty_module,
+            self._grounding_module,
         ]
 
         # Prompt library
@@ -187,12 +247,17 @@ class ExperimentalSimulator:
             memory=config.memory,
             reasoning=config.reasoning,
             verification=config.verification,
+            temporal=config.temporal,
+            uncertainty=config.uncertainty,
+            grounding=config.grounding,
             memory_window=config.memory_window,
             memory_recent_steps=config.memory_recent_steps,
             memory_max_checkpoints=config.memory_max_checkpoints,
             include_hidden_elements=config.include_hidden_elements,
             reasoning_include_examples=config.reasoning_include_examples,
             verification_strict=config.verification_strict,
+            uncertainty_min_confidence=config.uncertainty_min_confidence,
+            uncertainty_selection_strategy=config.uncertainty_selection_strategy,
             domain=config.domain,
             config_path=config_path,
             **kwargs,
@@ -228,8 +293,10 @@ class ExperimentalSimulator:
         """
         self._ensure_initialized()
 
-        # Reset memory module
+        # Reset all modules
         self._memory_module.reset()
+        self._temporal_module.reset()
+        self._uncertainty_module.reset()
         self._step_count = 0
         self._instruction = instruction
 
@@ -257,12 +324,15 @@ class ExperimentalSimulator:
 
         This method:
         1. Preprocesses state based on abstraction level
-        2. Builds prompt with all module contributions
-        3. Calls LLM with custom prompt
-        4. Parses output based on state output mode
-        5. Verifies output
-        6. Applies changes to state
-        7. Updates memory
+        2. Retrieves grounding context
+        3. Builds prompt with all module contributions
+        4. Calls LLM with custom prompt
+        5. Parses output based on state output mode
+        6. Handles temporal/async effects
+        7. Handles uncertainty
+        8. Verifies output
+        9. Applies changes to state
+        10. Updates memory
 
         Args:
             action: Action dict from agent.
@@ -293,17 +363,31 @@ class ExperimentalSimulator:
             context,
         )
 
+        # Get grounding context
+        grounding_context = self._grounding_module.get_grounding_context(
+            self._current_state, action, context
+        )
+        context.update(grounding_context)
+
         # Build experimental prompt
         experimental_prompt = self._build_prompt(processed_state, action, context)
 
         # Call LLM with experimental prompt
-        # Note: This requires the base simulator to expose LLM client
-        # or we inject our own processing
         llm_output = self._call_llm(experimental_prompt, processed_state, action)
 
         # Parse output based on state output mode
-        parser = self._state_output_module.get_parser()
-        state_ops = parser.parse(llm_output, self._current_state)
+        state_parser = self._state_output_module.get_parser()
+        state_ops = state_parser.parse(llm_output, self._current_state)
+
+        # Handle uncertainty (may modify state_ops based on confidence/probability)
+        uncertainty_parser = self._uncertainty_module.get_parser()
+        state_ops = uncertainty_parser.parse(llm_output, self._current_state)
+
+        # Handle temporal effects (may add async tracking)
+        temporal_parser = self._temporal_module.get_parser()
+        temporal_ops = temporal_parser.parse(llm_output, self._current_state)
+        if temporal_ops:
+            state_ops.extend(temporal_ops)
 
         # Verify output
         verifier = self._verification_module.get_verifier()
@@ -316,17 +400,14 @@ class ExperimentalSimulator:
 
         if not is_valid:
             logger.warning(f"Verification failed: {errors}")
-            # Optionally retry or use fallback
 
-        # Apply state changes using base simulator's patching
-        # We reconstruct the output in standard format
+        # Apply state changes
         standard_output = {
             "thought": llm_output.get("thought", ""),
             "state_ops": state_ops,
             "events": llm_output.get("events", []),
         }
 
-        # Apply changes
         observation, done, info = self._apply_changes(standard_output, action)
 
         # Update memory
@@ -338,6 +419,14 @@ class ExperimentalSimulator:
             "result": "success" if is_valid else "verification_failed",
         }
         history_manager.add_step(step_record)
+
+        # Update uncertainty aggregator
+        if hasattr(uncertainty_parser, 'get_confidence'):
+            self._uncertainty_module.get_aggregator().add_step(
+                confidence=uncertainty_parser.get_confidence(llm_output) if hasattr(uncertainty_parser, 'get_confidence') else None,
+                uncertainties=uncertainty_parser.get_uncertainties(llm_output) if hasattr(uncertainty_parser, 'get_uncertainties') else None,
+            )
+
         self._step_count += 1
 
         # Add experimental info
@@ -345,7 +434,17 @@ class ExperimentalSimulator:
             "verification_valid": is_valid,
             "verification_errors": errors,
             "state_ops_count": len(state_ops),
-            "prompt_tokens": len(experimental_prompt.split()),  # Rough estimate
+            "prompt_tokens": len(experimental_prompt.split()),
+            "modules": {
+                "state_output": self._state_output_module.mode.value,
+                "abstraction": self._abstraction_module.level.value,
+                "memory": self._memory_module.mode.value,
+                "reasoning": self._reasoning_module.mode.value,
+                "verification": self._verification_module.mode.value,
+                "temporal": self._temporal_module.mode.value,
+                "uncertainty": self._uncertainty_module.mode.value,
+                "grounding": self._grounding_module.strategy.value,
+            },
         }
 
         # Apply abstraction to observation
@@ -360,17 +459,12 @@ class ExperimentalSimulator:
         context: dict,
     ) -> str:
         """Build the experimental prompt from modules."""
-        # Collect all prompt blocks from modules
-        all_blocks = []
-        for module in self._modules:
-            all_blocks.extend(module.get_prompt_blocks())
-
         # Use prompt library to compose
         prompt = build_simulator_prompt(
             self._modules,
             context={
                 **context,
-                "state": json.dumps(processed_state, indent=2)[:5000],  # Truncate
+                "state": json.dumps(processed_state, indent=2)[:5000],
                 "action": json.dumps(action, indent=2),
             },
             domain=self.domain,
@@ -406,7 +500,7 @@ Now predict the state changes that result from this action.
             return "No previous actions in this episode."
 
         lines = []
-        for step in history[-5]:  # Last 5 steps max in prompt
+        for step in history[-5:]:  # Last 5 steps max in prompt
             action = step.get("action", {})
             action_type = action.get("action_type", "unknown")
             thought = action.get("thought", "")[:100]
@@ -431,6 +525,8 @@ Now predict the state changes that result from this action.
 
         # Get LLM client from base simulator
         llm_client = getattr(self._base_simulator, 'llm_client', None)
+        if llm_client is None:
+            llm_client = self._llm_client
         if llm_client is None:
             raise RuntimeError("No LLM client available")
 
@@ -502,7 +598,6 @@ Now predict the state changes that result from this action.
         """Get history summary for context."""
         history_manager = self._memory_module.get_history_manager()
 
-        # Check if it's a summarized history manager
         if hasattr(history_manager, 'get_summary'):
             return history_manager.get_summary()
         elif hasattr(history_manager, 'get_context_for_prompt'):
@@ -548,8 +643,28 @@ Now predict the state changes that result from this action.
             "memory": self._memory_module.mode.value,
             "reasoning": self._reasoning_module.mode.value,
             "verification": self._verification_module.mode.value,
+            "temporal": self._temporal_module.mode.value,
+            "uncertainty": self._uncertainty_module.mode.value,
+            "grounding": self._grounding_module.strategy.value,
             "domain": self.domain,
         }
+
+    def get_modules(self) -> list[Module]:
+        """Get all modules."""
+        return self._modules
+
+    # Grounding helpers
+    def add_example(self, example: dict) -> None:
+        """Add an example for grounding."""
+        self._grounding_module.add_example(example)
+
+    def add_document(self, key: str, content: str) -> None:
+        """Add documentation for grounding."""
+        self._grounding_module.add_document(key, content)
+
+    def add_trace(self, trace: dict) -> None:
+        """Add a trace for grounding."""
+        self._grounding_module.add_trace(trace)
 
 
 # =============================================================================
@@ -564,10 +679,11 @@ def create_experimental_simulator(
     Create an experimental simulator with a preset configuration.
 
     Presets:
-        default: Delta output, full DOM, rolling window, direct reasoning
-        efficient: Delta output, semantic, rolling window, direct
-        thorough: Full state, full DOM, full history, chain reasoning
-        robust: Delta output, semantic, rolling window, constraint verification
+        default: Balanced configuration for general use
+        efficient: Optimized for speed and token efficiency
+        thorough: Maximum accuracy, full state, chain reasoning
+        robust: With constraint verification and uncertainty
+        grounded: Example-grounded predictions
     """
     presets = {
         "default": ExperimentalConfig(
@@ -576,6 +692,9 @@ def create_experimental_simulator(
             memory=MemoryMode.ROLLING_WINDOW,
             reasoning=ReasoningMode.DIRECT,
             verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
         ),
         "efficient": ExperimentalConfig(
             state_output=StateOutputMode.DELTA_ONLY,
@@ -584,6 +703,9 @@ def create_experimental_simulator(
             memory_window=3,
             reasoning=ReasoningMode.DIRECT,
             verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
         ),
         "thorough": ExperimentalConfig(
             state_output=StateOutputMode.FULL_STATE,
@@ -591,6 +713,9 @@ def create_experimental_simulator(
             memory=MemoryMode.FULL_HISTORY,
             reasoning=ReasoningMode.CHAIN,
             verification=VerificationMode.CONSTRAINT_CHECK,
+            temporal=TemporalMode.ASYNC_AWARE,
+            uncertainty=UncertaintyMode.WITH_CONFIDENCE,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
         ),
         "robust": ExperimentalConfig(
             state_output=StateOutputMode.DELTA_ONLY,
@@ -599,6 +724,19 @@ def create_experimental_simulator(
             reasoning=ReasoningMode.DIRECT,
             verification=VerificationMode.CONSTRAINT_CHECK,
             verification_strict=True,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.ADMITS_UNCERTAINTY,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
+        ),
+        "grounded": ExperimentalConfig(
+            state_output=StateOutputMode.DELTA_ONLY,
+            abstraction=AbstractionLevel.SEMANTIC_ELEMENTS,
+            memory=MemoryMode.ROLLING_WINDOW,
+            reasoning=ReasoningMode.DIRECT,
+            verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.EXAMPLE_GROUNDED,
         ),
     }
 

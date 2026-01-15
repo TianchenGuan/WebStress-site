@@ -3,29 +3,64 @@ Prompt Blocks Library: Reusable prompt components.
 
 This module provides a library of prompt blocks that can be composed
 to create different simulator behaviors through prompting alone.
+
+The prompt composition follows this structure:
+1. Base prompt (from simulator.base.md) - Core instructions
+2. Module prompts - Output format, abstraction, reasoning, etc.
+3. Domain knowledge - Web, desktop, ServiceNow specific behaviors
+4. Context - Task instruction, current state, action
+
+The base prompt is loaded from file to allow easy customization.
+Module prompts are contributed by each experimental module.
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 from .base import BasePromptBlock, PromptBlock
 
 
 # =============================================================================
-# Core System Blocks
+# Base Prompt Loading
 # =============================================================================
 
-SIMULATOR_ROLE_BLOCK = """
-# Role: UI State Transition Simulator
+def load_base_prompt() -> str:
+    """Load the base simulator prompt from file."""
+    base_path = Path(__file__).parent.parent.parent / "prompts" / "simulator.base.md"
+    if base_path.exists():
+        with open(base_path, "r") as f:
+            return f.read()
+    # Fallback if file doesn't exist
+    return _get_fallback_base_prompt()
 
-You are an LLM-based simulator that predicts how UI state changes in response
-to user actions. You act as a "physics engine" for user interfaces.
 
-Your task:
-1. Analyze the current UI state
-2. Understand what the user action intends to do
-3. Predict how the state should change
-4. Output the state changes in the specified format
+def _get_fallback_base_prompt() -> str:
+    """Fallback base prompt if file not found."""
+    return """# World Engine - Base System Prompt
+
+You are the World Engine. You manage the state of a computer OS/UI environment.
+
+## Core Responsibility
+
+Given the current state and an action, predict the resulting state changes.
+
+## Instructions
+
+1. **Analyze:** Review `current_state` and `action`.
+2. **Predict:** Determine what changes occur based on the action.
+3. **Output:** Return the state changes in the specified format.
+
+## Element Identification
+
+- Every UI element has a unique `bid` (browser ID)
+- Always reference elements by their `bid`, not by path or index
+- When creating new elements, generate unique, descriptive bids
 """
+
+
+# =============================================================================
+# Context Blocks (Dynamic content)
+# =============================================================================
 
 TASK_CONTEXT_BLOCK = """
 ## Task Context
@@ -37,16 +72,14 @@ Consider this context when predicting state changes. The UI should respond
 in ways that help (or hinder, realistically) the user's goal.
 """
 
-ACTION_UNDERSTANDING_BLOCK = """
-## Understanding the Action
+ACTION_CONTEXT_BLOCK = """
+## Action to Process
 
-Action to process:
+```json
 {action}
+```
 
-Before predicting changes, understand:
-1. What element is being interacted with?
-2. What is the expected behavior of this action on this element type?
-3. What side effects might this action cause?
+Analyze this action and predict what state changes should result.
 """
 
 
@@ -222,24 +255,22 @@ class PromptBlockLibrary:
 
     Usage:
         library = PromptBlockLibrary()
-        block = library.get("simulator_role")
-        text = block.render({})
+        block = library.get("task_context")
+        text = block.render({"instruction": "Click the submit button"})
 
-        # Or compose multiple blocks
-        prompt = library.compose([
-            "simulator_role",
-            "task_context",
-            "web_ui_knowledge",
-            "json_output",
-        ], context={"instruction": "Click the submit button"})
+        # Or compose from modules
+        prompt = library.compose_from_modules(
+            modules=[state_output_module, abstraction_module],
+            context={"instruction": "Click submit"},
+            domain="web",
+        )
     """
 
     # Registry of all blocks
     BLOCKS = {
-        # Core
-        "simulator_role": SIMULATOR_ROLE_BLOCK,
+        # Context (dynamic)
         "task_context": TASK_CONTEXT_BLOCK,
-        "action_understanding": ACTION_UNDERSTANDING_BLOCK,
+        "action_context": ACTION_CONTEXT_BLOCK,
 
         # Output
         "json_output": JSON_OUTPUT_BLOCK,
@@ -256,6 +287,13 @@ class PromptBlockLibrary:
 
     def __init__(self):
         self._custom_blocks: dict[str, str] = {}
+        self._base_prompt: Optional[str] = None
+
+    def get_base_prompt(self) -> str:
+        """Get the base simulator prompt (cached)."""
+        if self._base_prompt is None:
+            self._base_prompt = load_base_prompt()
+        return self._base_prompt
 
     def get(self, name: str) -> PromptBlock:
         """Get a prompt block by name."""
@@ -303,16 +341,22 @@ class PromptBlockLibrary:
         self,
         modules: list,
         context: Optional[dict] = None,
-        include_core: bool = True,
+        include_base: bool = True,
         include_domain: Optional[str] = None,
     ) -> str:
         """
         Compose prompt from experiment modules.
 
+        Structure:
+        1. Base prompt (from simulator.base.md)
+        2. Domain knowledge (optional)
+        3. Module-specific blocks (output format, abstraction, etc.)
+        4. JSON output reminder
+
         Args:
             modules: List of Module objects.
             context: Variables to substitute.
-            include_core: Include core simulator blocks.
+            include_base: Include base simulator prompt.
             include_domain: Include domain knowledge ("web", "desktop", "servicenow").
 
         Returns:
@@ -321,15 +365,11 @@ class PromptBlockLibrary:
         parts = []
         context = context or {}
 
-        # Core blocks
-        if include_core:
-            parts.append(self.get("simulator_role").render(context))
-            if context.get("instruction"):
-                parts.append(self.get("task_context").render(context))
-            if context.get("action"):
-                parts.append(self.get("action_understanding").render(context))
+        # 1. Base prompt
+        if include_base:
+            parts.append(self.get_base_prompt())
 
-        # Domain knowledge
+        # 2. Domain knowledge
         if include_domain:
             domain_map = {
                 "web": "web_ui_knowledge",
@@ -339,13 +379,23 @@ class PromptBlockLibrary:
             if include_domain in domain_map:
                 parts.append(self.get(domain_map[include_domain]).render(context))
 
-        # Module-specific blocks
+        # 3. Module-specific blocks
+        # These include output format, abstraction instructions, reasoning mode, etc.
         for module in modules:
             for block in module.get_prompt_blocks():
-                parts.append(block.render(context))
+                rendered = block.render(context)
+                if rendered.strip():  # Only add non-empty blocks
+                    parts.append(rendered)
 
-        # Output format
+        # 4. JSON output reminder
         parts.append(self.get("json_output").render(context))
+
+        # 5. Task context (if provided)
+        if context.get("instruction"):
+            instruction = context["instruction"]
+            if isinstance(instruction, dict):
+                instruction = instruction.get("instruction", str(instruction))
+            parts.append(self.get("task_context").render({"instruction": instruction}))
 
         return "\n\n".join(parts)
 
@@ -362,6 +412,11 @@ def get_prompt_block(name: str) -> PromptBlock:
     return _default_library.get(name)
 
 
+def get_base_prompt() -> str:
+    """Get the base simulator prompt."""
+    return _default_library.get_base_prompt()
+
+
 def compose_prompt(
     block_names: list[str],
     context: Optional[dict] = None,
@@ -374,11 +429,23 @@ def build_simulator_prompt(
     modules: list,
     context: Optional[dict] = None,
     domain: Optional[str] = None,
+    include_base: bool = True,
 ) -> str:
-    """Build a complete simulator prompt from modules."""
+    """
+    Build a complete simulator prompt from modules.
+
+    Args:
+        modules: List of Module objects (state_output, abstraction, etc.)
+        context: Variables like instruction, action, state
+        domain: Domain for specialized knowledge ("web", "desktop", "servicenow")
+        include_base: Whether to include the base prompt
+
+    Returns:
+        Complete system prompt for the simulator LLM.
+    """
     return _default_library.compose_from_modules(
         modules,
         context,
-        include_core=True,
+        include_base=include_base,
         include_domain=domain,
     )
