@@ -278,37 +278,24 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
     """
     for op in state_ops:
         if not isinstance(op, dict):
-            logger.warning(f"Skipping non-dict operation: {type(op)}")
-            continue
+            raise TypeError(f"Operation must be dict, got: {type(op)}")
 
         op_type = op.get("op")
 
-        try:
-            if op_type == "update":
-                apply_update(state, op["bid"], op["props"])
-
-            elif op_type == "delete":
-                apply_delete(state, op["bid"])
-
-            elif op_type == "append":
-                apply_append(state, op["parent_bid"], op["node"])
-
-            elif op_type == "insert":
-                apply_insert(state, op["parent_bid"], op["index"], op["node"])
-
-            elif op_type == "hidden_update":
-                apply_hidden_update(state, op["key"], op["value"])
-
-            elif op_type == "filesystem_update":
-                apply_filesystem_update(state, op["path"], op["props"])
-
-            else:
-                logger.warning(f"Unknown operation type: {op_type}")
-
-        except KeyError as e:
-            logger.error(f"Missing required field in operation {op_type}: {e}")
-        except Exception as e:
-            logger.error(f"Error applying operation {op_type}: {e}")
+        if op_type == "update":
+            apply_update(state, op["bid"], op["props"])
+        elif op_type == "delete":
+            apply_delete(state, op["bid"])
+        elif op_type == "append":
+            apply_append(state, op["parent_bid"], op["node"])
+        elif op_type == "insert":
+            apply_insert(state, op["parent_bid"], op["index"], op["node"])
+        elif op_type == "hidden_update":
+            apply_hidden_update(state, op["key"], op["value"])
+        elif op_type == "filesystem_update":
+            apply_filesystem_update(state, op["path"], op["props"])
+        else:
+            raise ValueError(f"Unknown operation type: {op_type}")
 
     return state
 

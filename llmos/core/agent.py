@@ -118,26 +118,18 @@ class Agent:
         # Add current observation
         messages.append({"role": "user", "content": user_message})
 
-        # Call LLM
-        try:
-            response = self.llm_client.complete(
-                messages=messages,
-                model_name=self.model_name,
-                provider=self.provider,
-                json_mode=True,
-            )
-        except Exception as e:
-            logger.error(f"Agent LLM call failed: {e}")
-            return {"action_type": "noop", "_llm_data": {"error": str(e)}}
+        # Call LLM (let errors raise for debugging)
+        response = self.llm_client.complete(
+            messages=messages,
+            model_name=self.model_name,
+            provider=self.provider,
+            json_mode=True,
+        )
 
         # Extract action (response should be dict from json_mode, but handle str fallback)
         raw_response = response
         if isinstance(response, str):
-            try:
-                response = json.loads(response)
-            except json.JSONDecodeError:
-                logger.warning(f"Could not parse response as JSON: {response[:100]}")
-                return {"action_type": "noop", "_llm_data": {"error": "JSON parse failed"}}
+            response = json.loads(response)  # Let JSONDecodeError raise
 
         # Handle list response (LLM sometimes returns [{}] instead of {})
         if isinstance(response, list):

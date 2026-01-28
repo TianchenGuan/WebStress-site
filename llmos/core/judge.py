@@ -408,68 +408,59 @@ Return JSON:
             {"role": "user", "content": user_message},
         ]
 
-        try:
-            response = self.llm_client.complete(
-                messages=messages,
-                provider=self.provider,
-                model_name=self.fast_model,
-                json_mode=True,
-            )
+        response = self.llm_client.complete(
+            messages=messages,
+            provider=self.provider,
+            model_name=self.fast_model,
+            json_mode=True,
+        )
 
-            # Handle string response
-            raw_response = response
-            if isinstance(response, str):
-                import json as json_module
-                response = json_module.loads(response)
+        # Handle string response
+        raw_response = response
+        if isinstance(response, str):
+            response = json.loads(response)
 
-            # Normalize common type issues before schema validation
-            if isinstance(response, dict):
-                score = response.get("score")
-                if isinstance(score, str):
-                    try:
-                        response["score"] = float(score)
-                    except ValueError:
-                        pass
+        # Normalize common type issues before schema validation
+        if isinstance(response, dict):
+            score = response.get("score")
+            if isinstance(score, str):
+                response["score"] = float(score)  # Let ValueError raise
 
-                success = response.get("success")
-                if isinstance(success, str):
-                    lowered = success.strip().lower()
-                    if lowered in ("true", "false"):
-                        response["success"] = lowered == "true"
+            success = response.get("success")
+            if isinstance(success, str):
+                lowered = success.strip().lower()
+                if lowered == "true":
+                    response["success"] = True
+                elif lowered == "false":
+                    response["success"] = False
+                else:
+                    raise ValueError(f"Invalid success value from LLM: {success!r}")
 
-                if "reasoning" not in response or not isinstance(response.get("reasoning"), str):
-                    response["reasoning"] = str(response.get("reasoning", ""))
+            if "reasoning" not in response or not isinstance(response.get("reasoning"), str):
+                response["reasoning"] = str(response.get("reasoning", ""))
 
-                error_analysis = response.get("error_analysis")
-                if isinstance(error_analysis, dict):
-                    cms = error_analysis.get("critical_mistake_step")
-                    if isinstance(cms, str):
-                        try:
-                            error_analysis["critical_mistake_step"] = int(cms)
-                        except ValueError:
-                            pass
+            error_analysis = response.get("error_analysis")
+            if isinstance(error_analysis, dict):
+                cms = error_analysis.get("critical_mistake_step")
+                if isinstance(cms, str):
+                    error_analysis["critical_mistake_step"] = int(cms)  # Let ValueError raise
 
-            # Validate response
-            is_valid, errors = validate_judge_output(response)
-            if not is_valid:
-                logger.warning(f"Invalid judge output: {errors}")
-                return self._default_output("LLM response validation failed")
+        # Validate response
+        is_valid, errors = validate_judge_output(response)
+        if not is_valid:
+            raise ValueError(f"Invalid judge output: {errors}")
 
-            # Attach LLM data flow for debugging/visualization
-            response["_llm_data"] = {
-                "role": "judge",
-                "provider": self.provider,
-                "model": self.fast_model,
-                "system_prompt": compact_prompt,
-                "user_message": user_message,
-                "raw_response": raw_response if isinstance(raw_response, str) else json.dumps(raw_response),
-            }
+        # Attach LLM data flow for debugging/visualization
+        response["_llm_data"] = {
+            "role": "judge",
+            "provider": self.provider,
+            "model": self.fast_model,
+            "system_prompt": compact_prompt,
+            "user_message": user_message,
+            "raw_response": raw_response if isinstance(raw_response, str) else json.dumps(raw_response),
+        }
 
-            return response
-
-        except Exception as e:
-            logger.error(f"Judge LLM evaluation failed: {e}")
-            return self._default_output(str(e))
+        return response
 
     def _build_compact_message(
         self,

@@ -540,14 +540,11 @@ class Orchestrator:
         logger.info(f"Episode saved to {path}")
 
         # Automatically export HTML visualization
-        try:
-            html_path = export_episode_to_html(str(path))
-            logger.info(f"HTML visualization exported to {html_path}")
+        html_path = export_episode_to_html(str(path))
+        logger.info(f"HTML visualization exported to {html_path}")
 
-            index_path = export_runs_index(self.runs_dir)
-            logger.info(f"Runs index exported to {index_path}")
-        except Exception as e:
-            logger.warning(f"Failed to export HTML visualization: {e}")
+        index_path = export_runs_index(self.runs_dir)
+        logger.info(f"Runs index exported to {index_path}")
 
     def _print_curriculum_summary(self, results: list[dict]):
         """Print curriculum summary."""

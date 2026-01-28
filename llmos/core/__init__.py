@@ -25,9 +25,6 @@ from .unified_simulator import (
     create_simulator,
 )
 
-# Keep legacy simulator available for backward compatibility
-from .simulator import Simulator as LegacySimulator
-
 from .agent import Agent, HumanAgent, create_agent
 from .judge import Judge, create_judge
 from .proposer import Proposer, create_proposer
@@ -40,14 +37,12 @@ from .difficulty import (
 )
 
 __all__ = [
-    # Unified Simulator (default)
+    # Simulator
     "Simulator",
     "SimulatorConfig",
     "SimulatorError",
     "SIMULATOR_PRESETS",
     "create_simulator",
-    # Legacy Simulator (backward compatibility)
-    "LegacySimulator",
     # Agent
     "Agent",
     "HumanAgent",

@@ -872,16 +872,8 @@ Supported Operations:
         )
         context.update(grounding_context)
 
-        # Get LLM prediction
-        try:
-            llm_response = self._get_llm_prediction(processed_state, action_for_history, context)
-        except Exception as e:
-            logger.error(f"LLM prediction failed: {e}")
-            return (
-                self._get_observation(),
-                False,
-                {"error": "LLM prediction failed", "details": str(e)}
-            )
+        # Get LLM prediction (let errors raise for debugging)
+        llm_response = self._get_llm_prediction(processed_state, action_for_history, context)
 
         # Parse output with state output module
         state_parser = self._state_output_module.get_parser()

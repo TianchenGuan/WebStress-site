@@ -153,33 +153,26 @@ Return a JSON object representing a new task instruction:
             {"role": "user", "content": user_message},
         ]
 
-        try:
-            response = self.llm_client.complete(
-                messages=messages,
-                provider=self.provider,
-                model_name=self.model_name,
-                json_mode=True,
-            )
+        response = self.llm_client.complete(
+            messages=messages,
+            provider=self.provider,
+            model_name=self.model_name,
+            json_mode=True,
+        )
 
-            # Ensure task_id is unique
-            if "task_id" not in response or not response["task_id"]:
-                response["task_id"] = f"task_{uuid.uuid4().hex[:8]}"
+        # Ensure task_id is unique
+        if "task_id" not in response or not response["task_id"]:
+            response["task_id"] = f"task_{uuid.uuid4().hex[:8]}"
 
-            # Max steps is configured globally (config.json), not per task
-            response.pop("max_steps", None)
+        # Max steps is configured globally (config.json), not per task
+        response.pop("max_steps", None)
 
-            # Validate instruction
-            is_valid, errors = validate_instruction(response)
-            if not is_valid:
-                logger.warning(f"Invalid instruction proposed: {errors}")
-                # Fix common issues
-                response = self._fix_instruction(response)
+        # Validate instruction
+        is_valid, errors = validate_instruction(response)
+        if not is_valid:
+            raise ValueError(f"Invalid instruction proposed: {errors}")
 
-            return response
-
-        except Exception as e:
-            logger.error(f"Proposer LLM call failed: {e}")
-            return self._fallback_task()
+        return response
 
     def _analyze_history(self, history: list[dict]) -> dict:
         """
