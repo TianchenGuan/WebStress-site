@@ -260,6 +260,26 @@ class SimulatorConfig:
             return cls.from_dict(json.load(f))
 
 
+def normalize_difficulty_values(
+    information_density: str,
+    determinism: str,
+) -> tuple[str, str]:
+    info_map = {
+        "minimal": "simple",
+        "simple": "simple",
+        "moderate": "moderate",
+        "rich": "rich",
+    }
+    det_map = {
+        "deterministic": "idealized",
+        "idealized": "idealized",
+        "moderate": "moderate",
+        "stochastic": "hostile",
+        "hostile": "hostile",
+    }
+    return info_map.get(information_density, information_density), det_map.get(determinism, determinism)
+
+
 # =============================================================================
 # Preset Configurations for Common Ablation Studies
 # =============================================================================

@@ -227,8 +227,10 @@ class FullStateParser(BaseOutputParser):
         # Build bid -> node maps
         current_nodes = {}
         next_nodes = {}
+        current_parents = {}
+        next_parents = {}
         self._collect_nodes(current, current_nodes)
-        self._collect_nodes(next_, next_nodes)
+        self._collect_nodes(next_, next_nodes, next_parents)
 
         # Find updates
         for bid, next_node in next_nodes.items():
@@ -246,9 +248,13 @@ class FullStateParser(BaseOutputParser):
                         "props": changed_props,
                     })
             else:
-                # New node - need to find parent
-                # This is simplified; real implementation would track parent
-                pass
+                parent_bid = next_parents.get(bid)
+                if parent_bid in current_nodes:
+                    ops.append({
+                        "op": "append",
+                        "parent_bid": parent_bid,
+                        "node": copy.deepcopy(next_node),
+                    })
 
         # Find deletions
         for bid in current_nodes:
@@ -260,13 +266,15 @@ class FullStateParser(BaseOutputParser):
 
         return ops
 
-    def _collect_nodes(self, node: dict, nodes: dict) -> None:
+    def _collect_nodes(self, node: dict, nodes: dict, parents: Optional[dict] = None, parent_bid: Optional[str] = None) -> None:
         """Recursively collect all nodes by bid."""
         if isinstance(node, dict):
             if "bid" in node:
                 nodes[node["bid"]] = node
+                if parents is not None:
+                    parents[node["bid"]] = parent_bid
             for child in node.get("children", []):
-                self._collect_nodes(child, nodes)
+                self._collect_nodes(child, nodes, parents, node.get("bid"))
 
 
 class DeltaOnlyParser(BaseOutputParser):

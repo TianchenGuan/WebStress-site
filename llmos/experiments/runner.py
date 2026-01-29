@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Sequence
 import traceback
 
-from .simulator_config import SimulatorConfig
+from .simulator_config import SimulatorConfig, HistoryMode
 
 logger = logging.getLogger(__name__)
 
@@ -265,6 +265,9 @@ class ExperimentRunner:
         self.verbose = verbose
 
         self.agents: dict[str, AgentSpec] = {}
+        self._benchmark = None
+        self._state_builder = None
+        self._evaluator = None
 
     def register_agent(self, spec: AgentSpec) -> None:
         """Register an agent for evaluation."""
@@ -284,20 +287,64 @@ class ExperimentRunner:
         """Create a Simulator instance from SimulatorConfig."""
         from ..core import Simulator
         from ..core.difficulty import get_difficulty_config
+        from ..core.unified_simulator import StateOutputMode, AbstractionLevel, MemoryMode, ReasoningMode
+        from .simulator_config import normalize_difficulty_values
 
         # Map config to difficulty settings
+        information_density, determinism = normalize_difficulty_values(
+            config.information_density,
+            config.determinism,
+        )
         difficulty_config = get_difficulty_config(
-            information_density=config.information_density,
+            information_density=information_density,
             signal_noise_ratio=config.signal_noise_ratio,
-            determinism=config.determinism,
+            determinism=determinism,
         )
 
         # Create simulator
         # Note: We'd need to extend Simulator to support all config options
         # For now, we use the basic parameters
+        if config.history_mode == HistoryMode.FULL:
+            memory = MemoryMode.FULL_HISTORY
+            memory_window = config.history_length
+            memory_recent_steps = config.history_length
+        elif config.history_mode == HistoryMode.SUMMARIZED:
+            memory = MemoryMode.SUMMARIZED
+            memory_window = config.history_length
+            memory_recent_steps = config.history_length or 3
+        else:
+            memory = MemoryMode.ROLLING_WINDOW
+            memory_window = 0 if config.history_mode == HistoryMode.NONE else config.history_length
+            memory_recent_steps = config.history_length
+
+        reasoning = ReasoningMode.CHAIN if config.prompt_config.use_chain_of_thought else ReasoningMode.DIRECT
+
+        custom_prompt = None
+        if config.prompt_config.custom_prompt_path:
+            with open(config.prompt_config.custom_prompt_path, "r") as f:
+                custom_prompt = f.read()
+
         simulator = Simulator(
             config_path=self.llmos_config_path,
             difficulty_config=difficulty_config,
+            llm_provider=config.llm_provider.value,
+            llm_model=config.llm_model,
+            max_tokens=config.max_tokens,
+            memory=memory,
+            memory_window=memory_window,
+            memory_recent_steps=memory_recent_steps,
+            reasoning=reasoning,
+            reasoning_include_examples=config.prompt_config.include_examples,
+            state_representation_mode=config.state_config.mode.value,
+            include_hidden_state=config.state_config.include_hidden_state,
+            include_filesystem=config.state_config.include_filesystem,
+            include_tabs=config.state_config.include_tabs,
+            max_ui_depth=config.state_config.max_ui_depth,
+            max_children_per_node=config.state_config.max_children_per_node,
+            max_text_length=config.state_config.max_text_length,
+            max_file_content_length=config.state_config.max_file_content_length,
+            action_format=config.action_format.value,
+            custom_system_prompt=custom_prompt,
         )
 
         # Store config for reference
@@ -313,12 +360,28 @@ class ExperimentRunner:
     ) -> TaskResult:
         """Run a single task and return result."""
         try:
+            from ..interfaces import Task
+            task_obj = Task.from_dict(task)
             # Reset simulator
             template = task.get("initial_state_template", "browser")
-            observation = simulator.reset(
-                template_name=template,
-                instruction=task,
-            )
+            initial_state = None
+            if self._state_builder is not None:
+                if hasattr(self._state_builder, "supports_task"):
+                    if self._state_builder.supports_task(task_obj):
+                        initial_state = self._state_builder.build(task_obj)
+                else:
+                    initial_state = self._state_builder.build(task_obj)
+
+            if initial_state is not None:
+                observation = simulator.reset(
+                    initial_state=initial_state,
+                    instruction=task,
+                )
+            else:
+                observation = simulator.reset(
+                    template_name=template,
+                    instruction=task,
+                )
 
             # Reset agent
             agent.reset(task.get("instruction", ""))
@@ -335,14 +398,23 @@ class ExperimentRunner:
             final_state = simulator.get_state()
             history = simulator.get_history()
 
-            # Use Judge for evaluation
-            from ..core.judge import Judge
-            judge = Judge(config_path=self.llmos_config_path)
-            judge_result = judge.evaluate(
-                instruction=task,
-                final_state=final_state,
-                history=history,
-            )
+            if self._evaluator is not None:
+                from ..utils import run_async
+                eval_result = run_async(self._evaluator.evaluate(
+                    task_obj,
+                    final_state,
+                    history,
+                    initial_state=initial_state,
+                ))
+                judge_result = eval_result.to_dict() if hasattr(eval_result, "to_dict") else eval_result
+            else:
+                from ..core.judge import Judge
+                judge = Judge(config_path=self.llmos_config_path)
+                judge_result = judge.evaluate(
+                    instruction=task,
+                    final_state=final_state,
+                    history=history,
+                )
 
             return TaskResult(
                 task_id=task.get("task_id", "unknown"),
@@ -500,6 +572,9 @@ class ExperimentRunner:
             task_filter=task_filter,
             shuffle=False,  # Consistent ordering for reproducibility
         )
+        self._benchmark = benchmark
+        self._state_builder = benchmark.get_state_builder()
+        self._evaluator = benchmark.get_evaluator(self.llmos_config_path)
 
         task_provider = benchmark.get_task_provider()
         tasks = []

@@ -170,6 +170,7 @@ class Orchestrator:
         agent: Optional[Union[Agent, HumanAgent]] = None,
         save: bool = True,
         verbose: bool = True,
+        initial_state: Optional[dict] = None,
     ) -> dict:
         """
         Run a single episode.
@@ -188,10 +189,16 @@ class Orchestrator:
 
         # Get template and reset
         template_name = instruction.get("initial_state_template", "desktop")
-        observation = self.simulator.reset(
-            template_name=template_name,
-            instruction=instruction
-        )
+        if initial_state is not None:
+            observation = self.simulator.reset(
+                initial_state=initial_state,
+                instruction=instruction,
+            )
+        else:
+            observation = self.simulator.reset(
+                template_name=template_name,
+                instruction=instruction,
+            )
 
         # Reset agent
         agent.reset(instruction.get("instruction", ""))
@@ -443,14 +450,43 @@ class Orchestrator:
             try:
                 from .interfaces import Task
                 task = self._task_provider.get_task()
-                instruction = task.to_dict() if isinstance(task, Task) else task
+                task_obj = task if isinstance(task, Task) else Task.from_dict(task)
+                instruction = task_obj.to_dict()
             except StopIteration:
                 if verbose:
                     print("No more tasks available from benchmark")
                 break
 
             # Run episode
-            result = self.run_episode(instruction, agent, save=True, verbose=verbose)
+            initial_state = None
+            if self._state_builder is not None:
+                if hasattr(self._state_builder, "supports_task"):
+                    if self._state_builder.supports_task(task_obj):
+                        initial_state = self._state_builder.build(task_obj)
+                else:
+                    initial_state = self._state_builder.build(task_obj)
+
+            result = self.run_episode(
+                instruction,
+                agent,
+                save=self._evaluator is None,
+                verbose=verbose,
+                initial_state=initial_state,
+            )
+
+            if self._evaluator is not None:
+                from .utils import run_async
+                eval_result = run_async(self._evaluator.evaluate(
+                    task_obj,
+                    result["final_state"],
+                    result["history"],
+                ))
+                eval_dict = eval_result.to_dict() if hasattr(eval_result, "to_dict") else eval_result
+                result["judge_result"] = eval_dict
+                result["score"] = eval_dict.get("score", result["score"])
+                result["success"] = eval_dict.get("success", result["success"])
+                result["feedback"] = eval_dict.get("feedback", result.get("feedback", ""))
+                self._save_episode(result)
             results.append(result)
 
             # Update performance history

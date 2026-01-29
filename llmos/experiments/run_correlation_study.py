@@ -362,19 +362,17 @@ class CorrelationStudyRunner:
                 })
                 events.extend(info.get("events", []))
 
-            # Determine score
             final_state = sim.get_state()
-            status = final_state.get("meta", {}).get("status", "running")
-
-            if status == "completed":
-                score = 1.0
-                success = True
-            elif status == "failed":
-                score = -1.0
-                success = False
-            else:
-                score = -0.5
-                success = False
+            history = sim.get_history()
+            from ..core.judge import Judge
+            judge = Judge(config_path=self.config_path)
+            judge_result = judge.evaluate(
+                instruction=task,
+                final_state=final_state,
+                history=history,
+            )
+            score = judge_result.get("score", 0.0)
+            success = judge_result.get("success", False)
 
             return TaskResult(
                 task_id=task["task_id"],

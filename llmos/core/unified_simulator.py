@@ -38,7 +38,7 @@ from typing import Any, Callable, Optional, Union
 
 from ..utils.llm_client import LLMClient
 from ..utils.patching import apply_id_patch, validate_ops
-from ..utils.rendering import render_observation
+from ..utils.rendering import render_observation, render_ui_as_text
 from ..utils.validation import validate_action_complete
 from .difficulty import (
     DifficultyConfig,
@@ -123,6 +123,19 @@ class SimulatorConfig:
     uncertainty_min_confidence: float = 0.0
     uncertainty_selection_strategy: str = "most_likely"
 
+    # State representation
+    state_representation_mode: Optional[str] = None  # full_json, filtered_json, text_axtree, compressed, hybrid
+    include_hidden_state: bool = True
+    include_filesystem: bool = True
+    include_tabs: bool = True
+    max_ui_depth: Optional[int] = None
+    max_children_per_node: Optional[int] = None
+    max_text_length: int = 500
+    max_file_content_length: int = 1000
+
+    # Action format
+    action_format: Optional[str] = None  # full, simplified, natural_lang
+
     # LLM configuration
     llm_provider: Optional[str] = None  # None = use default from config
     llm_model: Optional[str] = None
@@ -166,6 +179,15 @@ class SimulatorConfig:
             "verification_strict": self.verification_strict,
             "uncertainty_min_confidence": self.uncertainty_min_confidence,
             "uncertainty_selection_strategy": self.uncertainty_selection_strategy,
+            "state_representation_mode": self.state_representation_mode,
+            "include_hidden_state": self.include_hidden_state,
+            "include_filesystem": self.include_filesystem,
+            "include_tabs": self.include_tabs,
+            "max_ui_depth": self.max_ui_depth,
+            "max_children_per_node": self.max_children_per_node,
+            "max_text_length": self.max_text_length,
+            "max_file_content_length": self.max_file_content_length,
+            "action_format": self.action_format,
             "llm_provider": self.llm_provider,
             "llm_model": self.llm_model,
             "max_tokens": self.max_tokens,
@@ -231,6 +253,15 @@ class SimulatorConfig:
             verification_strict=d.get("verification_strict", False),
             uncertainty_min_confidence=d.get("uncertainty_min_confidence", 0.0),
             uncertainty_selection_strategy=d.get("uncertainty_selection_strategy", "most_likely"),
+            state_representation_mode=d.get("state_representation_mode"),
+            include_hidden_state=d.get("include_hidden_state", True),
+            include_filesystem=d.get("include_filesystem", True),
+            include_tabs=d.get("include_tabs", True),
+            max_ui_depth=d.get("max_ui_depth"),
+            max_children_per_node=d.get("max_children_per_node"),
+            max_text_length=d.get("max_text_length", 500),
+            max_file_content_length=d.get("max_file_content_length", 1000),
+            action_format=d.get("action_format"),
             llm_provider=d.get("llm_provider"),
             llm_model=d.get("llm_model"),
             max_tokens=d.get("max_tokens", 4096),
@@ -476,6 +507,15 @@ class Simulator:
         grounding=None,
         difficulty=None,
         domain=None,
+        state_representation_mode=None,
+        include_hidden_state=None,
+        include_filesystem=None,
+        include_tabs=None,
+        max_ui_depth=None,
+        max_children_per_node=None,
+        max_text_length=None,
+        max_file_content_length=None,
+        action_format=None,
         **kwargs,
     ):
         """Apply parameter overrides to config."""
@@ -524,6 +564,25 @@ class Simulator:
 
         if domain is not None:
             self.sim_config.domain = domain
+
+        if state_representation_mode is not None:
+            self.sim_config.state_representation_mode = state_representation_mode
+        if include_hidden_state is not None:
+            self.sim_config.include_hidden_state = include_hidden_state
+        if include_filesystem is not None:
+            self.sim_config.include_filesystem = include_filesystem
+        if include_tabs is not None:
+            self.sim_config.include_tabs = include_tabs
+        if max_ui_depth is not None:
+            self.sim_config.max_ui_depth = max_ui_depth
+        if max_children_per_node is not None:
+            self.sim_config.max_children_per_node = max_children_per_node
+        if max_text_length is not None:
+            self.sim_config.max_text_length = max_text_length
+        if max_file_content_length is not None:
+            self.sim_config.max_file_content_length = max_file_content_length
+        if action_format is not None:
+            self.sim_config.action_format = action_format
 
         # Apply any additional kwargs
         for key, value in kwargs.items():
@@ -850,6 +909,14 @@ Supported Operations:
                 False,
                 {"error": "Invalid action", "details": errors}
             )
+        if self.sim_config.action_format == "simplified":
+            allowed = {"click", "fill", "scroll", "goto", "finish"}
+            if action.get("action_type") not in allowed:
+                return (
+                    self._get_observation(),
+                    False,
+                    {"error": "Invalid action for simplified format", "details": [action.get("action_type")]}
+                )
 
         # Extract debug payload
         agent_llm_data = action.get("_llm_data", {})
@@ -1057,7 +1124,8 @@ Supported Operations:
             parts.append(f"## Task Instruction\n{self.instruction.get('instruction', '')}\n")
 
         parts.append("## Current State (Full - including hidden_state)")
-        parts.append(f"```json\n{json.dumps(state, indent=2)}\n```\n")
+        state_for_prompt = self._prepare_state_for_prompt(state)
+        parts.append(f"```json\n{json.dumps(state_for_prompt, indent=2)}\n```\n")
 
         parts.append("## Action")
         parts.append(f"```json\n{json.dumps(action, indent=2)}\n```\n")
@@ -1081,7 +1149,8 @@ Supported Operations:
             parts.append(f"## Task Instruction\n{self.instruction.get('instruction', '')}\n")
 
         parts.append("## Current State")
-        state_json = json.dumps(processed_state, indent=2)
+        state_for_prompt = self._prepare_state_for_prompt(processed_state)
+        state_json = json.dumps(state_for_prompt, indent=2)
         if len(state_json) > 10000:
             state_json = state_json[:10000] + "\n... (truncated)"
         parts.append(f"```json\n{state_json}\n```\n")
@@ -1111,6 +1180,103 @@ Supported Operations:
             lines.append(f"- Step {step.get('step', '?')}: {action_type}")
 
         return "\n".join(lines)
+
+    def _prepare_state_for_prompt(self, state: dict) -> dict:
+        if state is None:
+            return {}
+
+        mode = self.sim_config.state_representation_mode
+        include_hidden = self.sim_config.include_hidden_state
+        include_fs = self.sim_config.include_filesystem
+        include_tabs = self.sim_config.include_tabs
+
+        state_copy = copy.deepcopy(state)
+
+        if not include_hidden and "hidden_state" in state_copy:
+            del state_copy["hidden_state"]
+        if not include_fs and "filesystem" in state_copy:
+            del state_copy["filesystem"]
+        if not include_tabs and "tabs" in state_copy:
+            del state_copy["tabs"]
+
+        state_copy = self._truncate_state_for_prompt(state_copy)
+
+        if mode == "text_axtree":
+            ui_text = render_ui_as_text(state_copy) if "ui" in state_copy else ""
+            state_copy.pop("ui", None)
+            state_copy["ui_text"] = ui_text
+        elif mode == "hybrid":
+            ui_text = render_ui_as_text(state_copy) if "ui" in state_copy else ""
+            state_copy["ui_text"] = ui_text
+        elif mode == "compressed":
+            ui_text = render_ui_as_text(state_copy) if "ui" in state_copy else ""
+            state_copy.pop("ui", None)
+            state_copy["ui_text"] = ui_text
+
+        return state_copy
+
+    def _truncate_state_for_prompt(self, state: dict) -> dict:
+        max_ui_depth = self.sim_config.max_ui_depth
+        max_children = self.sim_config.max_children_per_node
+        max_text_length = self.sim_config.max_text_length
+        max_file_length = self.sim_config.max_file_content_length
+
+        if "ui" in state and isinstance(state["ui"], dict):
+            state["ui"] = self._truncate_ui_node(
+                state["ui"],
+                depth=0,
+                max_depth=max_ui_depth,
+                max_children=max_children,
+                max_text_length=max_text_length,
+            )
+
+        if "filesystem" in state and isinstance(state["filesystem"], dict):
+            for path, entry in state["filesystem"].items():
+                if isinstance(entry, dict) and "content" in entry:
+                    content = entry.get("content")
+                    if isinstance(content, str) and len(content) > max_file_length:
+                        entry["content"] = content[:max_file_length] + "... [truncated]"
+
+        return state
+
+    def _truncate_ui_node(
+        self,
+        node: dict,
+        depth: int,
+        max_depth: Optional[int],
+        max_children: Optional[int],
+        max_text_length: int,
+    ) -> dict:
+        if not isinstance(node, dict):
+            return node
+
+        result = {}
+        for key, value in node.items():
+            if key == "children":
+                continue
+            if key == "text" and isinstance(value, str) and len(value) > max_text_length:
+                result[key] = value[:max_text_length] + "... [truncated]"
+            elif key == "value" and isinstance(value, str) and len(value) > max_text_length:
+                result[key] = value[:max_text_length] + "... [truncated]"
+            else:
+                result[key] = value
+
+        if max_depth is not None and depth >= max_depth:
+            return result
+
+        children = node.get("children", [])
+        if isinstance(children, list):
+            if max_children is not None:
+                children = children[:max_children]
+            truncated_children = [
+                self._truncate_ui_node(child, depth + 1, max_depth, max_children, max_text_length)
+                for child in children
+                if isinstance(child, dict)
+            ]
+            if truncated_children:
+                result["children"] = truncated_children
+
+        return result
 
     def _check_done(self) -> bool:
         """Check if episode should end."""

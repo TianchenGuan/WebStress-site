@@ -6,6 +6,7 @@ Deterministic operations: LLM client, patching, rendering, validation.
 from .llm_client import LLMClient, create_client
 from .patching import apply_id_patch, validate_ops
 from .rendering import render_observation, render_ui_as_text, summarize_state
+from .async_utils import run_async
 from .validation import (
     validate_action,
     validate_action_complete,
@@ -22,6 +23,7 @@ __all__ = [
     "render_observation",
     "render_ui_as_text",
     "summarize_state",
+    "run_async",
     "validate_action",
     "validate_action_complete",
     "validate_state",
