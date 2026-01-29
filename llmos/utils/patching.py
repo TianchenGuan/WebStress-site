@@ -230,6 +230,27 @@ def apply_hidden_update(state: dict, key: str, value: Any) -> bool:
     return True
 
 
+def apply_meta_update(state: dict, key: str, value: Any) -> bool:
+    """
+    Update a key in the meta state.
+
+    Args:
+        state: The full state object.
+        key: The key in meta to update.
+        value: The new value.
+
+    Returns:
+        True (always succeeds).
+    """
+    if "meta" not in state:
+        state["meta"] = {}
+
+    state["meta"][key] = value
+
+    logger.debug(f"Updated meta[{key}]")
+    return True
+
+
 def apply_filesystem_update(state: dict, path: str, props: dict) -> bool:
     """
     Update a file in the filesystem.
@@ -267,6 +288,7 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
     - append: {"op": "append", "parent_bid": <id>, "node": {...}}
     - insert: {"op": "insert", "parent_bid": <id>, "index": <n>, "node": {...}}
     - hidden_update: {"op": "hidden_update", "key": <key>, "value": <value>}
+    - meta_update: {"op": "meta_update", "key": <key>, "value": <value>}
     - filesystem_update: {"op": "filesystem_update", "path": <path>, "props": {...}}
 
     Args:
@@ -292,6 +314,8 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
             apply_insert(state, op["parent_bid"], op["index"], op["node"])
         elif op_type == "hidden_update":
             apply_hidden_update(state, op["key"], op["value"])
+        elif op_type == "meta_update":
+            apply_meta_update(state, op["key"], op["value"])
         elif op_type == "filesystem_update":
             apply_filesystem_update(state, op["path"], op["props"])
         else:
@@ -333,6 +357,7 @@ def validate_ops(state_ops: list[dict]) -> list[str]:
         "append": ["parent_bid", "node"],
         "insert": ["parent_bid", "index", "node"],
         "hidden_update": ["key", "value"],
+        "meta_update": ["key", "value"],
         "filesystem_update": ["path", "props"],
     }
 

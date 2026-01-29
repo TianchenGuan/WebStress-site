@@ -266,7 +266,7 @@ class ExperimentalSimulator:
     def _ensure_initialized(self) -> None:
         """Lazy initialization of base simulator."""
         if not self._initialized:
-            from ...core.simulator import Simulator
+            from ...core import Simulator
             self._base_simulator = Simulator(
                 config_path=self.config_path,
                 difficulty=self.difficulty,
@@ -381,13 +381,15 @@ class ExperimentalSimulator:
 
         # Handle uncertainty (may modify state_ops based on confidence/probability)
         uncertainty_parser = self._uncertainty_module.get_parser()
+        llm_output["state_ops"] = state_ops
         state_ops = uncertainty_parser.parse(llm_output, self._current_state)
+        llm_output["state_ops"] = state_ops
 
         # Handle temporal effects (may add async tracking)
         temporal_parser = self._temporal_module.get_parser()
         temporal_ops = temporal_parser.parse(llm_output, self._current_state)
         if temporal_ops:
-            state_ops.extend(temporal_ops)
+            state_ops = temporal_ops
 
         # Verify output
         verifier = self._verification_module.get_verifier()

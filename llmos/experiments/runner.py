@@ -282,7 +282,7 @@ class ExperimentRunner:
         config: SimulatorConfig,
     ):
         """Create a Simulator instance from SimulatorConfig."""
-        from ..core.simulator import Simulator
+        from ..core import Simulator
         from ..core.difficulty import get_difficulty_config
 
         # Map config to difficulty settings

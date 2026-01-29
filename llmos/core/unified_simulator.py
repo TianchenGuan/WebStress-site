@@ -881,13 +881,15 @@ Supported Operations:
 
         # Handle uncertainty
         uncertainty_parser = self._uncertainty_module.get_parser()
+        llm_response["state_ops"] = state_ops
         state_ops = uncertainty_parser.parse(llm_response, self.current_state)
+        llm_response["state_ops"] = state_ops
 
         # Handle temporal effects
         temporal_parser = self._temporal_module.get_parser()
         temporal_ops = temporal_parser.parse(llm_response, self.current_state)
         if temporal_ops:
-            state_ops.extend(temporal_ops)
+            state_ops = temporal_ops
 
         # Verify output
         verifier = self._verification_module.get_verifier()
