@@ -81,6 +81,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             text-transform: uppercase;
         }}
 
+        /* Settings Section */
+        #settings-section {{
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        #settings-section .collapsible-header {{
+            border: none;
+            border-radius: 8px;
+        }}
+        #settings-section.expanded .collapsible-header {{
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #e1e4e8;
+        }}
+        #settings-section .collapsible-content {{
+            border: none;
+            padding: 16px;
+        }}
+
         /* Timeline Controls */
         .timeline-controls {{
             background: #fff;
@@ -631,6 +652,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <div class="meta-item"><strong>Steps:</strong> {total_steps}</div>
                 <div class="meta-item {success_class}"><strong>{success_text}</strong></div>
                 <div class="meta-item"><strong>Score:</strong> {score}</div>
+                <div class="meta-item"><strong>Timestamp:</strong> {timestamp}</div>
             </div>
         </header>
 
@@ -638,6 +660,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="instruction-box">
             <div class="instruction-label">Task Instruction</div>
             <div>{instruction}</div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="collapsible" id="settings-section">
+            <div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)">
+                <span class="collapsible-icon">▶</span>
+                Configuration &amp; Settings
+            </div>
+            <div class="collapsible-content" id="settings-content">
+            </div>
         </div>
 
         <!-- Timeline Controls -->
@@ -703,6 +735,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
         const historyData = {history_json};
         const judgeData = {judge_json};
+        const settingsData = {settings_json};
         const uiFramesObs = {ui_frames_obs_json};
         const uiFramesState = {ui_frames_state_json};
         const uiTreeObs = {ui_tree_obs_json};
@@ -1026,7 +1059,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         function createStepCard(step, index) {{
-            const stepNum = index + 1;
+            const isSetupStep = step.action?.action_type === 'setup';
+            const stepNum = isSetupStep ? 0 : index + 1;
+            const stepLabel = isSetupStep ? 'Setup' : `Step ${{stepNum}}`;
             const actionType = step.action?.action_type || 'unknown';
             const isActive = index === currentStep - 1;
             const targetSummary = summarizeActionTarget(step.action);
@@ -1035,12 +1070,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const eventsDisplay = hasEvents
                 ? (step.events.length === 1 ? step.events[0] : `${{step.events[0]}} (+${{step.events.length - 1}})`)
                 : '';
+            
 
             let html = `
                 <div class="step-card ${{isActive ? 'active expanded' : ''}}" data-step="${{stepNum}}">
                     <div class="step-header" onclick="toggleStepCard(this.parentElement)">
                         <div class="step-header-left">
-                            <span class="step-number">Step ${{stepNum}}</span>
+                            <span class="step-number">${{stepLabel}}</span>
                             <span class="step-action-type">${{actionType}}</span>
                             ${{targetSummary ? renderTruncatedSpan(targetSummary, 'step-action-target', 70) : ''}}
                         </div>
@@ -1382,8 +1418,75 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 createCodeBlock(judgeDetailsJson, 'Judge Evaluation Details', true);
         }}
 
+        function renderSettings() {{
+            const container = document.getElementById('settings-content');
+            if (!container || !settingsData || Object.keys(settingsData).length === 0) {{
+                // Hide settings section if no data
+                const section = document.getElementById('settings-section');
+                if (section) section.style.display = 'none';
+                return;
+            }}
+
+            let html = '<div class="two-col">';
+
+            // Simulator settings
+            if (settingsData.simulator) {{
+                const sim = settingsData.simulator;
+                html += '<div class="section">';
+                html += '<div class="section-title">Simulator Settings</div>';
+                html += '<div style="background:#f6f8fa;padding:12px;border-radius:4px;border:1px solid #e1e4e8;font-size:0.9rem;">';
+                html += `<div><strong>Preset:</strong> ${{escapeHtml(sim.preset || 'N/A')}}</div>`;
+                html += `<div><strong>Provider:</strong> ${{escapeHtml(sim.provider || 'N/A')}}</div>`;
+                html += `<div><strong>Model:</strong> ${{escapeHtml(sim.model || 'N/A')}}</div>`;
+                html += `<div><strong>Difficulty:</strong> ${{escapeHtml(sim.difficulty || 'N/A')}}</div>`;
+                html += `<div><strong>Strictness:</strong> ${{escapeHtml(sim.strictness || 'N/A')}}</div>`;
+                html += `<div style="margin-top:8px;"><strong>Modules:</strong></div>`;
+                html += `<div style="padding-left:12px;">`;
+                html += `<div>State Output: ${{escapeHtml(sim.state_output || 'N/A')}}</div>`;
+                html += `<div>Abstraction: ${{escapeHtml(sim.abstraction || 'N/A')}}</div>`;
+                html += `<div>Memory: ${{escapeHtml(sim.memory || 'N/A')}}</div>`;
+                html += `<div>Reasoning: ${{escapeHtml(sim.reasoning || 'N/A')}}</div>`;
+                html += `<div>Verification: ${{escapeHtml(sim.verification || 'N/A')}}</div>`;
+                html += `<div>Temporal: ${{escapeHtml(sim.temporal || 'N/A')}}</div>`;
+                html += `<div>Uncertainty: ${{escapeHtml(sim.uncertainty || 'N/A')}}</div>`;
+                html += `<div>Grounding: ${{escapeHtml(sim.grounding || 'N/A')}}</div>`;
+                html += `</div>`;
+                html += '</div></div>';
+            }}
+
+            // Agent settings
+            if (settingsData.agent) {{
+                const agent = settingsData.agent;
+                html += '<div class="section">';
+                html += '<div class="section-title">Agent Settings</div>';
+                html += '<div style="background:#f6f8fa;padding:12px;border-radius:4px;border:1px solid #e1e4e8;font-size:0.9rem;">';
+                html += `<div><strong>Action Space:</strong> ${{escapeHtml(agent.action_space || 'N/A')}}</div>`;
+                html += `<div><strong>Provider:</strong> ${{escapeHtml(agent.provider || 'N/A')}}</div>`;
+                html += `<div><strong>Model:</strong> ${{escapeHtml(agent.model || 'N/A')}}</div>`;
+                if (settingsData.benchmark) {{
+                    html += `<div><strong>Benchmark:</strong> ${{escapeHtml(settingsData.benchmark)}}</div>`;
+                }}
+                html += '</div></div>';
+            }}
+
+            html += '</div>';
+
+            // Full JSON view
+            html += '<div class="collapsible" style="margin-top:12px;">';
+            html += '<div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)">';
+            html += '<span class="collapsible-icon">▶</span>';
+            html += 'Full Settings JSON';
+            html += '</div>';
+            html += '<div class="collapsible-content">';
+            html += createCodeBlock(formatJson(settingsData), 'Full Settings', true);
+            html += '</div></div>';
+
+            container.innerHTML = html;
+        }}
+
         // Init
         renderSteps();
+        renderSettings();
         renderJudgeLlm();
         renderJudgeDetails();
         if (historyData.length > 0) goToStep(1);
@@ -1422,6 +1525,8 @@ def export_episode_to_html(
     success = episode.get("success", False)
 
     judge_result = episode.get("judge_result", {})
+    settings = episode.get("settings", {})
+    timestamp = episode.get("timestamp", "")
 
     ui_frames_obs, ui_frames_state, ui_tree_obs, ui_tree_state = _reconstruct_ui_frames(
         instruction=instruction,
@@ -1446,6 +1551,8 @@ def export_episode_to_html(
         success_text="Success" if success else "Failed",
         history_json=json.dumps(history),
         judge_json=json.dumps(judge_result),
+        settings_json=json.dumps(settings),
+        timestamp=timestamp,
         ui_frames_obs_json=json.dumps(ui_frames_obs),
         ui_frames_state_json=json.dumps(ui_frames_state),
         ui_tree_obs_json=json.dumps(ui_tree_obs),

@@ -339,6 +339,33 @@ def apply_id_patch_safe(state: dict, state_ops: list[dict]) -> dict:
     return apply_id_patch(state_copy, state_ops)
 
 
+def _check_node_visibility(node: dict, path: str = "") -> list[str]:
+    """
+    Recursively check that all nodes have explicit 'visible' property.
+
+    Args:
+        node: The node to check.
+        path: Path string for error messages.
+
+    Returns:
+        List of warning messages.
+    """
+    warnings = []
+    bid = node.get("bid", "unknown")
+    node_path = f"{path}/{bid}" if path else bid
+
+    # Check if this node has visible property
+    if "visible" not in node:
+        warnings.append(f"Node '{node_path}' missing 'visible' property")
+
+    # Check children recursively
+    for child in node.get("children", []):
+        if isinstance(child, dict):
+            warnings.extend(_check_node_visibility(child, node_path))
+
+    return warnings
+
+
 def validate_ops(state_ops: list[dict]) -> list[str]:
     """
     Validate a list of operations for correctness.
@@ -378,5 +405,13 @@ def validate_ops(state_ops: list[dict]) -> list[str]:
         for field in required_fields[op_type]:
             if field not in op:
                 errors.append(f"Operation {i} ({op_type}): missing required field '{field}'")
+
+        # Check for missing 'visible' property on new nodes
+        if op_type in ("append", "insert") and "node" in op:
+            node = op["node"]
+            if isinstance(node, dict):
+                visibility_warnings = _check_node_visibility(node)
+                for warning in visibility_warnings:
+                    logger.warning(f"Operation {i} ({op_type}): {warning}")
 
     return errors

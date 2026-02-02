@@ -12,6 +12,7 @@ from ..utils.llm_client import LLMClient
 from ..utils.rendering import render_ui_as_text, extract_focusable_elements
 from ..utils.validation import validate_action_complete
 from ..prompts.agent_prompt import AGENT_SYSTEM_PROMPT as DEFAULT_AGENT_PROMPT
+from .action_space import ActionSpaceConfig, get_action_space, get_action_prompt_section
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class Agent:
         config_path: Optional[str] = None,
         model_name: Optional[str] = None,
         provider: Optional[str] = None,
+        action_space: Optional[Union[str, ActionSpaceConfig]] = None,
     ):
         """
         Initialize the agent.
@@ -38,6 +40,8 @@ class Agent:
             config_path: Path to config file.
             model_name: Model to use for the agent (overrides config).
             provider: LLM provider to use (overrides config).
+            action_space: Action space preset ("minimal", "standard", "full") or config.
+                          Default "minimal" excludes noop and send_msg_to_user.
         """
         self.llm_client = llm_client or LLMClient(config_path)
 
@@ -53,7 +57,17 @@ class Agent:
         self.provider = provider or role_config.get("provider", llm_config.get("default_provider"))
         self.model_name = model_name or role_config.get("model")
 
-        # Load system prompt
+        # Configure action space (default: minimal - no noop/send_msg_to_user)
+        if action_space is None:
+            self.action_space = get_action_space("minimal")
+        elif isinstance(action_space, str):
+            self.action_space = get_action_space(action_space)
+        else:
+            self.action_space = action_space
+
+        self.allowed_actions = self.action_space.get_actions()
+
+        # Load system prompt (with action space customization)
         self.system_prompt = self._load_system_prompt()
 
         # Conversation history for multi-turn
@@ -63,19 +77,42 @@ class Agent:
         self.instruction: Optional[str] = None
 
     def _load_system_prompt(self) -> str:
-        """Load the agent system prompt."""
-        prompt_path = Path(__file__).parent.parent / "prompts" / "agent.system.md"
+        """Load the agent system prompt with dynamic action space."""
+        return self._build_system_prompt()
 
-        if prompt_path.exists():
-            with open(prompt_path, "r") as f:
-                return f.read()
+    def _build_system_prompt(self) -> str:
+        """Build system prompt with configured action space."""
+        action_section = get_action_prompt_section(self.allowed_actions)
 
-        # Default prompt if file doesn't exist
-        return self._get_default_system_prompt()
+        return f"""You are a computer-use agent. Your task is to interact with a computer OS to accomplish user goals.
 
-    def _get_default_system_prompt(self) -> str:
-        """Get the default agent system prompt from shared module."""
-        return DEFAULT_AGENT_PROMPT
+## Rules
+1. **Output JSON only.** No markdown, no code fences.
+2. **Never invent `bid`s.** Only use `bid` values from the current observation.
+3. **One action per step.**
+
+## Observation Format
+You receive:
+- `meta`: Current tick/step
+- `ui`: Accessibility tree (elements have `bid` identifiers)
+- `filesystem`: Visible files
+- `tabs`: Browser tabs (if applicable)
+
+## Action Space
+{action_section}
+
+## Output Format
+```json
+{{"thought": "Your reasoning", "action": {{"action_type": "...", ...}}}}
+```
+
+## Strategy
+1. Read the instruction carefully
+2. Find relevant elements by text/role
+3. Use fill for inputs, click for buttons
+4. Verify each action had the intended effect
+5. Use finish when task is complete
+"""
 
     def reset(self, instruction: str):
         """
@@ -192,14 +229,6 @@ class Agent:
             ui_text = render_ui_as_text(observation)
             parts.append(f"```\n{ui_text}\n```\n")
 
-            # Add interactive elements summary
-            interactive = extract_focusable_elements(observation)
-            if interactive:
-                parts.append("### Interactive Elements")
-                for elem in interactive[:20]:  # Limit to 20
-                    parts.append(f"- [{elem['bid']}] {elem['tag']}: {elem.get('text', '')}")
-                parts.append("")
-
         # Add tabs info
         if "tabs" in observation and observation["tabs"]:
             parts.append("### Browser Tabs")
@@ -228,12 +257,17 @@ class Agent:
             # Maybe the response is the action itself
             action = response
 
-        # Validate action
+        # Validate action structure
         is_valid, errors = validate_action_complete(action)
         if not is_valid:
-            logger.warning(f"Invalid action generated: {errors}")
-            # Return noop on invalid action
-            return {"action_type": "noop"}
+            raise ValueError(f"Invalid action generated: {errors}")
+
+        # Validate action is in allowed set
+        action_type = action.get("action_type")
+        if action_type not in self.allowed_actions:
+            raise ValueError(
+                f"Action '{action_type}' not in allowed actions: {self.allowed_actions}"
+            )
 
         return action
 

@@ -79,7 +79,7 @@ class TextObservationRenderer:
 
     def __init__(
         self,
-        include_interactive_summary: bool = True,
+        include_interactive_summary: bool = False,
         max_elements: int = 50,
     ):
         """
@@ -87,6 +87,7 @@ class TextObservationRenderer:
 
         Args:
             include_interactive_summary: Whether to include list of interactive elements.
+                                         Default False - agent should infer interactivity.
             max_elements: Max number of elements to include in summary.
         """
         self.include_interactive_summary = include_interactive_summary

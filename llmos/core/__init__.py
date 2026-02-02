@@ -28,6 +28,21 @@ from .unified_simulator import (
 from .agent import Agent, HumanAgent, create_agent
 from .judge import Judge, create_judge
 from .proposer import Proposer, create_proposer
+from .action_space import (
+    ActionSpaceConfig,
+    ActionSpacePreset,
+    get_action_space,
+    ACTION_SPACE_PRESETS,
+    CORE_ACTIONS,
+    ALL_ACTIONS,
+)
+from .strictness import (
+    StrictnessConfig,
+    StrictnessLevel,
+    get_strictness_config,
+    build_strictness_prompt,
+    STRICTNESS_PRESETS,
+)
 from .difficulty import (
     DifficultyConfig,
     get_difficulty_config,
@@ -59,4 +74,17 @@ __all__ = [
     "get_difficulty_from_dict",
     "build_difficulty_prompt",
     "DIFFICULTY_PRESETS",
+    # Action Space
+    "ActionSpaceConfig",
+    "ActionSpacePreset",
+    "get_action_space",
+    "ACTION_SPACE_PRESETS",
+    "CORE_ACTIONS",
+    "ALL_ACTIONS",
+    # Strictness
+    "StrictnessConfig",
+    "StrictnessLevel",
+    "get_strictness_config",
+    "build_strictness_prompt",
+    "STRICTNESS_PRESETS",
 ]

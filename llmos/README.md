@@ -41,9 +41,32 @@ score = judge.evaluate(state.history, task)
 {"thought": "Need to click settings", "action": {"action_type": "click", "bid": 3}}
 ```
 
-Actions: `click`, `dblclick`, `hover`, `fill`, `press`, `scroll`, `keyboard_press`, `keyboard_type`, `goto`, `finish`, `noop`
+### Presets
 
-## Difficulty Levels
+| Preset | Actions | Use Case |
+|--------|---------|----------|
+| `minimal` (default) | Core actions only | Autonomous agents (no wasted steps) |
+| `full` | All actions + noop + send_msg_to_user | Human-in-the-loop |
+
+```python
+# Default: minimal (no noop, no send_msg_to_user)
+agent = Agent()
+
+# Full action space
+agent = Agent(action_space="full")
+
+# Custom
+from llmos.core import get_action_space
+agent = Agent(action_space=get_action_space("minimal", include=["noop"]))
+```
+
+### Core Actions (minimal)
+`click`, `dblclick`, `hover`, `fill`, `press`, `focus`, `clear`, `select_option`, `drag_and_drop`, `scroll`, `keyboard_press`, `keyboard_type`, `goto`, `finish`
+
+### Extra Actions (full only)
+`noop`, `send_msg_to_user`
+
+## Difficulty Levels (noise/chaos)
 
 | Level | Description |
 |-------|-------------|
@@ -51,3 +74,34 @@ Actions: `click`, `dblclick`, `hover`, `fill`, `press`, `scroll`, `keyboard_pres
 | medium | Some noise, mostly succeeds |
 | hard | Noisy, occasional failures |
 | expert | Raw output, flaky behavior |
+
+## Strictness Levels (realism)
+
+Orthogonal to difficulty - controls how strict/realistic the simulator is.
+
+| Level | Description |
+|-------|-------------|
+| lenient | Forgiving, helpful (demos) |
+| moderate | Some realism |
+| strict (default) | No shortcuts, no hints |
+
+**Strict mode enforces:**
+- Double-click required to open apps/files (single-click only selects)
+- No teleportation (explicit navigation required)
+- No shortcuts (simulator generates relevant content but no convenient helpers)
+- No answer hints (no "Cheapest" labels, no pre-selected options)
+- Form validation required
+- Loading states between transitions
+
+Note: Simulator still knows the task (to generate relevant content), but won't make it easier.
+
+```python
+# Default is strict
+sim = Simulator.from_preset("classic")
+
+# Explicit strictness
+sim = Simulator.from_preset("classic", strictness="strict")
+
+# Combine with difficulty
+sim = Simulator.from_preset("classic", difficulty="hard", strictness="strict")
+```

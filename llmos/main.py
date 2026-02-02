@@ -5,9 +5,12 @@ Provides CLI interface and episode/curriculum loops.
 
 import argparse
 import asyncio
+import copy
 import json
 import logging
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
@@ -65,6 +68,21 @@ class Orchestrator:
         self,
         config_path: Optional[Union[str, Path]] = None,
         difficulty: Optional[str] = None,
+        strictness: Optional[str] = None,
+        action_space: Optional[str] = None,
+        # Simulator module parameters
+        preset: Optional[str] = None,
+        state_output: Optional[str] = None,
+        abstraction: Optional[str] = None,
+        memory: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        verification: Optional[str] = None,
+        temporal: Optional[str] = None,
+        uncertainty: Optional[str] = None,
+        grounding: Optional[str] = None,
+        # Agent parameters
+        agent_model: Optional[str] = None,
+        agent_provider: Optional[str] = None,
         benchmark: Optional["BenchmarkConfig"] = None,
     ):
         """
@@ -73,8 +91,24 @@ class Orchestrator:
         Args:
             config_path: Path to config file.
             difficulty: Simulator difficulty preset ("easy", "medium", "hard", "expert").
+            strictness: Simulator strictness level ("lenient", "moderate", "strict").
+            action_space: Agent action space preset ("minimal", "full").
+            preset: Simulator preset ("classic", "default", "efficient", "thorough").
+            state_output: State output mode.
+            abstraction: Abstraction level.
+            memory: Memory mode.
+            reasoning: Reasoning mode.
+            verification: Verification mode.
+            temporal: Temporal mode.
+            uncertainty: Uncertainty mode.
+            grounding: Grounding strategy.
+            agent_model: Agent model name.
+            agent_provider: Agent LLM provider.
             benchmark: Optional BenchmarkConfig for benchmark-specific behavior.
         """
+        self.action_space = action_space
+        self.agent_model = agent_model
+        self.agent_provider = agent_provider
         if config_path is None:
             config_path = Path(__file__).parent / "config.json"
 
@@ -93,13 +127,22 @@ class Orchestrator:
         if benchmark and difficulty is None:
             difficulty = benchmark.difficulty
 
-        # Create components with difficulty setting
-        # Use "classic" preset to maintain original behavior, with optional difficulty override
+        # Create simulator with configurable modules
+        simulator_preset = preset or "classic"
         self.simulator = Simulator.from_preset(
-            "classic",
+            simulator_preset,
             llm_client=self.llm_client,
             config_path=str(config_path),
             difficulty=difficulty,
+            strictness=strictness,
+            state_output=state_output,
+            abstraction=abstraction,
+            memory=memory,
+            reasoning=reasoning,
+            verification=verification,
+            temporal=temporal,
+            uncertainty=uncertainty,
+            grounding=grounding,
         )
         self.judge = Judge(self.llm_client, config_path)
         self.proposer = Proposer(self.llm_client, config_path)
@@ -140,6 +183,22 @@ class Orchestrator:
         cls,
         benchmark_name: str,
         config_path: Optional[Union[str, Path]] = None,
+        difficulty: Optional[str] = None,
+        strictness: Optional[str] = None,
+        action_space: Optional[str] = None,
+        # Simulator module parameters
+        preset: Optional[str] = None,
+        state_output: Optional[str] = None,
+        abstraction: Optional[str] = None,
+        memory: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        verification: Optional[str] = None,
+        temporal: Optional[str] = None,
+        uncertainty: Optional[str] = None,
+        grounding: Optional[str] = None,
+        # Agent parameters
+        agent_model: Optional[str] = None,
+        agent_provider: Optional[str] = None,
         **benchmark_kwargs,
     ) -> "Orchestrator":
         """
@@ -148,21 +207,39 @@ class Orchestrator:
         Args:
             benchmark_name: Name of the benchmark ('workarena', 'webarena', etc.)
             config_path: Path to LLMOS config file.
+            difficulty: Simulator difficulty preset.
+            strictness: Simulator strictness level.
+            action_space: Agent action space preset.
+            preset: Simulator preset.
+            state_output, abstraction, memory, reasoning, verification,
+            temporal, uncertainty, grounding: Simulator module parameters.
+            agent_model: Agent model name.
+            agent_provider: Agent LLM provider.
             **benchmark_kwargs: Additional arguments passed to benchmark adapter.
 
         Returns:
             Configured Orchestrator instance.
-
-        Example:
-            orchestrator = Orchestrator.from_benchmark(
-                "workarena",
-                max_tasks=10,
-                shuffle=True,
-            )
         """
         from .benchmarks import get_benchmark
         benchmark_config = get_benchmark(benchmark_name, **benchmark_kwargs)
-        return cls(config_path=config_path, benchmark=benchmark_config)
+        return cls(
+            config_path=config_path,
+            difficulty=difficulty,
+            strictness=strictness,
+            action_space=action_space,
+            preset=preset,
+            state_output=state_output,
+            abstraction=abstraction,
+            memory=memory,
+            reasoning=reasoning,
+            verification=verification,
+            temporal=temporal,
+            uncertainty=uncertainty,
+            grounding=grounding,
+            agent_model=agent_model,
+            agent_provider=agent_provider,
+            benchmark=benchmark_config,
+        )
 
     def run_episode(
         self,
@@ -185,7 +262,13 @@ class Orchestrator:
             Episode result dict with score, success, history.
         """
         if agent is None:
-            agent = Agent(self.llm_client, self.config_path)
+            agent = Agent(
+                llm_client=self.llm_client,
+                config_path=str(self.config_path),
+                action_space=self.action_space,
+                model_name=self.agent_model,
+                provider=self.agent_provider,
+            )
 
         # Get template and reset
         template_name = instruction.get("initial_state_template", "desktop")
@@ -204,11 +287,21 @@ class Orchestrator:
         agent.reset(instruction.get("instruction", ""))
 
         if verbose:
+            settings = self.simulator.get_settings_dict()
             difficulty = self.simulator.get_difficulty()
             print(f"\n{'='*60}")
             print(f"Task: {instruction.get('instruction', 'Unknown')[:60]}...")
             print(f"Template: {template_name}")
-            print(f"Difficulty: {difficulty.preset} (density={difficulty.information_density}, noise={difficulty.signal_noise_ratio}, determinism={difficulty.determinism})")
+            print(f"{'='*60}")
+            print(f"Simulator Settings:")
+            print(f"  Preset: {settings['preset']}")
+            print(f"  Difficulty: {difficulty.preset} (density={difficulty.information_density}, noise={difficulty.signal_noise_ratio}, determinism={difficulty.determinism})")
+            print(f"  Strictness: {settings['strictness']}")
+            print(f"  State Output: {settings['state_output']}")
+            print(f"  Model: {settings['model']} ({settings['provider']})")
+            print(f"Agent Settings:")
+            print(f"  Action Space: {self.action_space or 'minimal'}")
+            print(f"  Model: {getattr(agent, 'model_name', None) or 'default'} ({getattr(agent, 'provider', None) or 'default'})")
             print(f"{'='*60}\n")
 
         # Episode loop
@@ -223,11 +316,18 @@ class Orchestrator:
             if verbose:
                 print(f"Step {step + 1}: {action.get('action_type', '?')} ", end="")
                 if "bid" in action:
-                    print(f"(bid: {action['bid']})")
-                elif "text" in action:
-                    print(f"(text: {action['text'][:30]}...)") 
-                else:
-                    print()
+                    print(f"(bid: {action['bid']})", end="")
+                if action.get("text"):
+                    text_preview = action['text'][:30]
+                    print(f" text=\"{text_preview}...\"" if len(action['text']) > 30 else f" text=\"{text_preview}\"", end="")
+                if action.get("url"):
+                    print(f" url=\"{action['url'][:40]}...\"" if len(action['url']) > 40 else f" url=\"{action['url']}\"", end="")
+                print()  # End line
+                # Show agent's thought (truncated)
+                thought = action.get("thought", "")
+                if thought:
+                    thought_preview = thought[:80].replace("\n", " ")
+                    print(f"  Thought: {thought_preview}{'...' if len(thought) > 80 else ''}")
 
             # Execute action
             observation, done, info = self.simulator.step(action)
@@ -248,15 +348,6 @@ class Orchestrator:
             history=history,
         )
 
-        if verbose:
-            print(f"\n{'='*60}")
-            print(f"Episode Complete!")
-            print(f"Steps: {step}")
-            print(f"Score: {judge_result.get('score', 0):.2f}")
-            print(f"Success: {judge_result.get('success', False)}")
-            print(f"Reasoning: {judge_result.get('reasoning', '')[:100]}...")
-            print(f"{'='*60}\n")
-
         # Build result
         result = {
             "instruction": instruction,
@@ -269,11 +360,32 @@ class Orchestrator:
             "category": instruction.get("category", "unknown"),
             "difficulty": instruction.get("difficulty", "unknown"),
             "feedback": judge_result.get("feedback", ""),
+            "_agent_settings": {
+                "action_space": self.action_space or "minimal",
+                "model": getattr(agent, "model_name", None) or "default",
+                "provider": getattr(agent, "provider", None) or "default",
+            },
         }
 
         # Save episode
+        saved_path = None
         if save:
-            self._save_episode(result)
+            saved_path = self._save_episode(result)
+
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"Episode Complete!")
+            print(f"{'='*60}")
+            print(f"Steps: {step}")
+            print(f"Score: {judge_result.get('score', 0):.2f}")
+            print(f"Success: {judge_result.get('success', False)}")
+            if judge_result.get("reasoning"):
+                print(f"Reasoning: {judge_result.get('reasoning', '')[:100]}...")
+            if saved_path:
+                print(f"{'='*60}")
+                print(f"Saved to: {saved_path}")
+                print(f"HTML:     {saved_path.replace('.json', '.html')}")
+            print(f"{'='*60}\n")
 
         return result
 
@@ -300,7 +412,13 @@ class Orchestrator:
             List of episode results.
         """
         if agent is None:
-            agent = Agent(self.llm_client, str(self.config_path))
+            agent = Agent(
+                llm_client=self.llm_client,
+                config_path=str(self.config_path),
+                action_space=self.action_space,
+                model_name=self.agent_model,
+                provider=self.agent_provider,
+            )
 
         # Determine if we should auto-adjust difficulty
         if auto_adjust_difficulty is None:
@@ -420,7 +538,13 @@ class Orchestrator:
             )
 
         if agent is None:
-            agent = Agent(self.llm_client, str(self.config_path))
+            agent = Agent(
+                llm_client=self.llm_client,
+                config_path=str(self.config_path),
+                action_space=self.action_space,
+                model_name=self.agent_model,
+                provider=self.agent_provider,
+            )
 
         # Determine number of episodes
         total_tasks = self._task_provider.total_tasks
@@ -512,6 +636,175 @@ class Orchestrator:
 
         return results
 
+    def run_benchmark_parallel(
+        self,
+        num_episodes: Optional[int] = None,
+        num_workers: int = 4,
+        verbose: bool = True,
+    ) -> list[dict]:
+        """
+        Run benchmark episodes in parallel using multiple workers.
+
+        Each worker gets its own Orchestrator instance with separate
+        Simulator, Agent, and LLM client to avoid state conflicts.
+
+        Args:
+            num_episodes: Number of episodes to run. If None, runs all tasks.
+            num_workers: Number of parallel workers (default: 4).
+            verbose: Whether to print progress.
+
+        Returns:
+            List of episode results.
+
+        Raises:
+            ValueError: If no benchmark is configured.
+
+        Example:
+            orchestrator = Orchestrator.from_benchmark("workarena", max_tasks=20)
+            results = orchestrator.run_benchmark_parallel(num_workers=4)
+        """
+        if self._task_provider is None:
+            raise ValueError(
+                "No benchmark configured. Use Orchestrator.from_benchmark() or pass "
+                "a BenchmarkConfig to __init__."
+            )
+
+        # Collect all tasks first
+        total_tasks = self._task_provider.total_tasks
+        if num_episodes is None:
+            num_episodes = total_tasks if total_tasks else 10
+
+        if verbose:
+            metadata = self._task_provider.get_metadata()
+            print(f"\n{'='*60}")
+            print(f"Benchmark: {metadata.get('name', 'unknown')} (PARALLEL)")
+            print(f"Workers: {num_workers}")
+            print(f"Total tasks available: {total_tasks or 'unknown'}")
+            print(f"Episodes to run: {num_episodes}")
+            print(f"{'='*60}\n")
+
+        # Collect tasks into a list
+        self._task_provider.reset()
+        tasks_to_run = []
+        from .interfaces import Task
+        for _ in range(num_episodes):
+            try:
+                task = self._task_provider.get_task()
+                task_obj = task if isinstance(task, Task) else Task.from_dict(task)
+                tasks_to_run.append(task_obj)
+            except StopIteration:
+                break
+
+        if not tasks_to_run:
+            if verbose:
+                print("No tasks available")
+            return []
+
+        # Create config dict for workers
+        worker_config = {
+            "config_path": str(self.config_path),
+            "difficulty": self.simulator.get_difficulty().preset,
+            "strictness": self.simulator.sim_config.strictness,
+            "action_space": self.action_space,
+            "preset": getattr(self.simulator, "_preset_name", "classic"),
+            "agent_model": self.agent_model,
+            "agent_provider": self.agent_provider,
+            "benchmark_name": self.benchmark.name if self.benchmark else None,
+            "runs_dir": str(self.runs_dir),
+        }
+
+        # Thread-safe results collection
+        results = []
+        results_lock = threading.Lock()
+        completed_count = [0]  # Use list for mutable counter in closure
+
+        def run_single_episode(task_obj: "Task") -> dict:
+            """Worker function to run a single episode."""
+            # Create fresh orchestrator for this worker
+            worker_orchestrator = Orchestrator(
+                config_path=worker_config["config_path"],
+                difficulty=worker_config["difficulty"],
+                strictness=worker_config["strictness"],
+                action_space=worker_config["action_space"],
+                preset=worker_config["preset"],
+                agent_model=worker_config["agent_model"],
+                agent_provider=worker_config["agent_provider"],
+            )
+            worker_orchestrator.runs_dir = Path(worker_config["runs_dir"])
+
+            # Create agent for this worker
+            agent = Agent(
+                llm_client=worker_orchestrator.llm_client,
+                config_path=worker_config["config_path"],
+                action_space=worker_config["action_space"],
+                model_name=worker_config["agent_model"],
+                provider=worker_config["agent_provider"],
+            )
+
+            instruction = task_obj.to_dict()
+
+            # Run episode
+            result = worker_orchestrator.run_episode(
+                instruction,
+                agent,
+                save=True,
+                verbose=False,  # Suppress per-episode output in parallel
+            )
+
+            # Update counter
+            with results_lock:
+                completed_count[0] += 1
+                if verbose:
+                    task_id = instruction.get("task_id", "unknown")
+                    status = "✓" if result["success"] else "✗"
+                    print(f"[{completed_count[0]}/{len(tasks_to_run)}] {task_id}: {status} (score: {result['score']:.2f})")
+
+            return result
+
+        # Run episodes in parallel
+        if verbose:
+            print(f"Starting {len(tasks_to_run)} episodes with {num_workers} workers...\n")
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            # Submit all tasks
+            future_to_task = {
+                executor.submit(run_single_episode, task): task
+                for task in tasks_to_run
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_task):
+                task = future_to_task[future]
+                try:
+                    result = future.result()
+                    with results_lock:
+                        results.append(result)
+                except Exception as e:
+                    logger.error(f"Episode failed for task {task.task_id}: {e}")
+                    with results_lock:
+                        results.append({
+                            "instruction": task.to_dict(),
+                            "score": 0.0,
+                            "success": False,
+                            "steps": 0,
+                            "history": [],
+                            "judge_result": {"error": str(e)},
+                            "final_state": {},
+                            "category": task.category or "unknown",
+                            "difficulty": task.difficulty or "unknown",
+                            "feedback": f"Error: {e}",
+                        })
+
+        # Sort results by task order (optional, for consistent output)
+        task_id_order = {t.task_id: i for i, t in enumerate(tasks_to_run)}
+        results.sort(key=lambda r: task_id_order.get(r["instruction"].get("task_id"), float("inf")))
+
+        # Print summary
+        if verbose:
+            self._print_benchmark_summary(results)
+
+        return results
+
     def _print_benchmark_summary(self, results: list[dict]):
         """Print benchmark results summary."""
         print(f"\n{'='*60}")
@@ -551,13 +844,26 @@ class Orchestrator:
 
         print(f"{'='*60}\n")
 
-    def _save_episode(self, result: dict):
-        """Save an episode to disk and export HTML visualization."""
+    def _save_episode(self, result: dict) -> str:
+        """Save an episode to disk and export HTML visualization.
+
+        Returns:
+            Path to saved JSON file.
+        """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         task_id = result["instruction"].get("task_id", "unknown")
         filename = f"episode_{timestamp}_{task_id}.json"
 
         path = self.runs_dir / filename
+
+        # Get simulator and agent settings
+        sim_settings = self.simulator.get_settings_dict()
+        # Use agent settings from result if available (has resolved model/provider)
+        agent_settings = result.get("_agent_settings", {
+            "action_space": self.action_space or "minimal",
+            "model": self.agent_model or "default",
+            "provider": self.agent_provider or "default",
+        })
 
         # Don't save full state to reduce file size
         save_result = {
@@ -568,6 +874,12 @@ class Orchestrator:
             "history": result["history"],
             "judge_result": result["judge_result"],
             "final_state_summary": summarize_state(result["final_state"]),
+            "settings": {
+                "simulator": sim_settings,
+                "agent": agent_settings,
+                "benchmark": self.benchmark.name if self.benchmark else None,
+            },
+            "timestamp": timestamp,
         }
 
         with open(path, "w") as f:
@@ -581,6 +893,8 @@ class Orchestrator:
 
         index_path = export_runs_index(self.runs_dir)
         logger.info(f"Runs index exported to {index_path}")
+
+        return str(path)
 
     def _print_curriculum_summary(self, results: list[dict]):
         """Print curriculum summary."""
@@ -659,6 +973,10 @@ Examples:
     run_parser.add_argument("--template", type=str, default="desktop", help="Initial state template")
     run_parser.add_argument("--difficulty", "-d", type=str, choices=["easy", "medium", "hard", "expert"],
                            help="Simulator difficulty level")
+    run_parser.add_argument("--strictness", "-s", type=str, choices=["lenient", "moderate", "strict"],
+                           default="strict", help="Simulator strictness level")
+    run_parser.add_argument("--action-space", type=str, choices=["minimal", "full"],
+                           default="minimal", help="Agent action space")
     run_parser.add_argument(
         "--task-difficulty",
         type=str,
@@ -668,6 +986,36 @@ Examples:
     run_parser.add_argument("--human", action="store_true", help="Use human agent")
     run_parser.add_argument("--no-save", action="store_true", help="Don't save episode")
     run_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
+    # Simulator module arguments
+    run_parser.add_argument("--preset", type=str, choices=["classic", "default", "efficient", "thorough"],
+                           help="Simulator preset")
+    run_parser.add_argument("--state-output", type=str,
+                           choices=["full_state", "delta_only", "semantic_description"],
+                           help="State output mode")
+    run_parser.add_argument("--abstraction", type=str,
+                           choices=["full_dom", "semantic_elements", "task_relevant", "viewport_only", "interactive_only"],
+                           help="Abstraction level")
+    run_parser.add_argument("--memory", type=str,
+                           choices=["full_history", "rolling_window", "summarized", "checkpoints"],
+                           help="Memory mode")
+    run_parser.add_argument("--reasoning", type=str, choices=["direct", "chain"],
+                           help="Reasoning mode")
+    run_parser.add_argument("--verification", type=str,
+                           choices=["none", "schema", "constraint_check", "backward"],
+                           help="Verification mode")
+    run_parser.add_argument("--temporal", type=str,
+                           choices=["instant", "async_aware", "event_driven"],
+                           help="Temporal mode")
+    run_parser.add_argument("--uncertainty", type=str,
+                           choices=["deterministic", "with_confidence", "probabilistic", "admits_uncertainty"],
+                           help="Uncertainty mode")
+    run_parser.add_argument("--grounding", type=str,
+                           choices=["llm_knowledge", "example_grounded", "doc_grounded", "trace_grounded"],
+                           help="Grounding strategy")
+    # Agent arguments
+    run_parser.add_argument("--agent-model", type=str, help="Agent model name (e.g., gpt-4o, gemini-1.5-pro)")
+    run_parser.add_argument("--agent-provider", type=str, choices=["openai", "gemini"],
+                           help="Agent LLM provider")
 
     # Curriculum command
     curr_parser = subparsers.add_parser("curriculum", help="Run curriculum learning")
@@ -675,9 +1023,43 @@ Examples:
     curr_parser.add_argument("--tasks-file", type=str, help="JSON file with initial tasks")
     curr_parser.add_argument("--difficulty", "-d", type=str, choices=["easy", "medium", "hard", "expert"],
                             help="Starting difficulty level")
+    curr_parser.add_argument("--strictness", "-s", type=str, choices=["lenient", "moderate", "strict"],
+                            default="strict", help="Simulator strictness level")
+    curr_parser.add_argument("--action-space", type=str, choices=["minimal", "full"],
+                            default="minimal", help="Agent action space")
     curr_parser.add_argument("--auto-adjust", action="store_true",
                             help="Auto-adjust difficulty based on performance")
     curr_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
+    # Simulator module arguments
+    curr_parser.add_argument("--preset", type=str, choices=["classic", "default", "efficient", "thorough"],
+                            help="Simulator preset")
+    curr_parser.add_argument("--state-output", type=str,
+                            choices=["full_state", "delta_only", "semantic_description"],
+                            help="State output mode")
+    curr_parser.add_argument("--abstraction", type=str,
+                            choices=["full_dom", "semantic_elements", "task_relevant", "viewport_only", "interactive_only"],
+                            help="Abstraction level")
+    curr_parser.add_argument("--memory", type=str,
+                            choices=["full_history", "rolling_window", "summarized", "checkpoints"],
+                            help="Memory mode")
+    curr_parser.add_argument("--reasoning", type=str, choices=["direct", "chain"],
+                            help="Reasoning mode")
+    curr_parser.add_argument("--verification", type=str,
+                            choices=["none", "schema", "constraint_check", "backward"],
+                            help="Verification mode")
+    curr_parser.add_argument("--temporal", type=str,
+                            choices=["instant", "async_aware", "event_driven"],
+                            help="Temporal mode")
+    curr_parser.add_argument("--uncertainty", type=str,
+                            choices=["deterministic", "with_confidence", "probabilistic", "admits_uncertainty"],
+                            help="Uncertainty mode")
+    curr_parser.add_argument("--grounding", type=str,
+                            choices=["llm_knowledge", "example_grounded", "doc_grounded", "trace_grounded"],
+                            help="Grounding strategy")
+    # Agent arguments
+    curr_parser.add_argument("--agent-model", type=str, help="Agent model name")
+    curr_parser.add_argument("--agent-provider", type=str, choices=["openai", "gemini"],
+                            help="Agent LLM provider")
 
     # Benchmark command
     bench_parser = subparsers.add_parser("benchmark", help="Run a benchmark evaluation")
@@ -689,10 +1071,48 @@ Examples:
     bench_parser.add_argument("--filter", type=str, nargs="+", help="Filter tasks by name patterns")
     bench_parser.add_argument("--difficulty", "-d", type=str, choices=["easy", "medium", "hard", "expert"],
                              help="Simulator difficulty level")
+    bench_parser.add_argument("--strictness", "-s", type=str, choices=["lenient", "moderate", "strict"],
+                             default="strict", help="Simulator strictness level")
+    bench_parser.add_argument("--action-space", type=str, choices=["minimal", "full"],
+                             default="minimal", help="Agent action space")
     bench_parser.add_argument("--auto-adjust", action="store_true",
                              help="Auto-adjust difficulty based on performance")
+    bench_parser.add_argument("--parallel", "-p", action="store_true",
+                             help="Run episodes in parallel")
+    bench_parser.add_argument("--workers", "-w", type=int, default=4,
+                             help="Number of parallel workers (default: 4)")
     bench_parser.add_argument("--human", action="store_true", help="Use human agent")
     bench_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
+    # Simulator module arguments
+    bench_parser.add_argument("--preset", type=str, choices=["classic", "default", "efficient", "thorough"],
+                             help="Simulator preset")
+    bench_parser.add_argument("--state-output", type=str,
+                             choices=["full_state", "delta_only", "semantic_description"],
+                             help="State output mode")
+    bench_parser.add_argument("--abstraction", type=str,
+                             choices=["full_dom", "semantic_elements", "task_relevant", "viewport_only", "interactive_only"],
+                             help="Abstraction level")
+    bench_parser.add_argument("--memory", type=str,
+                             choices=["full_history", "rolling_window", "summarized", "checkpoints"],
+                             help="Memory mode")
+    bench_parser.add_argument("--reasoning", type=str, choices=["direct", "chain"],
+                             help="Reasoning mode")
+    bench_parser.add_argument("--verification", type=str,
+                             choices=["none", "schema", "constraint_check", "backward"],
+                             help="Verification mode")
+    bench_parser.add_argument("--temporal", type=str,
+                             choices=["instant", "async_aware", "event_driven"],
+                             help="Temporal mode")
+    bench_parser.add_argument("--uncertainty", type=str,
+                             choices=["deterministic", "with_confidence", "probabilistic", "admits_uncertainty"],
+                             help="Uncertainty mode")
+    bench_parser.add_argument("--grounding", type=str,
+                             choices=["llm_knowledge", "example_grounded", "doc_grounded", "trace_grounded"],
+                             help="Grounding strategy")
+    # Agent arguments
+    bench_parser.add_argument("--agent-model", type=str, help="Agent model name")
+    bench_parser.add_argument("--agent-provider", type=str, choices=["openai", "gemini"],
+                             help="Agent LLM provider")
 
     # Config command
     config_parser = subparsers.add_parser("config", help="Show or edit configuration")
@@ -707,11 +1127,41 @@ Examples:
         parser.print_help()
         return
 
-    # Get difficulty from args if available
+    # Get settings from args if available
     difficulty = getattr(args, "difficulty", None)
+    strictness = getattr(args, "strictness", "strict")
+    action_space = getattr(args, "action_space", "minimal")
+    # Simulator module settings
+    preset = getattr(args, "preset", None)
+    state_output = getattr(args, "state_output", None)
+    abstraction = getattr(args, "abstraction", None)
+    memory = getattr(args, "memory", None)
+    reasoning = getattr(args, "reasoning", None)
+    verification = getattr(args, "verification", None)
+    temporal = getattr(args, "temporal", None)
+    uncertainty = getattr(args, "uncertainty", None)
+    grounding = getattr(args, "grounding", None)
+    # Agent settings
+    agent_model = getattr(args, "agent_model", None)
+    agent_provider = getattr(args, "agent_provider", None)
 
-    # Initialize orchestrator with difficulty
-    orchestrator = Orchestrator(difficulty=difficulty)
+    # Initialize orchestrator
+    orchestrator = Orchestrator(
+        difficulty=difficulty,
+        strictness=strictness,
+        action_space=action_space,
+        preset=preset,
+        state_output=state_output,
+        abstraction=abstraction,
+        memory=memory,
+        reasoning=reasoning,
+        verification=verification,
+        temporal=temporal,
+        uncertainty=uncertainty,
+        grounding=grounding,
+        agent_model=agent_model,
+        agent_provider=agent_provider,
+    )
     logging_cfg = orchestrator.config.get("logging", {})
     _configure_logging(
         logging_cfg.get("level", "INFO"),
@@ -787,6 +1237,19 @@ Examples:
             orchestrator = Orchestrator.from_benchmark(
                 args.name,
                 difficulty=args.difficulty,
+                strictness=args.strictness,
+                action_space=args.action_space,
+                preset=args.preset,
+                state_output=args.state_output,
+                abstraction=args.abstraction,
+                memory=args.memory,
+                reasoning=args.reasoning,
+                verification=args.verification,
+                temporal=args.temporal,
+                uncertainty=args.uncertainty,
+                grounding=args.grounding,
+                agent_model=args.agent_model,
+                agent_provider=args.agent_provider,
                 **benchmark_kwargs,
             )
         except (ValueError, NotImplementedError) as e:
@@ -801,16 +1264,25 @@ Examples:
             silence_loggers=logging_cfg.get("silence_loggers"),
         )
 
-        # Create agent
-        agent = HumanAgent() if args.human else None
-
-        # Run benchmark
-        results = orchestrator.run_benchmark(
-            num_episodes=args.episodes,
-            agent=agent,
-            verbose=not args.quiet,
-            auto_adjust_difficulty=args.auto_adjust,
-        )
+        # Run benchmark (parallel or sequential)
+        if args.parallel:
+            if args.human:
+                print("Error: --human mode not supported with --parallel")
+                sys.exit(1)
+            results = orchestrator.run_benchmark_parallel(
+                num_episodes=args.episodes,
+                num_workers=args.workers,
+                verbose=not args.quiet,
+            )
+        else:
+            # Create agent
+            agent = HumanAgent() if args.human else None
+            results = orchestrator.run_benchmark(
+                num_episodes=args.episodes,
+                agent=agent,
+                verbose=not args.quiet,
+                auto_adjust_difficulty=args.auto_adjust,
+            )
 
         # Exit with success rate
         success_rate = sum(1 for r in results if r["success"]) / len(results) if results else 0

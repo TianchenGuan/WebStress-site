@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from ..utils.llm_client import LLMClient
-from ..utils.patching import apply_id_patch, validate_ops
+from ..utils.patching import apply_id_patch, validate_ops, find_node_by_bid
 from ..utils.rendering import render_observation, render_ui_as_text
 from ..utils.validation import validate_action_complete
 from .difficulty import (
@@ -45,6 +45,12 @@ from .difficulty import (
     get_difficulty_config,
     get_difficulty_from_dict,
     build_difficulty_prompt,
+)
+from .strictness import (
+    StrictnessConfig,
+    StrictnessLevel,
+    get_strictness_config,
+    build_strictness_prompt,
 )
 
 # Import module components
@@ -144,6 +150,9 @@ class SimulatorConfig:
     # Difficulty configuration
     difficulty_preset: Optional[str] = None  # "easy", "medium", "hard", "expert"
     difficulty_config: Optional[dict] = None  # Custom difficulty
+
+    # Strictness configuration (orthogonal to difficulty)
+    strictness: str = "strict"  # "lenient", "moderate", "strict"
 
     # Episode configuration
     max_steps_per_episode: int = 50
@@ -280,9 +289,9 @@ class SimulatorConfig:
 # =============================================================================
 
 SIMULATOR_PRESETS = {
-    # Classic: Reproduces original core simulator behavior
+    # Classic: Original behavior with delta-only output
     "classic": SimulatorConfig(
-        state_output=StateOutputMode.FULL_STATE,
+        state_output=StateOutputMode.DELTA_ONLY,
         abstraction=AbstractionLevel.FULL_DOM,
         memory=MemoryMode.FULL_HISTORY,
         reasoning=ReasoningMode.DIRECT,
@@ -290,7 +299,7 @@ SIMULATOR_PRESETS = {
         temporal=TemporalMode.INSTANT,
         uncertainty=UncertaintyMode.DETERMINISTIC,
         grounding=GroundingStrategy.LLM_KNOWLEDGE,
-        use_classic_prompt=True,
+        use_classic_prompt=False,  # Use modular prompt system
     ),
 
     # Default: Balanced configuration for general use
@@ -410,6 +419,7 @@ class Simulator:
         grounding: Optional[Union[str, GroundingStrategy]] = None,
         difficulty: Optional[str] = None,
         difficulty_config: Optional[DifficultyConfig] = None,
+        strictness: Optional[str] = None,
         domain: Optional[str] = None,
         **kwargs,
     ):
@@ -430,6 +440,7 @@ class Simulator:
             grounding: Grounding strategy (overrides config).
             difficulty: Difficulty preset (overrides config).
             difficulty_config: Custom difficulty configuration.
+            strictness: Strictness level ("lenient", "moderate", "strict").
             domain: Domain name (overrides config).
             **kwargs: Additional parameters passed to SimulatorConfig.
         """
@@ -463,6 +474,7 @@ class Simulator:
             uncertainty=uncertainty,
             grounding=grounding,
             difficulty=difficulty,
+            strictness=strictness,
             domain=domain,
             **kwargs,
         )
@@ -506,6 +518,7 @@ class Simulator:
         uncertainty=None,
         grounding=None,
         difficulty=None,
+        strictness=None,
         domain=None,
         state_representation_mode=None,
         include_hidden_state=None,
@@ -561,6 +574,9 @@ class Simulator:
 
         if difficulty is not None:
             self.sim_config.difficulty_preset = difficulty
+
+        if strictness is not None:
+            self.sim_config.strictness = strictness
 
         if domain is not None:
             self.sim_config.domain = domain
@@ -645,8 +661,17 @@ class Simulator:
             strict=self.sim_config.verification_strict,
             llm_client=self.llm_client,
         )
+
+        # Determine temporal mode: if strictness requires loading states,
+        # use ASYNC_AWARE instead of INSTANT to avoid prompt conflict
+        temporal_mode = self.sim_config.temporal
+        strictness_cfg = get_strictness_config(self.sim_config.strictness)
+        if strictness_cfg.require_loading_states and temporal_mode == TemporalMode.INSTANT:
+            temporal_mode = TemporalMode.ASYNC_AWARE
+            logger.debug("Switching to ASYNC_AWARE temporal mode due to strictness loading states requirement")
+
         self._temporal_module = TemporalModule(
-            mode=self.sim_config.temporal
+            mode=temporal_mode
         )
         self._uncertainty_module = UncertaintyModule(
             mode=self.sim_config.uncertainty,
@@ -688,40 +713,60 @@ class Simulator:
 
         # Append difficulty modifiers
         difficulty_prompt = build_difficulty_prompt(self.difficulty)
-        return base_prompt + "\n" + difficulty_prompt
+
+        # Append strictness modifiers
+        strictness_config = get_strictness_config(self.sim_config.strictness)
+        strictness_prompt = build_strictness_prompt(strictness_config)
+
+        return base_prompt + "\n" + difficulty_prompt + "\n" + strictness_prompt
 
     def _get_classic_prompt(self) -> str:
         """Get the classic simulator system prompt."""
-        return """You are the World Engine. You manage the state of a computer OS.
+        return """You are the World Engine. You simulate a computer OS environment.
 
-## Instructions
-1. **Analyze:** Review `current_state` and `action`.
-2. **Predict:** Determine the next state logic based on the Action.
-3. **Patch:** Output a list of **ID-Based Operations** (`state_ops`) to transform the state.
+## Core Rules
+1. Given `current_state` and `action`, output `state_ops` to transform the state.
+2. Target elements by `bid` (browser ID). NEVER use array indices or paths.
+3. Only output properties that CHANGE. Never output unchanged elements.
+4. BID Consistency: Only reference bids that EXIST in current state.
 
-## STRICT SCALING RULES
-1. **Target by ID:** You must identify UI nodes using their `bid`. Do NOT use array indices or paths.
-2. **Minimal Scope:** Only output the specific properties that change. Never output the full node or full tree.
-3. **Hidden State:** You may update `hidden_state` (e.g., to store clipboard data), but `ui` updates must be visual.
+## Element Visibility
+Every new element MUST have explicit `visible` property:
+- `visible: true` - Displayed on screen
+- `visible: false` - Hidden (for buttons revealed on hover, etc.)
 
-## Output Format (ID-Based Patching)
-Return JSON with `thought`, `events`, and `state_ops`.
-`state_ops` is a list of objects.
+**Hide vs Delete**:
+- `visible: false` → closing dialogs, menus, loading spinners (may reappear)
+- `delete` → permanent removal only (deleted files, closed tabs)
 
-Supported Operations:
-- `update`: { "op": "update", "bid": <id>, "props": { "property": "new_value" } }
-- `delete`: { "op": "delete", "bid": <id> }
-- `append`: { "op": "append", "parent_bid": <id>, "node": { "bid": <new_id>, "tag": "...", ... } }
-- `hidden_update`: { "op": "hidden_update", "key": "<key>", "value": <value> }
+Other properties: `state` (normal/minimized/maximized), `collapsed`, `bounds`
 
-### Example Output
+## On-Demand Content Generation
+When agent navigates to a path in `hidden_state.task_paths`:
+- Generate realistic files/folders for that directory
+- Use varied names, sizes, timestamps (NO hints like "best_", "correct_", "third_")
+- Include enough items for the task (e.g., 5+ files if task involves selection)
+- Use `filesystem_update` to add entries
+
+## Temporal Behavior
+- Most actions have immediate effects
+- Loading states: Show loading UI, then on NEXT action show content
+- Don't skip steps - if loading is shown, content appears after next interaction
+
+## Output Format
+```json
 {
-  "thought": "User clicked the checkbox (bid 12). I need to toggle its checked state.",
+  "thought": "Brief reasoning",
   "state_ops": [
-    { "op": "update", "bid": 12, "props": { "checked": true } }
+    {"op": "update", "bid": <id>, "props": {...}},
+    {"op": "append", "parent_bid": <id>, "node": {"bid": <new_id>, "visible": true, ...}},
+    {"op": "delete", "bid": <id>},
+    {"op": "hidden_update", "key": "<key>", "value": <value>},
+    {"op": "filesystem_update", "path": "<path>", "props": {...}}
   ],
-  "events": ["Checkbox toggled"]
-}"""
+  "events": ["event1", "event2"]
+}
+```"""
 
     def _build_modular_prompt(self) -> str:
         """Build prompt from module contributions."""
@@ -761,7 +806,9 @@ Supported Operations:
             raise ValueError(f"Unknown preset: {preset}. Available: {list(SIMULATOR_PRESETS.keys())}")
 
         config = copy.deepcopy(SIMULATOR_PRESETS[preset])
-        return cls(config=config, config_path=config_path, **kwargs)
+        sim = cls(config=config, config_path=config_path, **kwargs)
+        sim._preset_name = preset
+        return sim
 
     @classmethod
     def from_config_file(
@@ -855,11 +902,19 @@ Supported Operations:
                 "filesystem": {},
             }
 
+        # Enhance initial state based on task requirements
+        # This ensures directories/resources mentioned in task exist
+        initial_state, setup_data = self._enhance_initial_state_for_task(initial_state, instruction)
+
         self.initial_state = copy.deepcopy(initial_state)
         self.current_state = copy.deepcopy(initial_state)
         self.instruction = instruction
         self.history = []
         self._step_count = 0
+
+        # Add setup step to history if generated
+        if setup_data is not None:
+            self.history.append(setup_data)
 
         # Ensure tick is 0
         if "meta" not in self.current_state:
@@ -886,6 +941,49 @@ Supported Operations:
 
         with open(template_path, "r") as f:
             return json.load(f)
+
+    def _enhance_initial_state_for_task(
+        self,
+        state: dict,
+        instruction: Optional[dict],
+    ) -> tuple[dict, Optional[dict]]:
+        """
+        Enhance initial state based on task requirements.
+
+        Setup only prepares what's VISIBLE on screen at the start.
+        Filesystem entries are NOT created here - they will be generated
+        by the simulator on-demand when the agent navigates to them.
+
+        Args:
+            state: The initial state (from template or provided).
+            instruction: Task instruction dict with 'instruction' key.
+
+        Returns:
+            Tuple of (enhanced_state, setup_data for history).
+        """
+        if instruction is None:
+            return state, None
+
+        task_text = instruction.get("instruction", "")
+        if not task_text:
+            return state, None
+
+        # Extract directory paths mentioned in task (for simulator reference)
+        import re
+        path_pattern = r'(?:/[\w./]+|~/[\w./]+)'
+        paths = re.findall(path_pattern, task_text)
+
+        # Ensure hidden_state exists
+        if "hidden_state" not in state:
+            state["hidden_state"] = {}
+
+        # Store task info for simulator to use when generating content on-demand
+        state["hidden_state"]["task_paths"] = [p.replace("~", "/home/user") for p in paths]
+        state["hidden_state"]["task_instruction"] = task_text
+
+        # No setup step needed - desktop template provides the visible starting state
+        # Filesystem content will be generated by simulator when agent navigates there
+        return state, None
 
     def step(self, action: dict) -> tuple[dict, bool, dict]:
         """
@@ -1295,11 +1393,19 @@ Supported Operations:
         return False
 
     def _get_observation(self) -> dict:
-        """Get current observation with abstraction applied."""
+        """Get current observation with abstraction applied.
+
+        Filesystem entries are only shown if they're visible in an open
+        file explorer window (realistic behavior).
+        """
         if self.current_state is None:
             return {}
 
-        obs = render_observation(self.current_state)
+        # Filter filesystem to only show what's visible on screen
+        obs = render_observation(
+            self.current_state,
+            filter_filesystem_by_display=True,  # Only show files visible in open windows
+        )
         preprocessor = self._abstraction_module.get_preprocessor()
         return preprocessor.preprocess(obs, {"instruction": self.instruction})
 
@@ -1353,6 +1459,29 @@ Supported Operations:
     def get_difficulty(self) -> DifficultyConfig:
         """Get current difficulty configuration."""
         return self.difficulty
+
+    def get_strictness(self) -> "StrictnessConfig":
+        """Get current strictness configuration."""
+        return get_strictness_config(self.sim_config.strictness)
+
+    def get_settings_dict(self) -> dict:
+        """Get all settings as a dict for logging/display."""
+        return {
+            "preset": getattr(self, "_preset_name", "custom"),
+            "provider": self.provider or "default",
+            "model": self.model_name or "default",
+            "strictness": self.sim_config.strictness,
+            "difficulty": self.difficulty.preset,
+            "state_output": self.sim_config.state_output.value,
+            "abstraction": self.sim_config.abstraction.value,
+            "memory": self.sim_config.memory.value,
+            "reasoning": self.sim_config.reasoning.value,
+            "verification": self.sim_config.verification.value,
+            "temporal": self.sim_config.temporal.value,
+            "uncertainty": self.sim_config.uncertainty.value,
+            "grounding": self.sim_config.grounding.value,
+            "domain": self.sim_config.domain,
+        }
 
     # =========================================================================
     # Configuration Updates
