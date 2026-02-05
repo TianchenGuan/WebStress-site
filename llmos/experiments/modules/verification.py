@@ -86,19 +86,8 @@ SIMULATOR_OUTPUT_SCHEMA = {
 BACKWARD_VERIFICATION_PROMPT = """
 ## Verification: Backward Consistency Check
 
-Your output will be verified for backward consistency:
-- Given the predicted next state, we check if the action could plausibly
-  produce that state from the current state.
-- If the next state is unreachable via the specified action, the prediction
-  will be rejected.
-
-Ensure your predictions satisfy:
-1. **Reachability**: The next state must be reachable from current state
-2. **Action relevance**: Changes must relate to the action taken
-3. **Consistency**: No contradictions between changes
-
-You may be asked to verify your own prediction:
-"Given state S' and action A, is it plausible that A transforms state S to S'?"
+Predictions are verified: next state must be reachable from current state via the action.
+Ensure changes are action-relevant and self-consistent.
 """
 
 

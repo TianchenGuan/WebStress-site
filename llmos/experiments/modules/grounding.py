@@ -40,81 +40,37 @@ class GroundingStrategy(str, Enum):
 LLM_KNOWLEDGE_PROMPT = """
 ## Grounding: LLM Knowledge
 
-Use your built-in knowledge about UIs and web applications to predict state changes.
-
-Rely on:
-- General knowledge of how UI elements behave
-- Common patterns in web/desktop applications
-- Standard interaction paradigms
-- Reasonable assumptions about implementations
-
-Do NOT rely on:
-- Specific implementation details you can't know
-- Exact error messages or success messages
-- Server-side behavior unless standard
+Use general UI/web knowledge. Rely on common patterns, not specific implementation details.
 """
 
 EXAMPLE_GROUNDED_PROMPT = """
 ## Grounding: Similar Examples
 
-Ground your predictions using the provided SIMILAR EXAMPLES.
-
-These examples show how similar actions affected similar states:
+Match predictions to these examples of similar actions:
 
 {examples}
 
-Use these examples to:
-1. Understand patterns in this application's behavior
-2. Match your predictions to observed behavior
-3. Identify edge cases that might apply
-4. Use consistent formatting and messaging
-
-If no example matches well, fall back to general knowledge but note this.
+If no match, use general knowledge but note the gap.
 """
 
 DOC_GROUNDED_PROMPT = """
 ## Grounding: Documentation
 
-Ground your predictions using the provided DOCUMENTATION.
-
-Relevant documentation for this context:
+Follow this documentation for behavior and formats:
 
 {documentation}
 
-Use documentation to:
-1. Follow specified behavior exactly
-2. Use correct field names, values, and formats
-3. Handle edge cases as documented
-4. Apply documented constraints and validations
-
-If documentation conflicts with expected behavior, follow documentation.
-If documentation is incomplete, use general knowledge but note assumptions.
+Documentation takes precedence over general expectations.
 """
 
 TRACE_GROUNDED_PROMPT = """
 ## Grounding: Real Environment Traces
 
-Ground your predictions using TRACES from real environment interactions.
-
-These traces show actual state transitions from the real application:
+Match predictions to these real state transitions:
 
 {traces}
 
-Trace format:
-- Each trace shows: state_before → action → state_after
-- Traces are from the same or similar application
-- Traces capture real behavior including edge cases
-
-Use traces to:
-1. Match predictions to real observed behavior
-2. Capture application-specific quirks
-3. Use exact text, timing, and state changes from traces
-4. Handle error cases as they actually occur
-
-If no trace matches:
-1. Find closest matching trace
-2. Adapt prediction based on differences
-3. Note that prediction is extrapolated
+Use exact behavior from traces. If no match, adapt closest trace and note it.
 """
 
 

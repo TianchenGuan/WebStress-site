@@ -44,105 +44,35 @@ class AbstractionLevel(str, Enum):
 FULL_DOM_PROMPT = """
 ## State Representation: Full DOM
 
-You are given the complete UI tree with all elements and attributes.
-
-The state includes:
-- All HTML/UI elements with their full attributes
-- Element hierarchy preserved exactly
-- All text content, styles, and metadata
-- Hidden elements marked with `visible: false`
-
-Use the `bid` (browser ID) to reference elements in your operations.
+Complete UI tree provided. Use `bid` to reference elements.
 """
 
 SEMANTIC_ELEMENTS_PROMPT = """
 ## State Representation: Semantic Elements
 
-You are given a simplified view of the UI containing only semantic elements.
-
-Included elements:
-- Interactive: buttons, links, inputs, selects, checkboxes, radio buttons
-- Text: headings, paragraphs, labels, error messages
-- Containers: forms, dialogs, menus, lists
-- Media: images with alt text
-
-Excluded:
-- Layout elements (div, span without semantic meaning)
-- Style-only elements
-- Script/style tags
-- Hidden elements
-
-Each element has:
-- `bid`: Unique identifier for targeting
-- `tag`: Semantic tag name
-- `text`: Visible text content (if any)
-- Key attributes: `href`, `value`, `checked`, `disabled`, `placeholder`, etc.
-
-Focus on what the user can SEE and INTERACT with.
+Simplified UI with only semantic elements (buttons, inputs, text, forms, dialogs).
+Layout/style elements excluded. Use `bid` to reference elements.
 """
 
 TASK_RELEVANT_PROMPT = """
 ## State Representation: Task-Relevant Elements
 
-You are given a FILTERED view containing only elements relevant to the current task.
-
-Task: {instruction}
-
-The state includes:
-- Elements mentioned in the task (by name, type, or label)
-- Elements required to complete the task
-- Ancestor containers of relevant elements
-- Error/status messages related to the task
-
-Elements NOT relevant to the task have been filtered out.
-
-Focus on completing the specified task efficiently.
-Use the `bid` to reference elements in your operations.
+Filtered view showing only elements relevant to: {instruction}
+Non-relevant elements excluded. Use `bid` to reference elements.
 """
 
 VIEWPORT_ONLY_PROMPT = """
 ## State Representation: Viewport Only
 
-You are given only elements currently VISIBLE in the viewport.
-
-The state includes:
-- Elements within the visible screen area
-- Elements with bounds intersecting viewport {viewport}
-- Partially visible elements (clipped)
-
-NOT included:
-- Elements scrolled out of view
-- Elements below the fold
-- Hidden elements
-
-When the action involves scrolling, you may need to predict
-elements that will become visible.
+Only elements visible within viewport {viewport}. Off-screen elements excluded.
+For scroll actions, predict elements that will become visible.
 """
 
 INTERACTIVE_ONLY_PROMPT = """
 ## State Representation: Interactive Elements Only
 
-You are given only INTERACTIVE elements the user can act upon.
-
-Included:
-- Buttons (button, submit, reset)
-- Links (a with href)
-- Form inputs (input, textarea, select)
-- Checkboxes and radio buttons
-- Clickable elements (onclick handler)
-- Focusable elements
-
-Excluded:
-- Static text (unless labels)
-- Images without actions
-- Decorative elements
-- Disabled elements (optionally)
-
-Each element shows:
-- `bid`: Unique identifier
-- `tag`: Element type
-- `text`: Visible label/text
-- Interaction attributes: `value`, `checked`, `disabled`, etc.
+Only interactive elements (buttons, links, inputs, checkboxes).
+Static/decorative elements excluded. Use `bid` to reference elements.
 """
 
 

@@ -272,12 +272,12 @@ source .venv/bin/activate
 # =============================================================================
 
 python -m llmos.main run \
-    --task "Change the Chrome start page background image to the third most recent photo, sorted by time, from the /user/yxj/image folder." \
+    --task "Play the most popular song by the artist of the fourth most recently added song in my Apple Music app's library, add it to my favorites, and download it." \
     --template desktop \
-    --difficulty hard \
+    --difficulty expert \
     --strictness strict \
     --action-space minimal \
-    --sim-model "gemini-3-pro-preview" \
+    --sim-model "gemini-3-flash-preview" \
     --sim-provider gemini \
     --agent-provider gemini \
     --agent-model "gemini-3-flash-preview"

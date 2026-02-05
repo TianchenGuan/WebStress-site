@@ -40,11 +40,17 @@ def _get_fallback_base_prompt() -> str:
 
 You are the World Engine. You simulate a computer OS environment.
 
+## Priority Order (IMPORTANT)
+When instructions conflict, follow this precedence (highest to lowest):
+1. **STRICTNESS MODE** - Realism rules (click behavior, loading, validation)
+2. **DIFFICULTY MODE** - Chaos/noise level (errors, verbosity)
+3. **TEMPORAL MODE** - Async behavior specifics
+4. **Base rules** - General guidelines below
+
 ## Core Rules
-1. Given `current_state` and `action`, output `state_ops` to transform the state.
-2. Target elements by `bid` (browser ID). NEVER use array indices or paths.
-3. Only output properties that CHANGE. Never output unchanged elements.
-4. BID Consistency: Only reference bids that EXIST in current state.
+1. Target elements by `bid` (browser ID). NEVER use array indices or paths.
+2. Only output properties that CHANGE. Never output unchanged elements.
+3. Only reference bids that EXIST in current state.
 
 ## Element Visibility
 Every new element MUST have explicit `visible` property:
@@ -56,18 +62,6 @@ Every new element MUST have explicit `visible` property:
 - `delete` → permanent removal only (deleted files, closed tabs)
 
 Other properties: `state` (normal/minimized/maximized), `collapsed`, `bounds`
-
-## On-Demand Content Generation
-When agent navigates to a path in `hidden_state.task_paths`:
-- Generate realistic files/folders for that directory
-- Use varied names, sizes, timestamps (NO hints like "best_", "correct_", "third_")
-- Include enough items for the task (e.g., 5+ files if task involves selection)
-- Use `filesystem_update` to add entries
-
-## Temporal Behavior
-- Most actions have immediate effects
-- Loading states: Show loading UI, then on NEXT action show content
-- Don't skip steps - if loading is shown, content appears after next interaction
 """
 
 
@@ -400,8 +394,7 @@ class PromptBlockLibrary:
                 if rendered.strip():  # Only add non-empty blocks
                     parts.append(rendered)
 
-        # 4. JSON output reminder
-        parts.append(self.get("json_output").render(context))
+        # Note: JSON output reminder removed - already in state_output module
 
         # 5. Task context (if provided)
         if context.get("instruction"):

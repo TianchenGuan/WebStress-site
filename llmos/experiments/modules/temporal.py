@@ -40,144 +40,32 @@ class TemporalMode(str, Enum):
 INSTANT_TEMPORAL_PROMPT = """
 ## Temporal Mode: Instant Effects
 
-All actions have IMMEDIATE effects. There are no loading states, delays,
-or asynchronous operations to model.
-
-When predicting state changes:
-- The action completes instantly
-- All effects are applied in the same tick
-- No intermediate states needed
-- The resulting state is stable and complete
-
-Example: click(submit_button)
-- Form validates instantly
-- Result (success or error) appears immediately
-- No loading spinners or "processing..." states
+Actions complete within the same tick with no multi-step async modeling.
+**Note**: If STRICTNESS MODE requires loading states, those take precedence.
 """
 
 ASYNC_AWARE_PROMPT = """
 ## Temporal Mode: Async-Aware
 
-Model REALISTIC asynchronous behavior. Some actions trigger operations
-that don't complete instantly.
+Actions trigger loading states that complete on NEXT agent action.
 
-Async behaviors to model:
+Pattern: action → loading UI → (next action) → result
 
-1. **Loading States**: Show loading indicators when waiting
-   - "Loading..." text
-   - Spinner icons
-   - Disabled buttons during operation
-   - Progress bars
+Examples:
+- Navigation → "Loading..." → content
+- Download → "Downloading..." → "Downloaded ✓"
+- Form submit → "Submitting..." → success/error
 
-2. **Pending Operations**: Mark operations that are in progress
-   ```json
-   {
-     "state_ops": [...],
-     "pending_ops": [
-       {
-         "op_id": "submit_form_1",
-         "type": "network_request",
-         "started_at": "tick",
-         "expected_duration": "1-3 ticks",
-         "on_complete": "show_success_message",
-         "on_error": "show_error_message"
-       }
-     ]
-   }
-   ```
-
-3. **Completion Events**: When async ops complete
-   ```json
-   {
-     "events": ["async:complete:submit_form_1"]
-   }
-   ```
-
-Common async scenarios:
-- Form submission → loading → success/error
-- Navigation → loading → new page
-- Data fetch → loading → data displayed
-- File upload → progress → complete
-
-Output `async_state` when modeling pending operations:
-```json
-{
-  "thought": "Form is being submitted",
-  "state_ops": [
-    {"op": "update", "bid": "submit_btn", "props": {"disabled": true, "text": "Submitting..."}}
-  ],
-  "async_state": {
-    "pending": true,
-    "operation": "form_submit",
-    "will_complete_in": 1
-  }
-}
-```
+Emit completion events: `{"events": ["download_completed"]}`
 """
 
 EVENT_DRIVEN_PROMPT = """
 ## Temporal Mode: Event-Driven
 
-Model UI changes as explicit EVENT SEQUENCES with ordering and timing.
-
-Every state change is triggered by an event. Events can trigger other events.
-
-Event structure:
-```json
-{
-  "events": [
-    {
-      "id": "evt_1",
-      "type": "user_action",
-      "action": "click",
-      "target": "submit_btn",
-      "timestamp": 0
-    },
-    {
-      "id": "evt_2",
-      "type": "state_change",
-      "trigger": "evt_1",
-      "changes": [{"bid": "submit_btn", "prop": "disabled", "value": true}],
-      "timestamp": 0
-    },
-    {
-      "id": "evt_3",
-      "type": "async_start",
-      "trigger": "evt_1",
-      "operation": "form_submit",
-      "timestamp": 0
-    },
-    {
-      "id": "evt_4",
-      "type": "async_complete",
-      "trigger": "evt_3",
-      "result": "success",
-      "timestamp": 1
-    },
-    {
-      "id": "evt_5",
-      "type": "state_change",
-      "trigger": "evt_4",
-      "changes": [{"bid": "message", "prop": "text", "value": "Success!"}],
-      "timestamp": 1
-    }
-  ]
-}
-```
-
-Event types:
-- `user_action`: User-initiated action
-- `state_change`: UI state modification
-- `async_start`: Async operation begins
-- `async_complete`: Async operation finishes
-- `timer`: Scheduled/delayed event
-- `animation_end`: Animation completes
-
-When modeling event-driven changes:
-1. List all events in causal order
-2. Include trigger references (which event caused this)
-3. Assign timestamps (relative tick numbers)
-4. Derive state_ops from state_change events
+Model UI changes as event sequences with causal chains.
+Each event has: id, type, trigger (parent event), timestamp (tick number).
+Types: user_action, state_change, async_start, async_complete, timer.
+Output events in causal order; state_ops derived from state_change events.
 """
 
 

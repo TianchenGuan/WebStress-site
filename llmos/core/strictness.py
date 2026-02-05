@@ -130,56 +130,30 @@ def build_strictness_prompt(config: StrictnessConfig) -> str:
 
     if config.require_loading_states:
         rules.append("""
-### Loading States & Temporal Behavior
-Loading states appear first, content appears on NEXT agent action:
-1. Agent clicks "Open File Explorer" → Show loading spinner
-2. Agent does ANY action (click, focus, wait) → Loading completes, show content
-
-This is NOT instant - agent must take another action to see content load.
-- Page navigation → loading → (next action) → content
+### Loading States Required
+Operations show loading first, complete on NEXT agent action:
+- App launch → "Loading..." → (next action) → app UI
+- Navigation → loading → (next action) → new page
 - Search → "Searching..." → (next action) → results
-- App launch → loading overlay → (next action) → app UI
 """)
 
     if config.no_task_aware_shortcuts:
         rules.append("""
-### On-Demand Content Generation
-When agent navigates to paths in `hidden_state.task_paths`, generate realistic content:
-- Create files/folders with varied names, sizes, timestamps
-- Include 5+ items if task involves selection/comparison
-- NO hints in names (avoid "best_", "correct_", "answer_", "third_")
-- Randomize order - don't put correct answer first
-- Use `filesystem_update` ops to add entries
-
 ### No Task-Aware Shortcuts (CRITICAL)
-- You MAY generate content relevant to the task (e.g., files for a file search task)
-- You MUST NOT make completion easier by:
-  * Creating convenient buttons that skip steps
-  * Pre-populating forms with correct values
-  * Placing the correct answer in an obvious/first position
-  * Adding shortcuts that don't exist in real applications
-- Agent must:
-  * Navigate through menus to find features
-  * Scroll to find content
-  * Read and compare options without hints
+When generating content for `hidden_state.task_paths`:
+- Create 5+ realistic files/folders with varied names, sizes, timestamps
+- NO hints in names (avoid "best_", "correct_", "answer_")
+- Randomize order - don't put correct answer first
+- Don't create convenient buttons/shortcuts that skip steps
+- Don't pre-populate forms or pre-select correct options
 """)
 
     if config.no_answer_hints:
         rules.append("""
 ### No Answer Hints
-- DO NOT label correct answers or use suggestive labels:
-  * AVOID: "Best Match", "Top Result", "Recommended", "Popular", "Trending"
-  * USE: "Search Results", "Results", "Apps", "Files" (neutral labels)
-- DO NOT pre-select the correct option
-- DO NOT sort results to put correct answer first
-- Present options neutrally without indicating which is "right"
-- Agent must evaluate options based on actual content, not hints
-- In your "thought" field, DO NOT state what the correct answer is
-- Your thought should describe WHAT you're doing, not reveal answers
-
-Example - Search results:
-- WRONG: `"text": "Best Match"` or `"text": "Top Result"`
-- RIGHT: `"text": "Search Results"` or `"text": "Applications"`
+- Use neutral labels: "Search Results", "Files" (NOT "Best Match", "Top Result")
+- Don't pre-select or sort to highlight correct answer
+- In thought field: describe what you're doing, don't reveal answers
 """)
 
     if config.enforce_focus_requirements:
@@ -205,45 +179,21 @@ Example - Search results:
     # Add key examples for strict mode
     if config.level == StrictnessLevel.STRICT:
         parts.append("""
-## CRITICAL EXAMPLES
+## KEY EXAMPLES
 
-### Click vs Double-Click
+**click desktop icon** → Select only (NOT open)
+**dblclick desktop icon** → Open app
+**click TASKBAR icon** → Open app (exception: taskbar uses single click)
 
-**click on desktop icon "Chrome"** → WRONG: open browser. RIGHT: select icon only
-```json
-{"state_ops": [{"op": "update", "bid": "chrome_icon", "props": {"selected": true}}], "events": ["Icon selected"]}
-```
-
-**dblclick on desktop icon "Chrome"** → Opens browser (correct)
-```json
-{"state_ops": [{"op": "append", "parent_bid": "root", "node": {"bid": "chrome_window", "tag": "window", "state": "normal", ...}}], "events": ["Chrome opened"]}
-```
-
-**click on TASKBAR icon** → Opens app (taskbar is exception, single click works)
-
-### No Task-Aware Hints
-
-Task: "Find cheapest flight"
-- WRONG: Label first result "Cheapest!", sort by price, add "Book Cheapest" button
-- RIGHT: Show flights in arbitrary order, no labels, agent must compare prices
-
-Task: "Select the third most recent file"
-- WRONG thought: "The third most recent file is report.pdf"
-- RIGHT thought: "Sorting files by date descending as requested"
+**Task: "Find third most recent file"**
+- WRONG thought: "The third file is report.pdf"
+- RIGHT thought: "Displaying files sorted by date"
 """)
 
     # Add summary
     parts.append("""
-## STRICT MODE SUMMARY
-
-**THE GOLDEN RULE**: The simulator should behave like a REAL computer, not a helpful assistant.
-
-1. **Click ≠ Open** (for desktop icons, files) - only dblclick opens
-2. **Click = Open** (for taskbar icons, buttons) - these work with single click
-3. **No Mind Reading** - don't create UI elements just because the task needs them
-4. **No Hints** - present information neutrally, let agent figure it out
-5. **Show Loading** - realistic transitions take time
-6. **Fail Realistically** - wrong actions should fail, not auto-correct
+## GOLDEN RULE
+Behave like a REAL computer, not a helpful assistant. No shortcuts, no hints.
 """)
 
     return "\n".join(parts)

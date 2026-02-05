@@ -40,26 +40,14 @@ class StateOutputMode(str, Enum):
 FULL_STATE_PROMPT = """
 ## Output Format: Full State
 
-You must output the COMPLETE next state after the action is applied.
-
-Output JSON with this structure:
+Output COMPLETE next state (not just changes):
 ```json
 {
-  "thought": "Your reasoning about what the action does",
-  "next_state": {
-    "meta": { ... },
-    "ui": { ... complete UI tree ... },
-    "hidden_state": { ... },
-    "filesystem": { ... }
-  },
-  "events": ["event1", "event2"]
+  "thought": "reasoning",
+  "next_state": {"meta": {...}, "ui": {...}, "hidden_state": {...}, "filesystem": {...}},
+  "events": ["event1"]
 }
 ```
-
-Important:
-- Output the ENTIRE state, not just changes
-- Preserve all unchanged elements exactly
-- Update only the elements affected by the action
 """
 
 DELTA_ONLY_PROMPT = """
@@ -100,35 +88,16 @@ Important:
 SEMANTIC_DESCRIPTION_PROMPT = """
 ## Output Format: Semantic Description
 
-Describe the state changes in natural language, then provide structured changes.
-
-Output JSON with this structure:
+Describe changes in natural language with structured change list:
 ```json
 {
-  "thought": "Your reasoning about what the action does",
-  "description": "Natural language description of what changed. Example: 'The checkbox becomes checked and the submit button is now enabled. A success message appears below the form.'",
-  "changes": [
-    {
-      "element": "description of element (e.g., 'the submit button')",
-      "bid": <element_id if known>,
-      "change_type": "property_change|appear|disappear|move",
-      "details": {"property": "new_value"} or "description of change"
-    }
-  ],
-  "events": ["event1", "event2"]
+  "thought": "reasoning",
+  "description": "The button becomes disabled and a loading spinner appears.",
+  "changes": [{"element": "submit button", "bid": "btn1", "change_type": "property_change", "details": {"disabled": true}}],
+  "events": ["event1"]
 }
 ```
-
-Change types:
-- `property_change`: An element's property changed (text, checked, disabled, etc.)
-- `appear`: A new element appeared
-- `disappear`: An element was removed
-- `move`: An element moved to a different location
-
-Important:
-- Write clear, human-readable descriptions
-- Include element bids when you can identify them
-- Focus on semantically meaningful changes, not implementation details
+Change types: `property_change`, `appear`, `disappear`, `move`
 """
 
 

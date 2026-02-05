@@ -42,152 +42,30 @@ class UncertaintyMode(str, Enum):
 DETERMINISTIC_PROMPT = """
 ## Uncertainty Mode: Deterministic
 
-Provide a SINGLE, DEFINITE prediction for how the state changes.
-
-- Do not express uncertainty or alternatives
-- Predict the most likely outcome as if it definitely happens
-- Make confident predictions even when multiple outcomes are possible
-- Your prediction is treated as ground truth
-
-Output format:
-```json
-{
-  "thought": "Confident reasoning about what happens",
-  "state_ops": [...]
-}
-```
+Commit to ONE outcome. Don't present alternatives or express uncertainty.
+If DIFFICULTY MODE causes errors, predict THE specific error confidently.
 """
 
 WITH_CONFIDENCE_PROMPT = """
 ## Uncertainty Mode: With Confidence Scores
 
-Provide predictions WITH CONFIDENCE SCORES indicating how certain you are.
-
-For each aspect of your prediction, provide a confidence level:
-- `confidence`: 0.0 to 1.0 overall confidence
-- Per-operation confidence when predictions vary in certainty
-
-Confidence guidelines:
-- 0.95-1.0: Highly confident, standard UI behavior
-- 0.8-0.95: Confident, but some edge cases possible
-- 0.6-0.8: Moderately confident, depends on implementation details
-- 0.4-0.6: Uncertain, multiple outcomes equally likely
-- 0.0-0.4: Low confidence, guessing
-
-Output format:
-```json
-{
-  "thought": "Reasoning with confidence assessment",
-  "confidence": 0.85,
-  "confidence_reasoning": "Standard button click behavior, high confidence",
-  "state_ops": [
-    {
-      "op": "update",
-      "bid": "btn1",
-      "props": {"disabled": true},
-      "op_confidence": 0.95
-    }
-  ]
-}
-```
-
-Be calibrated: your confidence scores should reflect actual accuracy.
+Add `confidence` (0.0-1.0) to output. Optional `op_confidence` per operation.
+High (>0.9): standard behavior. Medium (0.6-0.9): implementation-dependent. Low (<0.6): uncertain.
 """
 
 PROBABILISTIC_PROMPT = """
 ## Uncertainty Mode: Probabilistic Outcomes
 
-Provide MULTIPLE POSSIBLE OUTCOMES with their probabilities.
-
-When actions can result in different states depending on:
-- Hidden state you can't observe
-- External factors (network, server responses)
-- Non-deterministic UI behavior
-- User-specific configurations
-
-Provide all plausible outcomes:
-
-```json
-{
-  "thought": "Analysis of possible outcomes",
-  "outcomes": [
-    {
-      "probability": 0.7,
-      "description": "Form submits successfully",
-      "state_ops": [
-        {"op": "update", "bid": "msg", "props": {"text": "Success!", "visible": true}}
-      ],
-      "events": ["form:submit:success"]
-    },
-    {
-      "probability": 0.2,
-      "description": "Validation error on server",
-      "state_ops": [
-        {"op": "update", "bid": "error", "props": {"text": "Server validation failed", "visible": true}}
-      ],
-      "events": ["form:submit:validation_error"]
-    },
-    {
-      "probability": 0.1,
-      "description": "Network error",
-      "state_ops": [
-        {"op": "update", "bid": "error", "props": {"text": "Connection failed", "visible": true}}
-      ],
-      "events": ["form:submit:network_error"]
-    }
-  ]
-}
-```
-
-Requirements:
-- Probabilities must sum to 1.0
-- Include at least the most likely outcome
-- Limit to 3-5 outcomes for clarity
-- Include error/edge cases when relevant
+Provide multiple outcomes with probabilities summing to 1.0:
+`"outcomes": [{"probability": 0.7, "description": "...", "state_ops": [...]}]`
+Include 2-4 outcomes covering success and error cases.
 """
 
 ADMITS_UNCERTAINTY_PROMPT = """
 ## Uncertainty Mode: Admits Uncertainty
 
-Explicitly FLAG areas of uncertainty in your predictions.
-
-When you're uncertain about any aspect, mark it clearly:
-
-```json
-{
-  "thought": "Reasoning about what I know and don't know",
-  "state_ops": [...],
-  "uncertainties": [
-    {
-      "aspect": "exact_error_message",
-      "reason": "Error message wording depends on server implementation",
-      "impact": "low",
-      "fallback": "Generic error text used"
-    },
-    {
-      "aspect": "loading_duration",
-      "reason": "Network latency unknown",
-      "impact": "medium",
-      "fallback": "Assumed instant completion"
-    }
-  ],
-  "assumptions": [
-    "User has permission to submit this form",
-    "Server is operational",
-    "No concurrent edits"
-  ]
-}
-```
-
-Uncertainty impacts:
-- `low`: Cosmetic differences, doesn't affect task completion
-- `medium`: May affect user's next action choice
-- `high`: Could determine task success/failure
-
-Being explicit about uncertainty helps:
-1. Training: Focus on reducing high-impact uncertainty
-2. Evaluation: Account for legitimate prediction variance
-3. Agents: Make decisions considering uncertainty
+Flag uncertain aspects: `"uncertainties": [{"aspect": "...", "reason": "...", "impact": "low|medium|high"}]`
+Also list `"assumptions": [...]` made during prediction.
 """
 
 

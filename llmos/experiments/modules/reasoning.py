@@ -36,57 +36,18 @@ class ReasoningMode(str, Enum):
 DIRECT_REASONING_PROMPT = """
 ## Reasoning Mode: Direct Effects
 
-Focus on the IMMEDIATE, DIRECT effects of the action.
-
-When predicting state changes:
-1. Identify what the action directly affects
-2. Determine the immediate state change
-3. Do NOT reason about secondary or cascading effects
-
-Example for click(submit_button):
-- Direct effect: Form submission initiated
-- Do NOT consider: What happens after submission, server responses, etc.
-
-Keep your reasoning focused and concise. Only output changes that are
-the DIRECT result of the action, not downstream consequences.
+Focus on immediate effects within THIS tick only.
+Loading states are direct effects; their completion happens next tick.
 """
 
 CHAIN_REASONING_PROMPT = """
 ## Reasoning Mode: Causal Chain
 
-Reason through the FULL CHAIN of consequences from the action.
+Trace the full chain of consequences:
+1. Direct effect → 2. What it triggers → 3. Continue to stable state
 
-When predicting state changes:
-1. Identify the direct effect of the action
-2. For each direct effect, consider what it triggers
-3. Continue until you reach stable state or natural stopping point
-4. Capture all changes in the causal chain
-
-Structure your reasoning as a chain:
-```
-Action: click(submit_button)
-Chain of effects:
-1. Form submission initiated
-   → 2. Validation runs on all fields
-      → 3a. If valid: Form data sent to server
-         → 4a. Loading indicator appears
-         → 4b. Submit button becomes disabled
-      → 3b. If invalid: Error messages appear on invalid fields
-         → 4c. First invalid field gets focus
-```
-
-For each effect in the chain:
-- State what changes
-- Identify what it triggers next
-- Continue until no more triggered effects
-
-Output ALL state changes that result from the causal chain, not just
-the immediate effect.
-
-Important: Distinguish between:
-- Certain effects (will definitely happen)
-- Conditional effects (depend on state, mark with conditions)
-- Possible effects (might happen, mark as uncertain)
+Mark effects as: certain, conditional (with condition), or possible.
+Output ALL state changes in the chain, not just immediate effects.
 """
 
 
@@ -234,44 +195,9 @@ class ChainReasoningParser(BaseOutputParser):
 CHAIN_EXAMPLES_PROMPT = """
 ## Causal Chain Examples
 
-Example 1: Click on checkbox
-```
-Action: click(checkbox_agree_terms)
-Causal Chain:
-1. Checkbox state toggles (unchecked → checked)
-   → 2. Form validation re-runs
-      → 3. If all required fields valid: Submit button enables
-      → 3. If still invalid: Submit button stays disabled
-```
-
-Example 2: Fill email field
-```
-Action: fill(input_email, "user@example.com")
-Causal Chain:
-1. Email field value updates to "user@example.com"
-   → 2. Field validation triggers
-      → 3a. If valid email format: Error message clears, field border green
-      → 3b. If invalid format: Error message appears, field border red
-   → 4. Form-level validation may re-run
-      → 5. Submit button state may update
-```
-
-Example 3: Click delete button
-```
-Action: click(button_delete_item)
-Causal Chain:
-1. Confirmation dialog appears
-   → 2. Main content dims/disabled
-   → 3. Focus moves to dialog
-   OR (if no confirmation required):
-1. Item removed from list
-   → 2. List re-renders
-      → 3a. If list empty: Empty state message appears
-      → 3b. If items remain: Items shift up
-   → 4. Success notification appears (temporary)
-```
-
-Apply similar causal reasoning to the current action.
+Checkbox click: toggle → validation re-runs → button enables/stays disabled
+Email fill: value updates → field validates → error clears/appears → form validates
+Delete click: dialog appears OR item removed → list re-renders → notification
 """
 
 

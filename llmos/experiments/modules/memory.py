@@ -42,52 +42,28 @@ class MemoryMode(str, Enum):
 FULL_HISTORY_PROMPT = """
 ## Context: Full History
 
-You are provided with the COMPLETE history of this episode:
-- All previous actions taken
-- All previous state changes
-- All events that occurred
-
-Use this history to understand the full context of the task.
-The history is provided in chronological order from oldest to newest.
+Complete episode history is provided (actions, state changes, events).
 """
 
 ROLLING_WINDOW_PROMPT = """
-## Context: Rolling Window (Last {window_size} Steps)
+## Context: Rolling Window
 
-You are provided with the LAST {window_size} steps of this episode.
-Earlier history has been truncated to fit within context limits.
-
-Current step: {current_step}
-History starts from step: {start_step}
-
-Focus on recent context while being aware that earlier steps are not shown.
+Last {window_size} steps shown (current: {current_step}, from: {start_step}).
+Earlier history truncated.
 """
 
 SUMMARIZED_HISTORY_PROMPT = """
 ## Context: Summarized History
 
-You are provided with:
-1. A SUMMARY of earlier episode history
-2. DETAILED recent steps (last {recent_steps} steps)
-
-Episode Summary:
-{summary}
-
-The detailed recent steps follow below.
+Summary of earlier steps: {summary}
+Last {recent_steps} steps shown in detail below.
 """
 
 CHECKPOINTS_PROMPT = """
 ## Context: Key Checkpoints
 
-You are provided with KEY MILESTONE states from this episode.
-These represent significant state changes or decision points.
-
-Checkpoints:
+Milestone states (step {current_step}):
 {checkpoints_description}
-
-Current step: {current_step}
-
-Use these checkpoints to understand the episode trajectory.
 """
 
 
