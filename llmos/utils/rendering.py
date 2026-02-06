@@ -236,6 +236,7 @@ def _filter_ui_tree_comprehensive(
     viewport: dict,
     parent_visible: bool = True,
     parent_minimized: bool = False,
+    effective_viewport: Optional[dict] = None,
 ) -> Optional[dict]:
     """
     Comprehensively filter UI tree to show only what's visible on screen.
@@ -245,18 +246,25 @@ def _filter_ui_tree_comprehensive(
     - Contents of minimized windows (window with state="minimized")
     - Elements completely outside viewport bounds
     - Elements in collapsed containers (collapsed=true)
+    - Elements outside their scrollable container's visible area
 
     Args:
         node: A UI tree node.
         viewport: Screen viewport bounds {x, y, width, height}.
         parent_visible: Whether parent is visible (inherited).
         parent_minimized: Whether any ancestor window is minimized.
+        effective_viewport: The current effective viewport, clipped to parent
+            scrollable containers. If None, uses the global viewport.
 
     Returns:
         Filtered node or None if node should be hidden.
     """
     if not isinstance(node, dict):
         return node
+
+    # Use effective viewport if provided, otherwise use global viewport
+    if effective_viewport is None:
+        effective_viewport = viewport
 
     # Check explicit visibility flag
     if not node.get("visible", True):
@@ -272,10 +280,10 @@ def _filter_ui_tree_comprehensive(
     # Check if this is a collapsed container
     is_collapsed = node.get("collapsed", False)
 
-    # Check if element is within viewport
+    # Check if element is within effective viewport
     bounds = node.get("bounds")
-    if bounds and not _is_within_viewport(bounds, viewport):
-        # Element is completely outside viewport - not visible
+    if bounds and not _is_within_viewport(bounds, effective_viewport):
+        # Element is completely outside effective viewport - not visible
         # But keep windows even if partially outside (they might have visible parts)
         if node.get("role") != "window" and node.get("tag") != "window":
             return None
@@ -305,6 +313,12 @@ def _filter_ui_tree_comprehensive(
         elif is_collapsed:
             pass
         else:
+            # Compute new effective viewport for children
+            # If this node is a scrollable container, clip the effective viewport
+            child_effective_viewport = _compute_child_viewport(
+                node, children, effective_viewport
+            )
+
             filtered_children = []
             for child in children:
                 filtered_child = _filter_ui_tree_comprehensive(
@@ -312,6 +326,7 @@ def _filter_ui_tree_comprehensive(
                     viewport,
                     parent_visible=True,
                     parent_minimized=is_minimized,
+                    effective_viewport=child_effective_viewport,
                 )
                 if filtered_child is not None:
                     filtered_children.append(filtered_child)
@@ -319,6 +334,152 @@ def _filter_ui_tree_comprehensive(
                 filtered["children"] = filtered_children
 
     return filtered
+
+
+def _compute_child_viewport(
+    node: dict,
+    children: list,
+    current_viewport: dict,
+) -> dict:
+    """
+    Compute the effective viewport for children of a node.
+
+    If the node is a scrollable container (has scrollbar child, or explicit
+    scrollable/overflow property), the effective viewport is clipped to the
+    container's bounds and adjusted for scroll position.
+
+    Args:
+        node: The parent node.
+        children: The node's children.
+        current_viewport: The current effective viewport.
+
+    Returns:
+        The effective viewport for children.
+    """
+    bounds = node.get("bounds")
+    if not bounds:
+        return current_viewport
+
+    # Detect if this is a scrollable container
+    is_scrollable = _is_scrollable_container(node, children)
+
+    if not is_scrollable:
+        return current_viewport
+
+    # Get scroll position (default to 0)
+    scroll_y = _get_scroll_position(node, children)
+
+    # Compute the visible area of this container
+    # The container's bounds define what's visible
+    container_viewport = {
+        "x": bounds.get("x", 0),
+        "y": bounds.get("y", 0),
+        "width": bounds.get("width", current_viewport.get("width", 1920)),
+        "height": bounds.get("height", current_viewport.get("height", 1080)),
+    }
+
+    # Intersect with current viewport to get effective viewport
+    return _intersect_viewports(current_viewport, container_viewport)
+
+
+def _is_scrollable_container(node: dict, children: list) -> bool:
+    """
+    Determine if a node is a scrollable container.
+
+    A node is scrollable if it has:
+    - A scrollbar child
+    - scrollable=true property
+    - overflow property set to scroll/auto
+    - role/tag indicating scrollable content (main, article, etc. with bounds)
+    """
+    # Explicit scrollable property
+    if node.get("scrollable"):
+        return True
+
+    # Overflow property
+    overflow = node.get("overflow", "")
+    if overflow in ("scroll", "auto", "hidden"):
+        return True
+
+    # Check for scrollbar child
+    for child in children:
+        if isinstance(child, dict):
+            if child.get("tag") == "scrollbar" or child.get("role") == "scrollbar":
+                return True
+
+    # Common scrollable container patterns
+    tag = node.get("tag", "").lower()
+    role = node.get("role", "").lower()
+
+    # Main content areas are typically scrollable
+    if tag in ("main", "article", "section") and node.get("bounds"):
+        return True
+
+    # Browser content area
+    if "content" in node.get("bid", "").lower() and node.get("bounds"):
+        return True
+
+    return False
+
+
+def _get_scroll_position(node: dict, children: list) -> int:
+    """
+    Get the vertical scroll position of a scrollable container.
+
+    Looks for:
+    - scroll_y property on the node
+    - value property on a scrollbar child
+    """
+    # Direct scroll position
+    if "scroll_y" in node:
+        return node.get("scroll_y", 0)
+
+    if "scrollTop" in node:
+        return node.get("scrollTop", 0)
+
+    # Check scrollbar child for position
+    for child in children:
+        if isinstance(child, dict):
+            if child.get("tag") == "scrollbar" or child.get("role") == "scrollbar":
+                return child.get("value", 0)
+
+    return 0
+
+
+def _intersect_viewports(vp1: dict, vp2: dict) -> dict:
+    """
+    Compute the intersection of two viewports.
+
+    Returns the overlapping region, or an empty viewport if no overlap.
+    """
+    # Get bounds of both viewports
+    x1_left = vp1.get("x", 0)
+    y1_top = vp1.get("y", 0)
+    x1_right = x1_left + vp1.get("width", 1920)
+    y1_bottom = y1_top + vp1.get("height", 1080)
+
+    x2_left = vp2.get("x", 0)
+    y2_top = vp2.get("y", 0)
+    x2_right = x2_left + vp2.get("width", 1920)
+    y2_bottom = y2_top + vp2.get("height", 1080)
+
+    # Compute intersection
+    x_left = max(x1_left, x2_left)
+    y_top = max(y1_top, y2_top)
+    x_right = min(x1_right, x2_right)
+    y_bottom = min(y1_bottom, y2_bottom)
+
+    # Check if there's an actual intersection
+    if x_right <= x_left or y_bottom <= y_top:
+        # No intersection - return empty viewport
+        return {"x": 0, "y": 0, "width": 0, "height": 0}
+
+    return {
+        "x": x_left,
+        "y": y_top,
+        "width": x_right - x_left,
+        "height": y_bottom - y_top,
+    }
 
 
 def _is_within_viewport(bounds: dict, viewport: dict) -> bool:

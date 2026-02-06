@@ -86,6 +86,10 @@ from ..experiments.modules.grounding import (
     GroundingStrategy,
     GroundingModule,
 )
+from ..experiments.modules.adversarial import (
+    AdversarialMode,
+    AdversarialModule,
+)
 from ..experiments.modules.prompt_blocks import build_simulator_prompt
 
 logger = logging.getLogger(__name__)
@@ -118,6 +122,7 @@ class SimulatorConfig:
     temporal: TemporalMode = TemporalMode.INSTANT
     uncertainty: UncertaintyMode = UncertaintyMode.DETERMINISTIC
     grounding: GroundingStrategy = GroundingStrategy.LLM_KNOWLEDGE
+    adversarial: AdversarialMode = AdversarialMode.NONE
 
     # Module parameters
     memory_window: int = 5
@@ -128,6 +133,8 @@ class SimulatorConfig:
     verification_strict: bool = False
     uncertainty_min_confidence: float = 0.0
     uncertainty_selection_strategy: str = "most_likely"
+    adversarial_max_consecutive: int = 3
+    adversarial_cooldown: int = 2
 
     # State representation
     state_representation_mode: Optional[str] = None  # full_json, filtered_json, text_axtree, compressed, hybrid
@@ -180,6 +187,7 @@ class SimulatorConfig:
             "temporal": get_value(self.temporal),
             "uncertainty": get_value(self.uncertainty),
             "grounding": get_value(self.grounding),
+            "adversarial": get_value(self.adversarial),
             "memory_window": self.memory_window,
             "memory_recent_steps": self.memory_recent_steps,
             "memory_max_checkpoints": self.memory_max_checkpoints,
@@ -188,6 +196,8 @@ class SimulatorConfig:
             "verification_strict": self.verification_strict,
             "uncertainty_min_confidence": self.uncertainty_min_confidence,
             "uncertainty_selection_strategy": self.uncertainty_selection_strategy,
+            "adversarial_max_consecutive": self.adversarial_max_consecutive,
+            "adversarial_cooldown": self.adversarial_cooldown,
             "state_representation_mode": self.state_representation_mode,
             "include_hidden_state": self.include_hidden_state,
             "include_filesystem": self.include_filesystem,
@@ -245,6 +255,10 @@ class SimulatorConfig:
         if isinstance(grounding, str):
             grounding = GroundingStrategy(grounding)
 
+        adversarial = d.get("adversarial", "none")
+        if isinstance(adversarial, str):
+            adversarial = AdversarialMode(adversarial)
+
         return cls(
             state_output=state_output,
             abstraction=abstraction,
@@ -254,6 +268,7 @@ class SimulatorConfig:
             temporal=temporal,
             uncertainty=uncertainty,
             grounding=grounding,
+            adversarial=adversarial,
             memory_window=d.get("memory_window", 5),
             memory_recent_steps=d.get("memory_recent_steps", 3),
             memory_max_checkpoints=d.get("memory_max_checkpoints", 10),
@@ -262,6 +277,8 @@ class SimulatorConfig:
             verification_strict=d.get("verification_strict", False),
             uncertainty_min_confidence=d.get("uncertainty_min_confidence", 0.0),
             uncertainty_selection_strategy=d.get("uncertainty_selection_strategy", "most_likely"),
+            adversarial_max_consecutive=d.get("adversarial_max_consecutive", 3),
+            adversarial_cooldown=d.get("adversarial_cooldown", 2),
             state_representation_mode=d.get("state_representation_mode"),
             include_hidden_state=d.get("include_hidden_state", True),
             include_filesystem=d.get("include_filesystem", True),
@@ -517,6 +534,7 @@ class Simulator:
         temporal=None,
         uncertainty=None,
         grounding=None,
+        adversarial=None,
         difficulty=None,
         strictness=None,
         domain=None,
@@ -571,6 +589,11 @@ class Simulator:
             if isinstance(grounding, str):
                 grounding = GroundingStrategy(grounding)
             self.sim_config.grounding = grounding
+
+        if adversarial is not None:
+            if isinstance(adversarial, str):
+                adversarial = AdversarialMode(adversarial)
+            self.sim_config.adversarial = adversarial
 
         if difficulty is not None:
             self.sim_config.difficulty_preset = difficulty
@@ -681,6 +704,11 @@ class Simulator:
         self._grounding_module = GroundingModule(
             strategy=self.sim_config.grounding
         )
+        self._adversarial_module = AdversarialModule(
+            mode=self.sim_config.adversarial,
+            max_consecutive_obstacles=self.sim_config.adversarial_max_consecutive,
+            cooldown_steps=self.sim_config.adversarial_cooldown,
+        )
 
         # Collect all modules
         self._modules = [
@@ -692,6 +720,7 @@ class Simulator:
             self._temporal_module,
             self._uncertainty_module,
             self._grounding_module,
+            self._adversarial_module,
         ]
 
     def _load_system_prompt(self) -> str:
@@ -710,6 +739,11 @@ class Simulator:
         # Modular prompt from modules
         else:
             base_prompt = self._build_modular_prompt()
+
+        # Skip difficulty and strictness when adversarial mode is active
+        # (adversarial module already defines obstacle behavior)
+        if self.sim_config.adversarial != AdversarialMode.NONE:
+            return base_prompt
 
         # Append difficulty modifiers
         difficulty_prompt = build_difficulty_prompt(self.difficulty)
@@ -926,6 +960,7 @@ When agent navigates to a path in `hidden_state.task_paths`:
         self._memory_module.reset()
         self._temporal_module.reset()
         self._uncertainty_module.reset()
+        self._adversarial_module.reset()
 
         # Render and apply abstraction
         observation = render_observation(self.current_state)
@@ -1480,6 +1515,7 @@ When agent navigates to a path in `hidden_state.task_paths`:
             "temporal": self.sim_config.temporal.value,
             "uncertainty": self.sim_config.uncertainty.value,
             "grounding": self.sim_config.grounding.value,
+            "adversarial": self.sim_config.adversarial.value,
             "domain": self.sim_config.domain,
         }
 

@@ -80,6 +80,7 @@ class Orchestrator:
         temporal: Optional[str] = None,
         uncertainty: Optional[str] = None,
         grounding: Optional[str] = None,
+        adversarial: Optional[str] = None,
         # Simulator model parameters
         sim_model: Optional[str] = None,
         sim_provider: Optional[str] = None,
@@ -105,6 +106,7 @@ class Orchestrator:
             temporal: Temporal mode.
             uncertainty: Uncertainty mode.
             grounding: Grounding strategy.
+            adversarial: Adversarial mode ("none", "subtle", "deceptive", "hostile").
             sim_model: Simulator LLM model name.
             sim_provider: Simulator LLM provider.
             agent_model: Agent model name.
@@ -148,6 +150,7 @@ class Orchestrator:
             temporal=temporal,
             uncertainty=uncertainty,
             grounding=grounding,
+            adversarial=adversarial,
             llm_model=sim_model,
             llm_provider=sim_provider,
         )
@@ -203,6 +206,7 @@ class Orchestrator:
         temporal: Optional[str] = None,
         uncertainty: Optional[str] = None,
         grounding: Optional[str] = None,
+        adversarial: Optional[str] = None,
         # Simulator model parameters
         sim_model: Optional[str] = None,
         sim_provider: Optional[str] = None,
@@ -248,6 +252,7 @@ class Orchestrator:
             temporal=temporal,
             uncertainty=uncertainty,
             grounding=grounding,
+            adversarial=adversarial,
             sim_model=sim_model,
             sim_provider=sim_provider,
             agent_model=agent_model,
@@ -309,8 +314,12 @@ class Orchestrator:
             print(f"{'='*60}")
             print(f"Simulator Settings:")
             print(f"  Preset: {settings['preset']}")
-            print(f"  Difficulty: {difficulty.preset} (density={difficulty.information_density}, noise={difficulty.signal_noise_ratio}, determinism={difficulty.determinism})")
-            print(f"  Strictness: {settings['strictness']}")
+            # Skip difficulty/strictness display when adversarial is active
+            if settings.get('adversarial') and settings['adversarial'] != 'none':
+                print(f"  Adversarial: {settings['adversarial']} (difficulty/strictness disabled)")
+            else:
+                print(f"  Difficulty: {difficulty.preset} (density={difficulty.information_density}, noise={difficulty.signal_noise_ratio}, determinism={difficulty.determinism})")
+                print(f"  Strictness: {settings['strictness']}")
             print(f"  State Output: {settings['state_output']}")
             print(f"  Model: {settings['model']} ({settings['provider']})")
             print(f"Agent Settings:")
@@ -1019,6 +1028,9 @@ Examples:
     common_parser.add_argument("--grounding", type=str,
                                choices=["llm_knowledge", "example_grounded", "doc_grounded", "trace_grounded"],
                                help="Grounding strategy")
+    common_parser.add_argument("--adversarial", type=str,
+                               choices=["none", "subtle", "deceptive", "hostile"],
+                               help="Adversarial mode (creates realistic obstacles)")
     # Simulator model arguments
     common_parser.add_argument("--sim-model", type=str,
                                help="Simulator model name (e.g., gpt-4o, gemini-1.5-pro)")
@@ -1090,6 +1102,7 @@ Examples:
     temporal = getattr(args, "temporal", None)
     uncertainty = getattr(args, "uncertainty", None)
     grounding = getattr(args, "grounding", None)
+    adversarial = getattr(args, "adversarial", None)
     # Simulator model settings
     sim_model = getattr(args, "sim_model", None)
     sim_provider = getattr(args, "sim_provider", None)
@@ -1111,6 +1124,7 @@ Examples:
         temporal=temporal,
         uncertainty=uncertainty,
         grounding=grounding,
+        adversarial=adversarial,
         sim_model=sim_model,
         sim_provider=sim_provider,
         agent_model=agent_model,
@@ -1202,6 +1216,7 @@ Examples:
                 temporal=args.temporal,
                 uncertainty=args.uncertainty,
                 grounding=args.grounding,
+                adversarial=args.adversarial,
                 sim_model=args.sim_model,
                 sim_provider=args.sim_provider,
                 agent_model=args.agent_model,

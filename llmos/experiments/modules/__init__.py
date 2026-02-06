@@ -54,6 +54,7 @@ Modules:
     - Temporal: Async handling (instant/async-aware/event-driven)
     - Uncertainty: Confidence/probability (deterministic/confidence/probabilistic)
     - Grounding: Knowledge source (llm/examples/docs/traces)
+    - Adversarial: Obstacle generation (none/subtle/deceptive/hostile)
 
 Usage:
     from llmos.experiments.modules import (
@@ -66,6 +67,7 @@ Usage:
         TemporalMode,
         UncertaintyMode,
         GroundingStrategy,
+        AdversarialMode,
     )
 
     sim = ExperimentalSimulator(
@@ -78,6 +80,7 @@ Usage:
         temporal=TemporalMode.INSTANT,
         uncertainty=UncertaintyMode.DETERMINISTIC,
         grounding=GroundingStrategy.LLM_KNOWLEDGE,
+        adversarial=AdversarialMode.SUBTLE,  # Add realistic obstacles
     )
 """
 
@@ -149,6 +152,11 @@ from .grounding import (
     DocumentationRetriever,
     TraceRetriever,
 )
+from .adversarial import (
+    AdversarialMode,
+    AdversarialModule,
+    AdversarialTracker,
+)
 from .prompt_blocks import PromptBlockLibrary, build_simulator_prompt
 from .experimental_simulator import (
     ExperimentalSimulator,
@@ -216,6 +224,10 @@ __all__ = [
     "ExampleRetriever",
     "DocumentationRetriever",
     "TraceRetriever",
+    # Adversarial
+    "AdversarialMode",
+    "AdversarialModule",
+    "AdversarialTracker",
     # Utilities
     "PromptBlockLibrary",
     "build_simulator_prompt",

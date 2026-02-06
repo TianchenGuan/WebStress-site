@@ -21,6 +21,7 @@ from .verification import VerificationMode, VerificationModule
 from .temporal import TemporalMode, TemporalModule
 from .uncertainty import UncertaintyMode, UncertaintyModule
 from .grounding import GroundingStrategy, GroundingModule
+from .adversarial import AdversarialMode, AdversarialModule
 from .prompt_blocks import PromptBlockLibrary, build_simulator_prompt
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,11 @@ class ExperimentalConfig:
     # Grounding
     grounding: GroundingStrategy = GroundingStrategy.LLM_KNOWLEDGE
 
+    # Adversarial
+    adversarial: AdversarialMode = AdversarialMode.NONE
+    adversarial_max_consecutive: int = 3
+    adversarial_cooldown: int = 2
+
     # Domain
     domain: Optional[str] = None  # "web", "desktop", "servicenow"
 
@@ -83,6 +89,9 @@ class ExperimentalConfig:
             "uncertainty_min_confidence": self.uncertainty_min_confidence,
             "uncertainty_selection_strategy": self.uncertainty_selection_strategy,
             "grounding": self.grounding.value,
+            "adversarial": self.adversarial.value,
+            "adversarial_max_consecutive": self.adversarial_max_consecutive,
+            "adversarial_cooldown": self.adversarial_cooldown,
             "domain": self.domain,
         }
 
@@ -106,6 +115,9 @@ class ExperimentalConfig:
             uncertainty_min_confidence=d.get("uncertainty_min_confidence", 0.0),
             uncertainty_selection_strategy=d.get("uncertainty_selection_strategy", "most_likely"),
             grounding=GroundingStrategy(d.get("grounding", "llm_knowledge")),
+            adversarial=AdversarialMode(d.get("adversarial", "none")),
+            adversarial_max_consecutive=d.get("adversarial_max_consecutive", 3),
+            adversarial_cooldown=d.get("adversarial_cooldown", 2),
             domain=d.get("domain"),
         )
 
@@ -154,6 +166,7 @@ class ExperimentalSimulator:
         temporal: TemporalMode = TemporalMode.INSTANT,
         uncertainty: UncertaintyMode = UncertaintyMode.DETERMINISTIC,
         grounding: GroundingStrategy = GroundingStrategy.LLM_KNOWLEDGE,
+        adversarial: AdversarialMode = AdversarialMode.NONE,
         # Module parameters
         memory_window: int = 5,
         memory_recent_steps: int = 3,
@@ -163,6 +176,8 @@ class ExperimentalSimulator:
         verification_strict: bool = False,
         uncertainty_min_confidence: float = 0.0,
         uncertainty_selection_strategy: str = "most_likely",
+        adversarial_max_consecutive: int = 3,
+        adversarial_cooldown: int = 2,
         # Domain knowledge
         domain: Optional[str] = None,
         # Base simulator configuration
@@ -208,6 +223,11 @@ class ExperimentalSimulator:
             selection_strategy=uncertainty_selection_strategy,
         )
         self._grounding_module = GroundingModule(strategy=grounding)
+        self._adversarial_module = AdversarialModule(
+            mode=adversarial,
+            max_consecutive_obstacles=adversarial_max_consecutive,
+            cooldown_steps=adversarial_cooldown,
+        )
 
         # Collect all modules
         self._modules = [
@@ -219,6 +239,7 @@ class ExperimentalSimulator:
             self._temporal_module,
             self._uncertainty_module,
             self._grounding_module,
+            self._adversarial_module,
         ]
 
         # Prompt library
@@ -250,6 +271,7 @@ class ExperimentalSimulator:
             temporal=config.temporal,
             uncertainty=config.uncertainty,
             grounding=config.grounding,
+            adversarial=config.adversarial,
             memory_window=config.memory_window,
             memory_recent_steps=config.memory_recent_steps,
             memory_max_checkpoints=config.memory_max_checkpoints,
@@ -258,6 +280,8 @@ class ExperimentalSimulator:
             verification_strict=config.verification_strict,
             uncertainty_min_confidence=config.uncertainty_min_confidence,
             uncertainty_selection_strategy=config.uncertainty_selection_strategy,
+            adversarial_max_consecutive=config.adversarial_max_consecutive,
+            adversarial_cooldown=config.adversarial_cooldown,
             domain=config.domain,
             config_path=config_path,
             **kwargs,
@@ -297,6 +321,7 @@ class ExperimentalSimulator:
         self._memory_module.reset()
         self._temporal_module.reset()
         self._uncertainty_module.reset()
+        self._adversarial_module.reset()
         self._step_count = 0
         self._instruction = instruction
 
@@ -446,8 +471,13 @@ class ExperimentalSimulator:
                 "temporal": self._temporal_module.mode.value,
                 "uncertainty": self._uncertainty_module.mode.value,
                 "grounding": self._grounding_module.strategy.value,
+                "adversarial": self._adversarial_module.mode.value,
             },
         }
+
+        # Add adversarial stats if active
+        if self._adversarial_module.is_adversarial():
+            info["experimental"]["adversarial_stats"] = self._adversarial_module.get_tracker().get_stats()
 
         # Apply abstraction to observation
         processed_obs = preprocessor.preprocess(observation, context)
@@ -648,6 +678,7 @@ Now predict the state changes that result from this action.
             "temporal": self._temporal_module.mode.value,
             "uncertainty": self._uncertainty_module.mode.value,
             "grounding": self._grounding_module.strategy.value,
+            "adversarial": self._adversarial_module.mode.value,
             "domain": self.domain,
         }
 
@@ -686,6 +717,9 @@ def create_experimental_simulator(
         thorough: Maximum accuracy, full state, chain reasoning
         robust: With constraint verification and uncertainty
         grounded: Example-grounded predictions
+        adversarial_subtle: Realistic obstacles (popups, validation, delays)
+        adversarial_deceptive: Ambiguous UI (similar buttons, misleading labels)
+        adversarial_hostile: Active interference (session timeout, errors)
     """
     presets = {
         "default": ExperimentalConfig(
@@ -739,6 +773,42 @@ def create_experimental_simulator(
             temporal=TemporalMode.INSTANT,
             uncertainty=UncertaintyMode.DETERMINISTIC,
             grounding=GroundingStrategy.EXAMPLE_GROUNDED,
+        ),
+        # Adversarial presets
+        "adversarial_subtle": ExperimentalConfig(
+            state_output=StateOutputMode.DELTA_ONLY,
+            abstraction=AbstractionLevel.FULL_DOM,
+            memory=MemoryMode.ROLLING_WINDOW,
+            reasoning=ReasoningMode.DIRECT,
+            verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.ASYNC_AWARE,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
+            adversarial=AdversarialMode.SUBTLE,
+        ),
+        "adversarial_deceptive": ExperimentalConfig(
+            state_output=StateOutputMode.DELTA_ONLY,
+            abstraction=AbstractionLevel.FULL_DOM,
+            memory=MemoryMode.ROLLING_WINDOW,
+            reasoning=ReasoningMode.DIRECT,
+            verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.INSTANT,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
+            adversarial=AdversarialMode.DECEPTIVE,
+        ),
+        "adversarial_hostile": ExperimentalConfig(
+            state_output=StateOutputMode.DELTA_ONLY,
+            abstraction=AbstractionLevel.FULL_DOM,
+            memory=MemoryMode.ROLLING_WINDOW,
+            reasoning=ReasoningMode.DIRECT,
+            verification=VerificationMode.SCHEMA,
+            temporal=TemporalMode.ASYNC_AWARE,
+            uncertainty=UncertaintyMode.DETERMINISTIC,
+            grounding=GroundingStrategy.LLM_KNOWLEDGE,
+            adversarial=AdversarialMode.HOSTILE,
+            adversarial_max_consecutive=2,  # More aggressive
+            adversarial_cooldown=1,
         ),
     }
 
