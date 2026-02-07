@@ -5,6 +5,7 @@ Evaluates agent performance and provides scores.
 
 import json
 import logging
+from collections import Counter
 from pathlib import Path
 from typing import Any, Optional
 
@@ -22,6 +23,9 @@ class Judge:
     Prioritizes fast programmatic evaluation; falls back to LLM for complex cases.
     """
 
+    MAX_UI_TEXT_FOR_EVAL = 2000
+    MAX_RECENT_HISTORY_FOR_EVAL = 5
+
     def __init__(
         self,
         llm_client: Optional[LLMClient] = None,
@@ -29,6 +33,7 @@ class Judge:
         use_llm: bool = True,
         fast_model: Optional[str] = None,
         provider: Optional[str] = None,
+        config: Optional[dict] = None,
     ):
         """
         Initialize the judge.
@@ -39,15 +44,17 @@ class Judge:
             use_llm: Whether to use LLM for evaluation (disable for speed).
             fast_model: Model name for fast evaluation (overrides config).
             provider: LLM provider to use (overrides config).
+            config: Pre-loaded config dict. If provided, skips file loading.
         """
         self.llm_client = llm_client or LLMClient(config_path)
         self.use_llm = use_llm
 
         # Load config for role-specific settings
-        if config_path is None:
-            config_path = Path(__file__).parent.parent / "config.json"
-        with open(config_path, "r") as f:
-            config = json.load(f)
+        if config is None:
+            if config_path is None:
+                config_path = Path(__file__).parent.parent / "config.json"
+            with open(config_path, "r") as f:
+                config = json.load(f)
 
         self.max_steps_per_episode = config.get("simulator", {}).get("max_steps_per_episode", 50)
 
@@ -481,7 +488,6 @@ Return JSON:
         action_summary = f"{len(history)} actions"
         if action_types:
             # Count action types
-            from collections import Counter
             counts = Counter(action_types)
             action_summary += f": {dict(counts)}"
 
@@ -492,7 +498,7 @@ Return JSON:
             active_tab_summary = f"url={active_tab.get('url','')}, title={active_tab.get('title','')}"
 
         recent_events: list[str] = []
-        for entry in history[-5:]:
+        for entry in history[-self.MAX_RECENT_HISTORY_FOR_EVAL:]:
             for ev in entry.get("events", []) or []:
                 if isinstance(ev, str) and ev:
                     recent_events.append(ev[:200])
@@ -500,8 +506,8 @@ Return JSON:
             recent_events = recent_events[-10:]
 
         ui_text = render_ui_as_text(final_state)
-        if len(ui_text) > 2000:
-            ui_text = ui_text[:2000] + "\n... [truncated]"
+        if len(ui_text) > self.MAX_UI_TEXT_FOR_EVAL:
+            ui_text = ui_text[:self.MAX_UI_TEXT_FOR_EVAL] + "\n... [truncated]"
 
         return f"""Task: {task}
 Result: status={status}, steps={tick}
@@ -510,49 +516,6 @@ Actions: {action_summary}
 RecentEvents: {recent_events}
 UI (text):\n{ui_text}
 Did the agent complete the task?"""
-
-    def _build_evaluation_message(
-        self,
-        instruction: dict,
-        final_state: dict,
-        history: list[dict],
-        initial_state: Optional[dict],
-    ) -> str:
-        """Build the full evaluation message for LLM (legacy, more detailed)."""
-        parts = []
-
-        # Instruction
-        parts.append("## Task Instruction")
-        if instruction:
-            inst_text = instruction.get("instruction", str(instruction))
-            parts.append(inst_text)
-        else:
-            parts.append("(No instruction provided)")
-        parts.append("")
-
-        # Final state summary
-        parts.append("## Final State")
-        state_summary = {
-            "tick": final_state.get("meta", {}).get("tick"),
-            "status": final_state.get("meta", {}).get("status"),
-        }
-        parts.append(f"```json\n{json.dumps(state_summary, indent=2)}\n```")
-        parts.append("")
-
-        # Action history
-        parts.append("## Action History")
-        parts.append(f"Total steps: {len(history)}")
-        if history:
-            parts.append("\nActions taken:")
-            for i, entry in enumerate(history[-10:]):  # Last 10 actions
-                action = entry.get("action", {})
-                thought = entry.get("thought", "")[:50]
-                parts.append(f"{i+1}. {action.get('action_type', '?')}: {thought}...")
-        parts.append("")
-
-        parts.append("Please evaluate the agent's performance.")
-
-        return "\n".join(parts)
 
     def _default_output(self, error_reason: str) -> dict:
         """Generate default output on evaluation error.

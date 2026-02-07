@@ -11,9 +11,9 @@ Each mode provides:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Optional
 
+from ...core.modules.enums import ReasoningMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -21,12 +21,6 @@ from .base import (
     PromptBlock,
     OutputParser,
 )
-
-
-class ReasoningMode(str, Enum):
-    """Available reasoning modes."""
-    DIRECT = "direct"
-    CHAIN = "chain"
 
 
 # =============================================================================

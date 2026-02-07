@@ -12,11 +12,11 @@ Each mode provides:
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Optional
 import copy
 import json
 
+from ...core.modules.enums import VerificationMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -24,14 +24,6 @@ from .base import (
     PromptBlock,
     Verifier,
 )
-
-
-class VerificationMode(str, Enum):
-    """Available verification modes."""
-    NONE = "none"
-    SCHEMA = "schema"
-    CONSTRAINT_CHECK = "constraint_check"
-    BACKWARD = "backward"
 
 
 # =============================================================================

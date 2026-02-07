@@ -12,11 +12,11 @@ Each mode provides:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Optional
 import copy
 import json
 
+from ...core.modules.enums import StateOutputMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -24,13 +24,6 @@ from .base import (
     PromptBlock,
     OutputParser,
 )
-
-
-class StateOutputMode(str, Enum):
-    """Available state output modes."""
-    FULL_STATE = "full_state"
-    DELTA_ONLY = "delta_only"
-    SEMANTIC_DESCRIPTION = "semantic_description"
 
 
 # =============================================================================

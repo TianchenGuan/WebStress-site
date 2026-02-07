@@ -7,6 +7,7 @@ import asyncio
 import concurrent.futures
 import json
 import random
+import re
 import time
 import logging
 from typing import Optional, Union
@@ -40,8 +41,31 @@ def _exponential_backoff_with_jitter(
     return max(0, delay + jitter)
 
 
+def _strip_thinking_tags(text: str) -> str:
+    """Strip <think>...</think> tags (Qwen3 pattern) from response."""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+def _strip_markdown_code_fences(text: str) -> str:
+    """Strip markdown code fences from response."""
+    text = text.strip()
+    if not text.startswith("```"):
+        return text
+
+    lines = text.splitlines()
+    if not lines:
+        return ""
+
+    # Drop leading ``` or ```json
+    lines = lines[1:]
+    # Drop trailing ```
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 class LLMClient:
-    """Unified wrapper for LLM providers (OpenAI, Gemini)."""
+    """Unified wrapper for LLM providers (OpenAI, Gemini, vLLM)."""
 
     def __init__(self, config_path: Optional[str] = None):
         """
@@ -70,6 +94,7 @@ class LLMClient:
         # Lazy-load clients
         self._openai_client = None
         self._gemini_model = None
+        self._vllm_client = None
 
     def _get_openai_client(self):
         """Get or create OpenAI client."""
@@ -106,6 +131,19 @@ class LLMClient:
 
         return self._gemini_model
 
+    def _get_vllm_client(self):
+        """Get or create vLLM client (OpenAI-compatible)."""
+        if self._vllm_client is None:
+            from openai import OpenAI
+
+            vllm_config = self.llm_config.get("vllm", {})
+            base_url = vllm_config.get("base_url", "http://localhost:8000/v1")
+            api_key = vllm_config.get("api_key", "dummy")
+
+            self._vllm_client = OpenAI(base_url=base_url, api_key=api_key)
+
+        return self._vllm_client
+
     def complete(
         self,
         messages: list[dict],
@@ -141,6 +179,10 @@ class LLMClient:
                     response = self._complete_gemini(
                         messages, model_name, json_mode, temperature
                     )
+                elif provider == "vllm":
+                    response = self._complete_vllm(
+                        messages, model_name, json_mode, temperature
+                    )
                 else:
                     raise ValueError(f"Unknown provider: {provider}")
 
@@ -164,6 +206,9 @@ class LLMClient:
                 delay = _exponential_backoff_with_jitter(attempt, base_delay=1.0)
                 logger.debug(f"Retrying after {delay:.2f}s due to error: {e}")
                 time.sleep(delay)
+
+        # Should be unreachable (loop always returns or raises), but be explicit
+        raise RuntimeError("LLM completion failed: exhausted all retries without returning")
 
     async def complete_async(
         self,
@@ -329,21 +374,67 @@ class LLMClient:
 
         return converted
 
+    def _complete_vllm(
+        self,
+        messages: list[dict],
+        model_name: Optional[str],
+        json_mode: bool,
+        temperature: float,
+    ) -> str:
+        """Complete using a vLLM OpenAI-compatible endpoint."""
+        client = self._get_vllm_client()
+        vllm_config = self.llm_config.get("vllm", {})
+        model = model_name or vllm_config.get("default_model", "Qwen/Qwen3-8B")
+
+        kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+
+        # Only request JSON mode if explicitly enabled in config (default: off)
+        if json_mode and vllm_config.get("json_mode", False):
+            kwargs["response_format"] = {"type": "json_object"}
+
+        response = client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
+
     def _parse_json(self, response: str) -> dict:
-        """Parse JSON from response, handling markdown code blocks."""
-        response = response.strip()
+        """
+        Parse JSON from LLM response with best-effort fallback.
 
-        # Handle markdown code blocks
-        if response.startswith("```"):
-            lines = response.split("\n")
-            # Remove first line (```json or ```) and last line (```)
-            if lines[-1].strip() == "```":
-                lines = lines[1:-1]
-            else:
-                lines = lines[1:]
-            response = "\n".join(lines)
+        Handles:
+        - Raw JSON objects/arrays
+        - Markdown fenced code blocks (```json ... ```)
+        - <think>...</think> wrapped JSON (Qwen3 pattern)
+        - JSON embedded in surrounding prose text
+        """
+        candidate = _strip_thinking_tags(response)
+        candidate = _strip_markdown_code_fences(candidate)
 
-        return json.loads(response)
+        if not candidate:
+            raise json.JSONDecodeError("Empty response after stripping", response, 0)
+
+        # Fast path: direct parse
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: scan for first JSON object or array
+        decoder = json.JSONDecoder()
+        for start in range(len(candidate)):
+            if candidate[start] not in "{[":
+                continue
+            try:
+                value, _end = decoder.raw_decode(candidate[start:])
+                return value
+            except json.JSONDecodeError:
+                continue
+
+        raise json.JSONDecodeError(
+            "No valid JSON found in response", response, 0
+        )
 
 
 # Convenience function for quick usage

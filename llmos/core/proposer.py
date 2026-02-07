@@ -29,6 +29,7 @@ class Proposer:
         config_path: Optional[str] = None,
         model_name: Optional[str] = None,
         provider: Optional[str] = None,
+        config: Optional[dict] = None,
     ):
         """
         Initialize the proposer.
@@ -38,14 +39,16 @@ class Proposer:
             config_path: Path to config file.
             model_name: Model to use (overrides config).
             provider: LLM provider to use (overrides config).
+            config: Pre-loaded config dict. If provided, skips file loading.
         """
         self.llm_client = llm_client or LLMClient(config_path)
 
         # Load config
-        if config_path is None:
-            config_path = Path(__file__).parent.parent / "config.json"
-        with open(config_path, "r") as f:
-            config = json.load(f)
+        if config is None:
+            if config_path is None:
+                config_path = Path(__file__).parent.parent / "config.json"
+            with open(config_path, "r") as f:
+                config = json.load(f)
 
         self.proposer_config = config.get("proposer", {})
         self.history_window = self.proposer_config.get("history_window", 10)
@@ -159,6 +162,9 @@ Return a JSON object representing a new task instruction:
             model_name=self.model_name,
             json_mode=True,
         )
+
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected dict from LLM, got {type(response).__name__}")
 
         # Ensure task_id is unique
         if "task_id" not in response or not response["task_id"]:
@@ -289,34 +295,6 @@ Return a JSON object representing a new task instruction:
         parts.append("\nPlease propose a new task that will help the agent improve.")
 
         return "\n".join(parts)
-
-    def _fix_instruction(self, instruction: dict) -> dict:
-        """Fix common issues in generated instructions."""
-        # Ensure required fields
-        if "task_id" not in instruction:
-            instruction["task_id"] = f"task_{uuid.uuid4().hex[:8]}"
-
-        if "instruction" not in instruction:
-            instruction["instruction"] = "Complete the task shown on screen."
-
-        if "initial_state_template" not in instruction:
-            instruction["initial_state_template"] = "desktop"
-
-        # Validate template exists
-        if instruction["initial_state_template"] not in self.templates:
-            instruction["initial_state_template"] = self.templates[0] if self.templates else "desktop"
-
-        return instruction
-
-    def _fallback_task(self) -> dict:
-        """Generate a simple fallback task."""
-        return {
-            "task_id": f"fallback_{uuid.uuid4().hex[:8]}",
-            "instruction": "Click the start button on the desktop.",
-            "initial_state_template": "desktop",
-            "difficulty": "easy",
-            "category": "app_interaction",
-        }
 
     def propose_batch(
         self,

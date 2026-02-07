@@ -275,12 +275,68 @@ def apply_filesystem_update(state: dict, path: str, props: dict) -> bool:
     return True
 
 
+def build_bid_index(tree: dict) -> dict[Any, dict]:
+    """
+    Build a flat index mapping bid -> node for O(1) lookups.
+
+    Args:
+        tree: The UI tree root.
+
+    Returns:
+        Dictionary mapping bid values to their node dicts.
+    """
+    index: dict[Any, dict] = {}
+    _index_tree(tree, index)
+    return index
+
+
+def _index_tree(node: dict, index: dict[Any, dict]) -> None:
+    """Recursively index all nodes by bid."""
+    if not isinstance(node, dict):
+        return
+    bid = node.get("bid")
+    if bid is not None:
+        index[bid] = node
+    for child in node.get("children", []):
+        _index_tree(child, index)
+
+
+def build_parent_index(tree: dict) -> dict[Any, tuple[dict, int]]:
+    """
+    Build a flat index mapping bid -> (parent_node, child_index) for O(1) parent lookups.
+
+    Args:
+        tree: The UI tree root.
+
+    Returns:
+        Dictionary mapping bid values to (parent_node, child_index) tuples.
+    """
+    index: dict[Any, tuple[dict, int]] = {}
+    _parent_index_tree(tree, index)
+    return index
+
+
+def _parent_index_tree(node: dict, index: dict[Any, tuple[dict, int]]) -> None:
+    """Recursively index all nodes' parents."""
+    if not isinstance(node, dict):
+        return
+    children = node.get("children", [])
+    if isinstance(children, list):
+        for i, child in enumerate(children):
+            if isinstance(child, dict):
+                bid = child.get("bid")
+                if bid is not None:
+                    index[bid] = (node, i)
+                _parent_index_tree(child, index)
+
+
 def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
     """
     Apply a list of ID-based operations to the state.
 
     This is the main entry point for patching. It modifies the state in-place
-    and returns it.
+    and returns it. Uses bid indices for O(1) node lookups when processing
+    multiple operations.
 
     Supported operations:
     - update: {"op": "update", "bid": <id>, "props": {...}}
@@ -298,6 +354,18 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
     Returns:
         The modified state (same object, modified in-place).
     """
+    ui_tree = state.get("ui", {})
+
+    # Build indices for O(1) lookups (only if we have UI operations)
+    has_ui_ops = any(
+        isinstance(op, dict) and op.get("op") in ("update", "delete", "append", "insert")
+        for op in state_ops
+    )
+    bid_index = build_bid_index(ui_tree) if has_ui_ops else None
+    parent_index = build_parent_index(ui_tree) if has_ui_ops else None
+    # Track whether indices need rebuilding after structural mutations
+    indices_stale = False
+
     for op in state_ops:
         if not isinstance(op, dict):
             raise TypeError(f"Operation must be dict, got: {type(op)}")
@@ -305,13 +373,58 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
         op_type = op.get("op")
 
         if op_type == "update":
-            apply_update(state, op["bid"], op["props"])
+            bid = op["bid"]
+            node = bid_index.get(bid) if bid_index and not indices_stale else find_node_by_bid(ui_tree, bid)
+            if node is None:
+                logger.warning(f"Node with bid {bid} not found for update")
+            else:
+                for key, value in op["props"].items():
+                    node[key] = value
+                logger.debug(f"Updated node {bid} with props: {op['props']}")
+
         elif op_type == "delete":
-            apply_delete(state, op["bid"])
+            bid = op["bid"]
+            if parent_index and not indices_stale and bid in parent_index:
+                parent, idx = parent_index[bid]
+                del parent["children"][idx]
+                logger.debug(f"Deleted node {bid}")
+            else:
+                apply_delete(state, bid)
+            indices_stale = True  # Structural mutation
+
         elif op_type == "append":
-            apply_append(state, op["parent_bid"], op["node"])
+            parent_bid = op["parent_bid"]
+            parent = bid_index.get(parent_bid) if bid_index and not indices_stale else find_node_by_bid(ui_tree, parent_bid)
+            if parent is None:
+                logger.warning(f"Parent node with bid {parent_bid} not found for append")
+            else:
+                new_node = op["node"]
+                new_bid = new_node.get("bid")
+                if new_bid is not None and bid_index and not indices_stale and new_bid in bid_index:
+                    logger.warning(f"Duplicate bid {new_bid} detected during append")
+                if "children" not in parent:
+                    parent["children"] = []
+                parent["children"].append(new_node)
+                logger.debug(f"Appended new node with bid {new_bid} to parent {parent_bid}")
+            indices_stale = True  # Structural mutation
+
         elif op_type == "insert":
-            apply_insert(state, op["parent_bid"], op["index"], op["node"])
+            parent_bid = op["parent_bid"]
+            parent = bid_index.get(parent_bid) if bid_index and not indices_stale else find_node_by_bid(ui_tree, parent_bid)
+            if parent is None:
+                logger.warning(f"Parent node with bid {parent_bid} not found for insert")
+            else:
+                new_node = op["node"]
+                new_bid = new_node.get("bid")
+                if new_bid is not None and bid_index and not indices_stale and new_bid in bid_index:
+                    logger.warning(f"Duplicate bid {new_bid} detected during insert")
+                if "children" not in parent:
+                    parent["children"] = []
+                idx = max(0, min(op["index"], len(parent["children"])))
+                parent["children"].insert(idx, new_node)
+                logger.debug(f"Inserted new node with bid {new_bid} at index {idx} under parent {parent_bid}")
+            indices_stale = True  # Structural mutation
+
         elif op_type == "hidden_update":
             apply_hidden_update(state, op["key"], op["value"])
         elif op_type == "meta_update":
@@ -320,6 +433,12 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
             apply_filesystem_update(state, op["path"], op["props"])
         else:
             raise ValueError(f"Unknown operation type: {op_type}")
+
+        # Rebuild indices after structural mutations if more UI ops follow
+        if indices_stale and bid_index is not None:
+            bid_index = build_bid_index(ui_tree)
+            parent_index = build_parent_index(ui_tree)
+            indices_stale = False
 
     return state
 

@@ -24,6 +24,9 @@ class Agent:
     Processes observations and generates actions.
     """
 
+    MAX_HISTORY_MESSAGES = 12
+    MAX_FILESYSTEM_DISPLAY = 10
+
     def __init__(
         self,
         llm_client: Optional[LLMClient] = None,
@@ -31,6 +34,7 @@ class Agent:
         model_name: Optional[str] = None,
         provider: Optional[str] = None,
         action_space: Optional[Union[str, ActionSpaceConfig]] = None,
+        config: Optional[dict] = None,
     ):
         """
         Initialize the agent.
@@ -42,14 +46,16 @@ class Agent:
             provider: LLM provider to use (overrides config).
             action_space: Action space preset ("minimal", "standard", "full") or config.
                           Default "minimal" excludes noop and send_msg_to_user.
+            config: Pre-loaded config dict. If provided, skips file loading.
         """
         self.llm_client = llm_client or LLMClient(config_path)
 
         # Load config for role-specific settings
-        if config_path is None:
-            config_path = str(Path(__file__).parent.parent / "config.json")
-        with open(config_path, "r") as f:
-            config = json.load(f)
+        if config is None:
+            if config_path is None:
+                config_path = str(Path(__file__).parent.parent / "config.json")
+            with open(config_path, "r") as f:
+                config = json.load(f)
 
         # Get role-specific LLM settings (params override config)
         llm_config = config.get("llm", {})
@@ -132,7 +138,7 @@ You receive:
             observation: The current observation from the simulator.
 
         Returns:
-            Action dict.
+            Action dict. Falls back to noop on parse/validation failure.
         """
         # Build the user message
         user_message = self._build_user_message(observation)
@@ -155,31 +161,41 @@ You receive:
         # Add current observation
         messages.append({"role": "user", "content": user_message})
 
-        # Call LLM (let errors raise for debugging)
-        response = self.llm_client.complete(
-            messages=messages,
-            model_name=self.model_name,
-            provider=self.provider,
-            json_mode=True,
-        )
+        # Call LLM and parse response, with graceful fallback to noop
+        thought = ""
+        raw_response = None
+        parse_error = None
+        try:
+            response = self.llm_client.complete(
+                messages=messages,
+                model_name=self.model_name,
+                provider=self.provider,
+                json_mode=True,
+            )
 
-        # Extract action (response should be dict from json_mode, but handle str fallback)
-        raw_response = response
-        if isinstance(response, str):
-            response = json.loads(response)  # Let JSONDecodeError raise
+            raw_response = response
+            if isinstance(response, str):
+                response = json.loads(response)
 
-        # Handle list response (LLM sometimes returns [{}] instead of {})
-        if isinstance(response, list):
-            response = response[0] if response else {}
+            # Handle list response (LLM sometimes returns [{}] instead of {})
+            if isinstance(response, list):
+                response = response[0] if response else {}
 
-        # Ensure response is a dict
-        if not isinstance(response, dict):
-            logger.warning(f"Unexpected response type: {type(response)}")
-            response = {}
+            # Ensure response is a dict
+            if not isinstance(response, dict):
+                logger.warning(f"Unexpected response type: {type(response)}")
+                response = {}
 
-        action = self._extract_action(response)
+            thought = response.get("thought", "")
+            action = self._extract_action(response)
 
-        thought = response.get("thought", "") if isinstance(response, dict) else ""
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            parse_error = str(e)
+            logger.warning(f"Agent parse/validation error, falling back to noop: {e}")
+            action = {"action_type": "noop"}
+            if raw_response is not None:
+                raw_str = raw_response if isinstance(raw_response, str) else json.dumps(raw_response)
+                logger.debug(f"Raw response that failed: {raw_str[:500]}")
 
         # Attach LLM data flow for debugging/visualization
         action["_llm_data"] = {
@@ -188,9 +204,11 @@ You receive:
             "model": self.model_name,
             "system_prompt": self.system_prompt,
             "user_message": user_message,
-            "raw_response": raw_response if isinstance(raw_response, str) else json.dumps(raw_response),
+            "raw_response": raw_response if isinstance(raw_response, str) else json.dumps(raw_response) if raw_response is not None else "",
             "thought": thought,
         }
+        if parse_error:
+            action["_llm_data"]["_parse_error"] = parse_error
 
         # Update conversation history (compact + in-format to reinforce JSON-only outputs)
         # Only store the action (not _llm_data) to save tokens and avoid leaking internals.
@@ -204,13 +222,12 @@ You receive:
         )
 
         # Keep history manageable while preserving context.
-        # Strategy: Keep the first turn (2 messages) + last 5 turns (10 messages) = 12 messages max
+        # Strategy: Keep the first turn (2 messages) + last 5 turns (10 messages)
         # This preserves initial context which is critical for multi-step tasks.
-        max_history = 12
-        if len(self.conversation_history) > max_history:
+        if len(self.conversation_history) > self.MAX_HISTORY_MESSAGES:
             # Keep first 2 messages (initial observation + response) + last (max_history - 2) messages
             first_turn = self.conversation_history[:2]
-            recent_messages = self.conversation_history[-(max_history - 2):]
+            recent_messages = self.conversation_history[-(self.MAX_HISTORY_MESSAGES - 2):]
             self.conversation_history = first_turn + recent_messages
 
         return action
@@ -240,7 +257,7 @@ You receive:
         # Add filesystem info
         if "filesystem" in observation and observation["filesystem"]:
             parts.append("### Files")
-            for path, info in list(observation["filesystem"].items())[:10]:
+            for path, info in list(observation["filesystem"].items())[:self.MAX_FILESYSTEM_DISPLAY]:
                 parts.append(f"- {path}")
             parts.append("")
 
@@ -249,7 +266,7 @@ You receive:
         return "\n".join(parts)
 
     def _extract_action(self, response: dict) -> dict:
-        """Extract action from LLM response."""
+        """Extract action from LLM response. Returns noop on validation failure."""
         # Response should have 'action' key
         if "action" in response:
             action = response["action"]
@@ -260,14 +277,16 @@ You receive:
         # Validate action structure
         is_valid, errors = validate_action_complete(action)
         if not is_valid:
-            raise ValueError(f"Invalid action generated: {errors}")
+            logger.warning(f"Invalid action generated, falling back to noop: {errors}")
+            return {"action_type": "noop"}
 
-        # Validate action is in allowed set
+        # Validate action is in allowed set (noop always allowed as internal fallback)
         action_type = action.get("action_type")
-        if action_type not in self.allowed_actions:
-            raise ValueError(
-                f"Action '{action_type}' not in allowed actions: {self.allowed_actions}"
+        if action_type != "noop" and action_type not in self.allowed_actions:
+            logger.warning(
+                f"Action '{action_type}' not in allowed actions: {self.allowed_actions}, falling back to noop"
             )
+            return {"action_type": "noop"}
 
         return action
 

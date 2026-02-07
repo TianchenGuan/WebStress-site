@@ -13,10 +13,10 @@ Each mode provides:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Optional
 import copy
 
+from ...core.modules.enums import TemporalMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -24,13 +24,6 @@ from .base import (
     PromptBlock,
     OutputParser,
 )
-
-
-class TemporalMode(str, Enum):
-    """Available temporal modes."""
-    INSTANT = "instant"
-    ASYNC_AWARE = "async_aware"
-    EVENT_DRIVEN = "event_driven"
 
 
 # =============================================================================

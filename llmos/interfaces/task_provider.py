@@ -159,7 +159,9 @@ class FixedTaskProvider:
     def get_task(self) -> Task:
         if not self._tasks:
             raise StopIteration("No tasks available")
-        task = self._tasks[self._index % len(self._tasks)]
+        if self._index >= len(self._tasks):
+            raise StopIteration("All tasks exhausted")
+        task = self._tasks[self._index]
         self._index += 1
         return task
 

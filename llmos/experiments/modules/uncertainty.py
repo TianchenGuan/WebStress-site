@@ -14,10 +14,10 @@ Each mode provides:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Optional
 import copy
 
+from ...core.modules.enums import UncertaintyMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -25,14 +25,6 @@ from .base import (
     PromptBlock,
     OutputParser,
 )
-
-
-class UncertaintyMode(str, Enum):
-    """Available uncertainty modes."""
-    DETERMINISTIC = "deterministic"
-    WITH_CONFIDENCE = "with_confidence"
-    PROBABILISTIC = "probabilistic"
-    ADMITS_UNCERTAINTY = "admits_uncertainty"
 
 
 # =============================================================================

@@ -53,44 +53,30 @@ from .strictness import (
     build_strictness_prompt,
 )
 
-# Import module components
-from ..experiments.modules.state_output import (
+# Import enums and prompt builder from core.modules (no experiments dependency)
+from .modules.enums import (
     StateOutputMode,
-    StateOutputModule,
-)
-from ..experiments.modules.abstraction import (
     AbstractionLevel,
-    AbstractionModule,
-)
-from ..experiments.modules.memory import (
     MemoryMode,
-    MemoryModule,
-)
-from ..experiments.modules.reasoning import (
     ReasoningMode,
-    ReasoningModule,
-)
-from ..experiments.modules.verification import (
     VerificationMode,
-    VerificationModule,
-)
-from ..experiments.modules.temporal import (
     TemporalMode,
-    TemporalModule,
-)
-from ..experiments.modules.uncertainty import (
     UncertaintyMode,
-    UncertaintyModule,
-)
-from ..experiments.modules.grounding import (
     GroundingStrategy,
-    GroundingModule,
-)
-from ..experiments.modules.adversarial import (
     AdversarialMode,
-    AdversarialModule,
 )
-from ..experiments.modules.prompt_blocks import build_simulator_prompt
+from .modules.prompt_blocks import build_simulator_prompt
+
+# Import module *classes* from experiments (these implement the enums)
+from ..experiments.modules.state_output import StateOutputModule
+from ..experiments.modules.abstraction import AbstractionModule
+from ..experiments.modules.memory import MemoryModule
+from ..experiments.modules.reasoning import ReasoningModule
+from ..experiments.modules.verification import VerificationModule
+from ..experiments.modules.temporal import TemporalModule
+from ..experiments.modules.uncertainty import UncertaintyModule
+from ..experiments.modules.grounding import GroundingModule
+from ..experiments.modules.adversarial import AdversarialModule
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +84,20 @@ logger = logging.getLogger(__name__)
 class SimulatorError(Exception):
     """Exception raised for simulator errors."""
     pass
+
+
+# Mapping of enum field names to (enum_class, default_value) for DRY parsing
+_ENUM_FIELDS: dict[str, tuple[type, str]] = {
+    "state_output": (StateOutputMode, "delta_only"),
+    "abstraction": (AbstractionLevel, "full_dom"),
+    "memory": (MemoryMode, "rolling_window"),
+    "reasoning": (ReasoningMode, "direct"),
+    "verification": (VerificationMode, "schema"),
+    "temporal": (TemporalMode, "instant"),
+    "uncertainty": (UncertaintyMode, "deterministic"),
+    "grounding": (GroundingStrategy, "llm_knowledge"),
+    "adversarial": (AdversarialMode, "none"),
+}
 
 
 # =============================================================================
@@ -222,53 +222,16 @@ class SimulatorConfig:
     @classmethod
     def from_dict(cls, d: dict) -> "SimulatorConfig":
         """Create config from dictionary."""
-        # Parse enum values
-        state_output = d.get("state_output", "delta_only")
-        if isinstance(state_output, str):
-            state_output = StateOutputMode(state_output)
-
-        abstraction = d.get("abstraction", "full_dom")
-        if isinstance(abstraction, str):
-            abstraction = AbstractionLevel(abstraction)
-
-        memory = d.get("memory", "rolling_window")
-        if isinstance(memory, str):
-            memory = MemoryMode(memory)
-
-        reasoning = d.get("reasoning", "direct")
-        if isinstance(reasoning, str):
-            reasoning = ReasoningMode(reasoning)
-
-        verification = d.get("verification", "schema")
-        if isinstance(verification, str):
-            verification = VerificationMode(verification)
-
-        temporal = d.get("temporal", "instant")
-        if isinstance(temporal, str):
-            temporal = TemporalMode(temporal)
-
-        uncertainty = d.get("uncertainty", "deterministic")
-        if isinstance(uncertainty, str):
-            uncertainty = UncertaintyMode(uncertainty)
-
-        grounding = d.get("grounding", "llm_knowledge")
-        if isinstance(grounding, str):
-            grounding = GroundingStrategy(grounding)
-
-        adversarial = d.get("adversarial", "none")
-        if isinstance(adversarial, str):
-            adversarial = AdversarialMode(adversarial)
+        # Parse enum values using shared mapping
+        enum_kwargs = {}
+        for field_name, (enum_cls, default) in _ENUM_FIELDS.items():
+            value = d.get(field_name, default)
+            if isinstance(value, str):
+                value = enum_cls(value)
+            enum_kwargs[field_name] = value
 
         return cls(
-            state_output=state_output,
-            abstraction=abstraction,
-            memory=memory,
-            reasoning=reasoning,
-            verification=verification,
-            temporal=temporal,
-            uncertainty=uncertainty,
-            grounding=grounding,
-            adversarial=adversarial,
+            **enum_kwargs,
             memory_window=d.get("memory_window", 5),
             memory_recent_steps=d.get("memory_recent_steps", 3),
             memory_max_checkpoints=d.get("memory_max_checkpoints", 10),
@@ -550,50 +513,24 @@ class Simulator:
         **kwargs,
     ):
         """Apply parameter overrides to config."""
-        if state_output is not None:
-            if isinstance(state_output, str):
-                state_output = StateOutputMode(state_output)
-            self.sim_config.state_output = state_output
-
-        if abstraction is not None:
-            if isinstance(abstraction, str):
-                abstraction = AbstractionLevel(abstraction)
-            self.sim_config.abstraction = abstraction
-
-        if memory is not None:
-            if isinstance(memory, str):
-                memory = MemoryMode(memory)
-            self.sim_config.memory = memory
-
-        if reasoning is not None:
-            if isinstance(reasoning, str):
-                reasoning = ReasoningMode(reasoning)
-            self.sim_config.reasoning = reasoning
-
-        if verification is not None:
-            if isinstance(verification, str):
-                verification = VerificationMode(verification)
-            self.sim_config.verification = verification
-
-        if temporal is not None:
-            if isinstance(temporal, str):
-                temporal = TemporalMode(temporal)
-            self.sim_config.temporal = temporal
-
-        if uncertainty is not None:
-            if isinstance(uncertainty, str):
-                uncertainty = UncertaintyMode(uncertainty)
-            self.sim_config.uncertainty = uncertainty
-
-        if grounding is not None:
-            if isinstance(grounding, str):
-                grounding = GroundingStrategy(grounding)
-            self.sim_config.grounding = grounding
-
-        if adversarial is not None:
-            if isinstance(adversarial, str):
-                adversarial = AdversarialMode(adversarial)
-            self.sim_config.adversarial = adversarial
+        # Apply enum overrides using shared mapping
+        local_vars = {
+            "state_output": state_output,
+            "abstraction": abstraction,
+            "memory": memory,
+            "reasoning": reasoning,
+            "verification": verification,
+            "temporal": temporal,
+            "uncertainty": uncertainty,
+            "grounding": grounding,
+            "adversarial": adversarial,
+        }
+        for field_name, (enum_cls, _default) in _ENUM_FIELDS.items():
+            value = local_vars[field_name]
+            if value is not None:
+                if isinstance(value, str):
+                    value = enum_cls(value)
+                setattr(self.sim_config, field_name, value)
 
         if difficulty is not None:
             self.sim_config.difficulty_preset = difficulty
@@ -1128,15 +1065,17 @@ When agent navigates to a path in `hidden_state.task_paths`:
 
         # Update memory
         history_manager = self._memory_module.get_history_manager()
+        # Use shallow copies for step record (sufficient since values are
+        # not mutated after recording, and avoids expensive deep copies)
         step_record = {
             "tick": self.current_state["meta"]["tick"],
             "step": self._step_count,
-            "action": copy.deepcopy(action_for_history),
+            "action": dict(action_for_history),
             "thought": thought,
-            "state_ops": copy.deepcopy(state_ops),
-            "events": copy.deepcopy(events),
-            "agent_llm_data": copy.deepcopy(agent_llm_data),
-            "simulator_llm_data": copy.deepcopy(llm_response.get("_llm_data", {})),
+            "state_ops": list(state_ops),
+            "events": list(events),
+            "agent_llm_data": dict(agent_llm_data),
+            "simulator_llm_data": dict(llm_response.get("_llm_data", {})),
         }
         history_manager.add_step(step_record)
         self.history.append(step_record)
@@ -1173,11 +1112,11 @@ When agent navigates to a path in `hidden_state.task_paths`:
 
         self.history.append({
             "tick": self.current_state["meta"]["tick"],
-            "action": copy.deepcopy(action_for_history),
+            "action": dict(action_for_history),
             "thought": "",
             "state_ops": [],
-            "events": copy.deepcopy(events),
-            "agent_llm_data": copy.deepcopy(agent_llm_data),
+            "events": list(events),
+            "agent_llm_data": dict(agent_llm_data),
             "simulator_llm_data": {},
         })
 
@@ -1462,17 +1401,37 @@ When agent navigates to a path in `hidden_state.task_paths`:
     # State Access
     # =========================================================================
 
-    def get_state(self) -> dict:
-        """Get current full state."""
-        return copy.deepcopy(self.current_state) if self.current_state else {}
+    def get_state(self, copy: bool = True) -> dict:
+        """Get current full state.
+
+        Args:
+            copy: If True (default), return a deep copy. If False, return
+                  a reference for read-only access (faster, but mutations
+                  will affect simulator state).
+        """
+        if not self.current_state:
+            return {}
+        if copy:
+            import copy as _copy
+            return _copy.deepcopy(self.current_state)
+        return self.current_state
 
     def get_observation(self) -> dict:
         """Get current observation."""
         return self._get_observation()
 
-    def get_history(self) -> list[dict]:
-        """Get action history."""
-        return copy.deepcopy(self.history)
+    def get_history(self, copy: bool = True) -> list[dict]:
+        """Get action history.
+
+        Args:
+            copy: If True (default), return a deep copy. If False, return
+                  a reference for read-only access (faster, but mutations
+                  will affect simulator history).
+        """
+        if copy:
+            import copy as _copy
+            return _copy.deepcopy(self.history)
+        return self.history
 
     def get_config(self) -> SimulatorConfig:
         """Get current configuration."""

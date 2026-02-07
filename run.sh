@@ -38,8 +38,10 @@ source .venv/bin/activate
 #   --uncertainty         Uncertainty: deterministic, with_confidence, probabilistic, admits_uncertainty
 #   --grounding           Grounding: llm_knowledge, example_grounded, doc_grounded, trace_grounded
 #   # Agent
-#   --agent-model         Agent model name (e.g., gpt-4o, gemini-1.5-pro, gpt-4o-mini)
-#   --agent-provider      Agent provider: openai, gemini
+#   --agent-model         Agent model name (e.g., gpt-4o, gemini-1.5-pro, Qwen/Qwen3-8B)
+#   --agent-provider      Agent provider: openai, gemini, vllm
+#   --sim-model           Simulator model name
+#   --sim-provider        Simulator provider: openai, gemini, vllm
 #
 # python -m llmos.main curriculum
 #   --episodes, -n        Number of episodes (default: 10)
@@ -193,6 +195,64 @@ source .venv/bin/activate
 
 # Human agent mode (you control the agent interactively)
 # python -m llmos.main run --task "Open the file manager" --human
+
+# =============================================================================
+# vLLM LOCAL MODEL EXAMPLES
+# =============================================================================
+# Use a local model via vLLM as the agent while keeping an API model as simulator.
+# Requires a running vLLM server (configure base_url in config.json under llm.vllm).
+#
+# Start vLLM server first:
+#   python -m vllm.entrypoints.openai.api_server \
+#       --model Qwen/Qwen3-8B --port 8000
+#
+# Or for Llama:
+#   python -m vllm.entrypoints.openai.api_server \
+#       --model meta-llama/Llama-3.1-8B-Instruct --port 8000
+
+# Qwen3-8B agent with Gemini simulator
+# python -m llmos.main run \
+#     --task "Click the Settings button" \
+#     --agent-provider vllm \
+#     --agent-model Qwen/Qwen3-8B \
+#     --sim-provider gemini \
+#     --sim-model gemini-3-flash-preview
+
+# Llama-3.1 agent with Gemini simulator
+# python -m llmos.main run \
+#     --task "Click the Settings button" \
+#     --agent-provider vllm \
+#     --agent-model meta-llama/Llama-3.1-8B-Instruct \
+#     --sim-provider gemini \
+#     --sim-model gemini-3-flash-preview
+
+# Fine-tuned model evaluation (after RL training with Tinker)
+# python -m llmos.main run \
+#     --task "Fill out the form" \
+#     --template form \
+#     --difficulty hard \
+#     --agent-provider vllm \
+#     --agent-model /path/to/finetuned-model \
+#     --sim-provider gemini \
+#     --sim-model gemini-3-flash-preview
+
+# Benchmark a local model (vLLM agent + API simulator)
+# python -m llmos.main benchmark workarena \
+#     --episodes 10 \
+#     --agent-provider vllm \
+#     --agent-model Qwen/Qwen3-8B \
+#     --sim-provider gemini \
+#     --sim-model gemini-3-flash-preview \
+#     --difficulty hard \
+#     --strictness strict
+
+# vLLM as both agent AND simulator (fully local, no API keys needed)
+# python -m llmos.main run \
+#     --task "Open Chrome" \
+#     --agent-provider vllm \
+#     --agent-model Qwen/Qwen3-8B \
+#     --sim-provider vllm \
+#     --sim-model Qwen/Qwen3-8B
 
 # =============================================================================
 # CURRICULUM LEARNING EXAMPLES

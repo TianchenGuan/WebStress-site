@@ -192,45 +192,6 @@ def _collect_displayed_paths(node: dict, paths: set) -> None:
         _collect_displayed_paths(child, paths)
 
 
-def _filter_ui_tree(node: dict) -> Optional[dict]:
-    """
-    Recursively filter the UI tree (basic version).
-
-    - Removes nodes with visible: false
-    - Preserves tree structure otherwise
-
-    Args:
-        node: A UI tree node.
-
-    Returns:
-        Filtered node or None if node should be hidden.
-    """
-    if not isinstance(node, dict):
-        return node
-
-    # Check if node is visible
-    if not node.get("visible", True):
-        return None
-
-    # Copy node
-    filtered = {}
-    for key, value in node.items():
-        if key == "children":
-            # Recursively filter children
-            if isinstance(value, list):
-                filtered_children = []
-                for child in value:
-                    filtered_child = _filter_ui_tree(child)
-                    if filtered_child is not None:
-                        filtered_children.append(filtered_child)
-                if filtered_children:
-                    filtered["children"] = filtered_children
-        else:
-            filtered[key] = value
-
-    return filtered
-
-
 def _filter_ui_tree_comprehensive(
     node: dict,
     viewport: dict,

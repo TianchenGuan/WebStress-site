@@ -11,22 +11,14 @@ The key constraint: every obstacle must be realistic and explainable.
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
+from ...core.modules.enums import AdversarialMode
 from .base import (
     Module,
     BasePromptBlock,
     PromptBlock,
 )
-
-
-class AdversarialMode(str, Enum):
-    """Available adversarial modes."""
-    NONE = "none"
-    SUBTLE = "subtle"
-    DECEPTIVE = "deceptive"
-    HOSTILE = "hostile"
 
 
 # =============================================================================

@@ -14,11 +14,11 @@ Each mode provides:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Callable, Optional
 import copy
 import re
 
+from ...core.modules.enums import AbstractionLevel
 from .base import (
     Module,
     BasePromptBlock,
@@ -26,15 +26,6 @@ from .base import (
     PromptBlock,
     StatePreprocessor,
 )
-
-
-class AbstractionLevel(str, Enum):
-    """Available abstraction levels."""
-    FULL_DOM = "full_dom"
-    SEMANTIC_ELEMENTS = "semantic_elements"
-    TASK_RELEVANT = "task_relevant"
-    VIEWPORT_ONLY = "viewport_only"
-    INTERACTIVE_ONLY = "interactive_only"
 
 
 # =============================================================================

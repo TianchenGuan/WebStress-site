@@ -14,23 +14,15 @@ Each mode provides:
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Optional
 import json
 
+from ...core.modules.enums import GroundingStrategy
 from .base import (
     Module,
     BasePromptBlock,
     PromptBlock,
 )
-
-
-class GroundingStrategy(str, Enum):
-    """Available grounding strategies."""
-    LLM_KNOWLEDGE = "llm_knowledge"
-    EXAMPLE_GROUNDED = "example_grounded"
-    DOC_GROUNDED = "doc_grounded"
-    TRACE_GROUNDED = "trace_grounded"
 
 
 # =============================================================================

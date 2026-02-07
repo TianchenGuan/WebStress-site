@@ -13,11 +13,11 @@ Each mode provides:
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Optional
 import copy
 import json
 
+from ...core.modules.enums import MemoryMode
 from .base import (
     Module,
     BasePromptBlock,
@@ -25,14 +25,6 @@ from .base import (
     PromptBlock,
     HistoryManager,
 )
-
-
-class MemoryMode(str, Enum):
-    """Available memory modes."""
-    FULL_HISTORY = "full_history"
-    ROLLING_WINDOW = "rolling_window"
-    SUMMARIZED = "summarized"
-    CHECKPOINTS = "checkpoints"
 
 
 # =============================================================================

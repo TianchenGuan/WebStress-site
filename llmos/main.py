@@ -3,15 +3,11 @@ Main Orchestrator for LLMOS.
 Provides CLI interface and episode/curriculum loops.
 """
 
-import argparse
-import asyncio
 import copy
 import json
 import logging
-import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
@@ -154,8 +150,8 @@ class Orchestrator:
             llm_model=sim_model,
             llm_provider=sim_provider,
         )
-        self.judge = Judge(self.llm_client, config_path)
-        self.proposer = Proposer(self.llm_client, config_path)
+        self.judge = Judge(self.llm_client, config_path, config=self.config)
+        self.proposer = Proposer(self.llm_client, config_path, config=self.config)
 
         # Set up benchmark interfaces if provided
         self._task_provider: Optional["TaskProvider"] = None
@@ -287,6 +283,7 @@ class Orchestrator:
                 action_space=self.action_space,
                 model_name=self.agent_model,
                 provider=self.agent_provider,
+                config=self.config,
             )
 
         # Get template and reset
@@ -441,6 +438,7 @@ class Orchestrator:
                 action_space=self.action_space,
                 model_name=self.agent_model,
                 provider=self.agent_provider,
+                config=self.config,
             )
 
         # Determine if we should auto-adjust difficulty
@@ -567,6 +565,7 @@ class Orchestrator:
                 action_space=self.action_space,
                 model_name=self.agent_model,
                 provider=self.agent_provider,
+                config=self.config,
             )
 
         # Determine number of episodes
@@ -734,7 +733,7 @@ class Orchestrator:
             "sim_provider": self.simulator.sim_config.llm_provider,
             "agent_model": self.agent_model,
             "agent_provider": self.agent_provider,
-            "benchmark_name": self.benchmark.name if self.benchmark else None,
+            "benchmark": self.benchmark,
             "runs_dir": str(self.runs_dir),
         }
 
@@ -745,7 +744,7 @@ class Orchestrator:
 
         def run_single_episode(task_obj: "Task") -> dict:
             """Worker function to run a single episode."""
-            # Create fresh orchestrator for this worker
+            # Create fresh orchestrator for this worker, preserving benchmark config
             worker_orchestrator = Orchestrator(
                 config_path=worker_config["config_path"],
                 difficulty=worker_config["difficulty"],
@@ -756,6 +755,7 @@ class Orchestrator:
                 sim_provider=worker_config["sim_provider"],
                 agent_model=worker_config["agent_model"],
                 agent_provider=worker_config["agent_provider"],
+                benchmark=worker_config["benchmark"],
             )
             worker_orchestrator.runs_dir = Path(worker_config["runs_dir"])
 
@@ -766,6 +766,7 @@ class Orchestrator:
                 action_space=worker_config["action_space"],
                 model_name=worker_config["agent_model"],
                 provider=worker_config["agent_provider"],
+                config=worker_orchestrator.config,
             )
 
             instruction = task_obj.to_dict()
@@ -783,7 +784,7 @@ class Orchestrator:
                 completed_count[0] += 1
                 if verbose:
                     task_id = instruction.get("task_id", "unknown")
-                    status = "✓" if result["success"] else "✗"
+                    status = "[OK]" if result["success"] else "[FAIL]"
                     print(f"[{completed_count[0]}/{len(tasks_to_run)}] {task_id}: {status} (score: {result['score']:.2f})")
 
             return result
@@ -959,317 +960,9 @@ class Orchestrator:
 
 
 def main():
-    """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="LLMOS - LLM-based Operating System Simulator",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Run a single episode with a custom task
-  python -m llmos.main run --task "Click the Settings button"
-
-  # Run with specific simulator difficulty
-  python -m llmos.main run --task "Click Settings" --difficulty hard
-
-  # Run curriculum learning
-  python -m llmos.main curriculum --episodes 10
-
-  # Run curriculum with auto-adjusting difficulty
-  python -m llmos.main curriculum --episodes 20 --auto-adjust
-
-  # Run with human agent for debugging
-  python -m llmos.main run --task "Navigate to Documents" --human
-
-  # Use a specific template
-  python -m llmos.main run --task "Fill out the form" --template form
-
-  # Run a benchmark
-  python -m llmos.main benchmark workarena --episodes 10
-
-  # Run benchmark with specific options
-  python -m llmos.main benchmark workarena --episodes 5 --max-tasks 20 --shuffle
-"""
-    )
-
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
-
-    # Shared parent parser for common arguments (simulator, agent, model settings)
-    common_parser = argparse.ArgumentParser(add_help=False)
-    common_parser.add_argument("--difficulty", "-d", type=str, choices=["easy", "medium", "hard", "expert"],
-                               help="Simulator difficulty level")
-    common_parser.add_argument("--strictness", "-s", type=str, choices=["lenient", "moderate", "strict"],
-                               default="strict", help="Simulator strictness level")
-    common_parser.add_argument("--action-space", type=str, choices=["minimal", "full"],
-                               default="minimal", help="Agent action space")
-    common_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
-    # Simulator module arguments
-    common_parser.add_argument("--preset", type=str, choices=["classic", "default", "efficient", "thorough"],
-                               help="Simulator preset")
-    common_parser.add_argument("--state-output", type=str,
-                               choices=["full_state", "delta_only", "semantic_description"],
-                               help="State output mode")
-    common_parser.add_argument("--abstraction", type=str,
-                               choices=["full_dom", "semantic_elements", "task_relevant", "viewport_only", "interactive_only"],
-                               help="Abstraction level")
-    common_parser.add_argument("--memory", type=str,
-                               choices=["full_history", "rolling_window", "summarized", "checkpoints"],
-                               help="Memory mode")
-    common_parser.add_argument("--reasoning", type=str, choices=["direct", "chain"],
-                               help="Reasoning mode")
-    common_parser.add_argument("--verification", type=str,
-                               choices=["none", "schema", "constraint_check", "backward"],
-                               help="Verification mode")
-    common_parser.add_argument("--temporal", type=str,
-                               choices=["instant", "async_aware", "event_driven"],
-                               help="Temporal mode")
-    common_parser.add_argument("--uncertainty", type=str,
-                               choices=["deterministic", "with_confidence", "probabilistic", "admits_uncertainty"],
-                               help="Uncertainty mode")
-    common_parser.add_argument("--grounding", type=str,
-                               choices=["llm_knowledge", "example_grounded", "doc_grounded", "trace_grounded"],
-                               help="Grounding strategy")
-    common_parser.add_argument("--adversarial", type=str,
-                               choices=["none", "subtle", "deceptive", "hostile"],
-                               help="Adversarial mode (creates realistic obstacles)")
-    # Simulator model arguments
-    common_parser.add_argument("--sim-model", type=str,
-                               help="Simulator model name (e.g., gpt-4o, gemini-1.5-pro)")
-    common_parser.add_argument("--sim-provider", type=str, choices=["openai", "gemini"],
-                               help="Simulator LLM provider")
-    # Agent model arguments
-    common_parser.add_argument("--agent-model", type=str,
-                               help="Agent model name (e.g., gpt-4o, gemini-1.5-pro)")
-    common_parser.add_argument("--agent-provider", type=str, choices=["openai", "gemini"],
-                               help="Agent LLM provider")
-
-    # Run command
-    run_parser = subparsers.add_parser("run", help="Run a single episode", parents=[common_parser])
-    run_parser.add_argument("--task", "-t", type=str, help="Task instruction")
-    run_parser.add_argument("--task-file", "-f", type=str, help="JSON file with task instruction")
-    run_parser.add_argument("--template", type=str, default="desktop", help="Initial state template")
-    run_parser.add_argument("--task-difficulty", type=str, choices=["easy", "medium", "hard", "expert"],
-                            help="Task metadata difficulty (defaults to the simulator difficulty)")
-    run_parser.add_argument("--human", action="store_true", help="Use human agent")
-    run_parser.add_argument("--no-save", action="store_true", help="Don't save episode")
-
-    # Curriculum command
-    curr_parser = subparsers.add_parser("curriculum", help="Run curriculum learning", parents=[common_parser])
-    curr_parser.add_argument("--episodes", "-n", type=int, default=10, help="Number of episodes")
-    curr_parser.add_argument("--tasks-file", type=str, help="JSON file with initial tasks")
-    curr_parser.add_argument("--auto-adjust", action="store_true",
-                             help="Auto-adjust difficulty based on performance")
-
-    # Benchmark command
-    bench_parser = subparsers.add_parser("benchmark", help="Run a benchmark evaluation", parents=[common_parser])
-    bench_parser.add_argument("name", type=str, help="Benchmark name (e.g., workarena, webarena)")
-    bench_parser.add_argument("--episodes", "-n", type=int, help="Number of episodes (default: all tasks)")
-    bench_parser.add_argument("--max-tasks", type=int, help="Maximum tasks to load from benchmark")
-    bench_parser.add_argument("--shuffle", action="store_true", help="Shuffle task order")
-    bench_parser.add_argument("--seed", type=int, help="Random seed for shuffling")
-    bench_parser.add_argument("--filter", type=str, nargs="+", help="Filter tasks by name patterns")
-    bench_parser.add_argument("--auto-adjust", action="store_true",
-                              help="Auto-adjust difficulty based on performance")
-    bench_parser.add_argument("--parallel", "-p", action="store_true",
-                              help="Run episodes in parallel")
-    bench_parser.add_argument("--workers", "-w", type=int, default=4,
-                              help="Number of parallel workers (default: 4)")
-    bench_parser.add_argument("--human", action="store_true", help="Use human agent")
-
-    # Config command
-    config_parser = subparsers.add_parser("config", help="Show or edit configuration")
-    config_parser.add_argument("--show", action="store_true", help="Show current config")
-
-    # List benchmarks command
-    list_parser = subparsers.add_parser("list-benchmarks", help="List available benchmarks")
-
-    args = parser.parse_args()
-
-    if args.command is None:
-        parser.print_help()
-        return
-
-    # Get settings from args if available
-    difficulty = getattr(args, "difficulty", None)
-    strictness = getattr(args, "strictness", "strict")
-    action_space = getattr(args, "action_space", "minimal")
-    # Simulator module settings
-    preset = getattr(args, "preset", None)
-    state_output = getattr(args, "state_output", None)
-    abstraction = getattr(args, "abstraction", None)
-    memory = getattr(args, "memory", None)
-    reasoning = getattr(args, "reasoning", None)
-    verification = getattr(args, "verification", None)
-    temporal = getattr(args, "temporal", None)
-    uncertainty = getattr(args, "uncertainty", None)
-    grounding = getattr(args, "grounding", None)
-    adversarial = getattr(args, "adversarial", None)
-    # Simulator model settings
-    sim_model = getattr(args, "sim_model", None)
-    sim_provider = getattr(args, "sim_provider", None)
-    # Agent settings
-    agent_model = getattr(args, "agent_model", None)
-    agent_provider = getattr(args, "agent_provider", None)
-
-    # Initialize orchestrator
-    orchestrator = Orchestrator(
-        difficulty=difficulty,
-        strictness=strictness,
-        action_space=action_space,
-        preset=preset,
-        state_output=state_output,
-        abstraction=abstraction,
-        memory=memory,
-        reasoning=reasoning,
-        verification=verification,
-        temporal=temporal,
-        uncertainty=uncertainty,
-        grounding=grounding,
-        adversarial=adversarial,
-        sim_model=sim_model,
-        sim_provider=sim_provider,
-        agent_model=agent_model,
-        agent_provider=agent_provider,
-    )
-    logging_cfg = orchestrator.config.get("logging", {})
-    _configure_logging(
-        logging_cfg.get("level", "INFO"),
-        third_party_level=logging_cfg.get("third_party_level", "WARNING"),
-        silence_loggers=logging_cfg.get("silence_loggers"),
-    )
-
-    if args.command == "run":
-        # Build instruction
-        if args.task_file:
-            with open(args.task_file, "r") as f:
-                instruction = json.load(f)
-        elif args.task:
-            task_difficulty = args.task_difficulty or orchestrator.simulator.get_difficulty().preset
-            instruction = {
-                "task_id": f"cli_task_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                "instruction": args.task,
-                "initial_state_template": args.template,
-                "difficulty": task_difficulty,
-                "category": "general",
-            }
-        else:
-            print("Error: Must specify --task or --task-file")
-            sys.exit(1)
-
-        # Create agent
-        agent = HumanAgent() if args.human else None
-
-        # Run
-        result = orchestrator.run_episode(
-            instruction=instruction,
-            agent=agent,
-            save=not args.no_save,
-            verbose=not args.quiet,
-        )
-
-        # Exit with appropriate code
-        sys.exit(0 if result["success"] else 1)
-
-    elif args.command == "curriculum":
-        # Load initial tasks if provided
-        initial_tasks = None
-        if args.tasks_file:
-            with open(args.tasks_file, "r") as f:
-                initial_tasks = json.load(f)
-
-        # Run curriculum
-        results = orchestrator.run_curriculum(
-            num_episodes=args.episodes,
-            initial_tasks=initial_tasks,
-            verbose=not args.quiet,
-            auto_adjust_difficulty=args.auto_adjust,
-        )
-
-        # Exit with success rate
-        success_rate = sum(1 for r in results if r["success"]) / len(results) if results else 0
-        sys.exit(0 if success_rate >= 0.5 else 1)
-
-    elif args.command == "benchmark":
-        # Build benchmark kwargs from args
-        benchmark_kwargs = {
-            "shuffle": args.shuffle,
-        }
-        if args.max_tasks:
-            benchmark_kwargs["max_tasks"] = args.max_tasks
-        if args.seed:
-            benchmark_kwargs["seed"] = args.seed
-        if args.filter:
-            benchmark_kwargs["task_filter"] = args.filter
-
-        # Create orchestrator with benchmark
-        try:
-            orchestrator = Orchestrator.from_benchmark(
-                args.name,
-                difficulty=args.difficulty,
-                strictness=args.strictness,
-                action_space=args.action_space,
-                preset=args.preset,
-                state_output=args.state_output,
-                abstraction=args.abstraction,
-                memory=args.memory,
-                reasoning=args.reasoning,
-                verification=args.verification,
-                temporal=args.temporal,
-                uncertainty=args.uncertainty,
-                grounding=args.grounding,
-                adversarial=args.adversarial,
-                sim_model=args.sim_model,
-                sim_provider=args.sim_provider,
-                agent_model=args.agent_model,
-                agent_provider=args.agent_provider,
-                **benchmark_kwargs,
-            )
-        except (ValueError, NotImplementedError) as e:
-            print(f"Error: {e}")
-            sys.exit(1)
-
-        # Configure logging
-        logging_cfg = orchestrator.config.get("logging", {})
-        _configure_logging(
-            logging_cfg.get("level", "INFO"),
-            third_party_level=logging_cfg.get("third_party_level", "WARNING"),
-            silence_loggers=logging_cfg.get("silence_loggers"),
-        )
-
-        # Run benchmark (parallel or sequential)
-        if args.parallel:
-            if args.human:
-                print("Error: --human mode not supported with --parallel")
-                sys.exit(1)
-            results = orchestrator.run_benchmark_parallel(
-                num_episodes=args.episodes,
-                num_workers=args.workers,
-                verbose=not args.quiet,
-            )
-        else:
-            # Create agent
-            agent = HumanAgent() if args.human else None
-            results = orchestrator.run_benchmark(
-                num_episodes=args.episodes,
-                agent=agent,
-                verbose=not args.quiet,
-                auto_adjust_difficulty=args.auto_adjust,
-            )
-
-        # Exit with success rate
-        success_rate = sum(1 for r in results if r["success"]) / len(results) if results else 0
-        sys.exit(0 if success_rate >= 0.5 else 1)
-
-    elif args.command == "list-benchmarks":
-        print("Available benchmarks:")
-        print("  workarena    - WorkArena L1 benchmark for ServiceNow web agent tasks")
-        print("  webarena     - (not yet implemented)")
-        print("  osworld      - (not yet implemented)")
-        print("  miniwob      - (not yet implemented)")
-        sys.exit(0)
-
-    elif args.command == "config":
-        if args.show:
-            print(json.dumps(orchestrator.config, indent=2))
+    """CLI entry point. Delegates to llmos.cli.main()."""
+    from .cli import main as cli_main
+    cli_main()
 
 
 if __name__ == "__main__":
