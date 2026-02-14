@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Orientation Portal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.6;
+    }
+
+    /* -- Header ---------------------------------------------------------- */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+    .header-steps {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: #86868b;
+    }
+    .header-steps .active { color: #0071e3; font-weight: 600; }
+
+    /* -- Page wrapper ---------------------------------------------------- */
+    .page-wrapper {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* -- Card ------------------------------------------------------------ */
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .card h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .card h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .card .subtitle {
+      font-size: 14px;
+      color: #6e6e73;
+      margin-bottom: 20px;
+    }
+
+    /* -- Progress bar ---------------------------------------------------- */
+    .progress-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 28px;
+    }
+    .progress-step {
+      flex: 1;
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      transition: background .3s;
+    }
+    .progress-step.completed { background: #0071e3; }
+    .progress-step.active { background: #80b9f1; }
+
+    /* -- Quiz ------------------------------------------------------------ */
+    .question-block {
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .question-block:last-of-type {
+      border-bottom: none;
+    }
+    .question-text {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .question-number {
+      color: #0071e3;
+      font-weight: 700;
+    }
+    .answer-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .answer-options label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .answer-options label:hover {
+      background: #f0f7ff;
+      border-color: #0071e3;
+    }
+    .answer-options input[type="radio"] {
+      accent-color: #0071e3;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* -- Score display --------------------------------------------------- */
+    .score-display {
+      display: none;
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #2e7d32;
+    }
+    .score-display.visible { display: block; }
+
+    /* -- Buttons --------------------------------------------------------- */
+    .btn-primary {
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .15s;
+      display: inline-block;
+    }
+    .btn-primary:hover { background: #005bb5; }
+    .btn-primary:active { background: #004a94; }
+    .btn-primary:disabled {
+      background: #b0b0b0;
+      cursor: not-allowed;
+    }
+
+    /* -- Module content -------------------------------------------------- */
+    .module-content {
+      display: none;
+    }
+    .module-content.visible { display: block; }
+    .module-content h2 {
+      margin-bottom: 16px;
+    }
+    .module-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 16px;
+    }
+    .badge-beginner { background: #fff3e0; color: #e65100; }
+    .badge-intermediate { background: #e3f2fd; color: #1565c0; }
+    .badge-advanced { background: #f3e5f5; color: #7b1fa2; }
+    .module-text {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+
+    /* -- Assessment ------------------------------------------------------ */
+    .assessment-section {
+      display: none;
+    }
+    .assessment-section.visible { display: block; }
+    .assessment-input {
+      padding: 10px 14px;
+      font-size: 15px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      width: 260px;
+      margin-right: 12px;
+    }
+    .assessment-input:focus {
+      outline: none;
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+    }
+    .assessment-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    #assessment-result {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      display: none;
+    }
+    #assessment-result.visible { display: block; }
+    #assessment-result.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    #assessment-result.failure {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    /* -- Phase visibility ------------------------------------------------ */
+    .phase { display: none; }
+    .phase.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Orientation Portal</div>
+  <div class="header-steps">
+    <span class="active" id="step-quiz">1. Quiz</span>
+    <span id="step-module">2. Module</span>
+    <span id="step-assessment">3. Assessment</span>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="page-wrapper">
+
+  <!-- Progress bar -->
+  <div class="progress-bar">
+    <div class="progress-step active" id="prog-1"></div>
+    <div class="progress-step" id="prog-2"></div>
+    <div class="progress-step" id="prog-3"></div>
+  </div>
+
+  <!-- ============================================================
+       PHASE 1: Skill Assessment Quiz
+       ============================================================ -->
+  <div class="phase visible" id="phase-quiz">
+    <div class="card">
+      <h1>Employee Orientation</h1>
+      <p class="subtitle">Skill Assessment &mdash; Answer the following questions to determine your module track.</p>
+
+      <!-- Q1 -->
+      <div class="question-block">
+        <div class="question-text"><span class="question-number">Q1.</span> What does HTML stand for?</div>
+        <div class="answer-options">
+          <label><input type="radio" name="q1" value="a"> Hyper Text Markup Language</label>
+          <label><input type="radio" name="q1" value="b"> High Tech Modern Language</label>
+          <label><input type="radio" name="q1" value="c"> Hyper Transfer Markup Logic</label>
+          <label><input type="radio" name="q1" value="d"> Home Tool Markup Language</label>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="question-block">
+        <div class="question-text"><span class="question-number">Q2.</span> Which CSS property controls text size?</div>
+        <div class="answer-options">
+          <label><input type="radio" name="q2" value="a"> text-style</label>
+          <label><input type="radio" name="q2" value="b"> font-weight</label>
+          <label><input type="radio" name="q2" value="c"> font-size</label>
+          <label><input type="radio" name="q2" value="d"> text-size</label>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="question-block">
+        <div class="question-text"><span class="question-number">Q3.</span> What does API stand for?</div>
+        <div class="answer-options">
+          <label><input type="radio" name="q3" value="a"> Application Programming Interface</label>
+          <label><input type="radio" name="q3" value="b"> Advanced Program Integration</label>
+          <label><input type="radio" name="q3" value="c"> Automated Protocol Interface</label>
+          <label><input type="radio" name="q3" value="d"> Application Process Integration</label>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="question-block">
+        <div class="question-text"><span class="question-number">Q4.</span> Which HTTP method is used to submit form data?</div>
+        <div class="answer-options">
+          <label><input type="radio" name="q4" value="a"> GET</label>
+          <label><input type="radio" name="q4" value="b"> POST</label>
+          <label><input type="radio" name="q4" value="c"> PUT</label>
+          <label><input type="radio" name="q4" value="d"> DELETE</label>
+        </div>
+      </div>
+
+      <!-- Score display -->
+      <div class="score-display" id="score-display"></div>
+
+      <div style="margin-top: 20px;">
+        <button class="btn-primary" id="btn-submit-quiz">Submit Quiz</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PHASE 2: Module Assignment
+       ============================================================ -->
+  <div class="phase" id="phase-module">
+    <div class="card">
+
+      <!-- Beginner Module -->
+      <div class="module-content" id="module-beginner">
+        <span class="module-badge badge-beginner">Beginner Track</span>
+        <h2>Beginner Module: Web Fundamentals</h2>
+        <p class="module-text">Welcome to the Beginner track. This module covers fundamental web concepts that form the foundation of modern web development. You will learn about HTML structure, including semantic elements and document flow, as well as basic CSS styling techniques such as the box model, selectors, and layout principles. The introductory JavaScript section walks you through variables, functions, and DOM manipulation.</p>
+        <p class="module-text">As you progress through the material, remember your access key code ALPHA-7 which you will need for the final assessment. We recommend completing each section sequentially, as later exercises build on concepts from earlier chapters. Interactive coding challenges are embedded throughout each lesson to reinforce your understanding of core principles.</p>
+        <p class="module-text">The module concludes with a capstone project where you will build a simple personal portfolio page from scratch. This project ties together everything you have learned about document structure, visual styling, and basic interactivity. Estimated completion time for the full Beginner module is approximately four hours, though you may move at your own pace.</p>
+      </div>
+
+      <!-- Intermediate Module -->
+      <div class="module-content" id="module-intermediate">
+        <span class="module-badge badge-intermediate">Intermediate Track</span>
+        <h2>Intermediate Module: Applied Web Development</h2>
+        <p class="module-text">Welcome to the Intermediate track. This module builds on core web development skills and prepares you for real-world project work. Topics include responsive design patterns using CSS Grid and Flexbox, REST API integration with fetch and async/await, and front-end state management strategies. You will also explore component-based architecture and reusable UI pattern libraries that are standard across our engineering teams.</p>
+        <p class="module-text">Keep note of your module key code BETA-42 as it will be required to complete your orientation assessment. Throughout this module, you will work with realistic data sets and mock API endpoints that mirror our production services. Each section includes guided exercises followed by open-ended challenges designed to encourage experimentation and deeper exploration of the concepts.</p>
+        <p class="module-text">Advanced topics in this track include authentication flows, client-side routing, and performance profiling with browser developer tools. The capstone assignment asks you to build a small dashboard application that fetches data from a REST API and presents it in a responsive, accessible interface. Estimated completion time is six to eight hours depending on prior experience.</p>
+      </div>
+
+      <!-- Advanced Module -->
+      <div class="module-content" id="module-advanced">
+        <span class="module-badge badge-advanced">Advanced Track</span>
+        <h2>Advanced Module: Modern Web Architecture</h2>
+        <p class="module-text">Welcome to the Advanced track. This module covers cutting-edge web technologies including WebAssembly for compute-intensive browser applications, service workers for offline-first progressive web apps, and micro-frontend architecture for scaling large engineering organizations. You will examine case studies from production systems and analyze trade-offs between different architectural patterns that our teams have adopted over the past two years.</p>
+        <p class="module-text">Your assessment key code is GAMMA-99 and you will need this to complete the orientation. The module dives deep into build tooling and module federation, exploring how independently deployed front-end applications can compose into a cohesive user experience. You will also study advanced performance optimization techniques including tree-shaking, code splitting, lazy hydration, and edge-side rendering.</p>
+        <p class="module-text">The final section addresses observability and reliability engineering for front-end systems, covering structured logging, real-user monitoring, error boundaries, and graceful degradation strategies. Your capstone project involves designing and prototyping a micro-frontend architecture with shared state management and independent deployment pipelines. Estimated completion time is eight to ten hours.</p>
+      </div>
+
+      <div style="margin-top: 24px;">
+        <button class="btn-primary" id="btn-proceed-assessment">Proceed to Assessment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PHASE 3: Final Assessment
+       ============================================================ -->
+  <div class="phase" id="phase-assessment">
+    <div class="card">
+      <h2>Final Assessment</h2>
+      <p class="subtitle">Enter the key code from your assigned module to complete the orientation.</p>
+
+      <label for="key-code-input" style="font-size:14px; font-weight:600; display:block; margin-bottom:8px;">Enter your module key code:</label>
+      <div class="assessment-row">
+        <input type="text" id="key-code-input" class="assessment-input" placeholder="e.g. ALPHA-7" autocomplete="off">
+        <button class="btn-primary" id="btn-submit-assessment">Submit Assessment</button>
+      </div>
+
+      <div id="assessment-result"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Benchmark harness -->
+<script src="/static/benchmark.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // -- Page ID ----------------------------------------------------------
+  window.__benchmarkState.pageId = "session_content";
+
+  // -- State ------------------------------------------------------------
+  var quizScore   = 0;
+  var moduleLevel = "";
+  var correctCode = "";
+
+  // Correct answers: Q1=a, Q2=c, Q3=a, Q4=b
+  var correctAnswers = { q1: "a", q2: "c", q3: "a", q4: "b" };
+
+  var keyCodes = {
+    beginner: "ALPHA-7",
+    intermediate: "BETA-42",
+    advanced: "GAMMA-99"
+  };
+
+  // -- Element refs -----------------------------------------------------
+  var phaseQuiz       = document.getElementById("phase-quiz");
+  var phaseModule     = document.getElementById("phase-module");
+  var phaseAssessment = document.getElementById("phase-assessment");
+  var scoreDisplay    = document.getElementById("score-display");
+  var btnSubmitQuiz   = document.getElementById("btn-submit-quiz");
+  var btnProceed      = document.getElementById("btn-proceed-assessment");
+  var btnSubmitAssess = document.getElementById("btn-submit-assessment");
+  var keyCodeInput    = document.getElementById("key-code-input");
+  var assessmentResult = document.getElementById("assessment-result");
+
+  var stepQuiz       = document.getElementById("step-quiz");
+  var stepModule     = document.getElementById("step-module");
+  var stepAssessment = document.getElementById("step-assessment");
+  var prog1          = document.getElementById("prog-1");
+  var prog2          = document.getElementById("prog-2");
+  var prog3          = document.getElementById("prog-3");
+
+  var moduleBeginner     = document.getElementById("module-beginner");
+  var moduleIntermediate = document.getElementById("module-intermediate");
+  var moduleAdvanced     = document.getElementById("module-advanced");
+
+  // -- Helpers ----------------------------------------------------------
+  function getAnswer(name) {
+    var radios = document.querySelectorAll('input[name="' + name + '"]');
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) return radios[i].value;
+    }
+    return null;
+  }
+
+  function setActiveStep(step) {
+    stepQuiz.classList.remove("active");
+    stepModule.classList.remove("active");
+    stepAssessment.classList.remove("active");
+    if (step >= 1) stepQuiz.classList.add("active");
+    if (step >= 2) stepModule.classList.add("active");
+    if (step >= 3) stepAssessment.classList.add("active");
+
+    prog1.className = "progress-step" + (step >= 1 ? " completed" : "");
+    prog2.className = "progress-step" + (step >= 2 ? " completed" : step === 1 ? "" : "");
+    prog3.className = "progress-step" + (step >= 3 ? " completed" : "");
+
+    if (step === 2) prog2.classList.add("active");
+    if (step === 3) prog3.classList.add("active");
+  }
+
+  // -- Phase 1: Quiz submit ---------------------------------------------
+  btnSubmitQuiz.addEventListener("click", function () {
+    quizScore = 0;
+    for (var q in correctAnswers) {
+      if (getAnswer(q) === correctAnswers[q]) quizScore++;
+    }
+
+    // Determine module level
+    if (quizScore <= 1) {
+      moduleLevel = "beginner";
+    } else if (quizScore <= 3) {
+      moduleLevel = "intermediate";
+    } else {
+      moduleLevel = "advanced";
+    }
+
+    correctCode = keyCodes[moduleLevel];
+
+    // Show score
+    scoreDisplay.textContent = "You scored " + quizScore + " out of 4. You have been assigned to the " + moduleLevel.charAt(0).toUpperCase() + moduleLevel.slice(1) + " Module.";
+    scoreDisplay.classList.add("visible");
+
+    // Disable quiz button
+    btnSubmitQuiz.disabled = true;
+    btnSubmitQuiz.textContent = "Quiz Submitted";
+
+    // After a brief delay, transition to Phase 2
+    setTimeout(function () {
+      phaseQuiz.classList.remove("visible");
+      phaseModule.classList.add("visible");
+      setActiveStep(2);
+
+      // Show only the assigned module
+      if (moduleLevel === "beginner") {
+        moduleBeginner.classList.add("visible");
+      } else if (moduleLevel === "intermediate") {
+        moduleIntermediate.classList.add("visible");
+      } else {
+        moduleAdvanced.classList.add("visible");
+      }
+    }, 1500);
+
+    window.__benchmarkUpdate({
+      quiz_completed: true,
+      quiz_score: quizScore,
+      module_level: moduleLevel
+    });
+    window.__benchmarkLog("quiz_submitted_score_" + quizScore);
+  });
+
+  // -- Phase 2: Proceed to assessment -----------------------------------
+  btnProceed.addEventListener("click", function () {
+    phaseModule.classList.remove("visible");
+    phaseAssessment.classList.add("visible");
+    setActiveStep(3);
+    window.__benchmarkLog("proceeded_to_assessment");
+  });
+
+  // -- Phase 3: Submit assessment ---------------------------------------
+  btnSubmitAssess.addEventListener("click", function () {
+    var enteredCode = keyCodeInput.value.trim().toUpperCase();
+    var isCorrect   = enteredCode === correctCode.toUpperCase();
+
+    assessmentResult.classList.add("visible");
+    assessmentResult.classList.remove("success", "failure");
+
+    if (isCorrect) {
+      assessmentResult.classList.add("success");
+      assessmentResult.textContent = "\u2705 Correct! Orientation complete.";
+    } else {
+      assessmentResult.classList.add("failure");
+      assessmentResult.textContent = "\u274C Incorrect key code. Please review your assigned module.";
+    }
+
+    window.__benchmarkComplete(isCorrect, {
+      assessment_submitted: true,
+      key_code_entered: enteredCode,
+      key_code_correct: isCorrect,
+      quiz_score: quizScore,
+      module_level: moduleLevel
+    });
+    window.__benchmarkLog("assessment_submitted_" + (isCorrect ? "correct" : "incorrect"));
+  });
+
+  // -- Initial state ----------------------------------------------------
+  setActiveStep(1);
+
+})();
+</script>
+
+</body>
+</html>

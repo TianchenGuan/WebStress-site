@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Directory — Filter Dashboard</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            line-height: 1.5;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 20px 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        header p {
+            font-size: 13px;
+            color: #a8b2d1;
+            margin-top: 4px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        /* ── Quick Filter Presets ─────────────────────────────────── */
+        .presets {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid #d0d5dd;
+            border-radius: 20px;
+            background: #fff;
+            color: #344054;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .preset-btn:hover {
+            background: #e8ecf4;
+            border-color: #98a2b3;
+        }
+
+        .preset-btn:active,
+        .preset-btn.active {
+            background: #1a1a2e;
+            color: #fff;
+            border-color: #1a1a2e;
+        }
+
+        /* ── Filter Bar ──────────────────────────────────────────── */
+        .filter-bar {
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: 10px;
+            padding: 20px 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667085;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group select,
+        .filter-group input[type="number"] {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #d0d5dd;
+            border-radius: 6px;
+            background: #fff;
+            color: #344054;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .filter-group select:focus,
+        .filter-group input[type="number"]:focus {
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74,108,247,0.12);
+        }
+
+        .sort-order-btn {
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid #d0d5dd;
+            border-radius: 6px;
+            background: #fff;
+            color: #344054;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .sort-order-btn:hover {
+            background: #f2f4f7;
+        }
+
+        /* ── Summary Row ─────────────────────────────────────────── */
+        .summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .showing-count {
+            font-size: 14px;
+            color: #667085;
+        }
+
+        .showing-count strong {
+            color: #1a1a2e;
+        }
+
+        /* ── Table ───────────────────────────────────────────────── */
+        .table-wrapper {
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f9fafb;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667085;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e4e7ec;
+        }
+
+        td {
+            padding: 12px 16px;
+            font-size: 14px;
+            color: #344054;
+            border-bottom: 1px solid #f2f4f7;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        tbody tr:hover {
+            background: #eef1f8;
+        }
+
+        td.salary {
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 16px;
+            color: #98a2b3;
+            font-size: 15px;
+        }
+
+        /* ── Report Section ──────────────────────────────────────── */
+        .report-section {
+            margin-top: 24px;
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: 10px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        .report-section h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1a1a2e;
+        }
+
+        .report-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .report-row label {
+            font-size: 14px;
+            color: #344054;
+        }
+
+        .report-row input[type="number"] {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #d0d5dd;
+            border-radius: 6px;
+            width: 100px;
+            outline: none;
+        }
+
+        .report-row input[type="number"]:focus {
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74,108,247,0.12);
+        }
+
+        .submit-btn {
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            background: #4a6cf7;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .submit-btn:hover {
+            background: #3b5de7;
+        }
+
+        .submit-btn:active {
+            background: #2f4ed6;
+        }
+
+        #count-display {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #344054;
+            min-height: 20px;
+        }
+
+        #count-display:empty {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Employee Directory</h1>
+    <p>Filter, sort, and report on the company's workforce</p>
+</header>
+
+<div class="container">
+
+    <!-- Quick Filter Presets -->
+    <div class="presets">
+        <button class="preset-btn" id="preset-sf-eng" type="button">SF Engineers</button>
+        <button class="preset-btn" id="preset-remote" type="button">All Remote</button>
+        <button class="preset-btn" id="preset-leadership" type="button">Leadership</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label for="filter-department">Department</label>
+            <select id="filter-department">
+                <option value="All">All</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Sales">Sales</option>
+                <option value="Marketing">Marketing</option>
+                <option value="HR">HR</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="filter-location">Location</label>
+            <select id="filter-location">
+                <option value="All">All</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="filter-title">Title</label>
+            <select id="filter-title">
+                <option value="All">All</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="filter-min-salary">Min Salary</label>
+            <input type="number" id="filter-min-salary" placeholder="e.g. 100000" min="0" step="1000">
+        </div>
+
+        <div class="filter-group">
+            <label for="filter-sort-by">Sort By</label>
+            <select id="filter-sort-by">
+                <option value="Name">Name</option>
+                <option value="Salary">Salary</option>
+                <option value="Department">Department</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Sort Order</label>
+            <button class="sort-order-btn" id="filter-sort-order" type="button">Asc &#8593;</button>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-row">
+        <span class="showing-count" id="showing-count">Showing <strong>16</strong> of 16 employees</span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Location</th>
+                    <th>Title</th>
+                    <th>Salary</th>
+                </tr>
+            </thead>
+            <tbody id="employee-tbody"></tbody>
+        </table>
+        <div class="no-results" id="no-results" style="display:none;">No employees match the current filters.</div>
+    </div>
+
+    <!-- Report Section -->
+    <div class="report-section">
+        <h3>Report Matching Count</h3>
+        <div class="report-row">
+            <label for="report-count">Report matching count:</label>
+            <input type="number" id="report-count" min="0" placeholder="0">
+            <button class="submit-btn" id="report-submit" type="button">Submit</button>
+        </div>
+        <div id="count-display"></div>
+    </div>
+
+</div>
+
+<script src="/static/benchmark.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    // ── Benchmark init ──────────────────────────────────────────────────
+    window.__benchmarkState.pageId = "filter_dashboard";
+
+    // ── Employee data ───────────────────────────────────────────────────
+    const EMPLOYEES = [
+        { name: "Alice Chen", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 185000 },
+        { name: "Bob Kim", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 178000 },
+        { name: "Carlos Lopez", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 165000 },
+        { name: "Diana Patel", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 192000 },
+        { name: "Eve Johnson", department: "Engineering", location: "San Francisco", title: "Junior Engineer", salary: 95000 },
+        { name: "Frank Wu", department: "Engineering", location: "New York", title: "Senior Engineer", salary: 188000 },
+        { name: "Grace Lee", department: "Engineering", location: "New York", title: "Junior Engineer", salary: 92000 },
+        { name: "Henry Davis", department: "Engineering", location: "Austin", title: "Staff Engineer", salary: 210000 },
+        { name: "Irene Martinez", department: "Sales", location: "New York", title: "Senior Sales Rep", salary: 145000 },
+        { name: "Jack Brown", department: "Sales", location: "Chicago", title: "Sales Manager", salary: 160000 },
+        { name: "Karen Wilson", department: "Sales", location: "San Francisco", title: "Sales Rep", salary: 85000 },
+        { name: "Leo Thompson", department: "Marketing", location: "San Francisco", title: "Marketing Manager", salary: 155000 },
+        { name: "Maria Garcia", department: "Marketing", location: "Remote", title: "Content Lead", salary: 130000 },
+        { name: "Nathan Scott", department: "HR", location: "San Francisco", title: "HR Director", salary: 175000 },
+        { name: "Olivia Adams", department: "HR", location: "New York", title: "HR Coordinator", salary: 72000 },
+        { name: "Peter Chang", department: "Engineering", location: "Remote", title: "Senior Engineer", salary: 172000 },
+    ];
+
+    // ── DOM references ──────────────────────────────────────────────────
+    const elDepartment  = document.getElementById("filter-department");
+    const elLocation    = document.getElementById("filter-location");
+    const elTitle       = document.getElementById("filter-title");
+    const elMinSalary   = document.getElementById("filter-min-salary");
+    const elSortBy      = document.getElementById("filter-sort-by");
+    const elSortOrder   = document.getElementById("filter-sort-order");
+    const elTbody       = document.getElementById("employee-tbody");
+    const elCount       = document.getElementById("showing-count");
+    const elNoResults   = document.getElementById("no-results");
+    const elReportInput = document.getElementById("report-count");
+    const elReportBtn   = document.getElementById("report-submit");
+    const elCountDisplay = document.getElementById("count-display");
+
+    // Preset buttons
+    const btnSFEng      = document.getElementById("preset-sf-eng");
+    const btnRemote     = document.getElementById("preset-remote");
+    const btnLeadership = document.getElementById("preset-leadership");
+
+    // ── State ───────────────────────────────────────────────────────────
+    let sortOrder = "asc"; // "asc" or "desc"
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    /** Return unique sorted values of a field from a list of employees. */
+    function uniqueSorted(list, field) {
+        var seen = {};
+        var result = [];
+        for (var i = 0; i < list.length; i++) {
+            var v = list[i][field];
+            if (!seen[v]) {
+                seen[v] = true;
+                result.push(v);
+            }
+        }
+        result.sort();
+        return result;
+    }
+
+    /** Populate a <select> with "All" + given values, preserving selection if still valid. */
+    function populateSelect(selectEl, values, preserveValue) {
+        var prev = preserveValue !== undefined ? preserveValue : selectEl.value;
+        selectEl.innerHTML = "";
+        var optAll = document.createElement("option");
+        optAll.value = "All";
+        optAll.textContent = "All";
+        selectEl.appendChild(optAll);
+        for (var i = 0; i < values.length; i++) {
+            var opt = document.createElement("option");
+            opt.value = values[i];
+            opt.textContent = values[i];
+            selectEl.appendChild(opt);
+        }
+        // Restore previous value if it still exists, otherwise "All"
+        var found = false;
+        for (var j = 0; j < selectEl.options.length; j++) {
+            if (selectEl.options[j].value === prev) {
+                found = true;
+                break;
+            }
+        }
+        selectEl.value = found ? prev : "All";
+    }
+
+    /** Get employees filtered by department only (for populating dependent dropdowns). */
+    function employeesInDepartment(dept) {
+        if (dept === "All") return EMPLOYEES;
+        return EMPLOYEES.filter(function (e) { return e.department === dept; });
+    }
+
+    /** Format salary as $XXX,XXX. */
+    function fmtSalary(n) {
+        return "$" + n.toLocaleString("en-US");
+    }
+
+    // ── Update dependent dropdowns ──────────────────────────────────────
+
+    function updateLocationOptions(resetToAll) {
+        var dept = elDepartment.value;
+        var subset = employeesInDepartment(dept);
+        var locations = uniqueSorted(subset, "location");
+        populateSelect(elLocation, locations, resetToAll ? "All" : undefined);
+    }
+
+    function updateTitleOptions(resetToAll) {
+        var dept = elDepartment.value;
+        var subset = employeesInDepartment(dept);
+        var titles = uniqueSorted(subset, "title");
+        populateSelect(elTitle, titles, resetToAll ? "All" : undefined);
+    }
+
+    // ── Reset sort to defaults ──────────────────────────────────────────
+
+    function resetSort() {
+        elSortBy.value = "Name";
+        sortOrder = "asc";
+        elSortOrder.textContent = "Asc \u2191";
+    }
+
+    // ── Apply filters and render ────────────────────────────────────────
+
+    function applyFilters() {
+        var dept     = elDepartment.value;
+        var loc      = elLocation.value;
+        var title    = elTitle.value;
+        var minSal   = elMinSalary.value.trim();
+        var sortByVal = elSortBy.value;
+
+        // Filter
+        var results = EMPLOYEES.filter(function (e) {
+            if (dept !== "All" && e.department !== dept) return false;
+            if (loc !== "All" && e.location !== loc) return false;
+            if (title !== "All" && e.title !== title) return false;
+            if (minSal !== "" && e.salary < parseInt(minSal, 10)) return false;
+            return true;
+        });
+
+        // Sort
+        var sortKey;
+        if (sortByVal === "Name") sortKey = "name";
+        else if (sortByVal === "Salary") sortKey = "salary";
+        else if (sortByVal === "Department") sortKey = "department";
+        else sortKey = "name";
+
+        results.sort(function (a, b) {
+            var av = a[sortKey];
+            var bv = b[sortKey];
+            var cmp;
+            if (typeof av === "number") {
+                cmp = av - bv;
+            } else {
+                cmp = av.localeCompare(bv);
+            }
+            return sortOrder === "asc" ? cmp : -cmp;
+        });
+
+        // Render
+        renderTable(results);
+
+        // Update benchmark state
+        window.__benchmarkUpdate({
+            visible_count: results.length,
+            filters_applied: {
+                department: dept,
+                location: loc,
+                title: title,
+                min_salary: minSal === "" ? null : parseInt(minSal, 10),
+                sort_by: sortByVal,
+                sort_order: sortOrder,
+            },
+        });
+
+        window.__benchmarkLog("filter_applied", {
+            department: dept,
+            location: loc,
+            title: title,
+            min_salary: minSal,
+            sort_by: sortByVal,
+            sort_order: sortOrder,
+            result_count: results.length,
+        });
+    }
+
+    function renderTable(results) {
+        elTbody.innerHTML = "";
+        if (results.length === 0) {
+            elNoResults.style.display = "";
+        } else {
+            elNoResults.style.display = "none";
+        }
+
+        for (var i = 0; i < results.length; i++) {
+            var e = results[i];
+            var tr = document.createElement("tr");
+
+            var tdName = document.createElement("td");
+            tdName.textContent = e.name;
+            tr.appendChild(tdName);
+
+            var tdDept = document.createElement("td");
+            tdDept.textContent = e.department;
+            tr.appendChild(tdDept);
+
+            var tdLoc = document.createElement("td");
+            tdLoc.textContent = e.location;
+            tr.appendChild(tdLoc);
+
+            var tdTitle = document.createElement("td");
+            tdTitle.textContent = e.title;
+            tr.appendChild(tdTitle);
+
+            var tdSal = document.createElement("td");
+            tdSal.className = "salary";
+            tdSal.textContent = fmtSalary(e.salary);
+            tr.appendChild(tdSal);
+
+            elTbody.appendChild(tr);
+        }
+
+        elCount.innerHTML = "Showing <strong>" + results.length + "</strong> of " + EMPLOYEES.length + " employees";
+    }
+
+    // ── Event listeners ─────────────────────────────────────────────────
+
+    // Department change: reset Location and Title to "All", reset sort
+    elDepartment.addEventListener("change", function () {
+        updateLocationOptions(true);
+        updateTitleOptions(true);
+        resetSort();
+        applyFilters();
+        clearPresetHighlights();
+    });
+
+    // Location change: reset sort
+    elLocation.addEventListener("change", function () {
+        resetSort();
+        applyFilters();
+        clearPresetHighlights();
+    });
+
+    // Title change: reset sort
+    elTitle.addEventListener("change", function () {
+        resetSort();
+        applyFilters();
+        clearPresetHighlights();
+    });
+
+    // Min salary change: reset sort
+    elMinSalary.addEventListener("input", function () {
+        resetSort();
+        applyFilters();
+        clearPresetHighlights();
+    });
+
+    // Sort by change (sort controls do NOT reset sort themselves)
+    elSortBy.addEventListener("change", function () {
+        applyFilters();
+    });
+
+    // Sort order toggle
+    elSortOrder.addEventListener("click", function () {
+        if (sortOrder === "asc") {
+            sortOrder = "desc";
+            elSortOrder.textContent = "Desc \u2193";
+        } else {
+            sortOrder = "asc";
+            elSortOrder.textContent = "Asc \u2191";
+        }
+        applyFilters();
+    });
+
+    // ── Preset buttons ──────────────────────────────────────────────────
+
+    function clearPresetHighlights() {
+        btnSFEng.classList.remove("active");
+        btnRemote.classList.remove("active");
+        btnLeadership.classList.remove("active");
+    }
+
+    // "SF Engineers" — Department=Engineering, Location=San Francisco
+    btnSFEng.addEventListener("click", function () {
+        clearPresetHighlights();
+        btnSFEng.classList.add("active");
+
+        elDepartment.value = "Engineering";
+        updateLocationOptions(false);
+        updateTitleOptions(true);
+        elLocation.value = "San Francisco";
+        elTitle.value = "All";
+        elMinSalary.value = "";
+        resetSort();
+        applyFilters();
+
+        window.__benchmarkLog("preset_applied", { preset: "sf_engineers" });
+    });
+
+    // "All Remote" — Location=Remote across all departments
+    btnRemote.addEventListener("click", function () {
+        clearPresetHighlights();
+        btnRemote.classList.add("active");
+
+        elDepartment.value = "All";
+        updateLocationOptions(false);
+        updateTitleOptions(true);
+        elLocation.value = "Remote";
+        elTitle.value = "All";
+        elMinSalary.value = "";
+        resetSort();
+        applyFilters();
+
+        window.__benchmarkLog("preset_applied", { preset: "all_remote" });
+    });
+
+    // "Leadership" — Title contains Manager, Director, or Lead
+    // This is special: we set Department=All, Location=All, and use a custom title filter
+    // Since the title dropdown only shows exact values, we handle this by filtering titles
+    btnLeadership.addEventListener("click", function () {
+        clearPresetHighlights();
+        btnLeadership.classList.add("active");
+
+        elDepartment.value = "All";
+        updateLocationOptions(true);
+        // Populate title options for "All" departments, then select "All"
+        // We will use a special approach: create a virtual "Leadership" option
+        // Actually, the cleanest approach: set department=All, location=All, title=All,
+        // and apply a special leadership flag. But to keep it within the dropdown model,
+        // let's populate with leadership titles and select them via a custom mechanism.
+
+        // Simpler: reset all filters, populate title dropdown with leadership titles only
+        var allTitles = uniqueSorted(EMPLOYEES, "title");
+        var leadershipTitles = allTitles.filter(function (t) {
+            return t.indexOf("Manager") !== -1 || t.indexOf("Director") !== -1 || t.indexOf("Lead") !== -1;
+        });
+
+        // Add a special "Leadership" option that maps to the leadership filter
+        elTitle.innerHTML = "";
+        var optLeadership = document.createElement("option");
+        optLeadership.value = "__leadership__";
+        optLeadership.textContent = "Leadership";
+        optLeadership.selected = true;
+        elTitle.appendChild(optLeadership);
+
+        // Also provide the "All" fallback and individual titles
+        var optAll = document.createElement("option");
+        optAll.value = "All";
+        optAll.textContent = "All";
+        elTitle.appendChild(optAll);
+        for (var i = 0; i < allTitles.length; i++) {
+            var opt = document.createElement("option");
+            opt.value = allTitles[i];
+            opt.textContent = allTitles[i];
+            elTitle.appendChild(opt);
+        }
+
+        elLocation.value = "All";
+        elMinSalary.value = "";
+        resetSort();
+        applyLeadershipFilter();
+
+        window.__benchmarkLog("preset_applied", { preset: "leadership" });
+    });
+
+    /** Special filter for leadership preset. */
+    function applyLeadershipFilter() {
+        var dept     = elDepartment.value;
+        var loc      = elLocation.value;
+        var titleVal = elTitle.value;
+        var minSal   = elMinSalary.value.trim();
+        var sortByVal = elSortBy.value;
+
+        var results = EMPLOYEES.filter(function (e) {
+            if (dept !== "All" && e.department !== dept) return false;
+            if (loc !== "All" && e.location !== loc) return false;
+            if (titleVal === "__leadership__") {
+                if (e.title.indexOf("Manager") === -1 &&
+                    e.title.indexOf("Director") === -1 &&
+                    e.title.indexOf("Lead") === -1) {
+                    return false;
+                }
+            } else if (titleVal !== "All") {
+                if (e.title !== titleVal) return false;
+            }
+            if (minSal !== "" && e.salary < parseInt(minSal, 10)) return false;
+            return true;
+        });
+
+        // Sort
+        var sortKey;
+        if (sortByVal === "Name") sortKey = "name";
+        else if (sortByVal === "Salary") sortKey = "salary";
+        else if (sortByVal === "Department") sortKey = "department";
+        else sortKey = "name";
+
+        results.sort(function (a, b) {
+            var av = a[sortKey];
+            var bv = b[sortKey];
+            var cmp;
+            if (typeof av === "number") {
+                cmp = av - bv;
+            } else {
+                cmp = av.localeCompare(bv);
+            }
+            return sortOrder === "asc" ? cmp : -cmp;
+        });
+
+        renderTable(results);
+
+        window.__benchmarkUpdate({
+            visible_count: results.length,
+            filters_applied: {
+                department: dept,
+                location: loc,
+                title: titleVal,
+                min_salary: minSal === "" ? null : parseInt(minSal, 10),
+                sort_by: sortByVal,
+                sort_order: sortOrder,
+            },
+        });
+    }
+
+    // Override applyFilters to handle the __leadership__ title value
+    var _originalApplyFilters = applyFilters;
+    applyFilters = function () {
+        if (elTitle.value === "__leadership__") {
+            applyLeadershipFilter();
+            return;
+        }
+        _originalApplyFilters();
+    };
+
+    // ── Report submission ───────────────────────────────────────────────
+
+    elReportBtn.addEventListener("click", function () {
+        var value = elReportInput.value.trim();
+        if (value === "") {
+            elCountDisplay.textContent = "Please enter a number.";
+            return;
+        }
+
+        var reportedCount = parseInt(value, 10);
+        if (isNaN(reportedCount) || reportedCount < 0) {
+            elCountDisplay.textContent = "Please enter a valid non-negative number.";
+            return;
+        }
+
+        var dept     = elDepartment.value;
+        var loc      = elLocation.value;
+        var title    = elTitle.value;
+        var minSal   = elMinSalary.value.trim();
+        var sortByVal = elSortBy.value;
+
+        elCountDisplay.textContent = "Reported count: " + reportedCount;
+
+        window.__benchmarkComplete(true, {
+            reported_count: reportedCount,
+            filters_applied: {
+                department: dept,
+                location: loc,
+                title: title,
+                min_salary: minSal === "" ? null : parseInt(minSal, 10),
+                sort_by: sortByVal,
+                sort_order: sortOrder,
+            },
+        });
+
+        window.__benchmarkLog("report_submitted", { reported_count: reportedCount });
+    });
+
+    // ── Initial render ──────────────────────────────────────────────────
+
+    updateLocationOptions(true);
+    updateTitleOptions(true);
+    applyFilters();
+
+})();
+</script>
+
+</body>
+</html>
