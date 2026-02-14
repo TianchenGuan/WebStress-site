@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Report — Issue Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+    .header-logo span { color: #d32f2f; }
+    .header-nav {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      color: #6e6e73;
+    }
+    .header-nav a {
+      text-decoration: none;
+      color: inherit;
+    }
+    .header-nav .active { color: #d32f2f; font-weight: 600; }
+
+    /* ── Form Container ────────────────────────────────────────────── */
+    .form-wrapper {
+      max-width: 680px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+    .form-header {
+      margin-bottom: 32px;
+    }
+    .form-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .form-header p {
+      font-size: 15px;
+      color: #6e6e73;
+    }
+
+    .form-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+
+    /* ── Form Fields ───────────────────────────────────────────────── */
+    .form-group {
+      margin-bottom: 24px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin-bottom: 6px;
+    }
+    .form-group label .required {
+      color: #d32f2f;
+    }
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      outline: none;
+      background: #fff;
+      color: #1d1d1f;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+    }
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    .form-group select {
+      appearance: auto;
+    }
+
+    /* ── Attempt Counter ───────────────────────────────────────────── */
+    .attempt-counter {
+      font-size: 12px;
+      color: #86868b;
+      text-align: right;
+      margin-bottom: 16px;
+    }
+
+    /* ── Buttons ───────────────────────────────────────────────────── */
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-primary {
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: #005bb5; }
+    .btn-primary:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #6e6e73;
+      background: #f5f5f7;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: #ececee; }
+
+    .btn-restore {
+      display: none;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #ff6f00;
+      background: #fff3e0;
+      border: 1px solid #ffb74d;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-restore:hover { background: #ffe0b2; }
+    .btn-restore.visible { display: inline-block; }
+
+    /* ── Status Message ────────────────────────────────────────────── */
+    #status-message {
+      margin-top: 20px;
+      padding: 0;
+      font-size: 14px;
+      min-height: 24px;
+      border-radius: 8px;
+      transition: all .2s;
+    }
+    #status-message.error {
+      background: #fde8e8;
+      border: 1px solid #f5c6c6;
+      color: #c62828;
+      padding: 14px 18px;
+    }
+    #status-message.success {
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      color: #2e7d32;
+      padding: 14px 18px;
+    }
+    #status-message.info {
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      color: #1565c0;
+      padding: 14px 18px;
+    }
+    #status-message.loading {
+      background: #f5f5f7;
+      border: 1px solid #e0e0e0;
+      color: #6e6e73;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ── Spinner ───────────────────────────────────────────────────── */
+    .inline-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #d2d2d7;
+      border-top-color: #0071e3;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Draft Saved Toast ─────────────────────────────────────────── */
+    .draft-toast {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1d1d1f;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2);
+      z-index: 100;
+      animation: toastIn .3s ease-out;
+    }
+    .draft-toast.visible { display: block; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Issue<span>Tracker</span></div>
+  <div class="header-nav">
+    <a href="#">Dashboard</a>
+    <a href="#" class="active">New Report</a>
+    <a href="#">My Tickets</a>
+    <a href="#">Settings</a>
+  </div>
+</div>
+
+<!-- Form -->
+<div class="form-wrapper">
+  <div class="form-header">
+    <h1>Submit Bug Report</h1>
+    <p>Provide details about the issue you encountered. All fields are required.</p>
+  </div>
+
+  <div class="form-card">
+    <div class="form-group">
+      <label for="bug-title">Title <span class="required">*</span></label>
+      <input type="text" id="bug-title" placeholder="Brief description of the bug">
+    </div>
+
+    <div class="form-group">
+      <label for="bug-severity">Severity <span class="required">*</span></label>
+      <select id="bug-severity">
+        <option value="">-- Select severity --</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="bug-description">Description <span class="required">*</span></label>
+      <textarea id="bug-description" placeholder="Steps to reproduce, expected vs actual behavior"></textarea>
+    </div>
+
+    <div class="attempt-counter" id="attempt-counter">Attempt 1 of ?</div>
+
+    <div class="form-actions">
+      <button class="btn-primary" id="btn-submit">Submit Report</button>
+      <button class="btn-secondary" id="btn-save-draft">Save Draft</button>
+      <button class="btn-restore" id="btn-restore">Restore from Draft</button>
+    </div>
+
+    <div id="status-message"></div>
+  </div>
+</div>
+
+<!-- Draft Saved Toast -->
+<div class="draft-toast" id="draft-toast">Draft saved successfully</div>
+
+<!-- Benchmark harness (must load first) -->
+<script src="/static/benchmark.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Page ID ──────────────────────────────────────────────────────
+  window.__benchmarkState.pageId = "flaky_form";
+
+  // ── Element Refs ─────────────────────────────────────────────────
+  var titleInput       = document.getElementById("bug-title");
+  var severitySelect   = document.getElementById("bug-severity");
+  var descriptionInput = document.getElementById("bug-description");
+  var btnSubmit        = document.getElementById("btn-submit");
+  var btnSaveDraft     = document.getElementById("btn-save-draft");
+  var btnRestore       = document.getElementById("btn-restore");
+  var statusMessage    = document.getElementById("status-message");
+  var attemptCounter   = document.getElementById("attempt-counter");
+  var draftToast       = document.getElementById("draft-toast");
+
+  // ── State ────────────────────────────────────────────────────────
+  var attemptCount = 0;
+  var draftSaved = false;
+  var draftRestored = false;
+  var savedDraft = null;
+  var submitting = false;
+
+  function updateBenchmarkState() {
+    window.__benchmarkUpdate({
+      attempt_count: attemptCount,
+      draft_saved: draftSaved,
+      draft_restored: draftRestored,
+      title: titleInput.value,
+      severity: severitySelect.value,
+      description: descriptionInput.value
+    });
+  }
+
+  function setStatus(text, cls) {
+    statusMessage.className = cls;
+    if (cls === "loading") {
+      statusMessage.innerHTML = '<span class="inline-spinner"></span> ' + text;
+    } else {
+      statusMessage.textContent = text;
+    }
+  }
+
+  // ── Save Draft ───────────────────────────────────────────────────
+  btnSaveDraft.addEventListener("click", function () {
+    savedDraft = {
+      title: titleInput.value,
+      severity: severitySelect.value,
+      description: descriptionInput.value
+    };
+    draftSaved = true;
+
+    // Show toast
+    draftToast.classList.add("visible");
+    setTimeout(function () {
+      draftToast.classList.remove("visible");
+    }, 2500);
+
+    setStatus("Draft saved.", "info");
+    window.__benchmarkLog("draft_saved", savedDraft);
+    updateBenchmarkState();
+  });
+
+  // ── Restore Draft ────────────────────────────────────────────────
+  btnRestore.addEventListener("click", function () {
+    if (!savedDraft) return;
+    titleInput.value       = savedDraft.title;
+    severitySelect.value   = savedDraft.severity;
+    descriptionInput.value = savedDraft.description;
+    draftRestored = true;
+
+    setStatus("Draft restored. You can submit again.", "info");
+    window.__benchmarkLog("draft_restored", savedDraft);
+    updateBenchmarkState();
+  });
+
+  // ── Submit Report ────────────────────────────────────────────────
+  btnSubmit.addEventListener("click", function () {
+    if (submitting) return;
+
+    // Basic validation
+    if (!titleInput.value.trim() || !severitySelect.value || !descriptionInput.value.trim()) {
+      setStatus("Please fill in all required fields.", "error");
+      return;
+    }
+
+    submitting = true;
+    attemptCount++;
+    btnSubmit.disabled = true;
+    attemptCounter.textContent = "Attempt " + attemptCount + " of ?";
+
+    window.__benchmarkLog("submit_attempt", { attempt: attemptCount });
+    updateBenchmarkState();
+
+    // Deterministic failure sequence
+    if (attemptCount === 1) {
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        setStatus("\u274C Something went wrong. Please try again.", "error");
+        submitting = false;
+        btnSubmit.disabled = false;
+        window.__benchmarkLog("submit_error_vague", { attempt: 1 });
+        updateBenchmarkState();
+      }, 1000);
+
+    } else if (attemptCount === 2) {
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        setStatus("\u274C Validation error: Invalid characters detected in title field.", "error");
+        submitting = false;
+        btnSubmit.disabled = false;
+        window.__benchmarkLog("submit_error_false_validation", { attempt: 2 });
+        updateBenchmarkState();
+      }, 1000);
+
+    } else if (attemptCount === 3) {
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        // Clear all form fields
+        titleInput.value       = "";
+        severitySelect.value   = "";
+        descriptionInput.value = "";
+
+        setStatus("\u274C Session expired. Please reload the page.", "error");
+
+        // Show restore button if draft was saved
+        if (draftSaved) {
+          btnRestore.classList.add("visible");
+        }
+
+        submitting = false;
+        btnSubmit.disabled = false;
+        window.__benchmarkLog("submit_error_session_cleared", { attempt: 3, fields_cleared: true });
+        updateBenchmarkState();
+      }, 1500);
+
+    } else if (attemptCount === 4) {
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        var finalTitle    = titleInput.value;
+        var finalSeverity = severitySelect.value;
+        var finalDesc     = descriptionInput.value;
+
+        setStatus("\u2705 Bug report submitted successfully! Ticket #BUG-2847 created.", "success");
+        submitting = false;
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Submitted";
+
+        window.__benchmarkLog("submit_success", { attempt: 4, ticket: "BUG-2847" });
+        window.__benchmarkComplete(true, {
+          submission_successful: true,
+          title: finalTitle,
+          severity: finalSeverity,
+          description: finalDesc,
+          attempt_count: attemptCount,
+          draft_saved: draftSaved,
+          draft_restored: draftRestored
+        });
+      }, 1000);
+
+    } else {
+      // Attempts beyond 4 also succeed (shouldn't normally happen)
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        var finalTitle    = titleInput.value;
+        var finalSeverity = severitySelect.value;
+        var finalDesc     = descriptionInput.value;
+
+        setStatus("\u2705 Bug report submitted successfully! Ticket #BUG-2848 created.", "success");
+        submitting = false;
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Submitted";
+
+        window.__benchmarkComplete(true, {
+          submission_successful: true,
+          title: finalTitle,
+          severity: finalSeverity,
+          description: finalDesc,
+          attempt_count: attemptCount,
+          draft_saved: draftSaved,
+          draft_restored: draftRestored
+        });
+      }, 1000);
+    }
+  });
+
+  // ── Initial state sync ───────────────────────────────────────────
+  updateBenchmarkState();
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Portal — Scavenger Hunt</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+    .header-logo span { color: #0071e3; }
+    .header-meta {
+      font-size: 13px;
+      color: #86868b;
+    }
+
+    /* ── Tab Navigation ────────────────────────────────────────────── */
+    .tab-nav {
+      max-width: 960px;
+      margin: 32px auto 0;
+      padding: 0 24px;
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .tab-btn {
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #6e6e73;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: #1d1d1f;
+    }
+    .tab-btn.active {
+      color: #0071e3;
+      border-bottom-color: #0071e3;
+    }
+
+    /* ── Section Container ─────────────────────────────────────────── */
+    .section-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    .section-panel {
+      display: none;
+    }
+    .section-panel.active {
+      display: block;
+    }
+    .section-panel h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1d1d1f;
+    }
+
+    /* ── Tables ────────────────────────────────────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      margin-bottom: 32px;
+    }
+    .data-table th,
+    .data-table td {
+      padding: 14px 18px;
+      text-align: left;
+      font-size: 15px;
+      border-bottom: 1px solid #e8e8ed;
+    }
+    .data-table th {
+      background: #fafafa;
+      color: #6e6e73;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .data-table td {
+      color: #1d1d1f;
+    }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .data-table tr:hover td {
+      background: #f9f9fb;
+    }
+
+    /* ── Update Cards ──────────────────────────────────────────────── */
+    .update-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .update-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .update-card h3 .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge-sprint { background: #e3f2fd; color: #1565c0; }
+    .badge-budget { background: #fff3e0; color: #e65100; }
+    .badge-team   { background: #e8f5e9; color: #2e7d32; }
+    .update-card p {
+      font-size: 14px;
+      color: #6e6e73;
+      line-height: 1.6;
+    }
+
+    /* ── Memo Entries ──────────────────────────────────────────────── */
+    .memo-entry {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-left: 4px solid #0071e3;
+      border-radius: 0 12px 12px 0;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .memo-entry h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin-bottom: 6px;
+    }
+    .memo-entry .memo-date {
+      font-size: 12px;
+      color: #86868b;
+      margin-bottom: 10px;
+    }
+    .memo-entry p {
+      font-size: 14px;
+      color: #6e6e73;
+      line-height: 1.6;
+    }
+    .memo-entry .highlight {
+      background: #fff3e0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      color: #e65100;
+    }
+
+    /* ── Submission Form ───────────────────────────────────────────── */
+    .submission-form {
+      background: #fff;
+      border: 2px solid #0071e3;
+      border-radius: 12px;
+      padding: 28px;
+      margin-top: 32px;
+      box-shadow: 0 2px 8px rgba(0,113,227,.1);
+    }
+    .submission-form h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #1d1d1f;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      max-width: 400px;
+      padding: 10px 14px;
+      font-size: 15px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+    }
+    .btn-submit-findings {
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-submit-findings:hover { background: #005bb5; }
+    #submission-result {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Project<span>Portal</span></div>
+  <div class="header-meta">Q3 2024 Internal Dashboard</div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav">
+  <button class="tab-btn active" data-section="1">Section 1: Team</button>
+  <button class="tab-btn" data-section="2">Section 2: Projects</button>
+  <button class="tab-btn" data-section="3">Section 3: Memos</button>
+</div>
+
+<!-- Sections -->
+<div class="section-container">
+
+  <!-- Section 1: Team Overview -->
+  <div class="section-panel active" id="section-1">
+    <h2>Team Overview</h2>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Name</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Project Lead</td>
+          <td>Marcus Rivera</td>
+        </tr>
+        <tr>
+          <td>Project Coordinator</td>
+          <td>Sarah Chen</td>
+        </tr>
+        <tr>
+          <td>Technical Lead</td>
+          <td>James O'Neill</td>
+        </tr>
+        <tr>
+          <td>Design Lead</td>
+          <td>Aisha Patel</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Submission Form -->
+    <div class="submission-form">
+      <h3>Submit Findings</h3>
+      <div class="form-group">
+        <label for="coordinator-name">Project Coordinator Name:</label>
+        <input type="text" id="coordinator-name" placeholder="Enter the coordinator's name">
+      </div>
+      <div class="form-group">
+        <label for="revised-budget">Revised Budget Amount ($):</label>
+        <input type="number" id="revised-budget" placeholder="Enter total amount">
+      </div>
+      <button class="btn-submit-findings" id="btn-submit-findings">Submit Findings</button>
+      <div id="submission-result"></div>
+    </div>
+  </div>
+
+  <!-- Section 2: Project Updates -->
+  <div class="section-panel" id="section-2">
+    <h2>Project Updates</h2>
+
+    <div class="update-card">
+      <h3><span class="badge badge-sprint">Sprint</span> Sprint 14 Completed</h3>
+      <p>Delivered auth module and dashboard redesign on schedule. All 23 story points completed, with 2 bugs carried over to Sprint 15. The team velocity has increased by 15% compared to last quarter. Code review turnaround time improved to under 4 hours on average.</p>
+    </div>
+
+    <div class="update-card">
+      <h3><span class="badge badge-budget">Budget</span> Budget Notice</h3>
+      <p>The project budget has been revised due to scope expansion. The original allocation was <strong>$200,000</strong>. Refer to the budget revision memo in Section 3 for the approved increase amount. The finance team has updated all internal tracking systems accordingly.</p>
+    </div>
+
+    <div class="update-card">
+      <h3><span class="badge badge-team">Team</span> Team Expansion</h3>
+      <p>Two new developers joining in Q4 to support the expanded scope. Onboarding documents have been prepared and mentors assigned. The new hires will focus primarily on the analytics pipeline and mobile responsiveness improvements.</p>
+    </div>
+  </div>
+
+  <!-- Section 3: Memos & Documents -->
+  <div class="section-panel" id="section-3">
+    <h2>Memos &amp; Documents</h2>
+
+    <div class="memo-entry">
+      <h3>RE: Office Move</h3>
+      <div class="memo-date">October 8, 2024</div>
+      <p>The engineering team will relocate to Building C, 3rd floor, effective November 1st. New badge access will be distributed the week of October 28. Please ensure all personal items are packed by October 30. The IT department will handle equipment transfer.</p>
+    </div>
+
+    <div class="memo-entry">
+      <h3>RE: Budget Revision</h3>
+      <div class="memo-date">October 15, 2024</div>
+      <p>Following the scope expansion approved on Oct 15, an additional <span class="highlight">$45,000</span> has been allocated to the Q3 project budget. The additional funds cover two new developer hires, expanded cloud infrastructure, and third-party API licensing costs. Please update your project plans to reflect the revised total.</p>
+    </div>
+
+    <div class="memo-entry">
+      <h3>RE: Holiday Schedule</h3>
+      <div class="memo-date">October 20, 2024</div>
+      <p>Please submit PTO requests by November 15 for the holiday period (December 20 through January 3). The office will operate at reduced capacity. Critical on-call rotations will be finalized by December 1. Contact HR with any questions about carryover days.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Benchmark harness (must load first) -->
+<script src="/static/benchmark.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Page ID ──────────────────────────────────────────────────────
+  window.__benchmarkState.pageId = "scavenger_hunt";
+
+  // ── State ────────────────────────────────────────────────────────
+  var sectionsVisited = [1]; // Section 1 is visible by default
+
+  function recordSectionVisit(num) {
+    if (sectionsVisited.indexOf(num) === -1) {
+      sectionsVisited.push(num);
+    }
+    window.__benchmarkUpdate({ sections_visited: sectionsVisited.slice() });
+  }
+
+  // ── Tab Navigation ──────────────────────────────────────────────
+  var tabBtns  = document.querySelectorAll(".tab-btn");
+  var panels   = document.querySelectorAll(".section-panel");
+
+  function switchSection(sectionNum) {
+    // Update tabs
+    for (var i = 0; i < tabBtns.length; i++) {
+      tabBtns[i].classList.toggle("active", tabBtns[i].getAttribute("data-section") === String(sectionNum));
+    }
+
+    // Update panels
+    for (var j = 0; j < panels.length; j++) {
+      panels[j].classList.toggle("active", panels[j].id === "section-" + sectionNum);
+    }
+
+    // Update hash
+    location.hash = "section-" + sectionNum;
+
+    recordSectionVisit(sectionNum);
+    window.__benchmarkLog("section_switched", { section: sectionNum });
+  }
+
+  for (var i = 0; i < tabBtns.length; i++) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        var num = parseInt(btn.getAttribute("data-section"), 10);
+        switchSection(num);
+      });
+    })(tabBtns[i]);
+  }
+
+  // Handle initial hash
+  if (location.hash) {
+    var match = location.hash.match(/section-(\d)/);
+    if (match) {
+      switchSection(parseInt(match[1], 10));
+    }
+  }
+
+  // ── Submission ──────────────────────────────────────────────────
+  var coordinatorInput = document.getElementById("coordinator-name");
+  var budgetInput      = document.getElementById("revised-budget");
+  var btnSubmit        = document.getElementById("btn-submit-findings");
+  var resultDisplay    = document.getElementById("submission-result");
+
+  btnSubmit.addEventListener("click", function () {
+    var coordName = coordinatorInput.value.trim();
+    var budget    = budgetInput.value.trim();
+
+    if (!coordName || !budget) {
+      resultDisplay.textContent = "Please fill in both fields.";
+      resultDisplay.style.color = "#d32f2f";
+      return;
+    }
+
+    var budgetNum = parseInt(budget, 10);
+    resultDisplay.textContent = "Findings submitted: Coordinator = " + coordName + ", Budget = $" + budgetNum.toLocaleString();
+    resultDisplay.style.color = "#2e7d32";
+
+    window.__benchmarkLog("findings_submitted", { coordinator_name: coordName, revised_budget: budgetNum });
+    window.__benchmarkComplete(true, {
+      submission_complete: true,
+      coordinator_name: coordName,
+      revised_budget: budgetNum,
+      sections_visited: sectionsVisited.slice()
+    });
+  });
+
+  // ── Initial state sync ──────────────────────────────────────────
+  window.__benchmarkUpdate({ sections_visited: sectionsVisited.slice() });
+
+})();
+</script>
+
+</body>
+</html>
