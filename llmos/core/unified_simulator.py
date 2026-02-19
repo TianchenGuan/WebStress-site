@@ -77,7 +77,7 @@ from ..experiments.modules.verification import VerificationModule
 from ..experiments.modules.temporal import TemporalModule
 from ..experiments.modules.uncertainty import UncertaintyModule
 from ..experiments.modules.grounding import GroundingModule
-from ..experiments.modules.adversarial import AdversarialModule
+from ..experiments.modules.adversarial import AdversarialModule, AdversarialTracker
 
 logger = logging.getLogger(__name__)
 
@@ -1039,6 +1039,7 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
 
         # Extract adversarial primitive if present (primitive-targeted mode)
         adversarial_primitive = llm_response.get("adversarial_primitive")
+        adversarial_phase = llm_response.get("adversarial_phase")
 
         # Validate operations
         op_errors = validate_ops(state_ops)
@@ -1047,6 +1048,26 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
 
         # Apply patches
         apply_id_patch(self.current_state, state_ops)
+
+        # Wire adversarial tracker: detect obstacles from events and feed tracker
+        if self._adversarial_module.is_adversarial():
+            obstacle_detected, tactic = AdversarialTracker.detect_obstacle_from_events(events)
+            tracker = self._adversarial_module.get_tracker()
+            if obstacle_detected:
+                tracker.record_obstacle(
+                    tactic=tactic or "unknown",
+                    target=str(action_for_history.get("bid", "")),
+                    success=True,  # Assumes agent progresses; updated in future steps
+                    primitive=adversarial_primitive,
+                )
+            else:
+                tracker.record_success()  # No obstacle = agent progressing
+            # Track primitive arc progress
+            if adversarial_primitive:
+                tracker.record_primitive_step(
+                    adversarial_primitive,
+                    adversarial_phase or "challenge",
+                )
 
         # Increment tick
         self.current_state["meta"]["tick"] += 1
@@ -1059,20 +1080,23 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
 
         # Update memory
         history_manager = self._memory_module.get_history_manager()
-        # Use shallow copies for step record (sufficient since values are
-        # not mutated after recording, and avoids expensive deep copies)
+        # Deep copy state_ops: append ops share node references with the live
+        # state tree, so later in-place updates would silently mutate recorded ops.
         step_record = {
             "tick": self.current_state["meta"]["tick"],
             "step": self._step_count,
             "action": dict(action_for_history),
             "thought": thought,
-            "state_ops": list(state_ops),
+            "agent_thought": agent_llm_data.get("thought", ""),
+            "state_ops": copy.deepcopy(state_ops),
             "events": list(events),
             "agent_llm_data": dict(agent_llm_data),
             "simulator_llm_data": dict(llm_response.get("_llm_data", {})),
         }
         if adversarial_primitive:
             step_record["adversarial_primitive"] = adversarial_primitive
+        if adversarial_phase:
+            step_record["adversarial_phase"] = adversarial_phase
         history_manager.add_step(step_record)
         self.history.append(step_record)
 
@@ -1093,6 +1117,8 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
         }
         if adversarial_primitive:
             info["adversarial_primitive"] = adversarial_primitive
+        if adversarial_phase:
+            info["adversarial_phase"] = adversarial_phase
 
         return self._get_observation(), done, info
 
@@ -1228,11 +1254,89 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
         parts.append("## Action to Process")
         parts.append(f"```json\n{json.dumps(action, indent=2)}\n```\n")
 
+        # BID consistency hint
+        top_bids = self._collect_top_level_bids(self.current_state)
+        if top_bids:
+            parts.append(f"**Active bids**: {', '.join(top_bids)}. When recreating elements, reuse these bids.")
+
         # Add history context
         history = context.get("history", [])
         if history:
             parts.append("## History Context")
             parts.append(self._format_history_for_prompt(history))
+
+        # Adversarial pacing context (dynamic per-step)
+        if self._adversarial_module.is_adversarial():
+            tracker = self._adversarial_module.get_tracker()
+            adv_lines = []
+
+            if self.sim_config.adversarial == AdversarialMode.PRIMITIVE_TARGETED:
+                # Primitive-targeted: inject arc-aware guidance
+                arc = tracker.get_primitive_arc_status()
+                if arc["phase"] == "rest":
+                    if arc["rest_step_count"] >= 2:
+                        # Rest is over — time to start a new arc
+                        adv_lines.append("## Adversarial: START NEW ARC")
+                        used = arc["completed_primitives"]
+                        if used:
+                            adv_lines.append(
+                                f"Rest phase complete. Pick a NEW primitive (already used: {', '.join(used)}). "
+                                f"Begin with adversarial_phase: \"setup\"."
+                            )
+                        else:
+                            adv_lines.append(
+                                "Rest phase complete. Pick a primitive and begin a new arc with adversarial_phase: \"setup\"."
+                            )
+                    else:
+                        adv_lines.append("## Adversarial: REST PHASE")
+                        adv_lines.append(
+                            "Let the agent progress normally this step. No obstacle. "
+                            "Use adversarial_primitive: \"none\", adversarial_phase: \"rest\"."
+                        )
+                elif arc["primitive"] and arc["phase"] != "rest":
+                    # Active arc — give phase-aware guidance
+                    adv_lines.append("## Adversarial Arc Status")
+                    if arc["phase"] == "setup" and arc["setup_steps"] >= 2:
+                        # Enough setup — transition to challenge
+                        adv_lines.append(
+                            f"Active primitive: \"{arc['primitive']}\" — setup is ready after {arc['setup_steps']} steps. "
+                            f"NOW transition to adversarial_phase: \"challenge\" — apply the actual obstacle that tests this primitive."
+                        )
+                    elif arc["phase"] == "challenge" and arc["challenge_steps"] >= 2:
+                        # Challenge played out — wrap up
+                        adv_lines.append(
+                            f"Primitive \"{arc['primitive']}\" challenge complete ({arc['challenge_steps']} challenge steps). "
+                            f"Enter adversarial_phase: \"rest\" for 1-2 steps (adversarial_primitive: \"none\")."
+                        )
+                    elif arc["step_count"] >= 4:
+                        # Arc too long overall — force wrap up
+                        adv_lines.append(
+                            f"Primitive \"{arc['primitive']}\" has run for {arc['step_count']} steps. "
+                            f"Wrap up: enter \"rest\" phase (adversarial_primitive: \"none\", adversarial_phase: \"rest\")."
+                        )
+                    else:
+                        # Normal continuation
+                        adv_lines.append(
+                            f"Active primitive: \"{arc['primitive']}\" (step {arc['step_count']}, phase: {arc['phase']}). "
+                            f"Continue developing — build on previous steps."
+                        )
+                # else: no arc started yet, let the system prompt guide first pick
+            else:
+                # Severity-based modes: use cooldown logic
+                if not tracker.should_apply_obstacle():
+                    adv_lines.append("## Adversarial: COOLDOWN ACTIVE")
+                    adv_lines.append("Do NOT apply any obstacle this step. Let the agent progress normally.")
+                else:
+                    last = tracker.get_last_tactic()
+                    if last:
+                        adv_lines.append("## Adversarial Pacing")
+                        adv_lines.append(f"Last obstacle tactic: \"{last}\". Do NOT reuse this tactic. Choose a different category.")
+
+            if adv_lines:
+                parts.append("\n".join(adv_lines))
+
+        # Content consistency reminder
+        parts.append("Ensure all generated content is factually consistent (correct songs for artists, correct files for directories, etc.).")
 
         parts.append("\nPredict the state changes that result from this action.")
 
@@ -1347,6 +1451,19 @@ Most actions immediate. Loading states: show loading UI, then content on NEXT ac
                 result["children"] = truncated_children
 
         return result
+
+    def _collect_top_level_bids(self, state: dict) -> list[str]:
+        """Collect bids from top-level UI elements for consistency hints."""
+        bids = []
+        ui = state.get("ui", {})
+        for child in ui.get("children", []):
+            if isinstance(child, dict) and "bid" in child:
+                bids.append(str(child["bid"]))
+                # Also include direct children of top-level elements
+                for grandchild in child.get("children", []):
+                    if isinstance(grandchild, dict) and "bid" in grandchild:
+                        bids.append(str(grandchild["bid"]))
+        return bids[:20]  # Cap to avoid prompt bloat
 
     def _check_done(self) -> bool:
         """Check if episode should end."""

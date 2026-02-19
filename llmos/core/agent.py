@@ -210,6 +210,9 @@ You receive:
         if parse_error:
             action["_llm_data"]["_parse_error"] = parse_error
 
+        # Expose thought as top-level key for verbose output and history
+        action["thought"] = thought
+
         # Update conversation history (compact + in-format to reinforce JSON-only outputs)
         # Only store the action (not _llm_data) to save tokens and avoid leaking internals.
         assistant_payload_action = dict(action)

@@ -525,6 +525,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             margin: 2px;
         }}
 
+        /* Adversarial Primitive Badge */
+        .adversarial-badge {{
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: monospace;
+        }}
+        .adversarial-badge-inline {{
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            font-family: monospace;
+            margin-left: 6px;
+        }}
+
         /* UI Preview */
         .ui-panel {{
             background: #fff;
@@ -1070,7 +1095,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const eventsDisplay = hasEvents
                 ? (step.events.length === 1 ? step.events[0] : `${{step.events[0]}} (+${{step.events.length - 1}})`)
                 : '';
-            
+            const advPrimitive = step.adversarial_primitive || '';
 
             let html = `
                 <div class="step-card ${{isActive ? 'active expanded' : ''}}" data-step="${{stepNum}}">
@@ -1078,6 +1103,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <div class="step-header-left">
                             <span class="step-number">${{stepLabel}}</span>
                             <span class="step-action-type">${{actionType}}</span>
+                            ${{advPrimitive ? `<span class="adversarial-badge-inline" title="Adversarial primitive: ${{escapeHtml(advPrimitive)}}">${{escapeHtml(advPrimitive)}}</span>` : ''}}
                             ${{targetSummary ? renderTruncatedSpan(targetSummary, 'step-action-target', 70) : ''}}
                         </div>
                         <div class="step-header-right">
@@ -1123,6 +1149,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 html += `<div class="section">
                     <div class="section-title">Events</div>
                     <div>${{step.events.map(e => `<span class="event-tag">${{escapeHtml(e)}}</span>`).join('')}}</div>
+                </div>`;
+            }}
+
+            // Adversarial Primitive
+            if (advPrimitive) {{
+                html += `<div class="section">
+                    <div class="section-title">Adversarial Primitive</div>
+                    <div><span class="adversarial-badge">${{escapeHtml(advPrimitive)}}</span></div>
                 </div>`;
             }}
 
@@ -1450,6 +1484,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 html += `<div>Temporal: ${{escapeHtml(sim.temporal || 'N/A')}}</div>`;
                 html += `<div>Uncertainty: ${{escapeHtml(sim.uncertainty || 'N/A')}}</div>`;
                 html += `<div>Grounding: ${{escapeHtml(sim.grounding || 'N/A')}}</div>`;
+                if (sim.adversarial && sim.adversarial !== 'none') {{
+                    html += `<div>Adversarial: <strong>${{escapeHtml(sim.adversarial)}}</strong></div>`;
+                    if (sim.adversarial_primitives && sim.adversarial_primitives.length > 0) {{
+                        html += `<div>Target Primitives: ${{escapeHtml(sim.adversarial_primitives.join(', '))}}</div>`;
+                    }}
+                }} else {{
+                    html += `<div>Adversarial: ${{escapeHtml(sim.adversarial || 'none')}}</div>`;
+                }}
                 html += `</div>`;
                 html += '</div></div>';
             }}

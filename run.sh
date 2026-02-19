@@ -2,9 +2,7 @@
 # =============================================================================
 # LLMOS Run Examples
 # =============================================================================
-# This file documents all available parameters and configuration options.
 # Uncomment the command you want to run, or use as reference.
-#
 # Usage: ./run.sh
 # =============================================================================
 
@@ -27,17 +25,26 @@ source .venv/bin/activate
 #   --human               Use human agent for debugging
 #   --no-save             Don't save episode to disk
 #   --quiet, -q           Less output
+#
 #   # Simulator modules
-#   --preset              Simulator preset: classic, default, efficient, thorough
-#   --state-output        State output: full_state, delta_only, semantic_description
-#   --abstraction         Abstraction: full_dom, semantic_elements, task_relevant, viewport_only, interactive_only
-#   --memory              Memory: full_history, rolling_window, summarized, checkpoints
-#   --reasoning           Reasoning: direct, chain
-#   --verification        Verification: none, schema, constraint_check, backward
-#   --temporal            Temporal: instant, async_aware, event_driven
-#   --uncertainty         Uncertainty: deterministic, with_confidence, probabilistic, admits_uncertainty
-#   --grounding           Grounding: llm_knowledge, example_grounded, doc_grounded, trace_grounded
-#   # Agent
+#   --preset              Preset: classic, default, efficient, thorough
+#   --state-output        Output: full_state, delta_only, semantic_description
+#   --abstraction         Level: full_dom, semantic_elements, task_relevant, viewport_only, interactive_only
+#   --memory              Mode: full_history, rolling_window, summarized, checkpoints
+#   --reasoning           Mode: direct, chain
+#   --verification        Mode: none, schema, constraint_check, backward
+#   --temporal            Mode: instant, async_aware, event_driven
+#   --uncertainty         Mode: deterministic, with_confidence, probabilistic, admits_uncertainty
+#   --grounding           Strategy: llm_knowledge, example_grounded, doc_grounded, trace_grounded
+#
+#   # Adversarial (creates realistic obstacles for agent training)
+#   --adversarial         Mode: none, subtle, deceptive, hostile, primitive_targeted
+#   --adversarial-primitives  Target specific primitives (with --adversarial primitive_targeted):
+#                             backtracking, reflection, exploration, planning, memory,
+#                             patience, error_recovery, verification, constraint_satisfaction,
+#                             adversarial_robustness, attention_focus, spatial_reasoning
+#
+#   # Model selection
 #   --agent-model         Agent model name (e.g., gpt-4o, gemini-1.5-pro, Qwen/Qwen3-8B)
 #   --agent-provider      Agent provider: openai, gemini, vllm
 #   --sim-model           Simulator model name
@@ -47,33 +54,128 @@ source .venv/bin/activate
 #   --episodes, -n        Number of episodes (default: 10)
 #   --tasks-file          JSON file with initial tasks
 #   --auto-adjust         Auto-adjust difficulty based on performance
-#   (+ all simulator/agent parameters above)
+#   (+ all run parameters above)
 #
 # python -m llmos.main benchmark <name>
-#   name                  Benchmark name: workarena, webarena, osworld, miniwob
+#   name                  Benchmark: workarena, webarena, osworld, miniwob
 #   --episodes, -n        Number of episodes (default: all tasks)
-#   --max-tasks           Maximum tasks to load from benchmark
+#   --max-tasks           Maximum tasks to load
 #   --shuffle             Shuffle task order
-#   --seed                Random seed for shuffling
+#   --seed                Random seed
 #   --filter              Filter tasks by name patterns
-#   (+ all simulator/agent parameters above)
+#   --parallel, -p        Run episodes in parallel
+#   --workers, -w         Number of parallel workers (default: 4)
+#   (+ all run parameters above)
 #
 # =============================================================================
 
 
 # =============================================================================
-# SINGLE TASK - BASIC EXAMPLES
+# 1. BASIC EXAMPLES
 # =============================================================================
 
-# Minimal example
+# Minimal
 # python -m llmos.main run --task "Click the Settings button"
 
 # With template
 # python -m llmos.main run --task "Search for flights" --template browser
 # python -m llmos.main run --task "Fill in the form" --template form
 
+# Human agent (interactive debugging)
+# python -m llmos.main run --task "Open the file manager" --human
+
 # =============================================================================
-# SINGLE TASK - FULL PARAMETERS (ALL OPTIONS)
+# 2. DIFFICULTY & STRICTNESS
+# =============================================================================
+
+# Difficulty (simulator noise/chaos level)
+# python -m llmos.main run --task "Open Chrome" --difficulty easy     # High determinism, clean output
+# python -m llmos.main run --task "Open Chrome" --difficulty medium   # Moderate noise
+# python -m llmos.main run --task "Open Chrome" --difficulty hard     # Realistic noise
+# python -m llmos.main run --task "Open Chrome" --difficulty expert   # Maximum realism
+
+# Strictness (rule enforcement)
+# python -m llmos.main run --task "Open Settings" --strictness lenient   # Single click opens, shortcuts OK
+# python -m llmos.main run --task "Open Settings" --strictness moderate  # Some shortcuts
+# python -m llmos.main run --task "Open Settings" --strictness strict    # Dblclick required, no shortcuts
+
+# =============================================================================
+# 3. ADVERSARIAL MODES
+# =============================================================================
+# Adversarial modes create realistic obstacles to challenge the agent.
+# When active, difficulty/strictness are disabled (adversarial controls behavior).
+
+# Subtle: realistic obstacles (popups, validation errors, loading delays)
+# python -m llmos.main run --task "Submit the contact form" --adversarial subtle
+
+# Deceptive: ambiguous UI (similar buttons, misleading labels, dark patterns)
+# python -m llmos.main run --task "Cancel the subscription" --adversarial deceptive
+
+# Hostile: active interference (session expiry, network errors, forced redirects)
+# python -m llmos.main run --task "Save the document" --adversarial hostile
+
+# Primitive-targeted: challenge specific agent capabilities
+# python -m llmos.main run --task "Fill the multi-page form" \
+#     --adversarial primitive_targeted
+
+# Target specific primitives only
+# python -m llmos.main run --task "Fill the multi-page form" \
+#     --adversarial primitive_targeted \
+#     --adversarial-primitives backtracking memory verification
+
+# All 12 primitives: backtracking, reflection, exploration, planning, memory,
+#   patience, error_recovery, verification, constraint_satisfaction,
+#   adversarial_robustness, attention_focus, spatial_reasoning
+
+# =============================================================================
+# 4. SIMULATOR PRESETS & MODULES
+# =============================================================================
+
+# Presets
+# python -m llmos.main run --task "Open Chrome" --preset classic     # Full state, full history, direct
+# python -m llmos.main run --task "Open Chrome" --preset default     # Delta only, rolling window
+# python -m llmos.main run --task "Open Chrome" --preset efficient   # Delta, semantic elements, window=3
+# python -m llmos.main run --task "Open Chrome" --preset thorough    # Full state, chain reasoning, verification
+
+# Individual module overrides
+# python -m llmos.main run --task "Open Chrome" --state-output delta_only
+# python -m llmos.main run --task "Open Chrome" --abstraction semantic_elements
+# python -m llmos.main run --task "Open Chrome" --memory rolling_window
+# python -m llmos.main run --task "Open Chrome" --reasoning chain
+# python -m llmos.main run --task "Open Chrome" --verification constraint_check
+# python -m llmos.main run --task "Open Chrome" --temporal async_aware
+# python -m llmos.main run --task "Open Chrome" --uncertainty with_confidence
+# python -m llmos.main run --task "Open Chrome" --grounding example_grounded
+
+# =============================================================================
+# 5. MODEL SELECTION
+# =============================================================================
+
+# API models
+# python -m llmos.main run --task "Open Chrome" --agent-model gpt-4o --agent-provider openai
+# python -m llmos.main run --task "Open Chrome" --agent-model gemini-1.5-pro --agent-provider gemini
+
+# vLLM local models (requires running vLLM server)
+#   python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-8B --port 8000
+# python -m llmos.main run \
+#     --task "Click the Settings button" \
+#     --agent-provider vllm --agent-model Qwen/Qwen3-8B \
+#     --sim-provider gemini --sim-model gemini-3-flash-preview
+
+# Fine-tuned model evaluation (after RL training with Tinker)
+# python -m llmos.main run \
+#     --task "Fill out the form" --template form --difficulty hard \
+#     --agent-provider vllm --agent-model /path/to/finetuned-model \
+#     --sim-provider gemini --sim-model gemini-3-flash-preview
+
+# Fully local (vLLM as both agent and simulator, no API keys)
+# python -m llmos.main run \
+#     --task "Open Chrome" \
+#     --agent-provider vllm --agent-model Qwen/Qwen3-8B \
+#     --sim-provider vllm --sim-model Qwen/Qwen3-8B
+
+# =============================================================================
+# 6. FULL PARAMETER EXAMPLE
 # =============================================================================
 
 # python -m llmos.main run \
@@ -95,236 +197,56 @@ source .venv/bin/activate
 #     --agent-provider openai
 
 # =============================================================================
-# DIFFICULTY & STRICTNESS EXAMPLES
+# 7. CURRICULUM LEARNING
 # =============================================================================
 
-# Difficulty levels (controls noise/chaos in simulator)
-#   easy   - High determinism, low noise, helpful hints
-#   medium - Moderate determinism and noise
-#   hard   - Low determinism, realistic noise (default)
-#   expert - Minimum determinism, maximum realism
-# python -m llmos.main run --task "Open Chrome" --difficulty easy
-# python -m llmos.main run --task "Open Chrome" --difficulty expert
-
-# Strictness levels (controls rule enforcement)
-#   lenient  - Single click can open apps, teleportation allowed
-#   moderate - Some shortcuts allowed
-#   strict   - Double click required, no teleportation, no shortcuts (default)
-# python -m llmos.main run --task "Open Settings" --strictness lenient
-# python -m llmos.main run --task "Open Settings" --strictness strict
-
-# =============================================================================
-# SIMULATOR PRESET EXAMPLES
-# =============================================================================
-
-# classic   - Original behavior (full_state, full_dom, full_history, direct)
-# default   - Balanced (delta_only, rolling_window)
-# efficient - Speed optimized (delta_only, semantic_elements, window=3)
-# thorough  - Maximum accuracy (full_state, chain reasoning, verification)
-
-# python -m llmos.main run --task "Open Chrome" --preset classic
-# python -m llmos.main run --task "Open Chrome" --preset efficient
-# python -m llmos.main run --task "Open Chrome" --preset thorough
-
-# =============================================================================
-# SIMULATOR MODULE EXAMPLES
-# =============================================================================
-
-# State output modes
-#   full_state           - Complete state every step (consistent but verbose)
-#   delta_only           - Only changes (efficient but may accumulate errors)
-#   semantic_description - Natural language description
-# python -m llmos.main run --task "Open Chrome" --state-output delta_only
-
-# Abstraction levels
-#   full_dom           - Full UI tree with all attributes
-#   semantic_elements  - Buttons, inputs, text only
-#   task_relevant      - Only elements relevant to task
-#   viewport_only      - Only visible elements
-#   interactive_only   - Only clickable/fillable elements
-# python -m llmos.main run --task "Open Chrome" --abstraction semantic_elements
-
-# Memory modes
-#   full_history    - Keep all history (accurate but long context)
-#   rolling_window  - Keep last N steps
-#   summarized      - Summarize old history
-#   checkpoints     - Keep key checkpoints
-# python -m llmos.main run --task "Open Chrome" --memory rolling_window
-
-# Reasoning modes
-#   direct - Direct prediction
-#   chain  - Chain-of-thought reasoning (slower but more accurate)
-# python -m llmos.main run --task "Open Chrome" --reasoning chain
-
-# Verification modes
-#   none             - No verification
-#   schema           - JSON schema validation (default)
-#   constraint_check - Check physical constraints
-#   backward         - Backward verification
-# python -m llmos.main run --task "Open Chrome" --verification constraint_check
-
-# Temporal modes
-#   instant      - Actions have immediate effects
-#   async_aware  - Model loading states, delays
-#   event_driven - Explicit event sequences
-# python -m llmos.main run --task "Open Chrome" --temporal async_aware
-
-# Uncertainty modes
-#   deterministic      - Single prediction
-#   with_confidence    - Prediction + confidence score
-#   probabilistic      - Multiple outcomes with probabilities
-#   admits_uncertainty - Can say "I don't know"
-# python -m llmos.main run --task "Open Chrome" --uncertainty with_confidence
-
-# Grounding strategies
-#   llm_knowledge     - Trust LLM's world knowledge
-#   example_grounded  - Ground to provided examples
-#   doc_grounded      - Ground to documentation
-#   trace_grounded    - Ground to execution traces
-# python -m llmos.main run --task "Open Chrome" --grounding example_grounded
-
-# =============================================================================
-# AGENT MODEL EXAMPLES
-# =============================================================================
-
-# Use specific agent model
-# python -m llmos.main run --task "Open Chrome" --agent-model gpt-4o --agent-provider openai
-# python -m llmos.main run --task "Open Chrome" --agent-model gpt-4o-mini --agent-provider openai
-# python -m llmos.main run --task "Open Chrome" --agent-model gemini-1.5-pro --agent-provider gemini
-# python -m llmos.main run --task "Open Chrome" --agent-model gemini-1.5-flash --agent-provider gemini
-
-# Human agent mode (you control the agent interactively)
-# python -m llmos.main run --task "Open the file manager" --human
-
-# =============================================================================
-# vLLM LOCAL MODEL EXAMPLES
-# =============================================================================
-# Use a local model via vLLM as the agent while keeping an API model as simulator.
-# Requires a running vLLM server (configure base_url in config.json under llm.vllm).
-#
-# Start vLLM server first:
-#   python -m vllm.entrypoints.openai.api_server \
-#       --model Qwen/Qwen3-8B --port 8000
-#
-# Or for Llama:
-#   python -m vllm.entrypoints.openai.api_server \
-#       --model meta-llama/Llama-3.1-8B-Instruct --port 8000
-
-# Qwen3-8B agent with Gemini simulator
-# python -m llmos.main run \
-#     --task "Click the Settings button" \
-#     --agent-provider vllm \
-#     --agent-model Qwen/Qwen3-8B \
-#     --sim-provider gemini \
-#     --sim-model gemini-3-flash-preview
-
-# Llama-3.1 agent with Gemini simulator
-# python -m llmos.main run \
-#     --task "Click the Settings button" \
-#     --agent-provider vllm \
-#     --agent-model meta-llama/Llama-3.1-8B-Instruct \
-#     --sim-provider gemini \
-#     --sim-model gemini-3-flash-preview
-
-# Fine-tuned model evaluation (after RL training with Tinker)
-# python -m llmos.main run \
-#     --task "Fill out the form" \
-#     --template form \
-#     --difficulty hard \
-#     --agent-provider vllm \
-#     --agent-model /path/to/finetuned-model \
-#     --sim-provider gemini \
-#     --sim-model gemini-3-flash-preview
-
-# Benchmark a local model (vLLM agent + API simulator)
-# python -m llmos.main benchmark workarena \
-#     --episodes 10 \
-#     --agent-provider vllm \
-#     --agent-model Qwen/Qwen3-8B \
-#     --sim-provider gemini \
-#     --sim-model gemini-3-flash-preview \
-#     --difficulty hard \
-#     --strictness strict
-
-# vLLM as both agent AND simulator (fully local, no API keys needed)
-# python -m llmos.main run \
-#     --task "Open Chrome" \
-#     --agent-provider vllm \
-#     --agent-model Qwen/Qwen3-8B \
-#     --sim-provider vllm \
-#     --sim-model Qwen/Qwen3-8B
-
-# =============================================================================
-# CURRICULUM LEARNING EXAMPLES
-# =============================================================================
-
-# Basic curriculum
 # python -m llmos.main curriculum --episodes 10
-
-# With auto-adjusting difficulty
 # python -m llmos.main curriculum --episodes 20 --auto-adjust
-
-# Full parameters
 # python -m llmos.main curriculum \
-#     --episodes 20 \
-#     --difficulty easy \
-#     --strictness strict \
-#     --action-space minimal \
-#     --preset classic \
-#     --reasoning chain \
-#     --agent-model gpt-4o-mini \
-#     --auto-adjust
+#     --episodes 20 --difficulty easy --strictness strict \
+#     --preset classic --reasoning chain --agent-model gpt-4o-mini --auto-adjust
+
+# With adversarial obstacles
+# python -m llmos.main curriculum --episodes 20 --adversarial subtle --auto-adjust
 
 # =============================================================================
-# BENCHMARK EVALUATION EXAMPLES
+# 8. BENCHMARK EVALUATION
 # =============================================================================
 
-# Basic WorkArena benchmark
 # python -m llmos.main benchmark workarena --episodes 5
-
-# Full parameters
 # python -m llmos.main benchmark workarena \
-#     --episodes 10 \
-#     --max-tasks 50 \
-#     --shuffle \
-#     --seed 42 \
-#     --difficulty hard \
-#     --strictness strict \
-#     --action-space minimal \
-#     --preset classic \
-#     --reasoning chain \
-#     --verification constraint_check \
-#     --agent-model gpt-4o \
-#     --agent-provider openai
+#     --episodes 10 --max-tasks 50 --shuffle --seed 42 \
+#     --difficulty hard --strictness strict \
+#     --agent-model gpt-4o --agent-provider openai
+
+# Parallel benchmark
+# python -m llmos.main benchmark workarena \
+#     --episodes 20 --parallel --workers 4 \
+#     --agent-provider vllm --agent-model Qwen/Qwen3-8B \
+#     --sim-provider gemini --sim-model gemini-3-flash-preview
+
+# Adversarial benchmark (stress-test agent robustness)
+# python -m llmos.main benchmark workarena \
+#     --episodes 10 --adversarial hostile \
+#     --agent-model gpt-4o --agent-provider openai
 
 # =============================================================================
-# LIGHTWEIGHT SCRIPTS (no logging/HTML export overhead)
+# 9. LIGHTWEIGHT SCRIPTS
 # =============================================================================
 
-# Quick single task test
 # python -m llmos.scripts.run_example \
-#     --task "Click the Settings button" \
-#     --template desktop \
-#     --difficulty hard \
-#     --strictness strict \
-#     --max-steps 10
+#     --task "Click the Settings button" --template desktop \
+#     --difficulty hard --strictness strict --max-steps 10
 
-# Quick WorkArena test
 # python -m llmos.scripts.run_workarena \
-#     --num-tasks 5 \
-#     --agent gpt-4o-mini \
-#     --difficulty hard \
-#     --strictness strict \
-#     --output-dir results/test
+#     --num-tasks 5 --agent gpt-4o-mini \
+#     --difficulty hard --strictness strict --output-dir results/test
 
 # =============================================================================
-# OTHER COMMANDS
+# 10. UTILITY COMMANDS
 # =============================================================================
 
-# Show current config
 # python -m llmos.main config --show
-
-# List available benchmarks
 # python -m llmos.main list-benchmarks
 
 # =============================================================================
@@ -341,18 +263,3 @@ python -m llmos.main run \
     --sim-provider gemini \
     --agent-provider gemini \
     --agent-model "gemini-3-flash-preview"
-      
-
-
-
-# python -m llmos.main benchmark workarena \
-#       --strictness strict \
-#       --difficulty hard \
-#       --episodes 5 \
-#       --max-tasks 50 \
-#       --shuffle \
-#       --seed 42 \
-#       --agent-model "gemini-3-flash-preview" \
-#       --agent-provider gemini \
-#       --parallel \
-#       --workers 4

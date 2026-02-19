@@ -323,7 +323,10 @@ class Orchestrator:
             print(f"  Preset: {settings['preset']}")
             # Skip difficulty/strictness display when adversarial is active
             if settings.get('adversarial') and settings['adversarial'] != 'none':
-                print(f"  Adversarial: {settings['adversarial']} (difficulty/strictness disabled)")
+                adv_display = f"  Adversarial: {settings['adversarial']} (difficulty/strictness disabled)"
+                if settings.get('adversarial_primitives'):
+                    adv_display += f"\n  Target Primitives: {', '.join(settings['adversarial_primitives'])}"
+                print(adv_display)
             else:
                 print(f"  Difficulty: {difficulty.preset} (density={difficulty.information_density}, noise={difficulty.signal_noise_ratio}, determinism={difficulty.determinism})")
                 print(f"  Strictness: {settings['strictness']}")
@@ -362,6 +365,8 @@ class Orchestrator:
             # Execute action
             observation, done, info = self.simulator.step(action)
 
+            if verbose and info.get("adversarial_primitive"):
+                print(f"  Adversarial Primitive: {info['adversarial_primitive']}")
             if verbose and info.get("events"):
                 print(f"  Events: {info['events']}")
 
