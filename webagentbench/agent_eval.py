@@ -120,58 +120,15 @@ def get_accessibility_tree(page) -> str:
     """
     Extract a simplified accessibility tree from the page using Playwright.
 
-    Returns a text representation of interactive and visible elements
-    suitable for LLM consumption.
+    Returns a YAML text representation of accessible elements
+    suitable for LLM consumption. Uses Playwright 1.49+ aria_snapshot() API.
     """
-    # Use Playwright's built-in accessibility snapshot
-    snapshot = page.accessibility.snapshot()
-    if not snapshot:
+    try:
+        snapshot = page.locator("body").aria_snapshot()
+        return snapshot if snapshot else "(empty page)"
+    except Exception as e:
+        logger.warning("aria_snapshot failed: %s", e)
         return "(empty page)"
-    return _format_ax_node(snapshot, indent=0)
-
-
-def _format_ax_node(node: dict, indent: int) -> str:
-    """Recursively format an accessibility tree node into text."""
-    role = node.get("role", "")
-    name = node.get("name", "")
-    value = node.get("value", "")
-
-    # Skip generic/structural roles that add noise
-    skip_roles = {"none", "generic", "LineBreak"}
-    if role in skip_roles and not name:
-        # Still recurse into children
-        children = node.get("children", [])
-        if children:
-            return "\n".join(_format_ax_node(c, indent) for c in children)
-        return ""
-
-    parts = []
-    prefix = "  " * indent
-
-    # Build node description
-    desc_parts = [f"[{role}]" if role else ""]
-    if name:
-        desc_parts.append(f'"{name}"')
-    if value:
-        desc_parts.append(f'value="{value}"')
-
-    # Add relevant properties
-    for prop in ("checked", "selected", "expanded", "disabled", "required"):
-        if prop in node:
-            desc_parts.append(f"{prop}={node[prop]}")
-
-    desc = " ".join(p for p in desc_parts if p)
-    if desc.strip():
-        parts.append(f"{prefix}{desc}")
-
-    # Recurse into children
-    children = node.get("children", [])
-    for child in children:
-        child_text = _format_ax_node(child, indent + 1)
-        if child_text:
-            parts.append(child_text)
-
-    return "\n".join(parts)
 
 
 # =============================================================================
