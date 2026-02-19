@@ -238,22 +238,29 @@ def _build_primitive_targeted_prompt(target_primitives: list[str]) -> str:
     return f"""\
 ## Adversarial Mode: Primitive-Targeted
 
-Before generating state changes, choose ONE agent primitive to challenge this step.
-Pick the primitive most relevant to the current task context and agent behavior.
+Challenge specific agent capabilities through **multi-step arcs**. Each arc develops
+ONE primitive across 2-4 consecutive steps to create meaningful impact.
 
-You MUST include `"adversarial_primitive": "<primitive_name>"` in your JSON response
-to indicate which primitive you targeted.
+**Arc phases:**
+- **setup** (1-2 steps): Create conditions that will test the primitive (e.g., for memory: display key info in a dismissible dialog; for patience: start a loading sequence; for planning: reveal a prerequisite dependency)
+- **challenge** (1-2 steps): Activate the obstacle that exercises the primitive, leveraging the setup
+- **rest** (1-2 steps): After an arc completes, simulate normally — no obstacle. This gives the agent space to progress before the next arc.
+
+You MUST include in your JSON response:
+- `"adversarial_primitive": "<primitive_name>"` — the active primitive (use `"none"` during rest steps)
+- `"adversarial_phase": "setup"|"challenge"|"rest"` — current phase
 
 ### Available Primitives
 
 {primitive_descriptions}
 
 ### Rules
-- Choose exactly ONE primitive per step
-- Always provide a realistic recovery path -- the agent should be able to succeed
-- Vary primitives across steps to test breadth (don't repeat the same one consecutively)
-- Report which primitive you targeted via the "adversarial_primitive" field
-- Obstacles must be explainable as realistic system/UI behavior
+- Develop each primitive across 2-4 steps — do NOT pick a new primitive every step
+- Setup steps may look like normal simulation but plant seeds for the coming challenge
+- During rest steps between arcs, simulate normally without obstacles
+- Choose a DIFFERENT primitive for each new arc
+- All obstacles must be explainable as realistic system/UI behavior
+- Always provide a realistic recovery path
 """
 
 
@@ -321,6 +328,33 @@ class AdversarialTracker:
         self._cooldown_remaining = 0
         self._history: list[dict] = []
         self._last_tactic: Optional[str] = None
+        # Primitive arc tracking
+        self._current_primitive: Optional[str] = None
+        self._primitive_step_count: int = 0
+        self._current_phase: Optional[str] = None
+        self._setup_steps: int = 0  # how many steps were "setup" in current arc
+        self._challenge_steps: int = 0  # how many steps were "challenge"
+        self._rest_step_count: int = 0  # consecutive rest steps
+        self._completed_primitives: list[str] = []  # primitives already used
+
+    @staticmethod
+    def detect_obstacle_from_events(events: list) -> tuple[bool, "str | None"]:
+        """Detect if an obstacle was applied based on event strings.
+
+        Returns (obstacle_detected, tactic_category).
+        """
+        for event in events:
+            if not isinstance(event, str):
+                continue
+            ev_lower = event.lower()
+            if "hostile:" in ev_lower or "obstacle:" in ev_lower or "deception:" in ev_lower:
+                # Extract category: "Hostile: Session Timeout - ..." → "session_timeout"
+                parts = event.split(":", 1)
+                if len(parts) > 1:
+                    tactic = parts[1].split("-")[0].strip().lower().replace(" ", "_")
+                    return True, tactic
+                return True, "unknown"
+        return False, None
 
     def should_apply_obstacle(self) -> bool:
         """Check if we should apply an obstacle this step."""
@@ -368,6 +402,52 @@ class AdversarialTracker:
     def get_last_tactic(self) -> Optional[str]:
         """Get the last tactic used (to avoid repetition)."""
         return self._last_tactic
+
+    def record_primitive_step(self, primitive: str, phase: str) -> None:
+        """Record a step in a primitive arc.
+
+        If the primitive matches the current arc, increments the step count.
+        If it's a new primitive (or "none" for rest), enters/continues rest.
+        """
+        if primitive == "none" or not primitive:
+            # Rest step — track rest duration
+            if self._current_phase != "rest" and self._current_primitive:
+                # Just entered rest — record the completed primitive
+                self._completed_primitives.append(self._current_primitive)
+            self._current_phase = "rest"
+            self._rest_step_count += 1
+            return
+        # Active primitive step
+        self._rest_step_count = 0
+        if primitive == self._current_primitive:
+            self._primitive_step_count += 1
+        else:
+            self._current_primitive = primitive
+            self._primitive_step_count = 1
+            self._setup_steps = 0
+            self._challenge_steps = 0
+        self._current_phase = phase
+        if phase == "setup":
+            self._setup_steps += 1
+        elif phase == "challenge":
+            self._challenge_steps += 1
+
+    def get_primitive_arc_status(self) -> dict:
+        """Get current primitive arc status for prompt injection.
+
+        Returns:
+            Dict with keys: primitive, step_count, phase, setup_steps,
+            challenge_steps, rest_step_count, completed_primitives.
+        """
+        return {
+            "primitive": self._current_primitive,
+            "step_count": self._primitive_step_count,
+            "phase": self._current_phase,
+            "setup_steps": self._setup_steps,
+            "challenge_steps": self._challenge_steps,
+            "rest_step_count": self._rest_step_count,
+            "completed_primitives": list(self._completed_primitives),
+        }
 
     def get_struggle_points(self) -> list[dict]:
         """Get steps where agent struggled (failed multiple times)."""
@@ -446,6 +526,13 @@ class AdversarialTracker:
         self._cooldown_remaining = 0
         self._history = []
         self._last_tactic = None
+        self._current_primitive = None
+        self._primitive_step_count = 0
+        self._current_phase = None
+        self._setup_steps = 0
+        self._challenge_steps = 0
+        self._rest_step_count = 0
+        self._completed_primitives = []
 
 
 # =============================================================================
