@@ -43,9 +43,6 @@ def get_benchmark(name: str, **kwargs) -> BenchmarkConfig:
     if name == "workarena":
         from .workarena import WorkArenaBenchmark
         return WorkArenaBenchmark(**kwargs).get_config()
-    elif name == "webagentbench":
-        from .webagentbench import WebAgentBenchmark
-        return WebAgentBenchmark(**kwargs).get_config()
     elif name == "webarena":
         raise NotImplementedError("WebArena adapter not yet implemented")
     elif name == "osworld":
@@ -53,4 +50,4 @@ def get_benchmark(name: str, **kwargs) -> BenchmarkConfig:
     elif name == "miniwob":
         raise NotImplementedError("MiniWoB adapter not yet implemented")
     else:
-        raise ValueError(f"Unknown benchmark: {name}. Available: workarena, webagentbench")
+        raise ValueError(f"Unknown benchmark: {name}. Available: workarena")
