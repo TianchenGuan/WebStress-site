@@ -83,7 +83,7 @@ def run_with_playwright(
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("ERROR: playwright not installed. Run: pip install playwright && playwright install chromium",
+        print("ERROR: playwright not installed. Run: uv pip install playwright && playwright install chromium",
               file=sys.stderr)
         sys.exit(1)
 
