@@ -443,7 +443,7 @@ class CorrelationStudyRunner:
 
         # Auto-generate HTML visualization and update index
         try:
-            from ..tools.visualize_correlation import export_result_to_html, create_index_html
+            from .visualize_correlation import export_result_to_html, create_index_html
             html_dir = self.output_dir / "html" / result.config_id / result.agent_id
             html_dir.mkdir(parents=True, exist_ok=True)
             html_path = html_dir / f"{result.task_id}.html"

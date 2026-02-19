@@ -254,7 +254,7 @@ source .venv/bin/activate
 # =============================================================================
 
 python -m llmos.main run \
-    --task "Play the most popular song by the artist of the fourth most recently added song in my Apple Music app's library, add it to my favorites, and download it." \
+    --task "Play the most popular song by the artist of my fourth most recently added track. Also, favorite and download that song." \
     --template desktop \
     --difficulty expert \
     --strictness strict \
