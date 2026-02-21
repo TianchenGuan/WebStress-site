@@ -1,0 +1,241 @@
+{
+  "meta": {
+    "tick": 0,
+    "status": "running",
+    "random_seed": 42,
+    "platform": "webagentbench",
+    "task_category": "wizard_form",
+    "target_primitives": ["backtracking", "memory", "reflection"]
+  },
+  "hidden_state": {
+    "wab_page_id": "wizard_form",
+    "wab_data": {
+      "submitted": false,
+      "plan": "",
+      "state": "",
+      "earthquake_coverage": false,
+      "current_step": 1
+    },
+    "wab_behavior": {
+      "step_count": 4,
+      "earthquake_requires_premium": true,
+      "coverage_checkbox_on_step": 3
+    },
+    "task_completion_criteria": {
+      "js_eval": [
+        "data.submitted === true",
+        "data.plan === 'premium'",
+        "data.state === 'CA'",
+        "data.earthquake_coverage === true"
+      ]
+    }
+  },
+  "ui": {
+    "bid": "root",
+    "tag": "browser",
+    "role": "application",
+    "text": "Insurance Wizard",
+    "visible": true,
+    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "children": [
+      {
+        "bid": "toolbar",
+        "tag": "toolbar",
+        "role": "toolbar",
+        "text": "Browser Toolbar",
+        "visible": true,
+        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "children": [
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/wizard_form",
+            "visible": true,
+            "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}
+          }
+        ]
+      },
+      {
+        "bid": "page_content",
+        "tag": "main",
+        "role": "main",
+        "text": "Insurance Application",
+        "visible": true,
+        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "children": [
+          {
+            "bid": "page_title",
+            "tag": "h1",
+            "role": "heading",
+            "text": "Insurance Application Wizard",
+            "visible": true,
+            "bounds": {"x": 400, "y": 70, "width": 600, "height": 40}
+          },
+          {
+            "bid": "step_indicator",
+            "tag": "nav",
+            "role": "navigation",
+            "text": "Step Progress",
+            "visible": true,
+            "bounds": {"x": 400, "y": 120, "width": 600, "height": 40},
+            "children": [
+              {"bid": "step_circle_1", "tag": "span", "role": "status", "text": "1 Personal Info", "visible": true, "bounds": {"x": 400, "y": 125, "width": 140, "height": 30}},
+              {"bid": "step_circle_2", "tag": "span", "role": "status", "text": "2 Plan Selection", "visible": true, "bounds": {"x": 550, "y": 125, "width": 140, "height": 30}},
+              {"bid": "step_circle_3", "tag": "span", "role": "status", "text": "3 Coverage Options", "visible": true, "bounds": {"x": 700, "y": 125, "width": 140, "height": 30}},
+              {"bid": "step_circle_4", "tag": "span", "role": "status", "text": "4 Review & Submit", "visible": true, "bounds": {"x": 850, "y": 125, "width": 140, "height": 30}}
+            ]
+          },
+          {
+            "bid": "step1_panel",
+            "tag": "section",
+            "role": "region",
+            "text": "Step 1: Personal Information",
+            "visible": true,
+            "bounds": {"x": 400, "y": 180, "width": 600, "height": 400},
+            "children": [
+              {"bid": "step1_title", "tag": "h2", "role": "heading", "text": "Step 1: Personal Information", "visible": true, "bounds": {"x": 410, "y": 190, "width": 400, "height": 30}},
+              {"bid": "state_label", "tag": "label", "role": "label", "text": "State", "visible": true, "bounds": {"x": 410, "y": 240, "width": 100, "height": 20}},
+              {
+                "bid": "state_select",
+                "tag": "select",
+                "role": "combobox",
+                "text": "Select State",
+                "value": "",
+                "visible": true,
+                "bounds": {"x": 410, "y": 265, "width": 300, "height": 35},
+                "options": ["-- Select State --", "CA", "NY", "TX", "FL", "IL"]
+              },
+              {"bid": "fullname_label", "tag": "label", "role": "label", "text": "Full Name", "visible": true, "bounds": {"x": 410, "y": 320, "width": 100, "height": 20}},
+              {"bid": "fullname_input", "tag": "input", "role": "textbox", "text": "Full Name", "value": "", "visible": true, "bounds": {"x": 410, "y": 345, "width": 300, "height": 35}},
+              {"bid": "step1_next", "tag": "button", "role": "button", "text": "Next", "visible": true, "bounds": {"x": 610, "y": 420, "width": 100, "height": 40}}
+            ]
+          },
+          {
+            "bid": "step2_panel",
+            "tag": "section",
+            "role": "region",
+            "text": "Step 2: Plan Selection",
+            "visible": false,
+            "bounds": {"x": 400, "y": 180, "width": 600, "height": 400},
+            "children": [
+              {"bid": "step2_title", "tag": "h2", "role": "heading", "text": "Step 2: Choose Your Plan", "visible": true, "bounds": {"x": 410, "y": 190, "width": 400, "height": 30}},
+              {
+                "bid": "plan_basic",
+                "tag": "div",
+                "role": "radio",
+                "text": "Basic — $50/mo. Standard property coverage.",
+                "visible": true,
+                "checked": false,
+                "bounds": {"x": 410, "y": 240, "width": 560, "height": 60}
+              },
+              {
+                "bid": "plan_standard",
+                "tag": "div",
+                "role": "radio",
+                "text": "Standard — $100/mo. Extended coverage including liability.",
+                "visible": true,
+                "checked": false,
+                "bounds": {"x": 410, "y": 310, "width": 560, "height": 60}
+              },
+              {
+                "bid": "plan_premium",
+                "tag": "div",
+                "role": "radio",
+                "text": "Premium — $175/mo. Full coverage including natural disasters.",
+                "visible": true,
+                "checked": false,
+                "bounds": {"x": 410, "y": 380, "width": 560, "height": 60}
+              },
+              {"bid": "step2_back", "tag": "button", "role": "button", "text": "Back", "visible": true, "bounds": {"x": 510, "y": 460, "width": 100, "height": 40}},
+              {"bid": "step2_next", "tag": "button", "role": "button", "text": "Next", "visible": true, "bounds": {"x": 620, "y": 460, "width": 100, "height": 40}}
+            ]
+          },
+          {
+            "bid": "step3_panel",
+            "tag": "section",
+            "role": "region",
+            "text": "Step 3: Coverage Options",
+            "visible": false,
+            "bounds": {"x": 400, "y": 180, "width": 600, "height": 400},
+            "children": [
+              {"bid": "step3_title", "tag": "h2", "role": "heading", "text": "Step 3: Additional Coverage", "visible": true, "bounds": {"x": 410, "y": 190, "width": 400, "height": 30}},
+              {
+                "bid": "earthquake_checkbox",
+                "tag": "input",
+                "role": "checkbox",
+                "text": "Earthquake Coverage (requires Premium plan)",
+                "checked": false,
+                "disabled": true,
+                "visible": true,
+                "bounds": {"x": 410, "y": 250, "width": 400, "height": 30}
+              },
+              {
+                "bid": "flood_checkbox",
+                "tag": "input",
+                "role": "checkbox",
+                "text": "Flood Coverage",
+                "checked": false,
+                "disabled": false,
+                "visible": true,
+                "bounds": {"x": 410, "y": 300, "width": 400, "height": 30}
+              },
+              {"bid": "step3_back", "tag": "button", "role": "button", "text": "Back", "visible": true, "bounds": {"x": 510, "y": 380, "width": 100, "height": 40}},
+              {"bid": "step3_next", "tag": "button", "role": "button", "text": "Next", "visible": true, "bounds": {"x": 620, "y": 380, "width": 100, "height": 40}}
+            ]
+          },
+          {
+            "bid": "step4_panel",
+            "tag": "section",
+            "role": "region",
+            "text": "Step 4: Review & Submit",
+            "visible": false,
+            "bounds": {"x": 400, "y": 180, "width": 600, "height": 450},
+            "children": [
+              {"bid": "step4_title", "tag": "h2", "role": "heading", "text": "Step 4: Review Your Application", "visible": true, "bounds": {"x": 410, "y": 190, "width": 400, "height": 30}},
+              {
+                "bid": "review_table",
+                "tag": "table",
+                "role": "table",
+                "text": "Application Summary",
+                "visible": true,
+                "bounds": {"x": 410, "y": 230, "width": 560, "height": 120},
+                "children": [
+                  {"bid": "review_state", "tag": "tr", "role": "row", "text": "State: —", "visible": true, "bounds": {"x": 410, "y": 230, "width": 560, "height": 30}},
+                  {"bid": "review_plan", "tag": "tr", "role": "row", "text": "Plan: —", "visible": true, "bounds": {"x": 410, "y": 260, "width": 560, "height": 30}},
+                  {"bid": "review_earthquake", "tag": "tr", "role": "row", "text": "Earthquake Coverage: No", "visible": true, "bounds": {"x": 410, "y": 290, "width": 560, "height": 30}},
+                  {"bid": "review_flood", "tag": "tr", "role": "row", "text": "Flood Coverage: No", "visible": true, "bounds": {"x": 410, "y": 320, "width": 560, "height": 30}}
+                ]
+              },
+              {"bid": "beneficiary_label", "tag": "label", "role": "label", "text": "Beneficiary Name", "visible": true, "bounds": {"x": 410, "y": 370, "width": 200, "height": 20}},
+              {"bid": "beneficiary_input", "tag": "input", "role": "textbox", "text": "Beneficiary Name", "value": "", "visible": true, "bounds": {"x": 410, "y": 395, "width": 300, "height": 35}},
+              {"bid": "relation_label", "tag": "label", "role": "label", "text": "Relation", "visible": true, "bounds": {"x": 410, "y": 445, "width": 200, "height": 20}},
+              {"bid": "relation_input", "tag": "input", "role": "textbox", "text": "Relation", "value": "", "visible": true, "bounds": {"x": 410, "y": 470, "width": 300, "height": 35}},
+              {"bid": "step4_back", "tag": "button", "role": "button", "text": "Back", "visible": true, "bounds": {"x": 510, "y": 530, "width": 100, "height": 40}},
+              {"bid": "step4_submit", "tag": "button", "role": "button", "text": "Submit Application", "visible": true, "bounds": {"x": 620, "y": 530, "width": 160, "height": 40}}
+            ]
+          },
+          {
+            "bid": "confirmation_message",
+            "tag": "div",
+            "role": "alert",
+            "text": "",
+            "visible": false,
+            "bounds": {"x": 400, "y": 180, "width": 600, "height": 100}
+          }
+        ]
+      }
+    ]
+  },
+  "filesystem": {},
+  "tabs": [
+    {
+      "id": 0,
+      "url": "https://webagentbench.local/pages/wizard_form",
+      "title": "Insurance Application Wizard",
+      "active": true
+    }
+  ],
+  "history": []
+}

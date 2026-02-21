@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "tick": 0,
+    "status": "running",
+    "random_seed": 42,
+    "platform": "webagentbench",
+    "task_category": "fake_success",
+    "target_primitives": ["verification", "reflection"]
+  },
+  "hidden_state": {
+    "wab_page_id": "fake_success",
+    "wab_data": {
+      "actually_saved": false,
+      "notification_pref": "all",
+      "timezone": "eastern",
+      "fake_save_clicked": false
+    },
+    "wab_behavior": {
+      "fake_save_shows_toast_but_does_not_persist": true,
+      "real_save_button": "Confirm & Apply Settings"
+    },
+    "task_completion_criteria": {
+      "js_eval": [
+        "data.actually_saved === true",
+        "data.notification_pref === 'email_only'",
+        "data.timezone === 'pacific'"
+      ]
+    }
+  },
+  "ui": {
+    "bid": "root",
+    "tag": "browser",
+    "role": "application",
+    "text": "Account Settings",
+    "visible": true,
+    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "children": [
+      {
+        "bid": "toolbar",
+        "tag": "toolbar",
+        "role": "toolbar",
+        "text": "Browser Toolbar",
+        "visible": true,
+        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "children": [
+          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/fake_success", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+        ]
+      },
+      {
+        "bid": "page_content",
+        "tag": "main",
+        "role": "main",
+        "text": "Account Settings",
+        "visible": true,
+        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "children": [
+          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Account Settings", "visible": true, "bounds": {"x": 200, "y": 70, "width": 400, "height": 40}},
+          {
+            "bid": "settings_form",
+            "tag": "form",
+            "role": "form",
+            "text": "Settings",
+            "visible": true,
+            "bounds": {"x": 200, "y": 130, "width": 700, "height": 500},
+            "children": [
+              {"bid": "notif_heading", "tag": "h3", "role": "heading", "text": "Notification Preferences", "visible": true, "bounds": {"x": 210, "y": 140, "width": 300, "height": 25}},
+              {
+                "bid": "notif_all",
+                "tag": "input",
+                "role": "radio",
+                "text": "All Notifications",
+                "checked": true,
+                "visible": true,
+                "bounds": {"x": 210, "y": 180, "width": 300, "height": 30}
+              },
+              {
+                "bid": "notif_email",
+                "tag": "input",
+                "role": "radio",
+                "text": "Email Only",
+                "checked": false,
+                "visible": true,
+                "bounds": {"x": 210, "y": 215, "width": 300, "height": 30}
+              },
+              {
+                "bid": "notif_none",
+                "tag": "input",
+                "role": "radio",
+                "text": "None",
+                "checked": false,
+                "visible": true,
+                "bounds": {"x": 210, "y": 250, "width": 300, "height": 30}
+              },
+              {"bid": "tz_heading", "tag": "h3", "role": "heading", "text": "Timezone", "visible": true, "bounds": {"x": 210, "y": 300, "width": 200, "height": 25}},
+              {
+                "bid": "tz_select",
+                "tag": "select",
+                "role": "combobox",
+                "text": "Timezone",
+                "value": "eastern",
+                "visible": true,
+                "bounds": {"x": 210, "y": 335, "width": 300, "height": 35},
+                "options": ["Eastern (UTC-5)", "Central (UTC-6)", "Mountain (UTC-7)", "Pacific (UTC-8)"]
+              },
+              {
+                "bid": "fake_save_btn",
+                "tag": "button",
+                "role": "button",
+                "text": "Save Changes",
+                "visible": true,
+                "bounds": {"x": 210, "y": 410, "width": 200, "height": 50}
+              },
+              {
+                "bid": "real_save_btn",
+                "tag": "button",
+                "role": "button",
+                "text": "Confirm & Apply Settings",
+                "visible": true,
+                "bounds": {"x": 430, "y": 420, "width": 180, "height": 30}
+              },
+              {
+                "bid": "save_toast",
+                "tag": "div",
+                "role": "alert",
+                "text": "",
+                "visible": false,
+                "bounds": {"x": 210, "y": 480, "width": 400, "height": 40}
+              }
+            ]
+          },
+          {
+            "bid": "sidebar",
+            "tag": "aside",
+            "role": "complementary",
+            "text": "Current Settings",
+            "visible": true,
+            "bounds": {"x": 1000, "y": 130, "width": 350, "height": 300},
+            "children": [
+              {"bid": "sidebar_title", "tag": "h3", "role": "heading", "text": "Current Settings", "visible": true, "bounds": {"x": 1010, "y": 140, "width": 200, "height": 25}},
+              {"bid": "current_notif_display", "tag": "p", "role": "text", "text": "Notifications: All Notifications", "visible": true, "bounds": {"x": 1010, "y": 180, "width": 330, "height": 25}},
+              {"bid": "current_tz_display", "tag": "p", "role": "text", "text": "Timezone: Eastern (UTC-5)", "visible": true, "bounds": {"x": 1010, "y": 215, "width": 330, "height": 25}},
+              {"bid": "sidebar_note", "tag": "p", "role": "text", "text": "These values reflect your currently saved settings.", "visible": true, "bounds": {"x": 1010, "y": 260, "width": 330, "height": 40}}
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "filesystem": {},
+  "tabs": [
+    {
+      "id": 0,
+      "url": "https://webagentbench.local/pages/fake_success",
+      "title": "Account Settings",
+      "active": true
+    }
+  ],
+  "history": []
+}
