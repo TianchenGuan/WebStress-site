@@ -428,7 +428,16 @@
         severitySelect.value   = "";
         descriptionInput.value = "";
 
-        setStatus("\u274C Session expired. Please reload the page.", "error");
+        // Mutate severity options: relabel "High" to "P2 - High", add "Severe"
+        severitySelect.innerHTML =
+          '<option value="">-- Select severity --</option>' +
+          '<option value="Low">Low</option>' +
+          '<option value="Medium">Medium</option>' +
+          '<option value="High">P2 - High</option>' +
+          '<option value="Severe">Severe</option>' +
+          '<option value="Critical">Critical</option>';
+
+        setStatus("\u274C Session expired. Form fields have been reset.", "error");
 
         // Show restore button if draft was saved
         if (draftSaved) {
@@ -437,11 +446,32 @@
 
         submitting = false;
         btnSubmit.disabled = false;
-        window.__benchmarkLog("submit_error_session_cleared", { attempt: 3, fields_cleared: true });
+        window.__benchmarkLog("submit_error_session_cleared", { attempt: 3, fields_cleared: true, options_mutated: true });
         updateBenchmarkState();
       }, 1500);
 
     } else if (attemptCount === 4) {
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        setStatus("\u274C Duplicate report detected. A similar ticket already exists (BUG-2841). Please modify the title to differentiate this report.", "error");
+        submitting = false;
+        btnSubmit.disabled = false;
+        window.__benchmarkLog("submit_error_duplicate", { attempt: 4 });
+        updateBenchmarkState();
+      }, 1200);
+
+    } else if (attemptCount === 5) {
+      // Rate limit error — agent must simply retry once more
+      setStatus("Submitting...", "loading");
+      setTimeout(function () {
+        setStatus("\u274C Rate limit exceeded. Too many submissions in a short period. Please wait a moment and try again.", "error");
+        submitting = false;
+        btnSubmit.disabled = false;
+        window.__benchmarkLog("submit_error_rate_limit", { attempt: 5 });
+        updateBenchmarkState();
+      }, 2000);
+
+    } else if (attemptCount === 6) {
       setStatus("Submitting...", "loading");
       setTimeout(function () {
         var finalTitle    = titleInput.value;
@@ -453,7 +483,7 @@
         btnSubmit.disabled = true;
         btnSubmit.textContent = "Submitted";
 
-        window.__benchmarkLog("submit_success", { attempt: 4, ticket: "BUG-2847" });
+        window.__benchmarkLog("submit_success", { attempt: 6, ticket: "BUG-2847" });
         window.__benchmarkComplete(true, {
           submission_successful: true,
           title: finalTitle,
@@ -466,7 +496,7 @@
       }, 1000);
 
     } else {
-      // Attempts beyond 4 also succeed (shouldn't normally happen)
+      // Attempts beyond 6 also succeed
       setStatus("Submitting...", "loading");
       setTimeout(function () {
         var finalTitle    = titleInput.value;

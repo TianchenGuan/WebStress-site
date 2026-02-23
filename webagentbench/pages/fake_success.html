@@ -320,6 +320,11 @@
       Save Changes
     </button>
 
+    <!-- Partial save button (saves notification only, not timezone) -->
+    <button class="btn-real-save" id="btn-partial-save" style="margin-top:16px; background:#f0f7ff; color:#0071e3; border-color:#0071e3;">Apply Settings</button>
+    <div class="real-save-note" style="color:#0071e3; font-size:12px;">Updates your account preferences.</div>
+    <div class="confirmation-text" id="partial-confirmation-text" style="color:#0071e3;">Notification preference updated.</div>
+
     <!-- Advanced Options spacer -->
     <div class="advanced-spacer">
       <h3>Advanced Options</h3>
@@ -328,9 +333,14 @@
       <p style="margin-top: 12px;">Session management and security audit logs are available under the Security tab. Two-factor authentication settings have been moved to the dedicated Security section for improved organization.</p>
     </div>
 
-    <!-- Real save button (below fold) -->
-    <button class="btn-real-save" id="btn-real-save">Confirm &amp; Apply Settings</button>
-    <div class="real-save-note">Changes above require confirmation to take effect.</div>
+    <!-- Another decoy: saves timezone only, not notification -->
+    <button class="btn-real-save" id="btn-timezone-only" style="margin-top:16px; background:#f5f5f7; color:#374151; border-color:#d2d2d7;">Update All Preferences</button>
+    <div class="real-save-note">Applies preference changes to your profile.</div>
+    <div class="confirmation-text" id="timezone-only-confirmation" style="color:#374151;">Timezone changes applied.</div>
+
+    <!-- Real save button (below fold, subtle label) -->
+    <button class="btn-real-save" id="btn-real-save" style="margin-top:24px;">Save &amp; Apply</button>
+    <div class="real-save-note">Saves and applies your changes.</div>
     <div class="confirmation-text" id="confirmation-text">Settings applied and confirmed.</div>
   </div>
 
@@ -364,10 +374,14 @@
 
   // -- Element refs -----------------------------------------------------
   var btnFakeSave       = document.getElementById("btn-fake-save");
+  var btnPartialSave    = document.getElementById("btn-partial-save");
+  var btnTimezoneOnly   = document.getElementById("btn-timezone-only");
   var btnRealSave       = document.getElementById("btn-real-save");
   var toast             = document.getElementById("toast");
   var pendingLabel      = document.getElementById("pending-label");
   var confirmationText  = document.getElementById("confirmation-text");
+  var partialConfText   = document.getElementById("partial-confirmation-text");
+  var tzOnlyConfText    = document.getElementById("timezone-only-confirmation");
   var currentNotif      = document.getElementById("current-notif-display");
   var currentTz         = document.getElementById("current-tz-display");
   var timezoneSelect    = document.getElementById("timezone-select");
@@ -427,6 +441,40 @@
     window.__benchmarkLog("fake_save_clicked");
   });
 
+  // -- Partial save (notification only — NOT timezone) -----------------
+  btnPartialSave.addEventListener("click", function () {
+    var notifValue = getSelectedNotification();
+
+    // Only updates notification in sidebar, NOT timezone
+    currentNotif.textContent = notifLabels[notifValue] || notifValue;
+
+    // Show partial confirmation
+    partialConfText.classList.add("visible");
+
+    // Hide pending label if shown
+    pendingLabel.classList.remove("visible");
+
+    window.__benchmarkUpdate({ partial_save_clicked: true });
+    window.__benchmarkLog("partial_save_clicked");
+  });
+
+  // -- Timezone-only save (another partial trap: saves tz but NOT notification)
+  btnTimezoneOnly.addEventListener("click", function () {
+    var tzValue = getSelectedTimezone();
+
+    // Only updates timezone in sidebar, NOT notification
+    currentTz.textContent = tzLabels[tzValue] || tzValue;
+
+    // Show timezone-only confirmation
+    tzOnlyConfText.classList.add("visible");
+
+    // Hide pending label if shown
+    pendingLabel.classList.remove("visible");
+
+    window.__benchmarkUpdate({ timezone_only_clicked: true });
+    window.__benchmarkLog("timezone_only_clicked");
+  });
+
   // -- Real save --------------------------------------------------------
   btnRealSave.addEventListener("click", function () {
     var notifValue = getSelectedNotification();
@@ -442,13 +490,38 @@
     // Hide pending label if shown
     pendingLabel.classList.remove("visible");
 
-    window.__benchmarkComplete(true, {
+    var isCorrect = notifValue === "email_only" && tzValue === "pacific";
+    window.__benchmarkComplete(isCorrect, {
       actually_saved: true,
       notification_pref: notifValue,
       timezone: tzValue
     });
     window.__benchmarkLog("real_save_clicked");
   });
+
+  // -- Sidebar verification tracking ----------------------------------------
+  // Detects whether the agent interacts with the sidebar after clicking a save
+  // button — measures whether the agent verifies outcomes, not just acts.
+  var sidebarEl = document.querySelector(".sidebar-card");
+  var anySaveClicked = false;
+
+  var saveBtns = [btnFakeSave, btnPartialSave, btnTimezoneOnly, btnRealSave];
+  for (var si = 0; si < saveBtns.length; si++) {
+    (function (btn) {
+      btn.addEventListener("click", function () { anySaveClicked = true; });
+    })(saveBtns[si]);
+  }
+
+  function markSidebarVerified() {
+    if (anySaveClicked) {
+      window.__benchmarkUpdate({ sidebar_verified: true });
+      window.__benchmarkLog("sidebar_verified");
+    }
+  }
+
+  sidebarEl.addEventListener("click", markSidebarVerified);
+  sidebarEl.addEventListener("mouseover", markSidebarVerified);
+  sidebarEl.addEventListener("focusin", markSidebarVerified);
 
 })();
 </script>

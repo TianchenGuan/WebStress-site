@@ -359,7 +359,7 @@
 
     <!-- Summary -->
     <div class="summary-row">
-        <span class="showing-count" id="showing-count">Showing <strong>16</strong> of 16 employees</span>
+        <span class="showing-count" id="showing-count">Showing <strong>20</strong> of 20 employees</span>
     </div>
 
     <!-- Table -->
@@ -401,7 +401,7 @@
     window.__benchmarkState.pageId = "filter_dashboard";
 
     // ── Employee data ───────────────────────────────────────────────────
-    const EMPLOYEES = [
+    var EMPLOYEES = [
         { name: "Alice Chen", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 185000 },
         { name: "Bob Kim", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 178000 },
         { name: "Carlos Lopez", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 165000 },
@@ -418,29 +418,34 @@
         { name: "Nathan Scott", department: "HR", location: "San Francisco", title: "HR Director", salary: 175000 },
         { name: "Olivia Adams", department: "HR", location: "New York", title: "HR Coordinator", salary: 72000 },
         { name: "Peter Chang", department: "Engineering", location: "Remote", title: "Senior Engineer", salary: 172000 },
+        { name: "Quinn Zhang", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 150000 },
+        { name: "Rachel Nguyen", department: "Engineering", location: "San Francisco", title: "Senior Engineering Manager", salary: 205000 },
+        { name: "Sam Okafor", department: "Engineering", location: "San Jose", title: "Senior Engineer", salary: 182000 },
+        { name: "Tina Roberts", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 150000 },
     ];
 
     // ── DOM references ──────────────────────────────────────────────────
-    const elDepartment  = document.getElementById("filter-department");
-    const elLocation    = document.getElementById("filter-location");
-    const elTitle       = document.getElementById("filter-title");
-    const elMinSalary   = document.getElementById("filter-min-salary");
-    const elSortBy      = document.getElementById("filter-sort-by");
-    const elSortOrder   = document.getElementById("filter-sort-order");
-    const elTbody       = document.getElementById("employee-tbody");
-    const elCount       = document.getElementById("showing-count");
-    const elNoResults   = document.getElementById("no-results");
-    const elReportInput = document.getElementById("report-count");
-    const elReportBtn   = document.getElementById("report-submit");
-    const elCountDisplay = document.getElementById("count-display");
+    var elDepartment  = document.getElementById("filter-department");
+    var elLocation    = document.getElementById("filter-location");
+    var elTitle       = document.getElementById("filter-title");
+    var elMinSalary   = document.getElementById("filter-min-salary");
+    var elSortBy      = document.getElementById("filter-sort-by");
+    var elSortOrder   = document.getElementById("filter-sort-order");
+    var elTbody       = document.getElementById("employee-tbody");
+    var elCount       = document.getElementById("showing-count");
+    var elNoResults   = document.getElementById("no-results");
+    var elReportInput = document.getElementById("report-count");
+    var elReportBtn   = document.getElementById("report-submit");
+    var elCountDisplay = document.getElementById("count-display");
 
     // Preset buttons
-    const btnSFEng      = document.getElementById("preset-sf-eng");
-    const btnRemote     = document.getElementById("preset-remote");
-    const btnLeadership = document.getElementById("preset-leadership");
+    var btnSFEng      = document.getElementById("preset-sf-eng");
+    var btnRemote     = document.getElementById("preset-remote");
+    var btnLeadership = document.getElementById("preset-leadership");
 
     // ── State ───────────────────────────────────────────────────────────
-    let sortOrder = "asc"; // "asc" or "desc"
+    var sortOrder = "asc"; // "asc" or "desc"
+    var lastFilteredCount = EMPLOYEES.length; // tracks visible count for verification
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -584,6 +589,7 @@
     }
 
     function renderTable(results) {
+        lastFilteredCount = results.length;
         elTbody.innerHTML = "";
         if (results.length === 0) {
             elNoResults.style.display = "";
@@ -851,10 +857,13 @@
         var minSal   = elMinSalary.value.trim();
         var sortByVal = elSortBy.value;
 
-        elCountDisplay.textContent = "Reported count: " + reportedCount;
+        var isCorrect = reportedCount === 4;
+        elCountDisplay.textContent = reportedCount;
 
-        window.__benchmarkComplete(true, {
+        window.__benchmarkComplete(isCorrect, {
             reported_count: reportedCount,
+            count_matches_visible: reportedCount === lastFilteredCount,
+            visible_count_at_submit: lastFilteredCount,
             filters_applied: {
                 department: dept,
                 location: loc,

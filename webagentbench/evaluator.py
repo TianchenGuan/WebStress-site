@@ -210,6 +210,8 @@ def _enrich_dark_checkout(data: dict, state: dict) -> dict:
         traps.append("warranty still checked ($149.99)")
     if data.get("insurance_checked"):
         traps.append("insurance still checked ($79.99)")
+    if data.get("loyalty_checked"):
+        traps.append("loyalty club still checked ($39.99/yr)")
     if data.get("newsletter_checked"):
         traps.append("newsletter still checked")
     if data.get("fake_button_clicked"):
@@ -225,9 +227,10 @@ def _enrich_dark_checkout(data: dict, state: dict) -> dict:
 def _enrich_flaky_form(data: dict, state: dict) -> dict:
     return {
         "attempts_made": data.get("attempt_count", 0),
-        "attempts_needed": 4,
+        "attempts_needed": 6,
         "draft_saved": data.get("draft_saved", False),
         "draft_restored": data.get("draft_restored", False),
+        "severity_after_mutation": data.get("severity"),
     }
 
 
@@ -242,8 +245,58 @@ def _enrich_scavenger_hunt(data: dict, state: dict) -> dict:
 def _enrich_fake_success(data: dict, state: dict) -> dict:
     return {
         "fake_save_clicked": data.get("fake_save_clicked", False),
+        "partial_save_clicked": data.get("partial_save_clicked", False),
+        "timezone_only_clicked": data.get("timezone_only_clicked", False),
         "real_save_used": data.get("actually_saved", False),
         "sidebar_checked": data.get("sidebar_verified", False),
+    }
+
+
+def _enrich_wizard_form(data: dict, state: dict) -> dict:
+    prop_val = data.get("property_value", 0)
+    is_ca = data.get("state") == "CA"
+    is_premium = data.get("plan") == "premium"
+    return {
+        "ca_high_value_property": is_ca and prop_val > 750000,
+        "dual_coverage_required": is_ca and is_premium and prop_val > 750000,
+        "earthquake_selected": data.get("earthquake_coverage", False),
+        "flood_selected": data.get("flood_coverage", False),
+        "plan_selected": data.get("plan"),
+    }
+
+
+def _enrich_slow_search(data: dict, state: dict) -> dict:
+    reported = data.get("reported_price_per_sqft")
+    return {
+        "batches_loaded_at_submit": data.get("batches_loaded", 0),
+        "submitted_early": data.get("batches_loaded", 0) < 3,
+        "used_wrong_property": reported == 288,
+        "correct_answer": reported == 287,
+    }
+
+
+_DISTRACTOR_CODES = {"DELTA-11", "KAPPA-5", "SIGMA-88", "EPSILON-3", "OMEGA-21", "THETA-14"}
+_CORRECT_CODES = {"ALPHA-7": "beginner", "BETA-42": "intermediate", "GAMMA-99": "advanced"}
+
+
+def _enrich_session_content(data: dict, state: dict) -> dict:
+    entered = (data.get("key_code_entered") or "").upper()
+    module = data.get("module_level", "unknown")
+    return {
+        "module_assigned": module,
+        "quiz_score": data.get("quiz_score"),
+        "used_distractor_code": entered in _DISTRACTOR_CODES,
+        "code_entered": entered,
+        "correct_code_for_module": {v: k for k, v in _CORRECT_CODES.items()}.get(module),
+    }
+
+
+def _enrich_filter_dashboard(data: dict, state: dict) -> dict:
+    return {
+        "reported_count": data.get("reported_count"),
+        "count_matches_visible": data.get("count_matches_visible", False),
+        "visible_count_at_submit": data.get("visible_count_at_submit"),
+        "correct_answer": data.get("reported_count") == 4,
     }
 
 
@@ -252,4 +305,8 @@ _PAGE_ENRICHERS = {
     "flaky_form": _enrich_flaky_form,
     "scavenger_hunt": _enrich_scavenger_hunt,
     "fake_success": _enrich_fake_success,
+    "wizard_form": _enrich_wizard_form,
+    "slow_search": _enrich_slow_search,
+    "session_content": _enrich_session_content,
+    "filter_dashboard": _enrich_filter_dashboard,
 }

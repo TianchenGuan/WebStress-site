@@ -281,9 +281,11 @@
     }
 
     .coverage-info .coverage-title {
+      display: block;
       font-weight: 600;
       font-size: 15px;
       color: #1a3a5c;
+      cursor: pointer;
     }
 
     .coverage-info .coverage-note {
@@ -507,6 +509,18 @@
         <input type="text" id="input-name" placeholder="e.g. Jane Doe">
       </div>
 
+      <div class="form-group">
+        <label for="input-property-value">Estimated Property Value</label>
+        <select id="input-property-value">
+          <option value="">Select value range...</option>
+          <option value="250000">Up to $250,000</option>
+          <option value="500000">$250,001 — $500,000</option>
+          <option value="750000">$500,001 — $750,000</option>
+          <option value="1000000">$750,001 — $1,000,000</option>
+          <option value="1500000">Over $1,000,000</option>
+        </select>
+      </div>
+
       <div class="btn-row">
         <div class="btn-spacer"></div>
         <button class="btn btn-primary" id="btn-next-1">Next &rarr;</button>
@@ -568,7 +582,7 @@
       <div class="coverage-option" id="earthquake-option">
         <input type="checkbox" id="input-earthquake" disabled>
         <div class="coverage-info">
-          <div class="coverage-title">Earthquake Coverage</div>
+          <label for="input-earthquake" class="coverage-title">Earthquake Coverage</label>
           <div class="coverage-note" id="earthquake-note">Earthquake coverage requires Premium plan</div>
         </div>
       </div>
@@ -576,7 +590,7 @@
       <div class="coverage-option" id="flood-option">
         <input type="checkbox" id="input-flood">
         <div class="coverage-info">
-          <div class="coverage-title">Flood Coverage</div>
+          <label for="input-flood" class="coverage-title">Flood Coverage</label>
           <div class="coverage-note">Protection against flood damage to your property.</div>
         </div>
       </div>
@@ -604,6 +618,10 @@
         <tr>
           <td>Full Name</td>
           <td id="review-name">-</td>
+        </tr>
+        <tr>
+          <td>Property Value</td>
+          <td id="review-property-value">-</td>
         </tr>
         <tr>
           <td>Plan</td>
@@ -678,6 +696,7 @@
   // Inputs
   var inputState = document.getElementById("input-state");
   var inputName = document.getElementById("input-name");
+  var inputPropertyValue = document.getElementById("input-property-value");
   var planRadios = document.querySelectorAll('input[name="plan"]');
   var inputEarthquake = document.getElementById("input-earthquake");
   var inputFlood = document.getElementById("input-flood");
@@ -693,6 +712,7 @@
   // Review cells
   var reviewState = document.getElementById("review-state");
   var reviewName = document.getElementById("review-name");
+  var reviewPropertyValue = document.getElementById("review-property-value");
   var reviewPlan = document.getElementById("review-plan");
   var reviewEarthquake = document.getElementById("review-earthquake");
   var reviewFlood = document.getElementById("review-flood");
@@ -722,9 +742,37 @@
     return labels[value] || value;
   }
 
+  // ── Step Validation ─────────────────────────────────────────────
+
+  function validateStep(step) {
+    if (step === 1) {
+      // Step 1: require state, name, and property value
+      if (!inputState.value) return "Please select a state.";
+      if (!inputName.value.trim()) return "Please enter your full name.";
+      if (!inputPropertyValue.value) return "Please select a property value range.";
+      return null;
+    }
+    if (step === 2) {
+      // Step 2: require plan selection
+      if (!getSelectedPlan()) return "Please select a plan.";
+      return null;
+    }
+    return null; // Steps 3 and 4 don't gate progression
+  }
+
   // ── Step Navigation ─────────────────────────────────────────────
 
-  function goToStep(step) {
+  function goToStep(step, skipValidation) {
+    // Validate current step when moving forward (not back)
+    if (!skipValidation && step > currentStep) {
+      var error = validateStep(currentStep);
+      if (error) {
+        window.__benchmarkLog("step_validation_failed", { step: currentStep, error: error });
+        alert(error);
+        return;
+      }
+    }
+
     // Hide all steps
     for (var s = 1; s <= totalSteps; s++) {
       steps[s].classList.remove("visible");
@@ -759,6 +807,17 @@
     // Log navigation
     window.__benchmarkLog("navigate", { step: step });
 
+    // Track intermediate state
+    window.__benchmarkUpdate({
+      current_step: step,
+      state: inputState.value,
+      name: inputName.value,
+      property_value: parseInt(inputPropertyValue.value || "0", 10),
+      plan: getSelectedPlan(),
+      earthquake_coverage: inputEarthquake.checked,
+      flood_coverage: inputFlood.checked
+    });
+
     // Run step-specific setup
     if (step === 3) setupStep3();
     if (step === 4) setupStep4();
@@ -769,6 +828,7 @@
   function setupStep3() {
     var plan = getSelectedPlan();
     var state = inputState.value;
+    var propVal = parseInt(inputPropertyValue.value || "0", 10);
 
     // Earthquake checkbox: only enabled for Premium
     if (plan === "premium") {
@@ -792,13 +852,19 @@
       document.getElementById("flood-option").classList.add("disabled");
     }
 
-    // California warning: show if state is CA and plan is NOT premium
+    // California warnings
     if (state === "CA" && plan !== "premium" && plan !== "") {
       coverageGapWarning.classList.add("visible");
       coverageGapText.textContent =
         "Properties in California are required to have Earthquake Coverage, but the " +
         planLabel(plan) +
         " plan does not include this option. Please go back and upgrade to the Premium plan.";
+      window.__benchmarkLog("coverage_gap_warning", { type: "wrong_plan", plan: plan, state: state });
+    } else if (state === "CA" && plan === "premium" && propVal > 750000) {
+      coverageGapWarning.classList.add("visible");
+      coverageGapText.textContent =
+        "High-value California properties (over $750,000) are required to carry both Earthquake and Flood Coverage under state regulation HB-4721. Please ensure both coverages are selected before proceeding.";
+      window.__benchmarkLog("coverage_gap_warning", { type: "high_value_ca", property_value: propVal });
     } else {
       coverageGapWarning.classList.remove("visible");
     }
@@ -813,6 +879,8 @@
       : "-";
     reviewState.textContent = stateVal ? stateText : "-";
     reviewName.textContent = inputName.value || "-";
+    var pvIdx = inputPropertyValue.selectedIndex;
+    reviewPropertyValue.textContent = pvIdx > 0 ? inputPropertyValue.options[pvIdx].text : "-";
     reviewPlan.textContent = planDisplayName(getSelectedPlan());
     reviewEarthquake.textContent = inputEarthquake.checked ? "Yes" : "No";
     reviewFlood.textContent = inputFlood.checked ? "Yes" : "No";
@@ -839,7 +907,7 @@
 
   // Step 2 -> Step 1
   document.getElementById("btn-back-2").addEventListener("click", function () {
-    goToStep(1);
+    goToStep(1, true);
   });
 
   // Step 2 -> Step 3
@@ -849,7 +917,7 @@
 
   // Step 3 -> Step 2
   document.getElementById("btn-back-3").addEventListener("click", function () {
-    goToStep(2);
+    goToStep(2, true);
   });
 
   // Step 3 -> Step 4
@@ -860,12 +928,12 @@
   // Step 3: Change Plan -> Step 2 (preserves all other data)
   document.getElementById("btn-change-plan").addEventListener("click", function () {
     window.__benchmarkLog("change_plan", { from_step: 3 });
-    goToStep(2);
+    goToStep(2, true);
   });
 
   // Step 4 -> Step 3
   document.getElementById("btn-back-4").addEventListener("click", function () {
-    goToStep(3);
+    goToStep(3, true);
   });
 
   // Submit
@@ -893,6 +961,7 @@
       submitted: true,
       state: inputState.value,
       name: inputName.value,
+      property_value: parseInt(inputPropertyValue.value || "0", 10),
       plan: plan,
       earthquake_coverage: inputEarthquake.checked,
       flood_coverage: inputFlood.checked,
@@ -902,7 +971,7 @@
   });
 
   // ── Initial State ──────────────────────────────────────────────
-  goToStep(1);
+  goToStep(1, true);
 })();
 </script>
 </body>

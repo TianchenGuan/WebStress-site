@@ -233,17 +233,25 @@
 
     <form class="registration-form" id="registration-form" novalidate>
 
-      <!-- Full Name -->
+      <!-- Full Name
+           BUG 6: aria-label AND placeholder swapped with Email field.
+           The accessibility tree sees aria-label="Email Address" and
+           placeholder="you@company.com". Only name="name" and id="reg-name"
+           are reliable identifiers. -->
       <div class="form-group form-group-name">
         <label for="reg-name" class="field-label">Full Name *</label>
-        <input id="reg-name" name="name" type="text" placeholder="Enter your full name" autocomplete="name">
+        <input id="reg-name" name="name" type="text" placeholder="you@company.com" autocomplete="name" aria-label="Email Address">
         <div class="field-error" id="error-name">Please enter your full name.</div>
       </div>
 
-      <!-- Email -->
+      <!-- Email
+           BUG 6 (cont): aria-label AND placeholder swapped with Name field.
+           The accessibility tree sees aria-label="Full Name" and
+           placeholder="Enter your full name". Only name="email" and
+           id="reg-email" are reliable identifiers. -->
       <div class="form-group form-group-email">
         <label for="reg-email" class="field-label">Email Address *</label>
-        <input id="reg-email" name="email" type="email" placeholder="you@company.com" autocomplete="email">
+        <input id="reg-email" name="email" type="email" placeholder="Enter your full name" autocomplete="email" aria-label="Full Name">
         <div class="field-error" id="error-email">Please enter a valid email address.</div>
       </div>
 
@@ -315,6 +323,20 @@
     errorTerms.classList.remove("visible");
   }
 
+  // -- Track field interactions -------------------------------------------
+  nameInput.addEventListener("blur", function () {
+    window.__benchmarkUpdate({ name_entered: nameInput.value.trim() });
+  });
+  emailInput.addEventListener("blur", function () {
+    window.__benchmarkUpdate({ email_entered: emailInput.value.trim() });
+  });
+  deptSelect.addEventListener("change", function () {
+    window.__benchmarkUpdate({ department_selected: deptSelect.value });
+  });
+  termsCheckbox.addEventListener("change", function () {
+    window.__benchmarkUpdate({ terms_checked: termsCheckbox.checked });
+  });
+
   // -- Form submit ------------------------------------------------------
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -344,7 +366,12 @@
     }
 
     if (!valid) {
-      window.__benchmarkLog("validation_failed");
+      window.__benchmarkLog("validation_failed", {
+        name_filled: !!name,
+        email_filled: !!(email && validateEmail(email)),
+        dept_filled: !!department,
+        terms_agreed: agreed
+      });
       return;
     }
 

@@ -256,6 +256,7 @@
   <button class="tab-btn active" data-section="1">Section 1: Team</button>
   <button class="tab-btn" data-section="2">Section 2: Projects</button>
   <button class="tab-btn" data-section="3">Section 3: Memos</button>
+  <button class="tab-btn" data-section="4">Section 4: Archives</button>
 </div>
 
 <!-- Sections -->
@@ -270,24 +271,39 @@
         <tr>
           <th>Role</th>
           <th>Name</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td>Project Lead</td>
           <td>Marcus Rivera</td>
+          <td>Active</td>
         </tr>
         <tr>
-          <td>Project Coordinator</td>
+          <td>Project Coordinator (Q2)</td>
+          <td>David Park</td>
+          <td style="color:#86868b;">Transferred</td>
+        </tr>
+        <tr>
+          <td>Project Coordinator (Q3)</td>
           <td>Sarah Chen</td>
+          <td>Active</td>
         </tr>
         <tr>
           <td>Technical Lead</td>
           <td>James O'Neill</td>
+          <td>Active</td>
         </tr>
         <tr>
           <td>Design Lead</td>
           <td>Aisha Patel</td>
+          <td>Active</td>
+        </tr>
+        <tr>
+          <td>Budget Coordinator</td>
+          <td>Maria Santos</td>
+          <td>Active</td>
         </tr>
       </tbody>
     </table>
@@ -312,6 +328,27 @@
   <div class="section-panel" id="section-2">
     <h2>Project Updates</h2>
 
+    <!-- Distractor: project summary with wrong totals -->
+    <div class="update-card" style="border:2px solid #0071e3; background:#f0f7ff;">
+      <h3><span class="badge badge-budget">Summary</span> Q3 Project Dashboard</h3>
+      <p style="margin-bottom:8px;">Quick reference for project status:</p>
+      <table style="width:100%; font-size:14px; border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #e0e0e0;">
+          <td style="padding:6px 0; color:#6e6e73;">Project Coordinator:</td>
+          <td style="padding:6px 0; font-weight:600;">Maria Santos</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e0e0e0;">
+          <td style="padding:6px 0; color:#6e6e73;">Total Budget (incl. revisions):</td>
+          <td style="padding:6px 0; font-weight:600;">$280,000</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0; color:#6e6e73;">Sprint:</td>
+          <td style="padding:6px 0; font-weight:600;">14 of 18</td>
+        </tr>
+      </table>
+      <p style="font-size:11px; color:#86868b; margin-top:8px;">* Budget figure includes Q4 projected allocation. For approved Q3 figures only, see Section 3 memos. Coordinator listed is Budget Coordinator; for Project Coordinator see Section 1 team table.</p>
+    </div>
+
     <div class="update-card">
       <h3><span class="badge badge-sprint">Sprint</span> Sprint 14 Completed</h3>
       <p>Delivered auth module and dashboard redesign on schedule. All 23 story points completed, with 2 bugs carried over to Sprint 15. The team velocity has increased by 15% compared to last quarter. Code review turnaround time improved to under 4 hours on average.</p>
@@ -324,7 +361,30 @@
 
     <div class="update-card">
       <h3><span class="badge badge-team">Team</span> Team Expansion</h3>
-      <p>Two new developers joining in Q4 to support the expanded scope. Onboarding documents have been prepared and mentors assigned. The new hires will focus primarily on the analytics pipeline and mobile responsiveness improvements.</p>
+      <p>Two new developers joining in Q4 to support the expanded scope. Onboarding documents have been prepared and mentors assigned. Budget Coordinator Maria Santos has approved the additional headcount allocation. The new hires will focus primarily on the analytics pipeline and mobile responsiveness improvements.</p>
+    </div>
+  </div>
+
+  <!-- Section 4: Archives (distractor) -->
+  <div class="section-panel" id="section-4">
+    <h2>Archived Records</h2>
+
+    <div class="memo-entry" style="border-left-color:#86868b;">
+      <h3>RE: Q2 Budget Summary (Archived)</h3>
+      <div class="memo-date">July 10, 2024</div>
+      <p>The Q2 project operated under the original budget of <span class="highlight">$180,000</span>. This was the initial allocation before the Q3 scope expansion was approved. The Q2 budget was fully utilized with no overruns. Note: This amount reflects the Q2 allocation only and should not be confused with the current Q3 project budget.</p>
+    </div>
+
+    <div class="memo-entry" style="border-left-color:#86868b;">
+      <h3>RE: Previous Project Coordinator Assignment</h3>
+      <div class="memo-date">June 1, 2024</div>
+      <p>For the Q2 cycle, <strong>David Park</strong> served as interim Project Coordinator before transitioning to the Platform team. The current Q3 coordinator assignment is listed in Section 1. All Q2 deliverables have been archived and can be accessed through the document management system.</p>
+    </div>
+
+    <div class="memo-entry" style="border-left-color:#86868b;">
+      <h3>RE: Legacy Budget References</h3>
+      <div class="memo-date">May 15, 2024</div>
+      <p>Historical budget data: Q1 allocation was $150,000, Q2 was $180,000. The combined H1 spend was $330,000. For current Q3 budget figures, please refer to the active budget revision memo in Section 3 which reflects the latest approved amounts.</p>
     </div>
   </div>
 
@@ -429,11 +489,18 @@
     }
 
     var budgetNum = parseInt(budget, 10);
-    resultDisplay.textContent = "Findings submitted: Coordinator = " + coordName + ", Budget = $" + budgetNum.toLocaleString();
-    resultDisplay.style.color = "#2e7d32";
+    var isCorrect = coordName === "Sarah Chen" && budgetNum === 245000;
 
-    window.__benchmarkLog("findings_submitted", { coordinator_name: coordName, revised_budget: budgetNum });
-    window.__benchmarkComplete(true, {
+    if (isCorrect) {
+      resultDisplay.textContent = "Findings submitted: Coordinator = " + coordName + ", Budget = $" + budgetNum.toLocaleString();
+      resultDisplay.style.color = "#2e7d32";
+    } else {
+      resultDisplay.textContent = "Findings submitted: Coordinator = " + coordName + ", Budget = $" + budgetNum.toLocaleString();
+      resultDisplay.style.color = "#6e6e73";
+    }
+
+    window.__benchmarkLog("findings_submitted", { coordinator_name: coordName, revised_budget: budgetNum, correct: isCorrect });
+    window.__benchmarkComplete(isCorrect, {
       submission_complete: true,
       coordinator_name: coordName,
       revised_budget: budgetNum,
