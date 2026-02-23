@@ -421,9 +421,15 @@
   ];
 
   var BATCH_2 = [
-    { address: "742 Evergreen Terrace", price: 574000, sqft: 2000, beds: 3, baths: 2, yearBuilt: 1990, lotSize: "0.30 acres", icon: "🏡" },
+    { address: "742 Evergreen Avenue",  price: 489000, sqft: 1700, beds: 3, baths: 2, yearBuilt: 1988, lotSize: "0.28 acres", icon: "🏠" },
     { address: "321 Birch Lane",        price: 495000, sqft: 1900, beds: 3, baths: 2, yearBuilt: 2005, lotSize: "0.22 acres", icon: "🏠" },
     { address: "555 Cedar Court",       price: 620000, sqft: 2400, beds: 4, baths: 3, yearBuilt: 2012, lotSize: "0.40 acres", icon: "🏡" }
+  ];
+
+  var BATCH_3 = [
+    { address: "742 Evergreen Terrace", price: 574000, sqft: 2000, beds: 3, baths: 2, yearBuilt: 1990, lotSize: "0.30 acres", icon: "🏡" },
+    { address: "888 Willow Drive",      price: 445000, sqft: 1650, beds: 2, baths: 2, yearBuilt: 2001, lotSize: "0.20 acres", icon: "🏠" },
+    { address: "101 Elm Boulevard",     price: 710000, sqft: 2800, beds: 5, baths: 3, yearBuilt: 2018, lotSize: "0.45 acres", icon: "🏡" }
   ];
 
   var batchesLoaded = 0;
@@ -444,7 +450,6 @@
   }
 
   function createPropertyCard(prop) {
-    var priceSqft = Math.round(prop.price / prop.sqft);
     var card = document.createElement("div");
     card.className = "property-card";
     card.innerHTML =
@@ -460,12 +465,12 @@
           '<div class="details-toggle" data-expanded="false">View Details &#x25BC;</div>' +
           '<div class="details-panel">' +
             '<table>' +
-              '<tr><th>Price per sqft</th><td>$' + priceSqft + '</td></tr>' +
+              '<tr><th>Listing Price</th><td>' + formatPrice(prop.price) + '</td></tr>' +
+              '<tr><th>Total Area</th><td>' + prop.sqft.toLocaleString() + ' sqft</td></tr>' +
               '<tr><th>Year Built</th><td>' + prop.yearBuilt + '</td></tr>' +
               '<tr><th>Lot Size</th><td>' + prop.lotSize + '</td></tr>' +
               '<tr><th>Bedrooms</th><td>' + prop.beds + '</td></tr>' +
               '<tr><th>Bathrooms</th><td>' + prop.baths + '</td></tr>' +
-              '<tr><th>Total Area</th><td>' + prop.sqft.toLocaleString() + ' sqft</td></tr>' +
             '</table>' +
           '</div>' +
         '</div>' +
@@ -505,34 +510,47 @@
     }
   }
 
-  // ── Initial Load (500ms delay) ───────────────────────────────────
+  // ── Initial Load (1500ms delay) ──────────────────────────────────
   setTimeout(function () {
     removeSkeletons();
     renderBatch(BATCH_1);
     batchesLoaded = 1;
-    resultCount.textContent = "Showing 3 of 6 results for \"Springfield area properties\"";
+    resultCount.textContent = "Showing 3 of 9 results for \"Springfield area properties\"";
     loadMoreWrapper.style.display = "";
     window.__benchmarkUpdate({ batches_loaded: batchesLoaded });
     window.__benchmarkLog("batch_1_loaded");
-  }, 500);
+  }, 1500);
 
   // ── Load More ────────────────────────────────────────────────────
   btnLoadMore.addEventListener("click", function () {
-    if (batchesLoaded >= 2) return;
+    if (batchesLoaded >= 3) return;
     btnLoadMore.disabled = true;
     loadSpinner.classList.add("visible");
     window.__benchmarkLog("load_more_clicked");
 
-    setTimeout(function () {
-      loadSpinner.classList.remove("visible");
-      renderBatch(BATCH_2);
-      batchesLoaded = 2;
-      resultCount.textContent = "Showing 6 of 6 results for \"Springfield area properties\"";
-      btnLoadMore.textContent = "All Results Loaded";
-      btnLoadMore.disabled = true;
-      window.__benchmarkUpdate({ batches_loaded: batchesLoaded });
-      window.__benchmarkLog("batch_2_loaded");
-    }, 1500);
+    if (batchesLoaded === 1) {
+      setTimeout(function () {
+        loadSpinner.classList.remove("visible");
+        renderBatch(BATCH_2);
+        batchesLoaded = 2;
+        resultCount.textContent = "Showing 6 of 9 results for \"Springfield area properties\"";
+        btnLoadMore.textContent = "Load More Results";
+        btnLoadMore.disabled = false;
+        window.__benchmarkUpdate({ batches_loaded: batchesLoaded });
+        window.__benchmarkLog("batch_2_loaded");
+      }, 2500);
+    } else if (batchesLoaded === 2) {
+      setTimeout(function () {
+        loadSpinner.classList.remove("visible");
+        renderBatch(BATCH_3);
+        batchesLoaded = 3;
+        resultCount.textContent = "Showing 9 of 9 results for \"Springfield area properties\"";
+        btnLoadMore.textContent = "All Results Loaded";
+        btnLoadMore.disabled = true;
+        window.__benchmarkUpdate({ batches_loaded: batchesLoaded });
+        window.__benchmarkLog("batch_3_loaded");
+      }, 3500);
+    }
   });
 
   // ── Answer Submission ────────────────────────────────────────────
@@ -544,11 +562,12 @@
       return;
     }
     var numVal = parseInt(value, 10);
+    var isCorrect = numVal === 287;
     answerDisplay.textContent = "Submitted: $" + numVal + " per sqft";
     answerDisplay.style.color = "#1d1d1f";
 
-    window.__benchmarkLog("answer_submitted", { value: numVal });
-    window.__benchmarkComplete(true, {
+    window.__benchmarkLog("answer_submitted", { value: numVal, correct: isCorrect });
+    window.__benchmarkComplete(isCorrect, {
       answer_submitted: true,
       reported_price_per_sqft: numVal,
       batches_loaded: batchesLoaded

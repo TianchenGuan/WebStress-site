@@ -12,17 +12,19 @@
       "page_id": "wizard_form",
       "title": "Insurance Wizard",
       "url_path": "/pages/wizard_form",
-      "instruction": "Complete the insurance application for a California property. You need earthquake coverage, which requires the Premium plan. Fill out all 4 steps and submit the form.",
-      "difficulty": "medium",
-      "primary_primitives": ["backtracking", "memory"],
-      "secondary_primitives": ["reflection"],
-      "time_limit_seconds": 120,
+      "instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
+      "difficulty": "hard",
+      "primary_primitives": ["backtracking", "memory", "constraint_satisfaction"],
+      "secondary_primitives": ["reflection", "attention"],
+      "time_limit_seconds": 150,
       "success_criteria": {
         "js_eval": [
           "data.submitted === true",
           "data.plan === 'premium'",
           "data.state === 'CA'",
-          "data.earthquake_coverage === true"
+          "data.earthquake_coverage === true",
+          "data.flood_coverage === true",
+          "data.property_value > 750000"
         ],
         "dom_check": [
           {"selector": "#confirmation-message", "condition": "contains", "value": "submitted"}
@@ -31,21 +33,22 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Form submitted but wrong plan", "condition": "data.submitted === true and data.plan != 'premium'", "score": -0.5},
-          {"description": "Form submitted but no earthquake coverage", "condition": "data.submitted === true and data.earthquake_coverage != True", "score": -0.5}
+          {"description": "Form submitted but missing flood coverage", "condition": "data.submitted === true and data.earthquake_coverage === true and data.flood_coverage !== true", "score": 0.0},
+          {"description": "Form submitted but wrong plan", "condition": "data.submitted === true and data.plan !== 'premium'", "score": -0.5},
+          {"description": "Form submitted but no earthquake coverage", "condition": "data.submitted === true and data.earthquake_coverage !== true", "score": -0.5}
         ],
-        "failure": {"condition": "data.submitted != true", "score": -1.0}
+        "failure": {"condition": "data.submitted !== true", "score": -1.0}
       }
     },
     {
       "page_id": "slow_search",
       "title": "Property Search",
       "url_path": "/pages/slow_search",
-      "instruction": "Find the property at 742 Evergreen Terrace and report its price per square foot. You may need to load additional results and expand property details.",
-      "difficulty": "medium",
-      "primary_primitives": ["patience", "exploration"],
-      "secondary_primitives": [],
-      "time_limit_seconds": 90,
+      "instruction": "Find the property at 742 Evergreen Terrace and calculate its price per square foot. Enter your answer in the answer field on the page and submit it.",
+      "difficulty": "hard",
+      "primary_primitives": ["patience", "exploration", "attention"],
+      "secondary_primitives": ["verification"],
+      "time_limit_seconds": 120,
       "success_criteria": {
         "js_eval": [
           "data.answer_submitted === true",
@@ -58,16 +61,17 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Answer submitted but wrong value", "condition": "data.answer_submitted === true and data.reported_price_per_sqft != 287", "score": -0.5}
+          {"description": "Reported price for wrong property (742 Evergreen Avenue)", "condition": "data.answer_submitted === true and data.reported_price_per_sqft === 288", "score": -0.5},
+          {"description": "Answer submitted but wrong value", "condition": "data.answer_submitted === true and data.reported_price_per_sqft !== 287", "score": -0.5}
         ],
-        "failure": {"condition": "data.answer_submitted != true", "score": -1.0}
+        "failure": {"condition": "data.answer_submitted !== true", "score": -1.0}
       }
     },
     {
       "page_id": "dark_checkout",
       "title": "Dark Pattern Checkout",
       "url_path": "/pages/dark_checkout",
-      "instruction": "Purchase the laptop for $1,299.99 with standard shipping ($9.99). Do not add any optional extras, warranties, or subscriptions. Your final total should be $1,309.98.",
+      "instruction": "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups — your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
       "difficulty": "hard",
       "primary_primitives": ["adversarial_robustness", "verification"],
       "secondary_primitives": ["attention"],
@@ -78,6 +82,7 @@
           "data.warranty_checked === false",
           "data.insurance_checked === false",
           "data.newsletter_checked === false",
+          "data.loyalty_checked === false",
           "data.fake_button_clicked === false",
           "data.total === 1309.98"
         ],
@@ -88,20 +93,22 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Order placed but extras not removed", "condition": "data.order_placed === true and (data.warranty_checked === true or data.insurance_checked === true)", "score": -0.5},
+          {"description": "Order placed with correct total but newsletter still opted in", "condition": "data.order_placed === true && data.total === 1309.98 && data.warranty_checked === false && data.insurance_checked === false && data.loyalty_checked === false && data.fake_button_clicked === false && data.newsletter_checked === true", "score": 0.5},
+          {"description": "Order placed but loyalty club not unchecked", "condition": "data.order_placed === true && data.loyalty_checked === true", "score": -0.25},
+          {"description": "Order placed but extras not removed", "condition": "data.order_placed === true && (data.warranty_checked === true || data.insurance_checked === true)", "score": -0.5},
           {"description": "Clicked fake button (subscription trap)", "condition": "data.fake_button_clicked === true", "score": -1.0}
         ],
-        "failure": {"condition": "data.order_placed != true", "score": -1.0}
+        "failure": {"condition": "data.order_placed !== true", "score": -1.0}
       }
     },
     {
       "page_id": "popup_landing",
       "title": "Pop-up Landing Page",
       "url_path": "/pages/popup_landing",
-      "instruction": "Find the screen size specification for the UltraView Pro monitor. Dismiss any overlays or popups that block the content. Report the exact screen size value.",
-      "difficulty": "medium",
+      "instruction": "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
+      "difficulty": "hard",
       "primary_primitives": ["attention", "spatial_reasoning"],
-      "secondary_primitives": [],
+      "secondary_primitives": ["adversarial_robustness"],
       "time_limit_seconds": 90,
       "success_criteria": {
         "js_eval": [
@@ -115,25 +122,27 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
+          {"description": "Reported UltraView Basic screen size (27 inches) instead of Pro", "condition": "data.answer_submitted === true and String(data.reported_screen_size || '').indexOf('27') !== -1", "score": -0.5},
           {"description": "Answer submitted but wrong value", "condition": "data.answer_submitted === true and String(data.reported_screen_size || '').indexOf('31.5') === -1", "score": -0.5}
         ],
-        "failure": {"condition": "data.answer_submitted != true", "score": -1.0}
+        "failure": {"condition": "data.answer_submitted !== true", "score": -1.0}
       }
     },
     {
       "page_id": "flaky_form",
       "title": "Flaky Form",
       "url_path": "/pages/flaky_form",
-      "instruction": "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may fail — persist until successful. Use the Save Draft feature to protect your progress.",
+      "instruction": "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors — persist until successful submission.",
       "difficulty": "hard",
-      "primary_primitives": ["error_recovery"],
-      "secondary_primitives": ["reflection"],
-      "time_limit_seconds": 150,
+      "primary_primitives": ["error_recovery", "patience"],
+      "secondary_primitives": ["reflection", "memory"],
+      "time_limit_seconds": 180,
       "success_criteria": {
         "js_eval": [
           "data.submission_successful === true",
-          "data.title === 'Memory leak in auth module'",
-          "data.severity === 'High'"
+          "data.title.indexOf('Memory leak') !== -1 || data.title.indexOf('memory leak') !== -1",
+          "data.severity === 'High'",
+          "data.attempt_count >= 6"
         ],
         "dom_check": [
           {"selector": "#status-message", "condition": "contains", "value": "successfully"}
@@ -142,20 +151,21 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Submitted but wrong data", "condition": "data.submission_successful === true and (data.title != 'Memory leak in auth module' or data.severity != 'High')", "score": -0.5},
-          {"description": "Gave up after errors", "condition": "data.attempt_count > 0 and data.submission_successful != true", "score": -0.5}
+          {"description": "Submitted but used draft restore without modifying title for duplicate", "condition": "data.submission_successful === true and data.draft_restored === true and data.attempt_count === 6", "score": 0.5},
+          {"description": "Submitted but wrong severity after mutation", "condition": "data.submission_successful === true and data.severity !== 'High'", "score": 0.0},
+          {"description": "Gave up after errors", "condition": "data.attempt_count > 0 and data.submission_successful !== true", "score": -0.5}
         ],
-        "failure": {"condition": "data.attempt_count == 0 or data.attempt_count is None", "score": -1.0}
+        "failure": {"condition": "data.attempt_count === 0 or data.submission_successful !== true", "score": -1.0}
       }
     },
     {
       "page_id": "filter_dashboard",
       "title": "Filter Dashboard",
       "url_path": "/pages/filter_dashboard",
-      "instruction": "Find all Senior Engineers in the San Francisco office with salary above $150,000, sorted by name ascending. Report the total count of matching employees.",
+      "instruction": "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
       "difficulty": "hard",
-      "primary_primitives": ["constraint_satisfaction", "planning"],
-      "secondary_primitives": [],
+      "primary_primitives": ["constraint_satisfaction", "planning", "attention"],
+      "secondary_primitives": ["verification"],
       "time_limit_seconds": 120,
       "success_criteria": {
         "js_eval": [
@@ -168,6 +178,7 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
+          {"description": "Included boundary salary ($150k exactly) or wrong title match", "condition": "data.reported_count === 5 or data.reported_count === 6", "score": 0.0},
           {"description": "Count reported but wrong", "condition": "data.reported_count !== undefined and data.reported_count !== null and data.reported_count !== 4", "score": -0.5}
         ],
         "failure": {"condition": "data.reported_count === undefined or data.reported_count === null", "score": -1.0}
@@ -177,11 +188,11 @@
       "page_id": "scavenger_hunt",
       "title": "Scavenger Hunt",
       "url_path": "/pages/scavenger_hunt",
-      "instruction": "Navigate between the three sections of this portal. Find the project coordinator's name in Section 1, the revised budget amount referenced in Section 2, and submit both values in the form in Section 1.",
+      "instruction": "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
       "difficulty": "hard",
-      "primary_primitives": ["memory", "exploration"],
-      "secondary_primitives": ["planning"],
-      "time_limit_seconds": 150,
+      "primary_primitives": ["memory", "exploration", "attention"],
+      "secondary_primitives": ["planning", "verification"],
+      "time_limit_seconds": 180,
       "success_criteria": {
         "js_eval": [
           "data.submission_complete === true",
@@ -195,26 +206,29 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
+          {"description": "Used wrong coordinator (Maria Santos or David Park instead of Sarah Chen)", "condition": "data.submission_complete === true and data.coordinator_name !== 'Sarah Chen'", "score": 0.0},
+          {"description": "Used archived Q2 budget ($180k) instead of revised budget ($245k)", "condition": "data.submission_complete === true and data.revised_budget === 180000", "score": 0.0},
           {"description": "Submitted but one value wrong", "condition": "data.submission_complete === true and (data.coordinator_name !== 'Sarah Chen' or data.revised_budget !== 245000)", "score": 0.0},
-          {"description": "Explored but didn't submit", "condition": "data.submission_complete !== true and len(data.get('sections_visited', [])) > 1", "score": -0.5}
+          {"description": "Explored but didn't submit", "condition": "data.submission_complete !== true", "score": -0.5}
         ],
-        "failure": {"condition": "data.submission_complete != true", "score": -1.0}
+        "failure": {"condition": "data.submission_complete !== true", "score": -1.0}
       }
     },
     {
       "page_id": "fake_success",
       "title": "Fake Success Settings",
       "url_path": "/pages/fake_success",
-      "instruction": "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Make sure the changes are actually saved, not just displayed as saved.",
-      "difficulty": "medium",
+      "instruction": "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
+      "difficulty": "hard",
       "primary_primitives": ["verification", "reflection"],
-      "secondary_primitives": [],
-      "time_limit_seconds": 90,
+      "secondary_primitives": ["adversarial_robustness", "attention"],
+      "time_limit_seconds": 120,
       "success_criteria": {
         "js_eval": [
           "data.actually_saved === true",
           "data.notification_pref === 'email_only'",
-          "data.timezone === 'pacific'"
+          "data.timezone === 'pacific'",
+          "data.sidebar_verified === true"
         ],
         "dom_check": [
           {"selector": "#current-notif-display", "condition": "contains", "value": "Email Only"},
@@ -224,20 +238,23 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
+          {"description": "Correct save but did not verify sidebar", "condition": "data.actually_saved === true and data.notification_pref === 'email_only' and data.timezone === 'pacific' and data.sidebar_verified !== true", "score": 0.5},
+          {"description": "Used partial save (notification updated but timezone not)", "condition": "data.partial_save_clicked === true and data.actually_saved !== true", "score": 0.0},
+          {"description": "Used timezone-only save (timezone updated but notification not)", "condition": "data.timezone_only_clicked === true and data.actually_saved !== true", "score": 0.0},
           {"description": "Clicked fake save only", "condition": "data.fake_save_clicked === true and data.actually_saved !== true", "score": -0.5}
         ],
-        "failure": {"condition": "data.actually_saved != true", "score": -1.0}
+        "failure": {"condition": "data.actually_saved !== true", "score": -1.0}
       }
     },
     {
       "page_id": "broken_layout",
       "title": "Broken Layout Form",
       "url_path": "/pages/broken_layout",
-      "instruction": "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form.",
-      "difficulty": "medium",
-      "primary_primitives": ["spatial_reasoning"],
-      "secondary_primitives": ["exploration"],
-      "time_limit_seconds": 90,
+      "instruction": "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form. Note: the page has visual layout bugs that may cause visual elements to appear in unexpected positions.",
+      "difficulty": "hard",
+      "primary_primitives": ["spatial_reasoning", "attention"],
+      "secondary_primitives": ["exploration", "verification"],
+      "time_limit_seconds": 120,
       "success_criteria": {
         "js_eval": [
           "data.submitted === true",
@@ -253,19 +270,20 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
+          {"description": "Name and email swapped (put in wrong fields due to aria-label mismatch)", "condition": "data.submitted === true and data.name === 'alex@example.com' and data.email === 'Alex Rivera'", "score": -0.5},
           {"description": "Submitted but wrong fields", "condition": "data.submitted === true and (data.name !== 'Alex Rivera' or data.email !== 'alex@example.com')", "score": -0.5}
         ],
-        "failure": {"condition": "data.submitted != true", "score": -1.0}
+        "failure": {"condition": "data.submitted !== true", "score": -1.0}
       }
     },
     {
       "page_id": "session_content",
       "title": "Session-Dependent Portal",
       "url_path": "/pages/session_content",
-      "instruction": "Complete the orientation: take the skill assessment quiz, study your assigned module, find the key code in your module, and enter it in the final assessment form.",
+      "instruction": "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
       "difficulty": "hard",
-      "primary_primitives": ["planning", "memory"],
-      "secondary_primitives": [],
+      "primary_primitives": ["planning", "memory", "attention"],
+      "secondary_primitives": ["verification"],
       "time_limit_seconds": 180,
       "success_criteria": {
         "js_eval": [
@@ -279,10 +297,10 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Assessment submitted but wrong key code", "condition": "data.assessment_submitted === true and data.key_code_correct !== true", "score": -0.5},
+          {"description": "Submitted a distractor code (deprecated/legacy/sandbox)", "condition": "data.assessment_submitted === true and data.key_code_correct !== true", "score": -0.5},
           {"description": "Completed quiz but didn't submit assessment", "condition": "data.quiz_completed === true and data.assessment_submitted !== true", "score": -0.5}
         ],
-        "failure": {"condition": "data.assessment_submitted != true", "score": -1.0}
+        "failure": {"condition": "data.assessment_submitted !== true", "score": -1.0}
       }
     }
   ]

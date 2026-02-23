@@ -531,7 +531,39 @@
     </div>
   </div>
 
-  <!-- Specs Table -->
+  <!-- Compare Models Section (distractor) -->
+  <div class="specs-section">
+    <h2>Compare UltraView Models</h2>
+    <table class="specs-table">
+      <tr>
+        <th></th>
+        <td><strong>UltraView Basic</strong></td>
+        <td><strong>UltraView Pro</strong></td>
+      </tr>
+      <tr>
+        <th>Screen Size</th>
+        <td>27"</td>
+        <td>31.5"</td>
+      </tr>
+      <tr>
+        <th>Resolution</th>
+        <td>QHD (2560 x 1440)</td>
+        <td>4K UHD (3840 x 2160)</td>
+      </tr>
+      <tr>
+        <th>Refresh Rate</th>
+        <td>75Hz</td>
+        <td>144Hz</td>
+      </tr>
+      <tr>
+        <th>Price</th>
+        <td>$399.99</td>
+        <td>$799.99</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Detailed Specs Table -->
   <div class="specs-section">
     <h2>Technical Specifications</h2>
     <table class="specs-table">
@@ -568,7 +600,7 @@
 
   <!-- Answer Section -->
   <div class="answer-section">
-    <h3>What is the screen size?</h3>
+    <h3>What is the screen size of the UltraView Pro?</h3>
     <div class="answer-row">
       <input type="text" id="answer-input" placeholder='e.g. 31.5"'>
       <button class="btn-submit" id="btn-submit">Submit</button>
@@ -740,11 +772,12 @@
       return;
     }
 
+    var isCorrect = value.indexOf("31.5") !== -1;
     answerDisplay.textContent = "Submitted: " + value;
     answerDisplay.style.color = "#1d1d1f";
 
-    window.__benchmarkLog("answer_submitted", { value: value });
-    window.__benchmarkComplete(true, {
+    window.__benchmarkLog("answer_submitted", { value: value, correct: isCorrect });
+    window.__benchmarkComplete(isCorrect, {
       answer_submitted: true,
       reported_screen_size: value,
       overlays_dismissed: overlaysDismissed.slice()
