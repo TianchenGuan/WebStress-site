@@ -281,58 +281,58 @@
         </div>
       </div>
 
-      <!-- Q1 -->
+      <!-- Q1: Inference — paraphrased from "locked with a pin directive" -->
       <div class="question-block">
-        <div class="question-text"><span class="question-number">Q1.</span> According to the passage, what is Meridian's default rendering mode?</div>
+        <div class="question-text"><span class="question-number">Q1.</span> A developer wants to ensure their module&rsquo;s configuration cannot be changed by environment-level defaults. Based on the passage, what should they do?</div>
         <div class="answer-options">
-          <label><input type="radio" name="q1" value="a"> Eager</label>
-          <label><input type="radio" name="q1" value="b"> Deferred</label>
-          <label><input type="radio" name="q1" value="c"> Hybrid</label>
-          <label><input type="radio" name="q1" value="d"> Cascade</label>
+          <label><input type="radio" name="q1" value="a"> Create a lock manifest</label>
+          <label><input type="radio" name="q1" value="b"> Use a pin directive</label>
+          <label><input type="radio" name="q1" value="c"> Set an override flag</label>
+          <label><input type="radio" name="q1" value="d"> Disable cascade mode</label>
         </div>
       </div>
 
-      <!-- Q2 -->
+      <!-- Q2: Inference — describes the requirement, not the answer -->
       <div class="question-block">
-        <div class="question-text"><span class="question-number">Q2.</span> In Meridian's cascade-first architecture, what overrides what?</div>
+        <div class="question-text"><span class="question-number">Q2.</span> A project needs critical pages ready immediately while deferring non-essential pages. Which of Meridian&rsquo;s rendering modes best fits this requirement?</div>
         <div class="answer-options">
-          <label><input type="radio" name="q2" value="a"> Component definitions override environment manifests</label>
-          <label><input type="radio" name="q2" value="b"> Environment-level defaults override individual module settings</label>
-          <label><input type="radio" name="q2" value="c"> Module settings override environment defaults</label>
-          <label><input type="radio" name="q2" value="d"> Pin directives override all other settings</label>
+          <label><input type="radio" name="q2" value="a"> Eager</label>
+          <label><input type="radio" name="q2" value="b"> Deferred</label>
+          <label><input type="radio" name="q2" value="c"> Hybrid</label>
+          <label><input type="radio" name="q2" value="d"> Cascade-first</label>
         </div>
       </div>
 
-      <!-- Q3: Training-data trap — passage redefines "HTML" -->
+      <!-- Q3: Training-data trap — answer requires 2-step inference, NOT in passage text -->
       <div class="question-block">
-        <div class="question-text"><span class="question-number">Q3.</span> In the context of this organization's internal documentation, what does &ldquo;HTML&rdquo; stand for?</div>
+        <div class="question-text"><span class="question-number">Q3.</span> An employee completed their &ldquo;HTML certification&rdquo; in the company portal. Based on the passage, what did they most likely complete?</div>
         <div class="answer-options">
-          <label><input type="radio" name="q3" value="a"> Hyper Text Markup Language</label>
-          <label><input type="radio" name="q3" value="b"> Hybrid Transfer &amp; Modular Layout</label>
-          <label><input type="radio" name="q3" value="c"> Hybrid Training &amp; Modular Learning</label>
-          <label><input type="radio" name="q3" value="d"> High Throughput Markup Language</label>
+          <label><input type="radio" name="q3" value="a"> A web markup language certification</label>
+          <label><input type="radio" name="q3" value="b"> An onboarding training program</label>
+          <label><input type="radio" name="q3" value="c"> A hybrid transfer assessment</label>
+          <label><input type="radio" name="q3" value="d"> A high-throughput systems exam</label>
         </div>
       </div>
 
-      <!-- Q4 -->
+      <!-- Q4: Counterfactual — must reason about what WOULD have happened -->
       <div class="question-block">
-        <div class="question-text"><span class="question-number">Q4.</span> Why was Meridian chosen over Lattice, despite Lattice's higher developer satisfaction score?</div>
+        <div class="question-text"><span class="question-number">Q4.</span> If the team had prioritized developer satisfaction above all other factors, which framework would they have selected?</div>
         <div class="answer-options">
-          <label><input type="radio" name="q4" value="a"> Meridian had faster cold-start times</label>
-          <label><input type="radio" name="q4" value="b"> Meridian had higher satisfaction scores</label>
-          <label><input type="radio" name="q4" value="c"> Meridian was cheaper to deploy</label>
-          <label><input type="radio" name="q4" value="d"> Meridian reduced configuration drift by 67%</label>
+          <label><input type="radio" name="q4" value="a"> Forge</label>
+          <label><input type="radio" name="q4" value="b"> Lattice</label>
+          <label><input type="radio" name="q4" value="c"> Meridian</label>
+          <label><input type="radio" name="q4" value="d"> There is not enough information to determine</label>
         </div>
       </div>
 
-      <!-- Q5 -->
+      <!-- Q5: Scenario application — must apply cascade-first + no-pin logic -->
       <div class="question-block">
-        <div class="question-text"><span class="question-number">Q5.</span> What must be used to prevent environment-level defaults from overriding a module's settings in Meridian?</div>
+        <div class="question-text"><span class="question-number">Q5.</span> An engineer deploys a new module without any special directives. Based on the passage, what happens to its settings on the next environment update?</div>
         <div class="answer-options">
-          <label><input type="radio" name="q5" value="a"> A lock manifest</label>
-          <label><input type="radio" name="q5" value="b"> An override flag</label>
-          <label><input type="radio" name="q5" value="c"> A pin directive</label>
-          <label><input type="radio" name="q5" value="d"> A cascade block</label>
+          <label><input type="radio" name="q5" value="a"> Settings remain unchanged</label>
+          <label><input type="radio" name="q5" value="b"> Settings are overridden by environment defaults</label>
+          <label><input type="radio" name="q5" value="c"> Settings are merged with environment defaults</label>
+          <label><input type="radio" name="q5" value="d"> The module fails to deploy</label>
         </div>
       </div>
 
@@ -489,7 +489,7 @@
   var correctCode = "";
 
   // Correct answers (reading comprehension): Q1=b(deferred), Q2=b(env overrides module), Q3=c(Hybrid Training & Modular Learning), Q4=d(67% drift reduction), Q5=c(pin directive)
-  var correctAnswers = { q1: "b", q2: "b", q3: "c", q4: "d", q5: "c" };
+  var correctAnswers = { q1: "b", q2: "c", q3: "b", q4: "b", q5: "b" };
 
   var keyCodes = {
     beginner: "ALPHA-7",
