@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "benchmark": "WebAgentBench",
-  "description": "10 self-contained web pages for evaluating agent cognitive primitives",
+  "description": "12 self-contained web pages for evaluating agent cognitive primitives",
   "primitives": [
     "backtracking", "reflection", "exploration", "planning", "memory",
     "patience", "error_recovery", "verification", "constraint_satisfaction",
@@ -122,8 +122,10 @@
       "scoring": {
         "full_success": {"conditions": "all js_eval pass", "score": 1.0},
         "partial": [
-          {"description": "Reported UltraView Basic screen size (27 inches) instead of Pro", "condition": "data.answer_submitted === true and String(data.reported_screen_size || '').indexOf('27') !== -1", "score": -0.5},
-          {"description": "Answer submitted but wrong value", "condition": "data.answer_submitted === true and String(data.reported_screen_size || '').indexOf('31.5') === -1", "score": -0.5}
+          {"description": "Submitted marketing rounded value (32 inches) instead of precise spec", "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('32') !== -1 && String(data.reported_screen_size || '').indexOf('31.5') === -1", "score": 0.0},
+          {"description": "Submitted exaggerated promo value (34 inches)", "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('34') !== -1", "score": -0.5},
+          {"description": "Reported UltraView Basic screen size (27 inches) instead of Pro", "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('27') !== -1", "score": -0.5},
+          {"description": "Answer submitted but wrong value", "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('31.5') === -1", "score": -0.5}
         ],
         "failure": {"condition": "data.answer_submitted !== true", "score": -1.0}
       }
@@ -301,6 +303,62 @@
           {"description": "Completed quiz but didn't submit assessment", "condition": "data.quiz_completed === true and data.assessment_submitted !== true", "score": -0.5}
         ],
         "failure": {"condition": "data.assessment_submitted !== true", "score": -1.0}
+      }
+    },
+    {
+      "page_id": "terms_audit",
+      "title": "Terms of Service Audit",
+      "url_path": "/pages/terms_audit",
+      "instruction": "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": ["attention", "patience", "exploration"],
+      "secondary_primitives": ["memory", "verification"],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.report_submitted === true",
+          "data.termination_fee === 250",
+          "data.notice_period_correct === true"
+        ],
+        "dom_check": [
+          {"selector": "#report-result", "condition": "contains", "value": "submitted"}
+        ]
+      },
+      "scoring": {
+        "full_success": {"conditions": "all js_eval pass", "score": 1.0},
+        "partial": [
+          {"description": "One value correct, one wrong", "condition": "data.report_submitted === true && ((data.termination_fee === 250) !== (data.notice_period_correct === true))", "score": 0.5},
+          {"description": "Both values wrong", "condition": "data.report_submitted === true && data.termination_fee !== 250 && data.notice_period_correct !== true", "score": -0.5}
+        ],
+        "failure": {"condition": "data.report_submitted !== true", "score": -1.0}
+      }
+    },
+    {
+      "page_id": "email_thread",
+      "title": "Email Thread Tracker",
+      "url_path": "/pages/email_thread",
+      "instruction": "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": ["memory", "attention", "exploration"],
+      "secondary_primitives": ["patience", "verification"],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.form_submitted === true",
+          "String(data.deadline || '').indexOf('March 22') !== -1 || String(data.deadline || '').indexOf('Mar 22') !== -1 || String(data.deadline || '').indexOf('3/22') !== -1",
+          "String(data.coordinator || '').toLowerCase().indexOf('sarah chen') !== -1"
+        ],
+        "dom_check": [
+          {"selector": "#submission-result", "condition": "contains", "value": "submitted"}
+        ]
+      },
+      "scoring": {
+        "full_success": {"conditions": "all js_eval pass", "score": 1.0},
+        "partial": [
+          {"description": "Correct deadline but wrong coordinator", "condition": "data.form_submitted === true && (String(data.deadline || '').indexOf('March 22') !== -1 || String(data.deadline || '').indexOf('Mar 22') !== -1 || String(data.deadline || '').indexOf('3/22') !== -1) && String(data.coordinator || '').toLowerCase().indexOf('sarah chen') === -1", "score": 0.5},
+          {"description": "Submitted with superseded deadline", "condition": "data.form_submitted === true && String(data.deadline || '').indexOf('March 22') === -1 && String(data.deadline || '').indexOf('Mar 22') === -1 && String(data.deadline || '').indexOf('3/22') === -1", "score": 0.0}
+        ],
+        "failure": {"condition": "data.form_submitted !== true", "score": -1.0}
       }
     }
   ]
