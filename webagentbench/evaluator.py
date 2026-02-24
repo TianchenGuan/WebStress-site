@@ -110,6 +110,8 @@ def _js_to_py(expr: str) -> str:
     expr = expr.replace("&&", " and ").replace("||", " or ")
     # Handle String(...).indexOf(...) !== -1 pattern
     expr = expr.replace("String(", "str(").replace(".indexOf(", ".find(")
+    # Handle JS string methods
+    expr = expr.replace(".toLowerCase()", ".lower()").replace(".toUpperCase()", ".upper()")
     # Upgrade float == comparisons to _fuzzy_eq for tolerance on imprecision.
     # Only match float literals (with decimal point) — integer comparisons
     # stay as exact == to avoid false positives on counts/indices.
@@ -300,6 +302,31 @@ def _enrich_filter_dashboard(data: dict, state: dict) -> dict:
     }
 
 
+def _enrich_terms_audit(data: dict, state: dict) -> dict:
+    return {
+        "sections_viewed": data.get("sections_viewed", []),
+        "termination_fee_correct": data.get("fee_correct", False),
+        "notice_period_correct": data.get("notice_period_correct", False),
+        "termination_fee_entered": data.get("termination_fee"),
+        "notice_period_entered": data.get("notice_period"),
+    }
+
+
+def _enrich_email_thread(data: dict, state: dict) -> dict:
+    deadline = str(data.get("deadline", ""))
+    coordinator = str(data.get("coordinator", ""))
+    return {
+        "messages_viewed": data.get("messages_viewed", []),
+        "deadline_correct": "March 22" in deadline or "Mar 22" in deadline,
+        "coordinator_correct": "sarah chen" in coordinator.lower(),
+        "deadline_entered": deadline,
+        "coordinator_entered": coordinator,
+        "submitted_superseded_date": any(
+            d in deadline for d in ["March 15", "April 1", "March 25", "March 29"]
+        ),
+    }
+
+
 _PAGE_ENRICHERS = {
     "dark_checkout": _enrich_dark_checkout,
     "flaky_form": _enrich_flaky_form,
@@ -309,4 +336,6 @@ _PAGE_ENRICHERS = {
     "slow_search": _enrich_slow_search,
     "session_content": _enrich_session_content,
     "filter_dashboard": _enrich_filter_dashboard,
+    "terms_audit": _enrich_terms_audit,
+    "email_thread": _enrich_email_thread,
 }
