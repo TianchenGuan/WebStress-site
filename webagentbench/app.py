@@ -149,5 +149,18 @@ async def health():
 # ── Standalone run ────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import argparse
     import uvicorn
-    uvicorn.run("webagentbench.app:app", host="0.0.0.0", port=8080, reload=True)
+
+    parser = argparse.ArgumentParser(description="WebAgentBench server")
+    parser.add_argument("--host", type=str, default="0.0.0.0",
+                        help="Host to bind (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8080,
+                        help="Port to bind (default: 8080)")
+    parser.add_argument("--reload", action="store_true", default=True,
+                        help="Enable autoreload (default: on)")
+    parser.add_argument("--no-reload", action="store_false", dest="reload",
+                        help="Disable autoreload")
+    args = parser.parse_args()
+
+    uvicorn.run("webagentbench.app:app", host=args.host, port=args.port, reload=args.reload)
