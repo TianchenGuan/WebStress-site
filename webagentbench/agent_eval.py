@@ -184,14 +184,23 @@ def _extract_targets(action: dict, ref_map: dict, page) -> dict:
         js = r"""
         (el) => {
             const esc = (s) => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, "\\\\$&");
-            const cls = (c) => c ? "." + c.split(/\\s+/).filter(Boolean).slice(0, 3).map(esc).join(".") : "";
+            const cls = (node) => {
+                if (!node) return "";
+                let classes = [];
+                if (node.classList && node.classList.length) {
+                    classes = Array.from(node.classList).filter(Boolean).slice(0, 3);
+                } else if (node.className) {
+                    classes = String(node.className).split(/\\s+/).filter(Boolean).slice(0, 3);
+                }
+                return classes.length ? "." + classes.map(esc).join(".") : "";
+            };
             function cssPath(node) {
                 if (!node || node.nodeType !== 1) return null;
                 if (node.id) return "#" + esc(node.id);
                 const parts = [];
                 let cur = node;
                 while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== "html") {
-                    let sel = cur.tagName.toLowerCase() + cls(cur.className || "");
+                    let sel = cur.tagName.toLowerCase() + cls(cur);
                     const parent = cur.parentElement;
                     if (parent) {
                         const siblings = Array.from(parent.children).filter(c => c.tagName === cur.tagName);
