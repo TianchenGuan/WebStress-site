@@ -51,71 +51,74 @@ def generate_html(data: dict, server_url: str) -> str:
 <title>WebAgentBench — {html.escape(model)}</title>
 <style>
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; overflow: hidden; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f6f8fa; color: #111; height: 100vh; overflow: hidden; }}
 
-.topbar {{ background: #16213e; padding: 8px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #333; height: 48px; }}
-.topbar h1 {{ font-size: 14px; color: #8be9fd; white-space: nowrap; }}
-.topbar .model {{ font-size: 13px; color: #bd93f9; }}
-.topbar .summary {{ font-size: 13px; color: #50fa7b; margin-left: auto; }}
+.topbar {{ background: #fff; padding: 8px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #e5e7eb; height: 48px; }}
+.topbar h1 {{ font-size: 14px; color: #0366d6; white-space: nowrap; }}
+.topbar .model {{ font-size: 13px; color: #6f42c1; }}
+.topbar .summary {{ font-size: 13px; color: #22863a; margin-left: auto; }}
 .topbar .mode-toggle {{ display: flex; gap: 2px; margin-left: 16px; }}
-.topbar .mode-toggle button {{ background: #2a2a4e; border: 1px solid #444; color: #e0e0e0; padding: 4px 12px; cursor: pointer; font-size: 11px; }}
+.topbar .mode-toggle button {{ background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 4px 12px; cursor: pointer; font-size: 11px; }}
 .topbar .mode-toggle button:first-child {{ border-radius: 3px 0 0 3px; }}
 .topbar .mode-toggle button:last-child {{ border-radius: 0 3px 3px 0; }}
-.topbar .mode-toggle button.active {{ background: #8be9fd33; border-color: #8be9fd; color: #8be9fd; }}
+.topbar .mode-toggle button.active {{ background: #e6f0ff; border-color: #0366d6; color: #0366d6; }}
 
 .main {{ display: flex; height: calc(100vh - 48px); }}
 
-.sidebar {{ width: 220px; min-width: 220px; background: #16213e; border-right: 1px solid #333; overflow-y: auto; }}
-.sidebar .page-item {{ padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #222; font-size: 12px; }}
-.sidebar .page-item:hover {{ background: #1a1a3e; }}
-.sidebar .page-item.active {{ background: #2a2a4e; border-left: 3px solid #8be9fd; }}
-.sidebar .page-item .page-title {{ font-weight: 600; color: #f8f8f2; margin-bottom: 2px; }}
-.sidebar .page-item .page-meta {{ color: #888; font-size: 11px; }}
-.sidebar .page-item .badge {{ display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; }}
-.badge.pass {{ background: #50fa7b22; color: #50fa7b; }}
-.badge.fail {{ background: #ff555522; color: #ff5555; }}
+.sidebar {{ width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e5e7eb; overflow-y: auto; }}
+.sidebar .page-item {{ padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 12px; }}
+.sidebar .page-item:hover {{ background: #f8fafc; }}
+.sidebar .page-item.active {{ background: #e6f0ff; border-left: 3px solid #0366d6; }}
+.sidebar .page-item .page-title {{ font-weight: 600; color: #111; margin-bottom: 2px; }}
+.sidebar .page-item .page-meta {{ color: #6b7280; font-size: 11px; }}
+.sidebar .page-item .badge {{ display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; border: 1px solid transparent; }}
+.badge.pass {{ background: #e8fff0; border-color: #b7f5cc; color: #166534; }}
+.badge.fail {{ background: #fff1f2; border-color: #fecdd3; color: #9f1239; }}
 
 .page-view {{ flex: 1; display: flex; flex-direction: column; min-width: 0; }}
-.page-toolbar {{ background: #0f3460; padding: 6px 12px; display: flex; align-items: center; gap: 12px; font-size: 12px; border-bottom: 1px solid #333; }}
-.page-toolbar .instruction {{ color: #f1fa8c; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.page-toolbar {{ background: #f9fafb; padding: 6px 12px; display: flex; align-items: center; gap: 12px; font-size: 12px; border-bottom: 1px solid #e5e7eb; }}
+.page-toolbar .instruction {{ color: #b08800; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 .page-toolbar .score {{ font-weight: 700; }}
-.page-toolbar .score.pass {{ color: #50fa7b; }}
-.page-toolbar .score.fail {{ color: #ff5555; }}
+.page-toolbar .score.pass {{ color: #22863a; }}
+.page-toolbar .score.fail {{ color: #cb2431; }}
 .page-frame {{ flex: 1; background: #fff; position: relative; }}
 .page-frame iframe {{ width: 100%; height: 100%; border: none; }}
-.replay-status {{ position: absolute; top: 8px; right: 8px; background: #000c; color: #8be9fd; padding: 4px 10px; border-radius: 4px; font-size: 11px; display: none; z-index: 999; }}
+.replay-status {{ position: absolute; top: 8px; right: 8px; background: #111827cc; color: #e6f0ff; padding: 4px 10px; border-radius: 4px; font-size: 11px; display: none; z-index: 999; }}
 
-.trajectory-panel {{ width: 380px; min-width: 380px; background: #16213e; border-left: 1px solid #333; display: flex; flex-direction: column; }}
-.traj-header {{ padding: 8px 12px; background: #0f3460; border-bottom: 1px solid #333; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }}
+.trajectory-panel {{ width: 380px; min-width: 380px; background: #fff; border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; }}
+.traj-header {{ padding: 8px 12px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }}
 .traj-controls {{ display: flex; gap: 4px; margin-left: auto; }}
-.traj-controls button {{ background: #2a2a4e; border: 1px solid #444; color: #e0e0e0; padding: 3px 10px; cursor: pointer; border-radius: 3px; font-size: 11px; }}
-.traj-controls button:hover {{ background: #3a3a5e; }}
-.traj-controls button.active {{ background: #8be9fd33; border-color: #8be9fd; }}
+.traj-controls button {{ background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 3px 10px; cursor: pointer; border-radius: 3px; font-size: 11px; }}
+.traj-controls button:hover {{ background: #e5e7eb; }}
+.traj-controls button.active {{ background: #e6f0ff; border-color: #0366d6; color: #0366d6; }}
 .traj-steps {{ flex: 1; overflow-y: auto; padding: 8px; }}
 
-.step {{ padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; background: #1a1a2e; border: 1px solid #333; font-size: 12px; cursor: pointer; transition: border-color 0.15s; }}
-.step:hover {{ border-color: #555; }}
-.step.current {{ border-color: #8be9fd; background: #1a1a3e; }}
-.step.executed {{ border-left: 3px solid #50fa7b; }}
-.step.exec-error {{ border-left: 3px solid #ff5555; }}
-.step .step-num {{ color: #8be9fd; font-weight: 700; margin-right: 6px; }}
-.step .action-name {{ color: #ff79c6; font-weight: 600; }}
-.step .action-target {{ color: #f1fa8c; }}
-.step .action-value {{ color: #50fa7b; }}
-.step .thought {{ color: #999; font-size: 11px; margin-top: 4px; font-style: italic; }}
-.step .status {{ color: #6272a4; font-size: 11px; margin-top: 2px; }}
-.step .elapsed {{ color: #555; font-size: 10px; float: right; }}
+.step {{ padding: 8px 10px; margin-bottom: 6px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; font-size: 12px; cursor: pointer; transition: border-color 0.15s; }}
+.step:hover {{ border-color: #cbd5e1; }}
+.step.current {{ border-color: #0366d6; background: #f8fafc; }}
+.step.executed {{ border-left: 3px solid #22863a; }}
+.step.exec-error {{ border-left: 3px solid #cb2431; }}
+.step .step-num {{ color: #0366d6; font-weight: 700; margin-right: 6px; }}
+.step .action-name {{ color: #d73a49; font-weight: 600; }}
+.step .action-target {{ color: #b08800; }}
+.step .action-value {{ color: #22863a; }}
+.step .status {{ color: #64748b; font-size: 11px; margin-top: 2px; }}
+.step .elapsed {{ color: #9ca3af; font-size: 10px; float: right; }}
+.step-thought {{ margin-top: 6px; }}
+.step-thought summary {{ cursor: pointer; color: #0366d6; font-size: 11px; list-style: none; }}
+.step-thought summary::-webkit-details-marker {{ display: none; }}
+.step-thought .thought-body {{ color: #6b7280; font-size: 11px; margin-top: 4px; white-space: pre-wrap; }}
 
-.eval-panel {{ padding: 10px 12px; border-top: 1px solid #333; background: #0f3460; font-size: 11px; max-height: 240px; overflow-y: auto; }}
+.eval-panel {{ padding: 10px 12px; border-top: 1px solid #e5e7eb; background: #f9fafb; font-size: 11px; max-height: 240px; overflow-y: auto; }}
 .eval-panel .criteria {{ margin-top: 4px; }}
 .eval-panel .criterion {{ padding: 2px 0; }}
-.criterion.passed {{ color: #50fa7b; }}
-.criterion.failed {{ color: #ff5555; }}
+.criterion.passed {{ color: #22863a; }}
+.criterion.failed {{ color: #cb2431; }}
 .eval-panel .section {{ margin-top: 6px; }}
-.eval-panel .label {{ color: #8be9fd; font-weight: 600; }}
+.eval-panel .label {{ color: #0366d6; font-weight: 600; }}
 .eval-panel .kv {{ display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; margin-top: 2px; }}
-.eval-panel .kv div:nth-child(odd) {{ color: #9aa3b2; }}
-.eval-panel .pill {{ display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; background: #1a1a3e; color: #cbd5e1; margin-right: 6px; }}
+.eval-panel .kv div:nth-child(odd) {{ color: #6b7280; }}
+.eval-panel .pill {{ display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; background: #eef2ff; color: #3730a3; margin-right: 6px; }}
 .no-traj {{ padding: 40px 20px; text-align: center; color: #666; }}
 </style>
 </head>
@@ -477,7 +480,8 @@ function selectPage(idx) {{
 
             let thoughtHtml = '';
             if (t.thought) {{
-                thoughtHtml = '<div class="thought">' + escapeHtml(t.thought.substring(0, 200)) + '</div>';
+                thoughtHtml = '<details class="step-thought"><summary>Thought</summary>' +
+                    '<div class="thought-body">' + escapeHtml(t.thought) + '</div></details>';
             }}
 
             step.innerHTML = `

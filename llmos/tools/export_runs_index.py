@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from .viz_core import viz_css
+
 
 _EPISODE_JSON_RE = re.compile(r"^episode_(\d{8}_\d{6})_(.+)\.json$")
 
@@ -68,14 +70,18 @@ def _summarize_episode(json_path: Path) -> Optional[dict]:
     }
 
 
-INDEX_CSS = """
-* { box-sizing: border-box; }
+def _strip_style_tags(css: str) -> str:
+    css = css.strip()
+    if css.startswith("<style>") and css.endswith("</style>"):
+        css = css[len("<style>"):-len("</style>")]
+    return css.strip()
+
+
+_INDEX_EXTRA_CSS = """
 body {
-  margin: 0;
   padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #111;
-  background: #f6f8fa;
+  height: auto;
+  overflow: auto;
 }
 .container { max-width: 1200px; margin: 0 auto; }
 header {
@@ -92,15 +98,6 @@ header h1 { margin: 0 0 8px 0; font-size: 1.2rem; }
   flex-wrap: wrap;
   font-size: 0.9rem;
   color: #444;
-}
-.pill {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 4px 10px;
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
 }
 .controls {
   background: #fff;
@@ -155,30 +152,10 @@ tbody td {
   font-size: 0.95rem;
 }
 tbody tr:hover { background: #f8fafc; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; }
-.small { font-size: 0.85rem; color: #555; }
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-.ok { background: #e8fff0; border-color: #b7f5cc; color: #166534; }
-.bad { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
-.truncate {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-  vertical-align: bottom;
-}
-a { color: #2563eb; text-decoration: none; }
-a:hover { text-decoration: underline; }
 .actions { display: inline-flex; gap: 10px; flex-wrap: wrap; }
 """.strip()
+
+INDEX_CSS = _strip_style_tags(viz_css()) + "\n" + _INDEX_EXTRA_CSS
 
 
 INDEX_JS = """

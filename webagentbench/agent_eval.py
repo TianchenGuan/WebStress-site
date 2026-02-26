@@ -487,7 +487,7 @@ def run_evaluation(
             browser.close()
 
         # Write results
-        _write_agent_results(results, model, provider, output_path)
+        _write_agent_results(results, model, provider, output_path, bench_url)
         if verbose:
             print_summary(results)
 
@@ -502,8 +502,8 @@ def run_evaluation(
             server_proc.wait()
 
 
-def _write_agent_results(results: list[dict], model: str, provider: str, output_path: str):
-    """Write agent evaluation results to a JSON file."""
+def _write_agent_results(results: list[dict], model: str, provider: str, output_path: str, server_url: str | None = None):
+    """Write agent evaluation results to a JSON file and emit HTML visualization."""
     total = len(results)
     passed = sum(1 for r in results if r["evaluation"].get("success"))
     avg_score = sum(r["evaluation"].get("score", -1.0) for r in results) / total if total else 0
@@ -533,9 +533,38 @@ def _write_agent_results(results: list[dict], model: str, provider: str, output_
         },
     }
 
+    # Attach page metadata for richer visualization (instruction, primitives, etc.)
+    try:
+        manifest_path = BASE_DIR / "manifest.json"
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        output["page_meta"] = {p["page_id"]: p for p in manifest.get("pages", [])}
+    except Exception:
+        output["page_meta"] = {}
+
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nResults written to {output_path}")
+
+    # Auto-generate visualization HTML (best-effort)
+    try:
+        from .visualize import generate_html
+        out_path = Path(output_path)
+        viz_name = str(out_path.with_suffix("").name) + "_viz.html"
+        html_content = generate_html(output, server_url or "http://127.0.0.1:8080")
+
+        # Write into /static for same-origin playback
+        static_dir = BASE_DIR / "static"
+        static_dir.mkdir(parents=True, exist_ok=True)
+        static_out = static_dir / viz_name
+        with open(static_out, "w") as f:
+            f.write(html_content)
+
+        print(f"Visualization written to {static_out}")
+        if server_url:
+            print(f"Visualization served at {server_url.rstrip('/')}/static/{static_out.name}")
+    except Exception as e:
+        print(f"Warning: failed to generate visualization HTML: {e}")
 
 
 # =============================================================================

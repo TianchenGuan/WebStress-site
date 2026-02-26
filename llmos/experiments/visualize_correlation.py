@@ -8,111 +8,84 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
+from ..tools.viz_core import viz_css
+
+
+EXTRA_CSS = """
+body {
+    padding: 20px;
+    height: auto;
+    overflow: auto;
+}
+.container { max-width: 1400px; margin: 0 auto; }
+
+/* Header */
+header { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb; }
+header h1 { font-size: 1.2rem; margin-bottom: 12px; color: #111; }
+.meta-row { display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.meta-item { color: #6b7280; }
+.meta-item strong { color: #111; }
+.meta-item.success strong { color: #22863a; }
+.meta-item.failure strong { color: #cb2431; }
+
+/* Instruction */
+.instruction-box { background: #fff; border-left: 4px solid #0366d6; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #e5e7eb; }
+.instruction-label { font-size: 0.75rem; color: #0366d6; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; }
+
+/* Timeline Controls */
+.timeline-controls { background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.timeline-controls button { background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; color: #374151; }
+.timeline-controls button:hover { background: #e5e7eb; }
+.timeline-slider { flex: 1; min-width: 200px; }
+.step-indicator { font-weight: 600; min-width: 100px; }
+
+/* Main Layout */
+.main-layout { display: grid; grid-template-columns: 1fr 400px; gap: 16px; }
+@media (max-width: 1200px) { .main-layout { grid-template-columns: 1fr; } }
+
+/* UI Panel */
+.ui-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+.ui-panel-header { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 10px 12px; font-weight: 600; }
+.ui-canvas-container { min-height: 400px; }
+
+/* Side Panel */
+.side-panel { display: flex; flex-direction: column; gap: 12px; }
+.step-info { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+.step-info h3 { font-size: 0.9rem; margin-bottom: 8px; color: #0366d6; }
+
+/* Steps List */
+.steps-list { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; max-height: 600px; overflow-y: auto; }
+.steps-list-header { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 10px 12px; font-weight: 600; position: sticky; top: 0; }
+.step-item { padding: 8px 12px; border-bottom: 1px solid #eef2f7; cursor: pointer; font-size: 0.85rem; }
+.step-item:hover { background: #f8fafc; }
+.step-item.active { background: #e6f0ff; border-left: 3px solid #0366d6; }
+.step-action { font-family: monospace; color: #0366d6; }
+.step-bid { color: #6b7280; font-size: 0.8rem; }
+
+/* Score */
+.score-display { font-size: 1.5rem; font-weight: 700; margin: 8px 0; }
+.score-display.positive { color: #22863a; }
+.score-display.negative { color: #cb2431; }
+.score-display.neutral { color: #b08800; }
+
+/* Code Controls */
+.code-controls { display: flex; gap: 4px; margin-bottom: 4px; }
+.code-btn { background: #fff; border: 1px solid #d1d5db; border-radius: 3px; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; }
+.code-btn:hover { background: #f0f0f0; }
+
+/* Two Column */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+""".strip()
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>{task_id} - Correlation Study</title>
+    __VIZ_CSS__
     <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; padding: 20px; }}
-        .container {{ max-width: 1400px; margin: 0 auto; }}
-
-        /* Header */
-        header {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }}
-        header h1 {{ font-size: 1.2rem; margin-bottom: 12px; color: #333; }}
-        .meta-row {{ display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }}
-        .meta-item {{ color: #666; }}
-        .meta-item strong {{ color: #333; }}
-        .meta-item.success strong {{ color: #22863a; }}
-        .meta-item.failure strong {{ color: #cb2431; }}
-
-        /* Instruction */
-        .instruction-box {{ background: #fff; border-left: 4px solid #0366d6; padding: 12px 16px; margin-bottom: 20px; }}
-        .instruction-label {{ font-size: 0.75rem; color: #0366d6; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; }}
-
-        /* Timeline Controls */
-        .timeline-controls {{ background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #ddd; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }}
-        .timeline-controls button {{ background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }}
-        .timeline-controls button:hover {{ background: #e0e0e0; }}
-        .timeline-slider {{ flex: 1; min-width: 200px; }}
-        .step-indicator {{ font-weight: 600; min-width: 100px; }}
-
-        /* Main Layout */
-        .main-layout {{ display: grid; grid-template-columns: 1fr 400px; gap: 16px; }}
-        @media (max-width: 1200px) {{ .main-layout {{ grid-template-columns: 1fr; }} }}
-
-        /* UI Canvas */
-        .ui-panel {{ background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }}
-        .ui-panel-header {{ background: #fafafa; border-bottom: 1px solid #eee; padding: 10px 12px; font-weight: 600; }}
-        .ui-canvas-container {{ background: #1a1a2e; min-height: 400px; padding: 16px; display: flex; justify-content: center; align-items: center; }}
-        .ui-canvas {{ position: relative; background: #16213e; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
-        .ui-node {{ position: absolute; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.9); overflow: hidden; }}
-        .ui-node.interactive {{ border-color: rgba(59, 130, 246, 0.7); background: rgba(59, 130, 246, 0.10); }}
-        .ui-node.target {{ border-color: rgba(16, 185, 129, 0.9); box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6); background: rgba(16, 185, 129, 0.2); }}
-        .ui-node-label {{ font-size: 10px; line-height: 1.2; padding: 1px 3px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; background: rgba(0,0,0,0.45); }}
-
-        /* Side Panel */
-        .side-panel {{ display: flex; flex-direction: column; gap: 12px; }}
-
-        /* Step Info */
-        .step-info {{ background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; }}
-        .step-info h3 {{ font-size: 0.9rem; margin-bottom: 8px; color: #0366d6; }}
-
-        /* Code Block */
-        .code-block {{ background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 12px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8rem; overflow: auto; white-space: pre-wrap; word-break: break-word; max-height: 300px; }}
-        .code-block.expanded {{ max-height: none; }}
-
-        /* Collapsible */
-        .collapsible {{ margin-bottom: 8px; }}
-        .collapsible-header {{ background: #f6f8fa; padding: 8px 12px; border: 1px solid #e1e4e8; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }}
-        .collapsible-header:hover {{ background: #f0f0f0; }}
-        .collapsible-icon {{ color: #666; font-size: 0.7rem; transition: transform 0.2s; }}
-        .collapsible.expanded .collapsible-icon {{ transform: rotate(90deg); }}
-        .collapsible-content {{ display: none; padding: 12px; border: 1px solid #e1e4e8; border-top: none; border-radius: 0 0 4px 4px; background: #fff; }}
-        .collapsible.expanded .collapsible-content {{ display: block; }}
-
-        /* Steps List */
-        .steps-list {{ background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; max-height: 600px; overflow-y: auto; }}
-        .steps-list-header {{ background: #fafafa; border-bottom: 1px solid #eee; padding: 10px 12px; font-weight: 600; position: sticky; top: 0; }}
-        .step-item {{ padding: 8px 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.85rem; }}
-        .step-item:hover {{ background: #f6f8fa; }}
-        .step-item.active {{ background: #e3f2fd; border-left: 3px solid #0366d6; }}
-        .step-action {{ font-family: monospace; color: #0366d6; }}
-        .step-bid {{ color: #666; font-size: 0.8rem; }}
-
-        /* Events */
-        .event-tag {{ display: inline-block; background: #dcffe4; color: #22863a; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; margin: 2px; }}
-
-        /* Score */
-        .score-display {{ font-size: 1.5rem; font-weight: 700; margin: 8px 0; }}
-        .score-display.positive {{ color: #22863a; }}
-        .score-display.negative {{ color: #cb2431; }}
-        .score-display.neutral {{ color: #b08800; }}
-
-        /* Code Controls */
-        .code-controls {{ display: flex; gap: 4px; margin-bottom: 4px; }}
-        .code-btn {{ background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; }}
-        .code-btn:hover {{ background: #f0f0f0; }}
-
-        /* Role Badge */
-        .role-badge {{ display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; margin-left: 8px; }}
-        .role-agent {{ background: #dbedff; color: #0366d6; }}
-        .role-simulator {{ background: #dcffe4; color: #22863a; }}
-
-        /* Two Column */
-        .two-col {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
-        @media (max-width: 900px) {{ .two-col {{ grid-template-columns: 1fr; }} }}
-
-        /* Modal */
-        .modal-overlay {{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; padding: 20px; }}
-        .modal-overlay.active {{ display: flex; flex-direction: column; }}
-        .modal-header {{ display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #fff; border-radius: 8px 8px 0 0; }}
-        .modal-title {{ font-weight: 600; }}
-        .modal-close {{ background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; }}
-        .modal-content {{ flex: 1; background: #fff; border-radius: 0 0 8px 8px; overflow: auto; padding: 16px; }}
-        .modal-content pre {{ margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 0.85rem; }}
+        __EXTRA_CSS__
     </style>
 </head>
 <body>
@@ -626,6 +599,7 @@ def export_result_to_html(
         events_json=json.dumps(events),
         metadata_json=json.dumps(metadata, indent=2),
     )
+    html = html.replace("__VIZ_CSS__", viz_css()).replace("__EXTRA_CSS__", EXTRA_CSS)
 
     if output_path is None:
         output_path = Path(result_path).with_suffix(".html")
