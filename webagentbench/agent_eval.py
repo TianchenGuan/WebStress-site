@@ -42,7 +42,6 @@ Usage:
 
 import argparse
 import json
-import re
 import sys
 import time
 import logging
@@ -57,6 +56,9 @@ from .runner import (
     print_summary,
     write_results,
 )
+
+from shared.format import SYSTEM_PROMPT, parse_action, build_initial_message, build_step_message
+from shared.playwright_adapter import page_to_indexed_tree, execute_unified_action, _resolve
 
 logger = logging.getLogger(__name__)
 
@@ -76,46 +78,6 @@ def _create_gemini_client(api_key: str):
     """Create a Gemini client using google-genai."""
     from google import genai
     return genai.Client(api_key=api_key)
-
-
-def _strip_thinking_tags(text: str) -> str:
-    """Strip <think>...</think> tags (Qwen3 / reasoning model pattern)."""
-    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-
-
-def _strip_markdown_fences(text: str) -> str:
-    """Strip markdown code fences from response."""
-    text = text.strip()
-    if not text.startswith("```"):
-        return text
-    lines = text.splitlines()
-    lines = lines[1:]
-    if lines and lines[-1].strip() == "```":
-        lines = lines[:-1]
-    return "\n".join(lines).strip()
-
-
-def _parse_action(raw: str) -> dict:
-    """Parse the LLM response into an action dict. Handles markdown fences and thinking tags."""
-    cleaned = _strip_thinking_tags(raw)
-    cleaned = _strip_markdown_fences(cleaned)
-
-    # Try JSON parse
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
-
-    # Try to extract JSON from mixed text
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
-
-    return {"action": "noop", "thought": f"Failed to parse: {raw[:200]}"}
-
 
 def _convert_to_gemini_format(messages: list[dict]) -> list[dict]:
     """Convert OpenAI-style messages to Gemini format."""
@@ -212,198 +174,61 @@ def llm_complete(
 
 
 # =============================================================================
-# Accessibility Tree Extraction
-# =============================================================================
-
-def get_accessibility_tree(page) -> str:
-    """
-    Extract a simplified accessibility tree from the page using Playwright.
-
-    Returns a YAML text representation of accessible elements
-    suitable for LLM consumption. Uses Playwright 1.49+ aria_snapshot() API.
-    """
-    try:
-        snapshot = page.locator("body").aria_snapshot()
-        return snapshot if snapshot else "(empty page)"
-    except Exception as e:
-        logger.warning("aria_snapshot failed: %s", e)
-        return "(empty page)"
-
-
-# =============================================================================
-# Agent System Prompt
-# =============================================================================
-
-SYSTEM_PROMPT = """\
-You are a web browsing agent. You interact with web pages by issuing actions.
-
-## Observation
-You receive the page's accessibility tree — a structured text representation of all visible and interactive elements on the page.
-
-## Actions
-Respond with a single JSON object containing:
-- "thought": Brief reasoning about what to do next
-- "action": One of the actions below
-- Additional parameters as required by the action
-
-Available actions:
-
-| Action    | Parameters         | Description                         |
-|-----------|--------------------|-------------------------------------|
-| click     | selector           | Click an element (by text or role)  |
-| fill      | selector, text     | Type text into an input field       |
-| select    | selector, value    | Select a dropdown option            |
-| check     | selector           | Check a checkbox                    |
-| uncheck   | selector           | Uncheck a checkbox                  |
-| press     | key                | Press a keyboard key (e.g., Enter)  |
-| scroll    | direction          | Scroll the page (up/down)           |
-| finish    |                    | Declare the task complete            |
-
-The `selector` should be the accessible name (text label) of the element you want to interact with.
-
-## Rules
-- Always respond with valid JSON only — no extra text outside the JSON.
-- Use "thought" to explain your reasoning before acting.
-- If the task appears complete, use the "finish" action.
-- Be precise: match element names exactly as shown in the accessibility tree.
-- Do NOT hallucinate elements that are not in the accessibility tree.
-"""
-
-
-# =============================================================================
-# Browser Action Execution
-# =============================================================================
-
-def execute_action(page, action: dict) -> str:
-    """
-    Execute a parsed action on the Playwright page.
-
-    Returns a status string describing what happened.
-    """
-    action_type = action.get("action", "noop")
-    selector = action.get("selector", "")
-    text = action.get("text", "")
-    value = action.get("value", "")
-    key = action.get("key", "")
-    direction = action.get("direction", "down")
-
-    try:
-        if action_type == "click":
-            _click_element(page, selector)
-            return f"Clicked: {selector}"
-
-        elif action_type == "fill":
-            _fill_element(page, selector, text)
-            return f"Filled '{selector}' with '{text[:50]}'"
-
-        elif action_type == "select":
-            _select_element(page, selector, value)
-            return f"Selected '{value}' in '{selector}'"
-
-        elif action_type == "check":
-            locator = page.get_by_role("checkbox", name=selector)
-            if not locator.count():
-                locator = page.get_by_label(selector)
-            locator.first.check()
-            return f"Checked: {selector}"
-
-        elif action_type == "uncheck":
-            locator = page.get_by_role("checkbox", name=selector)
-            if not locator.count():
-                locator = page.get_by_label(selector)
-            locator.first.uncheck()
-            return f"Unchecked: {selector}"
-
-        elif action_type == "press":
-            page.keyboard.press(key)
-            return f"Pressed: {key}"
-
-        elif action_type == "scroll":
-            delta = -300 if direction == "up" else 300
-            page.mouse.wheel(0, delta)
-            return f"Scrolled {direction}"
-
-        elif action_type == "finish":
-            return "FINISH"
-
-        elif action_type == "noop":
-            return "No action taken"
-
-        else:
-            return f"Unknown action: {action_type}"
-
-    except Exception as e:
-        return f"Action failed ({action_type}): {e}"
-
-
-def _click_element(page, selector: str):
-    """Click an element by trying multiple Playwright selector strategies."""
-    # Try role-based selectors first
-    for role in ("button", "link", "menuitem", "tab", "checkbox", "radio"):
-        locator = page.get_by_role(role, name=selector)
-        if locator.count() > 0:
-            locator.first.click()
-            return
-
-    # Try by label
-    locator = page.get_by_label(selector)
-    if locator.count() > 0:
-        locator.first.click()
-        return
-
-    # Try by text
-    locator = page.get_by_text(selector, exact=False)
-    if locator.count() > 0:
-        locator.first.click()
-        return
-
-    # Fallback: CSS selector
-    page.click(f"text={selector}")
-
-
-def _fill_element(page, selector: str, text: str):
-    """Fill an input element by trying multiple strategies."""
-    # Try by label
-    locator = page.get_by_label(selector)
-    if locator.count() > 0:
-        locator.first.fill(text)
-        return
-
-    # Try by placeholder
-    locator = page.get_by_placeholder(selector)
-    if locator.count() > 0:
-        locator.first.fill(text)
-        return
-
-    # Try by role
-    for role in ("textbox", "spinbutton", "searchbox"):
-        locator = page.get_by_role(role, name=selector)
-        if locator.count() > 0:
-            locator.first.fill(text)
-            return
-
-    # Fallback
-    page.fill(f"[aria-label='{selector}']", text)
-
-
-def _select_element(page, selector: str, value: str):
-    """Select an option in a dropdown."""
-    locator = page.get_by_label(selector)
-    if locator.count() > 0:
-        locator.first.select_option(label=value)
-        return
-
-    locator = page.get_by_role("combobox", name=selector)
-    if locator.count() > 0:
-        locator.first.select_option(label=value)
-        return
-
-    page.select_option(f"[aria-label='{selector}']", label=value)
-
-
-# =============================================================================
 # Agent Loop
 # =============================================================================
+
+
+def _extract_targets(action: dict, ref_map: dict, page) -> dict:
+    """Extract locator info for the refs used in an action, for replay."""
+    def _safe_selector(locator):
+        js = r"""
+        (el) => {
+            const esc = (s) => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, "\\\\$&");
+            const cls = (c) => c ? "." + c.split(/\\s+/).filter(Boolean).slice(0, 3).map(esc).join(".") : "";
+            function cssPath(node) {
+                if (!node || node.nodeType !== 1) return null;
+                if (node.id) return "#" + esc(node.id);
+                const parts = [];
+                let cur = node;
+                while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== "html") {
+                    let sel = cur.tagName.toLowerCase() + cls(cur.className || "");
+                    const parent = cur.parentElement;
+                    if (parent) {
+                        const siblings = Array.from(parent.children).filter(c => c.tagName === cur.tagName);
+                        if (siblings.length > 1) {
+                            sel += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
+                        }
+                    }
+                    parts.unshift(sel);
+                    if (parts.length >= 5) break;
+                    cur = parent;
+                }
+                return parts.join(" > ");
+            }
+            return cssPath(el);
+        }
+        """
+        return locator.evaluate(js)
+
+    targets = {}
+    for key in ("ref", "from_ref", "to_ref"):
+        ref = action.get(key)
+        if ref is not None and ref in ref_map:
+            info = ref_map[ref]
+            payload = {"role": info.role, "name": info.name, "nth": info.nth}
+            try:
+                locator = _resolve(page, info)
+                bbox = locator.bounding_box()
+                if bbox:
+                    payload["bbox"] = bbox
+                selector = _safe_selector(locator)
+                if selector:
+                    payload["selector"] = selector
+            except Exception:
+                pass
+            targets[key] = payload
+    return targets
+
 
 def run_agent_on_page(
     page,
@@ -420,25 +245,15 @@ def run_agent_on_page(
     """
     Run the LLM agent on a single page until completion or timeout.
 
-    Args:
-        page: Playwright page object (already navigated to the benchmark page).
-        client: LLM client (OpenAI-compatible or Gemini).
-        model: Model name.
-        provider: LLM provider.
-        instruction: Task instruction from the manifest.
-        max_steps: Maximum number of agent steps.
-        timeout_seconds: Hard timeout in seconds.
-        verbose: Print step-by-step actions.
-        temperature: LLM sampling temperature.
-
-    Returns:
-        Dict with trajectory, steps taken, and completion status.
+    Uses the unified indexed accessibility tree format from shared.format.
     """
     start_time = time.time()
     trajectory = []
+
+    tree_text, ref_map = page_to_indexed_tree(page)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Task: {instruction}\n\nThe page has loaded. Here is the current accessibility tree:\n\n{get_accessibility_tree(page)}"},
+        {"role": "user", "content": build_initial_message(instruction, tree_text)},
     ]
 
     for step in range(max_steps):
@@ -448,7 +263,6 @@ def run_agent_on_page(
                 print(f"    Step {step + 1}: TIMEOUT ({elapsed:.0f}s)")
             break
 
-        # Get action from LLM
         raw_response = llm_complete(
             client,
             model,
@@ -457,25 +271,34 @@ def run_agent_on_page(
             provider=provider,
             reasoning_effort=reasoning_effort,
         )
-        action = _parse_action(raw_response)
+        action = parse_action(raw_response)
         thought = action.get("thought", "")
 
         if verbose:
-            action_type = action.get("action", "?")
-            selector = action.get("selector", "")
-            print(f"    Step {step + 1}: {action_type}", end="")
-            if selector:
-                print(f" ({selector[:40]})", end="")
+            action_name = action.get("action", "?")
+            ref = action.get("ref", "")
+            print(f"    Step {step + 1}: {action_name}", end="")
+            if ref:
+                print(f" (ref={ref})", end="")
             print()
             if thought:
                 print(f"      Thought: {thought[:80]}{'...' if len(thought) > 80 else ''}")
 
-        # Execute action
-        status = execute_action(page, action)
+        # Snapshot locator info for the refs used in this action, for replay
+        targets = _extract_targets(action, ref_map, page)
+
+        try:
+            status = execute_unified_action(page, action, ref_map)
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"
+            status = f"ERROR: {err}"
+            if verbose:
+                print(f"      Action error: {err}")
         trajectory.append({
             "step": step + 1,
             "thought": thought,
             "action": {k: v for k, v in action.items() if k != "thought"},
+            "targets": targets,
             "status": status,
             "elapsed_seconds": round(time.time() - start_time, 1),
         })
@@ -485,13 +308,11 @@ def run_agent_on_page(
                 print(f"    Agent declared task complete at step {step + 1}")
             break
 
-        # Wait for page to settle after action
         page.wait_for_timeout(500)
 
-        # Get updated accessibility tree
-        new_tree = get_accessibility_tree(page)
+        tree_text, ref_map = page_to_indexed_tree(page)
         messages.append({"role": "assistant", "content": raw_response})
-        messages.append({"role": "user", "content": f"Action result: {status}\n\nUpdated accessibility tree:\n\n{new_tree}"})
+        messages.append({"role": "user", "content": build_step_message(status, tree_text)})
 
     return {
         "steps": len(trajectory),
