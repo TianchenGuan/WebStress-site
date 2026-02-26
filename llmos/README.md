@@ -37,34 +37,15 @@ score = judge.evaluate(state.history, task)
 
 ## Action Space
 
+The agent uses a unified indexed accessibility tree format (shared with WebAgentBench).
+Actions use integer `ref` numbers assigned per step:
+
 ```json
-{"thought": "Need to click settings", "action": {"action_type": "click", "bid": 3}}
+{"thought": "Need to click settings", "action": "click", "ref": 3}
 ```
 
-### Presets
-
-| Preset | Actions | Use Case |
-|--------|---------|----------|
-| `minimal` (default) | Core actions only | Autonomous agents (no wasted steps) |
-| `full` | All actions + noop + send_msg_to_user | Human-in-the-loop |
-
-```python
-# Default: minimal (no noop, no send_msg_to_user)
-agent = Agent()
-
-# Full action space
-agent = Agent(action_space="full")
-
-# Custom
-from llmos.core import get_action_space
-agent = Agent(action_space=get_action_space("minimal", include=["noop"]))
-```
-
-### Core Actions (minimal)
-`click`, `dblclick`, `hover`, `fill`, `press`, `focus`, `clear`, `select_option`, `drag_and_drop`, `scroll`, `keyboard_press`, `keyboard_type`, `goto`, `finish`
-
-### Extra Actions (full only)
-`noop`, `send_msg_to_user`
+### Actions
+`click`, `dblclick`, `fill`, `select`, `check`, `uncheck`, `press`, `scroll`, `hover`, `drag_and_drop`, `wait`, `finish`
 
 ## Difficulty Levels (noise/chaos)
 

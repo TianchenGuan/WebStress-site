@@ -58,8 +58,6 @@ Examples:
                                help="Simulator difficulty level")
     common_parser.add_argument("--strictness", "-s", type=str, choices=["lenient", "moderate", "strict"],
                                default="strict", help="Simulator strictness level")
-    common_parser.add_argument("--action-space", type=str, choices=["minimal", "full"],
-                               default="minimal", help="Agent action space")
     common_parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
     # Simulator module arguments
     common_parser.add_argument("--preset", type=str, choices=["classic", "default", "efficient", "thorough"],
@@ -153,7 +151,6 @@ Examples:
     # Get settings from args if available
     difficulty = getattr(args, "difficulty", None)
     strictness = getattr(args, "strictness", "strict")
-    action_space = getattr(args, "action_space", "minimal")
     # Simulator module settings
     preset = getattr(args, "preset", None)
     state_output = getattr(args, "state_output", None)
@@ -177,7 +174,6 @@ Examples:
     orchestrator = Orchestrator(
         difficulty=difficulty,
         strictness=strictness,
-        action_space=action_space,
         preset=preset,
         state_output=state_output,
         abstraction=abstraction,
@@ -270,7 +266,6 @@ Examples:
                 args.name,
                 difficulty=args.difficulty,
                 strictness=args.strictness,
-                action_space=args.action_space,
                 preset=args.preset,
                 state_output=args.state_output,
                 abstraction=args.abstraction,
@@ -286,7 +281,7 @@ Examples:
                 sim_provider=args.sim_provider,
                 agent_model=args.agent_model,
                 agent_provider=args.agent_provider,
-                **benchmark_kwargs,
+                        **benchmark_kwargs,
             )
         except (ValueError, NotImplementedError) as e:
             print(f"Error: {e}")

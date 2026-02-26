@@ -1,31 +1,38 @@
 """
-Agent Wrapper for LLMOS.
-Handles observation processing and action generation.
+Agent for LLMos.
+
+Uses the shared indexed accessibility tree format (shared.format) so that
+the model sees the exact same observation/action format as it would during
+WebAgentBench evaluation. Converts unified actions back to LLMos actions
+so the episode loop (Orchestrator.run_episode) works without changes.
 """
 
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from ..utils.llm_client import LLMClient
-from ..utils.rendering import render_ui_as_text, extract_focusable_elements
-from ..utils.validation import validate_action_complete
-from ..prompts.agent_prompt import AGENT_SYSTEM_PROMPT as DEFAULT_AGENT_PROMPT
-from .action_space import ActionSpaceConfig, get_action_space, get_action_prompt_section
+from shared.format import (
+    SYSTEM_PROMPT,
+    parse_action,
+    build_initial_message,
+    build_step_message,
+)
+from shared.llmos_adapter import state_to_indexed_tree, unified_action_to_llmos
 
 logger = logging.getLogger(__name__)
 
 
 class Agent:
     """
-    LLM-based Agent for interacting with the simulator.
+    LLM-based agent using the unified indexed accessibility tree format.
 
-    Processes observations and generates actions.
+    Internally converts:
+      observation → indexed tree → LLM → unified action → LLMos action
     """
 
-    MAX_HISTORY_MESSAGES = 12
-    MAX_FILESYSTEM_DISPLAY = 10
+    MAX_HISTORY_MESSAGES = 20  # 10 turns
 
     def __init__(
         self,
@@ -33,275 +40,97 @@ class Agent:
         config_path: Optional[str] = None,
         model_name: Optional[str] = None,
         provider: Optional[str] = None,
-        action_space: Optional[Union[str, ActionSpaceConfig]] = None,
         config: Optional[dict] = None,
     ):
-        """
-        Initialize the agent.
-
-        Args:
-            llm_client: LLM client instance. If None, creates new one.
-            config_path: Path to config file.
-            model_name: Model to use for the agent (overrides config).
-            provider: LLM provider to use (overrides config).
-            action_space: Action space preset ("minimal", "standard", "full") or config.
-                          Default "minimal" excludes noop and send_msg_to_user.
-            config: Pre-loaded config dict. If provided, skips file loading.
-        """
         self.llm_client = llm_client or LLMClient(config_path)
 
-        # Load config for role-specific settings
         if config is None:
-            if config_path is None:
-                config_path = str(Path(__file__).parent.parent / "config.json")
-            with open(config_path, "r") as f:
+            config_path = config_path or str(Path(__file__).parent.parent / "config.json")
+            with open(config_path) as f:
                 config = json.load(f)
 
-        # Get role-specific LLM settings (params override config)
         llm_config = config.get("llm", {})
         role_config = llm_config.get("roles", {}).get("agent", {})
         self.provider = provider or role_config.get("provider", llm_config.get("default_provider"))
         self.model_name = model_name or role_config.get("model")
 
-        # Configure action space (default: minimal - no noop/send_msg_to_user)
-        if action_space is None:
-            self.action_space = get_action_space("minimal")
-        elif isinstance(action_space, str):
-            self.action_space = get_action_space(action_space)
-        else:
-            self.action_space = action_space
-
-        self.allowed_actions = self.action_space.get_actions()
-
-        # Load system prompt (with action space customization)
-        self.system_prompt = self._load_system_prompt()
-
-        # Conversation history for multi-turn
         self.conversation_history: list[dict] = []
-
-        # Current instruction
         self.instruction: Optional[str] = None
-
-    def _load_system_prompt(self) -> str:
-        """Load the agent system prompt with dynamic action space."""
-        return self._build_system_prompt()
-
-    def _build_system_prompt(self) -> str:
-        """Build system prompt with configured action space."""
-        action_section = get_action_prompt_section(self.allowed_actions)
-
-        return f"""You are a computer-use agent. Your task is to interact with a computer OS to accomplish user goals.
-
-## Rules
-1. **Output JSON only.** No markdown, no code fences.
-2. **Never invent `bid`s.** Only use `bid` values from the current observation.
-3. **One action per step.**
-
-## Observation Format
-You receive:
-- `meta`: Current tick/step
-- `ui`: Accessibility tree (elements have `bid` identifiers)
-- `filesystem`: Visible files
-- `tabs`: Browser tabs (if applicable)
-
-## Action Space
-{action_section}
-
-## Output Format
-```json
-{{"thought": "Your reasoning", "action": {{"action_type": "...", ...}}}}
-```
-
-## Strategy
-1. Read the instruction carefully
-2. Find relevant elements by text/role
-3. Use fill for inputs, click for buttons
-4. Verify each action had the intended effect
-5. Use finish when task is complete
-"""
+        self._last_status: str = ""
 
     def reset(self, instruction: str):
-        """
-        Reset the agent for a new task.
-
-        Args:
-            instruction: The task instruction.
-        """
+        """Reset for a new task."""
         self.instruction = instruction
         self.conversation_history = []
+        self._last_status = ""
 
     def act(self, observation: dict) -> dict:
         """
-        Generate an action based on the observation.
+        Generate an action from the observation.
 
-        Args:
-            observation: The current observation from the simulator.
-
-        Returns:
-            Action dict. Falls back to noop on parse/validation failure.
+        Converts observation to indexed tree, calls LLM with the shared
+        unified prompt, parses a unified action, then converts it to a
+        LLMos action dict that the simulator understands.
         """
-        # Build the user message
-        user_message = self._build_user_message(observation)
+        # Convert observation to indexed tree
+        tree_text, ref_to_bid = state_to_indexed_tree(observation)
 
-        # Build messages for LLM
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-        ]
+        # Build current user message
+        if not self.conversation_history:
+            user_msg = build_initial_message(self.instruction, tree_text)
+        else:
+            user_msg = build_step_message(self._last_status, tree_text)
 
-        # Always include instruction at the start (it's the task context)
-        if self.instruction:
-            messages.append({
-                "role": "user",
-                "content": f"## Task\n{self.instruction}\n\nI will now show you the current state. Please complete this task."
-            })
-
-        # Add conversation history
+        # Assemble full message list
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         messages.extend(self.conversation_history)
+        messages.append({"role": "user", "content": user_msg})
 
-        # Add current observation
-        messages.append({"role": "user", "content": user_message})
+        # Call LLM
+        response = self.llm_client.complete(
+            messages=messages,
+            model_name=self.model_name,
+            provider=self.provider,
+            json_mode=True,
+        )
 
-        # Call LLM and parse response, with graceful fallback to noop
-        thought = ""
-        raw_response = None
-        parse_error = None
-        try:
-            response = self.llm_client.complete(
-                messages=messages,
-                model_name=self.model_name,
-                provider=self.provider,
-                json_mode=True,
-            )
+        raw_response = response if isinstance(response, str) else json.dumps(response)
+        unified_action = parse_action(raw_response)
+        thought = unified_action.get("thought", "")
 
-            raw_response = response
-            if isinstance(response, str):
-                response = json.loads(response)
+        # Convert to LLMos action
+        llmos_action = unified_action_to_llmos(unified_action, ref_to_bid)
 
-            # Handle list response (LLM sometimes returns [{}] instead of {})
-            if isinstance(response, list):
-                response = response[0] if response else {}
+        # Update conversation history
+        self.conversation_history.append({"role": "user", "content": user_msg})
+        self.conversation_history.append({"role": "assistant", "content": raw_response})
 
-            # Ensure response is a dict
-            if not isinstance(response, dict):
-                logger.warning(f"Unexpected response type: {type(response)}")
-                response = {}
+        if len(self.conversation_history) > self.MAX_HISTORY_MESSAGES:
+            first_turn = self.conversation_history[:2]
+            recent = self.conversation_history[-(self.MAX_HISTORY_MESSAGES - 2):]
+            self.conversation_history = first_turn + recent
 
-            thought = response.get("thought", "")
-            action = self._extract_action(response)
+        # Build status for next step's message
+        self._last_status = _make_status(unified_action)
 
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            parse_error = str(e)
-            logger.warning(f"Agent parse/validation error, falling back to noop: {e}")
-            action = {"action_type": "noop"}
-            if raw_response is not None:
-                raw_str = raw_response if isinstance(raw_response, str) else json.dumps(raw_response)
-                logger.debug(f"Raw response that failed: {raw_str[:500]}")
-
-        # Attach LLM data flow for debugging/visualization
-        action["_llm_data"] = {
+        # Attach metadata for debugging and trajectory export
+        llmos_action["thought"] = thought
+        llmos_action["_llm_data"] = {
             "role": "agent",
             "provider": self.provider,
             "model": self.model_name,
-            "system_prompt": self.system_prompt,
-            "user_message": user_message,
-            "raw_response": raw_response if isinstance(raw_response, str) else json.dumps(raw_response) if raw_response is not None else "",
+            "raw_response": raw_response,
             "thought": thought,
+            "unified_action": {k: v for k, v in unified_action.items() if k != "thought"},
+            "tree_text": tree_text,
+            "ref_to_bid": ref_to_bid,
         }
-        if parse_error:
-            action["_llm_data"]["_parse_error"] = parse_error
 
-        # Expose thought as top-level key for verbose output and history
-        action["thought"] = thought
-
-        # Update conversation history (compact + in-format to reinforce JSON-only outputs)
-        # Only store the action (not _llm_data) to save tokens and avoid leaking internals.
-        assistant_payload_action = dict(action)
-        assistant_payload_action.pop("_llm_data", None)
-        assistant_payload = {"thought": thought, "action": assistant_payload_action}
-
-        self.conversation_history.append({"role": "user", "content": user_message})
-        self.conversation_history.append(
-            {"role": "assistant", "content": json.dumps(assistant_payload, separators=(",", ":"))}
-        )
-
-        # Keep history manageable while preserving context.
-        # Strategy: Keep the first turn (2 messages) + last 5 turns (10 messages)
-        # This preserves initial context which is critical for multi-step tasks.
-        if len(self.conversation_history) > self.MAX_HISTORY_MESSAGES:
-            # Keep first 2 messages (initial observation + response) + last (max_history - 2) messages
-            first_turn = self.conversation_history[:2]
-            recent_messages = self.conversation_history[-(self.MAX_HISTORY_MESSAGES - 2):]
-            self.conversation_history = first_turn + recent_messages
-
-        return action
-
-    def _build_user_message(self, observation: dict) -> str:
-        """Build the user message from observation."""
-        parts = []
-
-        # Add tick info
-        tick = observation.get("meta", {}).get("tick", 0)
-        parts.append(f"## Step {tick}\n")
-
-        # Add UI tree as text (more readable)
-        if "ui" in observation:
-            parts.append("### UI Elements")
-            ui_text = render_ui_as_text(observation)
-            parts.append(f"```\n{ui_text}\n```\n")
-
-        # Add tabs info
-        if "tabs" in observation and observation["tabs"]:
-            parts.append("### Browser Tabs")
-            for tab in observation["tabs"]:
-                active = " (active)" if tab.get("active") else ""
-                parts.append(f"- Tab {tab.get('id')}: {tab.get('title', 'Untitled')}{active}")
-            parts.append("")
-
-        # Add filesystem info
-        if "filesystem" in observation and observation["filesystem"]:
-            parts.append("### Files")
-            for path, info in list(observation["filesystem"].items())[:self.MAX_FILESYSTEM_DISPLAY]:
-                parts.append(f"- {path}")
-            parts.append("")
-
-        parts.append("What action should I take next?")
-
-        return "\n".join(parts)
-
-    def _extract_action(self, response: dict) -> dict:
-        """Extract action from LLM response. Returns noop on validation failure."""
-        # Response should have 'action' key
-        if "action" in response:
-            action = response["action"]
-        else:
-            # Maybe the response is the action itself
-            action = response
-
-        # Validate action structure
-        is_valid, errors = validate_action_complete(action)
-        if not is_valid:
-            logger.warning(f"Invalid action generated, falling back to noop: {errors}")
-            return {"action_type": "noop"}
-
-        # Validate action is in allowed set (noop always allowed as internal fallback)
-        action_type = action.get("action_type")
-        if action_type != "noop" and action_type not in self.allowed_actions:
-            logger.warning(
-                f"Action '{action_type}' not in allowed actions: {self.allowed_actions}, falling back to noop"
-            )
-            return {"action_type": "noop"}
-
-        return action
-
-    def get_thought(self, response: dict) -> str:
-        """Extract thought from LLM response."""
-        return response.get("thought", "")
+        return llmos_action
 
 
 class HumanAgent:
-    """
-    Human-in-the-loop agent for debugging/demonstration.
-    """
+    """Human-in-the-loop agent for debugging/demonstration."""
 
     def __init__(self):
         self.instruction: Optional[str] = None
@@ -312,35 +141,23 @@ class HumanAgent:
         print(f"\n=== New Task ===\n{instruction}\n")
 
     def act(self, observation: dict) -> dict:
-        """
-        Get action from human input.
+        """Get action from human input, showing the indexed tree."""
+        tree_text, ref_to_bid = state_to_indexed_tree(observation)
 
-        Args:
-            observation: Current observation.
-
-        Returns:
-            Action dict.
-        """
-        # Display observation summary
         tick = observation.get("meta", {}).get("tick", 0)
         print(f"\n=== Step {tick} ===")
+        print(tree_text)
+        print(f"\nref → bid: {ref_to_bid}")
 
-        # Show interactive elements
-        interactive = extract_focusable_elements(observation)
-        if interactive:
-            print("\nInteractive elements:")
-            for elem in interactive[:15]:
-                print(f"  [{elem['bid']}] {elem['tag']}: {elem.get('text', '')[:30]}")
-
-        # Get action from user
-        print("\nEnter action as JSON (or 'noop'):")
+        print("\nEnter action as JSON (e.g. {\"action\":\"click\",\"ref\":3}):")
         try:
             user_input = input("> ").strip()
-            if user_input.lower() == "noop":
+            if user_input.lower() in ("noop", "wait"):
                 return {"action_type": "noop"}
-            return json.loads(user_input)
-        except json.JSONDecodeError:
-            print("Invalid JSON, using noop")
+            unified_action = json.loads(user_input)
+            return unified_action_to_llmos(unified_action, ref_to_bid)
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Error: {e}, using noop")
             return {"action_type": "noop"}
         except EOFError:
             return {"action_type": "noop"}
@@ -349,20 +166,41 @@ class HumanAgent:
 def create_agent(
     agent_type: str = "llm",
     config_path: Optional[str] = None,
-    **kwargs
-) -> Union[Agent, HumanAgent]:
-    """
-    Create an agent instance.
-
-    Args:
-        agent_type: Type of agent ('llm' or 'human').
-        config_path: Path to config file.
-        **kwargs: Additional arguments for the agent.
-
-    Returns:
-        Agent or HumanAgent instance.
-    """
+    **kwargs,
+) -> Agent | HumanAgent:
+    """Create an agent instance."""
     if agent_type == "human":
         return HumanAgent()
-    else:
-        return Agent(config_path=config_path, **kwargs)
+    return Agent(config_path=config_path, **kwargs)
+
+
+def _make_status(action: dict) -> str:
+    """Construct a human-readable status message from a unified action."""
+    name = action.get("action", "wait")
+    ref = action.get("ref")
+
+    if name == "click" and ref:
+        return f"Clicked [{ref}]"
+    if name == "dblclick" and ref:
+        return f"Double-clicked [{ref}]"
+    if name == "fill" and ref:
+        return f'Filled [{ref}] with "{action.get("value", "")[:50]}"'
+    if name == "select" and ref:
+        return f'Selected "{action.get("value", "")}" in [{ref}]'
+    if name == "check" and ref:
+        return f"Checked [{ref}]"
+    if name == "uncheck" and ref:
+        return f"Unchecked [{ref}]"
+    if name == "hover" and ref:
+        return f"Hovered [{ref}]"
+    if name == "press":
+        return f"Pressed {action.get('key', '')}"
+    if name == "scroll":
+        return f"Scrolled {action.get('direction', 'down')}"
+    if name == "drag_and_drop":
+        return f"Dragged [{action.get('from_ref')}] to [{action.get('to_ref')}]"
+    if name == "wait":
+        return "Waited"
+    if name == "finish":
+        return "Finished"
+    return "Action executed"

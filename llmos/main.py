@@ -66,7 +66,6 @@ class Orchestrator:
         config_path: Optional[Union[str, Path]] = None,
         difficulty: Optional[str] = None,
         strictness: Optional[str] = None,
-        action_space: Optional[str] = None,
         # Simulator module parameters
         preset: Optional[str] = None,
         state_output: Optional[str] = None,
@@ -94,7 +93,6 @@ class Orchestrator:
             config_path: Path to config file.
             difficulty: Simulator difficulty preset ("easy", "medium", "hard", "expert").
             strictness: Simulator strictness level ("lenient", "moderate", "strict").
-            action_space: Agent action space preset ("minimal", "full").
             preset: Simulator preset ("classic", "default", "efficient", "thorough").
             state_output: State output mode.
             abstraction: Abstraction level.
@@ -112,7 +110,6 @@ class Orchestrator:
             agent_provider: Agent LLM provider.
             benchmark: Optional BenchmarkConfig for benchmark-specific behavior.
         """
-        self.action_space = action_space
         self.agent_model = agent_model
         self.agent_provider = agent_provider
         if config_path is None:
@@ -198,7 +195,6 @@ class Orchestrator:
         config_path: Optional[Union[str, Path]] = None,
         difficulty: Optional[str] = None,
         strictness: Optional[str] = None,
-        action_space: Optional[str] = None,
         # Simulator module parameters
         preset: Optional[str] = None,
         state_output: Optional[str] = None,
@@ -227,7 +223,6 @@ class Orchestrator:
             config_path: Path to LLMOS config file.
             difficulty: Simulator difficulty preset.
             strictness: Simulator strictness level.
-            action_space: Agent action space preset.
             preset: Simulator preset.
             state_output, abstraction, memory, reasoning, verification,
             temporal, uncertainty, grounding: Simulator module parameters.
@@ -247,7 +242,6 @@ class Orchestrator:
             config_path=config_path,
             difficulty=difficulty,
             strictness=strictness,
-            action_space=action_space,
             preset=preset,
             state_output=state_output,
             abstraction=abstraction,
@@ -264,6 +258,16 @@ class Orchestrator:
             agent_model=agent_model,
             agent_provider=agent_provider,
             benchmark=benchmark_config,
+        )
+
+    def _create_agent(self) -> Agent:
+        """Create an Agent instance."""
+        return Agent(
+            llm_client=self.llm_client,
+            config_path=str(self.config_path),
+            model_name=self.agent_model,
+            provider=self.agent_provider,
+            config=self.config,
         )
 
     def run_episode(
@@ -287,14 +291,7 @@ class Orchestrator:
             Episode result dict with score, success, history.
         """
         if agent is None:
-            agent = Agent(
-                llm_client=self.llm_client,
-                config_path=str(self.config_path),
-                action_space=self.action_space,
-                model_name=self.agent_model,
-                provider=self.agent_provider,
-                config=self.config,
-            )
+            agent = self._create_agent()
 
         # Get template and reset
         template_name = instruction.get("initial_state_template", "desktop")
@@ -333,7 +330,6 @@ class Orchestrator:
             print(f"  State Output: {settings['state_output']}")
             print(f"  Model: {settings['model']} ({settings['provider']})")
             print(f"Agent Settings:")
-            print(f"  Action Space: {self.action_space or 'minimal'}")
             print(f"  Model: {getattr(agent, 'model_name', None) or 'default'} ({getattr(agent, 'provider', None) or 'default'})")
             print(f"{'='*60}\n")
 
@@ -396,7 +392,6 @@ class Orchestrator:
             "difficulty": instruction.get("difficulty", "unknown"),
             "feedback": judge_result.get("feedback", ""),
             "_agent_settings": {
-                "action_space": self.action_space or "minimal",
                 "model": getattr(agent, "model_name", None) or "default",
                 "provider": getattr(agent, "provider", None) or "default",
             },
@@ -447,14 +442,7 @@ class Orchestrator:
             List of episode results.
         """
         if agent is None:
-            agent = Agent(
-                llm_client=self.llm_client,
-                config_path=str(self.config_path),
-                action_space=self.action_space,
-                model_name=self.agent_model,
-                provider=self.agent_provider,
-                config=self.config,
-            )
+            agent = self._create_agent()
 
         # Determine if we should auto-adjust difficulty
         if auto_adjust_difficulty is None:
@@ -574,14 +562,7 @@ class Orchestrator:
             )
 
         if agent is None:
-            agent = Agent(
-                llm_client=self.llm_client,
-                config_path=str(self.config_path),
-                action_space=self.action_space,
-                model_name=self.agent_model,
-                provider=self.agent_provider,
-                config=self.config,
-            )
+            agent = self._create_agent()
 
         # Determine number of episodes
         total_tasks = self._task_provider.total_tasks
@@ -742,7 +723,6 @@ class Orchestrator:
             "config_path": str(self.config_path),
             "difficulty": self.simulator.get_difficulty().preset,
             "strictness": self.simulator.sim_config.strictness,
-            "action_space": self.action_space,
             "preset": getattr(self.simulator, "_preset_name", "classic"),
             "sim_model": self.simulator.sim_config.llm_model,
             "sim_provider": self.simulator.sim_config.llm_provider,
@@ -764,7 +744,6 @@ class Orchestrator:
                 config_path=worker_config["config_path"],
                 difficulty=worker_config["difficulty"],
                 strictness=worker_config["strictness"],
-                action_space=worker_config["action_space"],
                 preset=worker_config["preset"],
                 sim_model=worker_config["sim_model"],
                 sim_provider=worker_config["sim_provider"],
@@ -775,14 +754,7 @@ class Orchestrator:
             worker_orchestrator.runs_dir = Path(worker_config["runs_dir"])
 
             # Create agent for this worker
-            agent = Agent(
-                llm_client=worker_orchestrator.llm_client,
-                config_path=worker_config["config_path"],
-                action_space=worker_config["action_space"],
-                model_name=worker_config["agent_model"],
-                provider=worker_config["agent_provider"],
-                config=worker_orchestrator.config,
-            )
+            agent = worker_orchestrator._create_agent()
 
             instruction = task_obj.to_dict()
 
@@ -903,7 +875,6 @@ class Orchestrator:
         sim_settings = self.simulator.get_settings_dict()
         # Use agent settings from result if available (has resolved model/provider)
         agent_settings = result.get("_agent_settings", {
-            "action_space": self.action_space or "minimal",
             "model": self.agent_model or "default",
             "provider": self.agent_provider or "default",
         })
