@@ -76,11 +76,14 @@ def get_moonshot_info() -> dict[str, ModelAttributes]:
     org = "moonshotai"
     return {
         "Kimi-K2-Thinking": ModelAttributes(org, "K2", "1T-A32B", True),
+        "Kimi-K2.5": ModelAttributes(org, "K2.5", "1T-A32B", True, is_vl=True),
     }
 
 
 def get_model_attributes(model_name: str) -> ModelAttributes:
+    model_name = model_name.split(":")[0]
     org, model_version_full = model_name.split("/")
+    model_version_full = model_version_full.split(":")[0]
     if org == "meta-llama":
         return get_llama_info()[model_version_full]
     elif org == "Qwen":

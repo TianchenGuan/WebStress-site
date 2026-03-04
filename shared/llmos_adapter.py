@@ -57,20 +57,42 @@ def _convert_node(node: dict) -> TreeNode:
 # ── Observation → indexed tree ───────────────────────────────────────────
 
 
-def state_to_indexed_tree(observation: dict) -> tuple[str, dict[int, str]]:
+def state_to_indexed_tree(
+    observation: dict,
+    skip_browser_chrome: bool = False,
+) -> tuple[str, dict[int, str], dict[int, "TreeNode"]]:
     """
     Convert a filtered LLMos observation to an indexed accessibility tree.
 
-    Returns (tree_text, ref_to_bid) where ref_to_bid[ref] = bid string.
+    Returns (tree_text, ref_to_bid, node_map) where:
+      - ref_to_bid[ref] = bid string
+      - node_map[ref] = TreeNode (for status message generation)
     """
     root = llmos_state_to_tree(observation)
+
+    if skip_browser_chrome:
+        root = _find_page_content(root) or root
+
     text, node_map = render_indexed_tree(root)
 
     ref_to_bid: dict[int, str] = {}
     for ref, node in node_map.items():
         ref_to_bid[ref] = node.source  # source is the bid
 
-    return text, ref_to_bid
+    return text, ref_to_bid, node_map
+
+
+def _find_page_content(root: TreeNode) -> TreeNode | None:
+    """
+    Find the main page content node, skipping browser chrome (toolbar, URL bar).
+
+    WAB templates have structure: root(application) → toolbar + page_content(main).
+    Playwright's aria_snapshot only captures body content, so we skip to the main node.
+    """
+    for child in root.children:
+        if child.role == "main":
+            return child
+    return None
 
 
 # ── Unified action → LLMos action ───────────────────────────────────────

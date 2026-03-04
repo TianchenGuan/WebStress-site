@@ -10,7 +10,7 @@ import numpy as np
 import verifiers as vf
 from verifiers.utils.message_utils import messages_to_printable
 
-from tinker_cookbook import model_info, renderers
+from tinker_cookbook import checkpoint_utils, model_info, renderers
 from tinker_cookbook.recipes.verifiers_rl.tinker_openai import TinkerAsyncOpenAIClient
 from tinker_cookbook.tokenizer_utils import get_tokenizer
 
@@ -33,7 +33,11 @@ def log_results(
     printable_prompts = [messages_to_printable(p) for p in results["prompt"]]
     printable_completions = [messages_to_printable(c) for c in results["completion"]]
     vf.print_prompt_completions_sample(
-        printable_prompts, printable_completions, results["reward"], step=0
+        prompts=printable_prompts,
+        completions=printable_completions,
+        errors=[],  # Required argument added in verifiers 0.1.9
+        rewards=results["reward"],
+        step=0,
     )
     print("--- All ---")
     print("Rewards:")
@@ -87,7 +91,14 @@ async def evaluate(
 
     env = vf.load_environment(vf_env_id, **vf_env_args)
     tokenizer = get_tokenizer(model_name)
-    renderer_name = model_info.get_recommended_renderer_name(model_name)
+    renderer_name = None
+    if model_path is not None:
+        renderer_name = await checkpoint_utils.get_renderer_name_from_checkpoint_async(
+            service, model_path
+        )
+    if renderer_name is None:
+        renderer_name = model_info.get_recommended_renderer_name(model_name)
+    print(f"Using renderer: {renderer_name}")
     renderer = renderers.get_renderer(renderer_name, tokenizer)
 
     # Create sampling client from checkpoint path or base model

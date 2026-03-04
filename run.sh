@@ -6,6 +6,38 @@
 # Usage: ./run.sh
 # =============================================================================
 
+# bash
+# source /etc/profile 2>/dev/null
+# source /etc/profile.d/modules.sh 2>/dev/null
+
+# source .venv/bin/activate
+
+# module load CUDA/12.4
+
+# export CUDA_HOME=$(dirname $(dirname $(which nvcc)))
+# export PATH="$CUDA_HOME/bin:$PATH"
+# echo "--- 成功设置 CUDA_HOME 为: $CUDA_HOME ---"
+
+# CUDA_VISIBLE_DEVICES=0,1 python -m sglang.launch_server \
+#     --model-path Qwen/Qwen3.5-27B \
+#     --port 8000 \
+#     --tp-size 2 \
+#     --mem-fraction-static 0.90 \
+#     --context-length 60000 \
+#     --reasoning-parser qwen3
+
+# =============================================================================
+
+
+
+
+
+
+
+
+
+
+
 set -e
 cd "$(dirname "$0")"
 source .venv/bin/activate

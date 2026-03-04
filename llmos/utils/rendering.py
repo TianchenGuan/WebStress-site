@@ -1,12 +1,10 @@
 """
-Deterministic Rendering for LLMOS.
+Deterministic rendering for LLMOS.
 Filters the "God View" state to create agent-safe observations.
 
 The agent should only see what a real user would see on screen:
 - Hidden elements are not visible
 - Minimized windows and their contents are not visible
-- Elements outside the viewport are not visible
-- Elements fully occluded by other windows are not visible
 - Filesystem entries are only visible if displayed in an open file explorer
 """
 
@@ -14,154 +12,76 @@ import copy
 import logging
 from typing import Optional
 
-from .occlusion import compute_occlusion_precise, filter_occluded_nodes
-
 logger = logging.getLogger(__name__)
 
-# Maximum content length before truncation
 MAX_CONTENT_LENGTH = 1000
 TRUNCATION_SUFFIX = "... [truncated]"
-
-# Default viewport/screen dimensions
-DEFAULT_VIEWPORT = {"x": 0, "y": 0, "width": 1920, "height": 1080}
 
 
 def render_observation(
     state: dict,
     include_meta: bool = True,
-    apply_occlusion: bool = True,
-    filter_filesystem_by_display: bool = True,
-    viewport: Optional[dict] = None,
 ) -> dict:
     """
     Render an observation from the full state by filtering to only show
     what would be visible on a real screen.
 
-    Filtering rules (agent only sees what's on screen):
-    1. hidden_state is never visible (internal simulator data)
+    Filtering rules:
+    1. hidden_state is never visible
     2. Elements with visible=false are not shown
     3. Elements in minimized windows are not shown
-    4. Elements outside viewport bounds are not shown
-    5. Elements fully occluded by higher z_index elements are not shown
-    6. Filesystem entries only shown if displayed in open file explorer window
-    7. File contents are truncated for long files
-
-    Args:
-        state: The full state object (with hidden_state).
-        include_meta: Whether to include meta information.
-        apply_occlusion: Whether to filter occluded elements based on z_index.
-        filter_filesystem_by_display: If True, only show filesystem entries that are
-            visible in an open file explorer window.
-        viewport: Screen viewport bounds. Elements outside are filtered.
+    4. Filesystem entries only shown if displayed in open file explorer
 
     Returns:
-        A filtered observation showing only what's visible on screen.
+        Filtered observation for the agent.
     """
-    if viewport is None:
-        viewport = DEFAULT_VIEWPORT
-
-    # Deep copy to avoid modifying original
     obs = copy.deepcopy(state)
 
-    # 1. Remove hidden_state completely (never visible to agent)
-    if "hidden_state" in obs:
-        del obs["hidden_state"]
+    # 1. Remove hidden_state
+    obs.pop("hidden_state", None)
 
     # 2. Filter meta
     if "meta" in obs:
         if not include_meta:
             del obs["meta"]
         else:
-            # Remove random_seed from meta
-            if "random_seed" in obs["meta"]:
-                del obs["meta"]["random_seed"]
+            obs["meta"].pop("random_seed", None)
 
-    # 3. Get displayed paths from UI (before filtering UI)
-    displayed_paths = None
-    if filter_filesystem_by_display and "ui" in obs:
-        displayed_paths = _get_displayed_paths(obs["ui"])
+    # 3. Get displayed paths from UI (before filtering)
+    displayed_paths = _get_displayed_paths(obs.get("ui", {}))
 
-    # 4. Filter filesystem (only show files visible in open windows)
+    # 4. Filter filesystem
     if "filesystem" in obs:
         obs["filesystem"] = _filter_filesystem(obs["filesystem"], displayed_paths)
 
-    # 5. Filter UI tree comprehensively:
-    #    - Remove nodes with visible=false
-    #    - Remove contents of minimized windows
-    #    - Remove elements outside viewport
+    # 5. Filter UI tree
     if "ui" in obs:
-        obs["ui"] = _filter_ui_tree_comprehensive(obs["ui"], viewport)
-
-    # 6. Apply occlusion filtering (remove fully occluded, mark partially occluded)
-    if apply_occlusion and "ui" in obs and obs["ui"] is not None:
-        occlusion_map = compute_occlusion_precise(obs["ui"])
-        obs["ui"] = filter_occluded_nodes(obs["ui"], occlusion_map)
+        obs["ui"] = _filter_ui_tree(obs["ui"])
 
     return obs
 
 
 def _filter_filesystem(filesystem: dict, displayed_paths: Optional[set] = None) -> dict:
-    """
-    Filter filesystem entries based on visibility and what's currently displayed.
-
-    - Removes files with visible: false
-    - If displayed_paths is provided, only show files under those paths
-    - Truncates long file contents
-
-    Args:
-        filesystem: The filesystem dict.
-        displayed_paths: Optional set of directory paths currently shown in open windows.
-                        If None, shows all visible files. If empty set, shows nothing.
-
-    Returns:
-        Filtered filesystem dict.
-    """
+    """Filter filesystem to only show visible, displayed entries."""
     filtered = {}
-
     for path, entry in filesystem.items():
         if not isinstance(entry, dict):
             continue
-
-        # Skip hidden files
         if not entry.get("visible", True):
             continue
-
-        # If displayed_paths is specified, only show files under those paths
         if displayed_paths is not None:
-            is_displayed = False
-            for displayed_dir in displayed_paths:
-                if path == displayed_dir or path.startswith(displayed_dir.rstrip('/') + '/'):
-                    is_displayed = True
-                    break
-            if not is_displayed:
+            if not any(path == d or path.startswith(d.rstrip('/') + '/') for d in displayed_paths):
                 continue
-
-        # Copy and truncate content if needed
         filtered_entry = copy.copy(entry)
-
-        if "content" in filtered_entry:
-            content = filtered_entry["content"]
-            if isinstance(content, str) and len(content) > MAX_CONTENT_LENGTH:
-                filtered_entry["content"] = content[:MAX_CONTENT_LENGTH] + TRUNCATION_SUFFIX
-
+        content = filtered_entry.get("content", "")
+        if isinstance(content, str) and len(content) > MAX_CONTENT_LENGTH:
+            filtered_entry["content"] = content[:MAX_CONTENT_LENGTH] + TRUNCATION_SUFFIX
         filtered[path] = filtered_entry
-
     return filtered
 
 
 def _get_displayed_paths(ui: dict) -> set:
-    """
-    Extract paths currently displayed in open file explorer windows.
-
-    Looks for windows with role='window' that have an address bar or
-    current_path property indicating what directory is being displayed.
-
-    Args:
-        ui: The UI tree.
-
-    Returns:
-        Set of directory paths currently visible in file explorer windows.
-    """
+    """Extract paths currently displayed in open file explorer windows."""
     displayed = set()
     _collect_displayed_paths(ui, displayed)
     return displayed
@@ -171,363 +91,93 @@ def _collect_displayed_paths(node: dict, paths: set) -> None:
     """Recursively collect displayed paths from UI tree."""
     if not isinstance(node, dict):
         return
-
-    # Check if this node represents a file explorer with a current path
     if node.get("role") == "window" or node.get("tag") == "window":
-        # Look for current_path property
         current_path = node.get("current_path")
         if current_path:
             paths.add(current_path)
-
-        # Also check address bar value
         for child in node.get("children", []):
-            if isinstance(child, dict):
-                if child.get("role") in ("address_bar", "textbox", "location"):
-                    value = child.get("value", "")
-                    if value and value.startswith("/"):
-                        paths.add(value)
-
-    # Recurse into children
+            if isinstance(child, dict) and child.get("role") in ("address_bar", "textbox", "location"):
+                value = child.get("value", "")
+                if value and value.startswith("/"):
+                    paths.add(value)
     for child in node.get("children", []):
         _collect_displayed_paths(child, paths)
 
 
-def _filter_ui_tree_comprehensive(
+def _filter_ui_tree(
     node: dict,
-    viewport: dict,
-    parent_visible: bool = True,
     parent_minimized: bool = False,
-    effective_viewport: Optional[dict] = None,
 ) -> Optional[dict]:
     """
-    Comprehensively filter UI tree to show only what's visible on screen.
+    Filter UI tree to show only visible elements.
 
-    Filters out:
+    Removes:
     - Nodes with visible=false
-    - Contents of minimized windows (window with state="minimized")
-    - Elements completely outside viewport bounds
-    - Elements in collapsed containers (collapsed=true)
-    - Elements outside their scrollable container's visible area
-
-    Args:
-        node: A UI tree node.
-        viewport: Screen viewport bounds {x, y, width, height}.
-        parent_visible: Whether parent is visible (inherited).
-        parent_minimized: Whether any ancestor window is minimized.
-        effective_viewport: The current effective viewport, clipped to parent
-            scrollable containers. If None, uses the global viewport.
-
-    Returns:
-        Filtered node or None if node should be hidden.
+    - Contents of minimized windows
+    - Collapsed containers
     """
     if not isinstance(node, dict):
         return node
 
-    # Use effective viewport if provided, otherwise use global viewport
-    if effective_viewport is None:
-        effective_viewport = viewport
-
-    # Check explicit visibility flag
     if not node.get("visible", True):
         return None
 
-    # Check if this is a minimized window
     is_minimized = (
-        node.get("state") == "minimized" or
-        node.get("minimized", False) or
-        parent_minimized
+        node.get("state") == "minimized"
+        or node.get("minimized", False)
+        or parent_minimized
     )
 
-    # Check if this is a collapsed container
     is_collapsed = node.get("collapsed", False)
 
-    # Check if element is within effective viewport
-    bounds = node.get("bounds")
-    if bounds and not _is_within_viewport(bounds, effective_viewport):
-        # Element is completely outside effective viewport - not visible
-        # But keep windows even if partially outside (they might have visible parts)
-        if node.get("role") != "window" and node.get("tag") != "window":
-            return None
-
-    # If window is minimized, only show the window itself (in taskbar),
-    # not its contents
     if is_minimized and node.get("role") not in ("window", "application"):
-        # This is content inside a minimized window - hide it
         if parent_minimized:
             return None
 
-    # Copy node properties (except children)
-    filtered = {}
-    for key, value in node.items():
-        if key != "children":
-            filtered[key] = value
+    # Copy node without children
+    filtered = {k: v for k, v in node.items() if k != "children"}
 
-    # Process children
     children = node.get("children", [])
     if isinstance(children, list) and children:
-        # If this window is minimized, don't show its children
-        if is_minimized and (node.get("role") == "window" or node.get("tag") == "window"):
-            # Window is minimized - children not visible on screen
-            # Just show the window exists (appears in taskbar) but no contents
-            pass
-        # If this container is collapsed, don't show children
-        elif is_collapsed:
-            pass
+        is_window = node.get("role") == "window" or node.get("tag") == "window"
+        if (is_minimized and is_window) or is_collapsed:
+            pass  # Don't show children
         else:
-            # Compute new effective viewport for children
-            # If this node is a scrollable container, clip the effective viewport
-            child_effective_viewport = _compute_child_viewport(
-                node, children, effective_viewport
-            )
-
             filtered_children = []
             for child in children:
-                filtered_child = _filter_ui_tree_comprehensive(
-                    child,
-                    viewport,
-                    parent_visible=True,
-                    parent_minimized=is_minimized,
-                    effective_viewport=child_effective_viewport,
-                )
-                if filtered_child is not None:
-                    filtered_children.append(filtered_child)
+                fc = _filter_ui_tree(child, parent_minimized=is_minimized)
+                if fc is not None:
+                    filtered_children.append(fc)
             if filtered_children:
                 filtered["children"] = filtered_children
 
     return filtered
 
 
-def _compute_child_viewport(
-    node: dict,
-    children: list,
-    current_viewport: dict,
-) -> dict:
-    """
-    Compute the effective viewport for children of a node.
-
-    If the node is a scrollable container (has scrollbar child, or explicit
-    scrollable/overflow property), the effective viewport is clipped to the
-    container's bounds and adjusted for scroll position.
-
-    Args:
-        node: The parent node.
-        children: The node's children.
-        current_viewport: The current effective viewport.
-
-    Returns:
-        The effective viewport for children.
-    """
-    bounds = node.get("bounds")
-    if not bounds:
-        return current_viewport
-
-    # Detect if this is a scrollable container
-    is_scrollable = _is_scrollable_container(node, children)
-
-    if not is_scrollable:
-        return current_viewport
-
-    # Get scroll position (default to 0)
-    scroll_y = _get_scroll_position(node, children)
-
-    # Compute the visible area of this container
-    # The container's bounds define what's visible
-    container_viewport = {
-        "x": bounds.get("x", 0),
-        "y": bounds.get("y", 0),
-        "width": bounds.get("width", current_viewport.get("width", 1920)),
-        "height": bounds.get("height", current_viewport.get("height", 1080)),
-    }
-
-    # Intersect with current viewport to get effective viewport
-    return _intersect_viewports(current_viewport, container_viewport)
-
-
-def _is_scrollable_container(node: dict, children: list) -> bool:
-    """
-    Determine if a node is a scrollable container.
-
-    A node is scrollable if it has:
-    - A scrollbar child
-    - scrollable=true property
-    - overflow property set to scroll/auto
-    - role/tag indicating scrollable content (main, article, etc. with bounds)
-    """
-    # Explicit scrollable property
-    if node.get("scrollable"):
-        return True
-
-    # Overflow property
-    overflow = node.get("overflow", "")
-    if overflow in ("scroll", "auto", "hidden"):
-        return True
-
-    # Check for scrollbar child
-    for child in children:
-        if isinstance(child, dict):
-            if child.get("tag") == "scrollbar" or child.get("role") == "scrollbar":
-                return True
-
-    # Common scrollable container patterns
-    tag = node.get("tag", "").lower()
-    role = node.get("role", "").lower()
-
-    # Main content areas are typically scrollable
-    if tag in ("main", "article", "section") and node.get("bounds"):
-        return True
-
-    # Browser content area
-    if "content" in node.get("bid", "").lower() and node.get("bounds"):
-        return True
-
-    return False
-
-
-def _get_scroll_position(node: dict, children: list) -> int:
-    """
-    Get the vertical scroll position of a scrollable container.
-
-    Looks for:
-    - scroll_y property on the node
-    - value property on a scrollbar child
-    """
-    # Direct scroll position
-    if "scroll_y" in node:
-        return node.get("scroll_y", 0)
-
-    if "scrollTop" in node:
-        return node.get("scrollTop", 0)
-
-    # Check scrollbar child for position
-    for child in children:
-        if isinstance(child, dict):
-            if child.get("tag") == "scrollbar" or child.get("role") == "scrollbar":
-                return child.get("value", 0)
-
-    return 0
-
-
-def _intersect_viewports(vp1: dict, vp2: dict) -> dict:
-    """
-    Compute the intersection of two viewports.
-
-    Returns the overlapping region, or an empty viewport if no overlap.
-    """
-    # Get bounds of both viewports
-    x1_left = vp1.get("x", 0)
-    y1_top = vp1.get("y", 0)
-    x1_right = x1_left + vp1.get("width", 1920)
-    y1_bottom = y1_top + vp1.get("height", 1080)
-
-    x2_left = vp2.get("x", 0)
-    y2_top = vp2.get("y", 0)
-    x2_right = x2_left + vp2.get("width", 1920)
-    y2_bottom = y2_top + vp2.get("height", 1080)
-
-    # Compute intersection
-    x_left = max(x1_left, x2_left)
-    y_top = max(y1_top, y2_top)
-    x_right = min(x1_right, x2_right)
-    y_bottom = min(y1_bottom, y2_bottom)
-
-    # Check if there's an actual intersection
-    if x_right <= x_left or y_bottom <= y_top:
-        # No intersection - return empty viewport
-        return {"x": 0, "y": 0, "width": 0, "height": 0}
-
-    return {
-        "x": x_left,
-        "y": y_top,
-        "width": x_right - x_left,
-        "height": y_bottom - y_top,
-    }
-
-
-def _is_within_viewport(bounds: dict, viewport: dict) -> bool:
-    """
-    Check if element bounds are at least partially within viewport.
-
-    Args:
-        bounds: Element bounds {x, y, width, height}.
-        viewport: Viewport bounds {x, y, width, height}.
-
-    Returns:
-        True if element is at least partially visible in viewport.
-    """
-    if not bounds or not viewport:
-        return True  # Assume visible if no bounds info
-
-    elem_left = bounds.get("x", 0)
-    elem_top = bounds.get("y", 0)
-    elem_right = elem_left + bounds.get("width", 0)
-    elem_bottom = elem_top + bounds.get("height", 0)
-
-    vp_left = viewport.get("x", 0)
-    vp_top = viewport.get("y", 0)
-    vp_right = vp_left + viewport.get("width", 1920)
-    vp_bottom = vp_top + viewport.get("height", 1080)
-
-    # Check if there's any overlap
-    return not (
-        elem_right < vp_left or   # Element is left of viewport
-        elem_left > vp_right or   # Element is right of viewport
-        elem_bottom < vp_top or   # Element is above viewport
-        elem_top > vp_bottom      # Element is below viewport
-    )
-
-
 def render_ui_as_text(state: dict, indent: int = 0) -> str:
-    """
-    Render the UI tree as indented text (accessibility tree format).
-
-    Useful for text-based agents that prefer a linearized representation.
-
-    Args:
-        state: The state object (or just the UI portion).
-        indent: Current indentation level.
-
-    Returns:
-        Text representation of the UI tree.
-    """
+    """Render UI tree as indented text (for judge/debugging)."""
     ui = state.get("ui", state) if "ui" in state else state
+    return _render_node_text(ui, indent)
 
-    return _render_node_as_text(ui, indent)
 
-
-def _render_node_as_text(node: dict, indent: int = 0) -> str:
-    """
-    Recursively render a node as text.
-
-    Args:
-        node: A UI tree node.
-        indent: Current indentation level.
-
-    Returns:
-        Text representation.
-    """
+def _render_node_text(node: dict, indent: int = 0) -> str:
     if not isinstance(node, dict):
         return ""
-
     lines = []
     prefix = "  " * indent
-
-    # Build node description
     bid = node.get("bid", "?")
     tag = node.get("tag", "unknown")
     role = node.get("role", "")
     text = node.get("text", "")
-    value = node.get("value", "")
 
-    # Build attribute string
     attrs = []
     if role:
         attrs.append(f"role={role}")
     if text:
-        # Truncate long text
-        display_text = text[:50] + "..." if len(text) > 50 else text
-        attrs.append(f'text="{display_text}"')
-    if value:
-        attrs.append(f'value="{value}"')
+        display = text[:50] + "..." if len(text) > 50 else text
+        attrs.append(f'text="{display}"')
+    if node.get("value"):
+        attrs.append(f'value="{node["value"]}"')
     if node.get("focused"):
         attrs.append("focused")
     if node.get("checked"):
@@ -536,107 +186,29 @@ def _render_node_as_text(node: dict, indent: int = 0) -> str:
         attrs.append("disabled")
 
     attr_str = " " + " ".join(attrs) if attrs else ""
-
     lines.append(f"{prefix}[{bid}] {tag}{attr_str}")
 
-    # Render children
-    children = node.get("children", [])
-    for child in children:
-        lines.append(_render_node_as_text(child, indent + 1))
-
+    for child in node.get("children", []):
+        lines.append(_render_node_text(child, indent + 1))
     return "\n".join(lines)
 
 
 def summarize_state(state: dict) -> dict:
-    """
-    Create a compact summary of the state for logging/debugging.
-
-    Args:
-        state: The full or filtered state.
-
-    Returns:
-        A compact summary dict.
-    """
+    """Create a compact summary of state for logging."""
     summary = {
         "tick": state.get("meta", {}).get("tick", 0),
         "status": state.get("meta", {}).get("status", "unknown"),
     }
-
-    # Count UI elements
     if "ui" in state:
         summary["ui_elements"] = _count_nodes(state["ui"])
-
-    # Count files
     if "filesystem" in state:
         summary["files"] = len(state["filesystem"])
-
-    # Count tabs
     if "tabs" in state:
         summary["tabs"] = len(state["tabs"])
-        active_tab = next((t for t in state["tabs"] if t.get("active")), None)
-        if active_tab:
-            summary["active_url"] = active_tab.get("url", "")
-
     return summary
 
 
 def _count_nodes(node: dict) -> int:
-    """Count total nodes in a UI tree."""
     if not isinstance(node, dict):
         return 0
-
-    count = 1
-    for child in node.get("children", []):
-        count += _count_nodes(child)
-
-    return count
-
-
-def extract_focusable_elements(state: dict) -> list[dict]:
-    """
-    Extract all focusable/interactive elements from the UI tree.
-
-    Useful for agents to understand available actions.
-
-    Args:
-        state: The state object.
-
-    Returns:
-        List of interactive element summaries.
-    """
-    ui = state.get("ui", {})
-    elements = []
-    _collect_interactive(ui, elements)
-    return elements
-
-
-def _collect_interactive(node: dict, elements: list):
-    """Recursively collect interactive elements."""
-    if not isinstance(node, dict):
-        return
-
-    # Check if interactive
-    tag = node.get("tag", "").lower()
-    role = node.get("role", "").lower()
-
-    interactive_tags = {"button", "input", "select", "textarea", "a", "link", "checkbox", "radio"}
-    interactive_roles = {"button", "link", "textbox", "checkbox", "radio", "combobox", "menuitem"}
-
-    if tag in interactive_tags or role in interactive_roles:
-        text = node.get("text", "")
-        # Truncate with indicator if text is too long
-        max_text_len = 50
-        if len(text) > max_text_len:
-            text = text[:max_text_len] + "..."
-        elements.append({
-            "bid": node.get("bid"),
-            "tag": tag,
-            "role": role,
-            "text": text,
-            "value": node.get("value"),
-            "disabled": node.get("disabled", False),
-        })
-
-    # Recurse
-    for child in node.get("children", []):
-        _collect_interactive(child, elements)
+    return 1 + sum(_count_nodes(c) for c in node.get("children", []))
