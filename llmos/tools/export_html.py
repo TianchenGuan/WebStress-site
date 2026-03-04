@@ -21,6 +21,21 @@ from .viz_core import viz_shell, viz_three_panel
 
 def _page_css() -> str:
     return """<style>
+/* Layout: make detail panel largest, center smallest */
+.viz-sidebar {
+    width: 300px;
+    min-width: 280px;
+}
+.viz-center {
+    width: 360px;
+    min-width: 320px;
+    flex: 0 0 360px;
+}
+.viz-detail {
+    flex: 1;
+    min-width: 520px;
+}
+
 /* ===== Episode Viewer: Sidebar ===== */
 .step-list {
     list-style: none;
@@ -64,6 +79,28 @@ def _page_css() -> str:
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+}
+
+/* Evaluation summary in detail panel */
+.eval-summary {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+}
+.eval-summary .eval-score {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+.eval-summary .eval-score.positive { color: #22863a; }
+.eval-summary .eval-score.negative { color: #cb2431; }
+.eval-summary .eval-score.neutral  { color: #b08800; }
+.eval-summary .eval-reasoning {
+    margin-top: 6px;
+    color: #555;
+    font-size: 0.85rem;
 }
 
 /* Judge card in sidebar */
@@ -590,18 +627,35 @@ function renderDetailPanel() {
     var el = document.getElementById('detailInner');
     if (!el) return;
 
+    var html = '';
+
+    // Evaluation summary (always shown)
+    if (judgeData) {
+        var scoreVal = judgeData.score != null ? judgeData.score : (judgeData.final_score != null ? judgeData.final_score : null);
+        var scoreNum = scoreVal != null ? Number(scoreVal) : null;
+        var success = judgeData.success;
+        var cls = 'neutral';
+        if (success === true) cls = 'positive';
+        if (success === false && scoreNum != null && scoreNum < 0) cls = 'negative';
+        html += '<div class="eval-summary">' +
+            '<div><span class="role-badge role-judge">Judge</span> Evaluation</div>' +
+            (scoreNum != null ? '<div class="eval-score ' + cls + '">' + scoreNum.toFixed(2) + '</div>' : '') +
+            (judgeData.reasoning ? '<div class="eval-reasoning">' + escapeHtml(judgeData.reasoning) + '</div>' : '') +
+            '</div>';
+    }
+
     if (currentStep === 0) {
-        el.innerHTML = '<div class="detail-placeholder">Step 0: Initial State<br><br>Select a step from the sidebar or use the timeline controls.</div>';
+        html += '<div class="detail-placeholder">Step 0: Initial State<br><br>Select a step from the sidebar or use the timeline controls.</div>';
+        el.innerHTML = html;
         return;
     }
 
     var step = historyData[currentStep - 1];
     if (!step) {
-        el.innerHTML = '<div class="detail-placeholder">No data for step ' + currentStep + '</div>';
+        el.innerHTML = html + '<div class="detail-placeholder">No data for step ' + currentStep + '</div>';
         return;
     }
 
-    var html = '';
     var stepNum = currentStep;
     var isSetup = step.action && step.action.action_type === 'setup';
     var stepLabel = isSetup ? 'Setup' : ('Step ' + stepNum);

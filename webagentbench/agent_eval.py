@@ -328,6 +328,7 @@ def run_agent_on_page(
         "trajectory": trajectory,
         "elapsed_seconds": round(time.time() - start_time, 1),
         "completed": any(t["status"] == "FINISH" for t in trajectory),
+        "messages": messages,  # Full conversation for training export
     }
 
 
@@ -481,6 +482,7 @@ def run_evaluation(
                         "elapsed_seconds": agent_result["elapsed_seconds"],
                         "completed": agent_result["completed"],
                         "trajectory": agent_result["trajectory"],
+                        "messages": agent_result.get("messages"),
                     },
                 }
                 results.append(result)

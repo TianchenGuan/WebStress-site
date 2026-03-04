@@ -10,14 +10,6 @@ We provide two libraries for the broader community to customize their language m
 
 ## Installation
 
-**If using LLMOS workspace:** This package is included in the workspace. From the repository root:
-```bash
-uv sync
-source .venv/bin/activate
-export TINKER_API_KEY="your-api-key"
-```
-
-**Standalone installation:**
 1. Sign up for Tinker [here](https://auth.thinkingmachines.ai/sign-up).
 2. Once you have access, create an API key from the [console](https://tinker-console.thinkingmachines.ai) and export it as environment variable `TINKER_API_KEY`.
 3. Install tinker python client via `pip install tinker`
@@ -62,7 +54,7 @@ We also include a wide range of more sophisticated examples in the [`tinker_cook
 1. **[Chat supervised learning](tinker_cookbook/recipes/chat_sl/)**: supervised fine-tuning on conversational datasets like Tulu3.
 2. **[Math reasoning](tinker_cookbook/recipes/math_rl/)**: improve LLM reasoning capability by rewarding it for answering math questions correctly.
 3. **[Preference learning](tinker_cookbook/recipes/preference/)**: showcase a three-stage RLHF pipeline: 1) supervised fine-tuning, 2) learning a reward model, 3) RL against the reward model.
-4. **[Tool use](tinker_cookbook/recipes/tool_use/)**: train LLMs to better use retrieval tools to answer questions more accurately.
+4. **[Tool use](tinker_cookbook/recipes/search_tool/)**: train LLMs to better use retrieval tools to answer questions more accurately.
 5. **[Prompt distillation](tinker_cookbook/recipes/prompt_distillation/)**: internalize long and complex instructions into LLMs.
 6. **[Multi-Agent](tinker_cookbook/recipes/multiplayer_rl/)**: optimize LLMs to play against another LLM or themselves.
 
@@ -81,7 +73,7 @@ For the rendered documentation, visit [tinker-docs.thinkingmachines.ai](https://
 ### Import our utilities
 
 Tinker cookbook includes several utilities. Here's a quick overview:
-- [`renderers`](tinker_cookbook/renderers.py) converts tokens from/to structured chat message objects
+- [`renderers`](tinker_cookbook/renderers/) converts tokens from/to structured chat message objects
 - [`hyperparam_utils`](tinker_cookbook/hyperparam_utils.py) helps calculate hyperparameters suitable for LoRAs
 - [`evaluation`](tinker_cookbook/eval/evaluators.py) provides abstractions for evaluating Tinker models and [`inspect_evaluation`](tinker_cookbook/eval/inspect_evaluators.py) shows how to integrate with InspectAI to make evaluating on standard benchmarks easy.
 

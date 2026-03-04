@@ -43,6 +43,7 @@ class Config:
     lora_rank: int = 32
     save_every: int = 20  # 0 = disabled
     max_tokens: int = 256
+    ttl_seconds: int | None = 604800  # 7 days
 
 
 def get_reward(response: str, answer: str) -> float:
@@ -135,6 +136,7 @@ def main(config: Config):
                 log_path=config.log_path,
                 kind="state",
                 loop_state={"batch": batch_idx},
+                ttl_seconds=config.ttl_seconds,
             )
 
         # Get training batch and convert to datums online
@@ -142,10 +144,7 @@ def main(config: Config):
         batch_end = min((batch_idx + 1) * config.batch_size, len(train_dataset))
         batch_rows = train_dataset.select(range(batch_start, batch_end))
 
-        sampling_path = (
-            training_client.save_weights_for_sampler(name=f"{batch_idx:06d}").result().path
-        )
-        sampling_client = service_client.create_sampling_client(model_path=sampling_path)
+        sampling_client = training_client.save_weights_and_get_sampling_client()
 
         datums_D: list[types.Datum] = []
         rewards_P: list[float] = []
@@ -229,7 +228,10 @@ def main(config: Config):
         fwd_bwd_future = training_client.forward_backward(datums_D, loss_fn="importance_sampling")
         optim_step_future = training_client.optim_step(adam_params)
         _fwd_bwd_result = fwd_bwd_future.result()
-        _optim_result = optim_step_future.result()
+        optim_result = optim_step_future.result()
+
+        if optim_result.metrics:
+            metrics.update(optim_result.metrics)
 
         # Log metrics
         metrics["time/total"] = time.time() - t_start
@@ -243,6 +245,7 @@ def main(config: Config):
         log_path=config.log_path,
         kind="both",
         loop_state={"batch": n_train_batches},
+        ttl_seconds=config.ttl_seconds,
     )
     ml_logger.close()
     logger.info("Training completed")

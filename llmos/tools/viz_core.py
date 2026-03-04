@@ -3,9 +3,6 @@ Shared visualization component library for LLMOS HTML tools.
 
 Provides unified CSS, JS, and HTML generation functions used by:
 - llmos/tools/export_html.py (episode viewer)
-- llmos/tools/export_runs_index.py (runs dashboard)
-- webagentbench/visualize.py (trajectory viewer)
-- llmos/experiments/visualize_correlation.py (correlation study viewer)
 
 All functions return plain strings with no external dependencies.
 """
