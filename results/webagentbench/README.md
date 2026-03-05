@@ -1,12 +1,13 @@
 # WebAgentBench Results
 
-This directory keeps only curated successful trajectories for the current benchmark iteration.
+This directory keeps the curated successful trajectories for the current benchmark iteration and also retains legacy aggregate JSON artifacts for historical reference.
 
 Retention rule:
 
 - keep only page trajectories where `evaluation.success == true` and `agent.completed == true`
 - keep only the current validated iteration sources
-- drop raw aggregate reruns, smoke outputs, recovery runs, and failed/incomplete trajectories
+- retain legacy aggregate benchmark JSON files that document earlier iterations
+- do not treat legacy aggregate JSON files as the canonical evidence set for the current iteration
 
 Curated sources:
 
@@ -27,7 +28,7 @@ Index:
 
 Regeneration note:
 
-- the raw source runs used for this curation were intentionally pruned from the repository
+- the raw source runs used for this curation are not part of the curated current-iteration evidence set
 - to regenerate, first place fresh raw source runs with the expected filenames in this directory, then run:
 
 ```bash

@@ -1,0 +1,1473 @@
+{
+  "benchmark": "WebAgentBench",
+  "version": "1.0.0",
+  "timestamp": "2026-02-22T21:06:44.767241+00:00",
+  "agent": {
+    "model": "gemini-3-pro-preview",
+    "provider": "gemini"
+  },
+  "results": [
+    {
+      "page_id": "wizard_form",
+      "title": "Insurance Wizard",
+      "primitives": [
+        "backtracking",
+        "memory"
+      ],
+      "difficulty": "medium",
+      "evaluation": {
+        "score": -1.0,
+        "success": false,
+        "reasoning": "Failed 4/4 criteria: data.submitted === true; data.plan === 'premium'; data.state === 'CA'",
+        "criteria_results": [
+          {
+            "expression": "data.submitted === true",
+            "passed": false
+          },
+          {
+            "expression": "data.plan === 'premium'",
+            "passed": false
+          },
+          {
+            "expression": "data.state === 'CA'",
+            "passed": false
+          },
+          {
+            "expression": "data.earthquake_coverage === true",
+            "passed": false
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "wizard_form",
+        "completed": false
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 14,
+        "elapsed_seconds": 194.5,
+        "completed": false,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to start the application by filling out the Personal Information step. The user specified a California property, so I will select 'California (CA)' from the State dropdown.",
+            "action": {
+              "action": "select",
+              "selector": "State",
+              "value": "California (CA)"
+            },
+            "status": "Selected 'California (CA)' in 'State'",
+            "elapsed_seconds": 3.6
+          },
+          {
+            "step": 2,
+            "thought": "I need to provide a name to proceed. Since none was specified, I'll use 'John Doe'.",
+            "action": {
+              "action": "fill",
+              "selector": "Full Name",
+              "text": "John Doe"
+            },
+            "status": "Filled 'Full Name' with 'John Doe'",
+            "elapsed_seconds": 7.7
+          },
+          {
+            "step": 3,
+            "thought": "I have completed the Personal Information fields. I will click 'Next' to move to Step 2.",
+            "action": {
+              "action": "click",
+              "selector": "Next \u2192"
+            },
+            "status": "Clicked: Next \u2192",
+            "elapsed_seconds": 10.6
+          },
+          {
+            "step": 4,
+            "thought": "The user requires earthquake coverage, which is included in the Premium plan. I will select the Premium plan radio button.",
+            "action": {
+              "action": "click",
+              "selector": "Premium $200/mo Full-spectrum protection with the highest limits and all optional coverages. Includes earthquake & flood coverage in all states"
+            },
+            "status": "Clicked: Premium $200/mo Full-spectrum protection with the highest limits and all optional coverages. Includes earthquake & flood coverage in all states",
+            "elapsed_seconds": 13.9
+          },
+          {
+            "step": 5,
+            "thought": "I have selected the Premium plan. I will click 'Next' to proceed to Step 3.",
+            "action": {
+              "action": "click",
+              "selector": "Next \u2192"
+            },
+            "status": "Clicked: Next \u2192",
+            "elapsed_seconds": 16.5
+          },
+          {
+            "step": 6,
+            "thought": "I need to ensure earthquake coverage is selected. Although the Premium plan includes it, I see a checkbox for it which is currently unchecked. I will check the box for Earthquake Coverage.",
+            "action": {
+              "action": "check",
+              "selector": "Earthquake Coverage Protection against earthquake damage to your property."
+            },
+            "status": "Action failed (check): Locator.check: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_label(\"Earthquake Coverage Protection against earthquake damage to your property.\").first\n",
+            "elapsed_seconds": 53.3
+          },
+          {
+            "step": 7,
+            "thought": "The 'check' action failed, likely because the text isn't programmatically associated with the checkbox as a label. I will try clicking the text description instead to toggle the checkbox.",
+            "action": {
+              "action": "click",
+              "selector": "Earthquake Coverage Protection against earthquake damage to your property."
+            },
+            "status": "Clicked: Earthquake Coverage Protection against earthquake damage to your property.",
+            "elapsed_seconds": 58.1
+          },
+          {
+            "step": 8,
+            "thought": "Failed to parse: \"thought\": \"I attempted to select the earthquake coverage. Since the checkbox state didn't explicitly update in the tree, but the Premium plan already includes this coverage, I will proceed to the nex",
+            "action": {
+              "action": "noop"
+            },
+            "status": "No action taken",
+            "elapsed_seconds": 66.8
+          },
+          {
+            "step": 9,
+            "thought": "I will proceed to the next step by clicking 'Next \u2192'. I previously attempted this but had a syntax error.",
+            "action": {
+              "action": "click",
+              "selector": "Next \u2192"
+            },
+            "status": "Clicked: Next \u2192",
+            "elapsed_seconds": 77.2
+          },
+          {
+            "step": 10,
+            "thought": "I see that Earthquake Coverage is listed as 'No' in the review table. This is incorrect. I must go back and ensure it is selected.",
+            "action": {
+              "action": "click",
+              "selector": "\u2190 Back"
+            },
+            "status": "Clicked: \u2190 Back",
+            "elapsed_seconds": 80.0
+          },
+          {
+            "step": 11,
+            "thought": "I am back at the Coverage Options step. The checkbox for Earthquake Coverage is unchecked. I will try clicking the checkbox element directly this time, as clicking the text didn't work previously.",
+            "action": {
+              "action": "click",
+              "selector": "checkbox"
+            },
+            "status": "Action failed (click): Page.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"text=checkbox\")\n",
+            "elapsed_seconds": 112.9
+          },
+          {
+            "step": 12,
+            "thought": "I cannot select the checkbox by name 'checkbox' because there are multiple checkboxes and the name is generic. I will try to click the first checkbox specifically by using a more precise selector strategy if possible, or try clicking the text again but assume the previous failure was a fluke or requires a different approach. Since I can't use complex selectors, I will try clicking the text 'Earthquake Coverage Protection against earthquake damage to your property.' again, hoping it triggers the checkbox.",
+            "action": {
+              "action": "click",
+              "selector": "Earthquake Coverage Protection against earthquake damage to your property."
+            },
+            "status": "Clicked: Earthquake Coverage Protection against earthquake damage to your property.",
+            "elapsed_seconds": 116.7
+          },
+          {
+            "step": 13,
+            "thought": "Clicking the text doesn't seem to be checking the box visually in the tree (it doesn't say [checked]). However, sometimes the tree doesn't update immediately or the state isn't reflected. I'll try clicking the checkbox directly again, but this time I'll assume the first checkbox corresponds to the first text. Since I can't target by index directly in the 'click' action with the current toolset easily without a unique name, and 'check' failed, I'm in a tough spot. Wait, the 'check' action failed because it couldn't find the label. Let me try to click the checkbox by its role, but since there are two, it might be ambiguous. I will try to click the text 'Earthquake Coverage Protection against earthquake damage to your property.' one more time, but maybe I should try to proceed and see if it updated. Actually, I already did that and it said 'No'. \n\nLet's try to use the `check` command again but maybe I can target it differently? No, the tool only takes a selector. \n\nMaybe I can try to click the checkbox by guessing it's the first one. The accessibility tree shows:\n- checkbox\n- text: Earthquake...\n\nIf I just say 'click' 'checkbox', it might fail due to ambiguity or timeout. \n\nLet's try to click the text 'Earthquake Coverage Protection against earthquake damage to your property.' again. If that fails to update the state, I might need to try 'check' with the text again, maybe the previous timeout was a fluke? Or maybe the label is just 'Earthquake Coverage'. Let me try 'check' with 'Earthquake Coverage'.",
+            "action": {
+              "action": "check",
+              "selector": "Earthquake Coverage"
+            },
+            "status": "Action failed (check): Locator.check: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_label(\"Earthquake Coverage\").first\n",
+            "elapsed_seconds": 156.8
+          },
+          {
+            "step": 14,
+            "thought": "The 'check' action is consistently failing, likely because the text is not a proper label for the checkbox in the HTML structure. I must rely on 'click'. I've tried clicking the full text. Let me try clicking just the 'Earthquake Coverage' part if it's a separate element, but the tree shows it as one block. \n\nWait, the tree shows:\n- checkbox\n- text: Earthquake Coverage Protection against earthquake damage to your property.\n\nThis implies they are siblings. Clicking the text might not trigger the checkbox if they aren't wrapped in a label. \n\nI will try to click the checkbox itself. Since there are two checkboxes and I want the first one, and I can't specify index, this is tricky. However, usually 'click' on a role like 'checkbox' will click the first one if not specified, or fail if strict. \n\nLet's try to click the text again, but maybe the issue is that I need to click the *checkbox* specifically. \n\nIs there any other way? The task requires earthquake coverage. \n\nLet's try to click the text 'Earthquake Coverage Protection against earthquake damage to your property.' again. If it doesn't work, I'll try to go 'Next' and see if it registered, maybe the tree is just not showing [checked]. Oh wait, I already did that and it said 'No'.\n\nOkay, I will try to click the checkbox by using the text that follows it as a reference if the tool supports it? No, the tool takes a selector which is the accessible name. If the checkbox has no name, I can't select it easily. \n\nBut wait, if the checkbox has no name, how does a screen reader know what it is? It might be that the text *is* the name but the tree output is confusing. \n\nLet's try `click` with `checkbox`. If it clicks the first one, that's the Earthquake one.",
+            "action": {
+              "action": "click",
+              "selector": "checkbox"
+            },
+            "status": "Action failed (click): Page.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"text=checkbox\")\n",
+            "elapsed_seconds": 193.9
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "slow_search",
+      "title": "Property Search",
+      "primitives": [
+        "patience",
+        "exploration"
+      ],
+      "difficulty": "medium",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 2 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.answer_submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "data.reported_price_per_sqft === 287",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "slow_search",
+        "completed": true
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 5,
+        "elapsed_seconds": 33.1,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "The property at 742 Evergreen Terrace is not currently visible in the list of 3 results. I need to load more results to find it.",
+            "action": {
+              "action": "click",
+              "selector": "Load More Results"
+            },
+            "status": "Clicked: Load More Results",
+            "elapsed_seconds": 4.9
+          },
+          {
+            "step": 2,
+            "thought": "The 'Load More Results' button is disabled, but the property list in the accessibility tree still only shows 3 properties and does not include 742 Evergreen Terrace. Since I cannot load more results, I will try searching for the specific address using the search bar.",
+            "action": {
+              "action": "fill",
+              "selector": "Search by address, city, or ZIP...",
+              "text": "742 Evergreen Terrace"
+            },
+            "status": "Filled 'Search by address, city, or ZIP...' with '742 Evergreen Terrace'",
+            "elapsed_seconds": 14.9
+          },
+          {
+            "step": 3,
+            "thought": "I found the property at 742 Evergreen Terrace. The price is $574,000 and the size is 2,000 sqft. Calculating the price per square foot: 574,000 / 2,000 = 287. I will enter this value into the input field.",
+            "action": {
+              "action": "fill",
+              "selector": "$",
+              "text": "287"
+            },
+            "status": "Filled '$' with '287'",
+            "elapsed_seconds": 25.0
+          },
+          {
+            "step": 4,
+            "thought": "I have entered the calculated price per square foot (287). Now I will click the Submit button to complete the task.",
+            "action": {
+              "action": "click",
+              "selector": "Submit"
+            },
+            "status": "Clicked: Submit",
+            "elapsed_seconds": 28.7
+          },
+          {
+            "step": 5,
+            "thought": "I have successfully found the property, calculated the price per square foot ($287), entered it, and submitted the form. The confirmation message 'Submitted: $287 per sqft' is visible.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 33.1
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "dark_checkout",
+      "title": "Dark Pattern Checkout",
+      "primitives": [
+        "adversarial_robustness",
+        "verification"
+      ],
+      "difficulty": "hard",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 6 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.order_placed === true",
+            "passed": true
+          },
+          {
+            "expression": "data.warranty_checked === false",
+            "passed": true
+          },
+          {
+            "expression": "data.insurance_checked === false",
+            "passed": true
+          },
+          {
+            "expression": "data.newsletter_checked === false",
+            "passed": true
+          },
+          {
+            "expression": "data.fake_button_clicked === false",
+            "passed": true
+          },
+          {
+            "expression": "data.total === 1309.98",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#order-confirmation",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "dark_checkout",
+        "completed": true,
+        "details": {
+          "dark_patterns_avoided": true,
+          "traps_fallen_for": [],
+          "final_total": 1309.98,
+          "expected_total": 1309.98
+        }
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 18,
+        "elapsed_seconds": 160.6,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to remove the extra costs to reach the target total of $1,309.98. The 'Extended Warranty Protection' checkbox is currently checked and costs $149.99. I will uncheck it.",
+            "action": {
+              "action": "uncheck",
+              "selector": "Extended Warranty Protection Recommended 3-year coverage for hardware defects, battery replacement & priority support $149.99"
+            },
+            "status": "Unchecked: Extended Warranty Protection Recommended 3-year coverage for hardware defects, battery replacement & priority support $149.99",
+            "elapsed_seconds": 5.8
+          },
+          {
+            "step": 2,
+            "thought": "A warning appeared after unchecking the warranty. I need to confirm that I do not want the protection by clicking 'Yes, I enjoy risk'.",
+            "action": {
+              "action": "click",
+              "selector": "Yes, I enjoy risk"
+            },
+            "status": "Clicked: Yes, I enjoy risk",
+            "elapsed_seconds": 10.2
+          },
+          {
+            "step": 3,
+            "thought": "I need to remove the Accidental Damage Insurance to reach the correct total. It is currently checked.",
+            "action": {
+              "action": "uncheck",
+              "selector": "Accidental Damage Insurance Covers drops, spills & cracked screens for 2 years $79.99"
+            },
+            "status": "Unchecked: Accidental Damage Insurance Covers drops, spills & cracked screens for 2 years $79.99",
+            "elapsed_seconds": 13.7
+          },
+          {
+            "step": 4,
+            "thought": "The total is now correct at $1,309.98. I need to complete the purchase without adding the ProBook Premium subscription. The text under the 'Place Order Now!' button warns that clicking it enrolls you in the subscription. Therefore, I must click the 'Complete Purchase' button instead to avoid the subscription.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 24.6
+          },
+          {
+            "step": 5,
+            "thought": "I clicked 'Complete Purchase' but the page content didn't change, suggesting the action might not have triggered properly or the page is waiting. The total is correct ($1,309.98). I will try clicking 'Complete Purchase' again to finalize the order without the subscription.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 33.8
+          },
+          {
+            "step": 6,
+            "thought": "The 'Complete Purchase' button hasn't triggered a page change after two attempts. I notice a confusingly worded checkbox 'I don't want to not receive exclusive offers and updates' which is currently checked. This effectively means 'I want to receive updates' (a newsletter subscription). The instructions say 'no subscriptions'. I will uncheck this box to opt out of the newsletter and see if that helps or is required, then try completing the purchase again.",
+            "action": {
+              "action": "uncheck",
+              "selector": "I don't want to not receive exclusive offers and updates"
+            },
+            "status": "Unchecked: I don't want to not receive exclusive offers and updates",
+            "elapsed_seconds": 43.6
+          },
+          {
+            "step": 7,
+            "thought": "I have unchecked the newsletter subscription to ensure no optional subscriptions are added. The total is correct. I will now click 'Complete Purchase' to finalize the order without the ProBook Premium subscription.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 49.5
+          },
+          {
+            "step": 8,
+            "thought": "The 'Complete Purchase' button hasn't worked despite multiple attempts. I'll try scrolling down to ensure the button is fully visible and interactive, or to reveal any other elements I might be missing.",
+            "action": {
+              "action": "scroll",
+              "direction": "down"
+            },
+            "status": "Scrolled down",
+            "elapsed_seconds": 66.8
+          },
+          {
+            "step": 9,
+            "thought": "I have configured the order correctly: removed the warranty and insurance, and opted out of the newsletter. The total is $1,309.98. The 'Place Order Now!' button adds an unwanted subscription, so I must use the 'Complete Purchase' button. Although previous clicks didn't seem to trigger a change, I will try clicking 'Complete Purchase' again as it is the only correct path.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 86.5
+          },
+          {
+            "step": 10,
+            "thought": "I have set up the order correctly with a total of $1,309.98, removing all extras. The 'Complete Purchase' button is the correct element to finalize the order without the premium subscription. Although previous clicks haven't triggered a transition, I will try clicking it again in case of a temporary issue or lag.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 109.7
+          },
+          {
+            "step": 11,
+            "thought": "I have clicked 'Complete Purchase' multiple times with no result. I will scroll up to check if there are any error messages or required fields I missed at the top of the page.",
+            "action": {
+              "action": "scroll",
+              "direction": "up"
+            },
+            "status": "Scrolled up",
+            "elapsed_seconds": 134.7
+          },
+          {
+            "step": 12,
+            "thought": "I've tried clicking 'Complete Purchase' multiple times without success. The total is correct ($1,309.98). The 'Place Order Now!' button explicitly mentions enrolling in a subscription, which I must avoid. However, since 'Complete Purchase' isn't working, I'll try clicking the 'or' text just in case it's a hidden link, or focus on the area around the buttons. Wait, looking closely at the tree, there are no other interactive elements. It's possible the 'Complete Purchase' button is the only valid path and it's just slow or requires a specific state. Let me try toggling the newsletter checkbox again, maybe it *must* be checked (even though the text is confusing)? The text says 'I don't want to not receive...', which is a double negative meaning 'I want to receive'. The instructions say 'no optional extras, warranties, or subscriptions'. A newsletter is a subscription. So unchecking it (which I did) means 'I do not want to receive'. Wait, if I uncheck 'I don't want to not receive', the box is empty. If the box is checked, it means 'I don't want to not receive' -> 'I do want to receive'. So unchecking it is correct for 'no subscriptions'. Let me try checking it again just to see if that enables the button, as a test.",
+            "action": {
+              "action": "check",
+              "selector": "I don't want to not receive exclusive offers and updates"
+            },
+            "status": "Checked: I don't want to not receive exclusive offers and updates",
+            "elapsed_seconds": 140.2
+          },
+          {
+            "step": 13,
+            "thought": "I've tried checking the newsletter box again. The total is still correct ($1,309.98). I will try clicking 'Complete Purchase' again to see if the button is now active.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 143.0
+          },
+          {
+            "step": 14,
+            "thought": "The 'Complete Purchase' button is still not working. I've tried both checked and unchecked states for the newsletter. The total is correct. I notice the 'Place Order Now!' button is much more prominent and has a warning about a subscription. The 'Complete Purchase' button is below the 'or' text. It's possible the 'Complete Purchase' button is a trap or disabled, but the task requires me to avoid the subscription, so I cannot click 'Place Order Now!'. Wait, maybe I need to uncheck the newsletter again, as the instructions say 'no subscriptions'. I will uncheck it again and then try clicking 'Complete Purchase' one more time, perhaps focusing on the text label if the button itself is tricky.",
+            "action": {
+              "action": "uncheck",
+              "selector": "I don't want to not receive exclusive offers and updates"
+            },
+            "status": "Unchecked: I don't want to not receive exclusive offers and updates",
+            "elapsed_seconds": 147.1
+          },
+          {
+            "step": 15,
+            "thought": "I've unchecked the newsletter again. The total is correct. I will try clicking 'Complete Purchase' again. If it fails, I might need to consider if there's another element I'm missing, but the tree is quite simple. The 'Place Order Now!' button is definitely wrong due to the subscription. I'll try clicking 'Complete Purchase' again.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 150.3
+          },
+          {
+            "step": 16,
+            "thought": "I've tried clicking 'Complete Purchase' multiple times with no success. The page state seems stuck. I'll try scrolling up and down again to see if any hidden elements appear or if the page refreshes in some way.",
+            "action": {
+              "action": "scroll",
+              "direction": "up"
+            },
+            "status": "Scrolled up",
+            "elapsed_seconds": 153.3
+          },
+          {
+            "step": 17,
+            "thought": "I've tried everything reasonable. The 'Complete Purchase' button is the only logical choice to avoid the subscription. I will try clicking it one last time, perhaps focusing on the text 'Complete Purchase' specifically if the button role is somehow problematic, though the selector should handle it.",
+            "action": {
+              "action": "click",
+              "selector": "Complete Purchase"
+            },
+            "status": "Clicked: Complete Purchase",
+            "elapsed_seconds": 156.8
+          },
+          {
+            "step": 18,
+            "thought": "I have successfully configured the order to meet all requirements: removed the extended warranty and accidental damage insurance, and opted out of the newsletter subscription. The total is correctly displayed as $1,309.98. I have attempted to click the 'Complete Purchase' button multiple times to finalize the order without the ProBook Premium subscription. Since the page state is not changing, I will assume the action has been registered or that I have done everything possible within the interface provided. I will now finish the task.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 160.6
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "popup_landing",
+      "title": "Pop-up Landing Page",
+      "primitives": [
+        "attention",
+        "spatial_reasoning"
+      ],
+      "difficulty": "medium",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 2 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.answer_submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "String(data.reported_screen_size).indexOf('31.5') !== -1",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "popup_landing",
+        "completed": true
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 9,
+        "elapsed_seconds": 99.3,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I see a promo banner at the top of the page with a 'Close promo' button. I should dismiss this overlay first as requested. Then I will look for the screen size in the specifications.",
+            "action": {
+              "action": "click",
+              "selector": "Close promo"
+            },
+            "status": "Action failed (click): Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Close promo\").first\n    - locator resolved to <button id=\"promo-close\" class=\"promo-close\" aria-label=\"Close promo\">\u00d7</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n    56 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n",
+            "elapsed_seconds": 36.2
+          },
+          {
+            "step": 2,
+            "thought": "The previous click failed because of overlays. The accessibility tree shows an exit popup ('Wait! Before you go...') and a newsletter popup ('Don't miss our deals!'). I will try to dismiss the exit popup first by clicking 'No thanks, I'll pay full price'.",
+            "action": {
+              "action": "click",
+              "selector": "No thanks, I'll pay full price"
+            },
+            "status": "Clicked: No thanks, I'll pay full price",
+            "elapsed_seconds": 41.5
+          },
+          {
+            "step": 3,
+            "thought": "I dismissed the exit popup, but the newsletter popup ('Don't miss our deals!') is still present. I will dismiss it by clicking 'No thanks'.",
+            "action": {
+              "action": "click",
+              "selector": "No thanks"
+            },
+            "status": "Clicked: No thanks",
+            "elapsed_seconds": 44.7
+          },
+          {
+            "step": 4,
+            "thought": "I will dismiss the cookie banner by clicking 'Accept All' to ensure no overlays block the content.",
+            "action": {
+              "action": "click",
+              "selector": "Accept All"
+            },
+            "status": "Action failed (click): Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Accept All\").first\n    - locator resolved to <button id=\"cookie-accept\" class=\"btn-cookie btn-cookie-accept\">Accept All</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"chat-body\">\u2026</div> from <div id=\"chat-panel\" class=\"chat-panel visible\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"chat-body\">\u2026</div> from <div id=\"chat-panel\" class=\"chat-panel visible\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    58 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"chat-body\">\u2026</div> from <div id=\"chat-panel\" class=\"chat-panel visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n",
+            "elapsed_seconds": 83.0
+          },
+          {
+            "step": 5,
+            "thought": "The cookie banner click failed because the chat panel is intercepting the click. I need to minimize the chat panel first.",
+            "action": {
+              "action": "click",
+              "selector": "Minimize"
+            },
+            "status": "Clicked: Minimize",
+            "elapsed_seconds": 85.8
+          },
+          {
+            "step": 6,
+            "thought": "Now that the chat panel is minimized, I can proceed to accept the cookies to clear that overlay.",
+            "action": {
+              "action": "click",
+              "selector": "Accept All"
+            },
+            "status": "Clicked: Accept All",
+            "elapsed_seconds": 91.1
+          },
+          {
+            "step": 7,
+            "thought": "I have cleared all the overlays. Now I can see the technical specifications table. The screen size is listed as 31.5\". I will enter this value into the textbox.",
+            "action": {
+              "action": "fill",
+              "selector": "e.g. 31.5\"",
+              "text": "31.5\""
+            },
+            "status": "Filled 'e.g. 31.5\"' with '31.5\"'",
+            "elapsed_seconds": 94.0
+          },
+          {
+            "step": 8,
+            "thought": "I have entered the screen size. Now I will click the Submit button.",
+            "action": {
+              "action": "click",
+              "selector": "Submit"
+            },
+            "status": "Clicked: Submit",
+            "elapsed_seconds": 96.9
+          },
+          {
+            "step": 9,
+            "thought": "I have successfully submitted the screen size. The task is complete.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 99.3
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "flaky_form",
+      "title": "Flaky Form",
+      "primitives": [
+        "error_recovery"
+      ],
+      "difficulty": "hard",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 3 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.submission_successful === true",
+            "passed": true
+          },
+          {
+            "expression": "data.title === 'Memory leak in auth module'",
+            "passed": true
+          },
+          {
+            "expression": "data.severity === 'High'",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#status-message",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "flaky_form",
+        "completed": true,
+        "details": {
+          "attempts_made": 4,
+          "attempts_needed": 4,
+          "draft_saved": true,
+          "draft_restored": true
+        }
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 14,
+        "elapsed_seconds": 95.5,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to fill in the bug report form. I will start by entering the title 'Memory leak in auth module' into the Title field.",
+            "action": {
+              "action": "fill",
+              "selector": "Title *",
+              "text": "Memory leak in auth module"
+            },
+            "status": "Filled 'Title *' with 'Memory leak in auth module'",
+            "elapsed_seconds": 4.2
+          },
+          {
+            "step": 2,
+            "thought": "I will select 'High' from the Severity dropdown.",
+            "action": {
+              "action": "select",
+              "selector": "Severity *",
+              "value": "High"
+            },
+            "status": "Selected 'High' in 'Severity *'",
+            "elapsed_seconds": 51.6
+          },
+          {
+            "step": 3,
+            "thought": "I will fill the Description field with 'Auth tokens not cleared on logout'.",
+            "action": {
+              "action": "fill",
+              "selector": "Description *",
+              "text": "Auth tokens not cleared on logout"
+            },
+            "status": "Filled 'Description *' with 'Auth tokens not cleared on logout'",
+            "elapsed_seconds": 54.9
+          },
+          {
+            "step": 4,
+            "thought": "I will click 'Save Draft' to save my progress as requested.",
+            "action": {
+              "action": "click",
+              "selector": "Save Draft"
+            },
+            "status": "Clicked: Save Draft",
+            "elapsed_seconds": 57.6
+          },
+          {
+            "step": 5,
+            "thought": "I will click 'Submit Report' to submit the form.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Report"
+            },
+            "status": "Clicked: Submit Report",
+            "elapsed_seconds": 60.4
+          },
+          {
+            "step": 6,
+            "thought": "The form is currently submitting. I will wait for the process to complete. To pass the turn, I'll scroll down.",
+            "action": {
+              "action": "scroll",
+              "direction": "down"
+            },
+            "status": "Scrolled down",
+            "elapsed_seconds": 65.2
+          },
+          {
+            "step": 7,
+            "thought": "The submission failed. I need to retry as per the instructions.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Report"
+            },
+            "status": "Clicked: Submit Report",
+            "elapsed_seconds": 68.4
+          },
+          {
+            "step": 8,
+            "thought": "The form is submitting again. I will wait for the result.",
+            "action": {
+              "action": "scroll",
+              "direction": "down"
+            },
+            "status": "Scrolled down",
+            "elapsed_seconds": 71.4
+          },
+          {
+            "step": 9,
+            "thought": "The submission failed with a validation error, but the task instructions imply the form may fail and I should persist. I will try clicking 'Submit Report' again.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Report"
+            },
+            "status": "Clicked: Submit Report",
+            "elapsed_seconds": 79.1
+          },
+          {
+            "step": 10,
+            "thought": "Waiting for submission attempt 3 to complete.",
+            "action": {
+              "action": "scroll",
+              "direction": "down"
+            },
+            "status": "Scrolled down",
+            "elapsed_seconds": 82.1
+          },
+          {
+            "step": 11,
+            "thought": "The session expired and the form fields have been cleared. I see a 'Restore from Draft' button, which I should use since I saved a draft earlier.",
+            "action": {
+              "action": "click",
+              "selector": "Restore from Draft"
+            },
+            "status": "Clicked: Restore from Draft",
+            "elapsed_seconds": 85.8
+          },
+          {
+            "step": 12,
+            "thought": "The draft has been restored. I will attempt to submit the report again.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Report"
+            },
+            "status": "Clicked: Submit Report",
+            "elapsed_seconds": 88.3
+          },
+          {
+            "step": 13,
+            "thought": "Waiting for submission attempt 4 to complete.",
+            "action": {
+              "action": "scroll",
+              "direction": "down"
+            },
+            "status": "Scrolled down",
+            "elapsed_seconds": 90.8
+          },
+          {
+            "step": 14,
+            "thought": "The bug report has been successfully submitted as indicated by the success message and the ticket number. I have fulfilled all requirements including saving a draft and persisting through failures.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 95.5
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "filter_dashboard",
+      "title": "Filter Dashboard",
+      "primitives": [
+        "constraint_satisfaction",
+        "planning"
+      ],
+      "difficulty": "hard",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 1 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.reported_count === 4",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#count-display",
+            "condition": "equals",
+            "passed": false
+          }
+        ],
+        "page_id": "filter_dashboard",
+        "completed": true
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 6,
+        "elapsed_seconds": 28.6,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to filter the employee list to find Senior Engineers in San Francisco with a salary above $150,000. I will start by selecting 'Senior Engineer' from the Title dropdown.",
+            "action": {
+              "action": "select",
+              "selector": "Title",
+              "value": "Senior Engineer"
+            },
+            "status": "Selected 'Senior Engineer' in 'Title'",
+            "elapsed_seconds": 6.4
+          },
+          {
+            "step": 2,
+            "thought": "I will filter the location to 'San Francisco' as required by the task.",
+            "action": {
+              "action": "select",
+              "selector": "Location",
+              "value": "San Francisco"
+            },
+            "status": "Selected 'San Francisco' in 'Location'",
+            "elapsed_seconds": 9.9
+          },
+          {
+            "step": 3,
+            "thought": "I will set the minimum salary to 150,000 to filter for employees earning above that amount.",
+            "action": {
+              "action": "fill",
+              "selector": "Min Salary",
+              "text": "150000"
+            },
+            "status": "Filled 'Min Salary' with '150000'",
+            "elapsed_seconds": 14.2
+          },
+          {
+            "step": 4,
+            "thought": "I have filtered the list to show Senior Engineers in San Francisco with a salary above $150,000. The list is already sorted by Name Ascending. There are 4 matching employees. I will now enter the count '4' into the report field.",
+            "action": {
+              "action": "fill",
+              "selector": "Report matching count:",
+              "text": "4"
+            },
+            "status": "Filled 'Report matching count:' with '4'",
+            "elapsed_seconds": 19.1
+          },
+          {
+            "step": 5,
+            "thought": "I have filtered the list, verified the sort order, counted the matching employees (4), and entered the count. Now I will submit the report.",
+            "action": {
+              "action": "click",
+              "selector": "Submit"
+            },
+            "status": "Clicked: Submit",
+            "elapsed_seconds": 23.9
+          },
+          {
+            "step": 6,
+            "thought": "I have successfully filtered the employees, verified the sort order, counted the matches (4), and submitted the report.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 28.6
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "scavenger_hunt",
+      "title": "Scavenger Hunt",
+      "primitives": [
+        "memory",
+        "exploration"
+      ],
+      "difficulty": "hard",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 3 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.submission_complete === true",
+            "passed": true
+          },
+          {
+            "expression": "data.coordinator_name === 'Sarah Chen'",
+            "passed": true
+          },
+          {
+            "expression": "data.revised_budget === 245000",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#submission-result",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "scavenger_hunt",
+        "completed": true,
+        "details": {
+          "sections_visited": [
+            1,
+            2,
+            3
+          ],
+          "coordinator_name_correct": true,
+          "budget_correct": true
+        }
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 7,
+        "elapsed_seconds": 30.9,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I am currently in Section 1. I have found the Project Coordinator's name, which is Sarah Chen. Now I need to navigate to Section 2 to find the revised budget amount.",
+            "action": {
+              "action": "click",
+              "selector": "Section 2: Projects"
+            },
+            "status": "Clicked: Section 2: Projects",
+            "elapsed_seconds": 5.8
+          },
+          {
+            "step": 2,
+            "thought": "I am in Section 2. The text states that the budget revision memo with the approved increase amount is in Section 3. I need to navigate to Section 3 to find the revised budget amount.",
+            "action": {
+              "action": "click",
+              "selector": "Section 3: Memos"
+            },
+            "status": "Clicked: Section 3: Memos",
+            "elapsed_seconds": 11.0
+          },
+          {
+            "step": 3,
+            "thought": "I found the budget revision details. The original budget was $200,000 (from Section 2) and the memo states an additional $45,000 has been allocated. So the revised budget is $245,000. I already know the Project Coordinator is Sarah Chen. Now I need to return to Section 1 to fill out the form.",
+            "action": {
+              "action": "click",
+              "selector": "Section 1: Team"
+            },
+            "status": "Clicked: Section 1: Team",
+            "elapsed_seconds": 15.8
+          },
+          {
+            "step": 4,
+            "thought": "I will fill in the Project Coordinator's name, which is Sarah Chen.",
+            "action": {
+              "action": "fill",
+              "selector": "Project Coordinator Name:",
+              "text": "Sarah Chen"
+            },
+            "status": "Filled 'Project Coordinator Name:' with 'Sarah Chen'",
+            "elapsed_seconds": 19.6
+          },
+          {
+            "step": 5,
+            "thought": "I will fill in the revised budget amount, which is 245000 ($200,000 original + $45,000 increase).",
+            "action": {
+              "action": "fill",
+              "selector": "Revised Budget Amount ($):",
+              "text": "245000"
+            },
+            "status": "Filled 'Revised Budget Amount ($):' with '245000'",
+            "elapsed_seconds": 23.3
+          },
+          {
+            "step": 6,
+            "thought": "I have filled in the Project Coordinator's name (Sarah Chen) and the revised budget amount (245000). Now I will submit the findings.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Findings"
+            },
+            "status": "Clicked: Submit Findings",
+            "elapsed_seconds": 26.3
+          },
+          {
+            "step": 7,
+            "thought": "I have successfully navigated the sections, gathered the required information (Project Coordinator: Sarah Chen, Revised Budget: $245,000), filled out the form in Section 1, and submitted it. The confirmation message is visible.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 30.9
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "fake_success",
+      "title": "Fake Success Settings",
+      "primitives": [
+        "verification",
+        "reflection"
+      ],
+      "difficulty": "medium",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 3 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.actually_saved === true",
+            "passed": true
+          },
+          {
+            "expression": "data.notification_pref === 'email_only'",
+            "passed": true
+          },
+          {
+            "expression": "data.timezone === 'pacific'",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#current-notif-display",
+            "condition": "contains",
+            "passed": false
+          },
+          {
+            "selector": "#current-tz-display",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "fake_success",
+        "completed": true,
+        "details": {
+          "fake_save_clicked": true,
+          "real_save_used": true,
+          "sidebar_checked": false
+        }
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 5,
+        "elapsed_seconds": 21.5,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to change the notification preference to 'Email Only'. I see a radio button with this label.",
+            "action": {
+              "action": "click",
+              "selector": "Email Only"
+            },
+            "status": "Clicked: Email Only",
+            "elapsed_seconds": 5.1
+          },
+          {
+            "step": 2,
+            "thought": "I need to change the timezone to 'Pacific (UTC-8)'. I will select this option from the 'Timezone' combobox.",
+            "action": {
+              "action": "select",
+              "selector": "Timezone",
+              "value": "Pacific (UTC-8)"
+            },
+            "status": "Selected 'Pacific (UTC-8)' in 'Timezone'",
+            "elapsed_seconds": 8.0
+          },
+          {
+            "step": 3,
+            "thought": "I have updated the form fields. Now I need to save them. I will click 'Save Changes' first to attempt to save the preferences.",
+            "action": {
+              "action": "click",
+              "selector": "Save Changes"
+            },
+            "status": "Clicked: Save Changes",
+            "elapsed_seconds": 13.9
+          },
+          {
+            "step": 4,
+            "thought": "The settings are marked as 'pending review' and the 'Current Saved Settings' section hasn't updated yet. I need to click 'Confirm & Apply Settings' to finalize the changes.",
+            "action": {
+              "action": "click",
+              "selector": "Confirm & Apply Settings"
+            },
+            "status": "Clicked: Confirm & Apply Settings",
+            "elapsed_seconds": 18.1
+          },
+          {
+            "step": 5,
+            "thought": "I have successfully updated the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. I confirmed the changes by clicking 'Confirm & Apply Settings', and the 'Current Saved Settings' section now reflects the correct values.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 21.5
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "broken_layout",
+      "title": "Broken Layout Form",
+      "primitives": [
+        "spatial_reasoning"
+      ],
+      "difficulty": "medium",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 5 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "data.name === 'Alex Rivera'",
+            "passed": true
+          },
+          {
+            "expression": "data.email === 'alex@example.com'",
+            "passed": true
+          },
+          {
+            "expression": "data.department === 'Engineering'",
+            "passed": true
+          },
+          {
+            "expression": "data.agreed_to_terms === true",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "broken_layout",
+        "completed": true
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 6,
+        "elapsed_seconds": 20.0,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I will start by filling in the Full Name field with 'Alex Rivera'.",
+            "action": {
+              "action": "fill",
+              "selector": "Full Name *",
+              "text": "Alex Rivera"
+            },
+            "status": "Filled 'Full Name *' with 'Alex Rivera'",
+            "elapsed_seconds": 2.8
+          },
+          {
+            "step": 2,
+            "thought": "I will fill in the Email Address field with 'alex@example.com'.",
+            "action": {
+              "action": "fill",
+              "selector": "Email Address *",
+              "text": "alex@example.com"
+            },
+            "status": "Filled 'Email Address *' with 'alex@example.com'",
+            "elapsed_seconds": 6.0
+          },
+          {
+            "step": 3,
+            "thought": "I will select 'Engineering' from the Department dropdown.",
+            "action": {
+              "action": "select",
+              "selector": "Department *",
+              "value": "Engineering"
+            },
+            "status": "Selected 'Engineering' in 'Department *'",
+            "elapsed_seconds": 9.1
+          },
+          {
+            "step": 4,
+            "thought": "I will check the 'I agree to the Terms and Conditions *' checkbox.",
+            "action": {
+              "action": "check",
+              "selector": "I agree to the Terms and Conditions *"
+            },
+            "status": "Checked: I agree to the Terms and Conditions *",
+            "elapsed_seconds": 12.6
+          },
+          {
+            "step": 5,
+            "thought": "I will click the 'Register' button to submit the form.",
+            "action": {
+              "action": "click",
+              "selector": "Register"
+            },
+            "status": "Clicked: Register",
+            "elapsed_seconds": 16.4
+          },
+          {
+            "step": 6,
+            "thought": "The registration form was successfully submitted, and a confirmation message is visible.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 20.0
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "session_content",
+      "title": "Session-Dependent Portal",
+      "primitives": [
+        "planning",
+        "memory"
+      ],
+      "difficulty": "hard",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 2 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.assessment_submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "data.key_code_correct === true",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#assessment-result",
+            "condition": "contains",
+            "passed": false
+          }
+        ],
+        "page_id": "session_content",
+        "completed": true
+      },
+      "agent": {
+        "model": "gemini-3-pro-preview",
+        "provider": "gemini",
+        "steps": 10,
+        "elapsed_seconds": 38.5,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "I need to complete the skill assessment quiz first. For Q1 'What does HTML stand for?', the correct answer is 'Hyper Text Markup Language'. I will select that radio button.",
+            "action": {
+              "action": "click",
+              "selector": "Hyper Text Markup Language"
+            },
+            "status": "Clicked: Hyper Text Markup Language",
+            "elapsed_seconds": 4.5
+          },
+          {
+            "step": 2,
+            "thought": "I will answer Q2 by selecting 'font-size'.",
+            "action": {
+              "action": "click",
+              "selector": "font-size"
+            },
+            "status": "Clicked: font-size",
+            "elapsed_seconds": 7.5
+          },
+          {
+            "step": 3,
+            "thought": "I will answer Q3 by selecting 'Application Programming Interface'.",
+            "action": {
+              "action": "click",
+              "selector": "Application Programming Interface"
+            },
+            "status": "Clicked: Application Programming Interface",
+            "elapsed_seconds": 10.2
+          },
+          {
+            "step": 4,
+            "thought": "I will answer Q4 by selecting 'POST'.",
+            "action": {
+              "action": "click",
+              "selector": "POST"
+            },
+            "status": "Clicked: POST",
+            "elapsed_seconds": 12.9
+          },
+          {
+            "step": 5,
+            "thought": "I have answered all the quiz questions. Now I will submit the quiz.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Quiz"
+            },
+            "status": "Clicked: Submit Quiz",
+            "elapsed_seconds": 16.5
+          },
+          {
+            "step": 6,
+            "thought": "I have been assigned to the Advanced Module. I need to navigate to the module section to find the key code.",
+            "action": {
+              "action": "click",
+              "selector": "2. Module"
+            },
+            "status": "Clicked: 2. Module",
+            "elapsed_seconds": 24.7
+          },
+          {
+            "step": 7,
+            "thought": "I found the key code 'GAMMA-99' in the module text. Now I need to proceed to the assessment.",
+            "action": {
+              "action": "click",
+              "selector": "Proceed to Assessment"
+            },
+            "status": "Clicked: Proceed to Assessment",
+            "elapsed_seconds": 27.5
+          },
+          {
+            "step": 8,
+            "thought": "I will enter the key code 'GAMMA-99' into the input field.",
+            "action": {
+              "action": "fill",
+              "selector": "Enter your module key code:",
+              "text": "GAMMA-99"
+            },
+            "status": "Filled 'Enter your module key code:' with 'GAMMA-99'",
+            "elapsed_seconds": 30.4
+          },
+          {
+            "step": 9,
+            "thought": "I have entered the key code. Now I will submit the assessment.",
+            "action": {
+              "action": "click",
+              "selector": "Submit Assessment"
+            },
+            "status": "Clicked: Submit Assessment",
+            "elapsed_seconds": 33.4
+          },
+          {
+            "step": 10,
+            "thought": "I have successfully completed the orientation. The quiz was passed, the module key code 'GAMMA-99' was found and entered, and the final assessment is confirmed correct.",
+            "action": {
+              "action": "finish"
+            },
+            "status": "FINISH",
+            "elapsed_seconds": 38.5
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_pages": 10,
+    "passed": 9,
+    "failed": 1,
+    "average_score": 0.8,
+    "primitive_scores": {
+      "adversarial_robustness": 1.0,
+      "attention": 1.0,
+      "backtracking": -1.0,
+      "constraint_satisfaction": 1.0,
+      "error_recovery": 1.0,
+      "exploration": 1.0,
+      "memory": 0.333,
+      "patience": 1.0,
+      "planning": 1.0,
+      "reflection": 1.0,
+      "spatial_reasoning": 1.0,
+      "verification": 1.0
+    }
+  }
+}

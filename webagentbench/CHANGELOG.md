@@ -13,14 +13,14 @@ Benchmark overview and versioned result tables are maintained in `README.md`. Th
   - DOM checks are captured and enforced during agent runs
   - raw `benchmark_state` is stored in result artifacts for auditing
   - selector normalization handles accessibility-tree role prefixes like `button "..."` and `textbox "..."` more robustly
-- replaced mixed raw result dumps with curated per-page trajectories for the current iteration, keeping only entries where:
+- added curated per-page trajectories for the current iteration, keeping only entries where:
   - `evaluation.success === true`
   - `agent.completed === true`
 
 ### Artifact policy
 
-- `results/webagentbench/` now retains only curated successful trajectories plus an index/README
-- raw smoke runs, failed reruns, recovery files, and older aggregate dumps were pruned from the benchmark result set
+- `results/webagentbench/` now retains curated successful trajectories plus an index/README for the current iteration
+- legacy aggregate JSON result files are preserved for historical reference instead of being removed
 
 ## v9 — Benchmark-Wide Hardening Pass
 

@@ -46,6 +46,6 @@ For research reporting, `v10` should be treated as the current reference point b
 
 ## Artifact Policy
 
-Current result retention is intentionally conservative. The repository keeps curated current-iteration trajectories only when both `evaluation.success == true` and `agent.completed == true`. Mixed smoke runs, recovery reruns, and failed or incomplete aggregate outputs are not retained as benchmark evidence.
+Current result retention is intentionally conservative for the current iteration. The repository keeps curated current-iteration trajectories only when both `evaluation.success == true` and `agent.completed == true`. Legacy aggregate JSON files from earlier iterations may still be retained for historical reference, but they should not be treated as equivalent to the curated current-iteration evidence set.
 
 For the current retained artifacts, see [`../results/webagentbench/README.md`](../results/webagentbench/README.md) and the curated index at [`../results/webagentbench/trajectories/current_iteration/index.json`](../results/webagentbench/trajectories/current_iteration/index.json).
