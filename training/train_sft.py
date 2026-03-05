@@ -90,7 +90,7 @@ def build_config(args) -> train.Config:
         renderer_name=renderer_name,
         max_length=args.max_length,
         batch_size=args.batch_size,
-        train_on_what=TrainOnWhat.ALL_ASSISTANT_MESSAGES,
+        train_on_what=TrainOnWhat.LAST_ASSISTANT_MESSAGE,
     )
 
     dataset_builder = FromConversationFileBuilder(

@@ -62,6 +62,8 @@ def main():
     parser.add_argument("--only-success", action="store_true", help="Only include successful episodes")
     parser.add_argument("--test-split", type=int, default=0,
                         help="Number of conversations to hold out for test set (written to _test.jsonl)")
+    parser.add_argument("--no-split", action="store_true",
+                        help="Don't split multi-turn conversations into sub-conversations")
     args = parser.parse_args()
 
     if not args.llmos_dir and not args.wab_results:
@@ -99,6 +101,21 @@ def main():
     if not all_convos:
         print("No conversations to export. Check filters and data sources.")
         sys.exit(1)
+
+    # Split multi-turn conversations into sub-conversations (one per assistant turn)
+    # Required for LAST_ASSISTANT_MESSAGE training mode — ensures every turn gets trained on
+    if not args.no_split:
+        split_convos = []
+        for c in all_convos:
+            msgs = c["messages"]
+            # Find all assistant message indices
+            asst_indices = [i for i, m in enumerate(msgs) if m["role"] == "assistant"]
+            for idx in asst_indices:
+                # Sub-conversation: everything up to and including this assistant turn
+                split_convos.append({"messages": msgs[:idx + 1]})
+        print(f"Split: {len(all_convos)} conversations → {len(split_convos)} sub-conversations "
+              f"(one per assistant turn)")
+        all_convos = split_convos
 
     # Split test set
     test_convos = []

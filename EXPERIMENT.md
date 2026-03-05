@@ -219,12 +219,14 @@ Two data preparation scripts for the two training stages:
 ### 4a. SFT Data (high-quality episodes)
 
 Extracts successful trajectories for supervised finetuning.
+Multi-turn conversations are automatically split into sub-conversations (one per assistant turn)
+for compatibility with `LAST_ASSISTANT_MESSAGE` training mode.
 
 ```bash
 python training/prepare_data.py \
     --llmos-dir llmos/runs/ \
     --min-score 0.5 \
-    --test-split 5 \
+    --test-split 10 \
     --output training/data/sft_train.jsonl
 ```
 
@@ -232,8 +234,12 @@ Options:
 - `--llmos-dir`: Directory with LLMOS episode JSONs
 - `--min-score 0.5`: Only include high-quality episodes (recommended for SFT)
 - `--only-success`: Only include fully successful episodes
-- `--test-split 5`: Hold out conversations for test NLL evaluation
+- `--test-split 10`: Hold out sub-conversations for test NLL evaluation
+- `--no-split`: Don't split multi-turn conversations (not recommended for qwen3)
 - `--wab-results`: Include WebAgentBench results (if available)
+
+Note: Turn splitting expands the dataset significantly (e.g., 39 episodes → 460 sub-conversations).
+Ensure `--batch-size` in training is smaller than the number of sub-conversations.
 
 ### 4b. DPO Data (positive/negative pairs)
 
@@ -312,8 +318,11 @@ python training/train_sft.py \
 
 Key metric: `test/nll` — should decrease over training.
 
-**Save the final checkpoint path** (printed at end, like `tinker://<run-id>:<session>:<step>/sampler_weights/<name>`)
-— you'll need it for DPO.
+SFT outputs two checkpoint paths:
+- `state_path`: `tinker://<run-id>:<session>:<step>/weights/final` — use this for DPO `--checkpoint`
+- `sampler_path`: `tinker://<run-id>:<session>:<step>/sampler_weights/final` — use this for inference/evaluation
+
+**Important**: DPO's `--checkpoint` must use the `weights/` path (not `sampler_weights/`).
 
 ## 5b. Stage 2: DPO Finetuning via Tinker
 
@@ -323,10 +332,11 @@ DPO starts from the SFT checkpoint and learns to prefer good trajectories over b
 
 ```bash
 # Starting from SFT checkpoint (recommended)
+# IMPORTANT: use the weights/ path from SFT output, NOT sampler_weights/
 python training/train_dpo.py \
     --data training/data/dpo_train.jsonl \
     --model Qwen/Qwen3-30B-A3B \
-    --checkpoint "tinker://<sft-checkpoint-path>" \
+    --checkpoint "tinker://<sft-run-id>:train:0/weights/final" \
     --dpo-beta 0.1 \
     --lr 1e-5 \
     --epochs 1 \
@@ -366,41 +376,70 @@ Training outputs a checkpoint path like `tinker://<run-id>:<session>:<step>/samp
 
 ## 6. Re-evaluate on WebAgentBench
 
-Use the finetuned model checkpoint to re-evaluate. The checkpoint path
-from step 5 can be used directly as a model name with Tinker's OpenAI endpoint.
+Use the finetuned model checkpoints to re-evaluate. Tinker checkpoint paths
+(`tinker://...`) work as model names with `--provider vllm` and the Tinker base URL.
+
+Evaluate both SFT and SFT+DPO to measure the contribution of each stage:
 
 ```bash
-# Finetuned model via Tinker (use the tinker:// path from training output)
+TINKER_URL=https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1
+
+# After SFT (use sampler_path from SFT output)
 python -m webagentbench.agent_eval \
-    --model "tinker://<run-id>:<session>:<step>/sampler_weights/<checkpoint>" \
+    --model "tinker://<sft-run-id>:train:0/sampler_weights/final" \
     --provider vllm \
-    --api-base-url https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1 \
+    --api-base-url $TINKER_URL \
     --api-key $TINKER_API_KEY \
-    --output results/webagentbench/qwen3-30b-a3b-finetuned.json
+    --output results/webagentbench/qwen3-30b-a3b-sft.json
+
+# After SFT + DPO (use sampler_path from DPO output)
+python -m webagentbench.agent_eval \
+    --model "tinker://<dpo-run-id>:train:0/sampler_weights/final" \
+    --provider vllm \
+    --api-base-url $TINKER_URL \
+    --api-key $TINKER_API_KEY \
+    --output results/webagentbench/qwen3-30b-a3b-sft-dpo.json
 ```
+
+These can run in parallel since they're independent.
 
 ### Compare results
 
 ```bash
 python -c "
-import json
+import json, sys
 
-with open('results/webagentbench/qwen3-30b-a3b-baseline.json') as f:
-    base = json.load(f)['summary']
-with open('results/webagentbench/qwen3-30b-a3b-finetuned.json') as f:
-    fine = json.load(f)['summary']
+files = {
+    'Baseline': 'results/webagentbench/qwen3-30b-a3b-baseline.json',
+    'SFT': 'results/webagentbench/qwen3-30b-a3b-sft.json',
+    'SFT+DPO': 'results/webagentbench/qwen3-30b-a3b-sft-dpo.json',
+}
+summaries = {}
+for name, path in files.items():
+    try:
+        with open(path) as f:
+            summaries[name] = json.load(f)['summary']
+    except FileNotFoundError:
+        print(f'Skipping {name}: {path} not found')
 
-print(f'         Baseline  Finetuned  Delta')
-print(f'Passed:  {base[\"passed\"]:>3}/{base[\"total_pages\"]}    {fine[\"passed\"]:>3}/{fine[\"total_pages\"]}')
-print(f'Score:   {base[\"average_score\"]:>+7.3f}  {fine[\"average_score\"]:>+9.3f}  {fine[\"average_score\"]-base[\"average_score\"]:>+6.3f}')
+names = list(summaries.keys())
+header = ''.join(f'{n:>12s}' for n in names)
+print(f'              {header}')
+
+base = summaries.get('Baseline', {})
+for n in names:
+    s = summaries[n]
+    print(f'{n:>12s}  passed={s[\"passed\"]}/{s[\"total_pages\"]}  score={s[\"average_score\"]:+.3f}')
+
 print()
 print('Per primitive:')
-for p in sorted(base.get('primitive_scores', {})):
-    b = base['primitive_scores'].get(p, 0)
-    f_ = fine['primitive_scores'].get(p, 0)
-    delta = f_ - b
-    marker = '↑' if delta > 0.05 else ('↓' if delta < -0.05 else ' ')
-    print(f'  {p:30s} {b:+.3f} → {f_:+.3f}  {marker}{abs(delta):.3f}')
+all_prims = sorted(set().union(*(s.get('primitive_scores', {}).keys() for s in summaries.values())))
+for p in all_prims:
+    parts = []
+    for n in names:
+        score = summaries[n].get('primitive_scores', {}).get(p, 0)
+        parts.append(f'{score:+.3f}')
+    print(f'  {p:30s} {\"  \".join(parts)}')
 "
 ```
 
@@ -442,13 +481,19 @@ python training/prepare_dpo.py --llmos-dir llmos/runs/ --test-split 5 --output t
 # Stage 1: SFT
 python training/train_sft.py --data training/data/sft_train.jsonl --model Qwen/Qwen3-30B-A3B
 
-# Stage 2: DPO (use checkpoint path from SFT output)
+# Stage 2: DPO (use weights/ path from SFT output, NOT sampler_weights/)
 python training/train_dpo.py --data training/data/dpo_train.jsonl --model Qwen/Qwen3-30B-A3B \
-    --checkpoint "tinker://<sft-checkpoint>"
+    --checkpoint "tinker://<sft-run-id>:train:0/weights/final"
 
-# Re-eval (replace <checkpoint> with tinker:// path from DPO training)
-python -m webagentbench.agent_eval --model "tinker://<dpo-checkpoint>" --provider vllm \
-    --api-base-url $TINKER_URL --api-key $TINKER_API_KEY --output results/webagentbench/finetuned.json
+# Eval SFT checkpoint (use sampler_weights/ path)
+python -m webagentbench.agent_eval --model "tinker://<sft-run-id>:train:0/sampler_weights/final" \
+    --provider vllm --api-base-url $TINKER_URL --api-key $TINKER_API_KEY \
+    --output results/webagentbench/qwen3-30b-a3b-sft.json
+
+# Eval DPO checkpoint (use sampler_weights/ path)
+python -m webagentbench.agent_eval --model "tinker://<dpo-run-id>:train:0/sampler_weights/final" \
+    --provider vllm --api-base-url $TINKER_URL --api-key $TINKER_API_KEY \
+    --output results/webagentbench/qwen3-30b-a3b-sft-dpo.json
 ```
 
 ## Project Structure
