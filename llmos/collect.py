@@ -12,6 +12,10 @@ Usage:
 
 import json
 import logging
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -144,62 +148,149 @@ def analyze_weaknesses(wab_results_path: str) -> dict[str, float]:
     return dict(sorted(averages.items(), key=lambda x: x[1]))
 
 
-def generate_episodes(
+def _build_jobs(
     primitives: list[str],
     episodes_per_primitive: int,
-    simulator: Simulator,
-    agent: Agent,
-    verbose: bool = True,
 ) -> list[dict]:
-    """
-    Generate training episodes targeting specific primitives.
-
-    For each primitive, selects appropriate templates and tasks,
-    then runs agent through simulated episodes.
-    """
-    all_episodes = []
-
+    """Build the list of episode jobs (primitive, index, instruction)."""
+    jobs = []
     for prim in primitives:
         config = PRIMITIVE_CONFIG.get(prim)
         if not config:
             logger.warning(f"No config for primitive '{prim}', skipping")
             continue
-
         templates = config["templates"]
         tasks = config["tasks"]
-
-        if verbose:
-            print(f"\n{'='*60}")
-            print(f"Primitive: {prim}")
-            print(f"Templates: {templates}")
-            print(f"Generating {episodes_per_primitive} episodes...")
-            print(f"{'='*60}")
-
         for i in range(episodes_per_primitive):
-            template = templates[i % len(templates)]
-            task_text = tasks[i % len(tasks)]
-
-            instruction = {
-                "task_id": f"collect_{prim}_{i}",
-                "instruction": task_text,
-                "initial_state_template": template,
+            jobs.append({
                 "primitive": prim,
+                "index": i,
+                "instruction": {
+                    "task_id": f"collect_{prim}_{i}",
+                    "instruction": tasks[i % len(tasks)],
+                    "initial_state_template": templates[i % len(templates)],
+                    "primitive": prim,
+                },
+            })
+    return jobs
+
+
+def _run_one_episode(
+    job: dict,
+    sim_model: str | None,
+    sim_provider: str | None,
+    agent_model: str | None,
+    agent_provider: str | None,
+    verbose: bool,
+) -> dict | None:
+    """Run a single episode with fresh Simulator/Agent instances (thread-safe)."""
+    prim = job["primitive"]
+    idx = job["index"]
+    instruction = job["instruction"]
+    task_id = instruction["task_id"]
+    template = instruction["initial_state_template"]
+    t0 = time.time()
+    try:
+        sim = Simulator(model=sim_model, provider=sim_provider)
+        agent = Agent(
+            llm_client=sim.llm_client,
+            model=agent_model,
+            provider=agent_provider,
+        )
+        result = run_episode(sim, agent, instruction, verbose=verbose)
+        result["primitive"] = prim
+        elapsed = time.time() - t0
+        logger.info(
+            f"Episode {task_id} done: score={result['score']:.2f} "
+            f"success={result['success']} steps={result['steps']} "
+            f"template={template} time={elapsed:.1f}s"
+        )
+        return result
+    except Exception as e:
+        elapsed = time.time() - t0
+        logger.error(
+            f"Episode {task_id} FAILED after {elapsed:.1f}s: {e}\n"
+            f"{traceback.format_exc()}"
+        )
+        return None
+
+
+def generate_episodes(
+    primitives: list[str],
+    episodes_per_primitive: int,
+    sim_model: str | None = None,
+    sim_provider: str | None = None,
+    agent_model: str | None = None,
+    agent_provider: str | None = None,
+    workers: int = 1,
+    verbose: bool = True,
+    runs_dir: Path | None = None,
+) -> list[dict]:
+    """
+    Generate training episodes targeting specific primitives.
+
+    Episodes are saved incrementally as they complete (JSON + HTML).
+
+    Args:
+        workers: Number of parallel workers. 1 = sequential.
+        runs_dir: Directory to save episodes to incrementally. None = no incremental save.
+    """
+    jobs = _build_jobs(primitives, episodes_per_primitive)
+    if not jobs:
+        return []
+
+    total = len(jobs)
+    if verbose:
+        print(f"\nTotal episodes to generate: {total} (workers={workers})")
+
+    all_episodes: list[dict] = []
+    completed = 0
+    errors = 0
+
+    def _on_result(job: dict, result: dict | None):
+        nonlocal completed, errors
+        prim = job["primitive"]
+        idx = job["index"]
+        completed += 1
+        if result:
+            all_episodes.append(result)
+            # Save immediately
+            if runs_dir:
+                try:
+                    save_episode(result, runs_dir)
+                except Exception as e:
+                    logger.error(f"Failed to save episode {prim} #{idx}: {e}")
+            if verbose:
+                status = "OK" if result["success"] else "FAIL"
+                print(f"  [{completed}/{total}] {prim} #{idx} [{status}] score={result['score']:.2f}")
+        else:
+            errors += 1
+            if verbose:
+                print(f"  [{completed}/{total}] {prim} #{idx} [ERROR]")
+
+    if workers <= 1:
+        for job in jobs:
+            result = _run_one_episode(
+                job, sim_model, sim_provider, agent_model, agent_provider, verbose,
+            )
+            _on_result(job, result)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(
+                    _run_one_episode,
+                    job, sim_model, sim_provider, agent_model, agent_provider,
+                    verbose=False,
+                ): job
+                for job in jobs
             }
+            for future in as_completed(futures):
+                job = futures[future]
+                result = future.result()
+                _on_result(job, result)
 
-            try:
-                result = run_episode(
-                    simulator, agent, instruction,
-                    verbose=verbose,
-                )
-                result["primitive"] = prim
-                all_episodes.append(result)
-
-                if verbose:
-                    status = "OK" if result["success"] else "FAIL"
-                    print(f"  [{i+1}/{episodes_per_primitive}] [{status}] score={result['score']:.2f}")
-
-            except Exception as e:
-                logger.error(f"Episode failed for {prim} #{i}: {e}")
+    if verbose:
+        print(f"\nDone: {len(all_episodes)} succeeded, {errors} failed out of {total}")
 
     return all_episodes
 
@@ -249,6 +340,108 @@ def export_training_data(
     return stats
 
 
+def _setup_file_logging(log_path: Path):
+    """Add a file handler to the root logger so all modules' logs go to file."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(log_path, mode="w")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    ))
+    logging.getLogger().addHandler(file_handler)
+    return file_handler
+
+
+def _build_index_html(runs_dir: Path):
+    """Rebuild index.html from episode JSON files in runs_dir."""
+    episodes = []
+    for ep_file in sorted(runs_dir.glob("episode_*.json"), reverse=True):
+        try:
+            with open(ep_file) as f:
+                data = json.load(f)
+            inst = data.get("instruction", {})
+            episodes.append({
+                "json_file": ep_file.name,
+                "html_file": ep_file.with_suffix(".html").name,
+                "timestamp": data.get("timestamp", ""),
+                "task_id": inst.get("task_id", "unknown"),
+                "instruction": inst.get("instruction", ""),
+                "primitive": inst.get("primitive", ""),
+                "template": inst.get("initial_state_template", ""),
+                "success": data.get("success", False),
+                "score": data.get("score", 0),
+                "steps": data.get("steps", 0),
+            })
+        except Exception:
+            continue
+
+    total = len(episodes)
+    success = sum(1 for e in episodes if e["success"])
+    rate = f"{100 * success // total}%" if total else "0%"
+
+    # Build table rows
+    rows = []
+    for ep in episodes:
+        badge = "ok" if ep["success"] else "bad"
+        status = "success" if ep["success"] else "failure"
+        rows.append(
+            f'<tr>\n'
+            f'  <td class="small">{ep["timestamp"]}</td>\n'
+            f'  <td>\n'
+            f'    <div class="mono" title="{ep["task_id"]}">{ep["task_id"]}</div>\n'
+            f'    <div class="small"><span class="truncate" title="{ep["instruction"]}">{ep["instruction"][:120]}</span></div>\n'
+            f'  </td>\n'
+            f'  <td><span class="badge {badge}">{status}</span></td>\n'
+            f'  <td class="mono">{ep["score"]:.2f}</td>\n'
+            f'  <td class="mono">{ep["steps"]}</td>\n'
+            f'  <td class="mono">{ep["primitive"]}</td>\n'
+            f'  <td class="mono">{ep["template"]}</td>\n'
+            f'  <td><span class="actions"><a class="mono" href="{ep["html_file"]}">html</a> <a class="mono" href="{ep["json_file"]}">json</a></span></td>\n'
+            f'</tr>'
+        )
+
+    css_ref = "index.css" if (runs_dir / "index.css").exists() else ""
+    js_ref = "index.js" if (runs_dir / "index.js").exists() else ""
+
+    html = f'''<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LLMOS Collected Runs</title>
+  {f'<link rel="stylesheet" href="{css_ref}" />' if css_ref else ''}
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>LLMOS Collected Runs</h1>
+      <div class="summary">
+        <span>total: <strong>{total}</strong></span>
+        <span>success: <strong>{success}</strong></span>
+        <span>rate: <strong>{rate}</strong></span>
+      </div>
+    </header>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th><th>Task</th><th>Status</th><th>Score</th>
+          <th>Steps</th><th>Primitive</th><th>Template</th><th>Files</th>
+        </tr>
+      </thead>
+      <tbody>{"".join(rows)}</tbody>
+    </table>
+  </div>
+  <script id="episodes-json" type="application/json">{json.dumps(episodes)}</script>
+  {f'<script src="{js_ref}" defer></script>' if js_ref else ''}
+</body>
+</html>'''
+
+    index_path = runs_dir / "index.html"
+    with open(index_path, "w") as f:
+        f.write(html)
+    logger.info(f"Built index: {index_path} ({total} episodes)")
+    return index_path
+
+
 def collect_training_data(
     wab_results_path: Optional[str] = None,
     primitives: Optional[list[str]] = None,
@@ -258,6 +451,7 @@ def collect_training_data(
     sim_provider: Optional[str] = None,
     agent_model: Optional[str] = None,
     agent_provider: Optional[str] = None,
+    workers: int = 1,
     verbose: bool = True,
 ):
     """
@@ -267,6 +461,20 @@ def collect_training_data(
     2. Generate simulator episodes targeting those primitives
     3. Export training data
     """
+    # Set up file logging next to output
+    output_dir = Path(output_path).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    log_path = output_dir / f"collect_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    file_handler = _setup_file_logging(log_path)
+    logger.info(
+        f"Collection started: sim={sim_model}({sim_provider}) "
+        f"agent={agent_model}({agent_provider}) workers={workers}"
+    )
+    if verbose:
+        print(f"Logging to: {log_path}")
+
+    t_start = time.time()
+
     # 1. Determine target primitives
     if primitives:
         target_primitives = primitives
@@ -292,29 +500,25 @@ def collect_training_data(
         if verbose:
             print(f"No WAB results provided. Targeting all primitives.")
 
-    # 2. Set up simulator and agent
-    sim = Simulator(model=sim_model, provider=sim_provider)
-    agent = Agent(
-        llm_client=sim.llm_client,
-        model=agent_model,
-        provider=agent_provider,
-    )
-
-    # 3. Generate episodes
+    # 2. Generate episodes (saved incrementally as they complete)
+    runs_dir = Path(__file__).parent / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
     episodes = generate_episodes(
         target_primitives,
         episodes_per_primitive,
-        sim,
-        agent,
+        sim_model=sim_model,
+        sim_provider=sim_provider,
+        agent_model=agent_model,
+        agent_provider=agent_provider,
+        workers=workers,
         verbose=verbose,
+        runs_dir=runs_dir,
     )
 
-    # 4. Save episodes
-    runs_dir = Path(__file__).parent / "runs" / "collected"
-    for ep in episodes:
-        save_episode(ep, runs_dir)
+    # 3. Build index.html for browsing all saved episodes
+    _build_index_html(runs_dir)
 
-    # 5. Export training data
+    # 4. Export training data
     wab_results = None
     if wab_results_path:
         with open(wab_results_path) as f:
@@ -327,9 +531,22 @@ def collect_training_data(
         wab_results=wab_results,
     )
 
+    # Summary
+    elapsed = time.time() - t_start
+    n_success = sum(1 for ep in episodes if ep.get("success"))
+    avg_score = sum(ep.get("score", 0) for ep in episodes) / len(episodes) if episodes else 0
+    summary = (
+        f"\nCollection complete in {elapsed:.0f}s\n"
+        f"  Episodes: {len(episodes)} generated, {n_success} success, "
+        f"avg_score={avg_score:.2f}\n"
+        f"  Training data: {stats['output_path']}\n"
+        f"  Visualizations: {runs_dir}/index.html\n"
+        f"  Log: {log_path}"
+    )
+    logger.info(summary)
     if verbose:
-        print(f"\n{'='*60}")
-        print("Collection complete!")
-        print(f"Episodes generated: {len(episodes)}")
-        print(f"Training data: {stats['output_path']}")
-        print(f"{'='*60}")
+        print(summary)
+
+    # Clean up file handler
+    logging.getLogger().removeHandler(file_handler)
+    file_handler.close()

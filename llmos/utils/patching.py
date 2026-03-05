@@ -386,8 +386,13 @@ def apply_id_patch(state: dict, state_ops: list[dict]) -> dict:
             bid = op["bid"]
             if parent_index and not indices_stale and bid in parent_index:
                 parent, idx = parent_index[bid]
-                del parent["children"][idx]
-                logger.debug(f"Deleted node {bid}")
+                children = parent.get("children", [])
+                if idx < len(children) and children[idx].get("bid") == bid:
+                    del children[idx]
+                    logger.debug(f"Deleted node {bid}")
+                else:
+                    # Index stale or mismatched, fall back to tree walk
+                    apply_delete(state, bid)
             else:
                 apply_delete(state, bid)
             indices_stale = True  # Structural mutation
