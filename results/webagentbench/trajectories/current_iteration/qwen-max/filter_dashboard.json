@@ -1,0 +1,261 @@
+{
+  "source_file": "qwen-max_v10_full15_revalidated.json",
+  "source_benchmark_version": "1.3.0",
+  "source_timestamp": "2026-03-05T20:49:11.974980+00:00",
+  "benchmark": "WebAgentBench",
+  "model": "qwen-max",
+  "provider": "vllm",
+  "page_id": "filter_dashboard",
+  "title": "Filter Dashboard",
+  "instruction": "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+  "primary_primitives": [
+    "constraint_satisfaction",
+    "planning",
+    "attention"
+  ],
+  "secondary_primitives": [
+    "verification"
+  ],
+  "difficulty": "hard",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "All 1 success criteria passed",
+    "criteria_results": [
+      {
+        "expression": "data.reported_count === 3",
+        "passed": true
+      }
+    ],
+    "dom_results": [
+      {
+        "selector": "#count-display",
+        "condition": "equals",
+        "passed": true
+      }
+    ],
+    "dom_enforced": true,
+    "dom_data_present": true,
+    "page_id": "filter_dashboard",
+    "completed": true,
+    "details": {
+      "reported_count": 3,
+      "count_matches_visible": false,
+      "visible_count_at_submit": 5,
+      "employment_filter": "Full-time",
+      "correct_answer": true
+    }
+  },
+  "benchmark_state": {
+    "pageId": "filter_dashboard",
+    "completed": true,
+    "success": true,
+    "startTime": 1772743007697,
+    "endTime": 1772743048274,
+    "data": {
+      "visible_count": 5,
+      "filters_applied": {
+        "department": "Engineering",
+        "location": "San Francisco",
+        "title": "Senior Engineer",
+        "employment": "Full-time",
+        "min_salary": 150000,
+        "sort_by": "Name",
+        "sort_order": "asc"
+      },
+      "reported_count": 3,
+      "count_matches_visible": false,
+      "visible_count_at_submit": 5
+    },
+    "events": [
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "All",
+          "location": "All",
+          "title": "All",
+          "employment": "All",
+          "min_salary": "",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 20
+        },
+        "timestamp": 1772743007703
+      },
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "Engineering",
+          "location": "All",
+          "title": "All",
+          "employment": "All",
+          "min_salary": "",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 13
+        },
+        "timestamp": 1772743013431
+      },
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "Engineering",
+          "location": "San Francisco",
+          "title": "All",
+          "employment": "All",
+          "min_salary": "",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 8
+        },
+        "timestamp": 1772743017841
+      },
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "Engineering",
+          "location": "San Francisco",
+          "title": "Senior Engineer",
+          "employment": "All",
+          "min_salary": "",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 6
+        },
+        "timestamp": 1772743022814
+      },
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "Engineering",
+          "location": "San Francisco",
+          "title": "Senior Engineer",
+          "employment": "Full-time",
+          "min_salary": "",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 5
+        },
+        "timestamp": 1772743029232
+      },
+      {
+        "type": "filter_applied",
+        "detail": {
+          "department": "Engineering",
+          "location": "San Francisco",
+          "title": "Senior Engineer",
+          "employment": "Full-time",
+          "min_salary": "150000",
+          "sort_by": "Name",
+          "sort_order": "asc",
+          "result_count": 5
+        },
+        "timestamp": 1772743034310
+      },
+      {
+        "type": "report_submitted",
+        "detail": {
+          "reported_count": 3
+        },
+        "timestamp": 1772743048274
+      }
+    ],
+    "dom_checks": {
+      "#count-display": "3"
+    }
+  },
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm",
+    "steps": 8,
+    "elapsed_seconds": 48.9,
+    "completed": true,
+    "trajectory": [
+      {
+        "step": 1,
+        "thought": "First, I need to set the filters to find full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Then, I will sort by name ascending and report the matching count.",
+        "action": {
+          "action": "select",
+          "selector": "Department",
+          "value": "Engineering"
+        },
+        "status": "Selected 'Engineering' in 'Department'",
+        "elapsed_seconds": 5.2
+      },
+      {
+        "step": 2,
+        "thought": "Next, I need to set the 'Location' filter to 'San Francisco'.",
+        "action": {
+          "action": "select",
+          "selector": "Location",
+          "value": "San Francisco"
+        },
+        "status": "Selected 'San Francisco' in 'Location'",
+        "elapsed_seconds": 9.6
+      },
+      {
+        "step": 3,
+        "thought": "Now, I need to set the 'Title' filter to 'Senior Engineer'.",
+        "action": {
+          "action": "select",
+          "selector": "Title",
+          "value": "Senior Engineer"
+        },
+        "status": "Selected 'Senior Engineer' in 'Title'",
+        "elapsed_seconds": 14.6
+      },
+      {
+        "step": 4,
+        "thought": "Next, I need to set the 'Employment' filter to 'Full-time'.",
+        "action": {
+          "action": "select",
+          "selector": "Employment",
+          "value": "Full-time"
+        },
+        "status": "Selected 'Full-time' in 'Employment'",
+        "elapsed_seconds": 21.0
+      },
+      {
+        "step": 5,
+        "thought": "Now, I need to set the 'Min Salary' filter to $150,000. Since the spinbutton is used for this, I will fill it with the value 150000.",
+        "action": {
+          "action": "fill",
+          "selector": "Min Salary",
+          "text": "150000"
+        },
+        "status": "Filled 'Min Salary' with '150000'",
+        "elapsed_seconds": 26.1
+      },
+      {
+        "step": 6,
+        "thought": "The filters are now set correctly. The table is already sorted by 'Name' in ascending order, and the matching count is 3 (Alice Chen, Bob Kim, and Diana Patel). I will now report the matching count using the spinbutton and submit the form.",
+        "action": {
+          "action": "fill",
+          "selector": "Report matching count:",
+          "text": "3"
+        },
+        "status": "Filled 'Report matching count:' with '3'",
+        "elapsed_seconds": 32.2
+      },
+      {
+        "step": 7,
+        "thought": "The matching count has been filled in. Now, I will submit the form to complete the task.",
+        "action": {
+          "action": "click",
+          "selector": "Submit"
+        },
+        "status": "Clicked: Submit",
+        "elapsed_seconds": 40.1
+      },
+      {
+        "step": 8,
+        "thought": "The form has been submitted, and the matching count of 3 is displayed. The task is now complete.",
+        "action": {
+          "action": "finish"
+        },
+        "status": "FINISH",
+        "elapsed_seconds": 48.9
+      }
+    ]
+  }
+}

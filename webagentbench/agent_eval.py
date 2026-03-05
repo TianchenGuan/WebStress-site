@@ -156,6 +156,11 @@ def _llm_complete_openai(
     if reasoning_effort:
         kwargs["reasoning_effort"] = reasoning_effort
 
+    # Qwen3 endpoints on some OpenAI-compatible providers require
+    # explicitly disabling internal thinking for non-streaming calls.
+    if model.startswith("qwen3"):
+        kwargs["extra_body"] = {"enable_thinking": False}
+
     response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
@@ -260,6 +265,7 @@ Available actions:
 | finish    |                    | Declare the task complete            |
 
 The `selector` should be the accessible name (text label) of the element you want to interact with.
+If the accessibility tree shows `button "Save"` or `textbox "Email"`, use just `Save` or `Email` as the selector.
 
 ## Rules
 - Always respond with valid JSON only — no extra text outside the JSON.
@@ -274,6 +280,43 @@ The `selector` should be the accessible name (text label) of the element you wan
 # Browser Action Execution
 # =============================================================================
 
+_ROLE_PREFIXED_SELECTOR_RE = re.compile(
+    r'^(button|link|menuitem|tab|checkbox|radio|textbox|spinbutton|searchbox|combobox)\s+"([^"]+)"$',
+    re.IGNORECASE,
+)
+
+
+def _normalize_selector(selector: str) -> str:
+    """Strip role prefixes like `button "Save"` to the accessible name only."""
+    selector = (selector or "").strip()
+    match = _ROLE_PREFIXED_SELECTOR_RE.match(selector)
+    if match:
+        return match.group(2).strip()
+    return selector
+
+
+def _capture_dom_checks(page, checks: list[dict]) -> dict[str, str]:
+    """Capture DOM contents for manifest dom_check rules."""
+    captured: dict[str, str] = {}
+    for check in checks:
+        selector = check.get("selector")
+        if not selector:
+            continue
+        try:
+            locator = page.locator(selector).first
+            if locator.count() == 0:
+                continue
+            text = locator.text_content()
+            if text is None:
+                text = locator.input_value()
+            if text is None:
+                text = locator.get_attribute("value")
+            if text is not None:
+                captured[selector] = text
+        except Exception:
+            continue
+    return captured
+
 def execute_action(page, action: dict) -> str:
     """
     Execute a parsed action on the Playwright page.
@@ -281,7 +324,7 @@ def execute_action(page, action: dict) -> str:
     Returns a status string describing what happened.
     """
     action_type = action.get("action", "noop")
-    selector = action.get("selector", "")
+    selector = _normalize_selector(action.get("selector", ""))
     text = action.get("text", "")
     value = action.get("value", "")
     key = action.get("key", "")
@@ -338,6 +381,8 @@ def execute_action(page, action: dict) -> str:
 
 def _click_element(page, selector: str):
     """Click an element by trying multiple Playwright selector strategies."""
+    selector = _normalize_selector(selector)
+
     # Try role-based selectors first
     for role in ("button", "link", "menuitem", "tab", "checkbox", "radio"):
         locator = page.get_by_role(role, name=selector)
@@ -363,6 +408,8 @@ def _click_element(page, selector: str):
 
 def _fill_element(page, selector: str, text: str):
     """Fill an input element by trying multiple strategies."""
+    selector = _normalize_selector(selector)
+
     # Try by label
     locator = page.get_by_label(selector)
     if locator.count() > 0:
@@ -388,6 +435,8 @@ def _fill_element(page, selector: str, text: str):
 
 def _select_element(page, selector: str, value: str):
     """Select an option in a dropdown."""
+    selector = _normalize_selector(selector)
+
     locator = page.get_by_label(selector)
     if locator.count() > 0:
         locator.first.select_option(label=value)
@@ -595,6 +644,7 @@ def run_evaluation(
             for page_def in pages:
                 page_id = page_def["page_id"]
                 instruction = page_def["instruction"]
+                benchmark_state = {}
 
                 if verbose:
                     print(f"[{page_id}] {page_def['title']}")
@@ -626,6 +676,9 @@ def run_evaluation(
                     benchmark_state = page.evaluate(
                         "() => JSON.parse(JSON.stringify(window.__benchmarkState || {}))"
                     )
+                    dom_checks = page_def.get("success_criteria", {}).get("dom_check", [])
+                    if dom_checks:
+                        benchmark_state["dom_checks"] = _capture_dom_checks(page, dom_checks)
 
                     # Evaluate via server
                     evaluation = evaluate_state(bench_url, page_id, benchmark_state)
@@ -643,6 +696,7 @@ def run_evaluation(
                     "title": page_def["title"],
                     "primitives": page_def["primary_primitives"],
                     "difficulty": page_def["difficulty"],
+                    "benchmark_state": benchmark_state,
                     "evaluation": evaluation,
                     "agent": {
                         "model": model,
@@ -694,7 +748,7 @@ def _write_agent_results(results: list[dict], model: str, provider: str, output_
 
     output = {
         "benchmark": "WebAgentBench",
-        "version": "1.0.0",
+        "version": "1.3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "agent": {
             "model": model,

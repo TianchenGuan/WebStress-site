@@ -1,0 +1,329 @@
+{
+  "source_file": "qwen-max_v10_full15_revalidated.json",
+  "source_benchmark_version": "1.3.0",
+  "source_timestamp": "2026-03-05T20:49:11.974980+00:00",
+  "benchmark": "WebAgentBench",
+  "model": "qwen-max",
+  "provider": "vllm",
+  "page_id": "policy_reconciliation",
+  "title": "Policy Reconciliation Desk",
+  "instruction": "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
+  "primary_primitives": [
+    "constraint_satisfaction",
+    "exploration",
+    "memory"
+  ],
+  "secondary_primitives": [
+    "verification",
+    "attention",
+    "planning"
+  ],
+  "difficulty": "frontier",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "All 6 success criteria passed",
+    "criteria_results": [
+      {
+        "expression": "data.report_submitted === true",
+        "passed": true
+      },
+      {
+        "expression": "data.compare_mode_used === true",
+        "passed": true
+      },
+      {
+        "expression": "data.final_limit === 125000",
+        "passed": true
+      },
+      {
+        "expression": "data.notice_days === 21",
+        "passed": true
+      },
+      {
+        "expression": "String(data.source_memo_id || '').indexOf('D4') !== -1",
+        "passed": true
+      },
+      {
+        "expression": "data.evidence_key_submitted === data.evidence_key_expected",
+        "passed": true
+      }
+    ],
+    "dom_results": [
+      {
+        "selector": "#report-result",
+        "condition": "contains",
+        "passed": true
+      }
+    ],
+    "dom_enforced": true,
+    "dom_data_present": true,
+    "page_id": "policy_reconciliation",
+    "completed": true,
+    "details": {
+      "compare_mode_used": true,
+      "viewed_memos": [
+        "A1",
+        "B2",
+        "C3",
+        "D4-ERRATA",
+        "E5",
+        "F6",
+        "G7",
+        "H8",
+        "I9",
+        "J10"
+      ],
+      "memo_coverage_ready": true,
+      "final_limit": 125000,
+      "notice_days": 21,
+      "source_memo_id": "D4-ERRATA",
+      "evidence_key_generated": true,
+      "evidence_key_submitted": "D4-B2-21",
+      "evidence_key_expected": "D4-B2-21",
+      "used_d4_memo": true,
+      "used_superseded_value": false
+    }
+  },
+  "benchmark_state": {
+    "pageId": "",
+    "completed": true,
+    "success": true,
+    "startTime": 1772743641507,
+    "endTime": 1772743681907,
+    "data": {
+      "compare_mode_used": true,
+      "evidence_key_generated": true,
+      "evidence_key_expected": "D4-B2-21",
+      "show_superseded": true,
+      "viewed_memos": [
+        "A1",
+        "B2",
+        "C3",
+        "D4-ERRATA",
+        "E5",
+        "F6",
+        "G7",
+        "H8",
+        "I9",
+        "J10"
+      ],
+      "memo_coverage_ready": true,
+      "report_submitted": true,
+      "final_limit": 125000,
+      "notice_days": 21,
+      "source_memo_id": "D4-ERRATA",
+      "evidence_key_submitted": "D4-B2-21",
+      "limit_correct": true,
+      "notice_correct": true,
+      "memo_correct": true,
+      "evidence_correct": true,
+      "superseded_value_used": false
+    },
+    "events": [
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "A1",
+          "viewed_count": 1
+        },
+        "timestamp": 1772743641524
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "B2",
+          "viewed_count": 2
+        },
+        "timestamp": 1772743641524
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "C3",
+          "viewed_count": 3
+        },
+        "timestamp": 1772743641524
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "D4-ERRATA",
+          "viewed_count": 4
+        },
+        "timestamp": 1772743641524
+      },
+      {
+        "type": "compare_mode_enabled",
+        "detail": {},
+        "timestamp": 1772743645130
+      },
+      {
+        "type": "evidence_key_generated",
+        "detail": {
+          "evidence_key_expected": "D4-B2-21",
+          "viewed_count": 4
+        },
+        "timestamp": 1772743649580
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "E5",
+          "viewed_count": 5
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "F6",
+          "viewed_count": 6
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "G7",
+          "viewed_count": 7
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "H8",
+          "viewed_count": 8
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "I9",
+          "viewed_count": 9
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "memo_loaded",
+        "detail": {
+          "memo_id": "J10",
+          "viewed_count": 10
+        },
+        "timestamp": 1772743656678
+      },
+      {
+        "type": "reconciliation_submitted",
+        "detail": {
+          "compare_mode_used": true,
+          "entered_limit": 125000,
+          "entered_notice": 21,
+          "entered_memo_id": "D4-ERRATA",
+          "entered_evidence_key": "D4-B2-21",
+          "limit_correct": true,
+          "notice_correct": true,
+          "memo_correct": true,
+          "evidence_correct": true
+        },
+        "timestamp": 1772743681907
+      }
+    ],
+    "dom_checks": {
+      "#report-result": "Reconciliation submitted successfully."
+    }
+  },
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm",
+    "steps": 8,
+    "elapsed_seconds": 43.6,
+    "completed": true,
+    "trajectory": [
+      {
+        "step": 1,
+        "thought": "First, I need to activate the Compare Mode to review memo dependencies and supersession. This will also enable the Generate Evidence Key button.",
+        "action": {
+          "action": "click",
+          "selector": "Activate Compare Mode"
+        },
+        "status": "Clicked: Activate Compare Mode",
+        "elapsed_seconds": 3.1
+      },
+      {
+        "step": 2,
+        "thought": "Now that Compare Mode is active, I need to generate the evidence key. This will help in ensuring all necessary memos are accounted for.",
+        "action": {
+          "action": "click",
+          "selector": "Generate Evidence Key"
+        },
+        "status": "Clicked: Generate Evidence Key",
+        "elapsed_seconds": 7.6
+      },
+      {
+        "step": 3,
+        "thought": "The evidence key has been generated as 'D4-B2-21'. Now, I need to fill in the final standard approval limit, final pricing notice period, and the controlling memo ID for the approval limit. The final standard approval limit is $125,000 (from D4-ERRATA), and the final pricing notice period is 21 days (from B2). The controlling memo ID for the approval limit is D4-ERRATA.",
+        "action": {
+          "action": "fill",
+          "selector": "Final standard approval limit ($)",
+          "text": "125000"
+        },
+        "status": "Filled 'Final standard approval limit ($)' with '125000'",
+        "elapsed_seconds": 14.7
+      },
+      {
+        "step": 4,
+        "thought": "Next, I need to fill in the final pricing notice period, which is 21 days (from B2).",
+        "action": {
+          "action": "fill",
+          "selector": "Final pricing notice period (days)",
+          "text": "21"
+        },
+        "status": "Filled 'Final pricing notice period (days)' with '21'",
+        "elapsed_seconds": 21.3
+      },
+      {
+        "step": 5,
+        "thought": "Now, I need to fill in the controlling memo ID for the approval limit, which is D4-ERRATA. After that, I will fill in the generated evidence key, which is D4-B2-21.",
+        "action": {
+          "action": "fill",
+          "selector": "Controlling memo ID for approval limit",
+          "text": "D4-ERRATA"
+        },
+        "status": "Filled 'Controlling memo ID for approval limit' with 'D4-ERRATA'",
+        "elapsed_seconds": 27.8
+      },
+      {
+        "step": 6,
+        "thought": "Now, I need to fill in the generated evidence key, which is D4-B2-21. After that, I will submit the reconciliation.",
+        "action": {
+          "action": "fill",
+          "selector": "Evidence key from compare graph",
+          "text": "D4-B2-21"
+        },
+        "status": "Filled 'Evidence key from compare graph' with 'D4-B2-21'",
+        "elapsed_seconds": 33.2
+      },
+      {
+        "step": 7,
+        "thought": "All the required fields have been filled in. The final standard approval limit is $125,000, the final pricing notice period is 21 days, the controlling memo ID for the approval limit is D4-ERRATA, and the evidence key is D4-B2-21. Now, I will submit the reconciliation.",
+        "action": {
+          "action": "click",
+          "selector": "Submit Reconciliation"
+        },
+        "status": "Clicked: Submit Reconciliation",
+        "elapsed_seconds": 39.9
+      },
+      {
+        "step": 8,
+        "thought": "The reconciliation has been submitted successfully. The task is now complete.",
+        "action": {
+          "action": "finish"
+        },
+        "status": "FINISH",
+        "elapsed_seconds": 43.6
+      }
+    ]
+  }
+}

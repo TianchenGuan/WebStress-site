@@ -1,0 +1,361 @@
+{
+  "source_file": "qwen-max_v10_full15_revalidated.json",
+  "source_benchmark_version": "1.3.0",
+  "source_timestamp": "2026-03-05T20:49:11.974980+00:00",
+  "benchmark": "WebAgentBench",
+  "model": "qwen-max",
+  "provider": "vllm",
+  "page_id": "terms_audit",
+  "title": "Terms of Service Audit",
+  "instruction": "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+  "primary_primitives": [
+    "attention",
+    "patience",
+    "exploration"
+  ],
+  "secondary_primitives": [
+    "memory",
+    "verification"
+  ],
+  "difficulty": "hard",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "All 4 success criteria passed",
+    "criteria_results": [
+      {
+        "expression": "data.report_submitted === true",
+        "passed": true
+      },
+      {
+        "expression": "data.termination_fee === 250",
+        "passed": true
+      },
+      {
+        "expression": "data.notice_period_correct === true",
+        "passed": true
+      },
+      {
+        "expression": "data.maintenance_notice_correct === true",
+        "passed": true
+      }
+    ],
+    "dom_results": [
+      {
+        "selector": "#report-result",
+        "condition": "contains",
+        "passed": true
+      }
+    ],
+    "dom_enforced": true,
+    "dom_data_present": true,
+    "page_id": "terms_audit",
+    "completed": true,
+    "details": {
+      "sections_viewed": [
+        "tos-1",
+        "tos-2",
+        "tos-3",
+        "tos-4",
+        "tos-5",
+        "tos-6",
+        "tos-7",
+        "tos-8",
+        "tos-9",
+        "tos-10",
+        "tos-11",
+        "tos-12"
+      ],
+      "termination_fee_correct": true,
+      "notice_period_correct": true,
+      "maintenance_notice_correct": true,
+      "termination_fee_entered": 250,
+      "notice_period_entered": "48 hours",
+      "maintenance_notice_entered": "72"
+    }
+  },
+  "benchmark_state": {
+    "pageId": "",
+    "completed": true,
+    "success": true,
+    "startTime": 1772743258699,
+    "endTime": 1772743360353,
+    "data": {
+      "sections_viewed": [
+        "tos-1",
+        "tos-2",
+        "tos-3",
+        "tos-4",
+        "tos-5",
+        "tos-6",
+        "tos-7",
+        "tos-8",
+        "tos-9",
+        "tos-10",
+        "tos-11",
+        "tos-12"
+      ],
+      "report_submitted": true,
+      "termination_fee": 250,
+      "notice_period": "48 hours",
+      "notice_period_correct": true,
+      "maintenance_notice": "72",
+      "maintenance_notice_correct": true,
+      "fee_correct": true
+    },
+    "events": [
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-1",
+          "total_viewed": 1
+        },
+        "timestamp": 1772743258700
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-2",
+          "total_viewed": 2
+        },
+        "timestamp": 1772743258700
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-3",
+          "total_viewed": 3
+        },
+        "timestamp": 1772743258700
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-4",
+          "total_viewed": 4
+        },
+        "timestamp": 1772743269399
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-5",
+          "total_viewed": 5
+        },
+        "timestamp": 1772743282424
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-6",
+          "total_viewed": 6
+        },
+        "timestamp": 1772743289282
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-7",
+          "total_viewed": 7
+        },
+        "timestamp": 1772743296258
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-8",
+          "total_viewed": 8
+        },
+        "timestamp": 1772743316216
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-9",
+          "total_viewed": 9
+        },
+        "timestamp": 1772743316216
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-10",
+          "total_viewed": 10
+        },
+        "timestamp": 1772743329016
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-11",
+          "total_viewed": 11
+        },
+        "timestamp": 1772743329016
+      },
+      {
+        "type": "section_loaded",
+        "detail": {
+          "section": "tos-12",
+          "total_viewed": 12
+        },
+        "timestamp": 1772743329016
+      },
+      {
+        "type": "report_submitted",
+        "detail": {
+          "fee": 250,
+          "notice": "48 hours",
+          "maintenance": "72",
+          "fee_correct": true,
+          "notice_correct": true,
+          "maintenance_correct": true
+        },
+        "timestamp": 1772743360353
+      }
+    ],
+    "dom_checks": {
+      "#report-result": "Report submitted. Your findings have been recorded."
+    }
+  },
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm",
+    "steps": 13,
+    "elapsed_seconds": 118.0,
+    "completed": true,
+    "trajectory": [
+      {
+        "step": 1,
+        "thought": "The section '4. Payment Terms & Billing' and '8. Service Modifications & Pricing' are still loading, which likely contain the information I need. I should scroll down to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 4.5
+      },
+      {
+        "step": 2,
+        "thought": "The sections '4. Payment Terms & Billing' and '8. Service Modifications & Pricing' are still loading. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 10.2
+      },
+      {
+        "step": 3,
+        "thought": "The '4. Payment Terms & Billing' section now contains the early termination fee amount, which is $250 for accounts that have been active for less than 6 months and are on an annual billing cycle. The '8. Service Modifications & Pricing' section is still loading, so I need to scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 18.6
+      },
+      {
+        "step": 4,
+        "thought": "The '8. Service Modifications & Pricing' section is still loading, and I need to find the minimum pricing change notice period and the scheduled maintenance advance notice period. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 23.2
+      },
+      {
+        "step": 5,
+        "thought": "The '8. Service Modifications & Pricing' section is still loading, and I need to find the minimum pricing change notice period and the scheduled maintenance advance notice period. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 30.1
+      },
+      {
+        "step": 6,
+        "thought": "The '8. Service Modifications & Pricing' section is still loading, and I need to find the minimum pricing change notice period and the scheduled maintenance advance notice period. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 37.0
+      },
+      {
+        "step": 7,
+        "thought": "The '8. Service Modifications & Pricing' section is still loading, and I need to find the minimum pricing change notice period and the scheduled maintenance advance notice period. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 45.3
+      },
+      {
+        "step": 8,
+        "thought": "The '8. Service Modifications & Pricing' section is still loading, and I need to find the minimum pricing change notice period and the scheduled maintenance advance notice period. I should scroll down again to ensure all content is fully loaded.",
+        "action": {
+          "action": "scroll",
+          "direction": "down"
+        },
+        "status": "Scrolled down",
+        "elapsed_seconds": 57.0
+      },
+      {
+        "step": 9,
+        "thought": "I have found the necessary information in the '8. Service Modifications & Pricing' section. The early termination fee is $250, the minimum pricing change notice period is 48 hours, and the scheduled maintenance advance notice period is 72 hours. I will now fill in the report form with these values and submit it.",
+        "action": {
+          "action": "fill",
+          "selector": "Early termination fee amount ($)",
+          "text": "250"
+        },
+        "status": "Filled 'Early termination fee amount ($)' with '250'",
+        "elapsed_seconds": 69.8
+      },
+      {
+        "step": 10,
+        "thought": "I have filled in the early termination fee amount. Next, I need to fill in the minimum pricing change notice period, which is 48 hours, and the scheduled maintenance advance notice period, which is 72 hours.",
+        "action": {
+          "action": "fill",
+          "selector": "Minimum pricing change notice period",
+          "text": "48 hours"
+        },
+        "status": "Filled 'Minimum pricing change notice period' with '48 hours'",
+        "elapsed_seconds": 77.9
+      },
+      {
+        "step": 11,
+        "thought": "I have filled in the minimum pricing change notice period. Now, I need to fill in the scheduled maintenance advance notice period, which is 72 hours, and then submit the report.",
+        "action": {
+          "action": "fill",
+          "selector": "Scheduled maintenance advance notice (hours)",
+          "text": "72"
+        },
+        "status": "Filled 'Scheduled maintenance advance notice (hours)' with '72'",
+        "elapsed_seconds": 85.6
+      },
+      {
+        "step": 12,
+        "thought": "I have filled in all the required fields: early termination fee amount, minimum pricing change notice period, and scheduled maintenance advance notice period. Now, I will submit the report.",
+        "action": {
+          "action": "click",
+          "selector": "Submit Report"
+        },
+        "status": "Clicked: Submit Report",
+        "elapsed_seconds": 101.2
+      },
+      {
+        "step": 13,
+        "thought": "The report has been successfully submitted, and the findings have been recorded. The task is now complete.",
+        "action": {
+          "action": "finish"
+        },
+        "status": "FINISH",
+        "elapsed_seconds": 118.0
+      }
+    ]
+  }
+}

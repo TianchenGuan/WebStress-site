@@ -1,0 +1,351 @@
+{
+  "source_file": "qwen3-30b-a3b_v10_suite_revalidated.json",
+  "source_benchmark_version": "1.3.0",
+  "source_timestamp": "2026-03-05T20:30:52.088289+00:00",
+  "benchmark": "WebAgentBench",
+  "model": "qwen3-30b-a3b",
+  "provider": "vllm",
+  "page_id": "wizard_form",
+  "title": "Insurance Wizard",
+  "instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
+  "primary_primitives": [
+    "backtracking",
+    "memory",
+    "constraint_satisfaction"
+  ],
+  "secondary_primitives": [
+    "reflection",
+    "attention"
+  ],
+  "difficulty": "hard",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "All 7 success criteria passed",
+    "criteria_results": [
+      {
+        "expression": "data.submitted === true",
+        "passed": true
+      },
+      {
+        "expression": "data.plan === 'premium'",
+        "passed": true
+      },
+      {
+        "expression": "data.state === 'CA'",
+        "passed": true
+      },
+      {
+        "expression": "data.earthquake_coverage === true",
+        "passed": true
+      },
+      {
+        "expression": "data.flood_coverage === true",
+        "passed": true
+      },
+      {
+        "expression": "data.property_value > 750000",
+        "passed": true
+      },
+      {
+        "expression": "data.cat_deductible === '2pct'",
+        "passed": true
+      }
+    ],
+    "dom_results": [
+      {
+        "selector": "#confirmation-message",
+        "condition": "contains",
+        "passed": true
+      }
+    ],
+    "dom_enforced": true,
+    "dom_data_present": true,
+    "page_id": "wizard_form",
+    "completed": true,
+    "details": {
+      "ca_high_value_property": true,
+      "dual_coverage_required": true,
+      "earthquake_selected": true,
+      "flood_selected": true,
+      "plan_selected": "premium",
+      "catastrophe_deductible": "2pct",
+      "correct_catastrophe_deductible": true
+    }
+  },
+  "benchmark_state": {
+    "pageId": "wizard_form",
+    "completed": true,
+    "success": true,
+    "startTime": 1772742525047,
+    "endTime": 1772742569966,
+    "data": {
+      "current_step": 4,
+      "state": "CA",
+      "name": "John Doe",
+      "property_value": 1000000,
+      "plan": "premium",
+      "earthquake_coverage": true,
+      "flood_coverage": true,
+      "cat_deductible": "2pct",
+      "submitted": true,
+      "beneficiary_name": "Jane Doe",
+      "beneficiary_relation": "Spouse"
+    },
+    "events": [
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 1
+        },
+        "timestamp": 1772742525055
+      },
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 2
+        },
+        "timestamp": 1772742536846
+      },
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 3
+        },
+        "timestamp": 1772742542333
+      },
+      {
+        "type": "coverage_gap_warning",
+        "detail": {
+          "type": "wrong_plan",
+          "plan": "standard",
+          "state": "CA"
+        },
+        "timestamp": 1772742542333
+      },
+      {
+        "type": "change_plan",
+        "detail": {
+          "from_step": 3
+        },
+        "timestamp": 1772742544827
+      },
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 2
+        },
+        "timestamp": 1772742544828
+      },
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 3
+        },
+        "timestamp": 1772742550811
+      },
+      {
+        "type": "coverage_gap_warning",
+        "detail": {
+          "type": "high_value_ca",
+          "property_value": 1000000
+        },
+        "timestamp": 1772742550811
+      },
+      {
+        "type": "navigate",
+        "detail": {
+          "step": 4
+        },
+        "timestamp": 1772742561375
+      }
+    ],
+    "dom_checks": {
+      "#confirmation-message": "\n      \u2713\n      Application Submitted!\n      Your insurance application has been received. We will contact you within 2 business days.\n    "
+    }
+  },
+  "agent": {
+    "model": "qwen3-30b-a3b",
+    "provider": "vllm",
+    "steps": 17,
+    "elapsed_seconds": 47.2,
+    "completed": true,
+    "trajectory": [
+      {
+        "step": 1,
+        "thought": "The user needs to complete an insurance application for a California property valued over $750,000. The first step is to select 'California (CA)' as the state and then choose the appropriate property value range.",
+        "action": {
+          "action": "select",
+          "selector": "State",
+          "value": "California (CA)"
+        },
+        "status": "Selected 'California (CA)' in 'State'",
+        "elapsed_seconds": 3.1
+      },
+      {
+        "step": 2,
+        "thought": "The next step is to select the property value range that matches the requirement of being over $750,000. The correct option is '$750,001 \u2014 $1,000,000'.",
+        "action": {
+          "action": "select",
+          "selector": "Estimated Property Value",
+          "value": "$750,001 \u2014 $1,000,000"
+        },
+        "status": "Selected '$750,001 \u2014 $1,000,000' in 'Estimated Property Value'",
+        "elapsed_seconds": 6.1
+      },
+      {
+        "step": 3,
+        "thought": "The next step is to fill in the 'Full Name' field with the appropriate information. Since the placeholder suggests 'e.g. Jane Doe', we will input a sample name like 'John Doe'.",
+        "action": {
+          "action": "fill",
+          "selector": "Full Name",
+          "text": "John Doe"
+        },
+        "status": "Filled 'Full Name' with 'John Doe'",
+        "elapsed_seconds": 8.8
+      },
+      {
+        "step": 4,
+        "thought": "The 'Full Name' field has been successfully filled. The next step is to proceed to the next section of the application by clicking the 'Next \u2192' button.",
+        "action": {
+          "action": "click",
+          "selector": "Next \u2192"
+        },
+        "status": "Clicked: Next \u2192",
+        "elapsed_seconds": 11.3
+      },
+      {
+        "step": 5,
+        "thought": "The user needs to select the 'Standard' plan as it is recommended for high-risk zones, which aligns with the requirement for earthquake and flood coverage. The 'Standard' plan also has higher claim limits and priority processing, which is suitable for a high-value property.",
+        "action": {
+          "action": "click",
+          "selector": "Standard $100/mo Comprehensive coverage with extended natural disaster protection, higher claim limits, and priority processing. Recommended for properties in high-risk zones. Most Popular \u2014 chosen by 73% of homeowners"
+        },
+        "status": "Clicked: Standard $100/mo Comprehensive coverage with extended natural disaster protection, higher claim limits, and priority processing. Recommended for properties in high-risk zones. Most Popular \u2014 chosen by 73% of homeowners",
+        "elapsed_seconds": 14.4
+      },
+      {
+        "step": 6,
+        "thought": "The 'Standard' plan has been selected. The next step is to proceed to the coverage selection section by clicking the 'Next \u2192' button.",
+        "action": {
+          "action": "click",
+          "selector": "Next \u2192"
+        },
+        "status": "Clicked: Next \u2192",
+        "elapsed_seconds": 16.8
+      },
+      {
+        "step": 7,
+        "thought": "The user needs to upgrade to the Premium plan to include Earthquake Coverage, as the Standard plan does not include it. The 'Change Plan' button should be clicked to go back and select the Premium plan.",
+        "action": {
+          "action": "click",
+          "selector": "\u21a9 Change Plan"
+        },
+        "status": "Clicked: \u21a9 Change Plan",
+        "elapsed_seconds": 19.3
+      },
+      {
+        "step": 8,
+        "thought": "The user needs to select the 'Premium' plan to include earthquake coverage. The 'Premium' plan is required for high-value properties and includes the necessary coverage. Click on the 'Premium' plan option.",
+        "action": {
+          "action": "click",
+          "selector": "Premium $200/mo Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing."
+        },
+        "status": "Clicked: Premium $200/mo Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing.",
+        "elapsed_seconds": 22.1
+      },
+      {
+        "step": 9,
+        "thought": "The 'Premium' plan has been selected. Now, proceed to the coverage selection section by clicking the 'Next \u2192' button.",
+        "action": {
+          "action": "click",
+          "selector": "Next \u2192"
+        },
+        "status": "Clicked: Next \u2192",
+        "elapsed_seconds": 25.3
+      },
+      {
+        "step": 10,
+        "thought": "The user needs to select both 'Earthquake Coverage' and 'Flood Coverage' as they are required for high-value properties in California. Additionally, the '2% deductible' should be selected for the catastrophe deductible. Start by checking 'Earthquake Coverage'.",
+        "action": {
+          "action": "check",
+          "selector": "Earthquake Coverage"
+        },
+        "status": "Checked: Earthquake Coverage",
+        "elapsed_seconds": 28.0
+      },
+      {
+        "step": 11,
+        "thought": "The 'Earthquake Coverage' has been selected. Now, select 'Flood Coverage' to meet the requirements for high-value properties in California.",
+        "action": {
+          "action": "check",
+          "selector": "Flood Coverage"
+        },
+        "status": "Checked: Flood Coverage",
+        "elapsed_seconds": 30.8
+      },
+      {
+        "step": 12,
+        "thought": "Both 'Earthquake Coverage' and 'Flood Coverage' have been selected. The next step is to choose the '2% deductible' option for the catastrophe deductible as required for high-value properties in California.",
+        "action": {
+          "action": "select",
+          "selector": "Catastrophe Deductible",
+          "value": "2% deductible"
+        },
+        "status": "Selected '2% deductible' in 'Catastrophe Deductible'",
+        "elapsed_seconds": 33.3
+      },
+      {
+        "step": 13,
+        "thought": "All required coverage options and the 2% deductible have been selected. The next step is to proceed to the review section by clicking the 'Next \u2192' button.",
+        "action": {
+          "action": "click",
+          "selector": "Next \u2192"
+        },
+        "status": "Clicked: Next \u2192",
+        "elapsed_seconds": 35.8
+      },
+      {
+        "step": 14,
+        "thought": "The final step is to fill in the 'Beneficiary Name' and select the 'Beneficiary Relation'. After that, submit the application.",
+        "action": {
+          "action": "fill",
+          "selector": "Beneficiary Name",
+          "text": "Jane Doe"
+        },
+        "status": "Filled 'Beneficiary Name' with 'Jane Doe'",
+        "elapsed_seconds": 38.0
+      },
+      {
+        "step": 15,
+        "thought": "The 'Beneficiary Name' has been filled. Now, select the 'Beneficiary Relation' from the dropdown. For this example, we'll select 'Spouse'.",
+        "action": {
+          "action": "select",
+          "selector": "Beneficiary Relation",
+          "value": "Spouse"
+        },
+        "status": "Selected 'Spouse' in 'Beneficiary Relation'",
+        "elapsed_seconds": 41.2
+      },
+      {
+        "step": 16,
+        "thought": "The 'Beneficiary Relation' has been selected as 'Spouse'. The final step is to submit the application by clicking the 'Submit Application' button.",
+        "action": {
+          "action": "click",
+          "selector": "Submit Application"
+        },
+        "status": "Clicked: Submit Application",
+        "elapsed_seconds": 44.4
+      },
+      {
+        "step": 17,
+        "thought": "The application has been successfully submitted. The task is complete.",
+        "action": {
+          "action": "finish"
+        },
+        "status": "FINISH",
+        "elapsed_seconds": 47.2
+      }
+    ]
+  }
+}

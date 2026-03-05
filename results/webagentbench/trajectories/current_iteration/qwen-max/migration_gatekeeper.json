@@ -1,0 +1,341 @@
+{
+  "source_file": "qwen-max_v10_full15_revalidated.json",
+  "source_benchmark_version": "1.3.0",
+  "source_timestamp": "2026-03-05T20:49:11.974980+00:00",
+  "benchmark": "WebAgentBench",
+  "model": "qwen-max",
+  "provider": "vllm",
+  "page_id": "migration_gatekeeper",
+  "title": "Migration Gatekeeper",
+  "instruction": "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
+  "primary_primitives": [
+    "backtracking",
+    "error_recovery",
+    "verification"
+  ],
+  "secondary_primitives": [
+    "reflection",
+    "planning",
+    "attention"
+  ],
+  "difficulty": "frontier",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "All 12 success criteria passed",
+    "criteria_results": [
+      {
+        "expression": "data.final_submitted === true",
+        "passed": true
+      },
+      {
+        "expression": "data.submission_successful === true",
+        "passed": true
+      },
+      {
+        "expression": "data.mapping_profile === 'stable-v3'",
+        "passed": true
+      },
+      {
+        "expression": "data.include_archived === false",
+        "passed": true
+      },
+      {
+        "expression": "data.normalization_mode === 'strict-canonical'",
+        "passed": true
+      },
+      {
+        "expression": "data.dry_run_pass_count >= 2",
+        "passed": true
+      },
+      {
+        "expression": "data.dry_run_passed === true",
+        "passed": true
+      },
+      {
+        "expression": "data.real_commit_done === true",
+        "passed": true
+      },
+      {
+        "expression": "data.token_validated === true",
+        "passed": true
+      },
+      {
+        "expression": "data.quick_commit_clicked === false",
+        "passed": true
+      },
+      {
+        "expression": "data.token_entered === data.token_generated",
+        "passed": true
+      },
+      {
+        "expression": "data.validation_stamp_entered === data.validation_stamp_generated",
+        "passed": true
+      }
+    ],
+    "dom_results": [
+      {
+        "selector": "#final-result",
+        "condition": "contains",
+        "passed": true
+      }
+    ],
+    "dom_enforced": true,
+    "dom_data_present": true,
+    "page_id": "migration_gatekeeper",
+    "completed": true,
+    "details": {
+      "mapping_profile": "stable-v3",
+      "include_archived": false,
+      "normalization_mode": "strict-canonical",
+      "dry_run_attempts": 2,
+      "dry_run_pass_count": 2,
+      "dry_run_passed": true,
+      "quick_commit_clicked": false,
+      "real_commit_done": true,
+      "token_validated": true,
+      "token_entered": "MG-7712",
+      "token_generated": "MG-7712",
+      "validation_stamp_entered": "STAMP-44",
+      "validation_stamp_generated": "STAMP-44",
+      "submission_successful": true
+    }
+  },
+  "benchmark_state": {
+    "pageId": "",
+    "completed": true,
+    "success": true,
+    "startTime": 1772743685732,
+    "endTime": 1772743748360,
+    "data": {
+      "mapping_profile": "stable-v3",
+      "include_archived": false,
+      "show_advanced": true,
+      "normalization_mode": "strict-canonical",
+      "dry_run_attempts": 2,
+      "dry_run_pass_count": 2,
+      "dry_run_passed": true,
+      "returned_to_mapping": false,
+      "acknowledge_continue_clicked": false,
+      "quick_commit_clicked": false,
+      "real_commit_done": true,
+      "token_validated": true,
+      "token_generated": "MG-7712",
+      "validation_stamp_generated": "STAMP-44",
+      "token_entered": "MG-7712",
+      "current_step": 3,
+      "validation_stamp_entered": "STAMP-44",
+      "final_submitted": true,
+      "submission_successful": true
+    },
+    "events": [
+      {
+        "type": "step_change",
+        "detail": {
+          "step": 2
+        },
+        "timestamp": 1772743713281
+      },
+      {
+        "type": "dry_run_stage1_passed",
+        "detail": {
+          "attempt": 1
+        },
+        "timestamp": 1772743717302
+      },
+      {
+        "type": "dry_run_passed",
+        "detail": {
+          "attempt": 2,
+          "pass_count": 2
+        },
+        "timestamp": 1772743721155
+      },
+      {
+        "type": "step_change",
+        "detail": {
+          "step": 3
+        },
+        "timestamp": 1772743727389
+      },
+      {
+        "type": "real_commit_done",
+        "detail": {},
+        "timestamp": 1772743731026
+      },
+      {
+        "type": "token_validated",
+        "detail": {
+          "validation_stamp": "STAMP-44"
+        },
+        "timestamp": 1772743734600
+      },
+      {
+        "type": "audit_submitted",
+        "detail": {
+          "submission_successful": true,
+          "token_entered": "MG-7712",
+          "validation_stamp_entered": "STAMP-44",
+          "token_validated": true,
+          "quick_commit_clicked": false
+        },
+        "timestamp": 1772743748360
+      }
+    ],
+    "dom_checks": {
+      "#final-result": "Migration audit submitted. Validated commit accepted."
+    }
+  },
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm",
+    "steps": 14,
+    "elapsed_seconds": 65.7,
+    "completed": true,
+    "trajectory": [
+      {
+        "step": 1,
+        "thought": "First, I need to select the 'stable-v3' mapping profile and uncheck the 'Include archived records in migration scope' checkbox. Then, I will check the 'Show advanced mapping options' to configure further settings.",
+        "action": {
+          "action": "select",
+          "selector": "Mapping profile",
+          "value": "stable-v3"
+        },
+        "status": "Selected 'stable-v3' in 'Mapping profile'",
+        "elapsed_seconds": 4.9
+      },
+      {
+        "step": 2,
+        "thought": "Now, I need to uncheck the 'Include archived records in migration scope' checkbox and then check the 'Show advanced mapping options' checkbox.",
+        "action": {
+          "action": "uncheck",
+          "selector": "Include archived records in migration scope"
+        },
+        "status": "Unchecked: Include archived records in migration scope",
+        "elapsed_seconds": 9.8
+      },
+      {
+        "step": 3,
+        "thought": "Next, I need to check the 'Show advanced mapping options' checkbox to configure the advanced settings.",
+        "action": {
+          "action": "check",
+          "selector": "Show advanced mapping options"
+        },
+        "status": "Checked: Show advanced mapping options",
+        "elapsed_seconds": 17.7
+      },
+      {
+        "step": 4,
+        "thought": "Now, I need to select the 'strict-canonical' option in the 'ID normalization mode' combobox.",
+        "action": {
+          "action": "select",
+          "selector": "ID normalization mode",
+          "value": "strict-canonical"
+        },
+        "status": "Selected 'strict-canonical' in 'ID normalization mode'",
+        "elapsed_seconds": 22.8
+      },
+      {
+        "step": 5,
+        "thought": "With the advanced options configured, I can now proceed to the dry run step by clicking the 'Continue to Dry Run' button.",
+        "action": {
+          "action": "click",
+          "selector": "Continue to Dry Run"
+        },
+        "status": "Clicked: Continue to Dry Run",
+        "elapsed_seconds": 27.0
+      },
+      {
+        "step": 6,
+        "thought": "I need to run the dry run by clicking the 'Run Dry Run' button.",
+        "action": {
+          "action": "click",
+          "selector": "Run Dry Run"
+        },
+        "status": "Clicked: Run Dry Run",
+        "elapsed_seconds": 31.1
+      },
+      {
+        "step": 7,
+        "thought": "The first stage of the dry run is complete. I need to run the dry run again to mint the token.",
+        "action": {
+          "action": "click",
+          "selector": "Run Dry Run"
+        },
+        "status": "Clicked: Run Dry Run",
+        "elapsed_seconds": 34.9
+      },
+      {
+        "step": 8,
+        "thought": "The second stage of the dry run is complete, and the validated artifact token has been minted. I can now proceed to the commit step by clicking the 'Proceed to Commit' button.",
+        "action": {
+          "action": "click",
+          "selector": "Proceed to Commit"
+        },
+        "status": "Clicked: Proceed to Commit",
+        "elapsed_seconds": 41.2
+      },
+      {
+        "step": 9,
+        "thought": "I need to click the 'Commit and Generate Token' button to perform the real commit and generate the necessary tokens.",
+        "action": {
+          "action": "click",
+          "selector": "Commit and Generate Token"
+        },
+        "status": "Clicked: Commit and Generate Token",
+        "elapsed_seconds": 44.8
+      },
+      {
+        "step": 10,
+        "thought": "The commit is complete, and I need to validate the token before final audit submission. I will click the 'Validate Token' button.",
+        "action": {
+          "action": "click",
+          "selector": "Validate Token"
+        },
+        "status": "Clicked: Validate Token",
+        "elapsed_seconds": 48.4
+      },
+      {
+        "step": 11,
+        "thought": "The token has been validated. Now, I need to fill in the 'Commit token for audit submission' and 'Validation stamp' textboxes with the provided values and then click the 'Submit Migration Audit' button.",
+        "action": {
+          "action": "fill",
+          "selector": "Commit token for audit submission",
+          "text": "MG-7712"
+        },
+        "status": "Filled 'Commit token for audit submission' with 'MG-7712'",
+        "elapsed_seconds": 53.6
+      },
+      {
+        "step": 12,
+        "thought": "Now, I need to fill in the 'Validation stamp' textbox with the provided value and then click the 'Submit Migration Audit' button.",
+        "action": {
+          "action": "fill",
+          "selector": "Validation stamp",
+          "text": "STAMP-44"
+        },
+        "status": "Filled 'Validation stamp' with 'STAMP-44'",
+        "elapsed_seconds": 57.0
+      },
+      {
+        "step": 13,
+        "thought": "Both the commit token and validation stamp have been filled in. I can now submit the migration audit by clicking the 'Submit Migration Audit' button.",
+        "action": {
+          "action": "click",
+          "selector": "Submit Migration Audit"
+        },
+        "status": "Clicked: Submit Migration Audit",
+        "elapsed_seconds": 62.1
+      },
+      {
+        "step": 14,
+        "thought": "The migration audit has been submitted, and the validated commit has been accepted. The task is now complete.",
+        "action": {
+          "action": "finish"
+        },
+        "status": "FINISH",
+        "elapsed_seconds": 65.7
+      }
+    ]
+  }
+}

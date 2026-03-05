@@ -393,10 +393,10 @@
 <!-- Answer Section -->
 <div class="answer-section">
   <div class="answer-card">
-    <h3>Price per sqft for 742 Evergreen Terrace:</h3>
+    <h3>Effective price per sqft for 742 Evergreen Terrace (after HOA reserve credit):</h3>
     <div class="answer-row">
       <label for="answer-input">$</label>
-      <input type="number" id="answer-input" placeholder="e.g. 287">
+      <input type="number" id="answer-input" placeholder="e.g. 281">
       <button class="btn-submit-answer" id="btn-submit-answer">Submit</button>
     </div>
     <div id="answer-display"></div>
@@ -415,21 +415,21 @@
 
   // ── Property Data ────────────────────────────────────────────────
   var BATCH_1 = [
-    { address: "123 Oak Street",      price: 425000, sqft: 1800, beds: 3, baths: 2, yearBuilt: 1985, lotSize: "0.25 acres", icon: "🏠" },
-    { address: "456 Maple Avenue",    price: 550000, sqft: 2200, beds: 4, baths: 3, yearBuilt: 1998, lotSize: "0.35 acres", icon: "🏡" },
-    { address: "789 Pine Road",       price: 380000, sqft: 1500, beds: 2, baths: 1, yearBuilt: 1972, lotSize: "0.18 acres", icon: "🏠" }
+    { address: "123 Oak Street",      price: 425000, sqft: 1800, beds: 3, baths: 2, yearBuilt: 1985, lotSize: "0.25 acres", hoaCredit: 6000, icon: "🏠" },
+    { address: "456 Maple Avenue",    price: 550000, sqft: 2200, beds: 4, baths: 3, yearBuilt: 1998, lotSize: "0.35 acres", hoaCredit: 9000, icon: "🏡" },
+    { address: "789 Pine Road",       price: 380000, sqft: 1500, beds: 2, baths: 1, yearBuilt: 1972, lotSize: "0.18 acres", hoaCredit: 4000, icon: "🏠" }
   ];
 
   var BATCH_2 = [
-    { address: "742 Evergreen Avenue",  price: 489000, sqft: 1700, beds: 3, baths: 2, yearBuilt: 1988, lotSize: "0.28 acres", icon: "🏠" },
-    { address: "321 Birch Lane",        price: 495000, sqft: 1900, beds: 3, baths: 2, yearBuilt: 2005, lotSize: "0.22 acres", icon: "🏠" },
-    { address: "555 Cedar Court",       price: 620000, sqft: 2400, beds: 4, baths: 3, yearBuilt: 2012, lotSize: "0.40 acres", icon: "🏡" }
+    { address: "742 Evergreen Avenue",  price: 489000, sqft: 1700, beds: 3, baths: 2, yearBuilt: 1988, lotSize: "0.28 acres", hoaCredit: 18000, icon: "🏠" },
+    { address: "321 Birch Lane",        price: 495000, sqft: 1900, beds: 3, baths: 2, yearBuilt: 2005, lotSize: "0.22 acres", hoaCredit: 7000, icon: "🏠" },
+    { address: "555 Cedar Court",       price: 620000, sqft: 2400, beds: 4, baths: 3, yearBuilt: 2012, lotSize: "0.40 acres", hoaCredit: 15000, icon: "🏡" }
   ];
 
   var BATCH_3 = [
-    { address: "742 Evergreen Terrace", price: 574000, sqft: 2000, beds: 3, baths: 2, yearBuilt: 1990, lotSize: "0.30 acres", icon: "🏡" },
-    { address: "888 Willow Drive",      price: 445000, sqft: 1650, beds: 2, baths: 2, yearBuilt: 2001, lotSize: "0.20 acres", icon: "🏠" },
-    { address: "101 Elm Boulevard",     price: 710000, sqft: 2800, beds: 5, baths: 3, yearBuilt: 2018, lotSize: "0.45 acres", icon: "🏡" }
+    { address: "742 Evergreen Terrace", price: 574000, sqft: 2000, beds: 3, baths: 2, yearBuilt: 1990, lotSize: "0.30 acres", hoaCredit: 12000, icon: "🏡" },
+    { address: "888 Willow Drive",      price: 445000, sqft: 1650, beds: 2, baths: 2, yearBuilt: 2001, lotSize: "0.20 acres", hoaCredit: 6500, icon: "🏠" },
+    { address: "101 Elm Boulevard",     price: 710000, sqft: 2800, beds: 5, baths: 3, yearBuilt: 2018, lotSize: "0.45 acres", hoaCredit: 11000, icon: "🏡" }
   ];
 
   var batchesLoaded = 0;
@@ -471,6 +471,7 @@
               '<tr><th>Lot Size</th><td>' + prop.lotSize + '</td></tr>' +
               '<tr><th>Bedrooms</th><td>' + prop.beds + '</td></tr>' +
               '<tr><th>Bathrooms</th><td>' + prop.baths + '</td></tr>' +
+              '<tr><th>HOA Reserve Credit</th><td>' + formatPrice(prop.hoaCredit) + '</td></tr>' +
             '</table>' +
           '</div>' +
         '</div>' +
@@ -562,7 +563,7 @@
       return;
     }
     var numVal = parseInt(value, 10);
-    var isCorrect = numVal === 287;
+    var isCorrect = numVal === 281;
     answerDisplay.textContent = "Submitted: $" + numVal + " per sqft";
     answerDisplay.style.color = "#1d1d1f";
 
