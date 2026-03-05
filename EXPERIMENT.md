@@ -14,13 +14,17 @@ analyze weak primitives
     │
     ▼
 LLMOS Simulator (LLM-based)   ← simulator via Gemini, agent via Tinker
-    │ generate targeted training episodes
+    │ generate targeted training episodes (parallel, --workers)
     ▼
 prepare training data
-    │
+    │ SFT data: high-quality episodes (score ≥ 0.5)
+    │ DPO data: positive/negative pairs per primitive
     ▼
-Tinker SFT (LoRA finetune Qwen3-30B-A3B)
-    │
+Stage 1: Tinker SFT (LoRA finetune Qwen3-30B-A3B)
+    │ learn from successful trajectories
+    ▼
+Stage 2: Tinker DPO (starting from SFT checkpoint)
+    │ learn to prefer good over bad trajectories
     ▼
 WebAgentBench (real browser)  ← finetuned model inference via Tinker
     │ re-evaluate → measure improvement
@@ -168,11 +172,15 @@ python -m webagentbench.visualize results/webagentbench/qwen3-30b-a3b-baseline.j
 Use LLMOS to generate episodes targeting the agent's weak primitives.
 The simulator uses Gemini (cheap, fast), the agent uses the Qwen model via Tinker.
 
+Episodes are saved incrementally to `llmos/runs/` with an auto-generated `index.html` for browsing.
+
 ```bash
 # Auto-analyze weaknesses from WAB results and generate targeted episodes
+# Use --workers for parallel collection (recommended: 10)
 python -m llmos collect \
     --wab-results results/webagentbench/qwen3-30b-a3b-baseline.json \
     --episodes 20 \
+    --workers 10 \
     --sim-model gemini-3-flash-preview \
     --sim-provider gemini \
     --agent-model Qwen/Qwen3-30B-A3B \
@@ -186,6 +194,7 @@ Or target specific primitives manually:
 python -m llmos collect \
     --primitives memory patience backtracking attention \
     --episodes 10 \
+    --workers 10 \
     --sim-model gemini-3-flash-preview \
     --sim-provider gemini \
     --agent-model Qwen/Qwen3-30B-A3B \
@@ -201,45 +210,74 @@ Note: when using Tinker for the agent, update `llmos/config.json` vllm section:
 }
 ```
 
-Episodes are saved to `llmos/runs/collected/`.
+Logs are written to `llmos/runs/collect_<timestamp>.log` for debugging.
 
 ## 4. Prepare Training Data
 
-Convert episode trajectories into tinker-compatible JSONL.
+Two data preparation scripts for the two training stages:
+
+### 4a. SFT Data (high-quality episodes)
+
+Extracts successful trajectories for supervised finetuning.
 
 ```bash
 python training/prepare_data.py \
     --llmos-dir llmos/runs/ \
-    --min-score 0.0 \
-    --test-split 10 \
-    --output training/data/train.jsonl
+    --min-score 0.5 \
+    --test-split 5 \
+    --output training/data/sft_train.jsonl
 ```
 
 Options:
 - `--llmos-dir`: Directory with LLMOS episode JSONs
-- `--wab-results`: Include WebAgentBench results (requires re-run with updated agent_eval.py)
-- `--min-score 0.0`: Only include episodes scored >= 0 (filter out failures)
+- `--min-score 0.5`: Only include high-quality episodes (recommended for SFT)
 - `--only-success`: Only include fully successful episodes
-- `--test-split 10`: Hold out 10 conversations for test NLL evaluation
+- `--test-split 5`: Hold out conversations for test NLL evaluation
+- `--wab-results`: Include WebAgentBench results (if available)
+
+### 4b. DPO Data (positive/negative pairs)
+
+Pairs successful and failed episodes per primitive for preference learning.
+
+```bash
+python training/prepare_dpo.py \
+    --llmos-dir llmos/runs/ \
+    --output training/data/dpo_train.jsonl \
+    --test-split 5
+```
+
+Options:
+- `--pos-threshold 0.5`: Min score for positive examples
+- `--neg-threshold 0.0`: Max score for negative examples
+- `--min-steps 3`: Filter out lazy episodes (agent gives up immediately)
+- `--test-split 5`: Hold out pairs for evaluation
+
+Output format matches tinker-cookbook's `ComparisonBuilderFromJsonl`:
+```json
+{"comparison": {"prompt_conversation": [...], "completion_A": [...], "completion_B": [...]}, "label": "A"}
+```
 
 ### Inspect prepared data
 
 ```bash
-# Count conversations and estimate tokens
-wc -l training/data/train.jsonl
+# Count conversations/pairs
+wc -l training/data/sft_train.jsonl training/data/dpo_train.jsonl
 
-# View first conversation structure
-head -1 training/data/train.jsonl | python -m json.tool | head -20
+# View SFT conversation structure
+head -1 training/data/sft_train.jsonl | python -m json.tool | head -20
+
+# View DPO pair structure
+head -1 training/data/dpo_train.jsonl | python -m json.tool | head -20
 ```
 
-## 5. SFT Finetuning via Tinker
+## 5. Stage 1: SFT Finetuning via Tinker
 
-### Run training
+### Run SFT training
 
 ```bash
 # Standard training (recommended starting point)
 python training/train_sft.py \
-    --data training/data/train.jsonl \
+    --data training/data/sft_train.jsonl \
     --model Qwen/Qwen3-30B-A3B \
     --lora-rank 32 \
     --batch-size 64 \
@@ -250,29 +288,18 @@ python training/train_sft.py \
 
 # With W&B logging
 python training/train_sft.py \
-    --data training/data/train.jsonl \
+    --data training/data/sft_train.jsonl \
     --model Qwen/Qwen3-30B-A3B \
-    --lora-rank 64 \
-    --batch-size 64 \
-    --epochs 3 \
     --wandb-project llmos-sft
-
-# Smaller model for faster iteration
-python training/train_sft.py \
-    --data training/data/train.jsonl \
-    --model Qwen/Qwen3-8B \
-    --lora-rank 32 \
-    --batch-size 128 \
-    --epochs 3
 
 # Resume from checkpoint
 python training/train_sft.py \
-    --data training/data/train.jsonl \
+    --data training/data/sft_train.jsonl \
     --model Qwen/Qwen3-30B-A3B \
     --resume
 ```
 
-### Hyperparameter guidance
+### SFT Hyperparameters
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
@@ -283,12 +310,57 @@ python training/train_sft.py \
 | `--max-length` | 16384 | Covers multi-turn episodes. Reduce if OOM. |
 | `--lr-schedule` | linear | Also: cosine, constant |
 
+Key metric: `test/nll` — should decrease over training.
+
+**Save the final checkpoint path** (printed at end, like `tinker://<run-id>:<session>:<step>/sampler_weights/<name>`)
+— you'll need it for DPO.
+
+## 5b. Stage 2: DPO Finetuning via Tinker
+
+DPO starts from the SFT checkpoint and learns to prefer good trajectories over bad ones.
+
+### Run DPO training
+
+```bash
+# Starting from SFT checkpoint (recommended)
+python training/train_dpo.py \
+    --data training/data/dpo_train.jsonl \
+    --model Qwen/Qwen3-30B-A3B \
+    --checkpoint "tinker://<sft-checkpoint-path>" \
+    --dpo-beta 0.1 \
+    --lr 1e-5 \
+    --epochs 1 \
+    --batch-size 16
+
+# With W&B logging
+python training/train_dpo.py \
+    --data training/data/dpo_train.jsonl \
+    --model Qwen/Qwen3-30B-A3B \
+    --checkpoint "tinker://<sft-checkpoint-path>" \
+    --wandb-project llmos-dpo
+
+# Without SFT checkpoint (from base model)
+python training/train_dpo.py \
+    --data training/data/dpo_train.jsonl \
+    --model Qwen/Qwen3-30B-A3B
+```
+
+### DPO Hyperparameters
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `--lr` | 1e-5 | Much lower than SFT (prevents forgetting) |
+| `--dpo-beta` | 0.1 | Controls preference strength. Start here. |
+| `--batch-size` | 16 | In pairs (16 pairs = 32 datums per step) |
+| `--epochs` | 1 | DPO typically needs fewer epochs |
+| `--lora-rank` | 32 | Match SFT rank |
+
+Key metrics: `accuracy` (should increase), `dpo_loss` (should decrease), `margin` (chosen-rejected reward gap).
+
 ### Monitor training
 
 Training logs are written to the log path (printed at start).
 If using W&B, metrics appear at https://wandb.ai.
-
-Key metric: `test/nll` — should decrease over training.
 
 Training outputs a checkpoint path like `tinker://<run-id>:<session>:<step>/sampler_weights/<name>`.
 
@@ -360,17 +432,22 @@ TINKER_URL=https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1
 python -m webagentbench.agent_eval --model Qwen/Qwen3-30B-A3B --provider vllm \
     --api-base-url $TINKER_URL --api-key $TINKER_API_KEY --output results/webagentbench/baseline.json
 
-# Collect
-python -m llmos collect --wab-results results/webagentbench/baseline.json --episodes 20
+# Collect (parallel)
+python -m llmos collect --wab-results results/webagentbench/baseline.json --episodes 20 --workers 10
 
-# Prepare
-python training/prepare_data.py --llmos-dir llmos/runs/ --output training/data/train.jsonl
+# Prepare SFT + DPO data
+python training/prepare_data.py --llmos-dir llmos/runs/ --min-score 0.5 --test-split 5 --output training/data/sft_train.jsonl
+python training/prepare_dpo.py --llmos-dir llmos/runs/ --test-split 5 --output training/data/dpo_train.jsonl
 
-# Train
-python training/train_sft.py --data training/data/train.jsonl --model Qwen/Qwen3-30B-A3B
+# Stage 1: SFT
+python training/train_sft.py --data training/data/sft_train.jsonl --model Qwen/Qwen3-30B-A3B
 
-# Re-eval (replace <checkpoint> with tinker:// path from training)
-python -m webagentbench.agent_eval --model "tinker://<checkpoint>" --provider vllm \
+# Stage 2: DPO (use checkpoint path from SFT output)
+python training/train_dpo.py --data training/data/dpo_train.jsonl --model Qwen/Qwen3-30B-A3B \
+    --checkpoint "tinker://<sft-checkpoint>"
+
+# Re-eval (replace <checkpoint> with tinker:// path from DPO training)
+python -m webagentbench.agent_eval --model "tinker://<dpo-checkpoint>" --provider vllm \
     --api-base-url $TINKER_URL --api-key $TINKER_API_KEY --output results/webagentbench/finetuned.json
 ```
 
@@ -397,9 +474,12 @@ LLMOS/
 │   ├── agent_eval.py       # Agent evaluation loop
 │   ├── manifest.json       # Task definitions
 │   └── pages/              # HTML benchmark pages
-├── training/               # SFT finetuning
-│   ├── prepare_data.py     # Export trajectories → JSONL
-│   └── train_sft.py        # Launch tinker training
+├── training/               # Training pipeline
+│   ├── prepare_data.py     # Export SFT trajectories → JSONL
+│   ├── prepare_dpo.py      # Export DPO preference pairs → JSONL
+│   ├── train_sft.py        # Stage 1: SFT via tinker
+│   ├── train_dpo.py        # Stage 2: DPO via tinker
+│   └── data/               # Generated training data (gitignored)
 ├── tinker-cookbook/         # Tinker library (gitignored, cloned dependency)
 └── results/                # Evaluation results
 ```

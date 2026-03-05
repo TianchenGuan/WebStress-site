@@ -196,6 +196,7 @@ Examples:
     collect_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     collect_p.add_argument("--agent-model", type=str, help="Agent model name")
     collect_p.add_argument("--agent-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
+    collect_p.add_argument("--workers", "-w", type=int, default=1, help="Parallel workers (default: 1)")
     collect_p.add_argument("--quiet", "-q", action="store_true", help="Less output")
 
     args = parser.parse_args()
@@ -266,6 +267,7 @@ def _cmd_collect(args):
         sim_provider=args.sim_provider,
         agent_model=args.agent_model,
         agent_provider=args.agent_provider,
+        workers=args.workers,
         verbose=not args.quiet,
     )
 
