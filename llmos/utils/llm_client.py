@@ -144,6 +144,22 @@ class LLMClient:
 
         return self._vllm_client
 
+    def _get_tinker_client(self):
+        """Get or create Tinker client (OpenAI-compatible)."""
+        if not hasattr(self, "_tinker_client") or self._tinker_client is None:
+            from openai import OpenAI
+
+            tinker_config = self.llm_config.get("tinker", {})
+            base_url = tinker_config.get("base_url", "https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1")
+            api_key = tinker_config.get("api_key")
+
+            if not api_key:
+                raise ValueError("Tinker API key not configured in config.json")
+
+            self._tinker_client = OpenAI(base_url=base_url, api_key=api_key)
+
+        return self._tinker_client
+
     def complete(
         self,
         messages: list[dict],
@@ -181,6 +197,10 @@ class LLMClient:
                     )
                 elif provider == "vllm":
                     response = self._complete_vllm(
+                        messages, model_name, json_mode, temperature
+                    )
+                elif provider == "tinker":
+                    response = self._complete_tinker(
                         messages, model_name, json_mode, temperature
                     )
                 else:
@@ -395,6 +415,28 @@ class LLMClient:
         # Only request JSON mode if explicitly enabled in config (default: off)
         if json_mode and vllm_config.get("json_mode", False):
             kwargs["response_format"] = {"type": "json_object"}
+
+        response = client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
+
+    def _complete_tinker(
+        self,
+        messages: list[dict],
+        model_name: Optional[str],
+        json_mode: bool,
+        temperature: float,
+    ) -> str:
+        """Complete using Tinker's OpenAI-compatible endpoint."""
+        client = self._get_tinker_client()
+        tinker_config = self.llm_config.get("tinker", {})
+        model = model_name or tinker_config.get("default_model", "Qwen/Qwen3-30B-A3B")
+
+        kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": 4096,
+        }
 
         response = client.chat.completions.create(**kwargs)
         return response.choices[0].message.content

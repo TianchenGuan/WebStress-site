@@ -109,11 +109,13 @@ def _llm_complete_openai(
             pass
         else:
             kwargs["temperature"] = temperature
-    # GPT-5.* models require max_completion_tokens instead of max_tokens.
+    # Thinking models (Qwen3, etc.) need more tokens for <think>...</think> + action JSON.
+    # 1024 is too small — thinking often consumes the budget before the action is emitted.
+    max_tok = 4096
     if model.startswith("gpt-5"):
-        kwargs["max_completion_tokens"] = 1024
+        kwargs["max_completion_tokens"] = max_tok
     else:
-        kwargs["max_tokens"] = 1024
+        kwargs["max_tokens"] = max_tok
 
     if reasoning_effort:
         kwargs["reasoning_effort"] = reasoning_effort

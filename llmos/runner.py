@@ -181,9 +181,9 @@ Examples:
     run_p.add_argument("--quiet", "-q", action="store_true", help="Less output")
     # Model overrides
     run_p.add_argument("--sim-model", type=str, help="Simulator model name")
-    run_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm"])
+    run_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     run_p.add_argument("--agent-model", type=str, help="Agent model name")
-    run_p.add_argument("--agent-provider", type=str, choices=["openai", "gemini", "vllm"])
+    run_p.add_argument("--agent-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     run_p.add_argument("--behavior", type=str, default="", help="Extra simulator behavior instructions")
 
     # --- collect command ---
@@ -193,9 +193,9 @@ Examples:
     collect_p.add_argument("--episodes", "-n", type=int, default=10, help="Episodes per primitive")
     collect_p.add_argument("--output", "-o", type=str, default="training_data.jsonl", help="Output path")
     collect_p.add_argument("--sim-model", type=str, help="Simulator model name")
-    collect_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm"])
+    collect_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     collect_p.add_argument("--agent-model", type=str, help="Agent model name")
-    collect_p.add_argument("--agent-provider", type=str, choices=["openai", "gemini", "vllm"])
+    collect_p.add_argument("--agent-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     collect_p.add_argument("--quiet", "-q", action="store_true", help="Less output")
 
     args = parser.parse_args()

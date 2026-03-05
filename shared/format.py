@@ -179,8 +179,12 @@ def build_step_message(status: str, tree: str) -> str:
 
 def parse_action(raw: str) -> dict:
     """Parse LLM response into an action dict. Strips thinking tags and markdown fences."""
-    # Strip <think>...</think>
+    # Strip <think>...</think> (complete tags)
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+
+    # Strip unclosed <think> tags (model hit max_tokens before closing)
+    if "<think>" in cleaned:
+        cleaned = re.sub(r"<think>.*", "", cleaned, flags=re.DOTALL).strip()
 
     # Strip markdown code fences
     if cleaned.startswith("```"):
@@ -192,7 +196,8 @@ def parse_action(raw: str) -> dict:
 
     # Try direct JSON parse
     try:
-        return json.loads(cleaned)
+        result = json.loads(cleaned)
+        return _normalize_action(result)
     except json.JSONDecodeError:
         pass
 
@@ -200,8 +205,27 @@ def parse_action(raw: str) -> dict:
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group())
+            result = json.loads(match.group())
+            return _normalize_action(result)
         except json.JSONDecodeError:
             pass
 
     return {"action": "wait", "thought": f"Failed to parse: {raw[:200]}"}
+
+
+def _normalize_action(action: dict) -> dict:
+    """Fix common malformed action patterns from LLMs."""
+    # Fix nested action: {"action": {"type": "click", "ref": 7}}
+    # Should be:         {"action": "click", "ref": 7}
+    inner = action.get("action")
+    if isinstance(inner, dict):
+        action_type = inner.get("type") or inner.get("action", "wait")
+        normalized = {"action": action_type}
+        for k, v in inner.items():
+            if k not in ("type", "action"):
+                normalized[k] = v
+        # Preserve thought from outer dict
+        if "thought" in action:
+            normalized["thought"] = action["thought"]
+        return normalized
+    return action
