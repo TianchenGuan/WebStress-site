@@ -26,7 +26,7 @@ Precedence: BEHAVIOR instructions > base rules.
     {"op": "insert", "parent_bid": <id>, "index": <n>, "node": {"bid": <new_id>, "visible": true, ...}},
     {"op": "delete", "bid": <id>},
     {"op": "hidden_update", "key": "<key>", "value": <value>},
-    {"op": "meta_update", "props": {"key": "value"}},
+    {"op": "meta_update", "key": "<key>", "value": <value>},
     {"op": "filesystem_update", "path": "<path>", "props": {"key": "value"}}
   ],
   "events": ["event1", "event2"]

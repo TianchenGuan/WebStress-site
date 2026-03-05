@@ -100,7 +100,26 @@ class Agent:
         thought = unified_action.get("thought", "")
 
         # Convert to LLMOS action
-        llmos_action = unified_action_to_llmos(unified_action, ref_to_bid)
+        try:
+            llmos_action = unified_action_to_llmos(unified_action, ref_to_bid)
+        except KeyError as e:
+            logger.warning(f"Agent referenced invalid ref {e} (valid refs: {sorted(ref_to_bid.keys())})")
+            llmos_action = {"action_type": "noop"}
+            # Override status so agent sees the error next step
+            self._last_status = f"ERROR: ref {e} does not exist in the current page. Use only refs from the current observation."
+            # Still record history so the agent learns from the mistake
+            self.conversation_history.append({"role": "user", "content": user_msg})
+            self.conversation_history.append({"role": "assistant", "content": raw_response})
+            llmos_action["thought"] = thought
+            llmos_action["_llm_data"] = {
+                "role": "agent",
+                "provider": self.provider,
+                "model": self.model,
+                "raw_response": raw_response,
+                "thought": thought,
+                "error": f"invalid ref {e}",
+            }
+            return llmos_action
 
         # Update conversation history
         self.conversation_history.append({"role": "user", "content": user_msg})
