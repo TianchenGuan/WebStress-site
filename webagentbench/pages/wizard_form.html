@@ -294,6 +294,17 @@
       margin-top: 2px;
     }
 
+    .coverage-select {
+      margin-top: 8px;
+      width: 220px;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #1a1a2e;
+      background: #fff;
+    }
+
     /* ── Warning Alert ───────────────────────────────────── */
     .warning-alert {
       background: #fff7ed;
@@ -595,6 +606,19 @@
         </div>
       </div>
 
+      <div class="coverage-option" id="cat-deductible-option">
+        <div class="coverage-info">
+          <label for="input-cat-deductible" class="coverage-title">Catastrophe Deductible</label>
+          <div class="coverage-note">For high-value California properties, select the mandatory 2% deductible tier.</div>
+          <select id="input-cat-deductible" class="coverage-select">
+            <option value="">Select deductible...</option>
+            <option value="1pct">1% deductible</option>
+            <option value="2pct">2% deductible</option>
+            <option value="5pct">5% deductible</option>
+          </select>
+        </div>
+      </div>
+
       <div class="change-plan-row">
         <button class="btn btn-warning" id="btn-change-plan">&#x21A9; Change Plan</button>
       </div>
@@ -634,6 +658,10 @@
         <tr>
           <td>Flood Coverage</td>
           <td id="review-flood">-</td>
+        </tr>
+        <tr>
+          <td>Catastrophe Deductible</td>
+          <td id="review-cat-deductible">-</td>
         </tr>
       </table>
 
@@ -700,6 +728,7 @@
   var planRadios = document.querySelectorAll('input[name="plan"]');
   var inputEarthquake = document.getElementById("input-earthquake");
   var inputFlood = document.getElementById("input-flood");
+  var inputCatDeductible = document.getElementById("input-cat-deductible");
   var inputBeneficiaryName = document.getElementById("input-beneficiary-name");
   var inputBeneficiaryRelation = document.getElementById("input-beneficiary-relation");
 
@@ -716,6 +745,7 @@
   var reviewPlan = document.getElementById("review-plan");
   var reviewEarthquake = document.getElementById("review-earthquake");
   var reviewFlood = document.getElementById("review-flood");
+  var reviewCatDeductible = document.getElementById("review-cat-deductible");
 
   // Confirmation
   var confirmationMessage = document.getElementById("confirmation-message");
@@ -757,7 +787,24 @@
       if (!getSelectedPlan()) return "Please select a plan.";
       return null;
     }
-    return null; // Steps 3 and 4 don't gate progression
+    if (step === 3) {
+      var state = inputState.value;
+      var propVal = parseInt(inputPropertyValue.value || "0", 10);
+      var plan = getSelectedPlan();
+      if (state === "CA" && propVal > 750000) {
+        if (plan !== "premium") {
+          return "High-value California properties require Premium plan.";
+        }
+        if (!inputEarthquake.checked || !inputFlood.checked) {
+          return "Select both Earthquake and Flood coverage for high-value California properties.";
+        }
+        if (inputCatDeductible.value !== "2pct") {
+          return "High-value California properties require the 2% catastrophe deductible.";
+        }
+      }
+      return null;
+    }
+    return null; // Step 4 doesn't gate progression
   }
 
   // ── Step Navigation ─────────────────────────────────────────────
@@ -815,7 +862,8 @@
       property_value: parseInt(inputPropertyValue.value || "0", 10),
       plan: getSelectedPlan(),
       earthquake_coverage: inputEarthquake.checked,
-      flood_coverage: inputFlood.checked
+      flood_coverage: inputFlood.checked,
+      cat_deductible: inputCatDeductible.value || null
     });
 
     // Run step-specific setup
@@ -863,7 +911,7 @@
     } else if (state === "CA" && plan === "premium" && propVal > 750000) {
       coverageGapWarning.classList.add("visible");
       coverageGapText.textContent =
-        "High-value California properties (over $750,000) are required to carry both Earthquake and Flood Coverage under state regulation HB-4721. Please ensure both coverages are selected before proceeding.";
+        "High-value California properties (over $750,000) are required to carry Earthquake + Flood coverage and use the 2% catastrophe deductible under state regulation HB-4721.";
       window.__benchmarkLog("coverage_gap_warning", { type: "high_value_ca", property_value: propVal });
     } else {
       coverageGapWarning.classList.remove("visible");
@@ -884,6 +932,10 @@
     reviewPlan.textContent = planDisplayName(getSelectedPlan());
     reviewEarthquake.textContent = inputEarthquake.checked ? "Yes" : "No";
     reviewFlood.textContent = inputFlood.checked ? "Yes" : "No";
+    if (inputCatDeductible.value === "1pct") reviewCatDeductible.textContent = "1% deductible";
+    else if (inputCatDeductible.value === "2pct") reviewCatDeductible.textContent = "2% deductible";
+    else if (inputCatDeductible.value === "5pct") reviewCatDeductible.textContent = "5% deductible";
+    else reviewCatDeductible.textContent = "-";
   }
 
   // ── Plan Card Selection Styling ─────────────────────────────────
@@ -965,6 +1017,7 @@
       plan: plan,
       earthquake_coverage: inputEarthquake.checked,
       flood_coverage: inputFlood.checked,
+      cat_deductible: inputCatDeductible.value || null,
       beneficiary_name: inputBeneficiaryName.value,
       beneficiary_relation: inputBeneficiaryRelation.value,
     });
