@@ -120,6 +120,11 @@ def _llm_complete_openai(
     if reasoning_effort:
         kwargs["reasoning_effort"] = reasoning_effort
 
+    # Some OpenAI-compatible Qwen3 endpoints reject non-streaming calls unless
+    # internal thinking is disabled explicitly.
+    if model.startswith("qwen3"):
+        kwargs["extra_body"] = {"enable_thinking": False}
+
     response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
@@ -241,6 +246,29 @@ def _extract_targets(action: dict, ref_map: dict, page) -> dict:
     return targets
 
 
+def _capture_dom_checks(page, checks: list[dict]) -> dict[str, str]:
+    """Capture manifest-defined DOM evidence after the agent finishes."""
+    captured: dict[str, str] = {}
+    for check in checks:
+        selector = check.get("selector")
+        if not selector:
+            continue
+        try:
+            locator = page.locator(selector).first
+            if locator.count() == 0:
+                continue
+            text = locator.text_content()
+            if text is None:
+                text = locator.input_value()
+            if text is None:
+                text = locator.get_attribute("value")
+            if text is not None:
+                captured[selector] = text
+        except Exception:
+            continue
+    return captured
+
+
 def run_agent_on_page(
     page,
     client,
@@ -313,6 +341,7 @@ def run_agent_on_page(
             "status": status,
             "elapsed_seconds": round(time.time() - start_time, 1),
         })
+        messages.append({"role": "assistant", "content": raw_response})
 
         if status == "FINISH":
             if verbose:
@@ -322,7 +351,6 @@ def run_agent_on_page(
         page.wait_for_timeout(500)
 
         tree_text, ref_map = page_to_indexed_tree(page)
-        messages.append({"role": "assistant", "content": raw_response})
         messages.append({"role": "user", "content": build_step_message(status, tree_text)})
 
     return {
@@ -428,6 +456,7 @@ def run_evaluation(
             for page_def in pages:
                 page_id = page_def["page_id"]
                 instruction = page_def["instruction"]
+                benchmark_state = {}
 
                 if verbose:
                     print(f"[{page_id}] {page_def['title']}")
@@ -459,13 +488,22 @@ def run_evaluation(
                     benchmark_state = page.evaluate(
                         "() => JSON.parse(JSON.stringify(window.__benchmarkState || {}))"
                     )
+                    dom_checks = page_def.get("success_criteria", {}).get("dom_check", [])
+                    if dom_checks:
+                        benchmark_state["dom_checks"] = _capture_dom_checks(page, dom_checks)
 
                     # Evaluate via server
                     evaluation = evaluate_state(bench_url, page_id, benchmark_state)
 
                 except Exception as e:
                     logger.error(f"Error on page {page_id}: {e}")
-                    agent_result = {"steps": 0, "trajectory": [], "elapsed_seconds": 0, "completed": False}
+                    agent_result = {
+                        "steps": 0,
+                        "trajectory": [],
+                        "elapsed_seconds": 0,
+                        "completed": False,
+                        "messages": [],
+                    }
                     evaluation = {"score": -1.0, "success": False, "reasoning": f"Error: {e}"}
 
                 finally:
@@ -476,6 +514,7 @@ def run_evaluation(
                     "title": page_def["title"],
                     "primitives": page_def["primary_primitives"],
                     "difficulty": page_def["difficulty"],
+                    "benchmark_state": benchmark_state,
                     "evaluation": evaluation,
                     "agent": {
                         "model": model,
@@ -526,9 +565,20 @@ def _write_agent_results(results: list[dict], model: str, provider: str, output_
         for prim in r.get("primitives", []):
             prim_scores.setdefault(prim, []).append(r["evaluation"].get("score", -1.0))
 
+    output_version = "1.0.0"
+    page_meta = {}
+    manifest_path = BASE_DIR / "manifest.json"
+    try:
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        output_version = manifest.get("version", output_version)
+        page_meta = {p["page_id"]: p for p in manifest.get("pages", [])}
+    except Exception:
+        pass
+
     output = {
         "benchmark": "WebAgentBench",
-        "version": "1.0.0",
+        "version": output_version,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "agent": {
             "model": model,
@@ -547,13 +597,7 @@ def _write_agent_results(results: list[dict], model: str, provider: str, output_
     }
 
     # Attach page metadata for richer visualization (instruction, primitives, etc.)
-    try:
-        manifest_path = BASE_DIR / "manifest.json"
-        with open(manifest_path) as f:
-            manifest = json.load(f)
-        output["page_meta"] = {p["page_id"]: p for p in manifest.get("pages", [])}
-    except Exception:
-        output["page_meta"] = {}
+    output["page_meta"] = page_meta
 
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
