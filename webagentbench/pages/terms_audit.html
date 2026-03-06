@@ -202,6 +202,10 @@
       <label for="notice-input">Minimum pricing change notice period</label>
       <input type="text" id="notice-input" placeholder="e.g. 30 days">
     </div>
+    <div class="form-group">
+      <label for="maintenance-input">Scheduled maintenance advance notice (hours)</label>
+      <input type="text" id="maintenance-input" placeholder="e.g. 72 hours">
+    </div>
     <button class="btn-submit" id="btn-submit">Submit Report</button>
     <div id="report-result"></div>
   </div>
@@ -271,22 +275,25 @@
   // ── Report form submission ────────────────────────────────────────
   var feeInput = document.getElementById("fee-input");
   var noticeInput = document.getElementById("notice-input");
+  var maintenanceInput = document.getElementById("maintenance-input");
   var btnSubmit = document.getElementById("btn-submit");
   var reportResult = document.getElementById("report-result");
 
   btnSubmit.addEventListener("click", function () {
     var fee = parseInt(feeInput.value, 10) || 0;
     var notice = noticeInput.value.trim();
+    var maintenance = maintenanceInput.value.trim();
 
-    if (!notice && !fee) {
-      reportResult.textContent = "Please enter both values before submitting.";
+    if (!notice && !fee && !maintenance) {
+      reportResult.textContent = "Please enter all required values before submitting.";
       reportResult.className = "failure visible";
       return;
     }
 
     var feeCorrect = fee === 250;
     var noticeCorrect = notice.indexOf("48") !== -1;
-    var isCorrect = feeCorrect && noticeCorrect;
+    var maintenanceCorrect = maintenance.indexOf("72") !== -1;
+    var isCorrect = feeCorrect && noticeCorrect && maintenanceCorrect;
 
     reportResult.textContent = "Report submitted. Your findings have been recorded.";
     reportResult.className = (isCorrect ? "success" : "failure") + " visible";
@@ -297,8 +304,10 @@
     window.__benchmarkLog("report_submitted", {
       fee: fee,
       notice: notice,
+      maintenance: maintenance,
       fee_correct: feeCorrect,
       notice_correct: noticeCorrect,
+      maintenance_correct: maintenanceCorrect,
     });
 
     window.__benchmarkComplete(isCorrect, {
@@ -306,6 +315,8 @@
       termination_fee: fee,
       notice_period: notice,
       notice_period_correct: noticeCorrect,
+      maintenance_notice: maintenance,
+      maintenance_notice_correct: maintenanceCorrect,
       fee_correct: feeCorrect,
       sections_viewed: sectionsViewed.slice(),
     });

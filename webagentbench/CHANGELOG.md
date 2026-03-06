@@ -1,6 +1,114 @@
 # WebAgentBench Changelog
 
-Iterative optimization of 12 self-contained web pages for evaluating LLM agent cognitive primitives. Each version corresponds to a benchmark run against 3 Qwen models via the DashScope API (`api.aiearth.dev`).
+Iterative optimization of 15 self-contained web pages for evaluating LLM agent cognitive primitives. Each version corresponds to benchmark runs and challenge redesign iterations.
+
+Benchmark overview and versioned result tables are maintained in `README.md`. This file is the change log for version-by-version benchmark modifications.
+
+## v10 — Validation Cleanup, Shared-Runtime Adaptation, and Curated Trajectories
+
+### What changed
+
+- fixed the final `dark_checkout` DOM selector so completion evidence points to the real purchase button state instead of a missing element
+- kept the harness validity fixes from the revalidation pass:
+  - DOM checks are captured and enforced during agent runs
+  - raw `benchmark_state` is stored in result artifacts for auditing
+- adapted `agent_eval.py` to the latest shared indexed-ref runtime while preserving WebAgentBench-specific evaluation behavior:
+  - shared prompt/parser/action execution from `shared.format` and `shared.playwright_adapter`
+  - Qwen3 OpenAI-compatible provider fix (`enable_thinking=false`)
+  - stored `agent.messages`, `trajectory[*].targets`, and top-level `page_meta`
+- patched the shared runtime for WebAgentBench compatibility:
+  - Playwright snapshot lines like `'button "Section 2: Projects"'` are normalized into real clickable refs
+  - page scroll state now emits `[-- more content below --]` hints
+  - escaped accessibility names such as `e.g. 31.5"` resolve correctly
+  - `wait` now covers the benchmark's 1.5s async loaders instead of under-waiting them
+- improved page accessibility where the new ref-based runtime exposed semantic gaps:
+  - `slow_search` property cards now expose headings and per-property detail buttons in the accessibility tree
+- fixed the non-interactive visualizer flow so `python -m webagentbench.visualize --no-open` exits cleanly after artifact generation
+- added curated per-page trajectories for the current iteration, keeping only entries where:
+  - `evaluation.success === true`
+  - `agent.completed === true`
+
+### Artifact policy
+
+- `results/webagentbench/` now retains curated successful trajectories plus an index/README for the current iteration
+- legacy aggregate JSON result files are preserved for historical reference instead of being removed
+
+### Revalidated results
+
+| Runtime | Scope | `qwen-max` | `qwen2.5-72b-instruct` | `qwen3-30b-a3b` |
+|---------|-------|------------|-------------------------|-----------------|
+| selector runtime | full 15-page suite | `9/15 (+0.567)` | `—` | `—` |
+| selector runtime | hardening slice, 5 pages | `4/5 (+0.90)` | `2/5 (+0.50)` | `1/5 (+0.10)` |
+| shared indexed-ref runtime | full 15-page suite | `6/15 (+0.133)` | `—` | `—` |
+| shared indexed-ref runtime | hardening slice, 5 pages | `2/5 (+0.40)` | `2/5 (+0.10)` | `1/5 (-0.30)` |
+
+## v9 — Benchmark-Wide Hardening Pass
+
+### Research narrative
+
+This pass shifts the benchmark from single-answer retrieval toward policy-compliant execution across the suite. The core hypothesis is that frontier web agents still underperform when tasks require combining extraction, constraint adherence, and explicit verification in one trajectory.
+
+### What changed
+
+- `wizard_form`: high-value California submissions now require the mandated `2%` catastrophe deductible in addition to premium + earthquake + flood.
+- `slow_search`: answer target changed from raw price/sqft to effective price/sqft after HOA reserve credit in expanded details.
+- `filter_dashboard`: added employment-type filtering with full-time-only requirement in the task objective.
+- `terms_audit`: expanded from 2 to 3 required legal facts by adding maintenance notice period extraction.
+- `email_thread`: expanded from 2 to 3 required thread conclusions by adding deferred workstream extraction.
+
+### Benchmark metadata
+
+- `manifest.json` bumped to `1.3.0` and scoring updated for all five redesigned pages.
+
+## v8 — Fairness/Objectivity Patch
+
+### What changed
+
+- Evaluator full-success now requires `completed === true`; success is no longer granted from `js_eval` alone.
+- DOM checks are now enforced when DOM capture is present, and evaluator output explicitly reports whether DOM checks were enforced.
+- Frontier pages no longer hard-lock on first failed submit: failed attempts update benchmark state and allow correction/resubmission.
+- `policy_reconciliation` success no longer depends on hidden process constraints (memo-coverage threshold or key-generation flag); success is outcome-based.
+- `ops_race_console` partial scoring now consistently requires signature correctness alongside incident/code correctness.
+
+## v7 — Frontier Hardening Pass
+
+### What changed
+
+Three frontier pages were made materially harder after qwen-max achieved 3/3:
+
+- **ops_race_console** now requires a consistency-check step before freeze and a computed approval signature (`SIG-((incident suffix + frozen cycle) mod 97)`), in addition to incident/code correctness.
+- **policy_reconciliation** no longer leaks answers in compare mode; it now requires broader memo coverage and a generated evidence key before submission.
+- **migration_gatekeeper** now requires advanced normalization (`strict-canonical`), two-stage dry-run confirmation, explicit token validation, and a validation stamp in final submission.
+
+### Scoring/evaluation updates
+
+- `manifest.json` success criteria and partial scoring were tightened for all three frontier pages, and benchmark version was bumped to **1.2.0**.
+- `evaluator.py` enrichers now expose the new verification signals (consistency check, evidence key, dry-run pass count, token validation, validation stamp).
+
+## v6 — Frontier-Hard Track (15 pages)
+
+### Motivation
+
+The v5 set is strong for mid-tier agents but still leaves solvable shortcuts for frontier models. v6 adds three challenges specifically designed around failure modes that remain hard for high-end web agents:
+
+- **Temporal race conditions + freeze-time verification**
+- **Policy reconciliation with superseded amendments and exception handling**
+- **Validation-gated migration with deceptive quick-success paths**
+
+### New pages
+
+- **ops_race_console.html**  
+  Live incident feed mutates over time; agent must wait for a stable window, freeze the feed, escalate the unique matching incident, and submit the freeze-consistent incident ID and escalation code.
+- **policy_reconciliation.html**  
+  Agent must reconcile final policy values across lazy-loaded memos with superseded drafts and red-zone exceptions. Requires compare-mode activation and correct controlling memo attribution.
+- **migration_gatekeeper.html**  
+  Multi-step workflow where fake success paths exist (`Quick Commit`, optimistic dry-run toast). Only a validated dry-run + real commit + correct token submission yields success.
+
+### Manifest / evaluator updates
+
+- `manifest.json` bumped to **1.1.0**, benchmark description updated to 15 pages, and all three new frontier pages added with strict success criteria and partial scoring.
+- `evaluator.py` includes dedicated enrichers for the three new pages to preserve diagnostic detail in results.
+- `app.py`, `runner.py`, `agent_eval.py`, and `__init__.py` updated to reflect the 1.1.0 benchmark metadata.
 
 ## Results Overview
 

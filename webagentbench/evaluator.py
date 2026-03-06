@@ -30,13 +30,25 @@ def evaluate(page_id: str, benchmark_state: dict, page_manifest: dict) -> dict:
     js_results = _eval_js_criteria(data, criteria.get("js_eval", []))
 
     # 2. Check dom_check conditions (if captured by agent/runner)
-    dom_results = _eval_dom_criteria(benchmark_state, criteria.get("dom_check", []))
+    dom_checks = criteria.get("dom_check", [])
+    dom_results = _eval_dom_criteria(benchmark_state, dom_checks)
+    dom_data_present = bool(benchmark_state.get("dom_checks"))
+    enforce_dom = bool(dom_checks) and dom_data_present
 
     # 3. Compute score
     scoring = page_manifest.get("scoring", {})
-    result = _compute_score(data, completed, js_results, scoring)
+    result = _compute_score(
+        data,
+        completed,
+        js_results,
+        dom_results,
+        scoring,
+        enforce_dom=enforce_dom,
+    )
     result["criteria_results"] = js_results
     result["dom_results"] = dom_results
+    result["dom_enforced"] = enforce_dom
+    result["dom_data_present"] = dom_data_present
     result["page_id"] = page_id
     result["completed"] = completed
 
@@ -139,11 +151,16 @@ def _eval_dom_criteria(state: dict, checks: list[dict]) -> list[dict]:
         condition = check.get("condition", "exists")
         expected = check.get("value", "")
         actual = dom_data.get(selector)
+        actual_text = str(actual).strip() if actual is not None else None
+        expected_text = str(expected).strip()
 
         if condition == "contains":
-            passed = actual is not None and expected in str(actual)
+            passed = (
+                actual_text is not None
+                and expected_text.lower() in actual_text.lower()
+            )
         elif condition == "equals":
-            passed = str(actual) == expected if actual is not None else False
+            passed = actual_text == expected_text if actual is not None else False
         elif condition == "exists":
             passed = actual is not None
         elif condition == "not_exists":
@@ -165,14 +182,17 @@ def _compute_score(
     data: dict,
     completed: bool,
     js_results: list[dict],
+    dom_results: list[dict],
     scoring: dict,
+    *,
+    enforce_dom: bool = False,
 ) -> dict:
     """Compute the overall score from criteria results."""
-    all_pass = all(r["passed"] for r in js_results) if js_results else False
+    all_js_pass = all(r["passed"] for r in js_results) if js_results else False
+    all_dom_pass = all(r["passed"] for r in dom_results) if dom_results else True
     total = len(js_results)
-    passed_count = sum(1 for r in js_results if r["passed"])
 
-    if all_pass:
+    if all_js_pass and completed and ((not enforce_dom) or all_dom_pass):
         return {
             "score": 1.0,
             "success": True,
@@ -197,6 +217,19 @@ def _compute_score(
 
     # Full failure
     failed = [r["expression"] for r in js_results if not r["passed"]]
+    if not completed:
+        return {
+            "score": -1.0,
+            "success": False,
+            "reasoning": "Task not marked completed in benchmark state",
+        }
+    if enforce_dom and not all_dom_pass:
+        failed_dom = [r["selector"] for r in dom_results if not r["passed"]]
+        return {
+            "score": -1.0,
+            "success": False,
+            "reasoning": f"DOM checks failed: {', '.join(failed_dom[:3])}",
+        }
     return {
         "score": -1.0,
         "success": False,
@@ -264,6 +297,8 @@ def _enrich_wizard_form(data: dict, state: dict) -> dict:
         "earthquake_selected": data.get("earthquake_coverage", False),
         "flood_selected": data.get("flood_coverage", False),
         "plan_selected": data.get("plan"),
+        "catastrophe_deductible": data.get("cat_deductible"),
+        "correct_catastrophe_deductible": data.get("cat_deductible") == "2pct",
     }
 
 
@@ -273,7 +308,8 @@ def _enrich_slow_search(data: dict, state: dict) -> dict:
         "batches_loaded_at_submit": data.get("batches_loaded", 0),
         "submitted_early": data.get("batches_loaded", 0) < 3,
         "used_wrong_property": reported == 288,
-        "correct_answer": reported == 287,
+        "used_raw_price_per_sqft": reported == 287,
+        "correct_answer": reported == 281,
     }
 
 
@@ -298,7 +334,8 @@ def _enrich_filter_dashboard(data: dict, state: dict) -> dict:
         "reported_count": data.get("reported_count"),
         "count_matches_visible": data.get("count_matches_visible", False),
         "visible_count_at_submit": data.get("visible_count_at_submit"),
-        "correct_answer": data.get("reported_count") == 4,
+        "employment_filter": (data.get("filters_applied") or {}).get("employment"),
+        "correct_answer": data.get("reported_count") == 3,
     }
 
 
@@ -307,23 +344,84 @@ def _enrich_terms_audit(data: dict, state: dict) -> dict:
         "sections_viewed": data.get("sections_viewed", []),
         "termination_fee_correct": data.get("fee_correct", False),
         "notice_period_correct": data.get("notice_period_correct", False),
+        "maintenance_notice_correct": data.get("maintenance_notice_correct", False),
         "termination_fee_entered": data.get("termination_fee"),
         "notice_period_entered": data.get("notice_period"),
+        "maintenance_notice_entered": data.get("maintenance_notice"),
     }
 
 
 def _enrich_email_thread(data: dict, state: dict) -> dict:
     deadline = str(data.get("deadline", ""))
     coordinator = str(data.get("coordinator", ""))
+    deferred = str(data.get("deferred_workstream", ""))
     return {
         "messages_viewed": data.get("messages_viewed", []),
         "deadline_correct": "March 22" in deadline or "Mar 22" in deadline,
         "coordinator_correct": "sarah chen" in coordinator.lower(),
+        "deferred_correct": data.get("deferred_correct", False),
         "deadline_entered": deadline,
         "coordinator_entered": coordinator,
+        "deferred_workstream_entered": deferred,
         "submitted_superseded_date": any(
             d in deadline for d in ["March 15", "April 1", "March 25", "March 29"]
         ),
+    }
+
+
+def _enrich_ops_race_console(data: dict, state: dict) -> dict:
+    expected = data.get("expected_incident_id")
+    submitted = data.get("submitted_incident_id")
+    return {
+        "feed_frozen": data.get("feed_frozen", False),
+        "freeze_after_stable": data.get("freeze_after_stable", False),
+        "consistency_check_clicked": data.get("consistency_check_clicked", False),
+        "verification_lock_armed": data.get("verification_lock_armed", False),
+        "unique_match_at_freeze": data.get("unique_match_at_freeze", False),
+        "expected_incident_id": expected,
+        "escalated_incident_id": data.get("escalated_incident_id"),
+        "submitted_incident_id": submitted,
+        "submitted_code": data.get("submitted_code"),
+        "expected_code": data.get("expected_code"),
+        "submitted_signature": data.get("submitted_signature"),
+        "expected_signature": data.get("expected_signature"),
+        "matched_expected_incident": expected is not None and submitted == expected,
+    }
+
+
+def _enrich_policy_reconciliation(data: dict, state: dict) -> dict:
+    memo_id = str(data.get("source_memo_id", ""))
+    return {
+        "compare_mode_used": data.get("compare_mode_used", False),
+        "viewed_memos": data.get("viewed_memos", []),
+        "memo_coverage_ready": data.get("memo_coverage_ready", False),
+        "final_limit": data.get("final_limit"),
+        "notice_days": data.get("notice_days"),
+        "source_memo_id": memo_id,
+        "evidence_key_generated": data.get("evidence_key_generated", False),
+        "evidence_key_submitted": data.get("evidence_key_submitted"),
+        "evidence_key_expected": data.get("evidence_key_expected"),
+        "used_d4_memo": "D4" in memo_id,
+        "used_superseded_value": data.get("superseded_value_used", False),
+    }
+
+
+def _enrich_migration_gatekeeper(data: dict, state: dict) -> dict:
+    return {
+        "mapping_profile": data.get("mapping_profile"),
+        "include_archived": data.get("include_archived"),
+        "normalization_mode": data.get("normalization_mode"),
+        "dry_run_attempts": data.get("dry_run_attempts", 0),
+        "dry_run_pass_count": data.get("dry_run_pass_count", 0),
+        "dry_run_passed": data.get("dry_run_passed", False),
+        "quick_commit_clicked": data.get("quick_commit_clicked", False),
+        "real_commit_done": data.get("real_commit_done", False),
+        "token_validated": data.get("token_validated", False),
+        "token_entered": data.get("token_entered"),
+        "token_generated": data.get("token_generated"),
+        "validation_stamp_entered": data.get("validation_stamp_entered"),
+        "validation_stamp_generated": data.get("validation_stamp_generated"),
+        "submission_successful": data.get("submission_successful", False),
     }
 
 
@@ -338,4 +436,7 @@ _PAGE_ENRICHERS = {
     "filter_dashboard": _enrich_filter_dashboard,
     "terms_audit": _enrich_terms_audit,
     "email_thread": _enrich_email_thread,
+    "ops_race_console": _enrich_ops_race_console,
+    "policy_reconciliation": _enrich_policy_reconciliation,
+    "migration_gatekeeper": _enrich_migration_gatekeeper,
 }

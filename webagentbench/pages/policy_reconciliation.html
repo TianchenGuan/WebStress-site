@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Policy Reconciliation Desk</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1a2438;
+      line-height: 1.5;
+    }
+
+    .header {
+      background: #111827;
+      color: #e5e7eb;
+      padding: 16px 24px;
+      border-bottom: 1px solid #1f2937;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; }
+    .header p { font-size: 13px; color: #93a0b6; margin-top: 4px; }
+
+    .layout {
+      max-width: 1200px;
+      margin: 20px auto 40px;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #d7deea;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(10, 20, 40, 0.06);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5ebf5;
+      background: #f9fbff;
+    }
+    .panel-head h2 { font-size: 16px; }
+    .panel-body { padding: 14px 16px 16px; }
+
+    .policy-item {
+      border: 1px solid #e3eaf6;
+      border-radius: 9px;
+      padding: 10px 11px;
+      margin-bottom: 9px;
+      background: #fbfdff;
+    }
+    .policy-item .name {
+      font-size: 12px;
+      color: #51607a;
+      margin-bottom: 4px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+    .policy-item .value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a2438;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .controls button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #1d4ed8;
+      color: #fff;
+    }
+    .controls button:disabled {
+      background: #9bb5ef;
+      cursor: not-allowed;
+    }
+    .checkbox-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #445572;
+    }
+    #generate-key-btn {
+      background: #0f766e;
+      color: #fff;
+    }
+    #generate-key-btn:disabled {
+      background: #93c5c2;
+      cursor: not-allowed;
+    }
+
+    #compare-status {
+      font-size: 12px;
+      color: #52617b;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+
+    .memo-list {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .memo-card {
+      border: 1px solid #dde6f6;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      min-height: 138px;
+    }
+    .memo-card.hidden { display: none; }
+    .memo-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: #f8faff;
+      border-bottom: 1px solid #e8eefb;
+      padding: 10px 12px;
+    }
+    .memo-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      color: #1e3a8a;
+      font-weight: 700;
+    }
+    .memo-status {
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .memo-status.approved {
+      background: #e8f7ee;
+      color: #246a3a;
+      border-color: #bee4cb;
+    }
+    .memo-status.superseded {
+      background: #fff2e8;
+      color: #9a4b16;
+      border-color: #f6d4ba;
+    }
+    .memo-body {
+      padding: 11px 12px;
+      font-size: 13px;
+      color: #2e3f5b;
+    }
+    .placeholder {
+      font-style: italic;
+      color: #8ea0bc;
+    }
+    .memo-date {
+      font-size: 11px;
+      color: #6b7b95;
+      margin-top: 6px;
+    }
+
+    .summary-box {
+      border: 1px dashed #c7d7f4;
+      background: #f7faff;
+      border-radius: 9px;
+      padding: 10px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: #3d5170;
+      min-height: 64px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #465772;
+      margin-bottom: 4px;
+    }
+    .form-group input {
+      width: 100%;
+      border: 1px solid #ccd7ea;
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 13px;
+    }
+    #submit-btn {
+      border: none;
+      border-radius: 8px;
+      background: #14532d;
+      color: #fff;
+      padding: 11px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #report-result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: none;
+    }
+    #report-result.ok {
+      display: block;
+      background: #e8f7ee;
+      color: #1c6b38;
+      border: 1px solid #b9e2c7;
+    }
+    #report-result.bad {
+      display: block;
+      background: #fdecec;
+      color: #8e2016;
+      border: 1px solid #f5c3be;
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <h1>Vendor Policy Reconciliation</h1>
+  <p>Compute final policy values for standard enterprise vendors (non-red-zone) after applying approved amendments effective in 2026.</p>
+</header>
+
+<main class="layout">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Base Policy v4.2</h2>
+    </div>
+    <div class="panel-body">
+      <div class="policy-item">
+        <div class="name">Standard Approval Limit</div>
+        <div class="value">$90,000</div>
+      </div>
+      <div class="policy-item">
+        <div class="name">Pricing Change Notice</div>
+        <div class="value">30 days</div>
+      </div>
+      <div class="policy-item">
+        <div class="name">Red-Zone Vendor Limit</div>
+        <div class="value">$90,000</div>
+      </div>
+      <div class="policy-item">
+        <div class="name">Temporary Sandbox Notice</div>
+        <div class="value">14 days (pilot only)</div>
+      </div>
+      <p style="font-size:12px; color:#5e6f8b; margin-top:10px;">
+        Use amendment memos for final values. Base policy is not authoritative once overridden.
+      </p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Amendment Timeline</h2>
+    </div>
+    <div class="panel-body">
+      <div class="controls">
+        <button id="compare-btn" type="button">Activate Compare Mode</button>
+        <button id="generate-key-btn" type="button" disabled>Generate Evidence Key</button>
+        <label class="checkbox-row" for="show-superseded">
+          <input id="show-superseded" type="checkbox" checked>
+          Show superseded memos
+        </label>
+      </div>
+      <p id="compare-status">Compare mode is not active.</p>
+
+      <div id="summary-box" class="summary-box">
+        Compare mode will list controlling memo relationships here.
+      </div>
+
+      <div id="memo-list" class="memo-list"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="limit-input">Final standard approval limit ($)</label>
+          <input id="limit-input" type="number" placeholder="e.g. 125000">
+        </div>
+        <div class="form-group">
+          <label for="notice-input">Final pricing notice period (days)</label>
+          <input id="notice-input" type="number" placeholder="e.g. 21">
+        </div>
+        <div class="form-group">
+          <label for="memo-input">Controlling memo ID for approval limit</label>
+          <input id="memo-input" type="text" placeholder="e.g. D4-ERRATA">
+        </div>
+        <div class="form-group">
+          <label for="evidence-input">Evidence key from compare graph</label>
+          <input id="evidence-input" type="text" placeholder="e.g. D4-B2-21">
+        </div>
+        <button id="submit-btn" type="button">Submit Reconciliation</button>
+        <div id="report-result"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/benchmark.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var memos = [
+    {
+      id: "A1",
+      title: "Enterprise Limit Adjustment",
+      date: "Jan 10, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Approved change: increase the standard enterprise vendor approval limit from $90,000 to $120,000."
+    },
+    {
+      id: "B2",
+      title: "Pricing Notice Alignment",
+      date: "Jan 18, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Approved change: minimum notice period before pricing changes is 21 days for enterprise contracts."
+    },
+    {
+      id: "C3",
+      title: "Draft Risk Escalation",
+      date: "Jan 22, 2026",
+      status: "superseded",
+      superseded: true,
+      body: "Draft proposal (not final): raise standard limit to $140,000 pending risk sign-off. Later superseded."
+    },
+    {
+      id: "D4-ERRATA",
+      title: "Errata and Correction",
+      date: "Jan 24, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Correction to A1/C3: final standard enterprise vendor approval limit is $125,000. Red-zone vendors remain capped at $90,000."
+    },
+    {
+      id: "E5",
+      title: "Travel Expense Clarification",
+      date: "Jan 27, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Unrelated: travel reimbursement cap for in-person audit visits is $4,000 per quarter."
+    },
+    {
+      id: "F6",
+      title: "Small Vendor Fast Lane",
+      date: "Jan 30, 2026",
+      status: "approved",
+      superseded: false,
+      body: "For non-enterprise vendors only: requests at or below $25,000 may use one-click approval."
+    },
+    {
+      id: "G7",
+      title: "Sandbox Pricing Pilot",
+      date: "Feb 2, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Pilot-only sandbox contracts may use a 14-day pricing notice. This does not replace enterprise notice policy."
+    },
+    {
+      id: "H8",
+      title: "Administrative Clean-up",
+      date: "Feb 6, 2026",
+      status: "approved",
+      superseded: false,
+      body: "No numerical policy changes. Metadata and signature blocks updated."
+    },
+    {
+      id: "I9",
+      title: "Red-Zone Escalation Notice",
+      date: "Feb 8, 2026",
+      status: "approved",
+      superseded: false,
+      body: "Red-zone vendors require 28-day pricing change notice. This exception does not apply to standard enterprise vendors."
+    },
+    {
+      id: "J10",
+      title: "Supersession Mapping Note",
+      date: "Feb 10, 2026",
+      status: "approved",
+      superseded: false,
+      body: "For standard enterprise vendor limit, D4-ERRATA supersedes both A1 and C3. C3 is retained only for audit history."
+    }
+  ];
+
+  var memoList = document.getElementById("memo-list");
+  var compareBtn = document.getElementById("compare-btn");
+  var generateKeyBtn = document.getElementById("generate-key-btn");
+  var showSuperseded = document.getElementById("show-superseded");
+  var compareStatus = document.getElementById("compare-status");
+  var summaryBox = document.getElementById("summary-box");
+  var limitInput = document.getElementById("limit-input");
+  var noticeInput = document.getElementById("notice-input");
+  var memoInput = document.getElementById("memo-input");
+  var evidenceInput = document.getElementById("evidence-input");
+  var submitBtn = document.getElementById("submit-btn");
+  var reportResult = document.getElementById("report-result");
+
+  var compareModeUsed = false;
+  var viewedMemos = [];
+  var evidenceKeyGenerated = false;
+  var evidenceKeyExpected = "D4-B2-21";
+
+  function hasRequiredMemoCoverage() {
+    var required = ["B2", "C3", "D4-ERRATA", "G7", "I9", "J10"];
+    for (var i = 0; i < required.length; i++) {
+      if (viewedMemos.indexOf(required[i]) === -1) {
+        return false;
+      }
+    }
+    return viewedMemos.length >= 7;
+  }
+
+  function refreshKeyButton() {
+    generateKeyBtn.disabled = !compareModeUsed || evidenceKeyGenerated;
+  }
+
+  function renderCards() {
+    memoList.innerHTML = "";
+    for (var i = 0; i < memos.length; i++) {
+      var memo = memos[i];
+      var card = document.createElement("article");
+      card.className = "memo-card" + (!showSuperseded.checked && memo.superseded ? " hidden" : "");
+      card.setAttribute("data-id", memo.id);
+      card.setAttribute("data-superseded", memo.superseded ? "true" : "false");
+      card.innerHTML =
+        "<div class='memo-head'>" +
+          "<div>" +
+            "<div class='memo-id'>" + memo.id + "</div>" +
+            "<div style='font-size:13px; font-weight:600; color:#2a3b57; margin-top:2px;'>" + memo.title + "</div>" +
+          "</div>" +
+          "<span class='memo-status " + memo.status + "'>" + (memo.superseded ? "Superseded" : "Approved") + "</span>" +
+        "</div>" +
+        "<div class='memo-body'>" +
+          "<p class='placeholder'>Scroll to load memo details...</p>" +
+          "<div class='memo-date'>" + memo.date + "</div>" +
+        "</div>";
+      memoList.appendChild(card);
+    }
+  }
+
+  function updateSupersededVisibility() {
+    var cards = memoList.querySelectorAll(".memo-card");
+    for (var i = 0; i < cards.length; i++) {
+      var isSuperseded = cards[i].getAttribute("data-superseded") === "true";
+      cards[i].classList.toggle("hidden", !showSuperseded.checked && isSuperseded);
+    }
+    window.__benchmarkUpdate({
+      show_superseded: showSuperseded.checked
+    });
+    window.__benchmarkLog("superseded_toggle", { show_superseded: showSuperseded.checked });
+    refreshKeyButton();
+  }
+
+  renderCards();
+
+  var observer = new IntersectionObserver(function (entries) {
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      if (!entry.isIntersecting) {
+        continue;
+      }
+      var card = entry.target;
+      if (card.getAttribute("data-loaded") === "true") {
+        continue;
+      }
+      var id = card.getAttribute("data-id");
+      var memo = null;
+      for (var j = 0; j < memos.length; j++) {
+        if (memos[j].id === id) {
+          memo = memos[j];
+          break;
+        }
+      }
+      if (!memo) {
+        continue;
+      }
+      var body = card.querySelector(".memo-body");
+      body.innerHTML = "<p>" + memo.body + "</p><div class='memo-date'>Effective: " + memo.date + "</div>";
+      card.setAttribute("data-loaded", "true");
+
+      if (viewedMemos.indexOf(id) === -1) {
+        viewedMemos.push(id);
+      }
+      window.__benchmarkUpdate({
+        viewed_memos: viewedMemos.slice(),
+        memo_coverage_ready: hasRequiredMemoCoverage()
+      });
+      window.__benchmarkLog("memo_loaded", { memo_id: id, viewed_count: viewedMemos.length });
+      refreshKeyButton();
+    }
+  }, { rootMargin: "120px" });
+
+  var cards = memoList.querySelectorAll(".memo-card");
+  for (var c = 0; c < cards.length; c++) {
+    observer.observe(cards[c]);
+  }
+
+  compareBtn.addEventListener("click", function () {
+    compareModeUsed = true;
+    compareBtn.disabled = true;
+    compareStatus.textContent = "Compare mode active. Review amendment dependencies, supersession, and exceptions before submission.";
+    summaryBox.innerHTML =
+      "<strong>Evidence requirements:</strong><br>" +
+      "1) Review superseded and active memo chain.<br>" +
+      "2) Account for standard-vendor scope (non-red-zone).<br>" +
+      "3) Generate evidence key after sufficient memo coverage.";
+
+    window.__benchmarkUpdate({ compare_mode_used: true });
+    window.__benchmarkLog("compare_mode_enabled", {});
+    refreshKeyButton();
+  });
+
+  showSuperseded.addEventListener("change", updateSupersededVisibility);
+
+  generateKeyBtn.addEventListener("click", function () {
+    if (!compareModeUsed) {
+      return;
+    }
+    evidenceKeyGenerated = true;
+    generateKeyBtn.disabled = true;
+    summaryBox.innerHTML =
+      "<strong>Evidence key generated:</strong> <span class='mono'>" + evidenceKeyExpected + "</span><br>" +
+      "Enter this key in the reconciliation form.";
+
+    window.__benchmarkUpdate({
+      evidence_key_generated: true,
+      evidence_key_expected: evidenceKeyExpected
+    });
+    window.__benchmarkLog("evidence_key_generated", {
+      evidence_key_expected: evidenceKeyExpected,
+      viewed_count: viewedMemos.length
+    });
+  });
+
+  submitBtn.addEventListener("click", function () {
+    var limit = parseInt(limitInput.value, 10) || 0;
+    var notice = parseInt(noticeInput.value, 10) || 0;
+    var memoId = memoInput.value.trim().toUpperCase();
+    var evidenceKey = evidenceInput.value.trim().toUpperCase();
+
+    if (!limit || !notice || !memoId || !evidenceKey) {
+      reportResult.className = "bad";
+      reportResult.textContent = "Enter all reconciliation values and evidence key before submitting.";
+      return;
+    }
+
+    var limitCorrect = limit === 125000;
+    var noticeCorrect = notice === 21;
+    var memoCorrect = memoId.indexOf("D4") !== -1;
+    var evidenceCorrect = evidenceKey === evidenceKeyExpected;
+    var success = compareModeUsed && limitCorrect && noticeCorrect && memoCorrect && evidenceCorrect;
+
+    reportResult.className = success ? "ok" : "bad";
+    reportResult.textContent = success
+      ? "Reconciliation submitted successfully."
+      : "Submission recorded, but one or more reconciliation values are incorrect.";
+
+    window.__benchmarkLog("reconciliation_submitted", {
+      compare_mode_used: compareModeUsed,
+      entered_limit: limit,
+      entered_notice: notice,
+      entered_memo_id: memoId,
+      entered_evidence_key: evidenceKey,
+      limit_correct: limitCorrect,
+      notice_correct: noticeCorrect,
+      memo_correct: memoCorrect,
+      evidence_correct: evidenceCorrect
+    });
+
+    var submitState = {
+      report_submitted: true,
+      compare_mode_used: compareModeUsed,
+      viewed_memos: viewedMemos.slice(),
+      memo_coverage_ready: hasRequiredMemoCoverage(),
+      show_superseded: showSuperseded.checked,
+      final_limit: limit,
+      notice_days: notice,
+      source_memo_id: memoId,
+      evidence_key_generated: evidenceKeyGenerated,
+      evidence_key_expected: evidenceKeyExpected,
+      evidence_key_submitted: evidenceKey,
+      limit_correct: limitCorrect,
+      notice_correct: noticeCorrect,
+      memo_correct: memoCorrect,
+      evidence_correct: evidenceCorrect,
+      superseded_value_used: limit === 140000 || memoId.indexOf("C3") !== -1
+    };
+
+    if (success) {
+      submitBtn.disabled = true;
+      window.__benchmarkComplete(true, submitState);
+    } else {
+      window.__benchmarkUpdate(submitState);
+    }
+  });
+
+  window.__benchmarkUpdate({
+    compare_mode_used: false,
+    evidence_key_generated: false,
+    evidence_key_expected: evidenceKeyExpected,
+    show_superseded: true,
+    viewed_memos: [],
+    memo_coverage_ready: false
+  });
+})();
+</script>
+
+</body>
+</html>

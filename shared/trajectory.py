@@ -43,7 +43,15 @@ def export_conversations(
         List with one conversation dict (or empty list if data is unusable).
     """
     if source == "auto":
-        source = "wab" if "page_id" in data else "llmos"
+        if "page_id" in data or ("benchmark" in data and "results" in data):
+            source = "wab"
+        else:
+            source = "llmos"
+
+    # Support top-level WebAgentBench run artifacts in addition to single-page
+    # result objects so callers can pass either JSON shape directly.
+    if source == "wab" and isinstance(data.get("results"), list):
+        return batch_export(data["results"], source="wab", fmt=fmt)
 
     if source == "wab":
         messages, metadata = _extract_wab(data)
