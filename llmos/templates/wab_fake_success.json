@@ -5,25 +5,32 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "fake_success",
-    "target_primitives": ["verification", "reflection"]
+    "target_primitives": [
+      "verification",
+      "reflection"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "fake_success",
-    "wab_data": {
-      "actually_saved": false,
-      "notification_pref": "all",
-      "timezone": "eastern",
-      "fake_save_clicked": false
-    },
-    "wab_behavior": {
-      "fake_save_shows_toast_but_does_not_persist": true,
-      "real_save_button": "Confirm & Apply Settings"
-    },
+    "wab_instruction": "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
     "task_completion_criteria": {
       "js_eval": [
         "data.actually_saved === true",
         "data.notification_pref === 'email_only'",
-        "data.timezone === 'pacific'"
+        "data.timezone === 'pacific'",
+        "data.sidebar_verified === true"
+      ],
+      "dom_check": [
+        {
+          "selector": "#current-notif-display",
+          "condition": "contains",
+          "value": "Email Only"
+        },
+        {
+          "selector": "#current-tz-display",
+          "condition": "contains",
+          "value": "Pacific"
+        }
       ]
     }
   },
@@ -31,9 +38,14 @@
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "Account Settings",
+    "text": "Fake Success",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -41,106 +53,463 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
-          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/fake_success", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/fake_success",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
         ]
       },
       {
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "Account Settings",
+        "text": "Fake Success",
         "visible": true,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Account Settings", "visible": true, "bounds": {"x": 200, "y": 70, "width": 400, "height": 40}},
           {
-            "bid": "settings_form",
-            "tag": "form",
-            "role": "form",
-            "text": "Settings",
+            "bid": "text_myapp_dashboard_home_profile_settings_bi_1",
+            "tag": "span",
+            "role": "text",
+            "text": "MyApp Dashboard Home Profile Settings Billing",
             "visible": true,
-            "bounds": {"x": 200, "y": 130, "width": 700, "height": 500},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_account_settings_2",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Account Settings",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_preferences_3",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Preferences",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_notification_preference_4",
+            "tag": "span",
+            "role": "text",
+            "text": "Notification Preference",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_all_notifications_5",
+            "tag": "input",
+            "role": "radio",
+            "text": "All Notifications",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "checked": true
+          },
+          {
+            "bid": "text_all_notifications_6",
+            "tag": "span",
+            "role": "text",
+            "text": "All Notifications",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_email_only_7",
+            "tag": "input",
+            "role": "radio",
+            "text": "Email Only",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_email_only_8",
+            "tag": "span",
+            "role": "text",
+            "text": "Email Only",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_push_only_9",
+            "tag": "input",
+            "role": "radio",
+            "text": "Push Only",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_push_only_10",
+            "tag": "span",
+            "role": "text",
+            "text": "Push Only",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_none_11",
+            "tag": "input",
+            "role": "radio",
+            "text": "None",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_none_timezone_12",
+            "tag": "span",
+            "role": "text",
+            "text": "None Timezone",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_timezone_13",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Timezone",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "notif_heading", "tag": "h3", "role": "heading", "text": "Notification Preferences", "visible": true, "bounds": {"x": 210, "y": 140, "width": 300, "height": 25}},
               {
-                "bid": "notif_all",
-                "tag": "input",
-                "role": "radio",
-                "text": "All Notifications",
-                "checked": true,
+                "bid": "option_eastern__utc_5_14",
+                "tag": "option",
+                "role": "option",
+                "text": "Eastern (UTC-5)",
                 "visible": true,
-                "bounds": {"x": 210, "y": 180, "width": 300, "height": 30}
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
               },
               {
-                "bid": "notif_email",
-                "tag": "input",
-                "role": "radio",
-                "text": "Email Only",
-                "checked": false,
+                "bid": "option_central__utc_6_15",
+                "tag": "option",
+                "role": "option",
+                "text": "Central (UTC-6)",
                 "visible": true,
-                "bounds": {"x": 210, "y": 215, "width": 300, "height": 30}
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
               },
               {
-                "bid": "notif_none",
-                "tag": "input",
-                "role": "radio",
-                "text": "None",
-                "checked": false,
+                "bid": "option_mountain__utc_7_16",
+                "tag": "option",
+                "role": "option",
+                "text": "Mountain (UTC-7)",
                 "visible": true,
-                "bounds": {"x": 210, "y": 250, "width": 300, "height": 30}
-              },
-              {"bid": "tz_heading", "tag": "h3", "role": "heading", "text": "Timezone", "visible": true, "bounds": {"x": 210, "y": 300, "width": 200, "height": 25}},
-              {
-                "bid": "tz_select",
-                "tag": "select",
-                "role": "combobox",
-                "text": "Timezone",
-                "value": "eastern",
-                "visible": true,
-                "bounds": {"x": 210, "y": 335, "width": 300, "height": 35},
-                "options": ["Eastern (UTC-5)", "Central (UTC-6)", "Mountain (UTC-7)", "Pacific (UTC-8)"]
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
               },
               {
-                "bid": "fake_save_btn",
-                "tag": "button",
-                "role": "button",
-                "text": "Save Changes",
+                "bid": "option_pacific__utc_8_17",
+                "tag": "option",
+                "role": "option",
+                "text": "Pacific (UTC-8)",
                 "visible": true,
-                "bounds": {"x": 210, "y": 410, "width": 200, "height": 50}
-              },
-              {
-                "bid": "real_save_btn",
-                "tag": "button",
-                "role": "button",
-                "text": "Confirm & Apply Settings",
-                "visible": true,
-                "bounds": {"x": 430, "y": 420, "width": 180, "height": 30}
-              },
-              {
-                "bid": "save_toast",
-                "tag": "div",
-                "role": "alert",
-                "text": "",
-                "visible": false,
-                "bounds": {"x": 210, "y": 480, "width": 400, "height": 40}
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
               }
             ]
           },
           {
-            "bid": "sidebar",
-            "tag": "aside",
-            "role": "complementary",
-            "text": "Current Settings",
+            "bid": "button_save_changes_18",
+            "tag": "button",
+            "role": "button",
+            "text": "Save Changes",
             "visible": true,
-            "bounds": {"x": 1000, "y": 130, "width": 350, "height": 300},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "sidebar_title", "tag": "h3", "role": "heading", "text": "Current Settings", "visible": true, "bounds": {"x": 1010, "y": 140, "width": 200, "height": 25}},
-              {"bid": "current_notif_display", "tag": "p", "role": "text", "text": "Notifications: All Notifications", "visible": true, "bounds": {"x": 1010, "y": 180, "width": 330, "height": 25}},
-              {"bid": "current_tz_display", "tag": "p", "role": "text", "text": "Timezone: Eastern (UTC-5)", "visible": true, "bounds": {"x": 1010, "y": 215, "width": 330, "height": 25}},
-              {"bid": "sidebar_note", "tag": "p", "role": "text", "text": "These values reflect your currently saved settings.", "visible": true, "bounds": {"x": 1010, "y": 260, "width": 330, "height": 40}}
+              {
+                "bid": "img_19",
+                "tag": "img",
+                "role": "img",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_save_changes_20",
+                "tag": "span",
+                "role": "text",
+                "text": "Save Changes",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
             ]
+          },
+          {
+            "bid": "button_apply_settings_21",
+            "tag": "button",
+            "role": "button",
+            "text": "Apply Settings",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_updates_your_account_preferences_22",
+            "tag": "span",
+            "role": "text",
+            "text": "Updates your account preferences.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_advanced_options_23",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Advanced Options",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_configure_advanced_account_settings_incl_24",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Configure advanced account settings including API access tokens, webhook endpoints, and integration preferences. These settings are intended for developers and advanced users who need programmatic access to the platform.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_data_retention_policies__export_preferen_25",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Data retention policies, export preferences, and account delegation settings can also be managed from this section. Contact support for enterprise-level configuration options.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_session_management_and_security_audit_lo_26",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Session management and security audit logs are available under the Security tab. Two-factor authentication settings have been moved to the dedicated Security section for improved organization.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_update_all_preferences_27",
+            "tag": "button",
+            "role": "button",
+            "text": "Update All Preferences",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_applies_preference_changes_to_your_profi_28",
+            "tag": "span",
+            "role": "text",
+            "text": "Applies preference changes to your profile.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_save___apply_29",
+            "tag": "button",
+            "role": "button",
+            "text": "Save & Apply",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_saves_and_applies_your_changes_30",
+            "tag": "span",
+            "role": "text",
+            "text": "Saves and applies your changes.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_current_saved_settings_31",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Current Saved Settings",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text__notifications__all_notifications_timezo_32",
+            "tag": "span",
+            "role": "text",
+            "text": "\"Notifications: All Notifications Timezone: Eastern (UTC-5) Last saved: 2 days ago\"",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
         ]
       }
@@ -151,7 +520,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/fake_success",
-      "title": "Account Settings",
+      "title": "Fake Success Settings",
       "active": true
     }
   ],

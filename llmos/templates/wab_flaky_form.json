@@ -5,29 +5,27 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "flaky_form",
-    "target_primitives": ["error_recovery", "reflection"]
+    "target_primitives": [
+      "error_recovery",
+      "patience"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "flaky_form",
-    "wab_data": {
-      "submission_successful": false,
-      "title": "",
-      "severity": "",
-      "description": "",
-      "attempt_count": 0,
-      "draft_saved": false,
-      "draft_restored": false
-    },
-    "wab_behavior": {
-      "failure_probability": 0.6,
-      "success_on_attempt": 4,
-      "session_expires_after_attempt": 3
-    },
+    "wab_instruction": "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors \u2014 persist until successful submission.",
     "task_completion_criteria": {
       "js_eval": [
         "data.submission_successful === true",
-        "data.title === 'Memory leak in auth module'",
-        "data.severity === 'High'"
+        "data.title.indexOf('Memory leak') !== -1 || data.title.indexOf('memory leak') !== -1",
+        "data.severity === 'High'",
+        "data.attempt_count >= 6"
+      ],
+      "dom_check": [
+        {
+          "selector": "#status-message",
+          "condition": "contains",
+          "value": "successfully"
+        }
       ]
     }
   },
@@ -35,9 +33,14 @@
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "Bug Report",
+    "text": "Flaky Form",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -45,64 +48,407 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
-          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/flaky_form", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/flaky_form",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
         ]
       },
       {
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "Bug Report Form",
+        "text": "Flaky Form",
         "visible": true,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Submit Bug Report", "visible": true, "bounds": {"x": 400, "y": 70, "width": 400, "height": 40}},
           {
-            "bid": "form_section",
-            "tag": "form",
-            "role": "form",
-            "text": "Bug Report Form",
+            "bid": "text_issuetracker_1",
+            "tag": "span",
+            "role": "text",
+            "text": "IssueTracker",
             "visible": true,
-            "bounds": {"x": 400, "y": 130, "width": 600, "height": 500},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "link_dashboard_2",
+            "tag": "a",
+            "role": "link",
+            "text": "Dashboard",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "title_label", "tag": "label", "role": "label", "text": "Bug Title", "visible": true, "bounds": {"x": 410, "y": 140, "width": 100, "height": 20}},
-              {"bid": "title_input", "tag": "input", "role": "textbox", "text": "Bug Title", "value": "", "visible": true, "bounds": {"x": 410, "y": 165, "width": 560, "height": 35}},
-              {"bid": "severity_label", "tag": "label", "role": "label", "text": "Severity", "visible": true, "bounds": {"x": 410, "y": 220, "width": 100, "height": 20}},
               {
-                "bid": "severity_select",
-                "tag": "select",
-                "role": "combobox",
-                "text": "Select Severity",
-                "value": "",
+                "bid": "text__url_3",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
                 "visible": true,
-                "bounds": {"x": 410, "y": 245, "width": 300, "height": 35},
-                "options": ["-- Select Severity --", "Low", "Medium", "High", "Critical"]
-              },
-              {"bid": "desc_label", "tag": "label", "role": "label", "text": "Description", "visible": true, "bounds": {"x": 410, "y": 300, "width": 100, "height": 20}},
-              {"bid": "desc_textarea", "tag": "textarea", "role": "textbox", "text": "Describe the bug...", "value": "", "visible": true, "bounds": {"x": 410, "y": 325, "width": 560, "height": 150}},
-              {
-                "bid": "status_message",
-                "tag": "div",
-                "role": "alert",
-                "text": "",
-                "visible": false,
-                "bounds": {"x": 410, "y": 495, "width": 560, "height": 40}
-              },
-              {
-                "bid": "form_actions",
-                "tag": "div",
-                "role": "group",
-                "text": "Form Actions",
-                "visible": true,
-                "bounds": {"x": 410, "y": 550, "width": 560, "height": 50},
-                "children": [
-                  {"bid": "save_draft_btn", "tag": "button", "role": "button", "text": "Save Draft", "visible": true, "bounds": {"x": 410, "y": 555, "width": 120, "height": 40}},
-                  {"bid": "submit_report_btn", "tag": "button", "role": "button", "text": "Submit Report", "visible": true, "bounds": {"x": 750, "y": 555, "width": 140, "height": 40}}
-                ]
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
               }
             ]
+          },
+          {
+            "bid": "link_new_report_4",
+            "tag": "a",
+            "role": "link",
+            "text": "New Report",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_5",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "link_my_tickets_6",
+            "tag": "a",
+            "role": "link",
+            "text": "My Tickets",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_7",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "link_settings_8",
+            "tag": "a",
+            "role": "link",
+            "text": "Settings",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_9",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "heading_submit_bug_report_10",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Submit Bug Report",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_provide_details_about_the_issue_you_enco_11",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Provide details about the issue you encountered. All fields are required.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_title_12",
+            "tag": "span",
+            "role": "text",
+            "text": "Title *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "textbox_title_13",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Title *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__placeholder__brief_description_of_the_b_14",
+                "tag": "span",
+                "role": "text",
+                "text": "/placeholder: Brief description of the bug",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_severity_15",
+            "tag": "span",
+            "role": "text",
+            "text": "Severity *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_severity_16",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Severity *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "option____select_severity_17",
+                "tag": "option",
+                "role": "option",
+                "text": "-- Select severity --",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
+              },
+              {
+                "bid": "option_low_18",
+                "tag": "option",
+                "role": "option",
+                "text": "Low",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_medium_19",
+                "tag": "option",
+                "role": "option",
+                "text": "Medium",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_high_20",
+                "tag": "option",
+                "role": "option",
+                "text": "High",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_critical_21",
+                "tag": "option",
+                "role": "option",
+                "text": "Critical",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_description_22",
+            "tag": "span",
+            "role": "text",
+            "text": "Description *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "textbox_description_23",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Description *",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__placeholder__steps_to_reproduce__expect_24",
+                "tag": "span",
+                "role": "text",
+                "text": "/placeholder: Steps to reproduce, expected vs actual behavior",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_attempt_1_of_25",
+            "tag": "span",
+            "role": "text",
+            "text": "Attempt 1 of ?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_submit_report_26",
+            "tag": "button",
+            "role": "button",
+            "text": "Submit Report",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_save_draft_27",
+            "tag": "button",
+            "role": "button",
+            "text": "Save Draft",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
         ]
       }
@@ -113,7 +459,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/flaky_form",
-      "title": "Submit Bug Report",
+      "title": "Flaky Form",
       "active": true
     }
   ],

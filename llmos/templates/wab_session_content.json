@@ -5,25 +5,26 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "session_content",
-    "target_primitives": ["planning", "memory"]
+    "target_primitives": [
+      "planning",
+      "memory",
+      "attention"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "session_content",
-    "wab_data": {
-      "quiz_completed": false,
-      "quiz_score": 0,
-      "module_read": false,
-      "assessment_submitted": false,
-      "key_code_correct": false
-    },
-    "wab_behavior": {
-      "key_code": "GAMMA-99",
-      "correct_quiz_answers": ["Hyper Text Markup Language", "font-size", "Application Programming Interface", "POST"]
-    },
+    "wab_instruction": "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
     "task_completion_criteria": {
       "js_eval": [
         "data.assessment_submitted === true",
         "data.key_code_correct === true"
+      ],
+      "dom_check": [
+        {
+          "selector": "#assessment-result",
+          "condition": "contains",
+          "value": "Correct"
+        }
       ]
     }
   },
@@ -31,9 +32,14 @@
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "Orientation Portal",
+    "text": "Session Content",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -41,141 +47,1022 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
-          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/session_content", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/session_content",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
         ]
       },
       {
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "Employee Orientation",
+        "text": "Session Content",
         "visible": true,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Employee Orientation Portal", "visible": true, "bounds": {"x": 200, "y": 70, "width": 500, "height": 40}},
           {
-            "bid": "progress_bar",
-            "tag": "nav",
-            "role": "progressbar",
-            "text": "Progress: Phase 1 of 3",
+            "bid": "text_orientation_portal_1__quiz_2__module_3_1",
+            "tag": "span",
+            "role": "text",
+            "text": "Orientation Portal 1. Quiz 2. Module 3. Assessment",
             "visible": true,
-            "bounds": {"x": 200, "y": 120, "width": 800, "height": 40},
-            "children": [
-              {"bid": "phase1_indicator", "tag": "span", "role": "status", "text": "Phase 1: Skill Quiz", "visible": true, "bounds": {"x": 200, "y": 125, "width": 250, "height": 30}},
-              {"bid": "phase2_indicator", "tag": "span", "role": "status", "text": "Phase 2: Study Module", "visible": true, "bounds": {"x": 460, "y": 125, "width": 250, "height": 30}},
-              {"bid": "phase3_indicator", "tag": "span", "role": "status", "text": "Phase 3: Assessment", "visible": true, "bounds": {"x": 720, "y": 125, "width": 250, "height": 30}}
-            ]
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           },
           {
-            "bid": "phase1_panel",
-            "tag": "section",
-            "role": "region",
-            "text": "Phase 1: Skill Assessment Quiz",
+            "bid": "heading_employee_orientation_2",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Employee Orientation",
             "visible": true,
-            "bounds": {"x": 200, "y": 180, "width": 800, "height": 700},
-            "children": [
-              {"bid": "quiz_title", "tag": "h2", "role": "heading", "text": "Skill Assessment Quiz", "visible": true, "bounds": {"x": 210, "y": 190, "width": 400, "height": 30}},
-              {"bid": "quiz_instructions", "tag": "p", "role": "text", "text": "Answer all questions to proceed to the study module.", "visible": true, "bounds": {"x": 210, "y": 225, "width": 600, "height": 25}},
-              {
-                "bid": "q1_group",
-                "tag": "fieldset",
-                "role": "group",
-                "text": "Q1: What does HTML stand for?",
-                "visible": true,
-                "bounds": {"x": 210, "y": 270, "width": 700, "height": 120},
-                "children": [
-                  {"bid": "q1_label", "tag": "legend", "role": "label", "text": "Q1: What does HTML stand for?", "visible": true, "bounds": {"x": 220, "y": 275, "width": 400, "height": 20}},
-                  {"bid": "q1_a", "tag": "input", "role": "radio", "text": "Hyper Text Markup Language", "checked": false, "visible": true, "bounds": {"x": 220, "y": 300, "width": 350, "height": 25}},
-                  {"bid": "q1_b", "tag": "input", "role": "radio", "text": "High Tech Multi Language", "checked": false, "visible": true, "bounds": {"x": 220, "y": 330, "width": 350, "height": 25}},
-                  {"bid": "q1_c", "tag": "input", "role": "radio", "text": "Hyper Transfer Markup Language", "checked": false, "visible": true, "bounds": {"x": 220, "y": 360, "width": 350, "height": 25}}
-                ]
-              },
-              {
-                "bid": "q2_group",
-                "tag": "fieldset",
-                "role": "group",
-                "text": "Q2: Which CSS property controls text size?",
-                "visible": true,
-                "bounds": {"x": 210, "y": 400, "width": 700, "height": 120},
-                "children": [
-                  {"bid": "q2_label", "tag": "legend", "role": "label", "text": "Q2: Which CSS property controls text size?", "visible": true, "bounds": {"x": 220, "y": 405, "width": 400, "height": 20}},
-                  {"bid": "q2_a", "tag": "input", "role": "radio", "text": "text-size", "checked": false, "visible": true, "bounds": {"x": 220, "y": 430, "width": 350, "height": 25}},
-                  {"bid": "q2_b", "tag": "input", "role": "radio", "text": "font-size", "checked": false, "visible": true, "bounds": {"x": 220, "y": 460, "width": 350, "height": 25}},
-                  {"bid": "q2_c", "tag": "input", "role": "radio", "text": "text-style", "checked": false, "visible": true, "bounds": {"x": 220, "y": 490, "width": 350, "height": 25}}
-                ]
-              },
-              {
-                "bid": "q3_group",
-                "tag": "fieldset",
-                "role": "group",
-                "text": "Q3: What does API stand for?",
-                "visible": true,
-                "bounds": {"x": 210, "y": 530, "width": 700, "height": 120},
-                "children": [
-                  {"bid": "q3_label", "tag": "legend", "role": "label", "text": "Q3: What does API stand for?", "visible": true, "bounds": {"x": 220, "y": 535, "width": 400, "height": 20}},
-                  {"bid": "q3_a", "tag": "input", "role": "radio", "text": "Application Programming Interface", "checked": false, "visible": true, "bounds": {"x": 220, "y": 560, "width": 350, "height": 25}},
-                  {"bid": "q3_b", "tag": "input", "role": "radio", "text": "Advanced Program Integration", "checked": false, "visible": true, "bounds": {"x": 220, "y": 590, "width": 350, "height": 25}},
-                  {"bid": "q3_c", "tag": "input", "role": "radio", "text": "Automated Protocol Interface", "checked": false, "visible": true, "bounds": {"x": 220, "y": 620, "width": 350, "height": 25}}
-                ]
-              },
-              {
-                "bid": "q4_group",
-                "tag": "fieldset",
-                "role": "group",
-                "text": "Q4: Which HTTP method is used to submit form data?",
-                "visible": true,
-                "bounds": {"x": 210, "y": 660, "width": 700, "height": 120},
-                "children": [
-                  {"bid": "q4_label", "tag": "legend", "role": "label", "text": "Q4: Which HTTP method is used to submit form data?", "visible": true, "bounds": {"x": 220, "y": 665, "width": 450, "height": 20}},
-                  {"bid": "q4_a", "tag": "input", "role": "radio", "text": "GET", "checked": false, "visible": true, "bounds": {"x": 220, "y": 690, "width": 350, "height": 25}},
-                  {"bid": "q4_b", "tag": "input", "role": "radio", "text": "POST", "checked": false, "visible": true, "bounds": {"x": 220, "y": 720, "width": 350, "height": 25}},
-                  {"bid": "q4_c", "tag": "input", "role": "radio", "text": "DELETE", "checked": false, "visible": true, "bounds": {"x": 220, "y": 750, "width": 350, "height": 25}}
-                ]
-              },
-              {"bid": "submit_quiz_btn", "tag": "button", "role": "button", "text": "Submit Quiz", "visible": true, "bounds": {"x": 400, "y": 800, "width": 150, "height": 45}}
-            ]
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           },
           {
-            "bid": "phase2_panel",
-            "tag": "section",
-            "role": "region",
-            "text": "Phase 2: Study Module",
-            "visible": false,
-            "bounds": {"x": 200, "y": 180, "width": 800, "height": 700},
+            "bid": "paragraph_skill_assessment___read_the_passage_belo_3",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Skill Assessment \u2014 Read the passage below, then answer the quiz questions to determine your module track.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_pre_assessment_reading_4",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Pre-Assessment Reading",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_read_the_following_passage_carefully_bef_5",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Read the following passage carefully before answering the quiz questions.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_6",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "module_title", "tag": "h2", "role": "heading", "text": "Study Module: Web Development Fundamentals", "visible": true, "bounds": {"x": 210, "y": 190, "width": 600, "height": 30}},
-              {"bid": "module_p1", "tag": "p", "role": "text", "text": "Web development involves creating websites and web applications using HTML, CSS, and JavaScript. These three technologies form the foundation of modern web development.", "visible": true, "bounds": {"x": 210, "y": 240, "width": 750, "height": 50}},
-              {"bid": "module_p2", "tag": "p", "role": "text", "text": "HTML provides the structure, CSS handles the visual presentation, and JavaScript adds interactivity and dynamic behavior to web pages.", "visible": true, "bounds": {"x": 210, "y": 310, "width": 750, "height": 50}},
-              {"bid": "module_p3", "tag": "p", "role": "text", "text": "Modern web development also involves frameworks and libraries such as React, Angular, and Vue.js for front-end development, and Node.js, Django, and Flask for back-end development.", "visible": true, "bounds": {"x": 210, "y": 380, "width": 750, "height": 50}},
               {
-                "bid": "module_key_code",
+                "bid": "text_the_meridian_framework_was_developed_in_7",
+                "tag": "span",
+                "role": "text",
+                "text": "The Meridian Framework was developed in 2019 by the Platform Infrastructure team to standardize internal tooling. Unlike conventional frameworks, Meridian uses a",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_cascade_first_architecture_8",
                 "tag": "div",
-                "role": "note",
-                "text": "Important: Your verification code is GAMMA-99. You will need this for the final assessment.",
+                "role": "strong",
+                "text": "cascade-first architecture",
                 "visible": true,
-                "bounds": {"x": 210, "y": 460, "width": 750, "height": 50}
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
               },
-              {"bid": "module_p4", "tag": "p", "role": "text", "text": "APIs (Application Programming Interfaces) allow different software systems to communicate with each other, enabling integration between services.", "visible": true, "bounds": {"x": 210, "y": 530, "width": 750, "height": 50}},
-              {"bid": "proceed_assessment_btn", "tag": "button", "role": "button", "text": "Proceed to Assessment", "visible": true, "bounds": {"x": 400, "y": 620, "width": 200, "height": 45}}
+              {
+                "bid": "text_where_configuration_flows_downward_from_9",
+                "tag": "span",
+                "role": "text",
+                "text": "where configuration flows downward from environment manifests rather than upward from component definitions. This means that individual module settings are",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "emphasis_overridden_10",
+                "tag": "div",
+                "role": "emphasis",
+                "text": "overridden",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_by_environment_level_defaults_unless_exp_11",
+                "tag": "span",
+                "role": "text",
+                "text": "by environment-level defaults unless explicitly locked with a",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "code_pin_12",
+                "tag": "div",
+                "role": "code",
+                "text": "pin",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_directive_13",
+                "tag": "span",
+                "role": "text",
+                "text": "directive.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
             ]
           },
           {
-            "bid": "phase3_panel",
-            "tag": "section",
-            "role": "region",
-            "text": "Phase 3: Final Assessment",
-            "visible": false,
-            "bounds": {"x": 200, "y": 180, "width": 800, "height": 400},
+            "bid": "paragraph_14",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "assess_title", "tag": "h2", "role": "heading", "text": "Final Assessment", "visible": true, "bounds": {"x": 210, "y": 190, "width": 400, "height": 30}},
-              {"bid": "assess_instructions", "tag": "p", "role": "text", "text": "Enter the verification key code from your study module to complete the orientation.", "visible": true, "bounds": {"x": 210, "y": 230, "width": 600, "height": 25}},
-              {"bid": "keycode_label", "tag": "label", "role": "label", "text": "Key Code:", "visible": true, "bounds": {"x": 210, "y": 280, "width": 100, "height": 20}},
-              {"bid": "keycode_input", "tag": "input", "role": "textbox", "text": "Enter key code", "value": "", "visible": true, "bounds": {"x": 210, "y": 305, "width": 300, "height": 35}},
-              {"bid": "submit_assessment_btn", "tag": "button", "role": "button", "text": "Submit Assessment", "visible": true, "bounds": {"x": 210, "y": 360, "width": 180, "height": 45}},
-              {"bid": "assessment_result", "tag": "div", "role": "alert", "text": "", "visible": false, "bounds": {"x": 210, "y": 420, "width": 500, "height": 40}}
+              {
+                "bid": "text__meridian_s_templating_system_supports_t_15",
+                "tag": "span",
+                "role": "text",
+                "text": "\"Meridian's templating system supports three rendering modes:\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_eager_16",
+                "tag": "div",
+                "role": "strong",
+                "text": "eager",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__pre_renders_all_routes_at_build_time_17",
+                "tag": "span",
+                "role": "text",
+                "text": "(pre-renders all routes at build time),",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_deferred_18",
+                "tag": "div",
+                "role": "strong",
+                "text": "deferred",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__renders_on_first_request___and_19",
+                "tag": "span",
+                "role": "text",
+                "text": "(renders on first request), and",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_hybrid_20",
+                "tag": "div",
+                "role": "strong",
+                "text": "hybrid",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__pre_renders_critical_paths__defers_the_21",
+                "tag": "span",
+                "role": "text",
+                "text": "(pre-renders critical paths, defers the rest). The default mode is",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_deferred_22",
+                "tag": "div",
+                "role": "strong",
+                "text": "deferred",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text___in_internal_documentation___html__refe_23",
+                "tag": "span",
+                "role": "text",
+                "text": ". In internal documentation, \u201cHTML\u201d refers to",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_hybrid_training___modular_learning_24",
+                "tag": "div",
+                "role": "strong",
+                "text": "Hybrid Training & Modular Learning",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text____the_onboarding_methodology___not_the_25",
+                "tag": "span",
+                "role": "text",
+                "text": "\", the onboarding methodology \u2014 not the web markup language.\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
             ]
+          },
+          {
+            "bid": "paragraph_26",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__the_team_evaluated_meridian_against_two_27",
+                "tag": "span",
+                "role": "text",
+                "text": "\"The team evaluated Meridian against two alternatives:\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_lattice_28",
+                "tag": "div",
+                "role": "strong",
+                "text": "Lattice",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__which_scored_higher_on_developer_satisf_29",
+                "tag": "span",
+                "role": "text",
+                "text": "(which scored higher on developer satisfaction at 4.2/5.0 vs Meridian\u2019s 3.8/5.0) and",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_forge_30",
+                "tag": "div",
+                "role": "strong",
+                "text": "Forge",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__which_had_faster_cold_start_times___mer_31",
+                "tag": "span",
+                "role": "text",
+                "text": "(which had faster cold-start times). Meridian was selected despite lower satisfaction scores because its cascade-first model reduced configuration drift by",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "strong_67_32",
+                "tag": "div",
+                "role": "strong",
+                "text": "67%",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_across_14_production_services_33",
+                "tag": "span",
+                "role": "text",
+                "text": "across 14 production services.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_q1__a_developer_wants_to_ensure_their_mo_34",
+            "tag": "span",
+            "role": "text",
+            "text": "Q1. A developer wants to ensure their module\u2019s configuration cannot be changed by environment-level defaults. Based on the passage, what should they do?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_create_a_lock_manifest_35",
+            "tag": "input",
+            "role": "radio",
+            "text": "Create a lock manifest",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_create_a_lock_manifest_36",
+            "tag": "span",
+            "role": "text",
+            "text": "Create a lock manifest",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_use_a_pin_directive_37",
+            "tag": "input",
+            "role": "radio",
+            "text": "Use a pin directive",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_use_a_pin_directive_38",
+            "tag": "span",
+            "role": "text",
+            "text": "Use a pin directive",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_set_an_override_flag_39",
+            "tag": "input",
+            "role": "radio",
+            "text": "Set an override flag",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_set_an_override_flag_40",
+            "tag": "span",
+            "role": "text",
+            "text": "Set an override flag",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_disable_cascade_mode_41",
+            "tag": "input",
+            "role": "radio",
+            "text": "Disable cascade mode",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_disable_cascade_mode_q2__a_project_needs_42",
+            "tag": "span",
+            "role": "text",
+            "text": "Disable cascade mode Q2. A project needs critical pages ready immediately while deferring non-essential pages. Which of Meridian\u2019s rendering modes best fits this requirement?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_eager_43",
+            "tag": "input",
+            "role": "radio",
+            "text": "Eager",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_eager_44",
+            "tag": "span",
+            "role": "text",
+            "text": "Eager",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_deferred_45",
+            "tag": "input",
+            "role": "radio",
+            "text": "Deferred",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_deferred_46",
+            "tag": "span",
+            "role": "text",
+            "text": "Deferred",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_hybrid_47",
+            "tag": "input",
+            "role": "radio",
+            "text": "Hybrid",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_hybrid_48",
+            "tag": "span",
+            "role": "text",
+            "text": "Hybrid",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_cascade_first_49",
+            "tag": "input",
+            "role": "radio",
+            "text": "Cascade-first",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_cascade_first_q3__an_employee_completed_50",
+            "tag": "span",
+            "role": "text",
+            "text": "Cascade-first Q3. An employee completed their \u201cHTML certification\u201d in the company portal. Based on the passage, what did they most likely complete?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_a_web_markup_language_certification_51",
+            "tag": "input",
+            "role": "radio",
+            "text": "A web markup language certification",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_a_web_markup_language_certification_52",
+            "tag": "span",
+            "role": "text",
+            "text": "A web markup language certification",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_an_onboarding_training_program_53",
+            "tag": "input",
+            "role": "radio",
+            "text": "An onboarding training program",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_an_onboarding_training_program_54",
+            "tag": "span",
+            "role": "text",
+            "text": "An onboarding training program",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_a_hybrid_transfer_assessment_55",
+            "tag": "input",
+            "role": "radio",
+            "text": "A hybrid transfer assessment",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_a_hybrid_transfer_assessment_56",
+            "tag": "span",
+            "role": "text",
+            "text": "A hybrid transfer assessment",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_a_high_throughput_systems_exam_57",
+            "tag": "input",
+            "role": "radio",
+            "text": "A high-throughput systems exam",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_a_high_throughput_systems_exam_q4__if_th_58",
+            "tag": "span",
+            "role": "text",
+            "text": "A high-throughput systems exam Q4. If the team had prioritized developer satisfaction above all other factors, which framework would they have selected?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_forge_59",
+            "tag": "input",
+            "role": "radio",
+            "text": "Forge",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_forge_60",
+            "tag": "span",
+            "role": "text",
+            "text": "Forge",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_lattice_61",
+            "tag": "input",
+            "role": "radio",
+            "text": "Lattice",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_lattice_62",
+            "tag": "span",
+            "role": "text",
+            "text": "Lattice",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_meridian_63",
+            "tag": "input",
+            "role": "radio",
+            "text": "Meridian",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_meridian_64",
+            "tag": "span",
+            "role": "text",
+            "text": "Meridian",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_there_is_not_enough_information_to_deter_65",
+            "tag": "input",
+            "role": "radio",
+            "text": "There is not enough information to determine",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_there_is_not_enough_information_to_deter_66",
+            "tag": "span",
+            "role": "text",
+            "text": "There is not enough information to determine Q5. An engineer deploys a new module without any special directives. Based on the passage, what happens to its settings on the next environment update?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_settings_remain_unchanged_67",
+            "tag": "input",
+            "role": "radio",
+            "text": "Settings remain unchanged",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_settings_remain_unchanged_68",
+            "tag": "span",
+            "role": "text",
+            "text": "Settings remain unchanged",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_settings_are_overridden_by_environment_d_69",
+            "tag": "input",
+            "role": "radio",
+            "text": "Settings are overridden by environment defaults",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_settings_are_overridden_by_environment_d_70",
+            "tag": "span",
+            "role": "text",
+            "text": "Settings are overridden by environment defaults",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_settings_are_merged_with_environment_def_71",
+            "tag": "input",
+            "role": "radio",
+            "text": "Settings are merged with environment defaults",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_settings_are_merged_with_environment_def_72",
+            "tag": "span",
+            "role": "text",
+            "text": "Settings are merged with environment defaults",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "radio_the_module_fails_to_deploy_73",
+            "tag": "input",
+            "role": "radio",
+            "text": "The module fails to deploy",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_the_module_fails_to_deploy_74",
+            "tag": "span",
+            "role": "text",
+            "text": "The module fails to deploy",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_submit_quiz_75",
+            "tag": "button",
+            "role": "button",
+            "text": "Submit Quiz",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
         ]
       }
@@ -186,7 +1073,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/session_content",
-      "title": "Employee Orientation Portal",
+      "title": "Session-Dependent Portal",
       "active": true
     }
   ],

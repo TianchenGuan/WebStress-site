@@ -5,25 +5,26 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "slow_search",
-    "target_primitives": ["patience", "exploration"]
+    "target_primitives": [
+      "patience",
+      "exploration",
+      "attention"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "slow_search",
-    "wab_data": {
-      "answer_submitted": false,
-      "reported_price_per_sqft": null
-    },
-    "wab_behavior": {
-      "target_property": "742 Evergreen Terrace",
-      "target_price_per_sqft": 287,
-      "initially_visible_count": 3,
-      "total_properties": 6,
-      "load_more_reveals": 3
-    },
+    "wab_instruction": "Find the property at 742 Evergreen Terrace and calculate its price per square foot. Enter your answer in the answer field on the page and submit it.",
     "task_completion_criteria": {
       "js_eval": [
         "data.answer_submitted === true",
         "data.reported_price_per_sqft === 287"
+      ],
+      "dom_check": [
+        {
+          "selector": "#answer-display",
+          "condition": "contains",
+          "value": "287"
+        }
       ]
     }
   },
@@ -31,9 +32,14 @@
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "Property Search",
+    "text": "Slow Search",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -41,7 +47,12 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
           {
             "bid": "url_bar",
@@ -50,7 +61,12 @@
             "text": "Address",
             "value": "https://webagentbench.local/pages/slow_search",
             "visible": true,
-            "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
           }
         ]
       },
@@ -58,101 +74,231 @@
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "Property Search",
+        "text": "Slow Search",
         "visible": true,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Property Listings", "visible": true, "bounds": {"x": 100, "y": 70, "width": 600, "height": 40}},
           {
-            "bid": "search_input",
-            "tag": "input",
-            "role": "searchbox",
-            "text": "Search properties...",
-            "value": "",
+            "bid": "text_springfieldrealty_1",
+            "tag": "span",
+            "role": "text",
+            "text": "SpringfieldRealty",
             "visible": true,
-            "bounds": {"x": 100, "y": 130, "width": 500, "height": 35}
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           },
           {
-            "bid": "search_button",
-            "tag": "button",
-            "role": "button",
-            "text": "Search",
+            "bid": "link_buy_2",
+            "tag": "a",
+            "role": "link",
+            "text": "Buy",
             "visible": true,
-            "bounds": {"x": 610, "y": 130, "width": 80, "height": 35}
-          },
-          {
-            "bid": "results_container",
-            "tag": "div",
-            "role": "list",
-            "text": "Search Results",
-            "visible": true,
-            "bounds": {"x": 100, "y": 190, "width": 800, "height": 600},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
               {
-                "bid": "property_1",
-                "tag": "article",
-                "role": "article",
-                "text": "123 Oak Street",
+                "bid": "text__url_3",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
                 "visible": true,
-                "bounds": {"x": 100, "y": 190, "width": 780, "height": 120},
-                "children": [
-                  {"bid": "prop1_name", "tag": "h3", "role": "heading", "text": "123 Oak Street", "visible": true, "bounds": {"x": 110, "y": 195, "width": 300, "height": 25}},
-                  {"bid": "prop1_price", "tag": "span", "role": "text", "text": "$450,000", "visible": true, "bounds": {"x": 110, "y": 225, "width": 150, "height": 20}},
-                  {"bid": "prop1_sqft", "tag": "span", "role": "text", "text": "1,800 sq ft", "visible": true, "bounds": {"x": 280, "y": 225, "width": 150, "height": 20}},
-                  {"bid": "prop1_details", "tag": "button", "role": "button", "text": "View Details", "visible": true, "bounds": {"x": 650, "y": 225, "width": 100, "height": 30}}
-                ]
-              },
-              {
-                "bid": "property_2",
-                "tag": "article",
-                "role": "article",
-                "text": "456 Maple Drive",
-                "visible": true,
-                "bounds": {"x": 100, "y": 320, "width": 780, "height": 120},
-                "children": [
-                  {"bid": "prop2_name", "tag": "h3", "role": "heading", "text": "456 Maple Drive", "visible": true, "bounds": {"x": 110, "y": 325, "width": 300, "height": 25}},
-                  {"bid": "prop2_price", "tag": "span", "role": "text", "text": "$375,000", "visible": true, "bounds": {"x": 110, "y": 355, "width": 150, "height": 20}},
-                  {"bid": "prop2_sqft", "tag": "span", "role": "text", "text": "1,500 sq ft", "visible": true, "bounds": {"x": 280, "y": 355, "width": 150, "height": 20}},
-                  {"bid": "prop2_details", "tag": "button", "role": "button", "text": "View Details", "visible": true, "bounds": {"x": 650, "y": 355, "width": 100, "height": 30}}
-                ]
-              },
-              {
-                "bid": "property_3",
-                "tag": "article",
-                "role": "article",
-                "text": "789 Pine Avenue",
-                "visible": true,
-                "bounds": {"x": 100, "y": 450, "width": 780, "height": 120},
-                "children": [
-                  {"bid": "prop3_name", "tag": "h3", "role": "heading", "text": "789 Pine Avenue", "visible": true, "bounds": {"x": 110, "y": 455, "width": 300, "height": 25}},
-                  {"bid": "prop3_price", "tag": "span", "role": "text", "text": "$520,000", "visible": true, "bounds": {"x": 110, "y": 485, "width": 150, "height": 20}},
-                  {"bid": "prop3_sqft", "tag": "span", "role": "text", "text": "2,100 sq ft", "visible": true, "bounds": {"x": 280, "y": 485, "width": 150, "height": 20}},
-                  {"bid": "prop3_details", "tag": "button", "role": "button", "text": "View Details", "visible": true, "bounds": {"x": 650, "y": 485, "width": 100, "height": 30}}
-                ]
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
               }
             ]
           },
           {
-            "bid": "load_more_btn",
-            "tag": "button",
-            "role": "button",
-            "text": "Load More Results",
+            "bid": "link_rent_4",
+            "tag": "a",
+            "role": "link",
+            "text": "Rent",
             "visible": true,
-            "bounds": {"x": 350, "y": 810, "width": 200, "height": 40}
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_5",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
           },
           {
-            "bid": "answer_section",
-            "tag": "section",
-            "role": "region",
-            "text": "Report Answer",
+            "bid": "link_sell_6",
+            "tag": "a",
+            "role": "link",
+            "text": "Sell",
             "visible": true,
-            "bounds": {"x": 100, "y": 870, "width": 800, "height": 100},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "answer_label", "tag": "label", "role": "label", "text": "Price per square foot ($):", "visible": true, "bounds": {"x": 110, "y": 880, "width": 200, "height": 20}},
-              {"bid": "answer_input", "tag": "input", "role": "textbox", "text": "Enter price per sqft", "value": "", "visible": true, "bounds": {"x": 110, "y": 905, "width": 200, "height": 35}},
-              {"bid": "answer_submit", "tag": "button", "role": "button", "text": "Submit Answer", "visible": true, "bounds": {"x": 320, "y": 905, "width": 130, "height": 35}},
-              {"bid": "answer_display", "tag": "span", "role": "status", "text": "", "visible": false, "bounds": {"x": 460, "y": 910, "width": 200, "height": 25}}
+              {
+                "bid": "text__url_7",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
             ]
+          },
+          {
+            "bid": "link_agents_8",
+            "tag": "a",
+            "role": "link",
+            "text": "Agents",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_9",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "textbox_search_by_address__city__or_zip_10",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Search by address, city, or ZIP...",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "value": "Springfield area properties"
+          },
+          {
+            "bid": "button_search_11",
+            "tag": "button",
+            "role": "button",
+            "text": "Search",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_loading_results_12",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Loading results...",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_price_per_sqft_for_742_evergreen_terrace_13",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Price per sqft for 742 Evergreen Terrace:",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text__14",
+            "tag": "span",
+            "role": "text",
+            "text": "$",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "spinbutton__15",
+            "tag": "input",
+            "role": "spinbutton",
+            "text": "$",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_submit_16",
+            "tag": "button",
+            "role": "button",
+            "text": "Submit",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
         ]
       }
@@ -163,7 +309,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/slow_search",
-      "title": "Property Listings",
+      "title": "Property Search",
       "active": true
     }
   ],

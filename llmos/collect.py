@@ -30,87 +30,87 @@ logger = logging.getLogger(__name__)
 # Each primitive maps to templates that exercise it and example tasks.
 PRIMITIVE_CONFIG = {
     "backtracking": {
-        "templates": ["wab_wizard_form", "form"],
+        "templates": ["wab_wizard_form"],
         "tasks": [
-            "Complete a multi-step wizard form. You may need to go back and change earlier selections if later steps reveal they were wrong.",
-            "Fill out an application form where the correct option on step 1 can only be determined after seeing step 3.",
+            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
         ],
     },
     "memory": {
-        "templates": ["wab_scavenger_hunt", "desktop"],
+        "templates": ["wab_scavenger_hunt", "wab_email_thread", "wab_session_content"],
         "tasks": [
-            "Find specific information scattered across multiple sections of a portal. Track which sections contain relevant vs outdated info.",
-            "Read through a long document and answer questions about details mentioned in different parts.",
+            "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
+            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
+            "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
         ],
     },
     "patience": {
-        "templates": ["wab_slow_search", "wab_flaky_form", "browser"],
+        "templates": ["wab_slow_search", "wab_flaky_form", "wab_terms_audit"],
         "tasks": [
-            "Search for a specific item in a list that loads in batches. Wait for all content to load before answering.",
-            "Submit a form that fails multiple times with different errors. Persist until successful.",
+            "Find the property at 742 Evergreen Terrace and calculate its price per square foot. Enter your answer in the answer field on the page and submit it.",
+            "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors — persist until successful submission.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
         ],
     },
     "attention": {
-        "templates": ["wab_filter_dashboard", "wab_popup_landing", "browser"],
+        "templates": ["wab_popup_landing", "wab_filter_dashboard", "wab_terms_audit", "wab_email_thread"],
         "tasks": [
-            "Use filters to find items that match exact criteria. Watch for boundary cases and similar-but-wrong matches.",
-            "Find the correct specification value on a page with multiple conflicting numbers from different sources.",
+            "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
+            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
+            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
         ],
     },
     "verification": {
-        "templates": ["wab_fake_success", "form"],
+        "templates": ["wab_fake_success", "wab_dark_checkout"],
         "tasks": [
-            "Save settings on a page where some save buttons are fake. Verify changes actually took effect.",
-            "Submit a form and verify the confirmation actually reflects your inputs, not default values.",
+            "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
+            "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups — your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
         ],
     },
     "adversarial_robustness": {
-        "templates": ["wab_dark_checkout", "browser"],
+        "templates": ["wab_dark_checkout"],
         "tasks": [
-            "Complete a checkout while avoiding pre-checked upsells and decoy buttons designed to trick you.",
-            "Navigate a page with dark patterns — opt out of unwanted subscriptions and find the real submit button.",
+            "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups — your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
         ],
     },
     "error_recovery": {
-        "templates": ["wab_flaky_form", "form"],
+        "templates": ["wab_flaky_form"],
         "tasks": [
-            "Submit a bug report form that randomly fails with different error types. Handle each error and retry.",
-            "Complete a form submission that encounters network errors, validation errors, and rate limits.",
+            "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors — persist until successful submission.",
         ],
     },
     "constraint_satisfaction": {
-        "templates": ["wab_filter_dashboard", "wab_wizard_form", "form"],
+        "templates": ["wab_wizard_form", "wab_filter_dashboard"],
         "tasks": [
-            "Find items matching multiple simultaneous constraints. Pay attention to exact matches vs partial matches.",
-            "Complete a form where multiple fields have interdependent requirements.",
+            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
+            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
         ],
     },
     "exploration": {
-        "templates": ["wab_scavenger_hunt", "desktop"],
+        "templates": ["wab_scavenger_hunt", "wab_terms_audit"],
         "tasks": [
-            "Navigate an unfamiliar multi-section portal to find two specific pieces of information.",
-            "Explore a file system to find a specific document, navigating through multiple folders.",
+            "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
         ],
     },
     "planning": {
-        "templates": ["wab_session_content", "desktop"],
+        "templates": ["wab_filter_dashboard", "wab_session_content"],
         "tasks": [
-            "Complete a multi-step task that requires reading comprehension, then using the results to make a selection.",
-            "Organize files from multiple folders into a specific structure based on their content.",
+            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
         ],
     },
     "reflection": {
-        "templates": ["wab_fake_success", "form"],
+        "templates": ["wab_fake_success"],
         "tasks": [
-            "Recognize when an action didn't actually work despite appearing successful, and correct course.",
-            "After completing a task, verify the outcome matches expectations and fix any discrepancies.",
+            "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
         ],
     },
     "spatial_reasoning": {
-        "templates": ["wab_broken_layout", "form"],
+        "templates": ["wab_popup_landing", "wab_broken_layout"],
         "tasks": [
-            "Fill out a form where field labels don't match their visual positions. Use accessibility info correctly.",
-            "Navigate a page with CSS layout bugs where elements appear in unexpected positions.",
+            "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
+            "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form. Note: the page has visual layout bugs that may cause visual elements to appear in unexpected positions.",
         ],
     },
 }

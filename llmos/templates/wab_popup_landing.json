@@ -5,22 +5,25 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "popup_landing",
-    "target_primitives": ["attention", "spatial_reasoning"]
+    "target_primitives": [
+      "attention",
+      "spatial_reasoning"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "popup_landing",
-    "wab_data": {
-      "answer_submitted": false,
-      "reported_screen_size": null
-    },
-    "wab_behavior": {
-      "overlays_stack": ["cookie_banner", "promo_popup", "newsletter_popup"],
-      "correct_answer": "31.5\""
-    },
+    "wab_instruction": "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
     "task_completion_criteria": {
       "js_eval": [
         "data.answer_submitted === true",
         "String(data.reported_screen_size).indexOf('31.5') !== -1"
+      ],
+      "dom_check": [
+        {
+          "selector": "#answer-display",
+          "condition": "contains",
+          "value": "31.5"
+        }
       ]
     }
   },
@@ -28,9 +31,14 @@
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "UltraView Pro",
+    "text": "Popup Landing",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -38,99 +46,1093 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
-          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/popup_landing", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/popup_landing",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
         ]
       },
       {
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "UltraView Pro Monitor",
+        "text": "Popup Landing",
         "visible": true,
-        "z_index": 0,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "product_title", "tag": "h1", "role": "heading", "text": "UltraView Pro 4K Monitor", "visible": true, "bounds": {"x": 100, "y": 70, "width": 600, "height": 40}},
-          {"bid": "product_image", "tag": "img", "role": "img", "text": "[Monitor product image]", "visible": true, "bounds": {"x": 100, "y": 130, "width": 400, "height": 300}},
-          {"bid": "product_desc", "tag": "p", "role": "text", "text": "Experience stunning visuals with the UltraView Pro 4K monitor. Perfect for professionals and creatives who demand the best.", "visible": true, "bounds": {"x": 520, "y": 130, "width": 500, "height": 60}},
           {
-            "bid": "specs_table",
-            "tag": "table",
-            "role": "table",
-            "text": "Specifications",
+            "bid": "text___new_34_inch_4k_ultraview_pro___now__20_1",
+            "tag": "span",
+            "role": "text",
+            "text": "\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89",
             "visible": true,
-            "bounds": {"x": 520, "y": 210, "width": 500, "height": 250},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_close_promo_2",
+            "tag": "button",
+            "role": "button",
+            "text": "Close promo",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_techdirect_3",
+            "tag": "span",
+            "role": "text",
+            "text": "TechDirect",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "navigation_4",
+            "tag": "nav",
+            "role": "navigation",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "specs_header", "tag": "thead", "role": "rowgroup", "text": "Technical Specifications", "visible": true, "bounds": {"x": 520, "y": 210, "width": 500, "height": 30}},
-              {"bid": "spec_resolution", "tag": "tr", "role": "row", "text": "Resolution: 3840 x 2160 (4K UHD)", "visible": true, "bounds": {"x": 520, "y": 245, "width": 500, "height": 30}},
-              {"bid": "spec_screen_size", "tag": "tr", "role": "row", "text": "Screen Size: 31.5\"", "visible": true, "bounds": {"x": 520, "y": 280, "width": 500, "height": 30}},
-              {"bid": "spec_panel", "tag": "tr", "role": "row", "text": "Panel Type: IPS", "visible": true, "bounds": {"x": 520, "y": 315, "width": 500, "height": 30}},
-              {"bid": "spec_refresh", "tag": "tr", "role": "row", "text": "Refresh Rate: 60Hz", "visible": true, "bounds": {"x": 520, "y": 350, "width": 500, "height": 30}},
-              {"bid": "spec_ports", "tag": "tr", "role": "row", "text": "Ports: 2x HDMI 2.1, 1x DisplayPort 1.4, 1x USB-C", "visible": true, "bounds": {"x": 520, "y": 385, "width": 500, "height": 30}},
-              {"bid": "spec_weight", "tag": "tr", "role": "row", "text": "Weight: 15.4 lbs", "visible": true, "bounds": {"x": 520, "y": 420, "width": 500, "height": 30}}
+              {
+                "bid": "link_monitors_5",
+                "tag": "a",
+                "role": "link",
+                "text": "Monitors",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__url_6",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/url: \"#\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "link_laptops_7",
+                "tag": "a",
+                "role": "link",
+                "text": "Laptops",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__url_8",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/url: \"#\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "link_accessories_9",
+                "tag": "a",
+                "role": "link",
+                "text": "Accessories",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__url_10",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/url: \"#\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "link_deals_11",
+                "tag": "a",
+                "role": "link",
+                "text": "Deals",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__url_12",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/url: \"#\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              }
             ]
           },
           {
-            "bid": "answer_section",
-            "tag": "section",
-            "role": "region",
-            "text": "Report Answer",
+            "bid": "link_home_13",
+            "tag": "a",
+            "role": "link",
+            "text": "Home",
             "visible": true,
-            "bounds": {"x": 100, "y": 500, "width": 800, "height": 80},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "answer_label", "tag": "label", "role": "label", "text": "Screen Size:", "visible": true, "bounds": {"x": 110, "y": 510, "width": 120, "height": 20}},
-              {"bid": "answer_input", "tag": "input", "role": "textbox", "text": "Enter screen size", "value": "", "visible": true, "bounds": {"x": 240, "y": 505, "width": 200, "height": 35}},
-              {"bid": "answer_submit", "tag": "button", "role": "button", "text": "Submit Answer", "visible": true, "bounds": {"x": 450, "y": 505, "width": 130, "height": 35}},
-              {"bid": "answer_display", "tag": "span", "role": "status", "text": "", "visible": false, "bounds": {"x": 590, "y": 510, "width": 200, "height": 25}}
+              {
+                "bid": "text__url_14",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
             ]
+          },
+          {
+            "bid": "text__15",
+            "tag": "span",
+            "role": "text",
+            "text": "/",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "link_monitors_16",
+            "tag": "a",
+            "role": "link",
+            "text": "Monitors",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__url_17",
+                "tag": "span",
+                "role": "text",
+                "text": "/url: \"#\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text___ultraview_pro_monitor_18",
+            "tag": "span",
+            "role": "text",
+            "text": "/ UltraView Pro Monitor \ud83d\udda8",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_ultraview_pro_monitor_19",
+            "tag": "h2",
+            "role": "heading",
+            "text": "UltraView Pro Monitor",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_______4_2__1_247_reviews___799_99__999_9_20",
+            "tag": "span",
+            "role": "text",
+            "text": "\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_experience_stunning_visuals_with_the_ult_21",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Experience stunning visuals with the UltraView Pro Monitor. With its expansive 32-inch class display, every detail comes alive in stunning 4K resolution. Designed for professionals and gamers alike, this monitor delivers exceptional color accuracy and buttery-smooth performance with its high refresh rate and ultra-fast response time.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "heading_compare_ultraview_models_22",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Compare UltraView Models",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "table_23",
+            "tag": "table",
+            "role": "table",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "rowgroup_24",
+                "tag": "div",
+                "role": "rowgroup",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "row_ultraview_basic_ultraview_pro_25",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "UltraView Basic UltraView Pro",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_26",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_ultraview_basic_27",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "UltraView Basic",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "strong_ultraview_basic_28",
+                            "tag": "div",
+                            "role": "strong",
+                            "text": "UltraView Basic",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "cell_ultraview_pro_29",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "UltraView Pro",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "strong_ultraview_pro_30",
+                            "tag": "div",
+                            "role": "strong",
+                            "text": "UltraView Pro",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_screen_size_27_31",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Screen Size 27\\",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_screen_size_32",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Screen Size",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_27_33",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "27\\",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__32_34",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "~32\\",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_resolution_qhd__2560_x_1440__4k_uhd__384_35",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_resolution_36",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Resolution",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_qhd__2560_x_1440_37",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "QHD (2560 x 1440)",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_4k_uhd__3840_x_2160_38",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "4K UHD (3840 x 2160)",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_refresh_rate_75hz_144hz_39",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Refresh Rate 75Hz 144Hz",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_refresh_rate_40",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Refresh Rate",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_75hz_41",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "75Hz",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_144hz_42",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "144Hz",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_price__399_99__799_99_43",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Price $399.99 $799.99",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_price_44",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Price",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__399_99_45",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$399.99",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__799_99_46",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$799.99",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "bid": "heading_technical_specifications_47",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Technical Specifications",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "table_48",
+            "tag": "table",
+            "role": "table",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "rowgroup_49",
+                "tag": "div",
+                "role": "rowgroup",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "row_screen_size_31_5_50",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Screen Size 31.5\\",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_screen_size_51",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Screen Size",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_31_5_52",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "31.5\\",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_resolution_4k_uhd__3840_x_2160_53",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Resolution 4K UHD (3840 x 2160)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_resolution_54",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Resolution",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_4k_uhd__3840_x_2160_55",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "4K UHD (3840 x 2160)",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_panel_type_ips_56",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Panel Type IPS",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_panel_type_57",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Panel Type",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_ips_58",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "IPS",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_refresh_rate_144hz_59",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Refresh Rate 144Hz",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_refresh_rate_60",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Refresh Rate",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_144hz_61",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "144Hz",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_response_time_1ms_62",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Response Time 1ms",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_response_time_63",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Response Time",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_1ms_64",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "1ms",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_hdr_support_hdr10_65",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "HDR Support HDR10",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_hdr_support_66",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "HDR Support",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hdr10_67",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HDR10",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_connectivity_hdmi_2_1__displayport_1_4_68",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Connectivity HDMI 2.1, DisplayPort 1.4, USB-C",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "rowheader_connectivity_69",
+                        "tag": "th",
+                        "role": "rowheader",
+                        "text": "Connectivity",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hdmi_2_1__displayport_1_4__usb_c_70",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HDMI 2.1, DisplayPort 1.4, USB-C",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "bid": "heading_what_is_the_screen_size_of_the_ultraview_71",
+            "tag": "h2",
+            "role": "heading",
+            "text": "What is the screen size of the UltraView Pro?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "textbox_e_g__31_5_72",
+            "tag": "input",
+            "role": "textbox",
+            "text": "e.g. 31.5\\",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_submit_73",
+            "tag": "button",
+            "role": "button",
+            "text": "Submit",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "paragraph_this_site_uses_cookies_for_a_better_expe_74",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "This site uses cookies for a better experience. By continuing to browse, you agree to our use of cookies.",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_accept_all_75",
+            "tag": "button",
+            "role": "button",
+            "text": "Accept All",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_manage_preferences_76",
+            "tag": "button",
+            "role": "button",
+            "text": "Manage Preferences",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text__77",
+            "tag": "span",
+            "role": "text",
+            "text": "\ud83d\udcac",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
-        ]
-      },
-      {
-        "bid": "cookie_banner",
-        "tag": "div",
-        "role": "dialog",
-        "text": "We use cookies to improve your experience.",
-        "visible": true,
-        "z_index": 300,
-        "bounds": {"x": 0, "y": 980, "width": 1920, "height": 100},
-        "children": [
-          {"bid": "cookie_text", "tag": "p", "role": "text", "text": "This website uses cookies. By continuing to browse, you agree to our use of cookies.", "visible": true, "bounds": {"x": 100, "y": 990, "width": 1400, "height": 25}},
-          {"bid": "cookie_accept", "tag": "button", "role": "button", "text": "Accept All", "visible": true, "bounds": {"x": 1600, "y": 990, "width": 100, "height": 35}},
-          {"bid": "cookie_decline", "tag": "button", "role": "button", "text": "Decline", "visible": true, "bounds": {"x": 1710, "y": 990, "width": 80, "height": 35}}
-        ]
-      },
-      {
-        "bid": "newsletter_popup",
-        "tag": "div",
-        "role": "dialog",
-        "text": "Subscribe to our newsletter!",
-        "visible": true,
-        "z_index": 200,
-        "bounds": {"x": 500, "y": 200, "width": 500, "height": 300},
-        "children": [
-          {"bid": "newsletter_title", "tag": "h2", "role": "heading", "text": "Get 10% Off Your First Order!", "visible": true, "bounds": {"x": 520, "y": 210, "width": 460, "height": 30}},
-          {"bid": "newsletter_text", "tag": "p", "role": "text", "text": "Subscribe to our newsletter and receive exclusive deals and product updates.", "visible": true, "bounds": {"x": 520, "y": 250, "width": 460, "height": 40}},
-          {"bid": "newsletter_email", "tag": "input", "role": "textbox", "text": "Enter your email", "value": "", "visible": true, "bounds": {"x": 540, "y": 310, "width": 300, "height": 35}},
-          {"bid": "newsletter_subscribe", "tag": "button", "role": "button", "text": "Subscribe", "visible": true, "bounds": {"x": 600, "y": 360, "width": 120, "height": 40}},
-          {"bid": "newsletter_close", "tag": "button", "role": "button", "text": "X", "visible": true, "bounds": {"x": 970, "y": 205, "width": 25, "height": 25}}
-        ]
-      },
-      {
-        "bid": "promo_popup",
-        "tag": "div",
-        "role": "dialog",
-        "text": "Limited time offer!",
-        "visible": true,
-        "z_index": 100,
-        "bounds": {"x": 600, "y": 350, "width": 450, "height": 250},
-        "children": [
-          {"bid": "promo_title", "tag": "h2", "role": "heading", "text": "Flash Sale — 24 Hours Only!", "visible": true, "bounds": {"x": 620, "y": 360, "width": 410, "height": 30}},
-          {"bid": "promo_text", "tag": "p", "role": "text", "text": "Save up to 40% on select monitors. Don't miss out!", "visible": true, "bounds": {"x": 620, "y": 400, "width": 410, "height": 40}},
-          {"bid": "promo_shop", "tag": "button", "role": "button", "text": "Shop Now", "visible": true, "bounds": {"x": 720, "y": 460, "width": 120, "height": 40}},
-          {"bid": "promo_close", "tag": "button", "role": "button", "text": "No thanks", "visible": true, "bounds": {"x": 750, "y": 510, "width": 80, "height": 25}}
         ]
       }
     ]
@@ -140,7 +1142,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/popup_landing",
-      "title": "UltraView Pro 4K Monitor",
+      "title": "Pop-up Landing Page",
       "active": true
     }
   ],

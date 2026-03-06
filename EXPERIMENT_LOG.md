@@ -139,14 +139,99 @@ Per-primitive breakdown (baseline → SFT → SFT+DPO):
 
 ---
 
+## Run 2: SFT v2 — More Data + Exclude Strong Primitives (2026-03-05)
+
+### Goal
+
+Address Run 1 failures: collect 3x more data, exclude primitives the model already handles well (verification, reflection, adversarial_robustness), SFT only (no DPO).
+
+### 2.1 Data Collection
+
+**Config**: Same as Run 1 (Gemini Flash simulator + Qwen3-30B-A3B via Tinker), 10 workers
+
+Target: 50 episodes x 9 weak primitives = 450 new episodes.
+**Collection got stuck** after ~1.5 hours at 163 new episodes (process alive but no new output for 27 min). Killed and proceeded with available data.
+
+| Primitive | Episodes (old + new) | Notes |
+|-----------|---------------------|-------|
+| attention | 60 | Complete (10 + 50) |
+| backtracking | 59 | Complete (9 + 50) |
+| constraint_satisfaction | 59 | Complete (9 + 50) |
+| error_recovery | 25 | Partial (10 + 15) |
+| exploration | 10 | No new (stuck before reaching) |
+| memory | 10 | No new |
+| patience | 10 | No new |
+| planning | 8 | No new |
+| spatial_reasoning | 10 | No new |
+| **Total** | **251** | |
+
+### 2.2 Training Data
+
+Excluded: verification, reflection, adversarial_robustness
+
+| Metric | v1 | v2 |
+|--------|----|----|
+| Episodes | 88 | 251 |
+| After score filter (>=0.5) | 39 convos | 99 convos |
+| After turn splitting | 450 sub-convos | 1303 sub-convos |
+| Estimated tokens | 5.3M | 13.8M |
+
+### 2.3 SFT Training
+
+**Config**: Same as Run 1 (LoRA 32, batch 64, lr 5e-4, 3 epochs)
+
+| Metric | v1 | v2 |
+|--------|----|----|
+| Steps | 18 | 60 |
+| Final NLL | 0.183 | **0.128** |
+| Checkpoint (sampler) | `tinker://42630f56-...` | `tinker://a8849365-1cee-5e12-b053-4f167e48b0c3:train:0/sampler_weights/final` |
+| Checkpoint (weights) | `tinker://42630f56-...` | `tinker://a8849365-1cee-5e12-b053-4f167e48b0c3:train:0/weights/final` |
+
+### 2.4 WebAgentBench Evaluation
+
+| Model | Passed | Avg Score | Delta vs Baseline |
+|-------|--------|-----------|-------------------|
+| Baseline | 1/12 | -0.542 | — |
+| SFT v1 | 1/12 | -0.583 | -0.041 |
+| SFT+DPO v1 | 1/12 | -0.708 | -0.166 |
+| **SFT v2** | **0/12** | **-0.625** | **-0.083** |
+
+Per-primitive (Baseline → SFT v2):
+
+| Primitive | Baseline | SFT v2 | Delta |
+|-----------|----------|--------|-------|
+| adversarial_robustness | +1.00 | +0.50 | -0.50 (despite being excluded!) |
+| attention | -0.81 | -0.88 | -0.06 |
+| backtracking | -1.00 | -1.00 | 0 |
+| constraint_satisfaction | -1.00 | -1.00 | 0 |
+| error_recovery | -0.50 | -0.50 | 0 |
+| exploration | -0.75 | -0.88 | -0.13 |
+| memory | -0.75 | -0.75 | 0 |
+| patience | -0.67 | -0.83 | -0.17 |
+| planning | -0.75 | -0.75 | 0 |
+| reflection | +0.50 | +0.50 | 0 |
+| spatial_reasoning | -1.00 | -1.00 | 0 |
+| verification | +0.75 | +0.50 | -0.25 (despite being excluded!) |
+
+### 2.5 Analysis
+
+**SFT v2 is worse than baseline** (-0.083), though less catastrophic than DPO v1 (-0.166).
+
+**Key findings**:
+1. **Excluding primitives didn't fully prevent degradation**: verification (-0.25) and adversarial_robustness (-0.50) got worse even though they were excluded from training data. This means the SFT itself is hurting general capabilities, not just specific primitives.
+2. **No improvement anywhere**: Unlike DPO v1 which at least improved memory/planning, SFT v2 improved nothing.
+3. **More data didn't help**: 3x more data and 3x more steps made things slightly worse, not better. Lower NLL (0.128 vs 0.183) means better memorization but worse generalization.
+4. **The problem is likely sim-to-real gap**: The model is learning simulator-specific patterns that don't transfer to real browsers. More simulator data amplifies this problem.
+
+**Implication**: The fundamental bottleneck is NOT data quantity or training setup — it's the **quality gap between LLMOS-simulated observations and real browser observations**. Before collecting more simulator data, we need to understand and close this gap.
+
+---
+
 ## Next Steps
 
-- [ ] Collect much more data (target: 50+ episodes per primitive, 500+ total)
-- [ ] Investigate catastrophic forgetting mitigation:
-  - Mix simulator DPO data with general chat/instruction data
-  - Use lower DPO beta (0.01-0.05) to reduce preference signal strength
-  - Try SFT-only (skip DPO) with more data
-- [ ] Reduce sim-to-real gap: compare LLMOS observations vs real browser observations side by side
-- [ ] Try training only on primitives the model struggles with (exclude verification, reflection, adversarial_robustness from training)
-- [ ] Add W&B logging (needs `WANDB_API_KEY` in `.env`) for better training monitoring
-- [ ] Investigate lazy agent behavior (24% of episodes) — prompt engineering or filtering
+- [ ] **Diagnose sim-to-real gap** (highest priority): Compare LLMOS observations vs real browser observations for the same pages side by side. Identify specific differences.
+- [ ] Try training on **real browser trajectories** instead of simulated ones (even a few may be more valuable)
+- [ ] Investigate if the model is learning simulator artifacts (e.g., LLM-generated element names that don't match real HTML)
+- [ ] Consider **regularization**: lower LoRA rank (16), fewer epochs (1), lower LR — prevent overfitting to simulator patterns
+- [ ] Try **mixing real + simulated data** if real browser trajectories become available
+- [ ] Investigate why excluded primitives still degrade — is it tokenizer/format contamination?

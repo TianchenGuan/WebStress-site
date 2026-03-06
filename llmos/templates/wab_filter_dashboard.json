@@ -5,49 +5,40 @@
     "random_seed": 42,
     "platform": "webagentbench",
     "task_category": "filter_dashboard",
-    "target_primitives": ["constraint_satisfaction", "planning"]
+    "target_primitives": [
+      "constraint_satisfaction",
+      "planning",
+      "attention"
+    ]
   },
   "hidden_state": {
     "wab_page_id": "filter_dashboard",
-    "wab_data": {
-      "reported_count": null
-    },
-    "wab_behavior": {
-      "correct_count": 4,
-      "employees": [
-        {"name": "Alice Chen", "title": "Senior Engineer", "location": "SF", "salary": 185000},
-        {"name": "Bob Kim", "title": "Junior Engineer", "location": "SF", "salary": 95000},
-        {"name": "Carlos Ruiz", "title": "Senior Engineer", "location": "NY", "salary": 175000},
-        {"name": "Diana Patel", "title": "Senior Engineer", "location": "SF", "salary": 192000},
-        {"name": "Eric Thompson", "title": "Lead Engineer", "location": "SF", "salary": 210000},
-        {"name": "Fiona Walsh", "title": "Engineer", "location": "Seattle", "salary": 145000},
-        {"name": "George Liu", "title": "Senior Engineer", "location": "Austin", "salary": 168000},
-        {"name": "Hannah Davis", "title": "Senior Engineer", "location": "SF", "salary": 178000},
-        {"name": "Ivan Petrov", "title": "Staff Engineer", "location": "SF", "salary": 225000},
-        {"name": "Julia Martinez", "title": "Junior Engineer", "location": "NY", "salary": 88000},
-        {"name": "Kevin Brown", "title": "Engineer", "location": "SF", "salary": 135000},
-        {"name": "Lisa Nguyen", "title": "Senior Engineer", "location": "Chicago", "salary": 162000},
-        {"name": "Mark Johnson", "title": "Senior Engineer", "location": "SF", "salary": 155000},
-        {"name": "Nina Volkov", "title": "Engineer", "location": "Seattle", "salary": 142000},
-        {"name": "Oscar Lee", "title": "Senior Engineer", "location": "NY", "salary": 180000},
-        {"name": "Patricia Smith", "title": "Lead Engineer", "location": "Austin", "salary": 205000},
-        {"name": "Quincy Adams", "title": "Junior Engineer", "location": "SF", "salary": 92000},
-        {"name": "Rachel Green", "title": "Senior Engineer", "location": "SF", "salary": 148000},
-        {"name": "Sam Wilson", "title": "Engineer", "location": "Chicago", "salary": 138000},
-        {"name": "Tina Rodriguez", "title": "Senior Engineer", "location": "SF", "salary": 170000}
-      ]
-    },
+    "wab_instruction": "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
     "task_completion_criteria": {
-      "js_eval": ["data.reported_count === 4"]
+      "js_eval": [
+        "data.reported_count === 4"
+      ],
+      "dom_check": [
+        {
+          "selector": "#count-display",
+          "condition": "equals",
+          "value": "4"
+        }
+      ]
     }
   },
   "ui": {
     "bid": "root",
     "tag": "browser",
     "role": "application",
-    "text": "Employee Dashboard",
+    "text": "Filter Dashboard",
     "visible": true,
-    "bounds": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
     "children": [
       {
         "bid": "toolbar",
@@ -55,133 +46,2456 @@
         "role": "toolbar",
         "text": "Browser Toolbar",
         "visible": true,
-        "bounds": {"x": 0, "y": 0, "width": 1920, "height": 50},
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
         "children": [
-          {"bid": "url_bar", "tag": "input", "role": "textbox", "text": "Address", "value": "https://webagentbench.local/pages/filter_dashboard", "visible": true, "bounds": {"x": 200, "y": 10, "width": 1200, "height": 30}}
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/filter_dashboard",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
         ]
       },
       {
         "bid": "page_content",
         "tag": "main",
         "role": "main",
-        "text": "Employee Directory",
+        "text": "Filter Dashboard",
         "visible": true,
-        "bounds": {"x": 0, "y": 50, "width": 1920, "height": 1030},
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
         "children": [
-          {"bid": "page_title", "tag": "h1", "role": "heading", "text": "Employee Directory", "visible": true, "bounds": {"x": 100, "y": 70, "width": 400, "height": 40}},
           {
-            "bid": "filters_panel",
-            "tag": "section",
-            "role": "region",
-            "text": "Filters",
+            "bid": "banner_1",
+            "tag": "header",
+            "role": "banner",
+            "text": "",
             "visible": true,
-            "bounds": {"x": 100, "y": 130, "width": 1200, "height": 70},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
-              {"bid": "title_filter_label", "tag": "label", "role": "label", "text": "Title:", "visible": true, "bounds": {"x": 110, "y": 135, "width": 40, "height": 20}},
               {
-                "bid": "title_filter",
-                "tag": "select",
-                "role": "combobox",
-                "text": "All Titles",
-                "value": "All",
+                "bid": "heading_employee_directory_2",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Employee Directory",
                 "visible": true,
-                "bounds": {"x": 155, "y": 135, "width": 180, "height": 30},
-                "options": ["All", "Junior Engineer", "Engineer", "Senior Engineer", "Lead Engineer", "Staff Engineer"]
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
               },
-              {"bid": "location_filter_label", "tag": "label", "role": "label", "text": "Location:", "visible": true, "bounds": {"x": 360, "y": 135, "width": 60, "height": 20}},
               {
-                "bid": "location_filter",
-                "tag": "select",
-                "role": "combobox",
-                "text": "All Locations",
-                "value": "All",
+                "bid": "paragraph_filter__sort__and_report_on_the_company_3",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Filter, sort, and report on the company's workforce",
                 "visible": true,
-                "bounds": {"x": 425, "y": 135, "width": 160, "height": 30},
-                "options": ["All", "SF", "NY", "Seattle", "Austin", "Chicago"]
-              },
-              {"bid": "salary_filter_label", "tag": "label", "role": "label", "text": "Min Salary ($):", "visible": true, "bounds": {"x": 610, "y": 135, "width": 100, "height": 20}},
-              {"bid": "salary_filter", "tag": "input", "role": "spinbutton", "text": "Min Salary", "value": "", "visible": true, "bounds": {"x": 715, "y": 135, "width": 140, "height": 30}},
-              {"bid": "sort_label", "tag": "label", "role": "label", "text": "Sort By:", "visible": true, "bounds": {"x": 880, "y": 135, "width": 55, "height": 20}},
-              {
-                "bid": "sort_select",
-                "tag": "select",
-                "role": "combobox",
-                "text": "Sort By",
-                "value": "name",
-                "visible": true,
-                "bounds": {"x": 940, "y": 135, "width": 140, "height": 30},
-                "options": ["Name (A-Z)", "Name (Z-A)", "Salary (Low-High)", "Salary (High-Low)"]
-              },
-              {"bid": "apply_filters_btn", "tag": "button", "role": "button", "text": "Apply Filters", "visible": true, "bounds": {"x": 1100, "y": 135, "width": 110, "height": 30}}
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
             ]
           },
           {
-            "bid": "employee_table",
-            "tag": "table",
-            "role": "table",
-            "text": "Employees",
+            "bid": "button_sf_engineers_4",
+            "tag": "button",
+            "role": "button",
+            "text": "SF Engineers",
             "visible": true,
-            "bounds": {"x": 100, "y": 220, "width": 1200, "height": 740},
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_all_remote_5",
+            "tag": "button",
+            "role": "button",
+            "text": "All Remote",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_leadership_6",
+            "tag": "button",
+            "role": "button",
+            "text": "Leadership",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_department_7",
+            "tag": "span",
+            "role": "text",
+            "text": "Department",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_department_8",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Department",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
             "children": [
               {
-                "bid": "table_header",
-                "tag": "thead",
+                "bid": "option_all_9",
+                "tag": "option",
+                "role": "option",
+                "text": "All",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
+              },
+              {
+                "bid": "option_engineering_10",
+                "tag": "option",
+                "role": "option",
+                "text": "Engineering",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_sales_11",
+                "tag": "option",
+                "role": "option",
+                "text": "Sales",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_marketing_12",
+                "tag": "option",
+                "role": "option",
+                "text": "Marketing",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_hr_13",
+                "tag": "option",
+                "role": "option",
+                "text": "HR",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_location_14",
+            "tag": "span",
+            "role": "text",
+            "text": "Location",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_location_15",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Location",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "option_all_16",
+                "tag": "option",
+                "role": "option",
+                "text": "All",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
+              },
+              {
+                "bid": "option_austin_17",
+                "tag": "option",
+                "role": "option",
+                "text": "Austin",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_chicago_18",
+                "tag": "option",
+                "role": "option",
+                "text": "Chicago",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_new_york_19",
+                "tag": "option",
+                "role": "option",
+                "text": "New York",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_remote_20",
+                "tag": "option",
+                "role": "option",
+                "text": "Remote",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_san_francisco_21",
+                "tag": "option",
+                "role": "option",
+                "text": "San Francisco",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_san_jose_22",
+                "tag": "option",
+                "role": "option",
+                "text": "San Jose",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_title_23",
+            "tag": "span",
+            "role": "text",
+            "text": "Title",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_title_24",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Title",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "option_all_25",
+                "tag": "option",
+                "role": "option",
+                "text": "All",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
+              },
+              {
+                "bid": "option_content_lead_26",
+                "tag": "option",
+                "role": "option",
+                "text": "Content Lead",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_hr_coordinator_27",
+                "tag": "option",
+                "role": "option",
+                "text": "HR Coordinator",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_hr_director_28",
+                "tag": "option",
+                "role": "option",
+                "text": "HR Director",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_junior_engineer_29",
+                "tag": "option",
+                "role": "option",
+                "text": "Junior Engineer",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_marketing_manager_30",
+                "tag": "option",
+                "role": "option",
+                "text": "Marketing Manager",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_sales_manager_31",
+                "tag": "option",
+                "role": "option",
+                "text": "Sales Manager",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_sales_rep_32",
+                "tag": "option",
+                "role": "option",
+                "text": "Sales Rep",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_senior_engineer_33",
+                "tag": "option",
+                "role": "option",
+                "text": "Senior Engineer",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_senior_engineering_manager_34",
+                "tag": "option",
+                "role": "option",
+                "text": "Senior Engineering Manager",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_senior_sales_rep_35",
+                "tag": "option",
+                "role": "option",
+                "text": "Senior Sales Rep",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_staff_engineer_36",
+                "tag": "option",
+                "role": "option",
+                "text": "Staff Engineer",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_min_salary_37",
+            "tag": "span",
+            "role": "text",
+            "text": "Min Salary",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "spinbutton_min_salary_38",
+            "tag": "input",
+            "role": "spinbutton",
+            "text": "Min Salary",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_sort_by_39",
+            "tag": "span",
+            "role": "text",
+            "text": "Sort By",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "combobox_sort_by_40",
+            "tag": "select",
+            "role": "combobox",
+            "text": "Sort By",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "option_name_41",
+                "tag": "option",
+                "role": "option",
+                "text": "Name",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "selected": true
+              },
+              {
+                "bid": "option_salary_42",
+                "tag": "option",
+                "role": "option",
+                "text": "Salary",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "option_department_43",
+                "tag": "option",
+                "role": "option",
+                "text": "Department",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "text_sort_order_44",
+            "tag": "span",
+            "role": "text",
+            "text": "Sort Order",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_asc_45",
+            "tag": "button",
+            "role": "button",
+            "text": "Asc \u2191",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_showing_46",
+            "tag": "span",
+            "role": "text",
+            "text": "Showing",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "strong__20_47",
+            "tag": "div",
+            "role": "strong",
+            "text": "\"20\"",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text_of_20_employees_48",
+            "tag": "span",
+            "role": "text",
+            "text": "of 20 employees",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "table_49",
+            "tag": "table",
+            "role": "table",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "rowgroup_50",
+                "tag": "div",
                 "role": "rowgroup",
                 "text": "",
                 "visible": true,
-                "bounds": {"x": 100, "y": 220, "width": 1200, "height": 35},
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
                 "children": [
-                  {"bid": "th_name", "tag": "th", "role": "columnheader", "text": "Name", "visible": true, "bounds": {"x": 100, "y": 220, "width": 300, "height": 35}},
-                  {"bid": "th_title", "tag": "th", "role": "columnheader", "text": "Title", "visible": true, "bounds": {"x": 400, "y": 220, "width": 300, "height": 35}},
-                  {"bid": "th_location", "tag": "th", "role": "columnheader", "text": "Location", "visible": true, "bounds": {"x": 700, "y": 220, "width": 200, "height": 35}},
-                  {"bid": "th_salary", "tag": "th", "role": "columnheader", "text": "Salary", "visible": true, "bounds": {"x": 900, "y": 220, "width": 200, "height": 35}}
+                  {
+                    "bid": "row_name_department_location_title_salary_51",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Name Department Location Title Salary",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "columnheader_name_52",
+                        "tag": "th",
+                        "role": "columnheader",
+                        "text": "Name",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "columnheader_department_53",
+                        "tag": "th",
+                        "role": "columnheader",
+                        "text": "Department",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "columnheader_location_54",
+                        "tag": "th",
+                        "role": "columnheader",
+                        "text": "Location",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "columnheader_title_55",
+                        "tag": "th",
+                        "role": "columnheader",
+                        "text": "Title",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "columnheader_salary_56",
+                        "tag": "th",
+                        "role": "columnheader",
+                        "text": "Salary",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               {
-                "bid": "table_body",
-                "tag": "tbody",
+                "bid": "rowgroup_57",
+                "tag": "div",
                 "role": "rowgroup",
                 "text": "",
                 "visible": true,
-                "bounds": {"x": 100, "y": 255, "width": 1200, "height": 700},
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
                 "children": [
-                  {"bid": "row_1", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 255, "width": 1200, "height": 35}, "children": [{"bid": "r1_name", "tag": "td", "role": "cell", "text": "Alice Chen", "visible": true}, {"bid": "r1_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r1_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r1_sal", "tag": "td", "role": "cell", "text": "$185,000", "visible": true}]},
-                  {"bid": "row_2", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 290, "width": 1200, "height": 35}, "children": [{"bid": "r2_name", "tag": "td", "role": "cell", "text": "Bob Kim", "visible": true}, {"bid": "r2_title", "tag": "td", "role": "cell", "text": "Junior Engineer", "visible": true}, {"bid": "r2_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r2_sal", "tag": "td", "role": "cell", "text": "$95,000", "visible": true}]},
-                  {"bid": "row_3", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 325, "width": 1200, "height": 35}, "children": [{"bid": "r3_name", "tag": "td", "role": "cell", "text": "Carlos Ruiz", "visible": true}, {"bid": "r3_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r3_loc", "tag": "td", "role": "cell", "text": "NY", "visible": true}, {"bid": "r3_sal", "tag": "td", "role": "cell", "text": "$175,000", "visible": true}]},
-                  {"bid": "row_4", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 360, "width": 1200, "height": 35}, "children": [{"bid": "r4_name", "tag": "td", "role": "cell", "text": "Diana Patel", "visible": true}, {"bid": "r4_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r4_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r4_sal", "tag": "td", "role": "cell", "text": "$192,000", "visible": true}]},
-                  {"bid": "row_5", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 395, "width": 1200, "height": 35}, "children": [{"bid": "r5_name", "tag": "td", "role": "cell", "text": "Eric Thompson", "visible": true}, {"bid": "r5_title", "tag": "td", "role": "cell", "text": "Lead Engineer", "visible": true}, {"bid": "r5_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r5_sal", "tag": "td", "role": "cell", "text": "$210,000", "visible": true}]},
-                  {"bid": "row_6", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 430, "width": 1200, "height": 35}, "children": [{"bid": "r6_name", "tag": "td", "role": "cell", "text": "Fiona Walsh", "visible": true}, {"bid": "r6_title", "tag": "td", "role": "cell", "text": "Engineer", "visible": true}, {"bid": "r6_loc", "tag": "td", "role": "cell", "text": "Seattle", "visible": true}, {"bid": "r6_sal", "tag": "td", "role": "cell", "text": "$145,000", "visible": true}]},
-                  {"bid": "row_7", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 465, "width": 1200, "height": 35}, "children": [{"bid": "r7_name", "tag": "td", "role": "cell", "text": "George Liu", "visible": true}, {"bid": "r7_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r7_loc", "tag": "td", "role": "cell", "text": "Austin", "visible": true}, {"bid": "r7_sal", "tag": "td", "role": "cell", "text": "$168,000", "visible": true}]},
-                  {"bid": "row_8", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 500, "width": 1200, "height": 35}, "children": [{"bid": "r8_name", "tag": "td", "role": "cell", "text": "Hannah Davis", "visible": true}, {"bid": "r8_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r8_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r8_sal", "tag": "td", "role": "cell", "text": "$178,000", "visible": true}]},
-                  {"bid": "row_9", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 535, "width": 1200, "height": 35}, "children": [{"bid": "r9_name", "tag": "td", "role": "cell", "text": "Ivan Petrov", "visible": true}, {"bid": "r9_title", "tag": "td", "role": "cell", "text": "Staff Engineer", "visible": true}, {"bid": "r9_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r9_sal", "tag": "td", "role": "cell", "text": "$225,000", "visible": true}]},
-                  {"bid": "row_10", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 570, "width": 1200, "height": 35}, "children": [{"bid": "r10_name", "tag": "td", "role": "cell", "text": "Julia Martinez", "visible": true}, {"bid": "r10_title", "tag": "td", "role": "cell", "text": "Junior Engineer", "visible": true}, {"bid": "r10_loc", "tag": "td", "role": "cell", "text": "NY", "visible": true}, {"bid": "r10_sal", "tag": "td", "role": "cell", "text": "$88,000", "visible": true}]},
-                  {"bid": "row_11", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 605, "width": 1200, "height": 35}, "children": [{"bid": "r11_name", "tag": "td", "role": "cell", "text": "Kevin Brown", "visible": true}, {"bid": "r11_title", "tag": "td", "role": "cell", "text": "Engineer", "visible": true}, {"bid": "r11_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r11_sal", "tag": "td", "role": "cell", "text": "$135,000", "visible": true}]},
-                  {"bid": "row_12", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 640, "width": 1200, "height": 35}, "children": [{"bid": "r12_name", "tag": "td", "role": "cell", "text": "Lisa Nguyen", "visible": true}, {"bid": "r12_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r12_loc", "tag": "td", "role": "cell", "text": "Chicago", "visible": true}, {"bid": "r12_sal", "tag": "td", "role": "cell", "text": "$162,000", "visible": true}]},
-                  {"bid": "row_13", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 675, "width": 1200, "height": 35}, "children": [{"bid": "r13_name", "tag": "td", "role": "cell", "text": "Mark Johnson", "visible": true}, {"bid": "r13_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r13_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r13_sal", "tag": "td", "role": "cell", "text": "$155,000", "visible": true}]},
-                  {"bid": "row_14", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 710, "width": 1200, "height": 35}, "children": [{"bid": "r14_name", "tag": "td", "role": "cell", "text": "Nina Volkov", "visible": true}, {"bid": "r14_title", "tag": "td", "role": "cell", "text": "Engineer", "visible": true}, {"bid": "r14_loc", "tag": "td", "role": "cell", "text": "Seattle", "visible": true}, {"bid": "r14_sal", "tag": "td", "role": "cell", "text": "$142,000", "visible": true}]},
-                  {"bid": "row_15", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 745, "width": 1200, "height": 35}, "children": [{"bid": "r15_name", "tag": "td", "role": "cell", "text": "Oscar Lee", "visible": true}, {"bid": "r15_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r15_loc", "tag": "td", "role": "cell", "text": "NY", "visible": true}, {"bid": "r15_sal", "tag": "td", "role": "cell", "text": "$180,000", "visible": true}]},
-                  {"bid": "row_16", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 780, "width": 1200, "height": 35}, "children": [{"bid": "r16_name", "tag": "td", "role": "cell", "text": "Patricia Smith", "visible": true}, {"bid": "r16_title", "tag": "td", "role": "cell", "text": "Lead Engineer", "visible": true}, {"bid": "r16_loc", "tag": "td", "role": "cell", "text": "Austin", "visible": true}, {"bid": "r16_sal", "tag": "td", "role": "cell", "text": "$205,000", "visible": true}]},
-                  {"bid": "row_17", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 815, "width": 1200, "height": 35}, "children": [{"bid": "r17_name", "tag": "td", "role": "cell", "text": "Quincy Adams", "visible": true}, {"bid": "r17_title", "tag": "td", "role": "cell", "text": "Junior Engineer", "visible": true}, {"bid": "r17_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r17_sal", "tag": "td", "role": "cell", "text": "$92,000", "visible": true}]},
-                  {"bid": "row_18", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 850, "width": 1200, "height": 35}, "children": [{"bid": "r18_name", "tag": "td", "role": "cell", "text": "Rachel Green", "visible": true}, {"bid": "r18_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r18_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r18_sal", "tag": "td", "role": "cell", "text": "$148,000", "visible": true}]},
-                  {"bid": "row_19", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 885, "width": 1200, "height": 35}, "children": [{"bid": "r19_name", "tag": "td", "role": "cell", "text": "Sam Wilson", "visible": true}, {"bid": "r19_title", "tag": "td", "role": "cell", "text": "Engineer", "visible": true}, {"bid": "r19_loc", "tag": "td", "role": "cell", "text": "Chicago", "visible": true}, {"bid": "r19_sal", "tag": "td", "role": "cell", "text": "$138,000", "visible": true}]},
-                  {"bid": "row_20", "tag": "tr", "role": "row", "text": "", "visible": true, "bounds": {"x": 100, "y": 920, "width": 1200, "height": 35}, "children": [{"bid": "r20_name", "tag": "td", "role": "cell", "text": "Tina Rodriguez", "visible": true}, {"bid": "r20_title", "tag": "td", "role": "cell", "text": "Senior Engineer", "visible": true}, {"bid": "r20_loc", "tag": "td", "role": "cell", "text": "SF", "visible": true}, {"bid": "r20_sal", "tag": "td", "role": "cell", "text": "$170,000", "visible": true}]}
+                  {
+                    "bid": "row_alice_chen_engineering_san_francisco_sen_58",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Alice Chen Engineering San Francisco Senior Engineer $185,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_alice_chen_59",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Alice Chen",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_60",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_61",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_62",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__185_000_63",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$185,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_bob_kim_engineering_san_francisco_senior_64",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Bob Kim Engineering San Francisco Senior Engineer $178,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_bob_kim_65",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Bob Kim",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_66",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_67",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_68",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__178_000_69",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$178,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_carlos_lopez_engineering_san_francisco_s_70",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Carlos Lopez Engineering San Francisco Senior Engineer $165,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_carlos_lopez_71",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Carlos Lopez",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_72",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_73",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_74",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__165_000_75",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$165,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_diana_patel_engineering_san_francisco_se_76",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Diana Patel Engineering San Francisco Senior Engineer $192,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_diana_patel_77",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Diana Patel",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_78",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_79",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_80",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__192_000_81",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$192,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_eve_johnson_engineering_san_francisco_ju_82",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Eve Johnson Engineering San Francisco Junior Engineer $95,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_eve_johnson_83",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Eve Johnson",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_84",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_85",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_junior_engineer_86",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Junior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__95_000_87",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$95,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_frank_wu_engineering_new_york_senior_eng_88",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Frank Wu Engineering New York Senior Engineer $188,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_frank_wu_89",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Frank Wu",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_90",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_new_york_91",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "New York",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_92",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__188_000_93",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$188,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_grace_lee_engineering_new_york_junior_en_94",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Grace Lee Engineering New York Junior Engineer $92,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_grace_lee_95",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Grace Lee",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_96",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_new_york_97",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "New York",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_junior_engineer_98",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Junior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__92_000_99",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$92,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_henry_davis_engineering_austin_staff_eng_100",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Henry Davis Engineering Austin Staff Engineer $210,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_henry_davis_101",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Henry Davis",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_102",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_austin_103",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Austin",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_staff_engineer_104",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Staff Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__210_000_105",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$210,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_irene_martinez_sales_new_york_senior_sal_106",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Irene Martinez Sales New York Senior Sales Rep $145,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_irene_martinez_107",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Irene Martinez",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_sales_108",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sales",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_new_york_109",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "New York",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_sales_rep_110",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Sales Rep",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__145_000_111",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$145,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_jack_brown_sales_chicago_sales_manager_112",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Jack Brown Sales Chicago Sales Manager $160,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_jack_brown_113",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Jack Brown",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_sales_114",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sales",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_chicago_115",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Chicago",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_sales_manager_116",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sales Manager",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__160_000_117",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$160,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_karen_wilson_sales_san_francisco_sales_r_118",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Karen Wilson Sales San Francisco Sales Rep $85,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_karen_wilson_119",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Karen Wilson",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_sales_120",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sales",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_121",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_sales_rep_122",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sales Rep",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__85_000_123",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$85,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_leo_thompson_marketing_san_francisco_mar_124",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Leo Thompson Marketing San Francisco Marketing Manager $155,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_leo_thompson_125",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Leo Thompson",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_marketing_126",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Marketing",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_127",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_marketing_manager_128",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Marketing Manager",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__155_000_129",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$155,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_maria_garcia_marketing_remote_content_le_130",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Maria Garcia Marketing Remote Content Lead $130,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_maria_garcia_131",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Maria Garcia",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_marketing_132",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Marketing",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_remote_133",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Remote",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_content_lead_134",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Content Lead",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__130_000_135",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$130,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_nathan_scott_hr_san_francisco_hr_directo_136",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Nathan Scott HR San Francisco HR Director $175,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_nathan_scott_137",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Nathan Scott",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hr_138",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HR",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_139",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hr_director_140",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HR Director",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__175_000_141",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$175,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_olivia_adams_hr_new_york_hr_coordinator_142",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Olivia Adams HR New York HR Coordinator $72,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_olivia_adams_143",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Olivia Adams",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hr_144",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HR",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_new_york_145",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "New York",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_hr_coordinator_146",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "HR Coordinator",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__72_000_147",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$72,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_peter_chang_engineering_remote_senior_en_148",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Peter Chang Engineering Remote Senior Engineer $172,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_peter_chang_149",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Peter Chang",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_150",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_remote_151",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Remote",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_152",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__172_000_153",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$172,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_quinn_zhang_engineering_san_francisco_se_154",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Quinn Zhang Engineering San Francisco Senior Engineer $150,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_quinn_zhang_155",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Quinn Zhang",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_156",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_157",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_158",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__150_000_159",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$150,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_rachel_nguyen_engineering_san_francisco_160",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Rachel Nguyen Engineering San Francisco Senior Engineering Manager $205,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_rachel_nguyen_161",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Rachel Nguyen",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_162",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_163",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineering_manager_164",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineering Manager",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__205_000_165",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$205,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_sam_okafor_engineering_san_jose_senior_e_166",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Sam Okafor Engineering San Jose Senior Engineer $182,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_sam_okafor_167",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Sam Okafor",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_168",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_jose_169",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Jose",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_170",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__182_000_171",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$182,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "row_tina_roberts_engineering_san_francisco_s_172",
+                    "tag": "tr",
+                    "role": "row",
+                    "text": "Tina Roberts Engineering San Francisco Senior Engineer $150,000",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "cell_tina_roberts_173",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Tina Roberts",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_engineering_174",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Engineering",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_san_francisco_175",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "San Francisco",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell_senior_engineer_176",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "Senior Engineer",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "cell__150_000_177",
+                        "tag": "td",
+                        "role": "cell",
+                        "text": "$150,000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  }
                 ]
               }
             ]
           },
           {
-            "bid": "report_section",
-            "tag": "section",
-            "role": "region",
-            "text": "Report Count",
+            "bid": "heading_report_matching_count_178",
+            "tag": "h2",
+            "role": "heading",
+            "text": "Report Matching Count",
             "visible": true,
-            "bounds": {"x": 100, "y": 970, "width": 600, "height": 60},
-            "children": [
-              {"bid": "count_label", "tag": "label", "role": "label", "text": "Matching employee count:", "visible": true, "bounds": {"x": 110, "y": 975, "width": 200, "height": 20}},
-              {"bid": "count_input", "tag": "input", "role": "spinbutton", "text": "Enter count", "value": "", "visible": true, "bounds": {"x": 315, "y": 975, "width": 100, "height": 35}},
-              {"bid": "count_submit", "tag": "button", "role": "button", "text": "Submit Count", "visible": true, "bounds": {"x": 425, "y": 975, "width": 120, "height": 35}},
-              {"bid": "count_display", "tag": "span", "role": "status", "text": "", "visible": false, "bounds": {"x": 555, "y": 980, "width": 100, "height": 25}}
-            ]
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "text__report_matching_count_179",
+            "tag": "span",
+            "role": "text",
+            "text": "\"Report matching count:\"",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "spinbutton_report_matching_count_180",
+            "tag": "input",
+            "role": "spinbutton",
+            "text": "Report matching count:",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "button_submit_181",
+            "tag": "button",
+            "role": "button",
+            "text": "Submit",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
           }
         ]
       }
@@ -192,7 +2506,7 @@
     {
       "id": 0,
       "url": "https://webagentbench.local/pages/filter_dashboard",
-      "title": "Employee Directory",
+      "title": "Filter Dashboard",
       "active": true
     }
   ],
