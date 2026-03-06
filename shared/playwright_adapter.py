@@ -22,6 +22,8 @@ class LocatorInfo:
 
 # Roles where inline text after colon represents the current value
 _VALUE_ROLES = {"textbox", "searchbox", "spinbutton"}
+_QUOTED_ROLE_LINE_RE = re.compile(r"""^'(?P<role>[\w-]+)\s+"(?P<name>(?:\\.|[^"])*)"'$""")
+_QUOTED_STRING_RE = re.compile(r'^"(?P<value>(?:\\.|[^"])*)"')
 
 
 # ── aria_snapshot parsing ────────────────────────────────────────────────
@@ -68,6 +70,17 @@ def _parse_snapshot_line(line: str) -> tuple[TreeNode, bool]:
     """Parse one line of aria_snapshot into (TreeNode, has_children)."""
     has_children = False
 
+    quoted_role = _QUOTED_ROLE_LINE_RE.match(line)
+    if quoted_role:
+        role = quoted_role.group("role")
+        name = _unescape_snapshot_text(quoted_role.group("name"))
+        node = TreeNode(
+            role=role,
+            name=name,
+            source=LocatorInfo(role=role, name=name),
+        )
+        return node, has_children
+
     # Extract role (first word, may contain hyphens)
     m = re.match(r"^([\w-]+)", line)
     role = m.group(1) if m else "text"
@@ -75,11 +88,9 @@ def _parse_snapshot_line(line: str) -> tuple[TreeNode, bool]:
 
     # Extract quoted name
     name = ""
-    if rest.startswith('"'):
-        end = rest.find('"', 1)
-        if end != -1:
-            name = rest[1:end]
-            rest = rest[end + 1:].strip()
+    quoted_name, rest = _consume_quoted_string(rest)
+    if quoted_name is not None:
+        name = quoted_name
 
     # Extract bracket attributes [checked] [disabled] [level=2] etc.
     checked = None
@@ -111,15 +122,15 @@ def _parse_snapshot_line(line: str) -> tuple[TreeNode, bool]:
         if inline:
             # Inline text after colon
             if role in _VALUE_ROLES:
-                value = inline
+                value = _strip_wrapping_quotes(inline)
             elif not name:
-                name = inline
+                name = _strip_wrapping_quotes(inline)
         else:
             has_children = True
     elif rest:
         # Trailing text without colon — treat as name extension
         if not name:
-            name = rest.rstrip(":")
+            name = _strip_wrapping_quotes(rest.rstrip(":"))
         if line.rstrip().endswith(":"):
             has_children = True
 
@@ -149,6 +160,7 @@ def page_to_indexed_tree(page) -> tuple[str, dict[int, LocatorInfo]]:
     root = parse_aria_snapshot(snapshot_text or "")
 
     _mark_overlays(root)
+    _mark_scroll_hint(page, root)
     _assign_nth_indices(root)
 
     text, node_map = render_indexed_tree(root)
@@ -167,6 +179,33 @@ def _mark_overlays(root: TreeNode):
             child.is_overlay = True
 
 
+def _mark_scroll_hint(page, root: TreeNode):
+    """Add a generic hint when the page has more scrollable content below."""
+    try:
+        metrics = page.evaluate(
+            """
+            () => {
+                const el = document.scrollingElement || document.documentElement || document.body;
+                return {
+                    scrollTop: el ? el.scrollTop : 0,
+                    clientHeight: el ? el.clientHeight : window.innerHeight,
+                    scrollHeight: el ? el.scrollHeight : document.body.scrollHeight,
+                };
+            }
+            """
+        )
+    except Exception:
+        return
+
+    if not metrics:
+        return
+
+    scroll_top = metrics.get("scrollTop", 0)
+    client_height = metrics.get("clientHeight", 0)
+    scroll_height = metrics.get("scrollHeight", 0)
+    root.has_more_below = scroll_top + client_height + 24 < scroll_height
+
+
 def _assign_nth_indices(root: TreeNode):
     """Walk tree and set LocatorInfo.nth for disambiguation."""
     seen: dict[tuple[str, str], int] = {}
@@ -183,6 +222,27 @@ def _assign_nth_indices(root: TreeNode):
     walk(root)
 
 
+def _strip_wrapping_quotes(text: str) -> str:
+    """Remove a single layer of matching wrapper quotes."""
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        return text[1:-1]
+    return text
+
+
+def _consume_quoted_string(text: str) -> tuple[str | None, str]:
+    """Consume one double-quoted token with Playwright-style escaping."""
+    match = _QUOTED_STRING_RE.match(text)
+    if not match:
+        return None, text
+    value = _unescape_snapshot_text(match.group("value"))
+    return value, text[match.end():].strip()
+
+
+def _unescape_snapshot_text(text: str) -> str:
+    """Undo the minimal escaping used in aria_snapshot output."""
+    return text.replace(r"\\", "\\").replace(r"\"", '"')
+
+
 # ── Action execution ─────────────────────────────────────────────────────
 
 
@@ -196,8 +256,8 @@ def execute_unified_action(
         return "FINISH"
 
     if action_type == "wait":
-        page.wait_for_timeout(1000)
-        return "Waited 1 second"
+        page.wait_for_timeout(1500)
+        return "Waited 1.5 seconds"
 
     if action_type == "press":
         key = action["key"]

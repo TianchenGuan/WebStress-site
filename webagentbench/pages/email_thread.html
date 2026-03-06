@@ -230,6 +230,10 @@
       <label for="coordinator-input">Who is coordinating the handoff?</label>
       <input type="text" id="coordinator-input" placeholder="e.g. John Smith">
     </div>
+    <div class="form-group">
+      <label for="deferred-input">Which workstream was deferred from launch scope?</label>
+      <input type="text" id="deferred-input" placeholder="e.g. Analytics dashboard">
+    </div>
     <button class="btn-submit" id="btn-submit">Submit</button>
     <div id="submission-result"></div>
   </div>
@@ -295,15 +299,17 @@
   // ── Answer form submission ────────────────────────────────────────
   var deadlineInput = document.getElementById("deadline-input");
   var coordinatorInput = document.getElementById("coordinator-input");
+  var deferredInput = document.getElementById("deferred-input");
   var btnSubmit = document.getElementById("btn-submit");
   var submissionResult = document.getElementById("submission-result");
 
   btnSubmit.addEventListener("click", function () {
     var deadline = deadlineInput.value.trim();
     var coordinator = coordinatorInput.value.trim();
+    var deferred = deferredInput.value.trim().toLowerCase();
 
-    if (!deadline && !coordinator) {
-      submissionResult.textContent = "Please enter both values before submitting.";
+    if (!deadline && !coordinator && !deferred) {
+      submissionResult.textContent = "Please enter all values before submitting.";
       submissionResult.className = "failure visible";
       return;
     }
@@ -313,7 +319,9 @@
                           deadline.indexOf("3/22") !== -1;
     var coordinatorCorrect = coordinator.toLowerCase().indexOf("sarah") !== -1 &&
                              coordinator.toLowerCase().indexOf("chen") !== -1;
-    var isCorrect = deadlineCorrect && coordinatorCorrect;
+    var deferredCorrect = deferred.indexOf("analytics") !== -1 &&
+                          (deferred.indexOf("defer") !== -1 || deferred.indexOf("fast-follow") !== -1 || deferred.indexOf("fast follow") !== -1);
+    var isCorrect = deadlineCorrect && coordinatorCorrect && deferredCorrect;
 
     submissionResult.textContent = "Response submitted. Your answers have been recorded.";
     submissionResult.className = (isCorrect ? "success" : "failure") + " visible";
@@ -324,16 +332,20 @@
     window.__benchmarkLog("answer_submitted", {
       deadline: deadline,
       coordinator: coordinator,
+      deferred_workstream: deferred,
       deadline_correct: deadlineCorrect,
       coordinator_correct: coordinatorCorrect,
+      deferred_correct: deferredCorrect,
     });
 
     window.__benchmarkComplete(isCorrect, {
       form_submitted: true,
       deadline: deadline,
       coordinator: coordinator,
+      deferred_workstream: deferred,
       deadline_correct: deadlineCorrect,
       coordinator_correct: coordinatorCorrect,
+      deferred_correct: deferredCorrect,
       messages_viewed: messagesViewed.slice(),
     });
   });

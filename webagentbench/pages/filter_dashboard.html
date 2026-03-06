@@ -338,6 +338,15 @@
         </div>
 
         <div class="filter-group">
+            <label for="filter-employment">Employment</label>
+            <select id="filter-employment">
+                <option value="All">All</option>
+                <option value="Full-time">Full-time</option>
+                <option value="Contractor">Contractor</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
             <label for="filter-min-salary">Min Salary</label>
             <input type="number" id="filter-min-salary" placeholder="e.g. 100000" min="0" step="1000">
         </div>
@@ -371,6 +380,7 @@
                     <th>Department</th>
                     <th>Location</th>
                     <th>Title</th>
+                    <th>Employment</th>
                     <th>Salary</th>
                 </tr>
             </thead>
@@ -402,32 +412,33 @@
 
     // ── Employee data ───────────────────────────────────────────────────
     var EMPLOYEES = [
-        { name: "Alice Chen", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 185000 },
-        { name: "Bob Kim", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 178000 },
-        { name: "Carlos Lopez", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 165000 },
-        { name: "Diana Patel", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 192000 },
-        { name: "Eve Johnson", department: "Engineering", location: "San Francisco", title: "Junior Engineer", salary: 95000 },
-        { name: "Frank Wu", department: "Engineering", location: "New York", title: "Senior Engineer", salary: 188000 },
-        { name: "Grace Lee", department: "Engineering", location: "New York", title: "Junior Engineer", salary: 92000 },
-        { name: "Henry Davis", department: "Engineering", location: "Austin", title: "Staff Engineer", salary: 210000 },
-        { name: "Irene Martinez", department: "Sales", location: "New York", title: "Senior Sales Rep", salary: 145000 },
-        { name: "Jack Brown", department: "Sales", location: "Chicago", title: "Sales Manager", salary: 160000 },
-        { name: "Karen Wilson", department: "Sales", location: "San Francisco", title: "Sales Rep", salary: 85000 },
-        { name: "Leo Thompson", department: "Marketing", location: "San Francisco", title: "Marketing Manager", salary: 155000 },
-        { name: "Maria Garcia", department: "Marketing", location: "Remote", title: "Content Lead", salary: 130000 },
-        { name: "Nathan Scott", department: "HR", location: "San Francisco", title: "HR Director", salary: 175000 },
-        { name: "Olivia Adams", department: "HR", location: "New York", title: "HR Coordinator", salary: 72000 },
-        { name: "Peter Chang", department: "Engineering", location: "Remote", title: "Senior Engineer", salary: 172000 },
-        { name: "Quinn Zhang", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 150000 },
-        { name: "Rachel Nguyen", department: "Engineering", location: "San Francisco", title: "Senior Engineering Manager", salary: 205000 },
-        { name: "Sam Okafor", department: "Engineering", location: "San Jose", title: "Senior Engineer", salary: 182000 },
-        { name: "Tina Roberts", department: "Engineering", location: "San Francisco", title: "Senior Engineer", salary: 150000 },
+        { name: "Alice Chen", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Full-time", salary: 185000 },
+        { name: "Bob Kim", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Full-time", salary: 178000 },
+        { name: "Carlos Lopez", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Contractor", salary: 165000 },
+        { name: "Diana Patel", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Full-time", salary: 192000 },
+        { name: "Eve Johnson", department: "Engineering", location: "San Francisco", title: "Junior Engineer", employment_type: "Full-time", salary: 95000 },
+        { name: "Frank Wu", department: "Engineering", location: "New York", title: "Senior Engineer", employment_type: "Full-time", salary: 188000 },
+        { name: "Grace Lee", department: "Engineering", location: "New York", title: "Junior Engineer", employment_type: "Full-time", salary: 92000 },
+        { name: "Henry Davis", department: "Engineering", location: "Austin", title: "Staff Engineer", employment_type: "Full-time", salary: 210000 },
+        { name: "Irene Martinez", department: "Sales", location: "New York", title: "Senior Sales Rep", employment_type: "Full-time", salary: 145000 },
+        { name: "Jack Brown", department: "Sales", location: "Chicago", title: "Sales Manager", employment_type: "Full-time", salary: 160000 },
+        { name: "Karen Wilson", department: "Sales", location: "San Francisco", title: "Sales Rep", employment_type: "Contractor", salary: 85000 },
+        { name: "Leo Thompson", department: "Marketing", location: "San Francisco", title: "Marketing Manager", employment_type: "Full-time", salary: 155000 },
+        { name: "Maria Garcia", department: "Marketing", location: "Remote", title: "Content Lead", employment_type: "Full-time", salary: 130000 },
+        { name: "Nathan Scott", department: "HR", location: "San Francisco", title: "HR Director", employment_type: "Full-time", salary: 175000 },
+        { name: "Olivia Adams", department: "HR", location: "New York", title: "HR Coordinator", employment_type: "Full-time", salary: 72000 },
+        { name: "Peter Chang", department: "Engineering", location: "Remote", title: "Senior Engineer", employment_type: "Contractor", salary: 172000 },
+        { name: "Quinn Zhang", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Full-time", salary: 150000 },
+        { name: "Rachel Nguyen", department: "Engineering", location: "San Francisco", title: "Senior Engineering Manager", employment_type: "Full-time", salary: 205000 },
+        { name: "Sam Okafor", department: "Engineering", location: "San Jose", title: "Senior Engineer", employment_type: "Full-time", salary: 182000 },
+        { name: "Tina Roberts", department: "Engineering", location: "San Francisco", title: "Senior Engineer", employment_type: "Full-time", salary: 150000 },
     ];
 
     // ── DOM references ──────────────────────────────────────────────────
     var elDepartment  = document.getElementById("filter-department");
     var elLocation    = document.getElementById("filter-location");
     var elTitle       = document.getElementById("filter-title");
+    var elEmployment  = document.getElementById("filter-employment");
     var elMinSalary   = document.getElementById("filter-min-salary");
     var elSortBy      = document.getElementById("filter-sort-by");
     var elSortOrder   = document.getElementById("filter-sort-order");
@@ -530,6 +541,7 @@
         var dept     = elDepartment.value;
         var loc      = elLocation.value;
         var title    = elTitle.value;
+        var employment = elEmployment.value;
         var minSal   = elMinSalary.value.trim();
         var sortByVal = elSortBy.value;
 
@@ -538,6 +550,7 @@
             if (dept !== "All" && e.department !== dept) return false;
             if (loc !== "All" && e.location !== loc) return false;
             if (title !== "All" && e.title !== title) return false;
+            if (employment !== "All" && e.employment_type !== employment) return false;
             if (minSal !== "" && e.salary < parseInt(minSal, 10)) return false;
             return true;
         });
@@ -571,6 +584,7 @@
                 department: dept,
                 location: loc,
                 title: title,
+                employment: employment,
                 min_salary: minSal === "" ? null : parseInt(minSal, 10),
                 sort_by: sortByVal,
                 sort_order: sortOrder,
@@ -581,6 +595,7 @@
             department: dept,
             location: loc,
             title: title,
+            employment: employment,
             min_salary: minSal,
             sort_by: sortByVal,
             sort_order: sortOrder,
@@ -617,6 +632,10 @@
             tdTitle.textContent = e.title;
             tr.appendChild(tdTitle);
 
+            var tdEmployment = document.createElement("td");
+            tdEmployment.textContent = e.employment_type;
+            tr.appendChild(tdEmployment);
+
             var tdSal = document.createElement("td");
             tdSal.className = "salary";
             tdSal.textContent = fmtSalary(e.salary);
@@ -648,6 +667,13 @@
 
     // Title change: reset sort
     elTitle.addEventListener("change", function () {
+        resetSort();
+        applyFilters();
+        clearPresetHighlights();
+    });
+
+    // Employment change: reset sort
+    elEmployment.addEventListener("change", function () {
         resetSort();
         applyFilters();
         clearPresetHighlights();
@@ -695,6 +721,7 @@
         updateTitleOptions(true);
         elLocation.value = "San Francisco";
         elTitle.value = "All";
+        elEmployment.value = "All";
         elMinSalary.value = "";
         resetSort();
         applyFilters();
@@ -712,6 +739,7 @@
         updateTitleOptions(true);
         elLocation.value = "Remote";
         elTitle.value = "All";
+        elEmployment.value = "All";
         elMinSalary.value = "";
         resetSort();
         applyFilters();
@@ -761,6 +789,7 @@
         }
 
         elLocation.value = "All";
+        elEmployment.value = "All";
         elMinSalary.value = "";
         resetSort();
         applyLeadershipFilter();
@@ -773,6 +802,7 @@
         var dept     = elDepartment.value;
         var loc      = elLocation.value;
         var titleVal = elTitle.value;
+        var employment = elEmployment.value;
         var minSal   = elMinSalary.value.trim();
         var sortByVal = elSortBy.value;
 
@@ -788,6 +818,7 @@
             } else if (titleVal !== "All") {
                 if (e.title !== titleVal) return false;
             }
+            if (employment !== "All" && e.employment_type !== employment) return false;
             if (minSal !== "" && e.salary < parseInt(minSal, 10)) return false;
             return true;
         });
@@ -819,6 +850,7 @@
                 department: dept,
                 location: loc,
                 title: titleVal,
+                employment: employment,
                 min_salary: minSal === "" ? null : parseInt(minSal, 10),
                 sort_by: sortByVal,
                 sort_order: sortOrder,
@@ -854,10 +886,11 @@
         var dept     = elDepartment.value;
         var loc      = elLocation.value;
         var title    = elTitle.value;
+        var employment = elEmployment.value;
         var minSal   = elMinSalary.value.trim();
         var sortByVal = elSortBy.value;
 
-        var isCorrect = reportedCount === 4;
+        var isCorrect = reportedCount === 3;
         elCountDisplay.textContent = reportedCount;
 
         window.__benchmarkComplete(isCorrect, {
@@ -868,6 +901,7 @@
                 department: dept,
                 location: loc,
                 title: title,
+                employment: employment,
                 min_salary: minSal === "" ? null : parseInt(minSal, 10),
                 sort_by: sortByVal,
                 sort_order: sortOrder,
