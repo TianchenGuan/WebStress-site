@@ -1,7 +1,7 @@
 """
 WebAgentBench — FastAPI Application
 
-Serves 10 benchmark pages and provides evaluation endpoints.
+Serves benchmark pages and provides evaluation endpoints.
 No LLMOS dependencies — fully standalone.
 
 Usage:
@@ -25,13 +25,15 @@ with open(BASE_DIR / "manifest.json") as f:
     MANIFEST = json.load(f)
 
 PAGES_INDEX = {p["page_id"]: p for p in MANIFEST["pages"]}
+PAGE_COUNT = len(MANIFEST["pages"])
+MANIFEST_VERSION = MANIFEST.get("version", "1.0.0")
 
 # ── App ────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="WebAgentBench",
-    description="10 self-contained web pages for evaluating agent cognitive primitives",
-    version="1.0.0",
+    description=f"{PAGE_COUNT} self-contained web pages for evaluating agent cognitive primitives",
+    version=MANIFEST_VERSION,
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -42,6 +44,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def index():
     """Index page listing all benchmark tasks."""
+    subtitle = f"{PAGE_COUNT} self-contained web pages for evaluating agent cognitive primitives"
     rows = ""
     for p in MANIFEST["pages"]:
         prims = ", ".join(p["primary_primitives"])
@@ -75,7 +78,7 @@ async def index():
 </head>
 <body>
     <h1>WebAgentBench</h1>
-    <p class="subtitle">10 self-contained web pages for evaluating agent cognitive primitives</p>
+    <p class="subtitle">{subtitle}</p>
     <table>
         <thead>
             <tr><th>Page</th><th>ID</th><th>Difficulty</th><th>Primitives</th><th>Time Limit</th></tr>

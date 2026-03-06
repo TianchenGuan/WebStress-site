@@ -177,7 +177,7 @@ def write_results(results: list[dict], output_path: str) -> None:
 
     output = {
         "benchmark": "WebAgentBench",
-        "version": "1.0.0",
+        "version": "1.3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "results": results,
         "summary": {

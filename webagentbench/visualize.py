@@ -757,12 +757,19 @@ def main():
                 server_proc.terminate()
                 server_proc.wait()
     elif server_proc:
-        print("Server running. Stop with Ctrl+C or kill the process.")
+        # `--no-open` is primarily used in scripts and CI; do not block forever
+        # after generating the HTML artifact.
+        server_proc.terminate()
         try:
+            server_proc.wait(timeout=5)
+        except Exception:
+            server_proc.kill()
             server_proc.wait()
-        except KeyboardInterrupt:
-            server_proc.terminate()
-            server_proc.wait()
+        print("Temporary visualization server stopped.")
+    elif args.no_open and static_out:
+        print("Visualization generated without opening a browser.")
+    elif args.no_open:
+        print("Visualization generated without opening a browser.")
 
 
 if __name__ == "__main__":
