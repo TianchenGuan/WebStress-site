@@ -201,11 +201,13 @@ def parse_action(raw: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # Extract first JSON object from mixed text
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if match:
+    # Extract first JSON object, tolerating trailing data (multi-action responses,
+    # extra closing braces, comments after JSON, etc.)
+    brace_pos = cleaned.find("{")
+    if brace_pos != -1:
+        decoder = json.JSONDecoder()
         try:
-            result = json.loads(match.group())
+            result, _ = decoder.raw_decode(cleaned, brace_pos)
             return _normalize_action(result)
         except json.JSONDecodeError:
             pass

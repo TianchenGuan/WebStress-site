@@ -1,0 +1,1536 @@
+{
+  "meta": {
+    "tick": 0,
+    "status": "running",
+    "random_seed": 42,
+    "platform": "webagentbench",
+    "task_category": "ops_race_console",
+    "target_primitives": [
+      "verification",
+      "patience",
+      "attention"
+    ]
+  },
+  "hidden_state": {
+    "wab_page_id": "ops_race_console",
+    "wab_instruction": "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
+    "anchored_content": {
+      "incidents": [
+        { "id": "INC-8471", "service": "Payments", "region": "US-West", "status": "Open", "errorRate": 6.4, "owner": "Unassigned", "code": "PX-71A" },
+        { "id": "INC-8477", "service": "Payments", "region": "US-West", "status": "Open", "errorRate": 6.1, "owner": "Mia Patel", "code": "PX-77B" },
+        { "id": "INC-8420", "service": "Payments", "region": "US-East", "status": "Open", "errorRate": 6.7, "owner": "Unassigned", "code": "PX-20C" },
+        { "id": "INC-8493", "service": "Accounts", "region": "US-West", "status": "Open", "errorRate": 7.4, "owner": "Unassigned", "code": "AX-93D" },
+        { "id": "INC-8511", "service": "Payments", "region": "US-West", "status": "Investigating", "errorRate": 8.2, "owner": "Noah Reed", "code": "PX-11R" },
+        { "id": "INC-8460", "service": "Catalog", "region": "US-West", "status": "Open", "errorRate": 6.6, "owner": "Unassigned", "code": "CX-60Q" }
+      ],
+      "feed_updates": [
+        { "cycle": 1, "changes": { "INC-8477": { "owner": "Unassigned", "errorRate": 6.7 } } },
+        { "cycle": 2, "changes": { "INC-8471": { "status": "Investigating" }, "INC-8477": { "status": "Open" } } },
+        { "cycle": 3, "changes": { "INC-8477": { "status": "Mitigated" }, "INC-8471": { "status": "Open", "errorRate": 6.8 } }, "stableWindow": true },
+        { "cycle": 4, "changes": { "INC-8460": { "errorRate": 6.1 } } }
+      ],
+      "signature_rule": "SIG-((last 4 digits of incident ID as integer + frozen cycle) mod 97), zero-padded to 2 digits",
+      "expected_incident_id": "INC-8471",
+      "expected_code": "PX-71A",
+      "expected_signature": "SIG-30"
+    },
+    "task_completion_criteria": {
+      "js_eval": [
+        "data.submission_successful === true",
+        "data.feed_frozen === true",
+        "data.freeze_after_stable === true",
+        "data.consistency_check_clicked === true",
+        "data.verification_lock_armed === true",
+        "data.unique_match_at_freeze === true",
+        "data.escalated_incident_id === data.expected_incident_id",
+        "data.submitted_incident_id === data.expected_incident_id",
+        "data.submitted_code === data.expected_code",
+        "data.submitted_signature === data.expected_signature"
+      ],
+      "dom_check": [
+        {
+          "selector": "#result",
+          "condition": "contains",
+          "value": "validated"
+        }
+      ]
+    }
+  },
+  "ui": {
+    "bid": "root",
+    "tag": "browser",
+    "role": "application",
+    "text": "Ops Race Console",
+    "visible": true,
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
+    "children": [
+      {
+        "bid": "toolbar",
+        "tag": "toolbar",
+        "role": "toolbar",
+        "text": "Browser Toolbar",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
+        "children": [
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/ops_race_console",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
+        ]
+      },
+      {
+        "bid": "page_content",
+        "tag": "main",
+        "role": "main",
+        "text": "Ops Race Console",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
+        "children": [
+          {
+            "bid": "banner_1",
+            "tag": "header",
+            "role": "banner",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "heading_incident_escalation_console_2",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Incident Escalation Console",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph_escalate_exactly_one_incident_matching_a_3",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Escalate exactly one incident matching all constraints at freeze time. Wait for stable window, run consistency check, then freeze and submit ID, code, and approval signature.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "main_4",
+            "tag": "main",
+            "role": "main",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "heading_live_incident_feed_5",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Live Incident Feed",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_calibrating_6",
+                "tag": "span",
+                "role": "text",
+                "text": "Calibrating",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "button_run_consistency_check_7",
+                "tag": "button",
+                "role": "button",
+                "text": "Run Consistency Check",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "disabled": true
+              },
+              {
+                "bid": "button_freeze_feed_8",
+                "tag": "button",
+                "role": "button",
+                "text": "Freeze Feed",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text__update_cycle__0_waiting_for_stability_w_9",
+                "tag": "span",
+                "role": "text",
+                "text": "\"Update cycle: 0 Waiting for stability window...\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "table_10",
+                "tag": "table",
+                "role": "table",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "rowgroup_11",
+                    "tag": "div",
+                    "role": "rowgroup",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "row_incident_service_region_status_error_rat_12",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "Incident Service Region Status Error Rate Ack Owner Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "columnheader_incident_13",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Incident",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_service_14",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Service",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_region_15",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Region",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_status_16",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Status",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_error_rate_17",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Error Rate",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_ack_owner_18",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Ack Owner",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "columnheader_inspect_19",
+                            "tag": "th",
+                            "role": "columnheader",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "rowgroup_20",
+                    "tag": "div",
+                    "role": "rowgroup",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "row_inc_8471_payments_us_west_open_6_4__unas_21",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8471 Payments US-West Open 6.4% Unassigned Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8471_22",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8471",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_payments_23",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Payments",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_west_24",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-West",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_open_25",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Open",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_6_4_26",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "6.4%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_unassigned_27",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Unassigned",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_28",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_29",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "row_inc_8477_payments_us_west_open_6_1__mia_30",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8477 Payments US-West Open 6.1% Mia Patel Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8477_31",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8477",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_payments_32",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Payments",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_west_33",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-West",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_open_34",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Open",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_6_1_35",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "6.1%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_mia_patel_36",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Mia Patel",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_37",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_38",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "row_inc_8420_payments_us_east_open_6_7__unas_39",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8420 Payments US-East Open 6.7% Unassigned Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8420_40",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8420",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_payments_41",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Payments",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_east_42",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-East",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_open_43",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Open",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_6_7_44",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "6.7%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_unassigned_45",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Unassigned",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_46",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_47",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "row_inc_8493_accounts_us_west_open_7_4__unas_48",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8493 Accounts US-West Open 7.4% Unassigned Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8493_49",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8493",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_accounts_50",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Accounts",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_west_51",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-West",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_open_52",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Open",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_7_4_53",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "7.4%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_unassigned_54",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Unassigned",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_55",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_56",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "row_inc_8511_payments_us_west_investigating_57",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8511 Payments US-West Investigating 8.2% Noah Reed Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8511_58",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8511",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_payments_59",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Payments",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_west_60",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-West",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_investigating_61",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Investigating",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_8_2_62",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "8.2%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_noah_reed_63",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Noah Reed",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_64",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_65",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "bid": "row_inc_8460_catalog_us_west_open_6_6__unass_66",
+                        "tag": "tr",
+                        "role": "row",
+                        "text": "INC-8460 Catalog US-West Open 6.6% Unassigned Inspect",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        },
+                        "children": [
+                          {
+                            "bid": "cell_inc_8460_67",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "INC-8460",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_catalog_68",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Catalog",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_us_west_69",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "US-West",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_open_70",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Open",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_6_6_71",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "6.6%",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_unassigned_72",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Unassigned",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            }
+                          },
+                          {
+                            "bid": "cell_inspect_73",
+                            "tag": "td",
+                            "role": "cell",
+                            "text": "Inspect",
+                            "visible": true,
+                            "bounds": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 800,
+                              "height": 30
+                            },
+                            "children": [
+                              {
+                                "bid": "button_inspect_74",
+                                "tag": "button",
+                                "role": "button",
+                                "text": "Inspect",
+                                "visible": true,
+                                "bounds": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 800,
+                                  "height": 30
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "bid": "complementary_75",
+                "tag": "aside",
+                "role": "complementary",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "heading_escalation_workspace_76",
+                    "tag": "h2",
+                    "role": "heading",
+                    "text": "Escalation Workspace",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_priority_p1_77",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Priority P1",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_78",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "strong__target_constraints_79",
+                        "tag": "div",
+                        "role": "strong",
+                        "text": "\"Target constraints:\"",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_payments__us_west__open__error_rate___6_80",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Payments, US-West, Open, error rate > 6.0%, owner = Unassigned.",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "paragraph_81",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__selected_incident_82",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "\"Selected incident:\"",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "strong_none_83",
+                        "tag": "div",
+                        "role": "strong",
+                        "text": "None",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "paragraph_84",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__escalated_incident_85",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "\"Escalated incident:\"",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "strong_none_86",
+                        "tag": "div",
+                        "role": "strong",
+                        "text": "None",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "heading_incident_detail_87",
+                    "tag": "h2",
+                    "role": "heading",
+                    "text": "Incident Detail",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_88",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__escalation_code_89",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "\"Escalation code:\"",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "strong_n_a_90",
+                        "tag": "div",
+                        "role": "strong",
+                        "text": "N/A",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "paragraph_91",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__approval_signature_rule_92",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "\"Approval signature rule:\"",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "strong_sig___incident_suffix___frozen_cycle__mo_93",
+                        "tag": "div",
+                        "role": "strong",
+                        "text": "SIG-((incident suffix + frozen cycle) mod 97)",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_escalate_selected_incident_94",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Escalate Selected Incident",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "disabled": true
+                  },
+                  {
+                    "bid": "text_submit_incident_id_95",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Submit Incident ID",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "textbox_submit_incident_id_96",
+                    "tag": "input",
+                    "role": "textbox",
+                    "text": "Submit Incident ID",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__placeholder__inc_0000_97",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "/placeholder: INC-0000",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 20
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "text_submit_escalation_code_98",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Submit Escalation Code",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "textbox_submit_escalation_code_99",
+                    "tag": "input",
+                    "role": "textbox",
+                    "text": "Submit Escalation Code",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__placeholder__px_00x_100",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "/placeholder: PX-00X",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 20
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "text_submit_approval_signature_101",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Submit Approval Signature",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "textbox_submit_approval_signature_102",
+                    "tag": "input",
+                    "role": "textbox",
+                    "text": "Submit Approval Signature",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text__placeholder__sig_00_103",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "/placeholder: SIG-00",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 20
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_submit_escalation_104",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Submit Escalation",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "filesystem": {},
+  "tabs": [
+    {
+      "id": 0,
+      "url": "https://webagentbench.local/pages/ops_race_console",
+      "title": "Ops Race Console",
+      "active": true
+    }
+  ],
+  "history": []
+}

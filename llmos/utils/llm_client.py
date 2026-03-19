@@ -64,6 +64,41 @@ def _strip_markdown_code_fences(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def _is_rate_limit_error(e: Exception) -> bool:
+    """Check if an exception is a rate limit (429) error."""
+    error_str = str(e).lower()
+    # Check common rate limit indicators
+    if "429" in error_str or "resource_exhausted" in error_str or "rate limit" in error_str:
+        return True
+    # Check HTTP status code on exception objects
+    status = getattr(e, "status_code", None) or getattr(e, "code", None)
+    if status == 429:
+        return True
+    return False
+
+
+def _get_rate_limit_delay(e: Exception, attempt: int) -> float:
+    """
+    Get retry delay for rate limit errors.
+
+    Tries to parse retryDelay from the error message (Gemini includes this),
+    otherwise uses exponential backoff starting at 30s.
+    """
+    # Try to extract retryDelay from Gemini error messages
+    error_str = str(e)
+    match = re.search(r'"retryDelay":\s*"(\d+)s"', error_str)
+    if match:
+        return float(match.group(1)) + random.uniform(1, 5)
+
+    # Try seconds pattern like "retry after 30s"
+    match = re.search(r'retry\s+after\s+(\d+)', error_str, re.IGNORECASE)
+    if match:
+        return float(match.group(1)) + random.uniform(1, 5)
+
+    # Exponential backoff: 30s, 60s, 120s, 240s, 300s (capped)
+    return _exponential_backoff_with_jitter(attempt, base_delay=30.0, max_delay=300.0)
+
+
 class LLMClient:
     """Unified wrapper for LLM providers (OpenAI, Gemini, vLLM)."""
 
@@ -185,7 +220,11 @@ class LLMClient:
         """
         provider = provider or self.default_provider
 
-        for attempt in range(max_retries):
+        max_rate_limit_retries = 5
+        rate_limit_attempt = 0
+        attempt = 0
+
+        while attempt < max_retries:
             try:
                 if provider == "openai":
                     response = self._complete_openai(
@@ -213,17 +252,29 @@ class LLMClient:
                     return response
 
             except json.JSONDecodeError as e:
-                logger.warning(f"JSON parse error (attempt {attempt + 1}/{max_retries}): {e}")
-                if attempt == max_retries - 1:
+                attempt += 1
+                logger.warning(f"JSON parse error (attempt {attempt}/{max_retries}): {e}")
+                if attempt >= max_retries:
                     raise
-                delay = _exponential_backoff_with_jitter(attempt, base_delay=0.5)
+                delay = _exponential_backoff_with_jitter(attempt - 1, base_delay=0.5)
                 logger.debug(f"Retrying after {delay:.2f}s due to JSON parse error")
                 time.sleep(delay)
             except Exception as e:
+                if _is_rate_limit_error(e) and rate_limit_attempt < max_rate_limit_retries:
+                    rate_limit_attempt += 1
+                    delay = _get_rate_limit_delay(e, rate_limit_attempt)
+                    logger.warning(
+                        f"Rate limited (attempt {rate_limit_attempt}/{max_rate_limit_retries}), "
+                        f"retrying after {delay:.1f}s"
+                    )
+                    time.sleep(delay)
+                    # Don't increment attempt — rate limit retries are separate
+                    continue
+                attempt += 1
                 logger.error(f"LLM completion error: {e}")
-                if attempt == max_retries - 1:
+                if attempt >= max_retries:
                     raise
-                delay = _exponential_backoff_with_jitter(attempt, base_delay=1.0)
+                delay = _exponential_backoff_with_jitter(attempt - 1, base_delay=1.0)
                 logger.debug(f"Retrying after {delay:.2f}s due to error: {e}")
                 time.sleep(delay)
 

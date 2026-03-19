@@ -1,0 +1,1006 @@
+{
+  "meta": {
+    "tick": 0,
+    "status": "running",
+    "random_seed": 42,
+    "platform": "webagentbench",
+    "task_category": "policy_reconciliation",
+    "target_primitives": [
+      "constraint_satisfaction",
+      "exploration",
+      "memory"
+    ]
+  },
+  "hidden_state": {
+    "wab_page_id": "policy_reconciliation",
+    "wab_instruction": "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
+    "anchored_content": {
+      "base_policy": {
+        "standard_approval_limit": 90000,
+        "pricing_change_notice_days": 30,
+        "red_zone_vendor_limit": 90000
+      },
+      "amendments": [
+        { "id": "A1", "title": "Enterprise Limit Adjustment", "date": "Jan 10, 2026", "status": "approved", "superseded": false, "change": "standard limit $90,000 -> $120,000" },
+        { "id": "B2", "title": "Pricing Notice Alignment", "date": "Jan 18, 2026", "status": "approved", "superseded": false, "change": "enterprise pricing notice = 21 days" },
+        { "id": "C3", "title": "Draft Risk Escalation", "date": "Jan 22, 2026", "status": "superseded", "superseded": true, "change": "proposed standard limit $140,000 (superseded by D4-ERRATA)" },
+        { "id": "D4-ERRATA", "title": "Errata and Correction", "date": "Jan 24, 2026", "status": "approved", "superseded": false, "change": "final standard limit = $125,000, red-zone remains $90,000" },
+        { "id": "E5", "title": "Travel Expense Clarification", "date": "Jan 27, 2026", "status": "approved", "superseded": false, "change": "travel reimbursement cap $4,000/quarter" },
+        { "id": "F6", "title": "Small Vendor Fast Lane", "date": "Jan 30, 2026", "status": "approved", "superseded": false, "change": "non-enterprise vendors <= $25,000 use one-click approval" },
+        { "id": "G7", "title": "Sandbox Pricing Pilot", "date": "Feb 2, 2026", "status": "approved", "superseded": false, "change": "pilot sandbox 14-day pricing notice (does NOT replace enterprise policy)" },
+        { "id": "H8", "title": "Administrative Clean-up", "date": "Feb 6, 2026", "status": "approved", "superseded": false, "change": "metadata updates only, no numerical changes" },
+        { "id": "I9", "title": "Red-Zone Escalation Notice", "date": "Feb 8, 2026", "status": "approved", "superseded": false, "change": "red-zone vendors require 28-day pricing notice (does NOT apply to standard)" },
+        { "id": "J10", "title": "Supersession Mapping Note", "date": "Feb 10, 2026", "status": "approved", "superseded": false, "change": "D4-ERRATA supersedes A1 and C3 for standard enterprise limit" }
+      ],
+      "final_standard_values": {
+        "approval_limit": 125000,
+        "pricing_notice_days": 21,
+        "controlling_memo_for_limit": "D4-ERRATA",
+        "controlling_memo_for_notice": "B2"
+      },
+      "evidence_key": "D4-B2-21",
+      "evidence_key_rule": "controlling-memo-for-limit + controlling-memo-for-notice + notice-days"
+    },
+    "task_completion_criteria": {
+      "js_eval": [
+        "data.report_submitted === true",
+        "data.compare_mode_used === true",
+        "data.final_limit === 125000",
+        "data.notice_days === 21",
+        "String(data.source_memo_id || '').indexOf('D4') !== -1",
+        "data.evidence_key_submitted === data.evidence_key_expected"
+      ],
+      "dom_check": [
+        {
+          "selector": "#report-result",
+          "condition": "contains",
+          "value": "successfully"
+        }
+      ]
+    }
+  },
+  "ui": {
+    "bid": "root",
+    "tag": "browser",
+    "role": "application",
+    "text": "Policy Reconciliation",
+    "visible": true,
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
+    "children": [
+      {
+        "bid": "toolbar",
+        "tag": "toolbar",
+        "role": "toolbar",
+        "text": "Browser Toolbar",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
+        "children": [
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/policy_reconciliation",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
+        ]
+      },
+      {
+        "bid": "page_content",
+        "tag": "main",
+        "role": "main",
+        "text": "Policy Reconciliation",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
+        "children": [
+          {
+            "bid": "banner_1",
+            "tag": "header",
+            "role": "banner",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "heading_vendor_policy_reconciliation_2",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Vendor Policy Reconciliation",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph_compute_final_policy_values_for_standard_3",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Compute final policy values for standard enterprise vendors (non-red-zone) after applying approved amendments effective in 2026.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "main_4",
+            "tag": "main",
+            "role": "main",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "heading_base_policy_v4_2_5",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Base Policy v4.2",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_standard_approval_limit__90_000_pricing_6",
+                "tag": "span",
+                "role": "text",
+                "text": "Standard Approval Limit $90,000 Pricing Change Notice 30 days Red-Zone Vendor Limit $90,000 Temporary Sandbox Notice 14 days (pilot only)",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph_use_amendment_memos_for_final_values__ba_7",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Use amendment memos for final values. Base policy is not authoritative once overridden.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "heading_amendment_timeline_8",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Amendment Timeline",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "button_activate_compare_mode_9",
+                "tag": "button",
+                "role": "button",
+                "text": "Activate Compare Mode",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "button_generate_evidence_key_10",
+                "tag": "button",
+                "role": "button",
+                "text": "Generate Evidence Key",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "disabled": true
+              },
+              {
+                "bid": "checkbox_show_superseded_memos_11",
+                "tag": "input",
+                "role": "checkbox",
+                "text": "Show superseded memos",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "checked": true
+              },
+              {
+                "bid": "text_show_superseded_memos_12",
+                "tag": "span",
+                "role": "text",
+                "text": "Show superseded memos",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph_compare_mode_is_not_active_13",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Compare mode is not active.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_compare_mode_will_list_controlling_memo_14",
+                "tag": "span",
+                "role": "text",
+                "text": "Compare mode will list controlling memo relationships here.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "article_15",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_a1_enterprise_limit_adjustment_approved_16",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "A1 Enterprise Limit Adjustment Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph__approved_change__increase_the_standard_17",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "\"Approved change: increase the standard enterprise vendor approval limit from $90,000 to $120,000.\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text__effective__jan_10__2026_18",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "\"Effective: Jan 10, 2026\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_19",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_b2_pricing_notice_alignment_approved_20",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "B2 Pricing Notice Alignment Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph__approved_change__minimum_notice_period_21",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "\"Approved change: minimum notice period before pricing changes is 21 days for enterprise contracts.\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text__effective__jan_18__2026_22",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "\"Effective: Jan 18, 2026\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_23",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_c3_draft_risk_escalation_superseded_24",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "C3 Draft Risk Escalation Superseded",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph__draft_proposal__not_final___raise_stand_25",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "\"Draft proposal (not final): raise standard limit to $140,000 pending risk sign-off. Later superseded.\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text__effective__jan_22__2026_26",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "\"Effective: Jan 22, 2026\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_27",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_d4_errata_errata_and_correction_approved_28",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "D4-ERRATA Errata and Correction Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph__correction_to_a1_c3__final_standard_ent_29",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "\"Correction to A1/C3: final standard enterprise vendor approval limit is $125,000. Red-zone vendors remain capped at $90,000.\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text__effective__jan_24__2026_30",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "\"Effective: Jan 24, 2026\"",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_31",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_e5_travel_expense_clarification_approved_32",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "E5 Travel Expense Clarification Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_33",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jan_27__2026_34",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jan 27, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_35",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_f6_small_vendor_fast_lane_approved_36",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "F6 Small Vendor Fast Lane Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_37",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jan_30__2026_38",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jan 30, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_39",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_g7_sandbox_pricing_pilot_approved_40",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "G7 Sandbox Pricing Pilot Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_41",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_feb_2__2026_42",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Feb 2, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_43",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_h8_administrative_clean_up_approved_44",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "H8 Administrative Clean-up Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_45",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_feb_6__2026_46",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Feb 6, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_47",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_i9_red_zone_escalation_notice_approved_48",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "I9 Red-Zone Escalation Notice Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_49",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_feb_8__2026_50",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Feb 8, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_51",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text_j10_supersession_mapping_note_approved_52",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "J10 Supersession Mapping Note Approved",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "paragraph_scroll_to_load_memo_details_53",
+                    "tag": "p",
+                    "role": "paragraph",
+                    "text": "Scroll to load memo details...",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_feb_10__2026_54",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Feb 10, 2026",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "text_final_standard_approval_limit_55",
+                "tag": "span",
+                "role": "text",
+                "text": "Final standard approval limit ($)",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "spinbutton_final_standard_approval_limit_56",
+                "tag": "input",
+                "role": "spinbutton",
+                "text": "Final standard approval limit ($)",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_final_pricing_notice_period__days_57",
+                "tag": "span",
+                "role": "text",
+                "text": "Final pricing notice period (days)",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "spinbutton_final_pricing_notice_period__days_58",
+                "tag": "input",
+                "role": "spinbutton",
+                "text": "Final pricing notice period (days)",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_controlling_memo_id_for_approval_limit_59",
+                "tag": "span",
+                "role": "text",
+                "text": "Controlling memo ID for approval limit",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "textbox_controlling_memo_id_for_approval_limit_60",
+                "tag": "input",
+                "role": "textbox",
+                "text": "Controlling memo ID for approval limit",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__placeholder__e_g__d4_errata_61",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/placeholder: e.g. D4-ERRATA",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "text_evidence_key_from_compare_graph_62",
+                "tag": "span",
+                "role": "text",
+                "text": "Evidence key from compare graph",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "textbox_evidence_key_from_compare_graph_63",
+                "tag": "input",
+                "role": "textbox",
+                "text": "Evidence key from compare graph",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "text__placeholder__e_g__d4_b2_21_64",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "/placeholder: e.g. D4-B2-21",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "button_submit_reconciliation_65",
+                "tag": "button",
+                "role": "button",
+                "text": "Submit Reconciliation",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "filesystem": {},
+  "tabs": [
+    {
+      "id": 0,
+      "url": "https://webagentbench.local/pages/policy_reconciliation",
+      "title": "Policy Reconciliation Desk",
+      "active": true
+    }
+  ],
+  "history": []
+}

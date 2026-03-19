@@ -13,7 +13,7 @@
   },
   "hidden_state": {
     "wab_page_id": "wizard_form",
-    "wab_instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
+    "wab_instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
     "task_completion_criteria": {
       "js_eval": [
         "data.submitted === true",
@@ -21,7 +21,8 @@
         "data.state === 'CA'",
         "data.earthquake_coverage === true",
         "data.flood_coverage === true",
-        "data.property_value > 750000"
+        "data.property_value > 750000",
+        "data.cat_deductible === '2pct'"
       ],
       "dom_check": [
         {

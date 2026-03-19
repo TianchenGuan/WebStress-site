@@ -9,7 +9,6 @@ Evaluation order:
 
 import json
 import logging
-from collections import Counter
 from typing import Any, Optional
 
 from .utils.rendering import render_ui_as_text
@@ -73,27 +72,83 @@ def evaluate(
 # =============================================================================
 
 _JUDGE_SYSTEM_PROMPT = """\
-You evaluate whether a computer-use agent completed its task.
+You evaluate whether a computer-use agent completed its task correctly.
 
-Do NOT trust the agent claiming success or environment status fields.
-Evaluate based on concrete evidence: what actions were taken, what the
-final UI state looks like, and whether the task goal was achieved.
+CRITICAL RULES:
+- Do NOT trust success messages, completion banners, or status fields in the UI.
+- Evaluate based on CONCRETE EVIDENCE: what specific actions the agent took,
+  what values it entered/selected, and whether those actions satisfy each requirement.
+- If success criteria are provided, verify EACH criterion individually against
+  the action history.
+
+Evaluation process:
+1. Parse the task instruction into specific requirements.
+2. If success criteria are provided, check each one against the action history.
+3. Verify the final UI state shows the expected result.
+4. Score based on how many requirements are clearly satisfied.
+
+Scoring:
+  1.0  = ALL requirements met with correct values AND task fully completed
+  0.5  = Most requirements met but one or more minor issues
+  0.0  = Some progress but significant requirements not met
+ -0.5  = Attempted but wrong approach or wrong values
+ -1.0  = No meaningful progress
+
+Score 0.5 or BELOW if ANY of these are true:
+- Agent selected a plausibly-correct but actually wrong value
+- Agent stopped before completing all steps of a multi-step task
+- Agent declared success without verifying the final state
+- A success criterion is not clearly satisfied by the action history
 
 Return JSON:
 {
   "score": <-1.0 to 1.0>,
   "success": <true/false>,
+  "criteria_check": [
+    {"criterion": "<description>", "met": <true/false>, "evidence": "<what action/state proves it>"}
+  ],
   "reasoning": "<brief explanation>",
   "feedback": "<one constructive tip>"
 }
-
-Scoring:
-  1.0  = Task fully completed correctly
-  0.5  = Mostly done, minor issues
-  0.0  = Partial progress
- -0.5  = Attempted but failed
- -1.0  = No meaningful progress
 """
+
+
+def _format_criteria(final_state: dict) -> str:
+    """Extract task_completion_criteria from hidden_state and format as checklist."""
+    criteria = final_state.get("hidden_state", {}).get("task_completion_criteria", {})
+    js_evals = criteria.get("js_eval", [])
+    dom_checks = criteria.get("dom_check", [])
+
+    if not js_evals and not dom_checks:
+        return "No explicit success criteria provided."
+
+    lines = []
+    for i, expr in enumerate(js_evals, 1):
+        lines.append(f"  {i}. {expr}")
+    # Skip dom_check criteria — they use CSS selectors (#id) which only work
+    # in real browsers. The simulator uses bid-based trees, so DOM checks are
+    # structurally unverifiable and would cap scores at 0.5.
+    return "\n".join(lines)
+
+
+def _format_action_history(history: list[dict]) -> str:
+    """Build detailed per-step action history."""
+    lines = []
+    for i, h in enumerate(history):
+        action = h.get("action", {})
+        atype = action.get("action_type", "?")
+        parts = [f"Step {i+1}: {atype}"]
+        if "bid" in action:
+            parts.append(f"bid={action['bid']}")
+        if "text" in action:
+            parts.append(f'text="{action["text"][:80]}"')
+        if "option" in action:
+            parts.append(f'option="{action["option"][:80]}"')
+        agent_thought = h.get("agent_thought", "")
+        if agent_thought:
+            parts.append(f'thought="{agent_thought[:100]}"')
+        lines.append(" | ".join(parts))
+    return "\n".join(lines)
 
 
 def _llm_evaluate(
@@ -104,15 +159,15 @@ def _llm_evaluate(
     model: Optional[str] = None,
     provider: Optional[str] = None,
 ) -> dict:
-    """Evaluate using an LLM judge."""
-    # Build compact message
+    """Evaluate using an LLM judge with criteria-based verification."""
     task = instruction.get("instruction", "Unknown") if instruction else "Unknown"
     status = final_state.get("meta", {}).get("status", "running")
-    tick = final_state.get("meta", {}).get("tick", 0)
 
-    # Action summary
-    action_types = [h.get("action", {}).get("action_type", "?") for h in history]
-    action_counts = dict(Counter(action_types))
+    # Success criteria from template
+    criteria_text = _format_criteria(final_state)
+
+    # Detailed action history
+    action_history_text = _format_action_history(history)
 
     # Recent events
     recent_events = []
@@ -120,6 +175,7 @@ def _llm_evaluate(
         for ev in entry.get("events", []) or []:
             if isinstance(ev, str) and ev:
                 recent_events.append(ev[:200])
+    events_text = "\n".join(recent_events) if recent_events else "None"
 
     # UI text (truncated)
     ui_text = render_ui_as_text(final_state)
@@ -127,12 +183,13 @@ def _llm_evaluate(
         ui_text = ui_text[:2000] + "\n... [truncated]"
 
     user_message = (
-        f"Task: {task}\n"
-        f"Result: status={status}, steps={tick}\n"
-        f"Actions: {len(history)} total — {action_counts}\n"
-        f"Recent events: {recent_events}\n"
-        f"Final UI:\n{ui_text}\n\n"
-        f"Did the agent complete the task?"
+        f"## Task\n{task}\n\n"
+        f"## Success Criteria (from template)\n{criteria_text}\n\n"
+        f"## Action History ({len(history)} steps)\n{action_history_text}\n\n"
+        f"## Final UI State (status={status})\n{ui_text}\n\n"
+        f"## Recent Events\n{events_text}\n\n"
+        f"Evaluate whether the agent completed the task correctly. "
+        f"Check each criterion against the action history."
     )
 
     messages = [
@@ -160,8 +217,9 @@ def _llm_evaluate(
     success = response.get("success", False)
     reasoning = response.get("reasoning", "")
     feedback = response.get("feedback", "")
+    criteria_check = response.get("criteria_check", [])
 
-    return _result(score, success, f"LLM judge: {reasoning}", feedback)
+    return _result(score, success, f"LLM judge: {reasoning}", feedback, criteria_check=criteria_check)
 
 
 # =============================================================================
@@ -264,5 +322,8 @@ def _check(actual: Any, operator: str, expected: Any) -> bool:
     return False
 
 
-def _result(score: float, success: bool, reasoning: str, feedback: str) -> dict:
-    return {"score": score, "success": success, "reasoning": reasoning, "feedback": feedback}
+def _result(score: float, success: bool, reasoning: str, feedback: str, criteria_check: list | None = None) -> dict:
+    r = {"score": score, "success": success, "reasoning": reasoning, "feedback": feedback}
+    if criteria_check:
+        r["criteria_check"] = criteria_check
+    return r

@@ -292,6 +292,12 @@ class Simulator:
         if self.instruction:
             parts.append(f"## Task Instruction\n{self.instruction.get('instruction', '')}\n")
 
+        # Surface anchored content prominently before full state
+        anchored = (self.current_state or {}).get("hidden_state", {}).get("anchored_content")
+        if anchored:
+            parts.append("## Anchored Content (EXACT values to use)")
+            parts.append(f"```json\n{json.dumps(anchored, indent=2)}\n```\n")
+
         parts.append("## Current State (Full - including hidden_state)")
         state_json = json.dumps(self._prepare_state(), indent=2)
         if len(state_json) > 15000:

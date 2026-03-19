@@ -13,17 +13,39 @@
   },
   "hidden_state": {
     "wab_page_id": "slow_search",
-    "wab_instruction": "Find the property at 742 Evergreen Terrace and calculate its price per square foot. Enter your answer in the answer field on the page and submit it.",
+    "wab_instruction": "Find the property at 742 Evergreen Terrace and calculate its effective price per square foot after applying the HOA reserve credit shown in that property's expanded details. Enter your answer in the answer field on the page and submit it.",
+    "anchored_content": {
+      "search_results_batch_1": [
+        { "address": "123 Oak Street", "price": 425000, "sqft": 1800, "beds": 3, "baths": 2, "yearBuilt": 1985, "lotSize": "0.25 acres", "hoaCredit": 6000 },
+        { "address": "456 Maple Avenue", "price": 550000, "sqft": 2200, "beds": 4, "baths": 3, "yearBuilt": 1998, "lotSize": "0.35 acres", "hoaCredit": 9000 },
+        { "address": "789 Pine Road", "price": 380000, "sqft": 1500, "beds": 2, "baths": 1, "yearBuilt": 1972, "lotSize": "0.18 acres", "hoaCredit": 4000 }
+      ],
+      "search_results_batch_2": [
+        { "address": "742 Evergreen Avenue", "price": 489000, "sqft": 1700, "beds": 3, "baths": 2, "yearBuilt": 1988, "lotSize": "0.28 acres", "hoaCredit": 18000 },
+        { "address": "321 Birch Lane", "price": 495000, "sqft": 1900, "beds": 3, "baths": 2, "yearBuilt": 2005, "lotSize": "0.22 acres", "hoaCredit": 7000 },
+        { "address": "555 Cedar Court", "price": 620000, "sqft": 2400, "beds": 4, "baths": 3, "yearBuilt": 2012, "lotSize": "0.40 acres", "hoaCredit": 15000 }
+      ],
+      "search_results_batch_3": [
+        { "address": "742 Evergreen Terrace", "price": 574000, "sqft": 2000, "beds": 3, "baths": 2, "yearBuilt": 1990, "lotSize": "0.30 acres", "hoaCredit": 12000 },
+        { "address": "888 Willow Drive", "price": 445000, "sqft": 1650, "beds": 2, "baths": 2, "yearBuilt": 2001, "lotSize": "0.20 acres", "hoaCredit": 6500 },
+        { "address": "101 Elm Boulevard", "price": 710000, "sqft": 2800, "beds": 5, "baths": 3, "yearBuilt": 2018, "lotSize": "0.45 acres", "hoaCredit": 11000 }
+      ],
+      "revelation_order": ["batch_1", "batch_2", "batch_3"],
+      "target_property": "742 Evergreen Terrace",
+      "distractor_property": "742 Evergreen Avenue",
+      "correct_answer": 281,
+      "calculation": "(574000 - 12000) / 2000 = 281"
+    },
     "task_completion_criteria": {
       "js_eval": [
         "data.answer_submitted === true",
-        "data.reported_price_per_sqft === 287"
+        "data.reported_price_per_sqft === 281"
       ],
       "dom_check": [
         {
           "selector": "#answer-display",
           "condition": "contains",
-          "value": "287"
+          "value": "281"
         }
       ]
     }
@@ -249,10 +271,10 @@
             }
           },
           {
-            "bid": "heading_price_per_sqft_for_742_evergreen_terrace_13",
+            "bid": "heading_effective_price_per_sqft_for_742_evergre_13",
             "tag": "h2",
             "role": "heading",
-            "text": "Price per sqft for 742 Evergreen Terrace:",
+            "text": "Effective price per sqft for 742 Evergreen Terrace (after HOA reserve credit):",
             "visible": true,
             "bounds": {
               "x": 0,
