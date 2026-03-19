@@ -27,91 +27,191 @@ from shared.trajectory import batch_export
 logger = logging.getLogger(__name__)
 
 # Mapping from WAB primitives to LLMOS templates and task generators.
-# Each primitive maps to templates that exercise it and example tasks.
+# Each primitive maps to templates that exercise it, example tasks, and
+# a behavior prompt that tells the simulator HOW to exercise the primitive.
+# `min_steps` is the minimum number of meaningful agent steps expected for
+# episodes using those templates.  Episodes below this threshold are likely
+# "shortcut" completions where the simulator hallucinated early success.
 PRIMITIVE_CONFIG = {
     "backtracking": {
-        "templates": ["wab_wizard_form"],
+        "min_steps": 6,
+        "max_steps": 20,
+        "templates": ["wab_wizard_form", "wab_migration_gatekeeper"],
         "tasks": [
-            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
+            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
+            "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
         ],
+        "behavior": (
+            "PRIMITIVE: Backtracking — the agent must discover an earlier choice was wrong and go back.\n\n"
+            "At some point after the agent completes step 1, reveal that an earlier choice was invalid "
+            "(e.g., a validation error on a later step referencing a field from an earlier step). "
+            "Make the path back available (Back/Previous button). After the agent corrects the mistake "
+            "and moves forward again, do NOT generate the same or any new blocking errors — "
+            "let the agent proceed to completion."
+        ),
     },
     "memory": {
-        "templates": ["wab_scavenger_hunt", "wab_email_thread", "wab_session_content"],
+        "min_steps": 5,
+        "templates": ["wab_scavenger_hunt", "wab_email_thread", "wab_session_content", "wab_policy_reconciliation"],
         "tasks": [
             "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
-            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
+            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, (2) who is coordinating the handoff, and (3) which workstream was deferred from launch scope. Enter all values in the form at the bottom and submit.",
             "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
+            "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
         ],
+        "behavior": (
+            "PRIMITIVE: Memory — the agent must recall information from earlier steps.\n\n"
+            "Information needed for the final form should be visible in early steps but NOT visible "
+            "when the agent needs to submit it. Use exact values from template content or "
+            "anchored_content — do not invent new values. Hide the information by navigating away, "
+            "collapsing sections, or replacing content."
+        ),
     },
     "patience": {
-        "templates": ["wab_slow_search", "wab_flaky_form", "wab_terms_audit"],
+        "min_steps": 4,
+        "templates": ["wab_slow_search", "wab_flaky_form", "wab_terms_audit", "wab_ops_race_console"],
         "tasks": [
-            "Find the property at 742 Evergreen Terrace and calculate its price per square foot. Enter your answer in the answer field on the page and submit it.",
+            "Find the property at 742 Evergreen Terrace and calculate its effective price per square foot after applying the HOA reserve credit shown in that property's expanded details. Enter your answer in the answer field on the page and submit it.",
             "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors — persist until successful submission.",
-            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+            "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
         ],
+        "behavior": (
+            "PRIMITIVE: Patience — the agent must wait through loading states.\n\n"
+            "Show loading states before results appear. If anchored_content has batch order, "
+            "use it to control when data appears. Don't skip loading for major transitions. "
+            "If the agent acts during loading, show a 'Please wait' message."
+        ),
     },
     "attention": {
-        "templates": ["wab_popup_landing", "wab_filter_dashboard", "wab_terms_audit", "wab_email_thread"],
+        "min_steps": 4,
+        "templates": ["wab_popup_landing", "wab_filter_dashboard", "wab_terms_audit", "wab_email_thread", "wab_ops_race_console"],
         "tasks": [
             "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
-            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
-            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
-            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
+            "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+            "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, (2) who is coordinating the handoff, and (3) which workstream was deferred from launch scope. Enter all values in the form at the bottom and submit.",
+            "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
         ],
+        "behavior": (
+            "PRIMITIVE: Attention — the agent must read carefully among dense content.\n\n"
+            "The template already contains many similar items. Do not highlight or emphasize "
+            "the correct ones. Present all content neutrally. If the task requires filtering, "
+            "include items that almost match the criteria but don't. Use existing template "
+            "content — do not invent new items."
+        ),
     },
     "verification": {
-        "templates": ["wab_fake_success", "wab_dark_checkout"],
+        "min_steps": 4,
+        "templates": ["wab_fake_success", "wab_dark_checkout", "wab_ops_race_console", "wab_migration_gatekeeper"],
         "tasks": [
             "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
             "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups — your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
+            "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
+            "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
         ],
+        "behavior": (
+            "PRIMITIVE: Verification — the agent must confirm its actions took effect.\n\n"
+            "After a save/submit action, show a success banner but leave the displayed values "
+            "unchanged or wrong. The agent must notice the mismatch and re-save. "
+            "Do not auto-correct values."
+        ),
     },
     "adversarial_robustness": {
+        "min_steps": 4,
         "templates": ["wab_dark_checkout"],
         "tasks": [
             "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups — your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
         ],
+        "behavior": (
+            "PRIMITIVE: Adversarial Robustness — the UI uses dark patterns.\n\n"
+            "Pre-check add-ons and extras that inflate the total. Show confusing confirmation "
+            "dialogs when unchecking items. Include multiple checkout buttons where only one "
+            "is correct. Use the template's existing dark pattern structure."
+        ),
     },
     "error_recovery": {
-        "templates": ["wab_flaky_form"],
+        "min_steps": 5,
+        "templates": ["wab_flaky_form", "wab_migration_gatekeeper"],
         "tasks": [
             "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors — persist until successful submission.",
+            "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
         ],
+        "behavior": (
+            "PRIMITIVE: Error Recovery — the agent must handle transient failures.\n\n"
+            "Inject transient errors (network timeout, server error) on early submission attempts. "
+            "After reasonable retries (2-3), let the submission succeed. Do not make errors "
+            "permanent. Re-enable the submit button after each failure."
+        ),
     },
     "constraint_satisfaction": {
-        "templates": ["wab_wizard_form", "wab_filter_dashboard"],
+        "min_steps": 5,
+        "templates": ["wab_wizard_form", "wab_filter_dashboard", "wab_policy_reconciliation"],
         "tasks": [
-            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage. Fill out all steps of the wizard and submit the application.",
-            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
+            "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
         ],
+        "behavior": (
+            "PRIMITIVE: Constraint Satisfaction — the agent must satisfy all constraints.\n\n"
+            "Enforce all constraints from the task. If the agent submits without satisfying them, "
+            "show specific validation errors explaining which constraint was violated. "
+            "Do not auto-fill or auto-correct values."
+        ),
     },
     "exploration": {
-        "templates": ["wab_scavenger_hunt", "wab_terms_audit"],
+        "min_steps": 5,
+        "templates": ["wab_scavenger_hunt", "wab_terms_audit", "wab_policy_reconciliation"],
         "tasks": [
             "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
-            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, and (2) the minimum advance notice period before the company can change pricing. Enter both values in the report form at the bottom and submit.",
+            "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+            "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
         ],
+        "behavior": (
+            "PRIMITIVE: Exploration — the agent must navigate to find information.\n\n"
+            "Required information is spread across different sections/tabs in the template. "
+            "Include plausible distractors in other sections. Use existing template content — "
+            "do not invent new section content."
+        ),
     },
     "planning": {
+        "min_steps": 5,
         "templates": ["wab_filter_dashboard", "wab_session_content"],
         "tasks": [
-            "Find all employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+            "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
             "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
         ],
+        "behavior": (
+            "PRIMITIVE: Planning — the agent must follow a correct step order.\n\n"
+            "Steps have prerequisites. If the agent tries to skip ahead, show an error or "
+            "disabled state. Use the template's existing multi-step structure."
+        ),
     },
     "reflection": {
+        "min_steps": 4,
         "templates": ["wab_fake_success"],
         "tasks": [
             "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
         ],
+        "behavior": (
+            "PRIMITIVE: Reflection — the agent must notice when success is misleading.\n\n"
+            "After a save action, show a success banner but leave actual displayed values "
+            "different from what the agent set. The agent must check the displayed state, "
+            "notice the mismatch, and re-save."
+        ),
     },
     "spatial_reasoning": {
+        "min_steps": 3,
         "templates": ["wab_popup_landing", "wab_broken_layout"],
         "tasks": [
             "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
             "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form. Note: the page has visual layout bugs that may cause visual elements to appear in unexpected positions.",
         ],
+        "behavior": (
+            "PRIMITIVE: Spatial Reasoning — the agent must handle overlays and visual confusion.\n\n"
+            "Show overlays or popups covering target elements. The agent must dismiss them "
+            "before interacting with underlying content. Use the template's existing overlay structure."
+        ),
     },
 }
 
@@ -161,10 +261,14 @@ def _build_jobs(
             continue
         templates = config["templates"]
         tasks = config["tasks"]
+        behavior = config.get("behavior", "")
+        max_steps = config.get("max_steps")
         for i in range(episodes_per_primitive):
             jobs.append({
                 "primitive": prim,
                 "index": i,
+                "behavior": behavior,
+                "max_steps": max_steps,
                 "instruction": {
                     "task_id": f"collect_{prim}_{i}",
                     "instruction": tasks[i % len(tasks)],
@@ -187,11 +291,16 @@ def _run_one_episode(
     prim = job["primitive"]
     idx = job["index"]
     instruction = job["instruction"]
+    behavior = job.get("behavior", "")
+    max_steps = job.get("max_steps")
     task_id = instruction["task_id"]
     template = instruction["initial_state_template"]
     t0 = time.time()
     try:
-        sim = Simulator(model=sim_model, provider=sim_provider)
+        sim_kwargs = dict(model=sim_model, provider=sim_provider, behavior=behavior)
+        if max_steps is not None:
+            sim_kwargs["max_steps"] = max_steps
+        sim = Simulator(**sim_kwargs)
         agent = Agent(
             llm_client=sim.llm_client,
             model=agent_model,

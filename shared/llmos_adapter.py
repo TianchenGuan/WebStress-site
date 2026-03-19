@@ -87,11 +87,17 @@ def _find_page_content(root: TreeNode) -> TreeNode | None:
     Find the main page content node, skipping browser chrome (toolbar, URL bar).
 
     WAB templates have structure: root(application) → toolbar + page_content(main).
-    Playwright's aria_snapshot only captures body content, so we skip to the main node.
+    Playwright's aria_snapshot only captures body content, so we skip to the main
+    node and return a synthetic unindexed wrapper around its children.  This avoids
+    the main node itself being indexed as [1] (which would shift all refs by +1
+    compared to real-browser observations where no main wrapper exists).
     """
     for child in root.children:
         if child.role == "main":
-            return child
+            # Wrap children in a synthetic root that won't be indexed
+            # (role="root" with no name → should_index() returns False)
+            wrapper = TreeNode(role="root", children=child.children)
+            return wrapper
     return None
 
 

@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "tick": 0,
+    "status": "running",
+    "random_seed": 42,
+    "platform": "webagentbench",
+    "task_category": "migration_gatekeeper",
+    "target_primitives": [
+      "backtracking",
+      "error_recovery",
+      "verification"
+    ]
+  },
+  "hidden_state": {
+    "wab_page_id": "migration_gatekeeper",
+    "wab_instruction": "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
+    "anchored_content": {
+      "required_config": {
+        "mapping_profile": "stable-v3",
+        "include_archived": false,
+        "normalization_mode": "strict-canonical"
+      },
+      "dry_run_stages": 2,
+      "token_value": "MG-7712",
+      "validation_stamp": "STAMP-44",
+      "workflow": [
+        "Configure mapping (stable-v3, exclude archived, strict-canonical normalization)",
+        "Pass dry-run stage 1 of 2",
+        "Pass dry-run stage 2 of 2 (mints token MG-7712)",
+        "Perform real commit",
+        "Validate token (enter MG-7712)",
+        "Submit audit token and validation stamp (STAMP-44)"
+      ]
+    },
+    "task_completion_criteria": {
+      "js_eval": [
+        "data.final_submitted === true",
+        "data.submission_successful === true",
+        "data.mapping_profile === 'stable-v3'",
+        "data.include_archived === false",
+        "data.normalization_mode === 'strict-canonical'",
+        "data.dry_run_pass_count >= 2",
+        "data.dry_run_passed === true",
+        "data.real_commit_done === true",
+        "data.token_validated === true",
+        "data.quick_commit_clicked === false",
+        "data.token_entered === data.token_generated",
+        "data.validation_stamp_entered === data.validation_stamp_generated"
+      ],
+      "dom_check": [
+        {
+          "selector": "#final-result",
+          "condition": "contains",
+          "value": "accepted"
+        }
+      ]
+    }
+  },
+  "ui": {
+    "bid": "root",
+    "tag": "browser",
+    "role": "application",
+    "text": "Migration Gatekeeper",
+    "visible": true,
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
+    "children": [
+      {
+        "bid": "toolbar",
+        "tag": "toolbar",
+        "role": "toolbar",
+        "text": "Browser Toolbar",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 50
+        },
+        "children": [
+          {
+            "bid": "url_bar",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Address",
+            "value": "https://webagentbench.local/pages/migration_gatekeeper",
+            "visible": true,
+            "bounds": {
+              "x": 200,
+              "y": 10,
+              "width": 1200,
+              "height": 30
+            }
+          }
+        ]
+      },
+      {
+        "bid": "page_content",
+        "tag": "main",
+        "role": "main",
+        "text": "Migration Gatekeeper",
+        "visible": true,
+        "bounds": {
+          "x": 0,
+          "y": 50,
+          "width": 1920,
+          "height": 1030
+        },
+        "children": [
+          {
+            "bid": "banner_1",
+            "tag": "header",
+            "role": "banner",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "heading_data_migration_gatekeeper_2",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Data Migration Gatekeeper",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph_complete_a_validated_migration_for_activ_3",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "Complete a validated migration for active customer records only. Ignore optimistic \"quick success\" paths and finish with a verified commit token.",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "bid": "main_4",
+            "tag": "main",
+            "role": "main",
+            "text": "",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__step_1__mapping_step_2__dry_run_step_3_5",
+                "tag": "span",
+                "role": "text",
+                "text": "\"Step 1: Mapping Step 2: Dry Run Step 3: Commit\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "heading_mapping_configuration_6",
+                "tag": "h2",
+                "role": "heading",
+                "text": "Mapping Configuration",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "paragraph__target_scope__active_customer_records_o_7",
+                "tag": "p",
+                "role": "paragraph",
+                "text": "\"Target scope: active customer records only.\"",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_mapping_profile_8",
+                "tag": "span",
+                "role": "text",
+                "text": "Mapping profile",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "combobox_mapping_profile_9",
+                "tag": "select",
+                "role": "combobox",
+                "text": "Mapping profile",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "option_legacy_v1__default_10",
+                    "tag": "option",
+                    "role": "option",
+                    "text": "legacy-v1 (default)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "selected": true
+                  },
+                  {
+                    "bid": "option_compat_v2_11",
+                    "tag": "option",
+                    "role": "option",
+                    "text": "compat-v2",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "option_stable_v3_12",
+                    "tag": "option",
+                    "role": "option",
+                    "text": "stable-v3",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "checkbox_include_archived_records_in_migration_sc_13",
+                "tag": "input",
+                "role": "checkbox",
+                "text": "Include archived records in migration scope",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "checked": true
+              },
+              {
+                "bid": "text_include_archived_records_in_migration_sc_14",
+                "tag": "span",
+                "role": "text",
+                "text": "Include archived records in migration scope",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "checkbox_show_advanced_mapping_options_15",
+                "tag": "input",
+                "role": "checkbox",
+                "text": "Show advanced mapping options",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "text_show_advanced_mapping_options_16",
+                "tag": "span",
+                "role": "text",
+                "text": "Show advanced mapping options",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              },
+              {
+                "bid": "button_continue_to_dry_run_17",
+                "tag": "button",
+                "role": "button",
+                "text": "Continue to Dry Run",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "filesystem": {},
+  "tabs": [
+    {
+      "id": 0,
+      "url": "https://webagentbench.local/pages/migration_gatekeeper",
+      "title": "Migration Gatekeeper",
+      "active": true
+    }
+  ],
+  "history": []
+}

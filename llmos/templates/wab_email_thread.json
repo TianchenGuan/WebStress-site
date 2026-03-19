@@ -13,12 +13,13 @@
   },
   "hidden_state": {
     "wab_page_id": "email_thread",
-    "wab_instruction": "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, and (2) who is coordinating the handoff. Enter both values in the form at the bottom and submit.",
+    "wab_instruction": "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, (2) who is coordinating the handoff, and (3) which workstream was deferred from launch scope. Enter all values in the form at the bottom and submit.",
     "task_completion_criteria": {
       "js_eval": [
         "data.form_submitted === true",
         "String(data.deadline || '').indexOf('March 22') !== -1 || String(data.deadline || '').indexOf('Mar 22') !== -1 || String(data.deadline || '').indexOf('3/22') !== -1",
-        "String(data.coordinator || '').toLowerCase().indexOf('sarah chen') !== -1"
+        "String(data.coordinator || '').toLowerCase().indexOf('sarah chen') !== -1",
+        "String(data.deferred_workstream || '').toLowerCase().indexOf('analytics') !== -1 && (String(data.deferred_workstream || '').toLowerCase().indexOf('defer') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast-follow') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast follow') !== -1)"
       ],
       "dom_check": [
         {
@@ -388,17 +389,62 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_24",
+            "bid": "paragraph_david_priya_24",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "David, Priya,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_24a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "text_good_point_24b",
+                "tag": "span",
+                "role": "text",
+                "text": "Good point about the partner commitment. I've been looking at the schedule more carefully, and I think there's a compromise here. If we move the analytics dashboard to the fast-follow release, engineering can focus on the core auth flow and API integration. With that reduced scope, I'd propose",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "strong_march_22_24c",
+                "tag": "div",
+                "role": "strong",
+                "text": "March 22",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_as_the_new_deadline_24d",
+                "tag": "span",
+                "role": "text",
+                "text": "as the new deadline. That's still within Q1 and gives us a one-week buffer before the partner launch on March 31.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_priya_would_this_24e",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Priya, would this timeline work for your team?",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_james_24f",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "James",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_priya_sharma_engineering_lead_feb_3__202_25",
@@ -414,17 +460,36 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_26",
+            "bid": "paragraph_james_26",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "James,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_march22_works_26a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "March 22 works for us if we defer the analytics dashboard. I've already discussed this with the team and they're confident we can deliver the core features by then. We'll need to lock the feature list by this Friday so there are no last-minute additions.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_one_thing_26b",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "One thing to flag: we'll need design assets for the updated onboarding flow by February 14. @Nina, can your team commit to that?",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_priya_26c",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Priya",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_nina_okonkwo_lead_designer_feb_4__2025_9_27",
@@ -440,17 +505,62 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_28",
+            "bid": "paragraph_hi_all_28",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "Hi all,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_28a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "text_catching_up_28b",
+                "tag": "span",
+                "role": "text",
+                "text": "Just catching up on this thread. I thought we had agreed on",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "strong_march_25_28c",
+                "tag": "div",
+                "role": "strong",
+                "text": "March 25",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_during_standup_28d",
+                "tag": "span",
+                "role": "text",
+                "text": "during the standup yesterday? I've already briefed my team on that date and we've planned our design sprint around it.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_priya_yes_28e",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "@Priya, yes we can have the onboarding assets ready by Feb 14, but I want to make sure we're all on the same page about the launch date before I finalize the sprint schedule.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_nina_28f",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Nina",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_james_liu_project_manager_feb_4__2025_9_29",
@@ -466,17 +576,62 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_30",
+            "bid": "paragraph_nina_30",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "Nina,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_30a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "text_to_clarify_30b",
+                "tag": "span",
+                "role": "text",
+                "text": "To clarify: the deadline we're proposing is",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "strong_march_22_30c",
+                "tag": "div",
+                "role": "strong",
+                "text": "March 22",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_not_march_25_30d",
+                "tag": "span",
+                "role": "text",
+                "text": ", not March 25. I think there might have been some confusion in yesterday's standup \u2014 we were discussing the March 25 partner review meeting, which is a separate milestone. The actual product launch deadline is March 22, three days before the partner review.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_please_update_30e",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Please update your sprint schedule accordingly. Let me know if this causes any issues for your team.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_james_30f",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "James",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_rachel_torres_marketing_director_feb_4_31",
@@ -492,17 +647,62 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_32",
+            "bid": "paragraph_team_32",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "Team,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_32a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "text_quick_question_32b",
+                "tag": "span",
+                "role": "text",
+                "text": "Quick question: is there any flexibility to push to",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "strong_march_29_32c",
+                "tag": "div",
+                "role": "strong",
+                "text": "March 29",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_marketing_32d",
+                "tag": "span",
+                "role": "text",
+                "text": "? Marketing has a major campaign launching on March 24, and coordinating both the campaign and the product launch in the same week would be very challenging for my team. A few extra days would help us sequence the communications better.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_happy_32e",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Happy to discuss offline if needed.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_rachel_32f",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Rachel",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_david_kim_vp_of_product_feb_4__2025_2_30_33",
@@ -518,17 +718,54 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_34",
+            "bid": "paragraph_rachel_34",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "Rachel,",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_understand_34a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "I understand the marketing concern, but no \u2014 we cannot move past March 22. The partner launch commitment on March 31 requires at least a week of production monitoring before we can hand off. March 29 doesn't give us that buffer.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_34b",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "strong_final_deadline_34c",
+                "tag": "div",
+                "role": "strong",
+                "text": "Final deadline: March 22.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_no_extensions_34d",
+                "tag": "span",
+                "role": "text",
+                "text": "No further extensions. Rachel, please work with James on sequencing the marketing campaign around this date.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_david_34e",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "David",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "text_james_liu_project_manager_feb_4__2025_3_35",
@@ -544,17 +781,114 @@
             }
           },
           {
-            "bid": "paragraph_loading_message_36",
+            "bid": "paragraph_thanks_everyone_36",
             "tag": "p",
             "role": "paragraph",
-            "text": "Loading message...",
+            "text": "Thanks everyone for working through this. To summarize the final decisions:",
             "visible": true,
-            "bounds": {
-              "x": 0,
-              "y": 0,
-              "width": 800,
-              "height": 30
-            }
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_36a",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "text_summary_list_36b",
+                "tag": "span",
+                "role": "text",
+                "text": "Product launch deadline:",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "strong_march_22_36c",
+                "tag": "div",
+                "role": "strong",
+                "text": "March 22",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_36d",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "strong_analytics_deferred_36e",
+                "tag": "div",
+                "role": "strong",
+                "text": "Analytics dashboard",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_deferred_36f",
+                "tag": "span",
+                "role": "text",
+                "text": "deferred to fast-follow release",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_design_assets_36g",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Design assets due: February 14. Feature freeze: this Friday. Partner review meeting: March 25. Partner launch: March 31.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_36h",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 },
+            "children": [
+              {
+                "bid": "strong_sarah_chen_36i",
+                "tag": "div",
+                "role": "strong",
+                "text": "Sarah Chen",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              },
+              {
+                "bid": "text_will_coordinate_36j",
+                "tag": "span",
+                "role": "text",
+                "text": "will coordinate the handoff between engineering, marketing, and the partner team. She'll set up a shared tracker and schedule the cross-team syncs starting next week.",
+                "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+              }
+            ]
+          },
+          {
+            "bid": "paragraph_please_direct_36k",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "Please direct any timeline questions to me or Sarah going forward.",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
+          },
+          {
+            "bid": "paragraph_james_36l",
+            "tag": "p",
+            "role": "paragraph",
+            "text": "James",
+            "visible": true,
+            "bounds": { "x": 0, "y": 0, "width": 800, "height": 30 }
           },
           {
             "bid": "heading_thread_summary_37",
@@ -665,7 +999,48 @@
             ]
           },
           {
-            "bid": "button_submit_45",
+            "bid": "text_which_workstream_was_deferred_from_launc_45",
+            "tag": "span",
+            "role": "text",
+            "text": "Which workstream was deferred from launch scope?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            }
+          },
+          {
+            "bid": "textbox_which_workstream_was_deferred_from_launc_46",
+            "tag": "input",
+            "role": "textbox",
+            "text": "Which workstream was deferred from launch scope?",
+            "visible": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 800,
+              "height": 30
+            },
+            "children": [
+              {
+                "bid": "text__placeholder__e_g__analytics_dashboard_47",
+                "tag": "span",
+                "role": "text",
+                "text": "/placeholder: e.g. Analytics dashboard",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 20
+                }
+              }
+            ]
+          },
+          {
+            "bid": "button_submit_48",
             "tag": "button",
             "role": "button",
             "text": "Submit",
