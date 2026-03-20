@@ -6,7 +6,7 @@ using LoRA finetuning via the Tinker service.
 
 Usage:
     # 1. Prepare data first
-    python training/prepare_data.py --llmos-dir llmos/runs/ --output training/data/train.jsonl
+    python training/prepare_data.py --llmos-dir llmos/runs/current/ --output training/data/train.jsonl
 
     # 2. Run training
     python training/train_sft.py \

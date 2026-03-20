@@ -198,7 +198,7 @@ def _make_status(action: dict, node_map: Optional[dict[int, TreeNode]] = None) -
     if name == "dblclick" and ref:
         return f"Double-clicked [{ref}]{_ref_info(ref)}"
     if name == "fill" and ref:
-        return f'Filled [{ref}] with "{action.get("value", "")[:50]}"'
+        return f'Filled [{ref}] with "{str(action.get("value", ""))[:50]}"'
     if name == "select" and ref:
         return f'Selected "{action.get("value", "")}" in [{ref}]'
     if name == "check" and ref:

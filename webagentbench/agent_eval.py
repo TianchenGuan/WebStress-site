@@ -939,7 +939,7 @@ def run_evaluation(
     reasoning_effort: str | None = None,
     server_host: str = "127.0.0.1",
     server_port: int = 8080,
-    output_path: str = "results.json",
+    output_path: str = "results/webagentbench/results.json",
     seed: int | None = None,
 ) -> list[dict]:
     """
@@ -1169,14 +1169,16 @@ def _write_agent_results(
     # Attach page metadata for richer visualization (instruction, primitives, etc.)
     output["page_meta"] = page_meta
 
-    with open(output_path, "w") as f:
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\nResults written to {output_path}")
+    print(f"\nResults written to {output_file}")
 
     # Auto-generate visualization HTML (best-effort)
     try:
         from .visualize import generate_html
-        out_path = Path(output_path)
+        out_path = output_file
         viz_name = str(out_path.with_suffix("").name) + "_viz.html"
         html_content = generate_html(output, server_url or "http://127.0.0.1:8080")
 
@@ -1250,8 +1252,8 @@ def main():
                         help="WebAgentBench server port (default: 8080)")
 
     # Output
-    parser.add_argument("--output", type=str, default="results.json",
-                        help="Output file (default: results.json)")
+    parser.add_argument("--output", type=str, default="results/webagentbench/results.json",
+                        help="Output file (default: results/webagentbench/results.json)")
     parser.add_argument("--quiet", "-q", action="store_true",
                         help="Less output")
 

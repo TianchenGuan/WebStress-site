@@ -6,7 +6,7 @@ generates simulator episodes targeting those primitives,
 and exports training data.
 
 Usage:
-    python -m llmos collect --wab-results results.json --output training.jsonl
+    python -m llmos collect --wab-results results/webagentbench/results.json
     python -m llmos collect --primitives memory patience --episodes 20
 """
 
@@ -17,7 +17,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from .simulator import Simulator
 from .agent import Agent
@@ -25,6 +25,9 @@ from .runner import run_episode, save_episode
 from shared.trajectory import batch_export
 
 logger = logging.getLogger(__name__)
+DEFAULT_OUTPUT_PATH = "results/llmos/training/training_data.jsonl"
+DEFAULT_RUNS_DIR = Path(__file__).parent / "runs" / "current"
+DEFAULT_LOG_DIR = Path("results/llmos/logs")
 
 # Mapping from WAB primitives to LLMOS templates and task generators.
 # Each primitive maps to templates that exercise it, example tasks, and
@@ -555,7 +558,9 @@ def collect_training_data(
     wab_results_path: Optional[str] = None,
     primitives: Optional[list[str]] = None,
     episodes_per_primitive: int = 10,
-    output_path: str = "training_data.jsonl",
+    output_path: str = DEFAULT_OUTPUT_PATH,
+    runs_dir: Optional[Union[str, Path]] = None,
+    log_dir: Optional[Union[str, Path]] = None,
     sim_model: Optional[str] = None,
     sim_provider: Optional[str] = None,
     agent_model: Optional[str] = None,
@@ -570,10 +575,16 @@ def collect_training_data(
     2. Generate simulator episodes targeting those primitives
     3. Export training data
     """
-    # Set up file logging next to output
+    # Resolve output directories.
+    resolved_runs_dir = Path(runs_dir) if runs_dir is not None else DEFAULT_RUNS_DIR
+    resolved_runs_dir.mkdir(parents=True, exist_ok=True)
+    resolved_log_dir = Path(log_dir) if log_dir is not None else DEFAULT_LOG_DIR
+    resolved_log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Set up file logging.
     output_dir = Path(output_path).parent
     output_dir.mkdir(parents=True, exist_ok=True)
-    log_path = output_dir / f"collect_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_path = resolved_log_dir / f"collect_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     file_handler = _setup_file_logging(log_path)
     logger.info(
         f"Collection started: sim={sim_model}({sim_provider}) "
@@ -610,8 +621,6 @@ def collect_training_data(
             print(f"No WAB results provided. Targeting all primitives.")
 
     # 2. Generate episodes (saved incrementally as they complete)
-    runs_dir = Path(__file__).parent / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
     episodes = generate_episodes(
         target_primitives,
         episodes_per_primitive,
@@ -621,11 +630,11 @@ def collect_training_data(
         agent_provider=agent_provider,
         workers=workers,
         verbose=verbose,
-        runs_dir=runs_dir,
+        runs_dir=resolved_runs_dir,
     )
 
     # 3. Build index.html for browsing all saved episodes
-    _build_index_html(runs_dir)
+    _build_index_html(resolved_runs_dir)
 
     # 4. Export training data
     wab_results = None
@@ -649,7 +658,7 @@ def collect_training_data(
         f"  Episodes: {len(episodes)} generated, {n_success} success, "
         f"avg_score={avg_score:.2f}\n"
         f"  Training data: {stats['output_path']}\n"
-        f"  Visualizations: {runs_dir}/index.html\n"
+        f"  Visualizations: {resolved_runs_dir}/index.html\n"
         f"  Log: {log_path}"
     )
     logger.info(summary)
