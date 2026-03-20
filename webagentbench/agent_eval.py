@@ -147,9 +147,9 @@ def _summarize_history(
 
     summary_prompt = (
         "Summarize the following agent interaction history into a brief bullet-point "
-        "list of what was accomplished. Focus on: which emails were opened, what actions "
-        "were taken (starred, archived, labeled, replied, forwarded), and what navigation "
-        "occurred. Keep it under 200 words.\n\n"
+        "list of what was accomplished. Focus on: which elements were interacted with, "
+        "what actions were taken (clicks, form fills, navigation, submissions), and what "
+        "progress was made toward the task. Keep it under 200 words.\n\n"
         f"{history_block}"
     )
     try:
@@ -784,39 +784,43 @@ def _run_env_task(
     base_url = env["base_url"]
     session_id: str | None = None
     benchmark_state: dict = {}
-
-    session_payload = {"task_id": task_id}
-    if seed is not None:
-        session_payload["seed"] = seed
-
-    created = _http_json(
-        f"{bench_url}/api/env/{env_id}/session",
-        method="POST",
-        payload=session_payload,
-    )
-    session_id = created["session_id"]
-    start_path = created.get("start_path", task_def.get("start_path", "/"))
-    resolved_targets = created.get("resolved_targets", {})
-    rendered_task = _render_template(task_def, resolved_targets)
-    instruction = rendered_task.get("instruction") or rendered_task.get("instruction_template", "")
-    page_title = rendered_task.get("title", task_id)
-    effective_timeout = max(timeout_per_page, int(task_def.get("time_limit_seconds", timeout_per_page)))
-    recommended_steps = 50 if task_def.get("difficulty") == "hard" else 35
-    effective_steps = max(max_steps, int(task_def.get("max_steps", recommended_steps)))
-
-    if verbose:
-        print(f"[{env_id}:{task_id}] {page_title}")
-        print(f"  Instruction: {instruction[:120]}{'...' if len(instruction) > 120 else ''}")
-
-    context = browser.new_context()
-    page = context.new_page()
-    session_url = (
-        f"{bench_url}{base_url}{start_path}?session={urllib.parse.quote(session_id)}"
-        if start_path.startswith("/")
-        else f"{bench_url}{base_url}/{start_path}?session={urllib.parse.quote(session_id)}"
-    )
+    context = None
+    created: dict = {}
+    page_title = task_def.get("title", task_id)
+    instruction = task_def.get("instruction_template", "")
 
     try:
+        session_payload = {"task_id": task_id}
+        if seed is not None:
+            session_payload["seed"] = seed
+
+        created = _http_json(
+            f"{bench_url}/api/env/{env_id}/session",
+            method="POST",
+            payload=session_payload,
+        )
+        session_id = created["session_id"]
+        start_path = created.get("start_path", task_def.get("start_path", "/"))
+        resolved_targets = created.get("resolved_targets", {})
+        rendered_task = _render_template(task_def, resolved_targets)
+        instruction = rendered_task.get("instruction") or rendered_task.get("instruction_template", "")
+        page_title = rendered_task.get("title", task_id)
+        effective_timeout = max(timeout_per_page, int(task_def.get("time_limit_seconds", timeout_per_page)))
+        recommended_steps = 50 if task_def.get("difficulty") == "hard" else 35
+        effective_steps = max(max_steps, int(task_def.get("max_steps", recommended_steps)))
+
+        if verbose:
+            print(f"[{env_id}:{task_id}] {page_title}")
+            print(f"  Instruction: {instruction[:120]}{'...' if len(instruction) > 120 else ''}")
+
+        context = browser.new_context()
+        page = context.new_page()
+        session_url = (
+            f"{bench_url}{base_url}{start_path}?session={urllib.parse.quote(session_id)}"
+            if start_path.startswith("/")
+            else f"{bench_url}{base_url}/{start_path}?session={urllib.parse.quote(session_id)}"
+        )
+
         page.goto(session_url)
         page.wait_for_load_state("networkidle")
 
@@ -858,7 +862,8 @@ def _run_env_task(
         }
         evaluation = {"score": -1.0, "success": False, "reasoning": f"Error: {exc}"}
     finally:
-        context.close()
+        if context is not None:
+            context.close()
         if session_id is not None:
             try:
                 _http_json(
