@@ -7,6 +7,8 @@ interface SessionCreateResponse<T = Record<string, unknown>> {
   resolved_targets?: T;
   seed?: number;
   start_path?: string;
+  title?: string;
+  instruction?: string;
 }
 
 export function useSession(envId: string) {
