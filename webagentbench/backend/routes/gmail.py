@@ -7,10 +7,11 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..evaluator_advanced import AdvancedEvaluator
+from ...tasks._evaluator import evaluate as unified_evaluate
+from ...tasks._registry import get_task
 from ..models.gmail import Attachment, Contact, Email, FilterRule, GmailState
 from ..state import SessionManager
-from ..tasks import GMAIL_TASK_INDEX
+from ...task_rendering import render_template
 
 router = APIRouter(prefix="/api/env/gmail", tags=["gmail"])
 
@@ -242,16 +243,21 @@ def _paginate(items: list[dict[str, Any]], page: int, page_size: int) -> dict[st
 
 @router.post("/session")
 def create_session(body: SessionCreateRequest, session_manager: SessionManager = Depends(get_session_manager)) -> dict[str, Any]:
-    if body.task_id not in GMAIL_TASK_INDEX:
+    task = get_task(body.task_id)
+    if task.env_id != "gmail":
         raise HTTPException(status_code=404, detail=f"Unknown Gmail task_id: {body.task_id}")
     session_id, resolved_targets, actual_seed = session_manager.create_session("gmail", body.task_id, body.seed)
-    task_def = GMAIL_TASK_INDEX[body.task_id]
+    instruction = render_template(
+        task.instruction_template or task.instruction or "", resolved_targets
+    )
     return {
         "session_id": session_id,
         "task_id": body.task_id,
         "seed": actual_seed,
+        "start_path": task.start_path or "/inbox",
         "resolved_targets": resolved_targets,
-        "start_path": task_def.get("start_path", "/inbox"),
+        "title": task.title,
+        "instruction": instruction,
     }
 
 
@@ -275,13 +281,16 @@ def destroy_session(session_id: str, session_manager: SessionManager = Depends(g
 
 @router.post("/evaluate")
 def evaluate_session(body: EvaluateRequest, session_manager: SessionManager = Depends(get_session_manager)) -> dict[str, Any]:
-    evaluator = AdvancedEvaluator(session_manager)
     try:
-        return evaluator.evaluate(
-            session_id=body.session_id,
-            task_id=body.task_id,
-            benchmark_state=body.benchmark_state,
-            trajectory=body.trajectory,
+        state = session_manager.get(body.session_id)
+        if body.benchmark_state is not None:
+            session_manager.set_benchmark_state(body.session_id, body.benchmark_state)
+        task = get_task(body.task_id or state.task_id)
+        return unified_evaluate(
+            task,
+            server_state=state,
+            targets=state.resolved_targets,
+            trajectory=body.trajectory or [],
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
