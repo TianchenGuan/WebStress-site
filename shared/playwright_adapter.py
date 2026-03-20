@@ -22,7 +22,9 @@ class LocatorInfo:
 
 # Roles where inline text after colon represents the current value
 _VALUE_ROLES = {"textbox", "searchbox", "spinbutton"}
-_QUOTED_ROLE_LINE_RE = re.compile(r"""^'(?P<role>[\w-]+)\s+"(?P<name>(?:\\.|[^"])*)"'$""")
+_QUOTED_ROLE_LINE_RE = re.compile(
+    r"""^'(?P<role>[\w-]+)\s+"(?P<name>(?:\\.|[^"])*)"'(?P<children>:)?$"""
+)
 _QUOTED_STRING_RE = re.compile(r'^"(?P<value>(?:\\.|[^"])*)"')
 
 
@@ -74,6 +76,7 @@ def _parse_snapshot_line(line: str) -> tuple[TreeNode, bool]:
     if quoted_role:
         role = quoted_role.group("role")
         name = _unescape_snapshot_text(quoted_role.group("name"))
+        has_children = bool(quoted_role.group("children"))
         node = TreeNode(
             role=role,
             name=name,
@@ -324,4 +327,4 @@ def _resolve(page, info: LocatorInfo):
     """Resolve LocatorInfo to a Playwright Locator."""
     if info.role in ("text", "paragraph") and info.name:
         return page.get_by_text(info.name, exact=False).nth(info.nth)
-    return page.get_by_role(info.role, name=info.name).nth(info.nth)
+    return page.get_by_role(info.role, name=info.name, exact=True).nth(info.nth)
