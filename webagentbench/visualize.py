@@ -386,6 +386,73 @@ function showReplayStatus(text) {{
     setTimeout(() => {{ el.style.display = 'none'; }}, 2000);
 }}
 
+let activeReplaySession = null;
+
+function getResultScore(result) {{
+    return Number(result?.evaluation?.score ?? result?.evaluation?.final_score ?? -1);
+}}
+
+async function destroyActiveReplaySession() {{
+    if (!activeReplaySession) return;
+    const session = activeReplaySession;
+    activeReplaySession = null;
+    try {{
+        await fetch(
+            `${{SERVER_URL}}/api/env/${{session.envId}}/session/${{encodeURIComponent(session.sessionId)}}`,
+            {{ method: 'DELETE' }}
+        );
+    }} catch (e) {{
+        console.warn('Failed to destroy replay session', e);
+    }}
+}}
+
+async function buildReplayUrl(result, resetSession = false) {{
+    const replay = result?.replay || {{}};
+    if (replay.kind !== 'env') {{
+        if (resetSession) await destroyActiveReplaySession();
+        return SERVER_URL + (replay.url || ('/pages/' + result.page_id));
+    }}
+
+    if (
+        resetSession ||
+        !activeReplaySession ||
+        activeReplaySession.envId !== replay.env_id
+    ) {{
+        await destroyActiveReplaySession();
+        const payload = {{ task_id: replay.task_id || result.task_id }};
+        if (replay.seed !== undefined && replay.seed !== null) {{
+            payload.seed = replay.seed;
+        }}
+        const response = await fetch(`${{SERVER_URL}}/api/env/${{replay.env_id}}/session`, {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(payload),
+        }});
+        if (!response.ok) {{
+            throw new Error(`Failed to create replay session (${{response.status}})`);
+        }}
+        const data = await response.json();
+        activeReplaySession = {{ envId: replay.env_id, sessionId: data.session_id }};
+    }}
+
+    const baseUrl = replay.base_url || result.base_url;
+    const startPath = replay.start_path || "";
+    return `${{SERVER_URL}}${{baseUrl}}${{startPath}}?session=${{encodeURIComponent(activeReplaySession.sessionId)}}`;
+}}
+
+async function loadResultFrame(result, resetSession = false) {{
+    const iframe = document.getElementById('pageFrame');
+    const src = await buildReplayUrl(result, resetSession);
+    await new Promise((resolve) => {{
+        iframe.onload = () => resolve();
+        iframe.src = src;
+    }});
+}}
+
+window.addEventListener('beforeunload', () => {{
+    void destroyActiveReplaySession();
+}});
+
 // ═══════════════════════════════════════════════════════════════
 // Mode toggle
 // ═══════════════════════════════════════════════════════════════
@@ -402,7 +469,7 @@ function setMode(m) {{
     if (m === 'interactive' && currentPageIdx >= 0) {{
         // Reload page to reset state
         const r = RESULTS[currentPageIdx];
-        document.getElementById('pageFrame').src = SERVER_URL + '/pages/' + r.page_id;
+        void loadResultFrame(r, true);
         currentStepIdx = -1;
         showReplayStatus('Interactive mode — actions will replay on page');
     }}
@@ -418,7 +485,7 @@ RESULTS.forEach((r, idx) => {{
     item.className = 'page-item';
     item.dataset.idx = idx;
     const success = r.evaluation && r.evaluation.success;
-    const score = r.evaluation ? r.evaluation.score : -1;
+    const score = getResultScore(r);
     const badgeClass = success ? 'pass' : 'fail';
     const badgeText = success ? 'PASS' : 'FAIL';
     const steps = r.agent ? r.agent.steps : 0;
@@ -429,11 +496,11 @@ RESULTS.forEach((r, idx) => {{
             ${{score.toFixed(2)}} &middot; ${{steps}} steps &middot; ${{r.difficulty || '?'}}
         </div>
     `;
-    item.onclick = () => selectPage(idx);
+    item.onclick = () => {{ void selectPage(idx); }};
     sidebar.appendChild(item);
 }});
 
-function selectPage(idx) {{
+async function selectPage(idx) {{
     currentPageIdx = idx;
     currentStepIdx = -1;
     lastExecutedIdx = -1;
@@ -447,14 +514,19 @@ function selectPage(idx) {{
     const success = r.evaluation && r.evaluation.success;
     const meta = PAGE_META[r.page_id] || {{}};
     const title = r.title || r.page_id || 'Untitled';
-    const instruction = meta.instruction || '';
+    const instruction = meta.instruction || r.instruction || '';
     document.getElementById('instruction').textContent = instruction || title;
     const scoreEl = document.getElementById('score');
-    const scoreVal = Number(r.evaluation?.score ?? -1);
+    const scoreVal = getResultScore(r);
     scoreEl.textContent = (success ? 'PASS' : 'FAIL') + ' ' + scoreVal.toFixed(2);
     scoreEl.className = 'score ' + (success ? 'pass' : 'fail');
 
-    document.getElementById('pageFrame').src = SERVER_URL + '/pages/' + r.page_id;
+    try {{
+        await loadResultFrame(r, true);
+    }} catch (e) {{
+        console.error(e);
+        showReplayStatus('Failed to load replay target');
+    }}
 
     const trajEl = document.getElementById('trajSteps');
     const traj = r.agent?.trajectory || [];
@@ -526,9 +598,20 @@ function selectPage(idx) {{
         criteria.forEach(c => {{
             const cls = c.passed ? 'passed' : 'failed';
             const icon = c.passed ? '✓' : '✗';
-            evalHtml += '<div class="criterion ' + cls + '">' + icon + ' ' + escapeHtml(c.expression) + '</div>';
+            const label = c.expression || c.check || c.desc || c.selector || JSON.stringify(c);
+            evalHtml += '<div class="criterion ' + cls + '">' + icon + ' ' + escapeHtml(label) + '</div>';
         }});
         evalHtml += '</div>';
+    }}
+    const negativeResults = ev.negative_results || [];
+    if (negativeResults.length > 0) {{
+        evalHtml += '<div class="section"><span class="label">Negative Checks</span></div>';
+        negativeResults.forEach(n => {{
+            const cls = n.passed ? 'passed' : 'failed';
+            const icon = n.passed ? '✓' : '✗';
+            const label = n.check || n.desc || n.expression || JSON.stringify(n);
+            evalHtml += '<div class="criterion ' + cls + '">' + icon + ' ' + escapeHtml(label) + '</div>';
+        }});
     }}
     const domResults = ev.dom_results || [];
     if (domResults.length > 0) {{
@@ -555,7 +638,7 @@ function selectPage(idx) {{
     evalEl.innerHTML = evalHtml;
 }}
 
-function goToStep(stepIdx) {{
+async function goToStep(stepIdx) {{
     const steps = document.querySelectorAll('#trajSteps .step');
     currentStepIdx = stepIdx;
     steps.forEach((el, i) => el.classList.toggle('current', i === stepIdx));
@@ -589,7 +672,7 @@ function goToStep(stepIdx) {{
 function nextStep() {{
     const steps = document.querySelectorAll('#trajSteps .step');
     if (steps.length === 0) return;
-    goToStep(Math.min(currentStepIdx + 1, steps.length - 1));
+    void goToStep(Math.min(currentStepIdx + 1, steps.length - 1));
 }}
 
 function prevStep() {{
@@ -599,13 +682,18 @@ function prevStep() {{
         showReplayStatus('Use reset (↺) then step forward');
         return;
     }}
-    goToStep(currentStepIdx - 1);
+    void goToStep(currentStepIdx - 1);
 }}
 
-function resetPage() {{
+async function resetPage() {{
     if (currentPageIdx < 0) return;
     const r = RESULTS[currentPageIdx];
-    document.getElementById('pageFrame').src = SERVER_URL + '/pages/' + r.page_id;
+    try {{
+        await loadResultFrame(r, true);
+    }} catch (e) {{
+        console.error(e);
+        showReplayStatus('Failed to reset replay target');
+    }}
     currentStepIdx = -1;
     lastExecutedIdx = -1;
     document.querySelectorAll('#trajSteps .step').forEach(el => {{
@@ -646,7 +734,7 @@ function escapeHtml(str) {{
     return div.innerHTML;
 }}
 
-if (RESULTS.length > 0) selectPage(0);
+if (RESULTS.length > 0) void selectPage(0);
 </script>
 </body>
 </html>"""
@@ -671,14 +759,17 @@ def main():
     with open(args.file) as f:
         data = json.load(f)
 
-    # Attach page metadata (instruction, primitives, etc.) if available
+    # Attach manifest metadata without discarding result-supplied env task metadata.
+    page_meta = data.get("page_meta", {})
     try:
         manifest_path = Path(__file__).parent / "manifest.json"
         with open(manifest_path) as mf:
             manifest = json.load(mf)
-        data["page_meta"] = {p["page_id"]: p for p in manifest.get("pages", [])}
+        for page in manifest.get("pages", []):
+            page_meta[page["page_id"]] = {**page, **page_meta.get(page["page_id"], {})}
+        data["page_meta"] = page_meta
     except Exception:
-        data["page_meta"] = {}
+        data["page_meta"] = page_meta
 
     # Determine output path
     if args.output:
