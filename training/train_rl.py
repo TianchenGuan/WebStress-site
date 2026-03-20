@@ -112,6 +112,7 @@ def build_config(args) -> rl_train.Config:
         tasks_per_primitive=args.tasks_per_primitive,
         num_epochs=args.num_epochs,
         seed=args.seed,
+        use_primitive_weights=args.use_primitive_weights,
     )
 
     # Log path
@@ -142,6 +143,11 @@ def build_config(args) -> rl_train.Config:
             load_checkpoint_path=args.checkpoint,
         )
 
+    # PPO clip thresholds
+    loss_fn_config = None
+    if args.loss_fn == "ppo":
+        loss_fn_config = {"clip_low_threshold": 0.8, "clip_high_threshold": 1.2}
+
     config = rl_train.Config(
         log_path=log_path,
         model_name=model_name,
@@ -152,6 +158,7 @@ def build_config(args) -> rl_train.Config:
         max_tokens=args.max_tokens,
         lora_rank=args.lora_rank,
         loss_fn=args.loss_fn,
+        loss_fn_config=loss_fn_config,
         kl_penalty_coef=args.kl_coef,
         kl_reference_config=kl_reference_config,
         save_every=args.save_every,
@@ -195,11 +202,11 @@ def main():
                         help="Max tokens per agent generation (actions are short JSON)")
     parser.add_argument("--max-trajectory-tokens", type=int, default=16384,
                         help="Max total tokens per episode trajectory")
-    parser.add_argument("--loss-fn", type=str, default="importance_sampling",
+    parser.add_argument("--loss-fn", type=str, default="ppo",
                         choices=["importance_sampling", "ppo", "cispo", "dro"],
-                        help="RL loss function")
-    parser.add_argument("--kl-coef", type=float, default=0.0,
-                        help="KL penalty coefficient (0 = disabled)")
+                        help="RL loss function (default: ppo)")
+    parser.add_argument("--kl-coef", type=float, default=0.01,
+                        help="KL penalty coefficient (default: 0.01, 0 = disabled)")
     parser.add_argument("--temperature", type=float, default=1.0,
                         help="Sampling temperature")
 
@@ -222,6 +229,8 @@ def main():
                         help="Number of tasks per primitive")
     parser.add_argument("--num-epochs", type=int, default=3,
                         help="Number of passes through the task set")
+    parser.add_argument("--use-primitive-weights", action="store_true",
+                        help="Weight primitives by trainability (behavioral > content-dep > floor/ceiling)")
     parser.add_argument("--seed", type=int, default=42)
 
     # Checkpointing
@@ -243,6 +252,11 @@ def main():
 
     args = parser.parse_args()
 
+    # Validate: KL penalty doesn't work well with non-unit temperature
+    if args.kl_coef > 0 and args.temperature != 1.0:
+        print(f"WARNING: KL penalty (coef={args.kl_coef}) does not work well with "
+              f"temperature={args.temperature}. Consider using --temperature 1.0")
+
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
@@ -258,12 +272,21 @@ def main():
 
     # Estimate training size
     from llmos.collect import PRIMITIVE_CONFIG
+    from training.rl_env import DEFAULT_PRIMITIVE_WEIGHTS
     primitives = args.primitives
     if primitives is None or (len(primitives) == 1 and primitives[0] == "all"):
         n_prims = len(PRIMITIVE_CONFIG)
+        prim_list = list(PRIMITIVE_CONFIG.keys())
     else:
         n_prims = len(primitives)
-    n_tasks = n_prims * args.tasks_per_primitive
+        prim_list = primitives
+
+    if args.use_primitive_weights:
+        weights = {p: DEFAULT_PRIMITIVE_WEIGHTS.get(p, 1.0) for p in prim_list}
+        mean_w = sum(weights.values()) / len(weights) if weights else 1.0
+        n_tasks = sum(max(1, round(args.tasks_per_primitive * w / mean_w)) for w in weights.values())
+    else:
+        n_tasks = n_prims * args.tasks_per_primitive
     n_total = n_tasks * args.num_epochs
     n_batches = (n_total + args.batch_size - 1) // args.batch_size
     episodes_per_batch = args.batch_size * args.group_size

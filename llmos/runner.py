@@ -21,6 +21,10 @@ from .utils.rendering import summarize_state
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_RUNS_DIR = Path(__file__).parent / "runs" / "current"
+DEFAULT_COLLECT_OUTPUT = Path("results/llmos/training/training_data.jsonl")
+DEFAULT_COLLECT_LOG_DIR = Path("results/llmos/logs")
+
 
 def configure_logging(level: str = "INFO"):
     """Configure logging with sensible defaults."""
@@ -120,7 +124,7 @@ def run_episode(
 
 def save_episode(result: dict, runs_dir: Path) -> str:
     """Save episode to disk. Returns path."""
-    runs_dir.mkdir(exist_ok=True)
+    runs_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     task_id = result["instruction"].get("task_id", "unknown")
     filename = f"episode_{timestamp}_{task_id}.json"
@@ -165,7 +169,7 @@ Examples:
   python -m llmos run --task "Click the Settings button"
   python -m llmos run --task "Fill the form" --template form
   python -m llmos run --task "Navigate to Documents" --human
-  python -m llmos collect --wab-results results.json --output training.jsonl
+  python -m llmos collect --wab-results results/webagentbench/results.json
 """,
     )
 
@@ -178,6 +182,12 @@ Examples:
     run_p.add_argument("--template", type=str, default="desktop", help="Initial state template")
     run_p.add_argument("--human", action="store_true", help="Use human agent")
     run_p.add_argument("--no-save", action="store_true", help="Don't save episode")
+    run_p.add_argument(
+        "--runs-dir",
+        type=str,
+        default=str(DEFAULT_RUNS_DIR),
+        help="Directory for saved episode JSON/HTML files",
+    )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Less output")
     # Model overrides
     run_p.add_argument("--sim-model", type=str, help="Simulator model name")
@@ -191,7 +201,25 @@ Examples:
     collect_p.add_argument("--wab-results", type=str, help="WebAgentBench results JSON for weakness analysis")
     collect_p.add_argument("--primitives", type=str, nargs="+", help="Target primitives (overrides analysis)")
     collect_p.add_argument("--episodes", "-n", type=int, default=10, help="Episodes per primitive")
-    collect_p.add_argument("--output", "-o", type=str, default="training_data.jsonl", help="Output path")
+    collect_p.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        default=str(DEFAULT_COLLECT_OUTPUT),
+        help="Output JSONL path for exported conversations",
+    )
+    collect_p.add_argument(
+        "--runs-dir",
+        type=str,
+        default=str(DEFAULT_RUNS_DIR),
+        help="Directory for generated episode JSON/HTML files",
+    )
+    collect_p.add_argument(
+        "--log-dir",
+        type=str,
+        default=str(DEFAULT_COLLECT_LOG_DIR),
+        help="Directory for collection logs",
+    )
     collect_p.add_argument("--sim-model", type=str, help="Simulator model name")
     collect_p.add_argument("--sim-provider", type=str, choices=["openai", "gemini", "vllm", "tinker"])
     collect_p.add_argument("--agent-model", type=str, help="Agent model name")
@@ -246,7 +274,7 @@ def _cmd_run(args):
     result = run_episode(sim, agent, instruction, verbose=not args.quiet)
 
     if not args.no_save:
-        runs_dir = Path(__file__).parent / "runs"
+        runs_dir = Path(args.runs_dir)
         path = save_episode(result, runs_dir)
         if not args.quiet:
             print(f"Saved to: {path}")
@@ -263,6 +291,8 @@ def _cmd_collect(args):
         primitives=args.primitives,
         episodes_per_primitive=args.episodes,
         output_path=args.output,
+        runs_dir=args.runs_dir,
+        log_dir=args.log_dir,
         sim_model=args.sim_model,
         sim_provider=args.sim_provider,
         agent_model=args.agent_model,

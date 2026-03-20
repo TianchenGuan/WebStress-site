@@ -15,7 +15,7 @@ Usage:
     python -m webagentbench.runner --playwright --pages dark_checkout wizard_form
 
     # Custom output file:
-    python -m webagentbench.runner --playwright --output my_results.json
+    python -m webagentbench.runner --playwright --output results/webagentbench/my_results.json
 """
 
 import argparse
@@ -191,9 +191,11 @@ def write_results(results: list[dict], output_path: str) -> None:
         },
     }
 
-    with open(output_path, "w") as f:
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\nResults written to {output_path}")
+    print(f"\nResults written to {output_file}")
 
 
 def main():
@@ -216,8 +218,8 @@ def main():
                         help="Directory of pre-captured benchmark state JSON files")
     parser.add_argument("--pages", nargs="*",
                         help="Specific page_ids to evaluate (default: all)")
-    parser.add_argument("--output", type=str, default="results.json",
-                        help="Output file for results (default: results.json)")
+    parser.add_argument("--output", type=str, default="results/webagentbench/results.json",
+                        help="Output file for results (default: results/webagentbench/results.json)")
     parser.add_argument("--timeout", type=int, default=180,
                         help="Timeout per page in seconds (default: 180)")
     args = parser.parse_args()

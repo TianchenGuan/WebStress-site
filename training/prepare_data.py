@@ -6,11 +6,11 @@ Exports conversations in the JSONL format expected by tinker-cookbook:
 
 Usage:
     # From LLMOS episodes only
-    python training/prepare_data.py --llmos-dir llmos/runs/ --output training/data/train.jsonl
+    python training/prepare_data.py --llmos-dir llmos/runs/current/ --output training/data/train.jsonl
 
     # With quality filters (recommended)
     python training/prepare_data.py \
-        --llmos-dir llmos/runs/ \
+        --llmos-dir llmos/runs/current/ \
         --min-score 1.0 \
         --min-steps 3 \
         --test-split 10 \
@@ -18,7 +18,7 @@ Usage:
 
     # Template-aware filtering (per-primitive min steps from PRIMITIVE_CONFIG)
     python training/prepare_data.py \
-        --llmos-dir llmos/runs/ \
+        --llmos-dir llmos/runs/current/ \
         --min-score 1.0 \
         --use-template-min-steps \
         --require-all-criteria \
@@ -26,13 +26,13 @@ Usage:
 
     # Both sources, filter to score >= 0
     python training/prepare_data.py \
-        --llmos-dir llmos/runs/ \
+        --llmos-dir llmos/runs/current/ \
         --wab-results results/webagentbench/results.json \
         --min-score 0.0 \
         --output training/data/train.jsonl
 
     # Only successful episodes
-    python training/prepare_data.py --llmos-dir llmos/runs/ --only-success
+    python training/prepare_data.py --llmos-dir llmos/runs/current/ --only-success
 """
 
 import argparse

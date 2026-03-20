@@ -41,7 +41,7 @@ python -m llmos collect \
 
 ```bash
 python training/prepare_data.py \
-    --llmos-dir llmos/runs/ \
+    --llmos-dir llmos/runs/current/ \
     --min-score 0.0 \
     --output training/data/train.jsonl
 ```

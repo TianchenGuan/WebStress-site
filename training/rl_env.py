@@ -16,8 +16,11 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
 import random
+import re
+import statistics
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -50,6 +53,56 @@ from llmos import judge as llmos_judge
 from llmos.collect import PRIMITIVE_CONFIG
 
 logger = logging.getLogger(__name__)
+
+# Primitive categories for logging and weighted sampling
+PRIMITIVE_CATEGORIES = {
+    "patience": "behavioral",
+    "attention": "behavioral",
+    "verification": "behavioral",
+    "reflection": "behavioral",
+    "backtracking": "content_dep",
+    "memory": "content_dep",
+    "constraint_satisfaction": "content_dep",
+    "error_recovery": "floor_ceiling",
+    "spatial_reasoning": "floor_ceiling",
+    "planning": "floor_ceiling",
+    "exploration": "content_dep",
+    "adversarial_robustness": "floor_ceiling",
+}
+
+# Default weights for weighted primitive sampling
+DEFAULT_PRIMITIVE_WEIGHTS = {
+    "patience": 3.0,
+    "attention": 3.0,
+    "verification": 2.0,
+    "reflection": 2.0,
+    "backtracking": 1.5,
+    "memory": 1.0,
+    "constraint_satisfaction": 1.0,
+    "error_recovery": 0.5,
+    "spatial_reasoning": 0.5,
+    "planning": 0.5,
+    "exploration": 1.0,
+    "adversarial_robustness": 0.5,
+}
+
+
+def _detect_multi_action(text: str) -> bool:
+    """Check if text contains multiple concatenated JSON objects."""
+    # Strip thinking tags first
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    if "<think>" in cleaned:
+        cleaned = re.sub(r"<think>.*", "", cleaned, flags=re.DOTALL).strip()
+    first_brace = cleaned.find("{")
+    if first_brace == -1:
+        return False
+    try:
+        decoder = json.JSONDecoder()
+        _, end = decoder.raw_decode(cleaned, first_brace)
+        remaining = cleaned[end:].strip()
+        return bool(remaining) and remaining[0] == "{"
+    except json.JSONDecodeError:
+        return False
 
 
 class LLMOSMessageEnv(MessageEnv):
@@ -95,6 +148,10 @@ class LLMOSMessageEnv(MessageEnv):
         self.node_map: dict = {}
         self.step_count: int = 0
         self.last_status: str = ""
+
+        # Step-level reward tracking
+        self.visited_bids: set[str] = set()
+        self.prev_action_key: tuple = ()
 
     async def initial_observation(self) -> list[Message]:
         """Reset simulator and return initial conversation messages."""
@@ -151,6 +208,20 @@ class LLMOSMessageEnv(MessageEnv):
         unified_action = parse_action(action_text)
         action_name = unified_action.get("action", "wait")
 
+        # --- Step-level reward shaping ---
+        shaping_reward = 0.0
+        step_metrics: dict[str, float] = {"steps": float(self.step_count)}
+
+        # Multi-action penalty: detect multiple JSON objects in response
+        if _detect_multi_action(action_text):
+            shaping_reward -= 0.1
+            step_metrics["multi_action"] = 1.0
+
+        # Premature finish penalty: calling finish in first 2 steps
+        if action_name == "finish" and self.step_count <= 2:
+            shaping_reward -= 0.2
+            step_metrics["premature_finish"] = 1.0
+
         # Convert to LLMOS action
         try:
             llmos_action = unified_action_to_llmos(unified_action, self.ref_to_bid)
@@ -169,15 +240,41 @@ class LLMOSMessageEnv(MessageEnv):
                 "role": "user",
                 "content": build_step_message(error_status, tree_text),
             })
+            step_metrics["invalid_ref"] = 1.0
             return MessageStepResult(
-                reward=-0.1,
+                reward=shaping_reward - 0.1,
                 episode_done=False,
                 next_messages=list(self.messages),
-                metrics={"steps": float(self.step_count), "invalid_ref": 1.0},
+                metrics=step_metrics,
             )
 
+        # Repetition penalty: same (action_type, bid) as previous step
+        ref = unified_action.get("ref")
+        bid = self.ref_to_bid.get(ref, "") if ref is not None else ""
+        action_key = (action_name, bid)
+        if action_key == self.prev_action_key and action_name not in ("wait", "finish"):
+            shaping_reward -= 0.05
+            step_metrics["repetition"] = 1.0
+        self.prev_action_key = action_key
+
+        # Progress bonus: interacting with a new element
+        if bid and bid not in self.visited_bids:
+            shaping_reward += 0.02
+            self.visited_bids.add(bid)
+
         # Run simulator step (sync → async)
-        obs, done, info = await asyncio.to_thread(self.simulator.step, llmos_action)
+        try:
+            obs, done, info = await asyncio.to_thread(self.simulator.step, llmos_action)
+        except Exception as e:
+            logger.warning(f"Simulator step failed: {e}")
+            # End episode on simulator error — keep shaping penalties for agent behavior
+            step_metrics["sim_error"] = 1.0
+            return MessageStepResult(
+                reward=shaping_reward,
+                episode_done=True,
+                next_messages=list(self.messages),
+                metrics=step_metrics,
+            )
 
         # Build status message for next step
         self.last_status = _make_status(unified_action, self.node_map)
@@ -186,10 +283,16 @@ class LLMOSMessageEnv(MessageEnv):
         is_finish = action_name == "finish"
         episode_done = done or is_finish or self.step_count >= self.max_steps
 
-        # Compute reward at episode end
-        reward = 0.0
+        # Compute reward at episode end (judge + efficiency bonus)
+        reward = shaping_reward
         if episode_done:
-            reward = await self._compute_judge_reward()
+            judge_score = await self._compute_judge_reward()
+            # Efficiency bonus: shorter successful episodes get up to 10% extra
+            if judge_score > 0:
+                efficiency = max(0, self.max_steps - self.step_count) / self.max_steps
+                judge_score *= (1.0 + 0.1 * efficiency)
+            reward += judge_score
+            step_metrics["judge_score"] = judge_score
 
         if not episode_done:
             # Update tree and append next user message
@@ -203,17 +306,17 @@ class LLMOSMessageEnv(MessageEnv):
             reward=reward,
             episode_done=episode_done,
             next_messages=list(self.messages),
-            metrics={
-                "steps": float(self.step_count),
-                "judge_score": reward if episode_done else 0.0,
-            },
+            metrics=step_metrics,
         )
 
     async def _compute_judge_reward(self) -> float:
-        """Run LLM judge on the completed episode and return score."""
-        try:
-            result = await asyncio.to_thread(
-                llmos_judge.evaluate,
+        """Run LLM judge on the completed episode and return score.
+
+        Calls the judge twice for stability. If the two scores disagree by
+        more than 0.5, a third call is made and the median is returned.
+        """
+        def _judge_call() -> float:
+            result = llmos_judge.evaluate(
                 self.instruction,
                 self.simulator.get_state(),
                 self.simulator.get_history(),
@@ -222,13 +325,28 @@ class LLMOSMessageEnv(MessageEnv):
                 self.judge_model,
                 self.judge_provider,
             )
-            score = result.get("score", 0.0)
-            success = result.get("success", False)
+            return float(result.get("score", 0.0))
+
+        try:
+            scores = []
+            for _ in range(2):
+                s = await asyncio.to_thread(_judge_call)
+                scores.append(s)
+
+            if abs(scores[0] - scores[1]) > 0.5:
+                s3 = await asyncio.to_thread(_judge_call)
+                scores.append(s3)
+                logger.info(
+                    f"Judge disagreement: scores={scores}, "
+                    f"task={self.instruction.get('task_id', '?')}"
+                )
+
+            score = statistics.median(scores)
             logger.info(
-                f"Judge: score={score}, success={success}, "
+                f"Judge: score={score} (from {scores}), "
                 f"steps={self.step_count}, task={self.instruction.get('task_id', '?')}"
             )
-            return float(score)
+            return score
         except Exception as e:
             logger.error(f"Judge evaluation failed: {e}")
             return 0.0
@@ -299,7 +417,8 @@ class LLMOSEnvGroupBuilder(EnvGroupBuilder):
         return [(0.0, {}) for _ in trajectory_group]
 
     def logging_tags(self) -> list[str]:
-        return [self.primitive]
+        category = PRIMITIVE_CATEGORIES.get(self.primitive, "other")
+        return [self.primitive, category]
 
 
 class LLMOSRLDataset(RLDataset):
@@ -349,6 +468,7 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
     tasks_per_primitive: int = 2
     num_epochs: int = 3
     seed: int = 42
+    use_primitive_weights: bool = False  # Weight primitives by trainability
 
     async def __call__(self) -> tuple[RLDataset, RLDataset | None]:
         # Resolve config path
@@ -369,6 +489,18 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
         if target_primitives is None:
             target_primitives = list(PRIMITIVE_CONFIG.keys())
 
+        # Compute per-primitive task counts (optionally weighted)
+        prim_task_counts: dict[str, int] = {}
+        if self.use_primitive_weights:
+            weights = {p: DEFAULT_PRIMITIVE_WEIGHTS.get(p, 1.0) for p in target_primitives}
+            mean_w = sum(weights.values()) / len(weights) if weights else 1.0
+            for p in target_primitives:
+                prim_task_counts[p] = max(1, round(self.tasks_per_primitive * weights[p] / mean_w))
+            logger.info(f"Weighted primitive sampling: {prim_task_counts}")
+        else:
+            for p in target_primitives:
+                prim_task_counts[p] = self.tasks_per_primitive
+
         # Build env group builders from PRIMITIVE_CONFIG
         builders: list[LLMOSEnvGroupBuilder] = []
         for prim in target_primitives:
@@ -381,8 +513,9 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
             tasks = config["tasks"]
             behavior = config.get("behavior", "")
             prim_max_steps = config.get("max_steps", self.max_steps)
+            n_tasks = prim_task_counts[prim]
 
-            for i in range(self.tasks_per_primitive):
+            for i in range(n_tasks):
                 instruction = {
                     "task_id": f"rl_{prim}_{i}",
                     "instruction": tasks[i % len(tasks)],
