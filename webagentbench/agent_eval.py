@@ -60,6 +60,7 @@ from .runner import (
     print_summary,
     write_results,
 )
+from .task_rendering import render_template
 
 from shared.format import SYSTEM_PROMPT, parse_action, build_initial_message, build_step_message
 from shared.playwright_adapter import page_to_indexed_tree, execute_unified_action, _resolve
@@ -300,7 +301,7 @@ def _llm_complete_openai(
 
     # Some OpenAI-compatible Qwen3 endpoints reject non-streaming calls unless
     # internal thinking is disabled explicitly.
-    if model.startswith("qwen3"):
+    if model.lower().startswith("qwen3"):
         kwargs["extra_body"] = {"enable_thinking": False}
 
     response = client.chat.completions.create(**kwargs)
@@ -382,20 +383,6 @@ def _capture_benchmark_state(page, dom_checks: list[dict] | None = None) -> dict
     return benchmark_state
 
 
-def _render_template(value, targets: dict):
-    """Recursively substitute {target.foo} placeholders in nested structures."""
-    if isinstance(value, str):
-        rendered = value
-        for key, replacement in targets.items():
-            rendered = rendered.replace(f"{{target.{key}}}", str(replacement))
-        return rendered
-    if isinstance(value, list):
-        return [_render_template(item, targets) for item in value]
-    if isinstance(value, dict):
-        return {key: _render_template(item, targets) for key, item in value.items()}
-    return value
-
-
 def resolve_tasks(
     manifest: dict,
     *,
@@ -458,6 +445,10 @@ def resolve_tasks(
     if not selected:
         for page in manifest.get("pages", []):
             add("page", page["page_id"], page)
+        for env in manifest.get("environments", []):
+            env_meta = {k: v for k, v in env.items() if k != "tasks"}
+            for task in env.get("tasks", []):
+                add("env_task", task["task_id"], {**task, "env": env_meta})
 
     return selected
 
@@ -725,15 +716,15 @@ def _run_legacy_page_task(
             "completed": False,
             "messages": [],
         }
-        evaluation = {"score": -1.0, "success": False, "reasoning": f"Error: {exc}"}
+        evaluation = {"score": 0.0, "success": False, "reasoning": f"Error: {exc}"}
     finally:
         context.close()
 
     if verbose:
         icon = "PASS" if evaluation.get("success") else "FAIL"
-        score = evaluation.get("score", -1.0)
+        score = evaluation.get("score", 0.0)
         print(
-            f"  [{icon}] score={score:+.1f} "
+            f"  [{icon}] score={score:.2f} "
             f"({agent_result['steps']} steps, {agent_result['elapsed_seconds']:.0f}s)"
         )
         print(f"  {evaluation.get('reasoning', '')}")
@@ -802,9 +793,9 @@ def _run_env_task(
         session_id = created["session_id"]
         start_path = created.get("start_path", task_def.get("start_path", "/"))
         resolved_targets = created.get("resolved_targets", {})
-        rendered_task = _render_template(task_def, resolved_targets)
-        instruction = rendered_task.get("instruction") or rendered_task.get("instruction_template", "")
-        page_title = rendered_task.get("title", task_id)
+        rendered_task = render_template(task_def, resolved_targets)
+        instruction = created.get("instruction") or rendered_task.get("instruction") or rendered_task.get("instruction_template", "")
+        page_title = created.get("title") or rendered_task.get("title", task_id)
         effective_timeout = max(timeout_per_page, int(task_def.get("time_limit_seconds", timeout_per_page)))
         recommended_steps = 50 if task_def.get("difficulty") == "hard" else 35
         effective_steps = max(max_steps, int(task_def.get("max_steps", recommended_steps)))
@@ -860,7 +851,7 @@ def _run_env_task(
             "completed": False,
             "messages": [],
         }
-        evaluation = {"score": -1.0, "success": False, "reasoning": f"Error: {exc}"}
+        evaluation = {"score": 0.0, "success": False, "reasoning": f"Error: {exc}"}
     finally:
         if context is not None:
             context.close()
@@ -881,9 +872,9 @@ def _run_env_task(
 
     if verbose:
         icon = "PASS" if evaluation.get("success") else "FAIL"
-        score = evaluation.get("score", evaluation.get("final_score", -1.0))
+        score = evaluation.get("score", evaluation.get("final_score", 0.0))
         print(
-            f"  [{icon}] score={score:+.2f} "
+            f"  [{icon}] score={score:.2f} "
             f"({agent_result['steps']} steps, {agent_result['elapsed_seconds']:.0f}s)"
         )
         print(f"  {evaluation.get('reasoning', '')}")
@@ -1100,14 +1091,14 @@ def _write_agent_results(
     total = len(results)
     passed = sum(1 for r in results if r["evaluation"].get("success"))
     avg_score = (
-        sum(r["evaluation"].get("score", r["evaluation"].get("final_score", -1.0)) for r in results) / total
+        sum(r["evaluation"].get("score", r["evaluation"].get("final_score", 0.0)) for r in results) / total
         if total
         else 0
     )
 
     prim_scores: dict[str, list[float]] = {}
     for r in results:
-        score = r["evaluation"].get("score", r["evaluation"].get("final_score", -1.0))
+        score = r["evaluation"].get("score", r["evaluation"].get("final_score", 0.0))
         for prim in r.get("primitives", []):
             prim_scores.setdefault(prim, []).append(score)
 
