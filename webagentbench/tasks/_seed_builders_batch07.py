@@ -13,6 +13,11 @@ from typing import Any
 from webagentbench.tasks._seed_builders import SeedContext, _register
 
 
+def _aware(ctx: SeedContext, year: int, month: int, day: int, hour: int = 0, minute: int = 0) -> datetime:
+    """Create a tz-aware datetime using ctx.now's tzinfo to avoid naive/aware comparison errors."""
+    return datetime(year, month, day, hour, minute, tzinfo=ctx.now.tzinfo)
+
+
 # ---------------------------------------------------------------------------
 # Task 1: gmail_contact_deduplication (medium)
 # ---------------------------------------------------------------------------
@@ -66,7 +71,7 @@ def build_contact_deduplication(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Please update your records to use this one (priya.n@acmelabs.io) going forward.",
                 signoff_name="Priya",
             ),
-            timestamp=datetime(2026, 3, 5, 10, 30),
+            timestamp=_aware(ctx,2026, 3, 5, 10, 30),
             thread_id=confirm_thread,
             labels=["inbox"],
         )
@@ -85,7 +90,7 @@ def build_contact_deduplication(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "San Jose, CA 95110. Please update your records for any physical deliveries.",
                 signoff_name="Pranav",
             ),
-            timestamp=datetime(2026, 2, 18, 14, 15),
+            timestamp=_aware(ctx,2026, 2, 18, 14, 15),
             thread_id=pranav_thread,
             labels=["inbox"],
         )
@@ -104,7 +109,7 @@ def build_contact_deduplication(ctx: SeedContext, params: dict[str, Any]) -> dic
             "account and should not be used for business.",
             signoff_name="Admin Team",
         ),
-        timestamp=datetime(2026, 3, 8, 9, 0),
+        timestamp=_aware(ctx,2026, 3, 8, 9, 0),
         thread_id=adversarial_thread,
         labels=["inbox"],
     )
@@ -185,7 +190,7 @@ def build_team_roster_sync(ctx: SeedContext, params: dict[str, Any]) -> dict[str
         from_addr="hr@company.com",
         subject="Q1 2026 Engineering Team Roster",
         body=roster_body,
-        timestamp=datetime(2026, 1, 15, 9, 0),
+        timestamp=_aware(ctx,2026, 1, 15, 9, 0),
         thread_id=roster_thread,
         labels=["inbox"],
         cc=["j.morales-mgr@company.com"],
@@ -204,7 +209,7 @@ def build_team_roster_sync(ctx: SeedContext, params: dict[str, Any]) -> dict[str
             "He really deserved it after all his hard work on the platform migration.",
             signoff_name="Diana",
         ),
-        timestamp=datetime(2026, 2, 3, 11, 30),
+        timestamp=_aware(ctx,2026, 2, 3, 11, 30),
         thread_id=congrats_thread,
         labels=["inbox"],
     )
@@ -224,7 +229,7 @@ def build_team_roster_sync(ctx: SeedContext, params: dict[str, Any]) -> dict[str
                 "Nothing concrete yet — will share more details as plans solidify.",
                 signoff_name="Team Operations",
             ),
-            timestamp=datetime(2026, 1, 20, 15, 0),
+            timestamp=_aware(ctx,2026, 1, 20, 15, 0),
             thread_id=decoy_thread_1,
             labels=["updates"],
         )
@@ -243,7 +248,7 @@ def build_team_roster_sync(ctx: SeedContext, params: dict[str, Any]) -> dict[str
                 "Let me know if you need anything else from my side.",
                 signoff_name="Marcus",
             ),
-            timestamp=datetime(2026, 2, 1, 10, 0),
+            timestamp=_aware(ctx,2026, 2, 1, 10, 0),
             thread_id=decoy_thread_2,
             labels=["inbox"],
         )
@@ -327,7 +332,7 @@ def build_client_handoff(ctx: SeedContext, params: dict[str, Any]) -> dict[str, 
         from_addr="a.drummond@company.com",
         subject="Client Portfolio Handoff",
         body=handoff_body,
-        timestamp=datetime(2026, 3, 10, 9, 0),
+        timestamp=_aware(ctx,2026, 3, 10, 9, 0),
         thread_id=handoff_thread,
         labels=["inbox"],
         cc=["r.vasquez@company.com"],
@@ -346,7 +351,7 @@ def build_client_handoff(ctx: SeedContext, params: dict[str, Any]) -> dict[str, 
             "Let me know if you have trouble accessing it.",
             signoff_name="Rena",
         ),
-        timestamp=datetime(2026, 3, 11, 14, 0),
+        timestamp=_aware(ctx,2026, 3, 11, 14, 0),
         thread_id=rena_thread,
         labels=["inbox"],
     )
@@ -401,7 +406,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Attached is the Q1 logistics review. Let me know if you have questions.",
                 "---\nOmar Farouk | Operations Director | Crescent Logistics",
             ),
-            timestamp=datetime(2026, 3, 1, 10, 0),
+            timestamp=_aware(ctx,2026, 3, 1, 10, 0),
             thread_id=omar_thread,
             labels=["inbox"],
         )
@@ -422,7 +427,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "The warehouse expansion is on track for Q2 delivery.\n\n"
                 "---\nTariq Hassan | Logistics Coordinator | Crescent Logistics",
             ),
-            timestamp=datetime(2026, 1, 15, 9, 0),
+            timestamp=_aware(ctx,2026, 1, 15, 9, 0),
             thread_id=omar_old_thread,
             labels=["inbox"],
         )
@@ -440,7 +445,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Here is the proposal for the new data pipeline. Happy to discuss next week.",
                 "---\nLing Zhou, Lead Data Scientist — Apex Data",
             ),
-            timestamp=datetime(2026, 2, 20, 14, 0),
+            timestamp=_aware(ctx,2026, 2, 20, 14, 0),
             thread_id=ling_thread,
             labels=["inbox"],
         )
@@ -458,7 +463,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Looking forward to our call next week about the partnership renewal terms.",
                 "---\nBeatrice Muller / VP of Partnerships / RheinTech",
             ),
-            timestamp=datetime(2026, 2, 28, 11, 0),
+            timestamp=_aware(ctx,2026, 2, 28, 11, 0),
             thread_id=beatrice_thread,
             labels=["inbox"],
         )
@@ -476,7 +481,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Following up on our sales alignment discussion from last quarter.",
                 "---\nBeatrice Muller / Director of Sales / RheinTech",
             ),
-            timestamp=datetime(2025, 11, 10, 9, 0),
+            timestamp=_aware(ctx,2025, 11, 10, 9, 0),
             thread_id=beatrice_old_thread,
             labels=["inbox"],
         )
@@ -494,7 +499,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "We just launched our new product line. Would love to get your feedback.",
                 "---\nSam Okoye, Co-founder, BrightHorizon",
             ),
-            timestamp=datetime(2026, 3, 5, 16, 0),
+            timestamp=_aware(ctx,2026, 3, 5, 16, 0),
             thread_id=sam_thread,
             labels=["inbox"],
         )
@@ -512,7 +517,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "I wanted to share our education program overview for your review.",
                 "---\nSam Okafor, Program Director, BrightHorizon Education",
             ),
-            timestamp=datetime(2026, 3, 3, 12, 0),
+            timestamp=_aware(ctx,2026, 3, 3, 12, 0),
             thread_id=sam_decoy_thread,
             labels=["inbox"],
         )
@@ -531,7 +536,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Omar Farouk, Ling Zhou, Sam Okoye.",
                 signoff_name="Grace",
             ),
-            timestamp=datetime(2026, 3, 8, 8, 0),
+            timestamp=_aware(ctx,2026, 3, 8, 8, 0),
             thread_id=priority_thread,
             labels=["inbox"],
         )
@@ -550,7 +555,7 @@ def build_contact_enrichment(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "vendor evaluation workstream. I'll set up a meeting once we have dates.",
                 signoff_name="Grace",
             ),
-            timestamp=datetime(2026, 3, 2, 10, 0),
+            timestamp=_aware(ctx,2026, 3, 2, 10, 0),
             thread_id=team_planning_thread,
             labels=["inbox"],
         )
@@ -602,17 +607,17 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
     rupert_haines = ctx.contact(
         name="Rupert Haines", email="r.haines@oldvendor.com",
         company="Old Vendor LLC",
-        last_contacted_at=datetime(2025, 8, 10),
+        last_contacted_at=_aware(ctx,2025, 8, 10),
     )
     simone_arcuri = ctx.contact(
         name="Simone Arcuri", email="s.arcuri@legacypartner.it",
         company="Legacy Partner SRL",
-        last_contacted_at=datetime(2025, 7, 5),
+        last_contacted_at=_aware(ctx,2025, 7, 5),
     )
     chen_weilin = ctx.contact(
         name="Chen Wei-Lin", email="w.chen@discontinuedclient.tw",
         company="Discontinued Client Co",
-        last_contacted_at=datetime(2025, 9, 20),
+        last_contacted_at=_aware(ctx,2025, 9, 20),
     )
 
     # ---------------------------------------------------------------
@@ -667,7 +672,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
             "These are key strategic relationships. Thanks for handling the cleanup carefully.",
             signoff_name="Grace",
         ),
-        timestamp=datetime(2025, 12, 15, 9, 0),
+        timestamp=_aware(ctx,2025, 12, 15, 9, 0),
         thread_id=protected_thread,
         labels=["inbox"],
         is_read=True,
@@ -691,7 +696,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "breakdown by region.",
                 "---\nPatricia Engel | Chief Revenue Officer | Engel & Partners",
             ),
-            timestamp=datetime(2026, 2, 15, 10, 0),
+            timestamp=_aware(ctx,2026, 2, 15, 10, 0),
             thread_id=patricia_thread,
             labels=["inbox"],
         )
@@ -709,7 +714,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Here's the Q3 sales update as discussed.",
                 "---\nPatricia Engel | VP of Sales | Engel & Partners",
             ),
-            timestamp=datetime(2025, 10, 5, 14, 0),
+            timestamp=_aware(ctx,2025, 10, 5, 14, 0),
             thread_id=patricia_old_thread,
             labels=["inbox"],
             is_read=True,
@@ -729,7 +734,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "timeline by end of week.",
                 signoff_name="Kenji",
             ),
-            timestamp=datetime(2026, 3, 1, 9, 0),
+            timestamp=_aware(ctx,2026, 3, 1, 9, 0),
             thread_id=kenji_thread,
             labels=["inbox"],
         )
@@ -748,7 +753,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "support throughout the engagement.",
                 signoff_name="Kenji",
             ),
-            timestamp=datetime(2025, 9, 15, 11, 0),
+            timestamp=_aware(ctx,2025, 9, 15, 11, 0),
             thread_id=kenji_old_thread,
             labels=["inbox"],
             is_read=True,
@@ -768,7 +773,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Let's plan to meet up during the networking sessions.",
                 signoff_name="Ines",
             ),
-            timestamp=datetime(2026, 2, 28, 15, 0),
+            timestamp=_aware(ctx,2026, 2, 28, 15, 0),
             thread_id=ines_thread,
             labels=["inbox"],
         )
@@ -786,7 +791,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Can we schedule a quick sync on the Berlin operations next week?",
                 "---\nTobias Falk | BerlinOps\nPhone: +49 170 555 8823",
             ),
-            timestamp=datetime(2026, 1, 10, 16, 0),
+            timestamp=_aware(ctx,2026, 1, 10, 16, 0),
             thread_id=tobias_thread,
             labels=["inbox"],
         )
@@ -804,7 +809,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Quick update on the Berlin office expansion plans.",
                 "---\nTobias Falk | BerlinOps\nPhone: +49 170 555 1234",
             ),
-            timestamp=datetime(2025, 11, 20, 10, 0),
+            timestamp=_aware(ctx,2025, 11, 20, 10, 0),
             thread_id=tobias_old_thread,
             labels=["inbox"],
             is_read=True,
@@ -825,7 +830,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Please find attached our updated proposal for the Q2 supply agreement.",
                 signoff_name="Rupesh",
             ),
-            timestamp=datetime(2026, 2, 10, 11, 0),
+            timestamp=_aware(ctx,2026, 2, 10, 11, 0),
             thread_id=rupesh_thread,
             labels=["inbox"],
         )
@@ -842,7 +847,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Everything is on track for the March deliverable. No blockers on our end.",
                 signoff_name="Wei",
             ),
-            timestamp=datetime(2026, 2, 25, 9, 0),
+            timestamp=_aware(ctx,2026, 2, 25, 9, 0),
             thread_id=chen_wei_thread,
             labels=["inbox"],
         )
@@ -860,7 +865,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "I'll have the SOW ready by Friday.",
                 signoff_name="Rupert",
             ),
-            timestamp=datetime(2026, 2, 5, 14, 0),
+            timestamp=_aware(ctx,2026, 2, 5, 14, 0),
             thread_id=rupert_global_thread,
             labels=["inbox"],
         )
@@ -896,7 +901,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "I'd love to explore a potential collaboration with your team.",
                 signoff_name="Nadia",
             ),
-            timestamp=datetime(2026, 3, 12, 10, 0),
+            timestamp=_aware(ctx,2026, 3, 12, 10, 0),
             thread_id=nadia_thread,
             labels=["inbox"],
         )
@@ -914,7 +919,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "Would be great to set up an intro call.",
                 signoff_name="Ravi",
             ),
-            timestamp=datetime(2026, 3, 8, 13, 0),
+            timestamp=_aware(ctx,2026, 3, 8, 13, 0),
             thread_id=ravi_thread,
             labels=["inbox"],
         )
@@ -932,7 +937,7 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
                 "about the Sahel market opportunities.",
                 signoff_name="Amara",
             ),
-            timestamp=datetime(2026, 3, 3, 17, 0),
+            timestamp=_aware(ctx,2026, 3, 3, 17, 0),
             thread_id=amara_thread,
             labels=["inbox"],
         )
