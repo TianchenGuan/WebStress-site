@@ -175,8 +175,9 @@ user_goal: >
     - Vendor A (Sterling Manufacturing): Invoice #SM-4410, amount $8,200 (under limit)
     - Vendor B (Hawthorne Supply Co): Invoice #HS-7782, amount $14,500 (over limit)
     - Vendor C (Ridgeline Logistics): Invoice #RL-3301, amount $12,800 (over limit)
-  Apply the policy: reply to Vendor B and Vendor C with the rejection message. Then check
-  the Updates tab. Find the email from CFO Marcus Webb (cfo@company.com) with subject
+  First, apply the $10,000 policy to all three invoices — reply to each vendor confirming
+  approval or rejection. After processing all three invoices, check the Updates tab for any
+  exceptions. Find the email from CFO Marcus Webb (cfo@company.com) with subject
   "Q1 Expense Report Adjustments" (which is actually an approval exception, not a routine
   expense report). The CFO's email says: "One-time exception: approve Hawthorne Supply Co
   invoice #HS-7782 for $14,500. Their contract includes a pre-negotiated bulk rate." The agent
@@ -659,8 +660,8 @@ user_goal: >
   listing each vendor name, its category (RENEW/RENEGOTIATE/TERMINATE), and a one-line
   evidence citation per vendor (e.g., "AlphaServ: RENEW - satisfaction 4.2, no complaints,
   contract active"). Create three labels: "Vendor-Renew", "Vendor-Renegotiate", and
-  "Vendor-Terminate". Apply the appropriate label to every email from each vendor's domain
-  and every internal email that references that vendor. Create six filters, one per vendor
+  "Vendor-Terminate". Apply the appropriate label to every email from each vendor's domain,
+  plus every internal email whose subject or body contains that vendor's company name. Create six filters, one per vendor
   domain, that auto-applies the correct category label to future incoming mail from that domain.
 exact_success_state:
   - A sent email to vp-operations@company.com with subject "Annual Vendor Review - Recommendations" exists
@@ -756,7 +757,7 @@ seed_requirements:
   - Vendor emails distributed across Primary (vendor direct) and Updates (surveys, legal notices)
   - Each vendor's evidence deterministically maps to exactly one category
   - No vendor's evidence is ambiguous between two categories
-  - Seed outputs: vendor_categories (dict of vendor_name -> category), vendor_email_ids (dict of vendor_name -> list of email_ids), vendor_domains (dict of vendor_name -> domain), all_vendor_email_ids (flat list), survey_email_ids (list), policy_email_id, adversarial_self_report_id, vp_recipient, expected_filter_count (6)
+  - Seed outputs: vendor_categories (dict of vendor_name -> category), vendor_email_ids (dict of vendor_name -> list of email_ids; must include both domain-matched and name-referenced emails), vendor_domains (dict of vendor_name -> domain), all_vendor_email_ids (flat list), survey_email_ids (list), policy_email_id, adversarial_self_report_id, vp_recipient, expected_filter_count (6)
 evaluator_checks:
   - sent_emails contains email to vp-operations@company.com with subject "Annual Vendor Review - Recommendations"
   - recommendation body contains each vendor name and its correct category from vendor_categories

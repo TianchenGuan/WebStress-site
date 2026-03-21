@@ -35,9 +35,9 @@ secondary_primitives:
 user_goal: >
   The CEO's assistant sent an email listing 3 topics for tomorrow's board meeting:
   "{target.topic_a}", "{target.topic_b}", and "{target.topic_c}". For each topic, find the most
-  recent email whose subject contains that topic phrase. Forward each of those three emails to
-  {target.ceo_email}, including the topic name in the forwarding note body (e.g., "Board topic:
-  {target.topic_a}"). Do not forward any other emails.
+  recent email directly from the topic sender (not a forward or FYI from someone else). Forward
+  each of those three emails to {target.ceo_email}, including the topic name in the forwarding
+  note body (e.g., "Board topic: {target.topic_a}"). Do not forward any other emails.
 exact_success_state: >
   Three forwarded emails in sent mail, each addressed to {target.ceo_email}, each with body
   containing the corresponding topic name. No other emails were forwarded.
@@ -82,7 +82,9 @@ anti_shortcut_rationale: >
   A naive agent that forwards the first search hit per topic will pick the wrong email if results
   are not sorted by recency, or if the agent does not scroll past the first match. The tab split
   (Primary vs Updates) prevents a single-view solution. The chain-of-forwarding decoy tests
-  whether the agent distinguishes original threads from forwarded copies.
+  whether the agent distinguishes original threads from forwarded copies — forwards are excluded
+  because the instruction requires emails "directly from the topic sender," and a colleague's
+  FYI forward is not from the original sender even if the subject matches.
 seed_requirements:
   actors:
     assistant: { domain: "company.com", is_vip: false }
@@ -113,7 +115,11 @@ evaluator_checks:
   - expr: >
       any(m.forwarded_from_id == '{target.topic_a_latest_id}' and '{target.ceo_email}' in m.to
       and '{target.topic_a}' in m.body for m in state.sent)
-    desc: "Topic A latest email forwarded to CEO with topic name in body"
+    desc: "Topic A latest email (original, not a forward) forwarded to CEO with topic name in body"
+  - expr: >
+      not any(m.forwarded_from_id == '{target.chain_forward_decoy_id}'
+      and '{target.ceo_email}' in m.to for m in state.sent)
+    desc: "Chain-of-forwarding decoy was NOT forwarded as topic A (must use original sender's email, not a colleague's forward)"
   - expr: >
       any(m.forwarded_from_id == '{target.topic_b_latest_id}' and '{target.ceo_email}' in m.to
       and '{target.topic_b}' in m.body for m in state.sent)
@@ -430,6 +436,7 @@ seed_requirements:
     - week
     - all_request_ids
     - non_conflicting_request_ids
+    - conflicting_vp_request_id  # whichever of vp_a_request_id, vp_b_request_id, vp_c_request_id belongs to the VP whose meeting conflicts with the existing commitment; rotated by seed
   determinism_notes: >
     Which VP has the conflicting time rotates deterministically by seed. Times are drawn from
     fixed pools with guaranteed non-ambiguous overlap detection. Board member CC placement is
@@ -736,20 +743,17 @@ secondary_primitives:
   - exploration
   - constraint_satisfaction
 user_goal: >
-  A PR incident has generated multiple email threads. Find and read all of the following:
+  A PR incident has generated multiple email threads. Find and read the following:
   (1) The original customer complaint from {target.complainant_email} with subject containing
   "{target.complaint_subject}".
   (2) The internal legal advice email from {target.legal_counsel} with subject containing
   "Legal Guidance — {target.incident_name}".
-  (3) Two draft response emails from the comms team: one from {target.comms_author_a} with subject
-  "{target.draft_a_subject}" and one from {target.comms_author_b} with subject
-  "{target.draft_b_subject}". Exactly one of these drafts has a reply from {target.approver_name}
-  containing the phrase "{target.approval_phrase}" — that is the approved draft. The other was
-  rejected.
-  (4) A customer success escalation from {target.cs_lead} with subject containing
-  "{target.escalation_subject}".
-  (5) Executive guidance from {target.exec_name} with subject containing
-  "{target.exec_guidance_subject}".
+  (3) The two draft response threads from the comms team. Find the two draft response emails:
+  one from {target.comms_author_a} with subject "{target.draft_a_subject}" and one from
+  {target.comms_author_b} with subject "{target.draft_b_subject}". Identify which draft was
+  approved by {target.approver_name} — exactly one draft's thread contains a reply from
+  {target.approver_name} with the phrase "{target.approval_phrase}". That is the approved draft.
+  The other was rejected.
   Then perform all of the following actions:
   (a) Compose a new email to {target.complainant_email} only (no CC, no BCC) with subject
   "Re: {target.complaint_subject}" using the body text from the approved draft as the response.
@@ -771,8 +775,6 @@ required_actions:
   - Find and read the legal guidance email
   - Find and read both comms draft emails and their reply chains
   - Identify which draft received the approval reply from {target.approver_name}
-  - Find and read the customer success escalation
-  - Find and read the executive guidance email
   - Compose external reply to complainant using approved draft body
   - Forward legal guidance to comms lead
   - Star the approved draft

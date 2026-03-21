@@ -582,14 +582,15 @@ user_goal: >
   all dietary restrictions mentioned in any response. Compose a new email to
   team.lunch@ops.test with subject "Team Lunch Confirmed" containing the confirmed
   date as "Date: April 4" and a "Dietary notes:" section listing each person's
-  restriction. After sending, star all 4 RSVP threads and archive the original
-  poll email.
+  restriction as '{name}: {restriction}' on separate lines. After sending, star
+  all 4 RSVP threads and archive the original poll email.
 
 exact_success_state: >
   1. A sent email exists to team.lunch@ops.test with subject "Team Lunch Confirmed".
   2. The email body contains "Date: April 4".
-  3. The email body contains dietary notes for Marcus Rivera (vegetarian),
-     Elena Brooks (gluten-free), and Priya Morris (nut allergy).
+  3. The email body contains dietary notes in structured format:
+     "Marcus Rivera: vegetarian", "Elena Brooks: gluten-free", and
+     "Priya Morris: nut allergy" (each on a separate line).
   4. All 4 RSVP threads (thread_ids: rsvp_thread_1, rsvp_thread_2, rsvp_thread_3,
      rsvp_thread_4) are starred.
   5. The original poll email (email_id: date_poll) is archived.
@@ -676,9 +677,9 @@ evaluator_checks:
   - sent email exists to team.lunch@ops.test
   - sent email subject is "Team Lunch Confirmed"
   - sent email body contains "Date: April 4"
-  - sent email body contains "vegetarian" (associated with Marcus Rivera)
-  - sent email body contains "gluten-free" (associated with Elena Brooks)
-  - sent email body contains "nut allergy" (associated with Priya Morris)
+  - sent email body contains "Marcus Rivera: vegetarian"
+  - sent email body contains "Elena Brooks: gluten-free"
+  - sent email body contains "Priya Morris: nut allergy"
   - thread rsvp_thread_1 is starred
   - thread rsvp_thread_2 is starred
   - thread rsvp_thread_3 is starred
@@ -772,7 +773,9 @@ user_goal: >
   Identify the 3 terms that remain open. Compose a new email to project lead
   nora.zhang@ops.test with subject "Contract Status — Lattice Works" containing
   a section "Open items:" listing exactly the 3 open terms and for each term,
-  which department last objected and their stated concern. Create a label
+  which department last objected and their stated concern. For each open item,
+  quote the objecting department's exact words from their most recent message.
+  Create a label
   "Lattice Works Contract" and apply it to all 6 negotiation threads. Do not
   apply the label to the intern's summary email or any other email.
 
@@ -908,11 +911,11 @@ evaluator_checks:
   - sent email subject is "Contract Status — Lattice Works"
   - sent email body contains "Open items:"
   - sent email body contains "liability cap"
-  - sent email body contains "exposure exceeds $2M threshold" or semantically equivalent (evaluator uses substring match)
+  - sent email body contains "exposure exceeds $2M threshold" (exact quoted text from Legal's rejection in legal_thread_1 msg 5; evaluator uses substring match against this seed text)
   - sent email body contains "renewal pricing"
-  - sent email body contains "3% annual escalator" or "above policy ceiling"
+  - sent email body contains "3% annual escalator is above policy ceiling" (exact quoted text from Finance's rejection in finance_thread_2 msg 5; evaluator uses substring match against this seed text)
   - sent email body contains "support response time"
-  - sent email body contains "4-hour SLA" or "does not meet production requirements"
+  - sent email body contains "4-hour SLA does not meet production requirements" (exact quoted text from Product's rejection in product_thread_2 msg 4; evaluator uses substring match against this seed text)
 
 negative_checks:
   - label "Lattice Works Contract" NOT applied to intern_summary

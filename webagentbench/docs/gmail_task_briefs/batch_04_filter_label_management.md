@@ -551,10 +551,10 @@ primitive_thesis: >
   (Settings for filters/labels, Inbox for archiving/starring). Planning is tested by the
   dependency chain: labels must exist before filters can reference them. Exploration is tested
   because the agent must search the inbox for emails matching each category to archive them.
-  Memory is tested because the agent must remember all 5 filter specs, all 5 label specs, and
+  Memory is tested because the agent must remember all 6 filter specs, all 5 label specs, and
   the starring rule across many sequential actions. Patience is tested by the sheer volume of
   correct actions (50+ meaningful steps). Verification is tested because the agent must confirm
-  that starred emails are truly from the last 24 hours and do not match any of the 5 filters.
+  that starred emails are truly from the last 24 hours and do not match any of the 6 filters.
 primary_primitives:
   - planning
   - exploration
@@ -573,15 +573,16 @@ user_goal: >
       - "Auto/Newsletters" (hide in label list, hide in message list)
       - "Auto/Billing" (show in label list, show in message list)
       - "Auto/Social" (hide in label list, hide in message list)
-  (2) Create 5 filters:
+  (2) Create 6 filters:
       - From: *@vendors.blueridge.dev, Action: add label "Auto/Vendor", skip inbox, mark as read
       - From: ci@github.com, Subject contains: "build", Action: add label "Auto/CI-CD", skip inbox
       - From: *@newsletter.blueridge.dev, Action: add label "Auto/Newsletters", skip inbox, mark as read
-      - From: billing@stripe.com OR billing@aws.amazon.com, Action: add label "Auto/Billing", star
+      - From: billing@stripe.com, Action: add label "Auto/Billing", star
+      - From: billing@aws.amazon.com, Action: add label "Auto/Billing", star
       - From: *@social.blueridge.dev, Action: add label "Auto/Social", skip inbox
-  (3) Archive all existing emails in the inbox that match any of the 5 filter criteria above.
+  (3) Archive all existing emails in the inbox that match any of the 6 filter criteria above.
   (4) Star every email in the inbox received in the last 24 hours that does NOT match any of the
-      5 filter criteria.
+      6 filter criteria.
 exact_success_state: >
   Labels:
     - "Auto/Vendor" exists, show_in_label_list=true, show_in_message_list=false
@@ -589,33 +590,34 @@ exact_success_state: >
     - "Auto/Newsletters" exists, show_in_label_list=false, show_in_message_list=false
     - "Auto/Billing" exists, show_in_label_list=true, show_in_message_list=true
     - "Auto/Social" exists, show_in_label_list=false, show_in_message_list=false
-  Filters: all 5 exist with exact criteria and actions as specified.
+  Filters: all 6 exist with exact criteria and actions as specified (billing split into 2 separate filters).
   Inbox state:
-    - All emails matching any of the 5 filter criteria are archived (not in inbox)
+    - All emails matching any of the 6 filter criteria are archived (not in inbox)
     - All emails from the last 24 hours that do NOT match any filter criteria are starred
     - No email older than 24 hours that does not match a filter is starred (unless previously starred)
     - Priya Sharma's directive email itself is not archived (it does not match any filter criteria)
 unique_solution_proof: >
   Each label name, visibility pair, filter criteria, and filter action bundle is explicitly
-  specified. The archive targets are determined by the filter criteria applied to the seeded
-  inbox. The starring targets are determined by the 24-hour window and exclusion from filter
-  matches. The seed controls exactly which emails are from the last 24 hours and which match
-  filter criteria, producing a unique set of emails to archive and star. Priya's directive
-  email is from priya.sharma@blueridge.dev which does not match any filter's from-pattern,
-  so it must not be archived.
+  specified. The billing filter is split into two separate filters (one per sender) with
+  identical actions, for 6 filters total. The archive targets are determined by the filter
+  criteria applied to the seeded inbox. The starring targets are determined by the 24-hour
+  window and exclusion from filter matches. The seed controls exactly which emails are from
+  the last 24 hours and which match filter criteria, producing a unique set of emails to
+  archive and star. Priya's directive email is from priya.sharma@blueridge.dev which does
+  not match any filter's from-pattern, so it must not be archived.
 required_actions:
   - Read Priya Sharma's directive email
   - Navigate to Settings > Labels
   - Create 5 labels with specified visibility settings
   - Navigate to Settings > Filters
-  - Create 5 filters with specified criteria and actions
+  - Create 6 filters with specified criteria and actions (billing split into 2 separate filters)
   - Return to Inbox
-  - Search for and archive all emails matching each filter's from/subject criteria (5 categories)
+  - Search for and archive all emails matching each filter's from/subject criteria (5 categories, 6 filters)
   - Identify emails from the last 24 hours not matching any filter criteria
   - Star those emails
 forbidden_actions:
   - Archiving Priya Sharma's directive email
-  - Starring emails that match one of the 5 filter criteria
+  - Starring emails that match one of the 6 filter criteria
   - Starring emails older than 24 hours that were not previously starred
   - Creating filters with criteria different from the directive
   - Deleting any email
@@ -624,7 +626,7 @@ evidence_objects:
       from: priya.sharma@blueridge.dev
       subject: "Inbox Zero policy - implement now"
       body: >
-        Complete specification of all 5 labels (with visibility), all 5 filters (with criteria
+        Complete specification of all 5 labels (with visibility), all 6 filters (with criteria
         and actions), the archive instruction, and the starring instruction with the 24-hour
         temporal condition.
   - vendor_emails:
@@ -706,7 +708,7 @@ anti_shortcut_rationale: >
   archive to each set. The starring step requires identifying the temporal boundary (last 24 hours)
   and excluding filter-matching emails. The CI/CD partial-match decoy prevents a naive "archive
   all ci@github.com emails" approach. The billing lookalike prevents domain-substring matching.
-  The total action count (5 label creates + 5 filter creates + ~14 archive actions + ~3 star
+  The total action count (5 label creates + 6 filter creates + ~14 archive actions + ~3 star
   actions + navigation) reaches 50+ meaningful steps.
 seed_requirements:
   - Create inbox with 25+ emails spanning the categories above
@@ -717,9 +719,10 @@ seed_requirements:
   - Priya's draft email timestamped 3 days ago
   - Expose: directive_email_id, draft_email_id, all email IDs grouped by category, cicd_non_matching_email_id, billing_decoy_email_id, domain_decoy_email_id, non_matching_recent_email_ids, non_matching_old_email_ids
   - Expose: expected archive targets (list of email IDs), expected star targets (list of email IDs)
+  - Note: billing filter is split into 2 separate filters (6 filters total, not 5) to avoid OR conditions in from-field
 evaluator_checks:
   - All 5 labels exist with correct visibility settings
-  - All 5 filters exist with correct criteria and action bundles
+  - All 6 filters exist with correct criteria and action bundles (billing split into 2 separate filters: one for billing@stripe.com, one for billing@aws.amazon.com, both with identical actions: add label "Auto/Billing", star)
   - Every email in the vendor_emails set is archived (not in inbox)
   - Every email in the cicd_emails set (with "build" in subject) is archived
   - Every email in the newsletter_emails set is archived
@@ -742,7 +745,7 @@ negative_checks:
   - Non-matching old emails were not starred
 feature_dependencies:
   - create labels with visibility settings
-  - create filters with from, subject contains criteria
+  - create filters with from, subject contains criteria (single from-address per filter; no OR conditions)
   - filter actions: add label, skip inbox, mark as read, star
   - search by sender pattern
   - archive emails
@@ -757,7 +760,7 @@ novelty_note: >
   what does NOT match before acting. The partial-criteria decoy (ci@github.com without "build")
   and domain-lookalike decoys add attention challenges not present in other filter tasks.
 test_plan:
-  - instruction_render_test: Render with seeds 0, 1, 42, 123; verify all 5 label specs and 5 filter specs present
+  - instruction_render_test: Render with seeds 0, 1, 42, 123; verify all 5 label specs and 6 filter specs present
   - seed_determinism_test: Verify identical email sets, timestamps, and IDs across same-seed runs
   - target_invariant_test: Archive target set and star target set are identical across same-seed runs
   - positive_path_test: Execute full policy implementation, assert all evaluator checks pass
@@ -984,7 +987,7 @@ evaluator_checks:
   - Sent email exists to admin@company.org with subject "Filter conflict report"
   - Sent email body contains "deploy@ci.company.org" with Alice Martinez and Bob Nakamura named and their respective actions described
   - Sent email body contains "errors@sentry.company.org" with Bob Nakamura and Clara Johansson named and their respective actions described
-  - Sent email body does NOT contain resolution language (no "should", "recommend", "suggest" + action verb for the conflicting filters)
+  - Note: The conflict report body is not language-policed; the evaluator relies on the absence of unauthorized filters (no filter for deploy@ci.company.org or errors@sentry.company.org) as the enforcement mechanism. A previous body-language check (no "should", "recommend", "suggest") was removed because it was too broad and could penalize correct reports that happen to use common English words.
   - Filter exists: from reviews@github-frontend.company.org, action label "Frontend/Reviews"
   - Filter exists: from design@figma.company.org, action label "Frontend/Design" + star
   - Filter exists: from alerts@pagerduty.company.org, action label "Backend/Alerts" + star + skip inbox
@@ -1006,7 +1009,7 @@ negative_checks:
   - No filter exists for errors@sentry.company.org
   - No filter or label was created based on Derek Wu's suggestions
   - Conflict report was not sent to anyone other than admin@company.org
-  - Conflict report does not propose resolutions for the conflicts
+  - Note: Resolution-language body check (no "should", "recommend", "suggest") was intentionally removed. The absence of unauthorized filters for conflicting addresses is the enforcement mechanism.
   - Alice's forwarded chain's stale Bob specs were not used (e.g., no filter with action "add label Backend/Deploys" for deploy@ci.company.org)
   - No email from a non-matching domain received a team label (e.g., no "Team/Martinez" on a @backend.company.org email)
   - queries@warehouse.company.org filter was not omitted (buried 4th request test)

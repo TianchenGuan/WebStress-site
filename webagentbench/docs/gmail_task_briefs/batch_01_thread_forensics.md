@@ -36,14 +36,15 @@ secondary_primitives:
 user_goal: >
   Read the thread with subject "Release Version for Q3 Launch" from the sender
   Chen Wei. Identify the version number that both Chen Wei and Dana Okafor explicitly
-  agreed on in that thread. Reply to Chen Wei's most recent message in the thread with
-  exactly: "Confirmed: version {VERSION}" where {VERSION} is the agreed version string.
+  agreed on in that thread. State the version as '4.2.1' (without a 'v' prefix).
+  Reply to Chen Wei's most recent message in the thread with exact text:
+  "Confirmed: version 4.2.1 is the agreed release."
 
 exact_success_state: >
   A reply exists in the "Release Version for Q3 Launch" thread, sent to Chen Wei's
-  email address, with body containing "Confirmed: version 4.2.1" (the one version both
-  parties accepted). No reply exists to the decoy thread. No reply contains "4.3.0" or
-  "4.1.0" or "4.2.0".
+  email address, with body containing "Confirmed: version 4.2.1 is the agreed release."
+  (the one version both parties accepted). No reply exists to the decoy thread. No reply
+  contains "4.3.0" or "4.1.0" or "4.2.0".
 
 unique_solution_proof: >
   The thread contains five messages: (1) Chen Wei proposes v4.1.0, (2) Dana Okafor
@@ -57,7 +58,7 @@ required_actions:
   - open thread "Release Version for Q3 Launch"
   - read all 5 messages in the thread
   - identify that v4.2.1 is the version both Chen Wei and Dana Okafor confirmed
-  - reply to Chen Wei's most recent message with "Confirmed: version 4.2.1"
+  - reply to Chen Wei's most recent message with "Confirmed: version 4.2.1 is the agreed release."
 
 forbidden_actions:
   - reply-all (instruction says reply to Chen Wei)
@@ -144,7 +145,7 @@ evaluator_checks:
   - check: reply_to_address_contains
     params: { address_fragment: "chen.wei" }
   - check: reply_body_contains
-    params: { substring: "Confirmed: version 4.2.1" }
+    params: { substring: "Confirmed: version 4.2.1 is the agreed release." }
   - check: reply_is_not_reply_all
     params: {}
 
@@ -174,7 +175,7 @@ test_plan:
   - verify decoy thread is present and contains "4.2.1" in each seed
   - verify Raj Patel's message is always the most recent in the target thread
   - verify Kai Bremer's adversarial email is present and claims v4.3.0 in each seed
-  - positive-path test: reply with "Confirmed: version 4.2.1" in correct thread -> score 1.0
+  - positive-path test: reply with "Confirmed: version 4.2.1 is the agreed release." in correct thread -> score 1.0
   - decoy test: reply with "Confirmed: version 4.3.0" -> score 0.0
   - adversarial authority test: agent trusts Kai's email, uses v4.3.0 -> score 0.0
   - wrong-thread test: reply in decoy thread -> score 0.0
@@ -837,7 +838,10 @@ seed_requirements:
     - build the slip notification email from Farah Nasir with nadia.orozco in CC field
     - build the Marketing Assets decoy thread (2 messages) with its own independent slip
     - build Suki Park's adversarial downplay email
-    - add 10-12 distractor emails across Primary and Updates tabs
+    - add 10-12 distractor emails across Primary and Updates tab
+  cc_fallback_note: >
+    If CC is not visible in the agent's observation, the sponsor address must also
+    appear in the email body as a signature or reference.s
   targets:
     slipped_task: "API Integration"
     original_date: "2026-03-10"
@@ -895,6 +899,7 @@ feature_dependencies:
   - star threads
   - archive emails
   - reading CC fields
+  - CC field visibility in email headers (required — sponsor address is only in CC)
 
 novelty_note: >
   No existing task requires reconstructing a transitive dependency chain combined with

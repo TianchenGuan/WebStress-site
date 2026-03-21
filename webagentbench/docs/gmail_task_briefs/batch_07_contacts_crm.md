@@ -478,6 +478,8 @@ user_goal: >
      - "Updated: Patricia Engel, Kenji Matsuda, Ines Herrera, Tobias Falk"
      - "Added: Nadia Kowalski, Ravi Sundaram, Amara Diallo"
 
+  List names in alphabetical order within each category.
+
 exact_success_state: >
   1. Contacts deleted: r.haines@oldvendor.com, s.arcuri@legacypartner.it, w.chen@discontinuedclient.tw.
   2. Contacts NOT deleted (protected, despite no/low activity): Patricia Engel, Kenji Matsuda, Ines Herrera, Tobias Falk (all have recent activity anyway, but two of them — Ines and Tobias — have only 1 thread each in the 90-day window, making the agent verify carefully).
@@ -546,6 +548,7 @@ seed_requirements:
   - recent threads from Nadia, Ravi, Amara — none of whom have contact entries
   - recent threads from Rupesh Haines and Chen Wei (the name-collision decoy contacts) to confirm their activity
   - 20-30 total inbox emails for realistic density
+  - Evaluator checks each name as an independent substring match
 evaluator_checks:
   - contact_deleted: {email: "r.haines@oldvendor.com"}
   - contact_deleted: {email: "s.arcuri@legacypartner.it"}
@@ -558,6 +561,7 @@ evaluator_checks:
   - contact_exists: {name: "Ravi Sundaram", email: "r.sundaram@deltaforge.in", note: "Referred by Kenji Matsuda"}
   - contact_exists: {name: "Amara Diallo", email: "a.diallo@sahelconsulting.sn", note: "Conference connection — WebSummit"}
   - email_sent: {to: "g.lin@company.com", subject: "Annual Contact Review — Complete", body_contains: "Deleted: Rupert Haines, Simone Arcuri, Chen Wei-Lin", body_contains_2: "Updated: Patricia Engel, Kenji Matsuda, Ines Herrera, Tobias Falk", body_contains_3: "Added: Nadia Kowalski, Ravi Sundaram, Amara Diallo"}
+  # Note: Body substring checks are per-name (each name checked independently as a substring), not as a single comma-delimited string. Names are checked individually: 'Rupert Haines' in body, 'Simone Arcuri' in body, 'Chen Wei-Lin' in body, etc.
   - email_is_compose_new: {subject: "Annual Contact Review — Complete"}
 negative_checks:
   - contact_not_deleted: {email: "p.engel@engelpartners.com"}
