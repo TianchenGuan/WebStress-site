@@ -1,0 +1,57 @@
+task_id: gmail_subscription_cleanup
+env_id: gmail
+title: Subscription Cleanup
+instruction_template: |-
+  Clean up your subscriptions. In your Promotions tab, archive the four newsletter emails. Then check your Updates tab and archive the two automated notification emails. Forward the newsletter about {target.good_newsletter_topic} to {target.personal_email} — make sure you forward the useful one, not any spam. Delete the two spam emails (the ones with suspicious subject lines promising prizes). Finally, go to Settings and create two auto-archive filters for the domains {target.newsletter_domain_a} and {target.newsletter_domain_b}.
+difficulty: hard
+time_limit_seconds: 420
+expected_steps: 48
+primary_primitives:
+- planning
+- attention
+- exploration
+- verification
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: subscription_cleanup
+    params: {}
+    outputs:
+    - promo_ids
+    - update_ids
+    - good_newsletter_id
+    - good_newsletter_topic
+    - personal_email
+    - spam_ids
+    - newsletter_domain_a
+    - newsletter_domain_b
+  targets:
+    promo_ids: "{output.promo_ids}"
+    update_ids: "{output.update_ids}"
+    good_newsletter_id: "{output.good_newsletter_id}"
+    good_newsletter_topic: "{output.good_newsletter_topic}"
+    personal_email: "{output.personal_email}"
+    spam_ids: "{output.spam_ids}"
+    newsletter_domain_a: "{output.newsletter_domain_a}"
+    newsletter_domain_b: "{output.newsletter_domain_b}"
+eval:
+  source: server_state
+  checks:
+  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.promo_ids})
+    desc: 4 promo emails archived
+  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.update_ids})
+    desc: 2 update emails archived
+  - expr: any(m.forwarded_from_id == '{target.good_newsletter_id}' and '{target.personal_email}' in m.to for m in state.sent)
+    desc: Good newsletter forwarded to personal email
+  - expr: all(state.get_email(eid) is not None and state.get_email(eid).deleted for eid in {target.spam_ids})
+    desc: Spam emails deleted
+  - expr: any(r.archive and '*@{target.newsletter_domain_a}' in r.from_addresses for r in state.filters)
+    desc: Auto-archive filter A created
+  - expr: any(r.archive and '*@{target.newsletter_domain_b}' in r.from_addresses for r in state.filters)
+    desc: Auto-archive filter B created
+  negative_checks:
+  - expr: not any(m.forwarded_from_id in {target.spam_ids} for m in state.sent)
+    desc: Spam was not forwarded
+    penalty: 0.2

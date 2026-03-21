@@ -1,0 +1,81 @@
+task_id: gmail_thread_detective
+env_id: gmail
+title: Thread Detective
+instruction_template: |-
+  Read the scheduling threads from {target.sender_name} to find all proposed meeting times. Then find the calendar email from {target.other_sender_name} that lists which times conflict with the calendar — look for the most recent one if there are multiple. Reply to {target.sender_name}'s most recent scheduling thread confirming the one time that does not conflict.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 30
+primary_primitives:
+- memory
+- exploration
+- attention
+- planning
+start_path: /inbox
+seed:
+  distractors: 40
+  actors:
+    sender:
+      domain: vertexlab.test
+      is_vip: true
+    other_sender:
+      domain: calendarhub.test
+    cc:
+      domain: vertexlab.test
+  steps:
+  - use: scheduling_conflicts
+    params:
+      sender: sender
+      other_sender: other_sender
+      cc: cc
+      meeting_times:
+      - "9:00 AM"
+      - "10:00 AM"
+      - "11:00 AM"
+      - "2:30 PM"
+      - "4:00 PM"
+    outputs:
+    - sender_name
+    - sender_email
+    - other_sender_name
+    - other_sender_email
+    - calendar_subject
+    - correct_time
+    - wrong_times
+    - most_recent_thread_id
+  - use: filler_emails
+    params:
+      actor: sender
+      count: 2
+      age_range: [6, 12]
+      is_read: true
+      labels: ["inbox"]
+  targets:
+    sender_name: "{output.sender_name}"
+    sender_email: "{output.sender_email}"
+    other_sender_name: "{output.other_sender_name}"
+    other_sender_email: "{output.other_sender_email}"
+    calendar_subject: "{output.calendar_subject}"
+    correct_time: "{output.correct_time}"
+    wrong_times: "{output.wrong_times}"
+    most_recent_thread_id: "{output.most_recent_thread_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
+  - expr: state.sent[-1].to == ['{target.sender_email}']
+    desc: Reply sent to the correct sender
+  - expr: '''{target.correct_time}'' in state.sent[-1].body'
+    desc: Reply contains the correct non-conflicting time
+  - expr: state.sent[-1].in_reply_to is not None
+    desc: Reply is threaded rather than a new email
+  - expr: state.sent[-1].thread_id == '{target.most_recent_thread_id}'
+    desc: Reply targets the most recent scheduling thread
+  negative_checks:
+  - expr: not any(t in state.sent[-1].body for t in {target.wrong_times})
+    desc: Reply does not mention any conflicting times
+    penalty: 0.25
+  - expr: len(state.sent[-1].to) == 1
+    desc: Reply was sent only to the sender (not Reply All)
+    penalty: 0.2
