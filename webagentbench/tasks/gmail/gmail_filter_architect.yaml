@@ -1,0 +1,54 @@
+task_id: gmail_filter_architect
+env_id: gmail
+title: Filter Architect
+instruction_template: |-
+  Look at the emails in your inbox and create three filters in Gmail Settings. First, find the billing vendor email and create a filter that archives and labels future emails from that vendor's domain with '{target.billing_label}'. Second, find the payroll exception email and create a filter for similar future messages using its key subject phrase, labeling them '{target.payroll_label}' and starring them. Third, find {target.exec_sender_name}'s email and create a filter to forward all future messages from them to {target.exec_forward_email}. Do not modify or delete any existing filters.
+difficulty: medium
+time_limit_seconds: 300
+expected_steps: 30
+primary_primitives:
+- planning
+- memory
+- constraint_satisfaction
+- exploration
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: filter_architect
+    params: {}
+    outputs:
+    - billing_domain
+    - billing_label
+    - payroll_keyword
+    - payroll_label
+    - exec_sender_name
+    - exec_sender_email
+    - exec_forward_email
+    - existing_filter_id
+  targets:
+    billing_domain: "{output.billing_domain}"
+    billing_label: "{output.billing_label}"
+    payroll_keyword: "{output.payroll_keyword}"
+    payroll_label: "{output.payroll_label}"
+    exec_sender_name: "{output.exec_sender_name}"
+    exec_sender_email: "{output.exec_sender_email}"
+    exec_forward_email: "{output.exec_forward_email}"
+    existing_filter_id: "{output.existing_filter_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: any(rule.archive and '*@{target.billing_domain}' in rule.from_addresses and '{target.billing_label}' in rule.add_labels
+      for rule in state.filters)
+    desc: Billing vendor rule archives and labels matching mail
+  - expr: any(rule.star and '{target.payroll_keyword}' in rule.subject_keywords and '{target.payroll_label}' in rule.add_labels
+      for rule in state.filters)
+    desc: Payroll rule stars and labels matching subjects
+  - expr: any(rule.forward_to == '{target.exec_forward_email}' and '{target.exec_sender_email}' in rule.from_addresses for
+      rule in state.filters)
+    desc: Executive rule forwards the correct sender
+  negative_checks:
+  - expr: any(rule.id == '{target.existing_filter_id}' for rule in state.filters)
+    desc: Pre-existing filter was not deleted
+    penalty: 0.2

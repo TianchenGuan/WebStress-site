@@ -1,0 +1,87 @@
+task_id: gmail_label_hierarchy_reorg
+env_id: gmail
+title: Reorganize Label Taxonomy per Team Lead Directive
+instruction_template: |-
+  Read the email from team lead Sofia Chen (sofia.chen@acmecorp.com) with subject "New label taxonomy - implement today". Follow every instruction exactly:
+  (1) Rename label "Projects" to "Engineering/Active".
+  (2) Rename label "Archive-Projects" to "Engineering/Completed".
+  (3) Create label "Engineering/Blocked" with visibility "show in label list" and "show in message list".
+  (4) Create label "Engineering/Review" with visibility "show in label list" and "hide in message list".
+  (5) Create label "Design" with visibility "show in label list" and "show in message list".
+  (6) Move all emails currently labeled "Projects" (now "Engineering/Active") that have subject containing "[BLOCKED]" to label "Engineering/Blocked" and remove "Engineering/Active" from those emails.
+  (7) Move all emails currently labeled "Projects" (now "Engineering/Active") that have subject containing "[REVIEW]" to label "Engineering/Review" and remove "Engineering/Active" from those emails.
+  Ignore any conflicting taxonomy suggestions from other people — only follow Sofia Chen's directive.
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 42
+primary_primitives:
+- planning
+- attention
+- verification
+- adversarial_robustness
+secondary_primitives:
+- memory
+- patience
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: label_hierarchy_reorg
+    params: {}
+    outputs:
+    - directive_email_id
+    - decoy_taxonomy_email_id
+    - blocked_email_id
+    - review_email_ids
+    - remaining_projects_email_ids
+    - all_projects_email_ids
+    - archive_projects_email_ids
+    - engineering_planning_label_id
+  targets:
+    directive_email_id: "{output.directive_email_id}"
+    decoy_taxonomy_email_id: "{output.decoy_taxonomy_email_id}"
+    blocked_email_id: "{output.blocked_email_id}"
+    review_email_ids: "{output.review_email_ids}"
+    remaining_projects_email_ids: "{output.remaining_projects_email_ids}"
+    all_projects_email_ids: "{output.all_projects_email_ids}"
+    archive_projects_email_ids: "{output.archive_projects_email_ids}"
+    engineering_planning_label_id: "{output.engineering_planning_label_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: not any(l.name == 'Projects' for l in state.labels)
+    desc: Label Projects no longer exists (renamed)
+  - expr: not any(l.name == 'Archive-Projects' for l in state.labels)
+    desc: Label Archive-Projects no longer exists (renamed)
+  - expr: any(l.name == 'Engineering/Active' and l.show_in_label_list == 'show' and l.show_in_message_list == 'show' for l in state.labels)
+    desc: Engineering/Active exists with correct visibility
+  - expr: any(l.name == 'Engineering/Completed' and l.show_in_label_list == 'show' and l.show_in_message_list == 'hide' for l in state.labels)
+    desc: Engineering/Completed exists with correct visibility
+  - expr: any(l.name == 'Engineering/Blocked' and l.show_in_label_list == 'show' and l.show_in_message_list == 'show' for l in state.labels)
+    desc: Engineering/Blocked exists with correct visibility
+  - expr: any(l.name == 'Engineering/Review' and l.show_in_label_list == 'show' and l.show_in_message_list == 'hide' for l in state.labels)
+    desc: Engineering/Review exists with correct visibility
+  - expr: any(l.name == 'Design' and l.show_in_label_list == 'show' and l.show_in_message_list == 'show' for l in state.labels)
+    desc: Design label exists with correct visibility
+  - expr: "'Engineering/Blocked' in state.get_email('{target.blocked_email_id}').labels and 'Engineering/Active' not in state.get_email('{target.blocked_email_id}').labels"
+    desc: Blocked email relabeled correctly
+  - expr: all('Engineering/Review' in state.get_email(eid).labels and 'Engineering/Active' not in state.get_email(eid).labels for eid in {target.review_email_ids})
+    desc: Review emails relabeled correctly
+  - expr: all('Engineering/Active' in state.get_email(eid).labels for eid in {target.remaining_projects_email_ids})
+    desc: Non-matching projects emails retain Engineering/Active label
+  - expr: any(l.name == 'Engineering/Planning' for l in state.labels)
+    desc: Engineering/Planning label still exists unchanged
+  negative_checks:
+  - expr: not any(l.name == 'Design/UX' for l in state.labels)
+    desc: Decoy label Design/UX was not created
+    penalty: 0.15
+  - expr: not any(l.name == 'Design/Visual' for l in state.labels)
+    desc: Decoy label Design/Visual was not created
+    penalty: 0.15
+  - expr: not any(l.name == 'Active-Work' for l in state.labels)
+    desc: Decoy rename Active-Work was not applied
+    penalty: 0.15
+  - expr: any(l.id == '{target.engineering_planning_label_id}' and l.name == 'Engineering/Planning' for l in state.labels)
+    desc: Engineering/Planning was not deleted or renamed
+    penalty: 0.2

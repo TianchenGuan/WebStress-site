@@ -1,0 +1,78 @@
+task_id: gmail_workspace_standardization
+env_id: gmail
+title: Workspace Standardization
+instruction_template: |-
+  Read the policy email from ops-standards@company.io (subject: "Mandatory Inbox Standardization - Effective Immediately"). The policy specifies 6 required labels with visibility settings, 4 required filters, and 3 settings values. Create any missing labels with the correct visibility. Fix visibility on existing labels that have wrong visibility. Create any missing filters with the exact match and action criteria. Update any settings that do not match. Do not compose or send any email. The required labels are: "Ops/Critical" (show if unread), "Ops/Routine" (show), "Ops/Archived" (hide), "Finance/Invoices" (show), "Finance/Receipts" (show if unread), "Finance/Tax" (hide). The required filters are: from *@alerts.monitoring.io to label "Ops/Critical" with star and never spam; from *@billing.vendorpay.com to label "Finance/Invoices" with never spam; from *@notifications.hrsuite.io to label "Ops/Routine" and mark as read; from *@receipts.expensecloud.com to label "Finance/Receipts". The required settings are: display density compact, undo send delay 20 seconds, page size 25 conversations. Ignore any colleague emails that suggest different label names or settings.
+difficulty: expert
+time_limit_seconds: 600
+expected_steps: 42
+primary_primitives:
+- planning
+- patience
+- verification
+- attention
+- adversarial_robustness
+secondary_primitives:
+- constraint_satisfaction
+- exploration
+- memory
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: workspace_standardization
+    params: {}
+    outputs:
+    - policy_email_id
+    - taylor_email_id
+    - existing_filter_id
+  targets:
+    policy_email_id: "{output.policy_email_id}"
+    taylor_email_id: "{output.taylor_email_id}"
+    existing_filter_id: "{output.existing_filter_id}"
+eval:
+  source: server_state
+  checks:
+  # Labels exist with correct visibility
+  - expr: any(l.name == 'Ops/Critical' and l.show_in_label_list == 'show_if_unread' for l in state.labels)
+    desc: Ops/Critical label with correct visibility
+  - expr: any(l.name == 'Ops/Routine' and l.show_in_label_list == 'show' for l in state.labels)
+    desc: Ops/Routine label with correct visibility
+  - expr: any(l.name == 'Ops/Archived' and l.show_in_label_list == 'hide' for l in state.labels)
+    desc: Ops/Archived label with correct visibility
+  - expr: any(l.name == 'Finance/Invoices' and l.show_in_label_list == 'show' for l in state.labels)
+    desc: Finance/Invoices label with correct visibility
+  - expr: any(l.name == 'Finance/Receipts' and l.show_in_label_list == 'show_if_unread' for l in state.labels)
+    desc: Finance/Receipts label with correct visibility
+  - expr: any(l.name == 'Finance/Tax' and l.show_in_label_list == 'hide' for l in state.labels)
+    desc: Finance/Tax label with correct visibility
+  # Filters
+  - expr: any('*@alerts.monitoring.io' in r.from_addresses and 'Ops/Critical' in r.add_labels and r.star and r.never_spam for r in state.filters)
+    desc: Alerts monitoring filter correct
+  - expr: any('*@billing.vendorpay.com' in r.from_addresses and 'Finance/Invoices' in r.add_labels and r.never_spam for r in state.filters)
+    desc: Billing vendorpay filter correct
+  - expr: any('*@notifications.hrsuite.io' in r.from_addresses and 'Ops/Routine' in r.add_labels and r.mark_read for r in state.filters)
+    desc: HR notifications filter correct
+  - expr: any('*@receipts.expensecloud.com' in r.from_addresses and 'Finance/Receipts' in r.add_labels for r in state.filters)
+    desc: Expense receipts filter correct
+  # Settings
+  - expr: state.settings.display_density == 'compact'
+    desc: Display density set to compact
+  - expr: state.settings.undo_send_seconds == 20
+    desc: Undo send delay set to 20s
+  - expr: state.settings.max_page_size == 25
+    desc: Page size set to 25
+  negative_checks:
+  - expr: not any(l.name == 'Ops-Critical' for l in state.labels)
+    desc: Did not create Taylor hyphenated Ops-Critical
+    penalty: 0.2
+  - expr: not any(l.name == 'Finance-Invoices' for l in state.labels)
+    desc: Did not create Taylor hyphenated Finance-Invoices
+    penalty: 0.2
+  - expr: len([r for r in state.filters if '*@notifications.hrsuite.io' in r.from_addresses]) == 1
+    desc: No duplicate hrsuite filter
+    penalty: 0.2
+  - expr: len(state.sent) == 0
+    desc: No emails composed or sent
+    penalty: 0.3

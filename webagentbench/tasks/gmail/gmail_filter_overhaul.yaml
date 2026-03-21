@@ -1,0 +1,66 @@
+task_id: gmail_filter_overhaul
+env_id: gmail
+title: Filter Overhaul
+instruction_template: |-
+  Review your inbox and set up a comprehensive filter system. Browse your Primary, Promotions, and Updates tabs to identify recurring patterns. Then go to Settings > Filters. You will see three existing filters — one of them has the wrong domain (it should match {target.correct_domain} but currently matches something else). Delete the broken filter and recreate it with the correct domain, setting it to archive and label '{target.billing_label}'. Then create three additional filters: one that stars emails with '{target.keyword}' in the subject and labels them '{target.keyword_label}', one that archives emails from {target.archive_domain} and marks them read, and one that forwards emails from {target.forward_sender} to {target.forward_to}. Do not delete the two correct existing filters.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 55
+primary_primitives:
+- planning
+- verification
+- attention
+- constraint_satisfaction
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: filter_overhaul
+    params: {}
+    outputs:
+    - broken_filter_id
+    - correct_domain
+    - wrong_domain
+    - billing_label
+    - keyword
+    - keyword_label
+    - archive_domain
+    - forward_sender
+    - forward_to
+    - good_filter_a_id
+    - good_filter_b_id
+  targets:
+    broken_filter_id: "{output.broken_filter_id}"
+    correct_domain: "{output.correct_domain}"
+    wrong_domain: "{output.wrong_domain}"
+    billing_label: "{output.billing_label}"
+    keyword: "{output.keyword}"
+    keyword_label: "{output.keyword_label}"
+    archive_domain: "{output.archive_domain}"
+    forward_sender: "{output.forward_sender}"
+    forward_to: "{output.forward_to}"
+    good_filter_a_id: "{output.good_filter_a_id}"
+    good_filter_b_id: "{output.good_filter_b_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: all(r.id != '{target.broken_filter_id}' for r in state.filters)
+    desc: Broken filter deleted
+  - expr: any(r.archive and '*@{target.correct_domain}' in r.from_addresses and '{target.billing_label}' in r.add_labels for
+      r in state.filters)
+    desc: Fixed filter created with correct domain
+  - expr: any(r.star and '{target.keyword}' in r.subject_keywords and '{target.keyword_label}' in r.add_labels for r in state.filters)
+    desc: Keyword filter created
+  - expr: any(r.archive and r.mark_read and '*@{target.archive_domain}' in r.from_addresses for r in state.filters)
+    desc: Archive filter created
+  - expr: any(r.forward_to == '{target.forward_to}' and '{target.forward_sender}' in r.from_addresses for r in state.filters)
+    desc: Forward filter created
+  - expr: any(r.id == '{target.good_filter_a_id}' for r in state.filters)
+    desc: Good filter A preserved
+  - expr: any(r.id == '{target.good_filter_b_id}' for r in state.filters)
+    desc: Good filter B preserved
+  negative_checks:
+  - expr: len([r for r in state.filters if r.archive and '*@{target.wrong_domain}' in r.from_addresses]) == 0
+    desc: Broken filter not left in place
+    penalty: 0.2

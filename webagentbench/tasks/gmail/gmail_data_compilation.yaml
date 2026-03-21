@@ -1,0 +1,73 @@
+task_id: gmail_data_compilation
+env_id: gmail
+title: Data Compilation
+instruction_template: |-
+  The CFO asked you to compile Q1 numbers. Three department heads — {target.dept_a_name}, {target.dept_b_name}, and {target.dept_c_name} — each sent an email with their department's quarterly figures. Find all three emails (they may be in different inbox tabs or require scrolling). Extract the budget number from each and compose a new email to {target.exec_email} with a subject line 'Q1 Budget Summary'. List all three numbers in the body, labeled by department. CC all three department heads.
+difficulty: medium
+time_limit_seconds: 360
+expected_steps: 40
+primary_primitives:
+- memory
+- attention
+- exploration
+- planning
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: data_compilation
+    params: {}
+    outputs:
+    - exec_email
+    - dept_emails
+    - dept_a_name
+    - dept_b_name
+    - dept_c_name
+    - dept_a_dept
+    - dept_b_dept
+    - dept_c_dept
+    - number_a
+    - number_b
+    - number_c
+    - wrong_numbers
+  targets:
+    exec_email: "{output.exec_email}"
+    dept_emails: "{output.dept_emails}"
+    dept_a_name: "{output.dept_a_name}"
+    dept_b_name: "{output.dept_b_name}"
+    dept_c_name: "{output.dept_c_name}"
+    dept_a_dept: "{output.dept_a_dept}"
+    dept_b_dept: "{output.dept_b_dept}"
+    dept_c_dept: "{output.dept_c_dept}"
+    number_a: "{output.number_a}"
+    number_b: "{output.number_b}"
+    number_c: "{output.number_c}"
+    wrong_numbers: "{output.wrong_numbers}"
+eval:
+  source: server_state
+  checks:
+  - expr: len(state.sent) >= 1
+    desc: At least one email sent
+  - expr: "'Q1 Budget Summary' in state.sent[-1].subject"
+    desc: Subject is Q1 Budget Summary
+  - expr: state.sent[-1].to == ['{target.exec_email}']
+    desc: Sent to exec
+  - expr: all(addr in state.sent[-1].cc for addr in {target.dept_emails})
+    desc: All 3 dept heads CC'd
+  - expr: '''{target.number_a}'' in state.sent[-1].body'
+    desc: Dept A number in body
+  - expr: '''{target.number_b}'' in state.sent[-1].body'
+    desc: Dept B number in body
+  - expr: '''{target.number_c}'' in state.sent[-1].body'
+    desc: Dept C number in body
+  - expr: '''{target.dept_a_dept}'' in state.sent[-1].body'
+    desc: Dept A department name in body
+  - expr: '''{target.dept_b_dept}'' in state.sent[-1].body'
+    desc: Dept B department name in body
+  - expr: '''{target.dept_c_dept}'' in state.sent[-1].body'
+    desc: Dept C department name in body
+  negative_checks:
+  - expr: not any(n in state.sent[-1].body for n in {target.wrong_numbers})
+    desc: Decoy numbers not in body
+    penalty: 0.2
