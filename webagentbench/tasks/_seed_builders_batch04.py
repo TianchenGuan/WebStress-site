@@ -821,7 +821,6 @@ def build_cross_team_filter_audit(ctx: SeedContext, params: dict[str, Any]) -> d
         timestamp=now - timedelta(hours=4),
         thread_id=alice_thread,
         labels=["inbox"],
-        category="primary",
     )
 
     # --- Bob Nakamura's directive (Updates tab) ---
@@ -842,8 +841,7 @@ def build_cross_team_filter_audit(ctx: SeedContext, params: dict[str, Any]) -> d
         ),
         timestamp=now - timedelta(hours=3),
         thread_id=bob_thread,
-        labels=["inbox"],
-        category="updates",
+        labels=["inbox", "updates"],
     )
 
     # --- Clara Johansson's directive (Updates tab) ---
@@ -867,8 +865,7 @@ def build_cross_team_filter_audit(ctx: SeedContext, params: dict[str, Any]) -> d
         ),
         timestamp=now - timedelta(hours=2, minutes=30),
         thread_id=clara_thread,
-        labels=["inbox"],
-        category="updates",
+        labels=["inbox", "updates"],
     )
 
     # --- Derek Wu's unauthorized suggestion (Primary tab) ---
@@ -889,7 +886,6 @@ def build_cross_team_filter_audit(ctx: SeedContext, params: dict[str, Any]) -> d
         timestamp=now - timedelta(hours=5),
         thread_id=derek_thread,
         labels=["inbox"],
-        category="primary",
     )
 
     # --- Forwarded chain: Alice forwarded Bob's OLD draft (stale specs) ---
@@ -915,7 +911,6 @@ def build_cross_team_filter_audit(ctx: SeedContext, params: dict[str, Any]) -> d
         thread_id=fwd_thread,
         labels=["inbox"],
         is_read=True,
-        category="primary",
     )
 
     # --- Newsletter decoy ---
