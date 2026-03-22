@@ -1,0 +1,58 @@
+task_id: gmail_delegation_routing
+env_id: gmail
+title: Delegation Routing
+instruction_template: |-
+  Route three project emails to the correct team leads. Read each email to figure out who should handle it based on the content. For the customer complaint, BCC {target.manager_email} so they are aware without the customer seeing. Star the customer complaint as the most urgent. Create a 'Delegated' label and apply it to all three forwarded emails.
+difficulty: medium
+time_limit_seconds: 360
+expected_steps: 38
+primary_primitives:
+- attention
+- planning
+- verification
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: delegation_routing
+    params: {}
+    outputs:
+    - budget_id
+    - tech_id
+    - complaint_id
+    - decoy_id
+    - cfo_email
+    - cto_email
+    - support_lead_email
+    - manager_email
+    - all_ids
+  targets:
+    budget_id: "{output.budget_id}"
+    tech_id: "{output.tech_id}"
+    complaint_id: "{output.complaint_id}"
+    decoy_id: "{output.decoy_id}"
+    cfo_email: "{output.cfo_email}"
+    cto_email: "{output.cto_email}"
+    support_lead_email: "{output.support_lead_email}"
+    manager_email: "{output.manager_email}"
+    all_ids: "{output.all_ids}"
+eval:
+  source: server_state
+  checks:
+  - expr: any(m.forwarded_from_id == '{target.budget_id}' and '{target.cfo_email}' in m.to for m in state.sent)
+    desc: Budget email forwarded to CFO
+  - expr: any(m.forwarded_from_id == '{target.tech_id}' and '{target.cto_email}' in m.to for m in state.sent)
+    desc: Tech email forwarded to CTO
+  - expr: any(m.forwarded_from_id == '{target.complaint_id}' and '{target.support_lead_email}' in m.to for m in state.sent)
+    desc: Complaint forwarded to support lead
+  - expr: any(m.forwarded_from_id == '{target.complaint_id}' and '{target.manager_email}' in m.bcc for m in state.sent)
+    desc: Manager BCC'd on complaint
+  - expr: state.get_email('{target.complaint_id}').is_starred
+    desc: Complaint starred
+  - expr: all('Delegated' in state.get_email(eid).labels for eid in {target.all_ids})
+    desc: Delegated label applied
+  negative_checks:
+  - expr: not any(m.forwarded_from_id == '{target.decoy_id}' for m in state.sent)
+    desc: Decoy not forwarded
+    penalty: 0.15

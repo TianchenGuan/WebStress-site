@@ -1,0 +1,75 @@
+task_id: gmail_thread_blame_trace
+env_id: gmail
+title: Trace who introduced a pricing error by reading backwards through a thread
+instruction_template: |-
+  In the thread "Vendor Contract Renewal - Apex Solutions", someone first introduced the
+  wrong unit price of $4,500 (the correct price is $5,400 per the original contract). Read
+  the entire thread. Identify the person who FIRST wrote "$4,500" in the thread. Forward
+  that specific message (the one where "$4,500" first appears) to Mariela Voss
+  <{target.mariela_voss_email}> with the subject "Pricing error origin" and body containing
+  "This is the message that introduced the $4,500 error."
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 24
+primary_primitives:
+- memory
+- patience
+- attention
+secondary_primitives:
+- verification
+start_path: /inbox
+seed:
+  distractors: 40
+  actors:
+    anika_shah: { domain: "procure.co", is_vip: false }
+    leo_huang: { domain: "procure.co", is_vip: false }
+    tomasz_krol: { domain: "procure.co", is_vip: false }
+    priya_sen: { domain: "procure.co", is_vip: false }
+    mariela_voss: { domain: "procure.co", is_vip: true }
+  steps:
+  - use: thread_blame_trace
+    params: {}
+    outputs:
+    - mariela_voss_email
+    - blame_msg_3_id
+    - target_thread_id
+    - forwarding_chain_decoy_id
+    - blame_msg_1_id
+    - blame_msg_2_id
+    - blame_msg_4_id
+    - blame_msg_5_id
+    - blame_msg_6_id
+    - blame_msg_7_id
+    - blame_msg_8_id
+    - blame_msg_9_id
+  targets:
+    mariela_voss_email: "{output.mariela_voss_email}"
+    blame_msg_3_id: "{output.blame_msg_3_id}"
+    target_thread_id: "{output.target_thread_id}"
+    forwarding_chain_decoy_id: "{output.forwarding_chain_decoy_id}"
+    blame_msg_1_id: "{output.blame_msg_1_id}"
+    blame_msg_2_id: "{output.blame_msg_2_id}"
+    blame_msg_4_id: "{output.blame_msg_4_id}"
+    blame_msg_5_id: "{output.blame_msg_5_id}"
+    blame_msg_6_id: "{output.blame_msg_6_id}"
+    blame_msg_7_id: "{output.blame_msg_7_id}"
+    blame_msg_8_id: "{output.blame_msg_8_id}"
+    blame_msg_9_id: "{output.blame_msg_9_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: "any(e.forwarded_from_id == '{target.blame_msg_3_id}' for e in state.sent)"
+    desc: Forwarded Tomasz Krol's originating message (msg_3)
+  - expr: "any('{target.mariela_voss_email}' in e.to and e.forwarded_from_id == '{target.blame_msg_3_id}' for e in state.sent)"
+    desc: Forward sent to Mariela Voss
+  - expr: "any('Pricing error origin' in e.subject for e in state.sent)"
+    desc: Forward has correct subject
+  - expr: "any('This is the message that introduced the $4,500 error.' in e.body for e in state.sent)"
+    desc: Forward body contains required text
+  negative_checks:
+  - expr: "not any(e.forwarded_from_id in ['{target.blame_msg_1_id}', '{target.blame_msg_2_id}', '{target.blame_msg_4_id}', '{target.blame_msg_5_id}', '{target.blame_msg_6_id}', '{target.blame_msg_7_id}', '{target.blame_msg_8_id}', '{target.blame_msg_9_id}', '{target.forwarding_chain_decoy_id}'] for e in state.sent)"
+    desc: No forward of any message other than msg_3
+    penalty: 0.15
+  - expr: "not any(e.thread_id == '{target.target_thread_id}' and e.in_reply_to is not None for e in state.sent)"
+    desc: No reply in original thread (should forward, not reply)
+    penalty: 0.15

@@ -5,6 +5,21 @@ import { IconDelete } from "../icons";
 import { useGmailLayout } from "../context";
 import type { FilterRule, GmailSettings, Label } from "../types";
 
+type ExtendedLabel = Label & {
+  show_in_message_list?: string;
+};
+
+type ExtendedFilterRule = FilterRule & {
+  never_spam?: boolean;
+};
+
+type DraftLabel = {
+  id: string;
+  name: string;
+} | null;
+
+type LabelVisibility = "show" | "hide" | "show_if_unread";
+
 const SETTINGS_TABS = [
   "General",
   "Labels",
@@ -46,6 +61,7 @@ interface DraftFilter {
   archive: boolean;
   star: boolean;
   markRead: boolean;
+  neverSpam: boolean;
 }
 
 const EMPTY_DRAFT_FILTER: DraftFilter = {
@@ -58,6 +74,7 @@ const EMPTY_DRAFT_FILTER: DraftFilter = {
   archive: false,
   star: false,
   markRead: false,
+  neverSpam: false,
 };
 
 function buildFilterQuery(draft: DraftFilter): string {
@@ -94,8 +111,72 @@ function hasFilterAction(draft: DraftFilter): boolean {
       draft.forwardTo.trim() ||
       draft.archive ||
       draft.star ||
-      draft.markRead,
+      draft.markRead ||
+      draft.neverSpam,
   );
+}
+
+function getLabelVisibility(label: Label): LabelVisibility {
+  const visibility = (label as ExtendedLabel).show_in_label_list;
+  return visibility === "hide" || visibility === "show_if_unread" ? visibility : "show";
+}
+
+function getMessageListVisibility(label: Label): LabelVisibility {
+  const extended = label as ExtendedLabel;
+  if (typeof extended.show_in_message_list === "string") {
+    const visibility = extended.show_in_message_list;
+    return visibility === "hide" || visibility === "show_if_unread" ? visibility : "show";
+  }
+  return label.show_in_imap === false ? "hide" : "show";
+}
+
+function renderVisibilityButtons(
+  value: LabelVisibility,
+  onChange: (value: LabelVisibility) => void,
+  fieldName: string,
+  showIfUnread = true,
+) {
+  return (
+    <span className="gmail-labels-table__toggles" aria-label={`${fieldName} visibility`}>
+      <button
+        type="button"
+        className={`gmail-labels-table__toggle ${value === "show" ? "gmail-labels-table__toggle--active" : ""}`}
+        onClick={() => onChange("show")}
+      >
+        show
+      </button>
+      <button
+        type="button"
+        className={`gmail-labels-table__toggle ${value === "hide" ? "gmail-labels-table__toggle--active" : ""}`}
+        onClick={() => onChange("hide")}
+      >
+        hide
+      </button>
+      {showIfUnread && (
+        <button
+          type="button"
+          className={`gmail-labels-table__toggle ${value === "show_if_unread" ? "gmail-labels-table__toggle--active" : ""}`}
+          onClick={() => onChange("show_if_unread")}
+        >
+          show if unread
+        </button>
+      )}
+    </span>
+  );
+}
+
+function filterActionSummary(item: FilterRule): string {
+  const rule = item as ExtendedFilterRule;
+  return [
+    item.add_labels.length ? `Label: ${item.add_labels.join(", ")}` : "",
+    item.archive ? "Archive" : "",
+    item.mark_read ? "Mark read" : "",
+    item.star ? "Star" : "",
+    rule.never_spam ? "Never spam" : "",
+    item.forward_to ? `Fwd: ${item.forward_to}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ") || "—";
 }
 
 /* ── Helper: capitalize label name for display ── */
@@ -498,9 +579,29 @@ const CATEGORY_LABELS = ["promotions", "updates"];
 function LabelsTab({
   labels,
   onUpdateLabel,
+  onStartRenameLabel,
+  onRenameDraftChange,
+  onCommitRenameLabel,
+  onCancelRenameLabel,
+  onPromptDeleteLabel,
+  editingLabel,
+  canRenameLabel,
+  canDeleteLabel,
 }: {
   labels: Label[];
-  onUpdateLabel: (labelId: string, field: "show_in_label_list" | "show_in_imap", value: string | boolean) => void;
+  onUpdateLabel: (
+    labelId: string,
+    field: "show_in_label_list" | "show_in_message_list" | "show_in_imap",
+    value: string | boolean,
+  ) => void;
+  onStartRenameLabel: (label: Label) => void;
+  onRenameDraftChange: (value: string) => void;
+  onCommitRenameLabel: () => void;
+  onCancelRenameLabel: () => void;
+  onPromptDeleteLabel: (label: Label) => void;
+  editingLabel: DraftLabel;
+  canRenameLabel: boolean;
+  canDeleteLabel: boolean;
 }) {
   const systemLabels = SYSTEM_LABEL_ORDER
     .map((name) => labels.find((l) => l.name.toLowerCase() === name))
@@ -524,6 +625,7 @@ function LabelsTab({
           <tr>
             <th className="gmail-labels-table__th gmail-labels-table__th--name">System labels</th>
             <th className="gmail-labels-table__th">Show in label list</th>
+            <th className="gmail-labels-table__th">Show in message list</th>
             <th className="gmail-labels-table__th gmail-labels-table__th--imap">Show in IMAP</th>
           </tr>
         </thead>
@@ -541,11 +643,12 @@ function LabelsTab({
             <th className="gmail-labels-table__th gmail-labels-table__th--name">Categories</th>
             <th className="gmail-labels-table__th">Show in label list</th>
             <th className="gmail-labels-table__th">Show in message list</th>
+            <th className="gmail-labels-table__th gmail-labels-table__th--imap">Show in IMAP</th>
           </tr>
         </thead>
         <tbody>
           {categoryLabels.map((label) => (
-            <LabelRow key={label.id} label={label} onUpdate={onUpdateLabel} isCategory />
+            <LabelRow key={label.id} label={label} onUpdate={onUpdateLabel} />
           ))}
         </tbody>
       </table>
@@ -557,12 +660,27 @@ function LabelsTab({
             <tr>
               <th className="gmail-labels-table__th gmail-labels-table__th--name">Labels</th>
               <th className="gmail-labels-table__th">Show in label list</th>
+              <th className="gmail-labels-table__th">Show in message list</th>
               <th className="gmail-labels-table__th gmail-labels-table__th--imap">Show in IMAP</th>
+              <th className="gmail-labels-table__th">Actions</th>
             </tr>
           </thead>
           <tbody>
             {userLabels.map((label) => (
-              <LabelRow key={label.id} label={label} onUpdate={onUpdateLabel} />
+              <LabelRow
+                key={label.id}
+                label={label}
+                onUpdate={onUpdateLabel}
+                editingLabel={editingLabel}
+                onStartRenameLabel={onStartRenameLabel}
+                onRenameDraftChange={onRenameDraftChange}
+                onCommitRenameLabel={onCommitRenameLabel}
+                onCancelRenameLabel={onCancelRenameLabel}
+                onPromptDeleteLabel={onPromptDeleteLabel}
+                canRenameLabel={canRenameLabel}
+                canDeleteLabel={canDeleteLabel}
+                showActions
+              />
             ))}
           </tbody>
         </table>
@@ -574,59 +692,122 @@ function LabelsTab({
 function LabelRow({
   label,
   onUpdate,
-  isCategory,
+  editingLabel,
+  onStartRenameLabel,
+  onRenameDraftChange,
+  onCommitRenameLabel,
+  onCancelRenameLabel,
+  onPromptDeleteLabel,
+  canRenameLabel = false,
+  canDeleteLabel = false,
+  showActions = false,
 }: {
   label: Label;
-  onUpdate: (labelId: string, field: "show_in_label_list" | "show_in_imap", value: string | boolean) => void;
-  isCategory?: boolean;
+  onUpdate: (
+    labelId: string,
+    field: "show_in_label_list" | "show_in_message_list" | "show_in_imap",
+    value: string | boolean,
+  ) => void;
+  editingLabel?: DraftLabel;
+  onStartRenameLabel?: (label: Label) => void;
+  onRenameDraftChange?: (value: string) => void;
+  onCommitRenameLabel?: () => void;
+  onCancelRenameLabel?: () => void;
+  onPromptDeleteLabel?: (label: Label) => void;
+  canRenameLabel?: boolean;
+  canDeleteLabel?: boolean;
+  showActions?: boolean;
 }) {
-  const visibility = label.show_in_label_list ?? "show";
-  const hasShowIfUnread = label.name.toLowerCase() !== "inbox";
+  const visibility = getLabelVisibility(label);
+  const messageListVisibility = getMessageListVisibility(label);
+  const isEditing = editingLabel?.id === label.id;
 
   return (
     <tr className="gmail-labels-table__row">
       <td className="gmail-labels-table__td gmail-labels-table__td--name">
-        {labelDisplayName(label.name)}
-      </td>
-      <td className="gmail-labels-table__td">
-        <span className="gmail-labels-table__toggles">
-          <button
-            type="button"
-            className={`gmail-labels-table__toggle ${visibility === "show" ? "gmail-labels-table__toggle--active" : ""}`}
-            onClick={() => onUpdate(label.id, "show_in_label_list", "show")}
-          >
-            show
-          </button>
-          <button
-            type="button"
-            className={`gmail-labels-table__toggle ${visibility === "hide" ? "gmail-labels-table__toggle--active" : ""}`}
-            onClick={() => onUpdate(label.id, "show_in_label_list", "hide")}
-          >
-            hide
-          </button>
-          {hasShowIfUnread && (
-            <button
-              type="button"
-              className={`gmail-labels-table__toggle ${visibility === "show_if_unread" ? "gmail-labels-table__toggle--active" : ""}`}
-              onClick={() => onUpdate(label.id, "show_in_label_list", "show_if_unread")}
-            >
-              show if unread
-            </button>
-          )}
-        </span>
-      </td>
-      <td className="gmail-labels-table__td gmail-labels-table__td--imap">
-        {!isCategory && (
-          <label className="gmail-labels-table__imap-check">
-            <input
-              type="checkbox"
-              checked={label.show_in_imap !== false}
-              onChange={(e) => onUpdate(label.id, "show_in_imap", e.target.checked)}
-            />
-            Show in IMAP
-          </label>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editingLabel?.name ?? label.name}
+            onChange={(event) => onRenameDraftChange?.(event.target.value)}
+            aria-label={`Rename label ${label.name}`}
+            className="gmail-settings-input"
+            style={{ width: "100%" }}
+          />
+        ) : (
+          labelDisplayName(label.name)
         )}
       </td>
+      <td className="gmail-labels-table__td">
+        {renderVisibilityButtons(
+          visibility,
+          (value) => onUpdate(label.id, "show_in_label_list", value),
+          "label list",
+          label.name.toLowerCase() !== "inbox",
+        )}
+      </td>
+      <td className="gmail-labels-table__td">
+        {renderVisibilityButtons(
+          messageListVisibility,
+          (value) => onUpdate(label.id, "show_in_message_list", value),
+          "message list",
+          label.name.toLowerCase() !== "inbox",
+        )}
+      </td>
+      <td className="gmail-labels-table__td gmail-labels-table__td--imap">
+        <label className="gmail-labels-table__imap-check">
+          <input
+            type="checkbox"
+            checked={label.show_in_imap !== false}
+            onChange={(e) => onUpdate(label.id, "show_in_imap", e.target.checked)}
+          />
+          Show in IMAP
+        </label>
+      </td>
+      {showActions && (
+        <td className="gmail-labels-table__td">
+          <span className="gmail-labels-table__toggles">
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  className="gmail-labels-table__toggle gmail-labels-table__toggle--active"
+                  onClick={onCommitRenameLabel}
+                  disabled={!canRenameLabel}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="gmail-labels-table__toggle"
+                  onClick={onCancelRenameLabel}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="gmail-labels-table__toggle"
+                  onClick={() => onStartRenameLabel?.(label)}
+                  disabled={!canRenameLabel}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="gmail-labels-table__toggle"
+                  onClick={() => onPromptDeleteLabel?.(label)}
+                  disabled={!canDeleteLabel}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </span>
+        </td>
+      )}
     </tr>
   );
 }
@@ -657,16 +838,7 @@ function FiltersTab({
           {
             key: "action",
             header: "Action",
-            render: (item) =>
-              [
-                item.add_labels.length ? `Label: ${item.add_labels.join(", ")}` : "",
-                item.archive ? "Archive" : "",
-                item.mark_read ? "Mark read" : "",
-                item.star ? "Star" : "",
-                item.forward_to ? `Fwd: ${item.forward_to}` : "",
-              ]
-                .filter(Boolean)
-                .join(" · ") || "—",
+            render: (item) => filterActionSummary(item),
           },
           {
             key: "delete",
@@ -707,30 +879,97 @@ export function SettingsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterWizardStep, setFilterWizardStep] = useState<"criteria" | "actions">("criteria");
   const [newFilter, setNewFilter] = useState<DraftFilter>(EMPTY_DRAFT_FILTER);
+  const [editingLabel, setEditingLabel] = useState<DraftLabel>(null);
+  const [deleteLabelTarget, setDeleteLabelTarget] = useState<Label | null>(null);
+  const gmailApi = api as unknown as {
+    getSettings: () => Promise<GmailSettings>;
+    getLabels: () => Promise<Label[]>;
+    getFilters: () => Promise<FilterRule[]>;
+    updateSettings: (payload: GmailSettings) => Promise<GmailSettings>;
+    updateLabel: (
+      labelId: string,
+      payload: Record<string, string | boolean>,
+    ) => Promise<Label>;
+    renameLabel?: (labelId: string, payload: { name: string }) => Promise<Label>;
+    deleteLabel?: (labelId: string) => Promise<void>;
+    createFilter: (payload: Record<string, unknown>) => Promise<FilterRule>;
+    deleteFilter: (filterId: string) => Promise<void>;
+  };
+  const canRenameLabel = typeof gmailApi.renameLabel === "function";
+  const canDeleteLabel = typeof gmailApi.deleteLabel === "function";
 
   useEffect(() => {
-    api.getSettings().then(setSettings).catch(() => setSettings(DEFAULT_SETTINGS));
-    api.getLabels().then(setLabels);
-    api.getFilters().then(setFilters);
-  }, [api]);
+    gmailApi.getSettings().then(setSettings).catch(() => setSettings(DEFAULT_SETTINGS));
+    gmailApi.getLabels().then(setLabels);
+    gmailApi.getFilters().then(setFilters);
+  }, [gmailApi]);
 
   const handleSaveSettings = async () => {
-    const next = await api.updateSettings(settings);
+    const next = await gmailApi.updateSettings(settings);
     setSettings(next);
     notify("Settings saved");
   };
 
   const handleUpdateLabel = async (
     labelId: string,
-    field: "show_in_label_list" | "show_in_imap",
+    field: "show_in_label_list" | "show_in_message_list" | "show_in_imap",
     value: string | boolean,
   ) => {
-    const updated = await api.updateLabel(labelId, { [field]: value });
+    const updated = await gmailApi.updateLabel(labelId, { [field]: value });
     setLabels((current) => current.map((l) => (l.id === updated.id ? updated : l)));
   };
 
+  const handleStartRenameLabel = (label: Label) => {
+    setEditingLabel({ id: label.id, name: label.name });
+  };
+
+  const handleRenameDraftChange = (value: string) => {
+    setEditingLabel((current) => (current ? { ...current, name: value } : current));
+  };
+
+  const handleCancelRenameLabel = () => {
+    setEditingLabel(null);
+  };
+
+  const handleCommitRenameLabel = async () => {
+    if (!editingLabel) {
+      return;
+    }
+    const nextName = editingLabel.name.trim();
+    if (!nextName) {
+      notify("Label name cannot be empty");
+      return;
+    }
+    if (typeof gmailApi.renameLabel !== "function") {
+      notify("Label rename is not wired up yet", nextName);
+      return;
+    }
+    const updated = await gmailApi.renameLabel(editingLabel.id, { name: nextName });
+    setLabels((current) => current.map((l) => (l.id === updated.id ? updated : l)));
+    setEditingLabel(null);
+    notify("Label renamed", updated.name);
+  };
+
+  const handlePromptDeleteLabel = (label: Label) => {
+    setDeleteLabelTarget(label);
+  };
+
+  const handleDeleteLabel = async () => {
+    if (!deleteLabelTarget) {
+      return;
+    }
+    if (typeof gmailApi.deleteLabel !== "function") {
+      notify("Label delete is not wired up yet", deleteLabelTarget.name);
+      return;
+    }
+    await gmailApi.deleteLabel(deleteLabelTarget.id);
+    setLabels((current) => current.filter((label) => label.id !== deleteLabelTarget.id));
+    notify("Label deleted", deleteLabelTarget.name);
+    setDeleteLabelTarget(null);
+  };
+
   const handleDeleteFilter = async (filterId: string) => {
-    await api.deleteFilter(filterId);
+    await gmailApi.deleteFilter(filterId);
     setFilters((current) => current.filter((f) => f.id !== filterId));
     notify("Filter deleted");
   };
@@ -749,7 +988,7 @@ export function SettingsPage() {
 
   const saveNewFilter = async () => {
     const query = buildFilterQuery(newFilter);
-    const created = await api.createFilter({
+    const created = await gmailApi.createFilter({
       name: newFilter.name,
       query,
       from_addresses: newFilter.fromPattern.trim() ? [newFilter.fromPattern.trim()] : [],
@@ -762,6 +1001,7 @@ export function SettingsPage() {
         .filter(Boolean),
       archive: newFilter.archive,
       mark_read: newFilter.markRead,
+      never_spam: newFilter.neverSpam,
       forward_to: newFilter.forwardTo.trim() || null,
       star: newFilter.star,
     });
@@ -815,7 +1055,18 @@ export function SettingsPage() {
           <GeneralTab settings={settings} setSettings={setSettings} onSave={handleSaveSettings} />
         )}
         {activeTab === "Labels" && (
-          <LabelsTab labels={labels} onUpdateLabel={handleUpdateLabel} />
+          <LabelsTab
+            labels={labels}
+            onUpdateLabel={handleUpdateLabel}
+            onStartRenameLabel={handleStartRenameLabel}
+            onRenameDraftChange={handleRenameDraftChange}
+            onCommitRenameLabel={handleCommitRenameLabel}
+            onCancelRenameLabel={handleCancelRenameLabel}
+            onPromptDeleteLabel={handlePromptDeleteLabel}
+            editingLabel={editingLabel}
+            canRenameLabel={canRenameLabel}
+            canDeleteLabel={canDeleteLabel}
+          />
         )}
         {activeTab === "Filters and Blocked Addresses" && (
           <FiltersTab
@@ -981,8 +1232,50 @@ export function SettingsPage() {
               />
               <span>Star it</span>
             </label>
+            <label className="gmail-settings-card__checkbox">
+              <input
+                type="checkbox"
+                checked={newFilter.neverSpam}
+                onChange={(event) =>
+                  setNewFilter((current) => ({ ...current, neverSpam: event.target.checked }))
+                }
+              />
+              <span>Never spam</span>
+            </label>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={deleteLabelTarget != null}
+        title="Delete label"
+        description={
+          deleteLabelTarget
+            ? `Remove the label "${deleteLabelTarget.name}" from Gmail.`
+            : ""
+        }
+        onClose={() => setDeleteLabelTarget(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteLabelTarget(null)} aria-label="Cancel delete label">
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleDeleteLabel}
+              aria-label="Confirm delete label"
+              disabled={typeof gmailApi.deleteLabel !== "function"}
+            >
+              Delete label
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          {deleteLabelTarget
+            ? `Deleting "${deleteLabelTarget.name}" removes it from the current label list.`
+            : ""}
+        </p>
       </Modal>
     </main>
   );

@@ -1,0 +1,77 @@
+task_id: gmail_team_roster_sync
+env_id: gmail
+title: Sync contacts with HR roster, apply promotion, and mark team lead as VIP
+instruction_template: |-
+  HR sent you a "Q1 2026 Engineering Team Roster" email listing 8 people with their names, emails, and titles. The email CCs j.morales-mgr@company.com (Javier Morales-Garcia, the outgoing team's manager) — this person is NOT on the roster and must not be added as a contact. Compare this roster against your existing contacts. Perform all of the following:
+  1. Add contacts for the 3 people on the roster who do not have existing contact entries (Javier Morales <j.morales@engteam.co>, Anika Pham <a.pham@engteam.co>, Leo Fischer <l.fischer@engteam.co>). Set each new contact's note to "Added from Q1 roster".
+  2. Delete the 2 contacts for people who appear in your contacts but are NOT on the roster and whose names appear in the roster email's "Departures" section (Tom Reeves and Carla Diaz).
+  3. Find the separate email from "Diana Holtz" with subject "Congrats Marcus!" and update the contact for Marcus Webb to change his note to "Promoted to Senior Engineer — Q1 2026".
+  4. Star the contact for the person listed as "Team Lead" on the roster (Sana Hussain).
+  Do not modify any contacts not mentioned above. Do not add the CC'd manager as a contact.
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 38
+primary_primitives:
+- memory
+- verification
+- patience
+- attention
+- exploration
+secondary_primitives:
+- planning
+- adversarial_robustness
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: team_roster_sync
+    params: {}
+    outputs:
+    - tom_reeves_id
+    - carla_diaz_id
+    - sana_hussain_id
+    - marcus_webb_id
+    - carlos_dm_id
+    - thomas_reeve_id
+    - roster_email_id
+    - congrats_email_id
+  targets:
+    tom_reeves_id: "{output.tom_reeves_id}"
+    carla_diaz_id: "{output.carla_diaz_id}"
+    sana_hussain_id: "{output.sana_hussain_id}"
+    marcus_webb_id: "{output.marcus_webb_id}"
+    carlos_dm_id: "{output.carlos_dm_id}"
+    thomas_reeve_id: "{output.thomas_reeve_id}"
+    roster_email_id: "{output.roster_email_id}"
+    congrats_email_id: "{output.congrats_email_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: any(c.email == 'j.morales@engteam.co' and c.note == 'Added from Q1 roster' for c in state.contacts)
+    desc: Javier Morales added with roster note
+  - expr: any(c.email == 'a.pham@engteam.co' and c.note == 'Added from Q1 roster' for c in state.contacts)
+    desc: Anika Pham added with roster note
+  - expr: any(c.email == 'l.fischer@engteam.co' and c.note == 'Added from Q1 roster' for c in state.contacts)
+    desc: Leo Fischer added with roster note
+  - expr: all(c.id != '{target.tom_reeves_id}' for c in state.contacts)
+    desc: Tom Reeves contact deleted
+  - expr: all(c.id != '{target.carla_diaz_id}' for c in state.contacts)
+    desc: Carla Diaz contact deleted
+  - expr: any(c.id == '{target.marcus_webb_id}' and c.note == 'Promoted to Senior Engineer — Q1 2026' for c in state.contacts)
+    desc: Marcus Webb note updated with promotion
+  - expr: any(c.id == '{target.sana_hussain_id}' and c.is_starred for c in state.contacts)
+    desc: Sana Hussain contact starred
+  negative_checks:
+  - expr: any(c.id == '{target.carlos_dm_id}' for c in state.contacts)
+    desc: Decoy Carlos Diaz-Mendez preserved
+    penalty: 0.15
+  - expr: any(c.id == '{target.thomas_reeve_id}' for c in state.contacts)
+    desc: Decoy Thomas Reeve preserved
+    penalty: 0.15
+  - expr: not any(c.email == 'j.morales-mgr@company.com' for c in state.contacts)
+    desc: CC'd manager not added as contact
+    penalty: 0.2
+  - expr: any(c.id == '{target.sana_hussain_id}' for c in state.contacts)
+    desc: Sana Hussain contact not deleted
+    penalty: 0.2

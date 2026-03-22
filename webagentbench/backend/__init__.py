@@ -1,6 +1,18 @@
 """Advanced environment backend package for WebAgentBench."""
 
-from .evaluator_advanced import AdvancedEvaluator
-from .state import SessionManager
+from __future__ import annotations
 
-__all__ = ["AdvancedEvaluator", "SessionManager"]
+from typing import TYPE_CHECKING
+
+__all__ = ["SessionManager"]
+
+if TYPE_CHECKING:
+    from .state import SessionManager
+
+
+def __getattr__(name: str):
+    if name == "SessionManager":
+        from .state import SessionManager
+
+        return SessionManager
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
