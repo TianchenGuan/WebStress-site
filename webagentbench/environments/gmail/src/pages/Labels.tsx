@@ -3,10 +3,21 @@ import { Button, DataTable, FormField } from "@webagentbench/shared";
 
 import { LabelChip } from "../components/LabelChip";
 import { useGmailLayout } from "../context";
-import { IconChevronLeft, IconChevronRight, IconDelete } from "../icons";
+import { IconChevronLeft, IconChevronRight, IconDelete, IconStar } from "../icons";
 import type { Contact, Label } from "../types";
 
 const CONTACTS_PAGE_SIZE = 8;
+
+type ContactRecord = Contact & {
+  starred?: boolean;
+  is_starred?: boolean;
+};
+
+type ContactMutationApi = {
+  toggleContactStar?: (contactId: string) => Promise<unknown>;
+  setContactStar?: (contactId: string, starred: boolean) => Promise<unknown>;
+  updateContact?: (contactId: string, payload: { starred?: boolean; is_starred?: boolean }) => Promise<unknown>;
+};
 
 function formatRelativeDate(value: string | null | undefined): string {
   if (!value) return "—";
@@ -24,10 +35,30 @@ function formatRelativeDate(value: string | null | undefined): string {
   return `${diffDays} days ago`;
 }
 
+function isContactStarred(contact: ContactRecord): boolean {
+  return Boolean(contact.starred ?? contact.is_starred ?? false);
+}
+
+function extractContactRecord(result: unknown): ContactRecord | null {
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+
+  const payload = result as { contact?: ContactRecord; id?: string };
+  if (payload.contact && typeof payload.contact === "object") {
+    return payload.contact;
+  }
+  if (typeof payload.id === "string") {
+    return result as ContactRecord;
+  }
+
+  return null;
+}
+
 export function LabelsPage() {
   const { api, notify, summary, refreshMailbox } = useGmailLayout();
   const [labels, setLabels] = useState<Label[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<ContactRecord[]>([]);
   const [draftLabel, setDraftLabel] = useState({ name: "", color: "#1a73e8" });
   const [draftContact, setDraftContact] = useState({ name: "", email: "", company: "", note: "", is_vip: false });
   const [contactPage, setContactPage] = useState(1);
@@ -36,6 +67,34 @@ export function LabelsPage() {
     api.getLabels().then(setLabels);
     api.getContacts().then(setContacts);
   }, [api]);
+
+  const handleToggleContactStar = async (contact: ContactRecord) => {
+    const contactApi = api as ContactMutationApi;
+    const nextStarred = !isContactStarred(contact);
+
+    let result: unknown;
+    if (contactApi.toggleContactStar) {
+      result = await contactApi.toggleContactStar(contact.id);
+    } else if (contactApi.setContactStar) {
+      result = await contactApi.setContactStar(contact.id, nextStarred);
+    } else if (contactApi.updateContact) {
+      result = await contactApi.updateContact(contact.id, {
+        starred: nextStarred,
+        is_starred: nextStarred,
+      });
+    } else {
+      throw new Error("Contact star toggle is not available");
+    }
+
+    const updatedContact = extractContactRecord(result) ?? {
+      ...contact,
+      starred: nextStarred,
+      is_starred: nextStarred,
+    };
+
+    setContacts((current) => current.map((item) => (item.id === contact.id ? { ...item, ...updatedContact } : item)));
+    notify(nextStarred ? "Contact starred" : "Contact unstarred", contact.name);
+  };
 
   return (
     <main className="gmail-page gmail-page--labels" aria-label="Labels and contacts">
@@ -105,6 +164,23 @@ export function LabelsPage() {
               { key: "name", header: "Name", render: (item) => item.name },
               { key: "email", header: "Email", render: (item) => item.email },
               { key: "company", header: "Company", render: (item) => item.company ?? "—" },
+              {
+                key: "star",
+                header: "Star",
+                render: (item) => (
+                  <button
+                    type="button"
+                    className="gmail-toolbar__icon-btn"
+                    aria-label={isContactStarred(item) ? `Unstar contact ${item.name}` : `Star contact ${item.name}`}
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      await handleToggleContactStar(item);
+                    }}
+                  >
+                    <IconStar filled={isContactStarred(item)} />
+                  </button>
+                ),
+              },
               {
                 key: "last_contact",
                 header: "Last Contact",
@@ -229,7 +305,7 @@ export function LabelsPage() {
                   note: draftContact.note.trim() || undefined,
                   is_vip: draftContact.is_vip,
                 } as Omit<Contact, "id">);
-                setContacts((current) => [...current, created]);
+                setContacts((current) => [...current, created as ContactRecord]);
                 setDraftContact({ name: "", email: "", company: "", note: "", is_vip: false });
                 notify("Contact added", created.name);
               }}

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import subprocess
+import sys
 
 import pytest
 
@@ -34,6 +36,29 @@ def test_seeded_timestamps_are_stable_for_same_seed() -> None:
     base_b, _ = _run_seed("gmail_thread_detective")
 
     assert base_a["emails"][0].timestamp == base_b["emails"][0].timestamp
+
+
+def test_seed_builders_import_without_circular_import() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from webagentbench.tasks._seed_builders import BUILDER_REGISTRY; print(len(BUILDER_REGISTRY))",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0
+
+
+def test_label_workflow_project_ids_exclude_wrong_review_decoy() -> None:
+    _, targets = _run_seed("gmail_label_workflow_setup")
+
+    assert targets["wrong_review_id"] not in targets["project_email_ids"]
+    assert set(targets["review_email_ids"]).issubset(set(targets["project_email_ids"]))
 
 
 _GMAIL_TASK_IDS = [t.task_id for t in env_tasks("gmail")]
