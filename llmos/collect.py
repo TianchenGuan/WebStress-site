@@ -216,6 +216,107 @@ PRIMITIVE_CONFIG = {
             "before interacting with underlying content. Use the template's existing overlay structure."
         ),
     },
+    # ── Gmail environment primitives ──────────────────────────────────
+    "gmail_memory": {
+        "min_steps": 5,
+        "max_steps": 25,
+        "templates": [
+            "gmail_thread_detective", "gmail_data_compilation",
+            "gmail_thread_archaeology",
+        ],
+        "tasks": [
+            "Find the single meeting time that works for everyone by reading the scheduling email thread. Reply to the most recent message in the thread with the correct time.",
+            "Compile department budget numbers: find the correct budget figure from each department's email (across tabs and pages). Ignore decoy emails with outdated or draft numbers. Reply to the executive with all three correct figures.",
+            "Dig through an old email thread to find: the current assignee, the manager who approved the change, and the deadline. Reply to the thread with these details.",
+        ],
+        "behavior": (
+            "PRIMITIVE: Memory (Gmail) — the agent must remember info across emails.\n\n"
+            "Key information is spread across multiple emails and threads. The agent must read "
+            "several emails, remember details from earlier ones, and combine them to answer "
+            "or take action. Include decoy emails with similar but incorrect information. "
+            "Use the seeded email content — do not invent new emails."
+        ),
+    },
+    "gmail_exploration": {
+        "min_steps": 5,
+        "max_steps": 25,
+        "templates": [
+            "gmail_inbox_triage_protocol", "gmail_morning_triage_extended",
+            "gmail_priority_escalation",
+        ],
+        "tasks": [
+            "Triage your inbox: approve the invoice, ignore the promo, report the security alert, approve the travel request, and respond to the onboarding email without using Reply All.",
+            "Process your morning inbox: reply to urgent emails (deadline/sign-off requests), forward the forwarding-target email to the specified colleague, archive FYI-only and promotional emails.",
+            "Find all unread emails from VIP contacts. Reply to the oldest unread VIP email with a status update. Star all unread VIP emails.",
+        ],
+        "behavior": (
+            "PRIMITIVE: Exploration (Gmail) — the agent must navigate inbox, tabs, threads.\n\n"
+            "Emails are distributed across tabs (Primary, Promotions, Updates) and may span "
+            "multiple pages. The agent must explore beyond the first page and check different "
+            "tabs to find all relevant emails. Important emails may be on page 2+."
+        ),
+    },
+    "gmail_attention": {
+        "min_steps": 5,
+        "max_steps": 25,
+        "templates": [
+            "gmail_filter_architect", "gmail_phishing_investigation",
+            "gmail_contact_cleanup", "gmail_label_workflow_setup",
+        ],
+        "tasks": [
+            "Create email filters: route billing emails to 'Billing', route payroll keyword emails to 'Payroll', and forward exec emails. Do not modify the existing newsletter filter.",
+            "Investigate potential phishing: identify emails with spoofed sender domains. Report phishing emails and confirm legitimate ones.",
+            "Clean up contacts: delete contacts not contacted in over 30 days, keep recent ones. Add a missing contact from your inbox.",
+            "Apply the 'Client' label to client-domain emails and 'Project Review' to review emails. Do not label the wrong review or non-review email.",
+        ],
+        "behavior": (
+            "PRIMITIVE: Attention (Gmail) — the agent must find patterns in many emails.\n\n"
+            "The inbox contains many similar emails. The agent must carefully distinguish "
+            "between emails that meet criteria and near-miss decoys. Present all content "
+            "neutrally without highlighting correct items."
+        ),
+    },
+    "gmail_planning": {
+        "min_steps": 5,
+        "max_steps": 25,
+        "templates": [
+            "gmail_vacation_preparation", "gmail_quarterly_closeout",
+            "gmail_meeting_negotiation", "gmail_new_hire_setup",
+        ],
+        "tasks": [
+            "Prepare for vacation: enable the vacation responder, forward pending items to your backup colleague, and reply to your boss confirming the handoff is complete.",
+            "Perform quarterly inbox closeout: star important emails, archive FYI emails, delete promos, report spam, and create a filter for the vendor domain.",
+            "Coordinate a meeting: find the one time slot that works for all attendees. Reply to the venue coordinator with the confirmed time and room name.",
+            "Set up as a new hire: add contacts from welcome emails, update settings, and reply to the team intro email.",
+        ],
+        "behavior": (
+            "PRIMITIVE: Planning (Gmail) — the agent must execute multi-step workflows.\n\n"
+            "Tasks require multiple coordinated steps in a specific order. Some steps depend "
+            "on information gathered in earlier steps. If the agent skips ahead, it may miss "
+            "critical details. Settings changes and email actions must be done in sequence."
+        ),
+    },
+    "gmail_constraint_satisfaction": {
+        "min_steps": 5,
+        "max_steps": 25,
+        "templates": [
+            "gmail_budget_reconciliation", "gmail_delegation_routing",
+            "gmail_filter_overhaul", "gmail_incident_escalation",
+        ],
+        "tasks": [
+            "Reconcile budget figures: compare department emails against the summary email. Identify wrong numbers and reply with corrections.",
+            "Route emails to the right people: forward budget to CFO, tech to CTO, complaint to support lead. Do not forward the decoy.",
+            "Fix and create email filters: repair the broken filter, create a keyword filter, set up auto-archive, and set up forwarding.",
+            "Handle an incident: find the error code and on-call engineer from the alert thread. Forward the alert and reply to the manager's status request.",
+        ],
+        "behavior": (
+            "PRIMITIVE: Constraint Satisfaction (Gmail) — the agent must satisfy multiple criteria.\n\n"
+            "Tasks have multiple specific constraints (correct recipients, exact values, "
+            "required and forbidden actions). The agent must satisfy all constraints — partial "
+            "completion is not sufficient. Include near-miss options that satisfy some but not "
+            "all constraints."
+        ),
+    },
 }
 
 
