@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import shlex
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from pydantic import ConfigDict, Field
@@ -62,7 +62,7 @@ def _query_term_groups(query: str) -> list[list[str]]:
         if ":" not in candidate:
             break
         key = candidate.split(":", 1)[0].lower()
-        if key not in {"has", "is", "label"}:
+        if key not in {"has", "is", "label", "after", "before", "newer_than", "older_than"}:
             break
         distributable_suffix.insert(0, groups[-1].pop())
 
@@ -73,6 +73,43 @@ def _query_term_groups(query: str) -> list[list[str]]:
                     group.append(token)
 
     return groups
+
+
+def _parse_query_date(value: str) -> datetime | None:
+    normalized = value.strip().replace("/", "-")
+    if not normalized:
+        return None
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        try:
+            parsed_date = date.fromisoformat(normalized)
+        except ValueError:
+            return None
+        return datetime.combine(parsed_date, time.min, tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _parse_relative_duration(value: str) -> timedelta | None:
+    normalized = value.strip().lower()
+    if len(normalized) < 2:
+        return None
+    amount = normalized[:-1]
+    unit = normalized[-1]
+    if not amount.isdigit():
+        return None
+    magnitude = int(amount)
+    if unit == "d":
+        return timedelta(days=magnitude)
+    if unit == "w":
+        return timedelta(weeks=magnitude)
+    if unit == "m":
+        return timedelta(days=30 * magnitude)
+    if unit == "y":
+        return timedelta(days=365 * magnitude)
+    return None
 
 
 class Attachment(BaseEntity):
@@ -127,6 +164,7 @@ class Contact(BaseEntity):
     company: str | None = None
     note: str | None = None
     is_vip: bool = False
+    is_starred: bool = False
     source: str = "seeded"
     last_contacted_at: datetime | None = None
 
@@ -136,6 +174,7 @@ class Label(BaseEntity):
     color: str = "#5f6368"
     system: bool = False
     show_in_label_list: str = "show"
+    show_in_message_list: str = "show"
     show_in_imap: bool = True
 
 
@@ -151,6 +190,7 @@ class FilterRule(BaseEntity):
     mark_read: bool = False
     forward_to: str | None = None
     star: bool = False
+    never_spam: bool = False
 
     def matches_email(self, email: Email) -> bool:
         if self.from_addresses:
@@ -249,14 +289,88 @@ class GmailState(BaseEnvState):
     def count_unread(self, label: str = "inbox") -> int:
         return sum(1 for email in self.list_emails(label=label) if not email.is_read)
 
-    def ensure_label(self, label_name: str, color: str = "#1a73e8", system: bool = False) -> Label:
+    def ensure_label(
+        self,
+        label_name: str,
+        color: str = "#1a73e8",
+        system: bool = False,
+        show_in_label_list: str = "show",
+        show_in_message_list: str = "show",
+        show_in_imap: bool = True,
+    ) -> Label:
         existing = next((label for label in self.labels if label.name.lower() == label_name.lower()), None)
         if existing is not None:
             return existing
-        label = Label(id=f"label_{len(self.labels) + 1}", name=label_name, color=color, system=system)
+        label = Label(
+            id=f"label_{len(self.labels) + 1}",
+            name=label_name,
+            color=color,
+            system=system,
+            show_in_label_list=show_in_label_list,
+            show_in_message_list=show_in_message_list,
+            show_in_imap=show_in_imap,
+        )
         self.labels.append(label)
         self.touch()
         return label
+
+    def update_label(
+        self,
+        label_id: str,
+        *,
+        name: str | None = None,
+        show_in_label_list: str | None = None,
+        show_in_message_list: str | None = None,
+        show_in_imap: bool | None = None,
+    ) -> Label:
+        label = next((item for item in self.labels if item.id == label_id), None)
+        if label is None:
+            raise KeyError(f"Unknown label id: {label_id}")
+        if label.system and name and name != label.name:
+            raise ValueError(f"System labels cannot be renamed: {label.name}")
+
+        if name is not None and name != label.name:
+            conflicting = next(
+                (item for item in self.labels if item.id != label_id and item.name.lower() == name.lower()),
+                None,
+            )
+            if conflicting is not None:
+                raise ValueError(f"Label already exists: {name}")
+            old_name = label.name
+            label.name = name
+            for email in self.emails + self.sent + self.deleted:
+                email.labels = [name if existing == old_name else existing for existing in email.labels]
+            for rule in self.filters:
+                rule.add_labels = [name if existing == old_name else existing for existing in rule.add_labels]
+                rule.label_requirements = [
+                    name if existing == old_name else existing for existing in rule.label_requirements
+                ]
+        if show_in_label_list is not None:
+            label.show_in_label_list = show_in_label_list
+        if show_in_message_list is not None:
+            label.show_in_message_list = show_in_message_list
+        if show_in_imap is not None:
+            label.show_in_imap = show_in_imap
+        self.touch()
+        return label
+
+    def remove_label(self, label_id: str) -> Label:
+        for index, label in enumerate(self.labels):
+            if label.id != label_id:
+                continue
+            if label.system:
+                raise ValueError(f"System labels cannot be deleted: {label.name}")
+            removed = self.labels.pop(index)
+            for email in self.emails + self.sent + self.deleted:
+                email.labels = [existing for existing in email.labels if existing != removed.name]
+            for rule in self.filters:
+                rule.add_labels = [existing for existing in rule.add_labels if existing != removed.name]
+                rule.label_requirements = [
+                    existing for existing in rule.label_requirements if existing != removed.name
+                ]
+            self.touch()
+            return removed
+        raise KeyError(f"Unknown label id: {label_id}")
 
     def mark_read(self, email_id: str, is_read: bool = True) -> Email:
         email = self._require_email(email_id)
@@ -276,8 +390,8 @@ class GmailState(BaseEnvState):
 
     def apply_label(self, email_id: str, label_name: str, action: str = "add") -> Email:
         email = self._require_email(email_id)
-        self.ensure_label(label_name)
         if action == "add":
+            self.ensure_label(label_name)
             if label_name not in email.labels:
                 email.labels.append(label_name)
         elif action == "remove":
@@ -399,10 +513,49 @@ class GmailState(BaseEnvState):
             existing.company = contact.company
             existing.note = contact.note
             existing.is_vip = contact.is_vip
+            existing.is_starred = contact.is_starred
             existing.last_contacted_at = contact.last_contacted_at
             self.touch()
             return existing
         self.contacts.append(contact)
+        self.touch()
+        return contact
+
+    def update_contact(
+        self,
+        contact_id: str,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        company: str | None = None,
+        note: str | None = None,
+        is_vip: bool | None = None,
+        is_starred: bool | None = None,
+        last_contacted_at: datetime | None = None,
+    ) -> Contact:
+        contact = self.get_contact(contact_id)
+        if contact is None:
+            raise KeyError(f"Unknown contact id: {contact_id}")
+        if email is not None and email.lower() != contact.email.lower():
+            existing = next(
+                (item for item in self.contacts if item.id != contact_id and item.email.lower() == email.lower()),
+                None,
+            )
+            if existing is not None:
+                raise ValueError(f"Contact already exists: {email}")
+            contact.email = email
+        if name is not None:
+            contact.name = name
+        if company is not None:
+            contact.company = company
+        if note is not None:
+            contact.note = note
+        if is_vip is not None:
+            contact.is_vip = is_vip
+        if is_starred is not None:
+            contact.is_starred = is_starred
+        if last_contacted_at is not None:
+            contact.last_contacted_at = last_contacted_at
         self.touch()
         return contact
 
@@ -450,6 +603,10 @@ class GmailState(BaseEnvState):
             " ".join(email.to).lower(),
         ]
         labels = {label.lower() for label in email.labels}
+        reference_time = max(
+            [self.created_at, *(item.timestamp for item in self.emails + self.sent + self.deleted)],
+            key=lambda item: item.timestamp() if isinstance(item, datetime) else 0.0,
+        )
 
         for terms in term_groups:
             matches_group = True
@@ -479,6 +636,26 @@ class GmailState(BaseEnvState):
                             break
                     elif key == "has" and value == "attachment":
                         if not email.attachments:
+                            matches_group = False
+                            break
+                    elif key == "after":
+                        cutoff = _parse_query_date(value)
+                        if cutoff is None or email.timestamp < cutoff:
+                            matches_group = False
+                            break
+                    elif key == "before":
+                        cutoff = _parse_query_date(value)
+                        if cutoff is None or email.timestamp >= cutoff:
+                            matches_group = False
+                            break
+                    elif key == "newer_than":
+                        duration = _parse_relative_duration(value)
+                        if duration is None or email.timestamp < reference_time - duration:
+                            matches_group = False
+                            break
+                    elif key == "older_than":
+                        duration = _parse_relative_duration(value)
+                        if duration is None or email.timestamp > reference_time - duration:
                             matches_group = False
                             break
                     elif key == "is" and value == "unread":
