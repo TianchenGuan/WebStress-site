@@ -1,0 +1,61 @@
+task_id: gmail_contact_cleanup
+env_id: gmail
+title: Contact Cleanup
+instruction_template: |-
+  Clean up Contacts. Delete any contacts that have not been in touch for more than 30 days. Then find the most recent email thread with the subject '{target.missing_contact_subject}' and add {target.missing_contact_name} using the email address from that thread, with the note '{target.contact_note}'. Do not remove {target.keep_contact_name}.
+difficulty: medium
+time_limit_seconds: 300
+expected_steps: 25
+primary_primitives:
+- exploration
+- verification
+- memory
+- attention
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: contact_cleanup
+    params: {}
+    outputs:
+    - stale_contact_id_a
+    - stale_contact_id_b
+    - missing_contact_name
+    - missing_contact_email
+    - missing_contact_subject
+    - contact_note
+    - keep_contact_name
+    - keep_contact_id
+    - near_threshold_contact_id
+    - near_threshold_contact_b_id
+  targets:
+    stale_contact_id_a: "{output.stale_contact_id_a}"
+    stale_contact_id_b: "{output.stale_contact_id_b}"
+    missing_contact_name: "{output.missing_contact_name}"
+    missing_contact_email: "{output.missing_contact_email}"
+    missing_contact_subject: "{output.missing_contact_subject}"
+    contact_note: "{output.contact_note}"
+    keep_contact_name: "{output.keep_contact_name}"
+    keep_contact_id: "{output.keep_contact_id}"
+    near_threshold_contact_id: "{output.near_threshold_contact_id}"
+    near_threshold_contact_b_id: "{output.near_threshold_contact_b_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: all(contact.id != '{target.stale_contact_id_a}' for contact in state.contacts)
+    desc: First stale contact was removed
+  - expr: all(contact.id != '{target.stale_contact_id_b}' for contact in state.contacts)
+    desc: Second stale contact was removed
+  - expr: any(contact.email == '{target.missing_contact_email}' and '{target.contact_note}' in (contact.note or '') for contact
+      in state.contacts)
+    desc: Missing contact was added with the required note
+  - expr: any(contact.id == '{target.keep_contact_id}' for contact in state.contacts)
+    desc: Active contact was preserved
+  negative_checks:
+  - expr: any(contact.id == '{target.near_threshold_contact_id}' for contact in state.contacts)
+    desc: Near-threshold contact A preserved
+    penalty: 0.15
+  - expr: any(contact.id == '{target.near_threshold_contact_b_id}' for contact in state.contacts)
+    desc: Near-threshold contact B preserved
+    penalty: 0.15

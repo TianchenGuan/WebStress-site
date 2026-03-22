@@ -6,6 +6,10 @@ The current benchmark line should be understood as a methodological shift away f
 
 Equally important, the later iterations improved benchmark validity rather than only benchmark difficulty. Success is now tied more tightly to completed interaction, DOM evidence when present, and auditable benchmark state. This matters for academic use because a benchmark is only as useful as its measurement discipline. The current WebAgentBench line is intended to function as a controlled environment for studying whether web agents can execute multi-step, policy-sensitive, verification-heavy tasks without relying on brittle shortcuts.
 
+## Task Authoring
+
+For the Gmail environment task authoring standard and batch-generation guide, see [docs/GMAIL_TASK_GENERATION_STANDARD.md](/Users/michael/Documents/GitHub/LLMOS/webagentbench/docs/GMAIL_TASK_GENERATION_STANDARD.md).
+
 ## Version Registry
 
 | Version | Manifest | Pages | Primary change | Result status |

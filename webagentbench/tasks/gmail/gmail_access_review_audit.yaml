@@ -1,0 +1,69 @@
+task_id: gmail_access_review_audit
+env_id: gmail
+title: Departed Employee Access Audit
+instruction_template: |-
+  IT sent an email from it-admin@acme.com with subject "Quarterly Access Review: Project Athena" listing 6 accounts with access to Project Athena. HR sent an email from hr-ops@acme.com with subject "Personnel Changes - Q3" listing departed employees and role changes. Cross-reference the IT list against the HR email and the contacts list to identify which of the 6 accounts belong to departed employees. Compose a new email to {target.compose_to} with subject "{target.compose_subject}" and body listing exactly the usernames of departed employees who still have Project Athena access. Do not request removal for employees who changed roles but did not depart. Star both the IT email and the HR email. Archive both emails after starring them.
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 40
+primary_primitives:
+- memory
+- verification
+- exploration
+- adversarial_robustness
+secondary_primitives:
+- attention
+- constraint_satisfaction
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: access_review_audit
+    params: {}
+    outputs:
+    - it_email_id
+    - hr_email_id
+    - gossip_email_id
+    - departed_usernames
+    - decoy_username
+    - compose_to
+    - compose_subject
+  targets:
+    it_email_id: "{output.it_email_id}"
+    hr_email_id: "{output.hr_email_id}"
+    gossip_email_id: "{output.gossip_email_id}"
+    departed_usernames: "{output.departed_usernames}"
+    decoy_username: "{output.decoy_username}"
+    compose_to: "{output.compose_to}"
+    compose_subject: "{output.compose_subject}"
+eval:
+  source: server_state
+  checks:
+  - expr: any('{target.compose_to}' in m.to and '{target.compose_subject}' in m.subject for m in state.sent)
+    desc: Access removal email sent to IT admin
+  - expr: any('{target.compose_to}' in m.to and 'rbrown' in m.body for m in state.sent)
+    desc: Removal email includes rbrown
+  - expr: any('{target.compose_to}' in m.to and 'tjones' in m.body for m in state.sent)
+    desc: Removal email includes tjones
+  - expr: state.get_email('{target.it_email_id}').is_starred
+    desc: IT email starred
+  - expr: state.get_email('{target.hr_email_id}').is_starred
+    desc: HR email starred
+  - expr: state.get_email('{target.it_email_id}').is_archived
+    desc: IT email archived
+  - expr: state.get_email('{target.hr_email_id}').is_archived
+    desc: HR email archived
+  negative_checks:
+  - expr: not any('{target.compose_to}' in m.to and 'klee' in m.body for m in state.sent)
+    desc: klee not included in removal (role change only)
+    penalty: 0.25
+  - expr: not any('{target.compose_to}' in m.to and 'jsmith' in m.body for m in state.sent)
+    desc: jsmith not included in removal (active employee)
+    penalty: 0.15
+  - expr: not any('{target.compose_to}' in m.to and 'mwong' in m.body for m in state.sent)
+    desc: mwong not included in removal (active employee)
+    penalty: 0.15
+  - expr: not any('{target.compose_to}' in m.to and 'pgarcia' in m.body for m in state.sent)
+    desc: pgarcia not included in removal (active employee)
+    penalty: 0.15

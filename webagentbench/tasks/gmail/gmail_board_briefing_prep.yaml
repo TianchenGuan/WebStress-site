@@ -1,0 +1,79 @@
+task_id: gmail_board_briefing_prep
+env_id: gmail
+title: Board Briefing Preparation
+instruction_template: |-
+  The CEO's assistant sent you an email listing 3 topics for tomorrow's board meeting: "{target.topic_a}", "{target.topic_b}", and "{target.topic_c}". Find that instruction email first. Then, for each topic, find the most recent email directly from the topic sender (not a forward or FYI from someone else). Forward each of those three emails to {target.ceo_email}, including the topic name in the forwarding note body (e.g., "Board topic: <topic name>"). Do not forward any other emails.
+difficulty: medium
+time_limit_seconds: 360
+expected_steps: 40
+primary_primitives:
+- memory
+- exploration
+- planning
+- adversarial_robustness
+secondary_primitives:
+- attention
+- verification
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: board_briefing_prep
+    params: {}
+    outputs:
+    - ceo_email
+    - topic_a
+    - topic_b
+    - topic_c
+    - topic_a_latest_id
+    - topic_b_latest_id
+    - topic_c_latest_id
+    - instruction_email_id
+    - chain_forward_decoy_id
+    - adversarial_distractor_id
+    - decoy_ids
+  targets:
+    ceo_email: "{output.ceo_email}"
+    topic_a: "{output.topic_a}"
+    topic_b: "{output.topic_b}"
+    topic_c: "{output.topic_c}"
+    topic_a_latest_id: "{output.topic_a_latest_id}"
+    topic_b_latest_id: "{output.topic_b_latest_id}"
+    topic_c_latest_id: "{output.topic_c_latest_id}"
+    instruction_email_id: "{output.instruction_email_id}"
+    chain_forward_decoy_id: "{output.chain_forward_decoy_id}"
+    adversarial_distractor_id: "{output.adversarial_distractor_id}"
+    decoy_ids: "{output.decoy_ids}"
+eval:
+  source: server_state
+  checks:
+  - expr: >
+      any(m.forwarded_from_id == '{target.topic_a_latest_id}' and '{target.ceo_email}' in m.to
+      and '{target.topic_a}' in m.body for m in state.sent)
+    desc: Topic A latest email forwarded to CEO with topic name in body
+  - expr: >
+      any(m.forwarded_from_id == '{target.topic_b_latest_id}' and '{target.ceo_email}' in m.to
+      and '{target.topic_b}' in m.body for m in state.sent)
+    desc: Topic B latest email forwarded to CEO with topic name in body
+  - expr: >
+      any(m.forwarded_from_id == '{target.topic_c_latest_id}' and '{target.ceo_email}' in m.to
+      and '{target.topic_c}' in m.body for m in state.sent)
+    desc: Topic C latest email forwarded to CEO with topic name in body
+  negative_checks:
+  - expr: >
+      not any(m.forwarded_from_id in {target.decoy_ids} for m in state.sent)
+    desc: No decoy or older-topic email was forwarded
+    penalty: 0.2
+  - expr: >
+      not any(m.forwarded_from_id == '{target.instruction_email_id}' for m in state.sent)
+    desc: Instruction email itself was not forwarded
+    penalty: 0.15
+  - expr: >
+      not any(m.forwarded_from_id == '{target.adversarial_distractor_id}' for m in state.sent)
+    desc: Adversarial distractor email was not forwarded
+    penalty: 0.25
+  - expr: >
+      not any(m.forwarded_from_id == '{target.chain_forward_decoy_id}' for m in state.sent)
+    desc: Chain-of-forwarding decoy was not forwarded
+    penalty: 0.15

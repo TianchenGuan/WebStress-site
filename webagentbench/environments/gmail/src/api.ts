@@ -50,10 +50,25 @@ export function createGmailApi(request: RequestFn) {
         },
       }),
     getLabels: async () => (await request<{ items: Label[] }>("labels")).items,
-    createLabel: (payload: { name: string; color: string }) =>
+    createLabel: (
+      payload: {
+        name: string;
+        color: string;
+        show_in_label_list?: string;
+        show_in_message_list?: string;
+        show_in_imap?: boolean;
+      },
+    ) =>
       request<{ label: Label }>("labels", { method: "POST", body: payload }).then((response) => response.label),
-    updateLabel: (labelId: string, payload: { show_in_label_list?: string; show_in_imap?: boolean }) =>
+    updateLabel: (
+      labelId: string,
+      payload: { name?: string; show_in_label_list?: string; show_in_message_list?: string; show_in_imap?: boolean },
+    ) =>
       request<{ label: Label }>(`labels/${labelId}`, { method: "PUT", body: payload }).then((response) => response.label),
+    renameLabel: (labelId: string, payload: { name: string }) =>
+      request<{ label: Label }>(`labels/${labelId}`, { method: "PUT", body: payload }).then((response) => response.label),
+    deleteLabel: (labelId: string) =>
+      request(`labels/${labelId}`, { method: "DELETE" }),
     getFilters: async () => (await request<{ items: FilterRule[] }>("filters")).items,
     createFilter: (payload: Omit<FilterRule, "id">) =>
       request<{ filter: FilterRule }>("filters", { method: "POST", body: payload }).then((response) => response.filter),
@@ -62,6 +77,10 @@ export function createGmailApi(request: RequestFn) {
     getContacts: async () => (await request<{ items: Contact[] }>("contacts")).items,
     createContact: (payload: Omit<Contact, "id">) =>
       request<{ contact: Contact }>("contacts", { method: "POST", body: payload }).then((response) => response.contact),
+    updateContact: (contactId: string, payload: Partial<Omit<Contact, "id">>) =>
+      request<{ contact: Contact }>(`contacts/${contactId}`, { method: "PUT", body: payload }).then((response) => response.contact),
+    setContactStar: (contactId: string, is_starred: boolean) =>
+      request<{ contact: Contact }>(`contacts/${contactId}`, { method: "PUT", body: { is_starred } }).then((response) => response.contact),
     deleteContact: (contactId: string) =>
       request(`contacts/${contactId}`, { method: "DELETE" }),
     search: (q: string, query?: Record<string, unknown>) =>

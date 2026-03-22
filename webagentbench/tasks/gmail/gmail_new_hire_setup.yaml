@@ -1,0 +1,78 @@
+task_id: gmail_new_hire_setup
+env_id: gmail
+title: New Hire Setup
+instruction_template: |-
+  It is your first day. Set up your Gmail. Go to Settings and change: display density to comfortable, undo send to 30 seconds, default reply behavior to reply, and enable Send and Archive. Then create three team labels: 'Engineering', 'Design', and 'Product'. Set up two filters in Settings: one that stars emails from {target.team_list_email} and labels them 'Engineering', and one that stars emails from {target.manager_email}. Find the three welcome emails from your team leads in your inbox and add each as a contact (use their name, email, and company from the email). Reply to the welcome email from {target.welcome_sender_name} with the phrase '{target.intro_phrase}' and CC {target.hiring_manager_email} — but do not Reply All (the original email CC'd the entire team).
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 52
+primary_primitives:
+- planning
+- memory
+- attention
+- constraint_satisfaction
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: new_hire_setup
+    params:
+      team_list_email: eng-team@company.test
+      manager_email: manager@company.test
+      hiring_manager_email: hiring-manager@company.test
+      intro_phrase: "Thanks for the warm welcome! Looking forward to working with the team."
+      company_name: Northwind Labs
+      team_cc:
+      - dev-a@company.test
+      - dev-b@company.test
+      - dev-c@company.test
+      - dev-d@company.test
+      - dev-e@company.test
+    outputs:
+    - team_list_email
+    - manager_email
+    - hiring_manager_email
+    - intro_phrase
+    - welcome_sender_name
+    - welcome_id
+    - new_contact_emails
+  targets:
+    team_list_email: "{output.team_list_email}"
+    manager_email: "{output.manager_email}"
+    hiring_manager_email: "{output.hiring_manager_email}"
+    intro_phrase: "{output.intro_phrase}"
+    welcome_sender_name: "{output.welcome_sender_name}"
+    welcome_id: "{output.welcome_id}"
+    new_contact_emails: "{output.new_contact_emails}"
+eval:
+  source: server_state
+  checks:
+  - expr: state.settings.display_density == 'comfortable'
+    desc: Density set
+  - expr: state.settings.undo_send_seconds == 30
+    desc: Undo send set
+  - expr: state.settings.default_reply_behavior == 'reply'
+    desc: Default reply set
+  - expr: state.settings.send_and_archive
+    desc: Send and archive enabled
+  - expr: any(l.name == 'Engineering' for l in state.labels)
+    desc: Engineering label created
+  - expr: any(l.name == 'Design' for l in state.labels)
+    desc: Design label created
+  - expr: any(l.name == 'Product' for l in state.labels)
+    desc: Product label created
+  - expr: any(r.star and '{target.team_list_email}' in r.from_addresses and 'Engineering' in r.add_labels for r in state.filters)
+    desc: Team filter created
+  - expr: any(r.star and '{target.manager_email}' in r.from_addresses for r in state.filters)
+    desc: Manager filter created
+  - expr: len([c for c in state.contacts if c.email in {target.new_contact_emails}]) >= 3
+    desc: 3 contacts added
+  - expr: any(m.in_reply_to == '{target.welcome_id}' and '{target.intro_phrase}' in m.body for m in state.sent)
+    desc: Welcome reply with phrase
+  - expr: any('{target.hiring_manager_email}' in m.cc for m in state.sent if m.in_reply_to == '{target.welcome_id}')
+    desc: Hiring manager CC'd
+  negative_checks:
+  - expr: len(state.sent[-1].to) == 1
+    desc: Reply not Reply All
+    penalty: 0.2

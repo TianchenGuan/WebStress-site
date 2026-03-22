@@ -1,0 +1,70 @@
+task_id: gmail_inbox_triage_protocol
+env_id: gmail
+title: Inbox Triage Protocol
+instruction_template: |-
+  Process five inbox items exactly once. Star and label 'Finance Review' on the invoice that requires approval (not the cover sheet or remittance note). Archive the promotional offer. Forward the original security alert (not the follow-up saying it was already resolved) to {target.escalation_email}. Label the travel request about the leadership offsite (not the dinner invitation) with 'Travel Follow-up'. Reply to the onboarding checklist email with the exact phrase '{target.confirmation_phrase}'.
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 40
+primary_primitives:
+- planning
+- attention
+- verification
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: inbox_triage_protocol
+    params: {}
+    outputs:
+    - escalation_email
+    - confirmation_phrase
+    - invoice_email_id
+    - promo_email_id
+    - security_email_id
+    - travel_email_id
+    - onboarding_email_id
+    - invoice_decoy_email_id
+    - security_followup_email_id
+    - travel_decoy_email_id
+  targets:
+    escalation_email: "{output.escalation_email}"
+    confirmation_phrase: "{output.confirmation_phrase}"
+    invoice_email_id: "{output.invoice_email_id}"
+    promo_email_id: "{output.promo_email_id}"
+    security_email_id: "{output.security_email_id}"
+    travel_email_id: "{output.travel_email_id}"
+    onboarding_email_id: "{output.onboarding_email_id}"
+    invoice_decoy_email_id: "{output.invoice_decoy_email_id}"
+    security_followup_email_id: "{output.security_followup_email_id}"
+    travel_decoy_email_id: "{output.travel_decoy_email_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: state.get_email('{target.invoice_email_id}') is not None and state.get_email('{target.invoice_email_id}').is_starred
+      and 'Finance Review' in state.get_email('{target.invoice_email_id}').labels
+    desc: Invoice email was starred and labeled correctly
+  - expr: state.get_email('{target.promo_email_id}') is not None and 'inbox' not in state.get_email('{target.promo_email_id}').labels
+    desc: Promotion email was archived out of the inbox
+  - expr: any(message.forwarded_from_id == '{target.security_email_id}' and '{target.escalation_email}' in message.to for
+      message in state.sent)
+    desc: Security alert was forwarded to the escalation address
+  - expr: state.get_email('{target.travel_email_id}') is not None and 'Travel Follow-up' in state.get_email('{target.travel_email_id}').labels
+    desc: Travel request received the correct follow-up label
+  - expr: any(message.in_reply_to == '{target.onboarding_email_id}' and '{target.confirmation_phrase}' in message.body for
+      message in state.sent)
+    desc: Onboarding message received the requested confirmation reply
+  negative_checks:
+  - expr: state.get_email('{target.invoice_decoy_email_id}') is not None and not state.get_email('{target.invoice_decoy_email_id}').is_starred
+    desc: Decoy invoice was not starred
+    penalty: 0.15
+  - expr: not any(message.forwarded_from_id == '{target.security_followup_email_id}' for message in state.sent)
+    desc: Resolved security follow-up was not forwarded
+    penalty: 0.15
+  - expr: state.get_email('{target.travel_decoy_email_id}') is not None and 'Travel Follow-up' not in state.get_email('{target.travel_decoy_email_id}').labels
+    desc: Dinner travel decoy was not labeled with Travel Follow-up
+    penalty: 0.15
+  - expr: all(len(message.cc) == 0 for message in state.sent if message.in_reply_to == '{target.onboarding_email_id}')
+    desc: Onboarding reply was not sent via Reply All
+    penalty: 0.1

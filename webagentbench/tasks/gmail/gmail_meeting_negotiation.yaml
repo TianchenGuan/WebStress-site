@@ -1,0 +1,49 @@
+task_id: gmail_meeting_negotiation
+env_id: gmail
+title: Meeting Negotiation
+instruction_template: |-
+  Five people have sent you their availability for the {target.meeting_name} meeting. Find all five emails and note each person's available times. Then check the venue confirmation email (it may not be in your Primary tab) to see which room is available and when. Compose a new email to {target.organizer_email} confirming the one time slot that works for all five attendees AND the venue. CC all five attendees. Your email body must mention the confirmed time and the room name.
+difficulty: hard
+time_limit_seconds: 420
+expected_steps: 50
+primary_primitives:
+- memory
+- attention
+- planning
+- constraint_satisfaction
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: meeting_negotiation
+    params: {}
+    outputs:
+    - meeting_name
+    - organizer_email
+    - attendee_emails
+    - correct_time
+    - room_name
+  targets:
+    meeting_name: "{output.meeting_name}"
+    organizer_email: "{output.organizer_email}"
+    attendee_emails: "{output.attendee_emails}"
+    correct_time: "{output.correct_time}"
+    room_name: "{output.room_name}"
+eval:
+  source: server_state
+  checks:
+  - expr: len(state.sent) == 1
+    desc: Exactly one email sent
+  - expr: state.sent[-1].to == ['{target.organizer_email}']
+    desc: Sent to organizer
+  - expr: all(addr in state.sent[-1].cc for addr in {target.attendee_emails})
+    desc: All 5 attendees CC'd
+  - expr: '''{target.correct_time}'' in state.sent[-1].body'
+    desc: Correct time in body
+  - expr: '''{target.room_name}'' in state.sent[-1].body'
+    desc: Room name in body
+  negative_checks:
+  - expr: not any(m.in_reply_to is not None for m in state.sent)
+    desc: Must compose new, not reply
+    penalty: 0.2

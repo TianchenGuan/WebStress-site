@@ -1,0 +1,62 @@
+task_id: gmail_thread_version_conflict
+env_id: gmail
+title: Find the final agreed version number in a thread with superseded proposals
+instruction_template: |-
+  Read the thread with subject "Release Version for Q3 Launch" from the sender
+  Chen Wei. Identify the version number that both Chen Wei and Dana Okafor explicitly
+  agreed on in that thread. State the version as '4.2.1' (without a 'v' prefix).
+  Reply to Chen Wei's most recent message in the thread with exact text:
+  "Confirmed: version 4.2.1 is the agreed release."
+difficulty: medium
+time_limit_seconds: 360
+expected_steps: 18
+primary_primitives:
+- memory
+- verification
+- attention
+- adversarial_robustness
+secondary_primitives:
+- patience
+start_path: /inbox
+seed:
+  distractors: 40
+  actors:
+    chen_wei: { domain: "launchpad.io", is_vip: false }
+    dana_okafor: { domain: "launchpad.io", is_vip: false }
+    raj_patel: { domain: "launchpad.io", is_vip: false }
+    priya_menon: { domain: "otherproduct.com", is_vip: false }
+    kai_bremer: { domain: "launchpad.io", is_vip: false }
+  steps:
+  - use: thread_version_conflict
+    params: {}
+    outputs:
+    - chen_wei_email
+    - chen_wei_latest_email_id
+    - target_thread_id
+    - decoy_thread_id
+    - adversarial_email_id
+  targets:
+    chen_wei_email: "{output.chen_wei_email}"
+    chen_wei_latest_email_id: "{output.chen_wei_latest_email_id}"
+    target_thread_id: "{output.target_thread_id}"
+    decoy_thread_id: "{output.decoy_thread_id}"
+    adversarial_email_id: "{output.adversarial_email_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: "any(e.thread_id == '{target.target_thread_id}' and 'Confirmed: version 4.2.1 is the agreed release.' in e.body for e in state.sent)"
+    desc: Reply in correct thread with exact confirmation text
+  - expr: "any(e.in_reply_to == '{target.chen_wei_latest_email_id}' for e in state.sent)"
+    desc: Reply is to Chen Wei's most recent message
+  - expr: "any('{target.chen_wei_email}' in e.to for e in state.sent)"
+    desc: Reply sent to Chen Wei
+  negative_checks:
+  - expr: "not any(e.thread_id == '{target.decoy_thread_id}' for e in state.sent)"
+    desc: No reply in decoy thread
+    penalty: 0.15
+  - expr: "not any('4.3.0' in e.body for e in state.sent)"
+    desc: Reply does not contain wrong version 4.3.0
+    penalty: 0.15
+  - expr: "not any('4.1.0' in e.body for e in state.sent)"
+    desc: Reply does not contain superseded version 4.1.0
+    penalty: 0.15

@@ -32,6 +32,7 @@ export interface Label {
   color: string;
   system?: boolean;
   show_in_label_list?: string;
+  show_in_message_list?: string;
   show_in_imap?: boolean;
 }
 
@@ -48,6 +49,7 @@ export interface FilterRule {
   mark_read: boolean;
   forward_to?: string | null;
   star: boolean;
+  never_spam?: boolean;
 }
 
 export interface Contact {
@@ -57,6 +59,7 @@ export interface Contact {
   company?: string;
   note?: string;
   is_vip?: boolean;
+  is_starred?: boolean;
   source?: string;
   last_contacted_at?: string | null;
 }

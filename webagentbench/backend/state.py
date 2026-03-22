@@ -5,9 +5,12 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
+import random
+
 from .models.base import AuditEntry, BaseEnvState
 from .models.gmail import GmailState
-from .seeder import Seeder
+from .seeder import _FallbackFaker, derive_seed
+from .seeders.gmail import GmailSeedRunner
 
 
 STATE_TYPES: dict[str, type[BaseEnvState]] = {
@@ -30,7 +33,12 @@ class SessionManager:
         if env_id not in STATE_TYPES:
             raise KeyError(f"Unknown environment: {env_id}")
         actual_seed = seed if seed is not None else _default_seed(env_id, task_id)
-        seeded_data, resolved_targets = Seeder(actual_seed).generate(env_id, task_id)
+        from webagentbench.tasks._registry import get_task
+        task = get_task(task_id)
+        rng = random.Random(actual_seed)
+        fake = _FallbackFaker(actual_seed)
+        fake.seed_instance(actual_seed)
+        seeded_data, resolved_targets = GmailSeedRunner().run(task, actual_seed, fake, rng)
         state = STATE_TYPES[env_id].model_validate(seeded_data)
         state._resolved_targets = dict(resolved_targets)
         session_id = f"{env_id}_{task_id}_{uuid4().hex[:10]}"

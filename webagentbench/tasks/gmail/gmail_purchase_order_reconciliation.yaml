@@ -1,0 +1,86 @@
+task_id: gmail_purchase_order_reconciliation
+env_id: gmail
+title: Match Six PO-Invoice Pairs and Report Discrepancies to CFO
+instruction_template: |-
+  The finance team sent an alert email from finance-alerts@company.com titled "PO-Invoice Discrepancy Alert - Q1 Audit" stating that three purchase order/invoice pairs have dollar amount mismatches. Your inbox contains three purchase order emails from procurement@company.com and three invoice emails from different vendors. Each PO email has a PO number and approved amount; each invoice email references the same PO number with a billed amount. Match each PO to its invoice by PO number, calculate the exact dollar discrepancy for each pair (billed minus approved), then: (1) Compose a NEW email to cfo@company.com with subject "Q1 PO-Invoice Reconciliation" listing each PO number ({target.po_number_1}, {target.po_number_2}, {target.po_number_3}), its approved amount, billed amount, and discrepancy. (2) Star the three invoice emails. Do not star the PO emails. Ignore the invoice from billing@vendorD.com referencing a prior-year PO — it is not part of this Q1 audit. Also ignore any forwarded version of the finance alert with different data.
+difficulty: expert
+time_limit_seconds: 600
+expected_steps: 48
+primary_primitives:
+- memory
+- patience
+- verification
+- attention
+secondary_primitives:
+- planning
+start_path: /inbox
+seed:
+  distractors: 40
+  actors: {}
+  steps:
+  - use: purchase_order_reconciliation
+    params: {}
+    outputs:
+    - po_number_1
+    - po_number_2
+    - po_number_3
+    - approved_1
+    - approved_2
+    - approved_3
+    - billed_1
+    - billed_2
+    - billed_3
+    - discrepancy_1
+    - discrepancy_2
+    - discrepancy_3
+    - po_email_ids
+    - invoice_email_ids
+    - all_target_email_ids
+    - decoy_invoice_email_id
+    - decoy_forwarded_alert_id
+  targets:
+    po_number_1: "{output.po_number_1}"
+    po_number_2: "{output.po_number_2}"
+    po_number_3: "{output.po_number_3}"
+    approved_1: "{output.approved_1}"
+    approved_2: "{output.approved_2}"
+    approved_3: "{output.approved_3}"
+    billed_1: "{output.billed_1}"
+    billed_2: "{output.billed_2}"
+    billed_3: "{output.billed_3}"
+    discrepancy_1: "{output.discrepancy_1}"
+    discrepancy_2: "{output.discrepancy_2}"
+    discrepancy_3: "{output.discrepancy_3}"
+    po_email_ids: "{output.po_email_ids}"
+    invoice_email_ids: "{output.invoice_email_ids}"
+    all_target_email_ids: "{output.all_target_email_ids}"
+    decoy_invoice_email_id: "{output.decoy_invoice_email_id}"
+    decoy_forwarded_alert_id: "{output.decoy_forwarded_alert_id}"
+eval:
+  source: server_state
+  checks:
+  - expr: any(m.subject == 'Q1 PO-Invoice Reconciliation' and 'cfo@company.com' in m.to for m in state.sent)
+    desc: Reconciliation email sent to CFO
+  - expr: any(m.subject == 'Q1 PO-Invoice Reconciliation' and '{target.po_number_1}' in m.body and '{target.po_number_2}' in m.body and '{target.po_number_3}' in m.body for m in state.sent)
+    desc: All three PO numbers in reconciliation email
+  - expr: any(m.subject == 'Q1 PO-Invoice Reconciliation' and '{target.discrepancy_1}' in m.body for m in state.sent)
+    desc: First discrepancy value in reconciliation
+  - expr: any(m.subject == 'Q1 PO-Invoice Reconciliation' and '{target.discrepancy_2}' in m.body for m in state.sent)
+    desc: Second discrepancy value in reconciliation
+  - expr: any(m.subject == 'Q1 PO-Invoice Reconciliation' and '{target.discrepancy_3}' in m.body for m in state.sent)
+    desc: Third discrepancy value in reconciliation
+  - expr: all(state.get_email(eid).is_starred for eid in {target.invoice_email_ids})
+    desc: All three invoice emails starred
+  negative_checks:
+  - expr: all(not state.get_email(eid).is_starred for eid in {target.po_email_ids})
+    desc: PO emails must not be starred
+    penalty: 0.15
+  - expr: not state.get_email('{target.decoy_invoice_email_id}').is_starred
+    desc: Decoy prior-year invoice must not be starred
+    penalty: 0.15
+  - expr: not any(m.subject == 'Q1 PO-Invoice Reconciliation' and 'PO-2023-0998' in m.body for m in state.sent)
+    desc: Decoy PO number must not appear in reconciliation
+    penalty: 0.2
+  - expr: not any(m.in_reply_to is not None and m.subject == 'Q1 PO-Invoice Reconciliation' for m in state.sent)
+    desc: Reconciliation must be a new compose not a reply
+    penalty: 0.1
