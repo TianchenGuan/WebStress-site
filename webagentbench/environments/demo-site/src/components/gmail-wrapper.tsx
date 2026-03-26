@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   AdapterProvider,
@@ -16,30 +16,25 @@ import { SettingsPage } from "@webagentbench/gmail/pages/Settings";
 import { LabelsPage } from "@webagentbench/gmail/pages/Labels";
 
 import type { TrajectoryTarget } from "@/lib/results";
-import { ShadowRootPortal } from "./ShadowRootPortal";
+import "@webagentbench/shared/styles/base.css";
+import "@webagentbench/gmail/gmail.css";
+import "./gmail-scope.css";
 
 interface GmailWrapperProps {
   fixture: GmailFixture;
-  /** Initial route, e.g. "/inbox?label=inbox" */
   initialRoute?: string;
-  /** Controlled route for replay views */
   route?: string;
-  /** Optional replay target highlight */
   highlightTarget?: TrajectoryTarget | null;
-  /** Optional CSS class for the outer container */
   className?: string;
 }
 
 function GmailRouteSync({ route }: { route?: string }) {
   const location = useLocation();
   const navigate = useNavigate();
-
   const currentRoute = `${location.pathname}${location.search}`;
 
   useEffect(() => {
-    if (!route || currentRoute === route) {
-      return;
-    }
+    if (!route || currentRoute === route) return;
     navigate(route, { replace: true });
   }, [currentRoute, navigate, route]);
 
@@ -57,79 +52,103 @@ export function GmailWrapper({
     () => createStaticAdapter("gmail", fixture, gmailMutator),
     [fixture],
   );
-  const [shadowRoot, setShadowRoot] = useState<ShadowRoot | null>(null);
-  const highlightedElementRef = useRef<HTMLElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const highlightedRef = useRef<HTMLElement | null>(null);
   const startingRoute = route ?? initialRoute;
 
-  const handleShadowRoot = useCallback((nextShadowRoot: ShadowRoot | null) => {
-    setShadowRoot(nextShadowRoot);
-  }, []);
-
-  useEffect(() => {
-    const previous = highlightedElementRef.current;
-    if (previous) {
-      previous.removeAttribute("data-wab-replay-highlight");
-      highlightedElementRef.current = null;
+  // Highlight target element by CSS selector within the container
+  const applyHighlight = useCallback(() => {
+    // Clear previous
+    if (highlightedRef.current) {
+      highlightedRef.current.style.outline = "";
+      highlightedRef.current.style.outlineOffset = "";
+      highlightedRef.current.style.boxShadow = "";
+      highlightedRef.current.style.transition = "";
+      highlightedRef.current = null;
     }
 
     const selector = highlightTarget?.selector;
-    if (!shadowRoot || !selector) {
-      return;
+    const container = containerRef.current;
+    if (!selector || !container) return false;
+
+    let el: Element | null = null;
+    try {
+      el = container.querySelector(selector);
+    } catch {
+      el = null;
     }
 
-    let timer: number | null = null;
-    let cancelled = false;
+    if (el instanceof HTMLElement) {
+      el.style.outline = "3px solid #1a73e8";
+      el.style.outlineOffset = "2px";
+      el.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
+      el.style.transition = "outline 150ms ease, box-shadow 150ms ease";
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      highlightedRef.current = el;
+      return true;
+    }
+
+    // Fallback: try finding by aria-label or role+name
+    if (highlightTarget?.name) {
+      const name = highlightTarget.name;
+      const candidates = container.querySelectorAll(
+        `[aria-label="${CSS.escape(name)}"], [title="${CSS.escape(name)}"]`
+      );
+      for (const candidate of candidates) {
+        if (candidate instanceof HTMLElement) {
+          candidate.style.outline = "3px solid #1a73e8";
+          candidate.style.outlineOffset = "2px";
+          candidate.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
+          candidate.style.transition = "outline 150ms ease, box-shadow 150ms ease";
+          candidate.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          highlightedRef.current = candidate;
+          return true;
+        }
+      }
+
+      // Try text content match for links/buttons
+      const role = highlightTarget.role;
+      const tag = role === "button" ? "button" : role === "link" ? "a" : null;
+      if (tag) {
+        const allEls = container.querySelectorAll(tag);
+        for (const candidate of allEls) {
+          if (candidate.textContent?.trim().includes(name) && candidate instanceof HTMLElement) {
+            candidate.style.outline = "3px solid #1a73e8";
+            candidate.style.outlineOffset = "2px";
+            candidate.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
+            candidate.style.transition = "outline 150ms ease, box-shadow 150ms ease";
+            candidate.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            highlightedRef.current = candidate;
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }, [highlightTarget]);
+
+  useEffect(() => {
+    // Retry with delays to wait for route changes to render
     let attempt = 0;
+    let timer: ReturnType<typeof setTimeout>;
 
-    const applyHighlight = () => {
-      if (cancelled) {
-        return;
-      }
-
-      let match: Element | null = null;
-      try {
-        match = shadowRoot.querySelector(selector);
-      } catch {
-        match = null;
-      }
-      if (match instanceof HTMLElement) {
-        match.setAttribute("data-wab-replay-highlight", "true");
-        match.scrollIntoView({ block: "nearest", inline: "nearest" });
-        highlightedElementRef.current = match;
-        return;
-      }
-
-      if (attempt < 8) {
-        attempt += 1;
-        timer = window.setTimeout(applyHighlight, 120);
+    const tryHighlight = () => {
+      if (applyHighlight()) return;
+      if (attempt < 10) {
+        attempt++;
+        timer = setTimeout(tryHighlight, 150);
       }
     };
 
-    applyHighlight();
+    // Small initial delay to let route navigation settle
+    timer = setTimeout(tryHighlight, 100);
 
-    return () => {
-      cancelled = true;
-      if (timer) {
-        window.clearTimeout(timer);
-      }
-      const current = highlightedElementRef.current;
-      if (current) {
-        current.removeAttribute("data-wab-replay-highlight");
-        highlightedElementRef.current = null;
-      }
-    };
-  }, [highlightTarget, route, shadowRoot]);
+    return () => clearTimeout(timer);
+  }, [applyHighlight, route]);
 
   return (
-    <ShadowRootPortal
-      className={className}
-      onShadowRoot={handleShadowRoot}
-      fallback={
-        <div className="flex h-full items-center justify-center text-sm text-[var(--text-tertiary)]">
-          Loading Gmail interface...
-        </div>
-      }
-    >
+    <div ref={containerRef} className={`gmail-scope ${className ?? ""}`}>
       <AdapterProvider adapter={adapter}>
         <MemoryRouter initialEntries={[startingRoute]}>
           <GmailRouteSync route={route} />
@@ -145,6 +164,6 @@ export function GmailWrapper({
           </Routes>
         </MemoryRouter>
       </AdapterProvider>
-    </ShadowRootPortal>
+    </div>
   );
 }
