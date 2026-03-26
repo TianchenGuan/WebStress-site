@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   fetchTrajectory,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/results";
 import { TrajectoryViewer } from "@/components/replay/TrajectoryViewer";
 import { GmailWrapper } from "@/components/gmail-wrapper";
+import { TargetOverlay } from "@/components/TargetOverlay";
 import type { GmailFixture } from "@webagentbench/gmail/mutator";
 
 interface TaskFixture {
@@ -36,6 +37,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const gmailContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,21 +171,27 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
             )}
           </div>
 
-          {/* Gmail SPA — stable key so it persists across steps */}
-          {fixture ? (
-            <GmailWrapper
-              key={taskId}
-              fixture={fixture.state as unknown as GmailFixture}
-              initialRoute={fixture.start_path ?? "/inbox?label=inbox"}
-              route={replayRoute}
-              highlightTarget={activeTarget}
-              className="flex-1 min-h-0"
+          {/* Gmail SPA + bbox overlay */}
+          <div ref={gmailContainerRef} className="relative flex-1 min-h-0">
+            {fixture ? (
+              <GmailWrapper
+                key={taskId}
+                fixture={fixture.state as unknown as GmailFixture}
+                initialRoute={fixture.start_path ?? "/inbox?label=inbox"}
+                route={replayRoute}
+                highlightTarget={activeTarget}
+                className="h-full"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-[var(--text-tertiary)]">
+                Environment fixture not available for this task
+              </div>
+            )}
+            <TargetOverlay
+              target={activeTarget}
+              containerRef={gmailContainerRef}
             />
-          ) : (
-            <div className="flex items-center justify-center flex-1 text-sm text-[var(--text-tertiary)]">
-              Environment fixture not available for this task
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Right: agent trajectory — narrower, scrollable */}
