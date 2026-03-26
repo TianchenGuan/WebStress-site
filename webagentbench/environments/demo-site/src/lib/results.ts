@@ -43,6 +43,7 @@ export interface TrajectoryStep {
   status: string;
   elapsed_seconds: number;
   replay_path?: string;
+  result_path?: string;
 }
 
 export interface TrajectoryTarget {
@@ -127,6 +128,7 @@ export function normalizeTrajectoryData(
         ...step,
         targets: normalizeTargets(step.targets),
         replay_path: step.replay_path ?? "/inbox?label=inbox",
+        result_path: step.result_path ?? step.replay_path ?? "/inbox?label=inbox",
       })),
     };
   }
@@ -146,6 +148,7 @@ export function normalizeTrajectoryData(
       ...step,
       targets: normalizeTargets(step.targets),
       replay_path: step.replay_path ?? payload.start_path ?? "/inbox?label=inbox",
+      result_path: step.result_path ?? step.replay_path ?? payload.start_path ?? "/inbox?label=inbox",
     })),
   };
 }

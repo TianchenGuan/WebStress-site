@@ -8,12 +8,14 @@ interface TrajectoryViewerProps {
   steps: TrajectoryStep[];
   current: number;
   onStep: (index: number) => void;
+  isBusy?: boolean;
 }
 
 export function TrajectoryViewer({
   steps,
   current,
   onStep,
+  isBusy = false,
 }: TrajectoryViewerProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,7 @@ export function TrajectoryViewer({
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <StepControls current={current} total={steps.length} onStep={handleStep} />
+      <StepControls current={current} total={steps.length} onStep={handleStep} isBusy={isBusy} />
       <div className="rounded border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
         <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)]">
           Active target
@@ -53,7 +55,12 @@ export function TrajectoryViewer({
       </div>
 
       {/* Scrollable step timeline */}
-      <div ref={listRef} className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-2">
+      <div
+        ref={listRef}
+        className={`flex-1 overflow-y-auto min-h-0 flex flex-col gap-2 transition-opacity duration-150 ${
+          isBusy ? "opacity-90" : "opacity-100"
+        }`}
+      >
         {steps.map((s, i) => {
           const isActive = i === current;
           const elapsed = Number.isFinite(s.elapsed_seconds) ? s.elapsed_seconds : 0;

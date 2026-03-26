@@ -172,17 +172,40 @@ export default function ResultsPage() {
               <td className="py-3 pr-4 font-mono text-[13px] text-[var(--text-secondary)]">
                 {t.difficulty}
               </td>
-              <td className="py-3 pr-4 font-mono text-[13px] text-[var(--text-primary)]">
-                {t.score.toFixed(2)}
+              <td className="py-3 pr-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-[48px] h-[3px] bg-[var(--border)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, t.score * 100))}%`,
+                        background: t.success ? "var(--green)" : t.score > 0.5 ? "oklch(70% 0.12 85)" : "var(--red)",
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="font-mono text-[13px]"
+                    style={{ color: t.success ? "var(--green)" : t.score > 0.5 ? "oklch(70% 0.12 85)" : "var(--red)" }}
+                  >
+                    {t.score.toFixed(2)}
+                  </span>
+                </div>
               </td>
               <td className="py-3 pr-4 font-mono text-[13px] text-[var(--text-secondary)]">
                 {t.steps}
               </td>
               <td className="py-3">
                 <span
-                  className={`font-mono text-[13px] ${
-                    t.success ? "text-[var(--green)]" : "text-[var(--red)]"
+                  className={`font-mono text-[10px] tracking-[1px] uppercase px-2 py-0.5 rounded ${
+                    t.success
+                      ? "text-[var(--green)]"
+                      : "text-[var(--red)]"
                   }`}
+                  style={{
+                    background: t.success
+                      ? "oklch(78% 0.12 155 / 0.1)"
+                      : "oklch(72% 0.14 25 / 0.1)",
+                  }}
                 >
                   {t.success ? "pass" : "fail"}
                 </span>

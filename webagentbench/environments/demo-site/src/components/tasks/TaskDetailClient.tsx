@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PrimitivePill } from "@/components/ui/PrimitivePill";
+import { EvalCriteria } from "@/components/ui/EvalCriteria";
 import { loadTaskDetail, type TaskDetail } from "@/lib/tasks";
 
 export function TaskDetailClient({ taskId }: { taskId: string }) {
@@ -94,17 +95,9 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
         {/* Evaluation criteria */}
         {task.eval_check_descriptions && task.eval_check_descriptions.length > 0 && (
           <div className="py-10">
-            <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-4">
-              Evaluation criteria
-            </p>
-            <ul className="list-none p-0 m-0 space-y-2">
-              {task.eval_check_descriptions.map((desc, i) => (
-                <li key={i} className="flex items-start gap-2 text-[15px] text-[var(--text-secondary)] leading-[1.7]">
-                  <span className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5 shrink-0">{i + 1}.</span>
-                  {desc}
-                </li>
-              ))}
-            </ul>
+            <EvalCriteria
+              criteria={task.eval_check_descriptions.map((desc) => ({ desc }))}
+            />
           </div>
         )}
 

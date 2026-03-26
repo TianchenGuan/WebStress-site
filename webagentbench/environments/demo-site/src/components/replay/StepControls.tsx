@@ -6,22 +6,23 @@ interface StepControlsProps {
   current: number;
   total: number;
   onStep: (index: number) => void;
+  isBusy?: boolean;
 }
 
-export function StepControls({ current, total, onStep }: StepControlsProps) {
+export function StepControls({ current, total, onStep, isBusy = false }: StepControlsProps) {
   const [playing, setPlaying] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (playing) {
-      timerRef.current = setInterval(() => {
+    if (playing && !isBusy && current < total - 1) {
+      timerRef.current = setTimeout(() => {
         onStep(current + 1);
-      }, 1500);
+      }, 1650);
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [playing, current, onStep]);
+  }, [playing, isBusy, current, total, onStep]);
 
   // pause when reaching end
   useEffect(() => {
@@ -53,6 +54,11 @@ export function StepControls({ current, total, onStep }: StepControlsProps) {
       <span className="font-mono text-xs text-[var(--text-tertiary)]">
         Step {current + 1} of {total}
       </span>
+      {isBusy ? (
+        <span className="font-mono text-xs text-[var(--accent)]">
+          Syncing…
+        </span>
+      ) : null}
     </div>
   );
 }
