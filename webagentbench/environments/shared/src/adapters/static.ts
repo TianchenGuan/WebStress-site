@@ -16,9 +16,14 @@ export function createStaticAdapter<TState>(
       const body = options.body as Record<string, unknown> | undefined;
       const query = options.query;
 
-      const result = mutator(currentState, method, path, body, query);
-      currentState = result.state;
-      return result.response as T;
+      try {
+        const result = mutator(currentState, method, path, body, query);
+        currentState = result.state;
+        return result.response as T;
+      } catch (err) {
+        console.error(`[static-adapter] ${method} ${path} failed:`, err);
+        return { error: String(err) } as T;
+      }
     },
     getState: () => currentState,
     reset: (state: TState) => {

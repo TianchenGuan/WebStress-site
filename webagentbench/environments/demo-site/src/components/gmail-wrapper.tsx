@@ -41,6 +41,70 @@ function GmailRouteSync({ route }: { route?: string }) {
   return null;
 }
 
+/** Apply blue highlight styles to an element */
+function highlightElement(el: HTMLElement): void {
+  el.style.outline = "3px solid #1a73e8";
+  el.style.outlineOffset = "2px";
+  el.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
+  el.style.transition = "outline 150ms ease, box-shadow 150ms ease";
+  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+/** Clear highlight styles from an element */
+function clearHighlight(el: HTMLElement): void {
+  el.style.outline = "";
+  el.style.outlineOffset = "";
+  el.style.boxShadow = "";
+  el.style.transition = "";
+}
+
+/** Try to find the target element within a container. Multiple strategies. */
+function findTargetElement(container: HTMLElement, target: TrajectoryTarget): HTMLElement | null {
+  // Strategy 1: CSS selector from trajectory
+  if (target.selector) {
+    try {
+      const el = container.querySelector(target.selector);
+      if (el instanceof HTMLElement) return el;
+    } catch {
+      // invalid selector, try fallbacks
+    }
+  }
+
+  // Strategy 2: aria-label match
+  if (target.name) {
+    const escaped = CSS.escape(target.name);
+    const el = container.querySelector(`[aria-label="${escaped}"]`) ?? container.querySelector(`[title="${escaped}"]`);
+    if (el instanceof HTMLElement) return el;
+  }
+
+  // Strategy 3: text content match for buttons/links
+  if (target.name && target.role) {
+    const tagMap: Record<string, string> = { button: "button", link: "a", textbox: "input", searchbox: "input" };
+    const tag = tagMap[target.role];
+    if (tag) {
+      for (const candidate of container.querySelectorAll(tag)) {
+        const text = candidate.textContent?.trim() ?? "";
+        const aria = candidate.getAttribute("aria-label") ?? "";
+        if ((text.includes(target.name) || aria.includes(target.name)) && candidate instanceof HTMLElement) {
+          return candidate;
+        }
+      }
+    }
+
+    // For rows with specific text (like email subject links)
+    if (target.role === "link" || target.role === "row") {
+      for (const candidate of container.querySelectorAll("a, article, [role='row'], [role='link']")) {
+        const text = candidate.textContent ?? "";
+        if (text.includes(target.name) && candidate instanceof HTMLElement) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export function GmailWrapper({
   fixture,
   initialRoute = "/inbox?label=inbox",
@@ -56,96 +120,52 @@ export function GmailWrapper({
   const highlightedRef = useRef<HTMLElement | null>(null);
   const startingRoute = route ?? initialRoute;
 
-  // Highlight target element by CSS selector within the container
   const applyHighlight = useCallback(() => {
-    // Clear previous
+    // Clear previous highlight
     if (highlightedRef.current) {
-      highlightedRef.current.style.outline = "";
-      highlightedRef.current.style.outlineOffset = "";
-      highlightedRef.current.style.boxShadow = "";
-      highlightedRef.current.style.transition = "";
+      clearHighlight(highlightedRef.current);
       highlightedRef.current = null;
     }
 
-    const selector = highlightTarget?.selector;
     const container = containerRef.current;
-    if (!selector || !container) return false;
+    if (!container || !highlightTarget) return false;
 
-    let el: Element | null = null;
-    try {
-      el = container.querySelector(selector);
-    } catch {
-      el = null;
-    }
-
-    if (el instanceof HTMLElement) {
-      el.style.outline = "3px solid #1a73e8";
-      el.style.outlineOffset = "2px";
-      el.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
-      el.style.transition = "outline 150ms ease, box-shadow 150ms ease";
-      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const el = findTargetElement(container, highlightTarget);
+    if (el) {
+      highlightElement(el);
       highlightedRef.current = el;
       return true;
-    }
-
-    // Fallback: try finding by aria-label or role+name
-    if (highlightTarget?.name) {
-      const name = highlightTarget.name;
-      const candidates = container.querySelectorAll(
-        `[aria-label="${CSS.escape(name)}"], [title="${CSS.escape(name)}"]`
-      );
-      for (const candidate of candidates) {
-        if (candidate instanceof HTMLElement) {
-          candidate.style.outline = "3px solid #1a73e8";
-          candidate.style.outlineOffset = "2px";
-          candidate.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
-          candidate.style.transition = "outline 150ms ease, box-shadow 150ms ease";
-          candidate.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          highlightedRef.current = candidate;
-          return true;
-        }
-      }
-
-      // Try text content match for links/buttons
-      const role = highlightTarget.role;
-      const tag = role === "button" ? "button" : role === "link" ? "a" : null;
-      if (tag) {
-        const allEls = container.querySelectorAll(tag);
-        for (const candidate of allEls) {
-          if (candidate.textContent?.trim().includes(name) && candidate instanceof HTMLElement) {
-            candidate.style.outline = "3px solid #1a73e8";
-            candidate.style.outlineOffset = "2px";
-            candidate.style.boxShadow = "0 0 0 6px rgba(26, 115, 232, 0.2), 0 0 16px rgba(26, 115, 232, 0.25)";
-            candidate.style.transition = "outline 150ms ease, box-shadow 150ms ease";
-            candidate.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            highlightedRef.current = candidate;
-            return true;
-          }
-        }
-      }
     }
 
     return false;
   }, [highlightTarget]);
 
   useEffect(() => {
-    // Retry with delays to wait for route changes to render
+    // Clear immediately when target changes
+    if (highlightedRef.current) {
+      clearHighlight(highlightedRef.current);
+      highlightedRef.current = null;
+    }
+
+    if (!highlightTarget) return;
+
+    // Try immediately, then retry with increasing delays
+    // (route navigation may need time to render new content)
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout>;
+    const delays = [0, 50, 100, 200, 300, 500, 700, 1000];
 
     const tryHighlight = () => {
       if (applyHighlight()) return;
-      if (attempt < 10) {
+      if (attempt < delays.length - 1) {
         attempt++;
-        timer = setTimeout(tryHighlight, 150);
+        timer = setTimeout(tryHighlight, delays[attempt]);
       }
     };
 
-    // Small initial delay to let route navigation settle
-    timer = setTimeout(tryHighlight, 100);
-
+    timer = setTimeout(tryHighlight, delays[0]);
     return () => clearTimeout(timer);
-  }, [applyHighlight, route]);
+  }, [applyHighlight, highlightTarget, route]);
 
   return (
     <div ref={containerRef} className={`gmail-scope ${className ?? ""}`}>
