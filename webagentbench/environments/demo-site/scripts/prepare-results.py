@@ -87,14 +87,16 @@ def derive_replay_paths(
 
     current_path = start_path
     event_idx = 0
+    if simplified_steps:
+        simplified_steps[0]["replay_path"] = start_path
+
     for idx, step in enumerate(simplified_steps):
+        if idx == 0:
+            continue
+
         if start_time is not None:
-            next_elapsed = (
-                simplified_steps[idx + 1].get("elapsed_seconds", total_elapsed_seconds)
-                if idx + 1 < len(simplified_steps)
-                else total_elapsed_seconds
-            )
-            step_ts = start_time + int(float(next_elapsed) * 1000)
+            step_elapsed = step.get("elapsed_seconds", total_elapsed_seconds)
+            step_ts = start_time + int(float(step_elapsed) * 1000)
             while (
                 event_idx < len(route_events)
                 and route_events[event_idx].get("timestamp", 0) <= step_ts
@@ -108,6 +110,26 @@ def derive_replay_paths(
 
         step["replay_path"] = current_path
 
+    final_path = current_path
+    if start_time is not None:
+        final_ts = start_time + int(float(total_elapsed_seconds) * 1000)
+        while (
+            event_idx < len(route_events)
+            and route_events[event_idx].get("timestamp", 0) <= final_ts
+        ):
+            detail = route_events[event_idx].get("detail") or {}
+            final_path = normalize_route(
+                detail.get("pathname"),
+                detail.get("query"),
+            )
+            event_idx += 1
+
+    for idx, step in enumerate(simplified_steps):
+        if idx + 1 < len(simplified_steps):
+            step["result_path"] = simplified_steps[idx + 1]["replay_path"]
+        else:
+            step["result_path"] = final_path
+
     return start_path, simplified_steps
 
 
@@ -115,7 +137,7 @@ def simplify_evaluation(evaluation: dict) -> dict:
     """Extract the evaluation fields needed by the replay page."""
     criteria = [
         {
-            "desc": item.get("desc", ""),
+            "desc": item.get("check", "") or item.get("desc", ""),
             "passed": item.get("passed", False),
             "penalty": item.get("penalty"),
         }
@@ -123,7 +145,7 @@ def simplify_evaluation(evaluation: dict) -> dict:
     ]
     criteria.extend(
         {
-            "desc": item.get("desc", ""),
+            "desc": item.get("check", "") or item.get("desc", ""),
             "passed": item.get("passed", False),
             "penalty": item.get("penalty"),
         }
