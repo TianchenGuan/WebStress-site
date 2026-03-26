@@ -1,43 +1,23 @@
 """
 WebAgentBench Agent Evaluation — LLM-driven browser agent benchmark runner.
 
-Connects an LLM agent (e.g., Llama-3.1-8B via vLLM) to the standalone
-WebAgentBench pages through Playwright. The agent observes the page
-accessibility tree, decides actions, and interacts with real HTML pages.
+Connects an LLM agent to simulated environment applications (Gmail, etc.)
+through Playwright. The agent observes the page accessibility tree, decides
+actions, and interacts with real React SPAs backed by FastAPI.
 
 Usage:
-    # Llama-3.1-8B via vLLM (requires running vLLM server on port 8000):
+    # Run all Gmail tasks with OpenAI:
     python -m webagentbench.agent_eval \
-        --model meta-llama/Llama-3.1-8B-Instruct \
-        --provider vllm
+        --model gpt-4o --provider openai --environments gmail
 
-    # OpenAI model:
+    # Specific task:
     python -m webagentbench.agent_eval \
-        --model gpt-4o \
-        --provider openai
-
-    # OpenAI reasoning (gpt-5*):
-    python -m webagentbench.agent_eval \
-        --model gpt-5.2 \
-        --provider openai \
-        --reasoning-effort high
-
-    # Gemini model:
-    python -m webagentbench.agent_eval \
-        --model gemini-1.5-pro \
-        --provider gemini
-
-    # Specific pages only:
-    python -m webagentbench.agent_eval \
-        --model meta-llama/Llama-3.1-8B-Instruct \
-        --provider vllm \
-        --pages dark_checkout wizard_form
+        --model gpt-4o --provider openai \
+        --tasks gmail_morning_triage_extended
 
     # With visible browser:
     python -m webagentbench.agent_eval \
-        --model meta-llama/Llama-3.1-8B-Instruct \
-        --provider vllm \
-        --no-headless
+        --model gpt-4o --provider openai --no-headless
 """
 
 import argparse
@@ -55,10 +35,8 @@ from pathlib import Path
 from .runner import (
     start_server,
     wait_for_server,
-    evaluate_state,
     get_manifest,
     print_summary,
-    write_results,
 )
 from .task_rendering import render_template
 
@@ -386,13 +364,11 @@ def _capture_benchmark_state(page, dom_checks: list[dict] | None = None) -> dict
 def resolve_tasks(
     manifest: dict,
     *,
-    pages_filter: list[str] | None = None,
     task_filter: list[str] | None = None,
     environments_filter: list[str] | None = None,
     include_all: bool = False,
 ) -> list[tuple[str, dict]]:
     """Resolve CLI filters into a stable, de-duplicated task list."""
-    page_index = {page["page_id"]: page for page in manifest.get("pages", [])}
     env_index = {env["env_id"]: env for env in manifest.get("environments", [])}
     task_index: dict[str, tuple[dict, dict]] = {}
 
@@ -404,35 +380,26 @@ def resolve_tasks(
             task_index[task_id] = (env, task)
 
     selected: list[tuple[str, dict]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[str] = set()
 
-    def add(kind: str, identifier: str, payload: dict) -> None:
-        key = (kind, identifier)
-        if key not in seen:
-            seen.add(key)
-            selected.append((kind, payload))
+    def add(task_id: str, payload: dict) -> None:
+        if task_id not in seen:
+            seen.add(task_id)
+            selected.append(("env_task", payload))
 
     if include_all:
-        for page in manifest.get("pages", []):
-            add("page", page["page_id"], page)
         for env in manifest.get("environments", []):
             env_meta = {k: v for k, v in env.items() if k != "tasks"}
             for task in env.get("tasks", []):
-                add("env_task", task["task_id"], {**task, "env": env_meta})
-
-    for page_id in pages_filter or []:
-        page = page_index.get(page_id)
-        if page is None:
-            raise ValueError(f"Unknown page_id: {page_id}")
-        add("page", page_id, page)
+                add(task["task_id"], {**task, "env": env_meta})
 
     for task_id in task_filter or []:
         pair = task_index.get(task_id)
         if pair is None:
-            raise ValueError(f"Unknown environment task_id: {task_id}")
+            raise ValueError(f"Unknown task_id: {task_id}")
         env, task = pair
         env_meta = {k: v for k, v in env.items() if k != "tasks"}
-        add("env_task", task_id, {**task, "env": env_meta})
+        add(task_id, {**task, "env": env_meta})
 
     for env_id in environments_filter or []:
         env = env_index.get(env_id)
@@ -440,15 +407,13 @@ def resolve_tasks(
             raise ValueError(f"Unknown environment id: {env_id}")
         env_meta = {k: v for k, v in env.items() if k != "tasks"}
         for task in env.get("tasks", []):
-            add("env_task", task["task_id"], {**task, "env": env_meta})
+            add(task["task_id"], {**task, "env": env_meta})
 
     if not selected:
-        for page in manifest.get("pages", []):
-            add("page", page["page_id"], page)
         for env in manifest.get("environments", []):
             env_meta = {k: v for k, v in env.items() if k != "tasks"}
             for task in env.get("tasks", []):
-                add("env_task", task["task_id"], {**task, "env": env_meta})
+                add(task["task_id"], {**task, "env": env_meta})
 
     return selected
 
@@ -659,100 +624,6 @@ def run_agent_on_page(
 # Main Evaluation Loop
 # =============================================================================
 
-def _run_legacy_page_task(
-    *,
-    browser,
-    bench_url: str,
-    page_def: dict,
-    client,
-    model: str,
-    provider: str,
-    max_steps: int,
-    timeout_per_page: int,
-    reasoning_effort: str | None,
-    verbose: bool,
-    temperature: float | None,
-) -> dict:
-    """Execute one legacy single-page benchmark task."""
-    page_id = page_def["page_id"]
-    instruction = page_def["instruction"]
-    benchmark_state: dict = {}
-
-    if verbose:
-        print(f"[{page_id}] {page_def['title']}")
-        print(f"  Instruction: {instruction[:100]}{'...' if len(instruction) > 100 else ''}")
-
-    context = browser.new_context()
-    page = context.new_page()
-
-    try:
-        page.goto(f"{bench_url}/pages/{page_id}")
-        page.wait_for_load_state("networkidle")
-
-        agent_result = run_agent_on_page(
-            page=page,
-            client=client,
-            model=model,
-            provider=provider,
-            instruction=instruction,
-            reasoning_effort=reasoning_effort,
-            max_steps=max_steps,
-            timeout_seconds=timeout_per_page,
-            verbose=verbose,
-            temperature=temperature,
-        )
-
-        benchmark_state = _capture_benchmark_state(
-            page,
-            page_def.get("success_criteria", {}).get("dom_check", []),
-        )
-        evaluation = evaluate_state(bench_url, page_id, benchmark_state)
-    except Exception as exc:
-        logger.error("Error on page %s: %s", page_id, exc)
-        agent_result = {
-            "steps": 0,
-            "trajectory": [],
-            "elapsed_seconds": 0,
-            "completed": False,
-            "messages": [],
-        }
-        evaluation = {"score": 0.0, "success": False, "reasoning": f"Error: {exc}"}
-    finally:
-        context.close()
-
-    if verbose:
-        icon = "PASS" if evaluation.get("success") else "FAIL"
-        score = evaluation.get("score", 0.0)
-        print(
-            f"  [{icon}] score={score:.2f} "
-            f"({agent_result['steps']} steps, {agent_result['elapsed_seconds']:.0f}s)"
-        )
-        print(f"  {evaluation.get('reasoning', '')}")
-        print()
-
-    return {
-        "page_id": page_id,
-        "task_id": page_id,
-        "task_type": "page",
-        "title": page_def["title"],
-        "instruction": instruction,
-        "primitives": page_def["primary_primitives"],
-        "difficulty": page_def["difficulty"],
-        "benchmark_state": benchmark_state,
-        "evaluation": evaluation,
-        "replay": {"kind": "page", "url": f"/pages/{page_id}"},
-        "agent": {
-            "model": model,
-            "provider": provider,
-            "steps": agent_result["steps"],
-            "elapsed_seconds": agent_result["elapsed_seconds"],
-            "completed": agent_result["completed"],
-            "trajectory": agent_result["trajectory"],
-            "messages": agent_result.get("messages"),
-        },
-    }
-
-
 def _run_env_task(
     *,
     browser,
@@ -918,7 +789,6 @@ def run_evaluation(
     provider: str = "vllm",
     base_url: str = "http://localhost:8000/v1",
     api_key: str = "dummy",
-    pages_filter: list[str] | None = None,
     task_filter: list[str] | None = None,
     environments_filter: list[str] | None = None,
     include_all: bool = False,
@@ -941,12 +811,11 @@ def run_evaluation(
         provider: LLM provider ("vllm", "openai", "gemini").
         base_url: API base URL for the LLM.
         api_key: API key.
-        pages_filter: Optional list of legacy page_ids to evaluate.
-        task_filter: Optional list of advanced environment task_ids to evaluate.
-        environments_filter: Optional list of advanced environment ids to evaluate.
-        include_all: Run both legacy pages and all advanced environment tasks.
-        max_steps: Max agent steps per page.
-        timeout_per_page: Timeout per page in seconds.
+        task_filter: Optional list of task_ids to evaluate.
+        environments_filter: Optional list of environment ids to evaluate.
+        include_all: Run all environment tasks.
+        max_steps: Max agent steps per task.
+        timeout_per_page: Timeout per task in seconds.
         headless: Run browser in headless mode.
         verbose: Print progress.
         temperature: LLM sampling temperature (None = provider default).
@@ -998,7 +867,6 @@ def run_evaluation(
         try:
             selected_tasks = resolve_tasks(
                 manifest,
-                pages_filter=pages_filter,
                 task_filter=task_filter,
                 environments_filter=environments_filter,
                 include_all=include_all,
@@ -1013,11 +881,9 @@ def run_evaluation(
 
         if verbose:
             print(f"\nAgent: {model} (via {provider})")
-            legacy_count = sum(1 for kind, _ in selected_tasks if kind == "page")
-            env_count = sum(1 for kind, _ in selected_tasks if kind == "env_task")
-            print(f"Tasks: {len(selected_tasks)} total ({legacy_count} legacy pages, {env_count} env tasks)")
-            print(f"Max steps per page: {max_steps}")
-            print(f"Timeout per page: {timeout_per_page}s")
+            print(f"Tasks: {len(selected_tasks)}")
+            print(f"Max steps per task: {max_steps}")
+            print(f"Timeout per task: {timeout_per_page}s")
             print(f"{'='*60}\n")
 
         results = []
@@ -1025,38 +891,21 @@ def run_evaluation(
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=headless)
 
-            for task_type, task_def in selected_tasks:
-                if task_type == "page":
-                    result = _run_legacy_page_task(
-                        browser=browser,
-                        bench_url=bench_url,
-                        page_def=task_def,
-                        client=client,
-                        model=model,
-                        provider=provider,
-                        max_steps=max_steps,
-                        timeout_per_page=timeout_per_page,
-                        reasoning_effort=reasoning_effort,
-                        verbose=verbose,
-                        temperature=temperature,
-                    )
-                elif task_type == "env_task":
-                    result = _run_env_task(
-                        browser=browser,
-                        bench_url=bench_url,
-                        task_def=task_def,
-                        client=client,
-                        model=model,
-                        provider=provider,
-                        max_steps=max_steps,
-                        timeout_per_page=timeout_per_page,
-                        reasoning_effort=reasoning_effort,
-                        verbose=verbose,
-                        temperature=temperature,
-                        seed=seed,
-                    )
-                else:
-                    raise ValueError(f"Unsupported task type: {task_type}")
+            for _, task_def in selected_tasks:
+                result = _run_env_task(
+                    browser=browser,
+                    bench_url=bench_url,
+                    task_def=task_def,
+                    client=client,
+                    model=model,
+                    provider=provider,
+                    max_steps=max_steps,
+                    timeout_per_page=timeout_per_page,
+                    reasoning_effort=reasoning_effort,
+                    verbose=verbose,
+                    temperature=temperature,
+                    seed=seed,
+                )
                 results.append(result)
 
             browser.close()
@@ -1115,8 +964,6 @@ def _write_agent_results(
 
     if manifest:
         output_version = manifest.get("version", output_version)
-        for page in manifest.get("pages", []):
-            page_meta[page["page_id"]] = page
         for env in manifest.get("environments", []):
             env_meta = {k: v for k, v in env.items() if k != "tasks"}
             for task in env.get("tasks", []):
@@ -1215,14 +1062,12 @@ def main():
                         help="OpenAI reasoning effort (gpt-5*)")
 
     # Benchmark
-    parser.add_argument("--pages", nargs="*",
-                        help="Specific legacy page_ids to evaluate")
     parser.add_argument("--tasks", nargs="*",
-                        help="Specific advanced environment task_ids to evaluate")
+                        help="Specific task_ids to evaluate")
     parser.add_argument("--environments", nargs="*",
-                        help="Run all tasks from the listed advanced environments")
+                        help="Run all tasks from the listed environments")
     parser.add_argument("--all", action="store_true",
-                        help="Run all legacy pages and all advanced environment tasks")
+                        help="Run all environment tasks")
     parser.add_argument("--seed", type=int, default=None,
                         help="Deterministic seed for advanced environment sessions")
     parser.add_argument("--max-steps", type=int, default=30,
@@ -1279,7 +1124,6 @@ def main():
         provider=args.provider,
         base_url=args.api_base_url,
         api_key=args.api_key,
-        pages_filter=args.pages,
         task_filter=args.tasks,
         environments_filter=args.environments,
         include_all=args.all,
