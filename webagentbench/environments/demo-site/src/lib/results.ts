@@ -35,9 +35,27 @@ export interface TrajectoryStep {
   step: number;
   thought: string;
   action: Record<string, unknown>;
-  targets: { role: string; name: string };
+  targets: {
+    ref?: TrajectoryTarget;
+    from_ref?: TrajectoryTarget;
+    to_ref?: TrajectoryTarget;
+  };
   status: string;
   elapsed_seconds: number;
+  replay_path?: string;
+}
+
+export interface TrajectoryTarget {
+  role?: string;
+  name?: string;
+  nth?: number;
+  selector?: string;
+  bbox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface TrajectoryData {
@@ -49,6 +67,7 @@ export interface TrajectoryData {
   total_steps: number;
   elapsed_seconds: number;
   completed: boolean;
+  start_path?: string;
   evaluation: {
     score: number;
     success: boolean;
@@ -59,6 +78,23 @@ export interface TrajectoryData {
 }
 
 type RawTrajectoryPayload = TrajectoryData | TrajectoryStep[];
+
+function normalizeTargets(targets: unknown): TrajectoryStep["targets"] {
+  if (!targets || typeof targets !== "object") {
+    return {};
+  }
+
+  const candidate = targets as Record<string, unknown>;
+  if ("role" in candidate || "name" in candidate || "selector" in candidate) {
+    return { ref: candidate as TrajectoryTarget };
+  }
+
+  return {
+    ref: (candidate.ref as TrajectoryTarget | undefined) ?? undefined,
+    from_ref: (candidate.from_ref as TrajectoryTarget | undefined) ?? undefined,
+    to_ref: (candidate.to_ref as TrajectoryTarget | undefined) ?? undefined,
+  };
+}
 
 export function normalizeTrajectoryData(
   taskId: string,
@@ -80,13 +116,18 @@ export function normalizeTrajectoryData(
       total_steps: steps.length,
       elapsed_seconds: elapsedSeconds,
       completed: false,
+      start_path: "/inbox?label=inbox",
       evaluation: {
         score: 0,
         success: false,
         reasoning: "",
         criteria_results: [],
       },
-      steps,
+      steps: steps.map((step) => ({
+        ...step,
+        targets: normalizeTargets(step.targets),
+        replay_path: step.replay_path ?? "/inbox?label=inbox",
+      })),
     };
   }
 
@@ -94,13 +135,18 @@ export function normalizeTrajectoryData(
     ...payload,
     total_steps: payload.total_steps ?? payload.steps?.length ?? 0,
     elapsed_seconds: payload.elapsed_seconds ?? 0,
+    start_path: payload.start_path ?? "/inbox?label=inbox",
     evaluation: {
       score: payload.evaluation?.score ?? 0,
       success: payload.evaluation?.success ?? false,
       reasoning: payload.evaluation?.reasoning ?? "",
       criteria_results: payload.evaluation?.criteria_results ?? [],
     },
-    steps: payload.steps ?? [],
+    steps: (payload.steps ?? []).map((step) => ({
+      ...step,
+      targets: normalizeTargets(step.targets),
+      replay_path: step.replay_path ?? payload.start_path ?? "/inbox?label=inbox",
+    })),
   };
 }
 

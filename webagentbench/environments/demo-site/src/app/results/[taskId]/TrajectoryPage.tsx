@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchTrajectory, type TrajectoryData } from "@/lib/results";
+import {
+  fetchTrajectory,
+  type TrajectoryData,
+  type TrajectoryTarget,
+} from "@/lib/results";
 import { TrajectoryViewer } from "@/components/replay/TrajectoryViewer";
 import { GmailWrapper } from "@/components/gmail-wrapper";
 import type { GmailFixture } from "@webagentbench/gmail/mutator";
@@ -14,11 +18,33 @@ interface TaskFixture {
   start_path?: string;
 }
 
+function selectStepTarget(targets: TrajectoryData["steps"][number]["targets"]): TrajectoryTarget | null {
+  return targets.ref ?? targets.from_ref ?? targets.to_ref ?? null;
+}
+
+function describeStepTarget(target: TrajectoryTarget | null, status: string) {
+  if (!target) {
+    return status;
+  }
+
+  if (target.role && target.name) {
+    return `${target.role} "${target.name}"`;
+  }
+  if (target.name) {
+    return target.name;
+  }
+  if (target.role) {
+    return target.role;
+  }
+  return status;
+}
+
 export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const [data, setData] = useState<TrajectoryData | null>(null);
   const [fixture, setFixture] = useState<TaskFixture | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +59,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
       if (!cancelled) {
         setData(traj);
         setFixture(fix);
+        setCurrentStep(0);
         setLoading(false);
       }
     });
@@ -85,6 +112,16 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const elapsedSeconds = Number.isFinite(data.elapsed_seconds)
     ? data.elapsed_seconds
     : (data.steps[data.steps.length - 1]?.elapsed_seconds ?? 0);
+  const replayRoute =
+    data.steps[currentStep]?.replay_path
+    ?? data.start_path
+    ?? fixture?.start_path
+    ?? "/inbox?label=inbox";
+  const activeStep = data.steps[currentStep] ?? null;
+  const activeTarget = activeStep ? selectStepTarget(activeStep.targets) : null;
+  const activeTargetLabel = activeStep
+    ? describeStepTarget(activeTarget, activeStep.status)
+    : "No active step";
 
   return (
     <div className="max-w-[1400px] mx-auto px-8 py-12">
@@ -127,13 +164,23 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
       {/* Split view: environment + timeline */}
       <div className="grid grid-cols-[1fr_420px] gap-6" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
         {/* Left: Gmail environment */}
-        <div className="border border-[var(--border)] rounded-md overflow-hidden">
+        <div className="border border-[var(--border)] rounded-md overflow-hidden flex h-full min-h-0 flex-col">
+          <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)]">
+              Interacted element
+            </p>
+            <p className="mt-2 text-[13px] leading-[1.6] text-[var(--text-secondary)]">
+              {activeTargetLabel}
+            </p>
+          </div>
           {fixture ? (
             <GmailWrapper
-              key={taskId}
+              key={`${taskId}:${currentStep}:${replayRoute}`}
               fixture={fixture.state as unknown as GmailFixture}
               initialRoute={fixture.start_path ?? "/inbox?label=inbox"}
-              className="h-full"
+              route={replayRoute}
+              highlightTarget={activeTarget}
+              className="flex-1 min-h-0"
             />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-[var(--text-tertiary)]">
@@ -147,8 +194,15 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
           <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)] mb-3">
             Agent trajectory
           </p>
+          <p className="mb-3 text-[12px] text-[var(--text-tertiary)]">
+            Replay syncs the recorded Gmail route for each agent step.
+          </p>
           <div className="flex-1 min-h-0">
-            <TrajectoryViewer steps={data.steps} />
+            <TrajectoryViewer
+              steps={data.steps}
+              current={currentStep}
+              onStep={setCurrentStep}
+            />
           </div>
         </div>
       </div>

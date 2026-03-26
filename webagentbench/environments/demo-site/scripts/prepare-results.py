@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode
 
 
 DEMO_PUBLIC = Path(__file__).resolve().parent.parent / "public"
@@ -25,18 +26,89 @@ TRAJECTORIES_DIR = RESULTS_DIR / "trajectories"
 def simplify_step(step: dict) -> dict:
     """Extract the fields we need from a trajectory step."""
     targets_raw = step.get("targets") or {}
-    ref = targets_raw.get("ref") or {}
+
+    def simplify_target(target: dict | None) -> dict:
+        target = target or {}
+        return {
+            "role": target.get("role", ""),
+            "name": target.get("name", ""),
+            "nth": target.get("nth"),
+            "selector": target.get("selector"),
+            "bbox": target.get("bbox"),
+        }
+
     return {
         "step": step.get("step"),
         "thought": step.get("thought", ""),
         "action": step.get("action"),
         "targets": {
-            "role": ref.get("role", ""),
-            "name": ref.get("name", ""),
+            key: simplify_target(targets_raw.get(key))
+            for key in ("ref", "from_ref", "to_ref")
+            if targets_raw.get(key)
         },
         "status": step.get("status", ""),
         "elapsed_seconds": step.get("elapsed_seconds", 0),
     }
+
+
+def normalize_route(pathname: str | None, query: str | None) -> str:
+    pathname = pathname or "/inbox"
+    query = query or ""
+    pairs = [
+        (key, value)
+        for key, value in parse_qsl(query.lstrip("?"), keep_blank_values=True)
+        if key not in {"session", "session_id"}
+    ]
+    encoded = urlencode(pairs)
+    return f"{pathname}?{encoded}" if encoded else pathname
+
+
+def derive_replay_paths(
+    result: dict,
+    simplified_steps: list[dict],
+    total_elapsed_seconds: float,
+) -> tuple[str, list[dict]]:
+    replay = result.get("replay") or {}
+    benchmark_state = result.get("benchmark_state") or {}
+    start_time = benchmark_state.get("startTime")
+    start_path = normalize_route(
+        replay.get("start_path"),
+        None,
+    )
+
+    route_events = sorted(
+        (
+            event
+            for event in benchmark_state.get("events", []) or []
+            if event.get("type") == "route_change"
+        ),
+        key=lambda event: event.get("timestamp", 0),
+    )
+
+    current_path = start_path
+    event_idx = 0
+    for idx, step in enumerate(simplified_steps):
+        if start_time is not None:
+            next_elapsed = (
+                simplified_steps[idx + 1].get("elapsed_seconds", total_elapsed_seconds)
+                if idx + 1 < len(simplified_steps)
+                else total_elapsed_seconds
+            )
+            step_ts = start_time + int(float(next_elapsed) * 1000)
+            while (
+                event_idx < len(route_events)
+                and route_events[event_idx].get("timestamp", 0) <= step_ts
+            ):
+                detail = route_events[event_idx].get("detail") or {}
+                current_path = normalize_route(
+                    detail.get("pathname"),
+                    detail.get("query"),
+                )
+                event_idx += 1
+
+        step["replay_path"] = current_path
+
+    return start_path, simplified_steps
 
 
 def simplify_evaluation(evaluation: dict) -> dict:
@@ -71,6 +143,19 @@ def process_result(result: dict) -> tuple[dict, dict]:
     evaluation = result.get("evaluation") or {}
     agent = result.get("agent") or {}
     trajectory_raw = agent.get("trajectory") or []
+    simplified_steps = [simplify_step(s) for s in trajectory_raw]
+    total_elapsed_seconds = float(agent.get("elapsed_seconds", 0) or 0)
+    default_start_path = normalize_route(
+        (result.get("replay") or {}).get("start_path"),
+        None,
+    )
+    start_path, simplified_steps = derive_replay_paths(
+        result,
+        simplified_steps,
+        total_elapsed_seconds,
+    )
+    if not start_path:
+        start_path = default_start_path
 
     summary_entry = {
         "task_id": result.get("task_id", ""),
@@ -96,8 +181,9 @@ def process_result(result: dict) -> tuple[dict, dict]:
         "total_steps": agent.get("steps", len(trajectory_raw)),
         "elapsed_seconds": agent.get("elapsed_seconds", 0),
         "completed": agent.get("completed", False),
+        "start_path": start_path,
         "evaluation": simplify_evaluation(evaluation),
-        "steps": [simplify_step(s) for s in trajectory_raw],
+        "steps": simplified_steps,
     }
     return summary_entry, trajectory_payload
 
