@@ -17,33 +17,42 @@ import { LabelsPage } from "@webagentbench/gmail/pages/Labels";
 
 import "@webagentbench/shared/styles/base.css";
 import "@webagentbench/gmail/gmail.css";
+import "./gmail-scope.css";
 
 interface GmailWrapperProps {
   fixture: GmailFixture;
   /** Initial route, e.g. "/inbox?label=inbox" */
   initialRoute?: string;
+  /** Optional CSS class for the outer container */
+  className?: string;
 }
 
-export function GmailWrapper({ fixture, initialRoute = "/inbox?label=inbox" }: GmailWrapperProps) {
+export function GmailWrapper({
+  fixture,
+  initialRoute = "/inbox?label=inbox",
+  className,
+}: GmailWrapperProps) {
   const adapter = useMemo(
     () => createStaticAdapter("gmail", fixture, gmailMutator),
     [fixture],
   );
 
   return (
-    <AdapterProvider adapter={adapter}>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Routes>
-          <Route element={<GmailShell sessionId="static-session" />}>
-            <Route path="inbox" element={<InboxPage />} />
-            <Route path="thread/:emailId" element={<ThreadPage />} />
-            <Route path="compose" element={<ComposePage />} />
-            <Route path="search" element={<SearchPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="labels" element={<LabelsPage />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    </AdapterProvider>
+    <div className={`gmail-scope ${className ?? ""}`}>
+      <AdapterProvider adapter={adapter}>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <Routes>
+            <Route element={<GmailShell sessionId="static-session" />}>
+              <Route path="inbox" element={<InboxPage />} />
+              <Route path="thread/:emailId" element={<ThreadPage />} />
+              <Route path="compose" element={<ComposePage />} />
+              <Route path="search" element={<SearchPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="labels" element={<LabelsPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AdapterProvider>
+    </div>
   );
 }

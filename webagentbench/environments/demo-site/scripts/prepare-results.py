@@ -39,7 +39,34 @@ def simplify_step(step: dict) -> dict:
     }
 
 
-def process_result(result: dict) -> tuple[dict, list[dict]]:
+def simplify_evaluation(evaluation: dict) -> dict:
+    """Extract the evaluation fields needed by the replay page."""
+    criteria = [
+        {
+            "desc": item.get("desc", ""),
+            "passed": item.get("passed", False),
+            "penalty": item.get("penalty"),
+        }
+        for item in evaluation.get("criteria_results", []) or []
+    ]
+    criteria.extend(
+        {
+            "desc": item.get("desc", ""),
+            "passed": item.get("passed", False),
+            "penalty": item.get("penalty"),
+        }
+        for item in evaluation.get("negative_results", []) or []
+    )
+
+    return {
+        "score": evaluation.get("final_score", evaluation.get("score", 0)),
+        "success": evaluation.get("success", False),
+        "reasoning": evaluation.get("reasoning", ""),
+        "criteria_results": criteria,
+    }
+
+
+def process_result(result: dict) -> tuple[dict, dict]:
     """Process a single task result into a summary entry and simplified trajectory."""
     evaluation = result.get("evaluation") or {}
     agent = result.get("agent") or {}
@@ -60,8 +87,19 @@ def process_result(result: dict) -> tuple[dict, list[dict]]:
         "reasoning": evaluation.get("reasoning", ""),
     }
 
-    simplified_trajectory = [simplify_step(s) for s in trajectory_raw]
-    return summary_entry, simplified_trajectory
+    trajectory_payload = {
+        "task_id": result.get("task_id", ""),
+        "title": result.get("title", ""),
+        "instruction": result.get("instruction", ""),
+        "difficulty": result.get("difficulty", ""),
+        "model": agent.get("model", ""),
+        "total_steps": agent.get("steps", len(trajectory_raw)),
+        "elapsed_seconds": agent.get("elapsed_seconds", 0),
+        "completed": agent.get("completed", False),
+        "evaluation": simplify_evaluation(evaluation),
+        "steps": [simplify_step(s) for s in trajectory_raw],
+    }
+    return summary_entry, trajectory_payload
 
 
 def main():

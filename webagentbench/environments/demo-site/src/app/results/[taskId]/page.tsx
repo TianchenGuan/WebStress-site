@@ -6,11 +6,29 @@ export const dynamicParams = false;
 
 export async function generateStaticParams() {
   try {
+    const taskIds = new Set<string>();
+
     const summaryPath = path.join(process.cwd(), "public", "results", "summary.json");
-    const summary = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
-    return (summary.tasks || []).map((t: { task_id: string }) => ({
-      taskId: t.task_id,
-    }));
+    if (fs.existsSync(summaryPath)) {
+      const summary = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
+      for (const task of summary.tasks || []) {
+        if (task?.task_id) {
+          taskIds.add(task.task_id);
+        }
+      }
+    }
+
+    const fixturesManifestPath = path.join(process.cwd(), "public", "fixtures", "gmail", "_manifest.json");
+    if (fs.existsSync(fixturesManifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(fixturesManifestPath, "utf-8"));
+      for (const task of manifest || []) {
+        if (task?.task_id) {
+          taskIds.add(task.task_id);
+        }
+      }
+    }
+
+    return Array.from(taskIds).sort().map((taskId) => ({ taskId }));
   } catch {
     return [];
   }
