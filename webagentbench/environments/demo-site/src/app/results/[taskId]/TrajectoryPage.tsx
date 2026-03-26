@@ -23,19 +23,10 @@ function selectStepTarget(targets: TrajectoryData["steps"][number]["targets"]): 
 }
 
 function describeStepTarget(target: TrajectoryTarget | null, status: string) {
-  if (!target) {
-    return status;
-  }
-
-  if (target.role && target.name) {
-    return `${target.role} "${target.name}"`;
-  }
-  if (target.name) {
-    return target.name;
-  }
-  if (target.role) {
-    return target.role;
-  }
+  if (!target) return status;
+  if (target.role && target.name) return `${target.role} "${target.name}"`;
+  if (target.name) return target.name;
+  if (target.role) return target.role;
   return status;
 }
 
@@ -122,60 +113,66 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const activeTargetLabel = activeStep
     ? describeStepTarget(activeTarget, activeStep.status)
     : "No active step";
+  const activeAction = activeStep?.action;
 
   return (
-    <div className="max-w-[1400px] mx-auto px-8 py-12">
-      {/* Top bar */}
-      <div className="flex items-baseline justify-between mb-6">
-        <Link href="/results" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] no-underline">
-          ← Results
-        </Link>
-        <div className="flex gap-4 font-mono text-xs text-[var(--text-tertiary)]">
-          <span>{data.model}</span>
-          <span>{totalSteps} steps</span>
-          <span>{elapsedSeconds.toFixed(0)}s</span>
-        </div>
-      </div>
-
-      {/* Header */}
-      <div className="mb-6">
+    <div className="w-full px-6 py-6" style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      {/* Compact top bar */}
+      <div className="flex items-baseline justify-between mb-4 shrink-0">
         <div className="flex items-baseline gap-4">
-          <h1 className="text-xl font-medium tracking-tight">{data.title}</h1>
+          <Link href="/results" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] no-underline">
+            ← Results
+          </Link>
+          <h1 className="text-lg font-medium tracking-tight">{data.title}</h1>
           <span className="font-mono text-xs text-[var(--text-tertiary)]">{data.difficulty}</span>
           <span className={`font-mono text-sm font-medium ${success ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
             {score !== undefined ? score.toFixed(2) : "—"}
           </span>
         </div>
-
-        {/* Collapsible instruction */}
-        <button
-          onClick={() => setShowInstruction(!showInstruction)}
-          className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] mt-2 cursor-pointer bg-transparent border-none font-mono"
-        >
-          {showInstruction ? "▾ hide instruction" : "▸ show instruction"}
-        </button>
-        {showInstruction && (
-          <div className="mt-3 p-4 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-[var(--text-secondary)] leading-relaxed max-w-[720px]">
-            {data.instruction}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowInstruction(!showInstruction)}
+            className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border border-[var(--border)] rounded px-3 py-1 font-mono"
+          >
+            {showInstruction ? "hide task" : "show task"}
+          </button>
+          <div className="flex gap-4 font-mono text-xs text-[var(--text-tertiary)]">
+            <span>{data.model}</span>
+            <span>{totalSteps} steps</span>
+            <span>{elapsedSeconds.toFixed(0)}s</span>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Split view: environment + timeline */}
-      <div className="grid grid-cols-[1fr_420px] gap-6" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
-        {/* Left: Gmail environment */}
-        <div className="border border-[var(--border)] rounded-md overflow-hidden flex h-full min-h-0 flex-col">
-          <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-            <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)]">
-              Interacted element
-            </p>
-            <p className="mt-2 text-[13px] leading-[1.6] text-[var(--text-secondary)]">
+      {showInstruction && (
+        <div className="mb-4 p-4 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-[var(--text-secondary)] leading-relaxed max-w-[720px] shrink-0">
+          {data.instruction}
+        </div>
+      )}
+
+      {/* Main split view — takes remaining height */}
+      <div className="flex-1 min-h-0 grid grid-cols-[1fr_380px] gap-4">
+        {/* Left: Gmail environment — full height */}
+        <div className="border border-[var(--border)] rounded-md overflow-hidden flex flex-col min-h-0">
+          {/* Interacted element indicator bar */}
+          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 flex items-center gap-3">
+            <span className="font-mono text-[10px] tracking-[2px] uppercase text-[var(--text-tertiary)] shrink-0">
+              Target
+            </span>
+            <span className="text-[13px] text-[var(--text-secondary)] truncate">
               {activeTargetLabel}
-            </p>
+            </span>
+            {activeAction && (
+              <code className="font-mono text-[11px] text-[var(--accent)] shrink-0 ml-auto">
+                {JSON.stringify(activeAction)}
+              </code>
+            )}
           </div>
+
+          {/* Gmail SPA — stable key so it persists across steps */}
           {fixture ? (
             <GmailWrapper
-              key={`${taskId}:${currentStep}:${replayRoute}`}
+              key={taskId}
               fixture={fixture.state as unknown as GmailFixture}
               initialRoute={fixture.start_path ?? "/inbox?label=inbox"}
               route={replayRoute}
@@ -183,20 +180,19 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
               className="flex-1 min-h-0"
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-sm text-[var(--text-tertiary)]">
+            <div className="flex items-center justify-center flex-1 text-sm text-[var(--text-tertiary)]">
               Environment fixture not available for this task
             </div>
           )}
         </div>
 
-        {/* Right: agent trajectory */}
+        {/* Right: agent trajectory — narrower, scrollable */}
         <div className="flex flex-col min-h-0">
-          <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)] mb-3">
-            Agent trajectory
-          </p>
-          <p className="mb-3 text-[12px] text-[var(--text-tertiary)]">
-            Replay syncs the recorded Gmail route for each agent step.
-          </p>
+          <div className="shrink-0 mb-3">
+            <p className="font-mono text-[10px] tracking-[2px] uppercase text-[var(--text-tertiary)]">
+              Agent trajectory
+            </p>
+          </div>
           <div className="flex-1 min-h-0">
             <TrajectoryViewer
               steps={data.steps}
@@ -207,34 +203,19 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
         </div>
       </div>
 
-      {/* Evaluation panel */}
-      {data.evaluation && (
-        <div className="mt-8 border-t border-[var(--border)] pt-6">
-          <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)] mb-3">
-            Evaluation
-          </p>
-          {data.evaluation.reasoning && (
-            <p className="text-sm text-[var(--text-secondary)] mb-4 leading-relaxed max-w-[720px]">
-              {data.evaluation.reasoning}
-            </p>
-          )}
-          {data.evaluation.criteria_results && data.evaluation.criteria_results.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              {data.evaluation.criteria_results.map((cr, i) => (
-                <div key={i} className="flex items-baseline gap-2 text-sm">
-                  <span className={`font-mono text-xs ${cr.passed ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
-                    {cr.passed ? "✓" : "✗"}
-                  </span>
-                  <span className="text-[var(--text-secondary)]">{cr.desc}</span>
-                  {cr.penalty !== undefined && !cr.passed && (
-                    <span className="font-mono text-[11px] text-[var(--text-tertiary)]">
-                      (-{cr.penalty})
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Evaluation — compact, below the split */}
+      {data.evaluation && data.evaluation.criteria_results && data.evaluation.criteria_results.length > 0 && (
+        <div className="shrink-0 mt-4 border-t border-[var(--border)] pt-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            {data.evaluation.criteria_results.map((cr, i) => (
+              <div key={i} className="flex items-baseline gap-1.5 text-xs">
+                <span className={`font-mono ${cr.passed ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
+                  {cr.passed ? "✓" : "✗"}
+                </span>
+                <span className="text-[var(--text-secondary)]">{cr.desc}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
