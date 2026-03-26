@@ -11,6 +11,7 @@ export interface TaskMeta {
 export interface TaskDetail extends TaskMeta {
   instruction: string;
   eval_check_descriptions: string[];
+  start_path?: string;
   state: Record<string, unknown>;
 }
 
