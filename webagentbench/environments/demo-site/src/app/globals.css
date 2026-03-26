@@ -32,10 +32,26 @@ html {
   font-size: 16px;
 }
 
+/*
+ * !important overrides prevent gmail.css's :root and body rules from
+ * leaking into the demo site.  gmail.css sets body { background: var(--color-bg) }
+ * and :root { --color-bg: #f6f8fc } which would turn the page white.
+ */
 body {
-  font-family: "DM Sans", system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--text-primary);
-  line-height: 1.6;
+  font-family: "DM Sans", system-ui, sans-serif !important;
+  background: var(--bg) !important;
+  background-image: none !important;
+  color: var(--text-primary) !important;
+  line-height: 1.6 !important;
   -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+html {
+  color-scheme: dark light !important;
+}
+
+/* Undo shared base.css min-height: 100% on #root */
+#root {
+  min-height: auto;
 }
