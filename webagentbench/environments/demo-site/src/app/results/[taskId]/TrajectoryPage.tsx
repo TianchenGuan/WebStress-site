@@ -71,6 +71,13 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
     [data, fixture],
   );
 
+  const handleStepChange = useCallback((index: number) => {
+    setIsPaneSettling(true);
+    startTransition(() => {
+      setCurrentStep(index);
+    });
+  }, []);
+
   if (loading) {
     return (
       <div className="max-w-[720px] mx-auto px-12 py-20">
@@ -131,12 +138,6 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
     : "No active step";
   const activeAction = activeStep?.action;
   const replayFixture = replayState?.fixture ?? fixture?.state ?? null;
-  const handleStepChange = useCallback((index: number) => {
-    setIsPaneSettling(true);
-    startTransition(() => {
-      setCurrentStep(index);
-    });
-  }, []);
 
   return (
     <div className="w-full px-6 py-6" style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
