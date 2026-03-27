@@ -15,3 +15,6 @@ export * from "./hooks/useApi";
 export * from "./hooks/useBenchmarkState";
 export * from "./hooks/useSession";
 export * from "./utils/format";
+export * from "./adapters/types";
+export * from "./adapters/index";
+export { AdapterProvider, useAdapterContext } from "./hooks/useAdapter";

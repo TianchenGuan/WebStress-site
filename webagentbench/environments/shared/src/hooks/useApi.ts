@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useAdapterContext } from "./useAdapter";
 
 export interface ApiError extends Error {
   status?: number;
@@ -60,24 +61,29 @@ export async function apiRequest<T>(
 }
 
 export function useApi(envId: string, sessionId?: string | null) {
+  const adapter = useAdapterContext();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
   const request = useCallback(
     async <T,>(path: string, options: ApiRequestOptions = {}) => {
-      const method = options.method ?? "GET";
-      const body =
-        sessionId && method !== "GET"
-          ? options.body === undefined
-            ? { session_id: sessionId }
-            : typeof options.body === "object" && options.body !== null && !Array.isArray(options.body)
-              ? { session_id: sessionId, ...(options.body as Record<string, unknown>) }
-              : options.body
-          : options.body;
-
       setIsLoading(true);
       setError(null);
       try {
+        if (adapter) {
+          return await adapter.request<T>(path, options);
+        }
+        // Fallback: direct fetch (original behavior)
+        const method = options.method ?? "GET";
+        const body =
+          sessionId && method !== "GET"
+            ? options.body === undefined
+              ? { session_id: sessionId }
+              : typeof options.body === "object" && options.body !== null && !Array.isArray(options.body)
+                ? { session_id: sessionId, ...(options.body as Record<string, unknown>) }
+                : options.body
+            : options.body;
+
         return await apiRequest<T>(envId, path, {
           ...options,
           method,
@@ -95,7 +101,7 @@ export function useApi(envId: string, sessionId?: string | null) {
         setIsLoading(false);
       }
     },
-    [envId, sessionId],
+    [adapter, envId, sessionId],
   );
 
   return { request, isLoading, error };

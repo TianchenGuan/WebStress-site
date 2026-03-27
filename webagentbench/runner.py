@@ -1,5 +1,10 @@
 """
-WebAgentBench Runner — CLI tool for running evaluation.
+WebAgentBench Runner — server management and result utilities.
+
+Provides helpers used by agent_eval.py for server lifecycle management,
+manifest fetching, and result summarization.
+
+Also supports standalone usage for legacy page evaluation:
 
 Usage:
     # Start server only (for manual browser testing):
@@ -134,7 +139,7 @@ def get_manifest(base_url: str) -> dict:
 def print_result(result: dict) -> None:
     """Print a single page result."""
     evl = result["evaluation"]
-    icon = "✅" if evl["success"] else "❌"
+    icon = "pass" if evl["success"] else "FAIL"
     score = evl["score"]
     print(f"  {icon} {result['title']:30s}  score={score:+.1f}  {evl['reasoning']}")
 
@@ -146,7 +151,7 @@ def print_summary(results: list[dict]) -> None:
     avg_score = sum(r["evaluation"]["score"] for r in results) / total if total else 0
 
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {passed}/{total} pages passed  |  avg score: {avg_score:+.2f}")
+    print(f"SUMMARY: {passed}/{total} tasks passed  |  avg score: {avg_score:+.2f}")
     print(f"{'='*60}")
 
     # Primitive-level aggregation

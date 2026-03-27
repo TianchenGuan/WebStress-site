@@ -5,6 +5,7 @@ Serves:
 - 15 frozen single-page HTML benchmarks under /pages/*
 - Advanced environment APIs under /api/env/*
 - Built React SPAs under /env/*
+- Public manifest at /manifest
 
 Task definitions are loaded from YAML files via the unified task registry.
 """
