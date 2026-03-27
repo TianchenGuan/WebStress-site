@@ -11,6 +11,8 @@ import json
 import re
 
 
+SCROLL_HINT_TEXT = "[-- viewport continues below --]"
+
 # ── Tree Node ────────────────────────────────────────────────────────────
 
 
@@ -93,7 +95,7 @@ def render_indexed_tree(root: TreeNode) -> tuple[str, dict[int, TreeNode]]:
             walk(child, child_depth)
 
         if node.has_more_below:
-            lines.append(f"{'  ' * child_depth}[-- more content below --]")
+            lines.append(f"{'  ' * child_depth}{SCROLL_HINT_TEXT}")
 
     walk(root, 0)
     return "\n".join(lines), ref_map
@@ -131,7 +133,7 @@ Each step, you receive an indexed accessibility tree showing visible elements:
 - Indentation shows nesting (parent-child relationships)
 - Attributes: value="..." checked unchecked disabled focused selected
 - [OVERLAY] marks elements blocking the page — handle these first
-- [-- more content below --] means you should scroll to see more
+- [-- viewport continues below --] means the page extends beyond the visible area
 
 ## Actions
 Respond with a JSON object containing "thought" and one action:
@@ -156,7 +158,7 @@ Respond with a JSON object containing "thought" and one action:
 2. Only use ref numbers from the CURRENT observation. Never reuse old refs.
 3. One action per step.
 4. Handle overlays/dialogs before interacting with background elements.
-5. If you see [-- more content below --], scroll down before concluding.
+5. If you see [-- viewport continues below --], scroll down before concluding. Prefer explicit controls (buttons, links) over scrolling when available.
 6. Before using finish, verify the task is actually complete — check that \
 form values are correct, required actions were performed, and the page \
 reflects the expected state.

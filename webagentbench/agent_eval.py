@@ -166,6 +166,68 @@ def _summarize_history(
         return f"[{len(messages_to_summarize)} earlier interaction steps were completed]"
 
 
+def _serialize_action_for_history(action: dict) -> str:
+    """Serialize an action dict to compact JSON, stripping the 'thought' key."""
+    import json as _json
+    clean = {k: v for k, v in action.items() if k != "thought"}
+    return _json.dumps(clean, separators=(",", ":"))
+
+
+def _build_history_fallback_summary(messages: list[dict]) -> str:
+    """Extract verifiable facts from conversation history, dropping ref numbers and thoughts."""
+    import re as _re
+
+    route = ""
+    outcomes: list[str] = []
+    selections: list[str] = []
+    field_values: list[str] = []
+
+    for msg in messages:
+        content = msg.get("content", "")
+        role = msg.get("role", "")
+
+        if role == "user":
+            # Extract the result line (e.g. 'Result: Clicked [30] button "Back to inbox"')
+            result_match = _re.match(r'Result:\s*(.+)', content)
+            if result_match:
+                # Strip ref numbers like [30]
+                outcome = _re.sub(r'\s*\[\d+\]\s*', ' ', result_match.group(1)).strip()
+                outcomes.append(outcome)
+
+            # Parse the accessibility tree lines
+            for line in content.split("\n"):
+                line = line.strip()
+                # Match tree entries like '[1] main "Inbox"'
+                tree_match = _re.match(r'\[\d+\]\s+(.+)', line)
+                if not tree_match:
+                    continue
+                node_text = tree_match.group(1)
+
+                # Detect route/view (main, heading, etc.)
+                if node_text.startswith("main ") or node_text.startswith("heading "):
+                    route = node_text
+
+                # Detect selected state
+                if "selected" in node_text:
+                    selections.append(node_text)
+
+                # Detect field values
+                if "value=" in node_text:
+                    field_values.append(node_text)
+
+    parts: list[str] = []
+    if route:
+        parts.append(f"Latest route/view: {route}")
+    if outcomes:
+        parts.append(f"Recent verified outcomes: {outcomes[-1]}")
+    if selections:
+        parts.append(f"Current selection state: {selections[-1]}")
+    if field_values:
+        parts.append(f"Current field values: {field_values[-1]}")
+
+    return "\n".join(parts)
+
+
 def _trim_messages(
     messages: list[dict],
     max_input_tokens: int | None = None,
@@ -235,10 +297,12 @@ def _trim_messages(
             ),
         }
     else:
-        # Layer 3: simple marker fallback
+        # Layer 3: factual state fallback — extract verifiable facts from
+        # dropped turns so the agent retains semantic memory without LLM cost.
+        fallback = _build_history_fallback_summary(dropped)
         marker = {
             "role": "user",
-            "content": f"[{len(dropped)} earlier interaction steps omitted for context length]",
+            "content": f"[Compressed factual state from {len(dropped)} earlier steps]\n{fallback}",
         }
 
     return head + [marker] + tail
