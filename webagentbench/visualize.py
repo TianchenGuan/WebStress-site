@@ -772,7 +772,7 @@ async function buildReplayUrl(result, resetSession = false) {{
     const replay = result?.replay || {{}};
     if (replay.kind !== 'env') {{
         if (resetSession) await destroyActiveReplaySession();
-        return SERVER_URL + (replay.url || '/');
+        return SERVER_URL + (replay.url || ('/pages/' + result.page_id));
     }}
 
     if (
@@ -1219,7 +1219,15 @@ def main():
 
     # Attach manifest metadata without discarding result-supplied env task metadata.
     page_meta = data.get("page_meta", {})
-    data["page_meta"] = page_meta
+    try:
+        manifest_path = Path(__file__).parent / "manifest.json"
+        with open(manifest_path) as mf:
+            manifest = json.load(mf)
+        for page in manifest.get("pages", []):
+            page_meta[page["page_id"]] = {**page, **page_meta.get(page["page_id"], {})}
+        data["page_meta"] = page_meta
+    except Exception:
+        data["page_meta"] = page_meta
 
     # Determine output path
     if args.output:

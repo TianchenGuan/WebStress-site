@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Registration</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+    }
+
+    /* -- Header ---------------------------------------------------------- */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+    .header-nav {
+      display: flex;
+      gap: 24px;
+      font-size: 14px;
+      color: #6e6e73;
+    }
+    .header-nav .active { color: #0071e3; font-weight: 600; }
+
+    /* -- Page wrapper ---------------------------------------------------- */
+    .page-wrapper {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    .page-title {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: #6e6e73;
+      margin-bottom: 24px;
+    }
+
+    /* -- Card ------------------------------------------------------------ */
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+
+    /* =================================================================
+       BUG 5: Form container uses weird grid with mismatched grid-template-areas.
+       Elements appear in unexpected visual positions.
+       ================================================================= */
+    .registration-form {
+      display: grid;
+      grid-template-areas:
+        "dept   name"
+        "email  terms"
+        "submit submit";
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 24px;
+    }
+    .form-group-name   { grid-area: name; }
+    .form-group-email  { grid-area: email; }
+    .form-group-dept   { grid-area: dept; }
+    .form-group-terms  { grid-area: terms; }
+    .form-group-submit { grid-area: submit; }
+
+    /* -- Form groups ----------------------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =================================================================
+       BUG 1: Label-input misalignment.
+       Labels have position: relative; top: 48px so they visually appear
+       next to the WRONG input (shifted downward).
+       ================================================================= */
+    .form-group label.field-label {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #1d1d1f;
+      position: relative;
+      top: 48px;
+    }
+
+    /* =================================================================
+       BUG 2: Email label horizontal displacement.
+       The email label is pushed far to the left away from its input.
+       ================================================================= */
+    .form-group-email label.field-label {
+      margin-left: -200px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group select {
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      background: #fff;
+      color: #1d1d1f;
+      width: 100%;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+    }
+
+    /* =================================================================
+       BUG 3: Department dropdown clipping.
+       The parent div has overflow: hidden; max-height: 40px, making
+       the dropdown appear clipped/cut off visually.
+       ================================================================= */
+    .dept-select-wrapper {
+      overflow: hidden;
+      max-height: 40px;
+    }
+
+    /* -- Checkbox -------------------------------------------------------- */
+    .form-group-terms {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 8px;
+      padding-top: 8px;
+    }
+    .form-group-terms input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: #0071e3;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .form-group-terms label {
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* =================================================================
+       BUG 4: Submit button overlaps checkbox.
+       The submit button has position: relative; top: -25px; z-index: 10
+       making it visually overlap with the terms checkbox area.
+       ================================================================= */
+    .btn-submit {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .15s;
+      position: relative;
+      top: -25px;
+      z-index: 10;
+    }
+    .btn-submit:hover { background: #005bb5; }
+    .btn-submit:active { background: #004a94; }
+
+    /* -- Confirmation ---------------------------------------------------- */
+    #confirmation-message {
+      display: none;
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    #confirmation-message.visible { display: block; }
+
+    /* -- Validation error ------------------------------------------------ */
+    .field-error {
+      font-size: 12px;
+      color: #d32f2f;
+      margin-top: 4px;
+      display: none;
+    }
+    .field-error.visible { display: block; }
+
+    .required-note {
+      font-size: 12px;
+      color: #86868b;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">HR Portal</div>
+  <div class="header-nav">
+    <span>Dashboard</span>
+    <span class="active">Registration</span>
+    <span>Directory</span>
+    <span>Help</span>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="page-wrapper">
+  <h1 class="page-title">Employee Registration</h1>
+  <p class="page-subtitle">Complete the form below to register as a new employee.</p>
+
+  <div class="card">
+    <p class="required-note">Fields marked with * are required.</p>
+
+    <form class="registration-form" id="registration-form" novalidate>
+
+      <!-- Full Name
+           BUG 6: aria-label AND placeholder swapped with Email field.
+           The accessibility tree sees aria-label="Email Address" and
+           placeholder="you@company.com". Only name="name" and id="reg-name"
+           are reliable identifiers. -->
+      <div class="form-group form-group-name">
+        <label for="reg-name" class="field-label">Full Name *</label>
+        <input id="reg-name" name="name" type="text" placeholder="you@company.com" autocomplete="name" aria-label="Email Address">
+        <div class="field-error" id="error-name">Please enter your full name.</div>
+      </div>
+
+      <!-- Email
+           BUG 6 (cont): aria-label AND placeholder swapped with Name field.
+           The accessibility tree sees aria-label="Full Name" and
+           placeholder="Enter your full name". Only name="email" and
+           id="reg-email" are reliable identifiers. -->
+      <div class="form-group form-group-email">
+        <label for="reg-email" class="field-label">Email Address *</label>
+        <input id="reg-email" name="email" type="email" placeholder="Enter your full name" autocomplete="email" aria-label="Full Name">
+        <div class="field-error" id="error-email">Please enter a valid email address.</div>
+      </div>
+
+      <!-- Department -->
+      <div class="form-group form-group-dept">
+        <label for="reg-dept" class="field-label">Department *</label>
+        <div class="dept-select-wrapper">
+          <select id="reg-dept" name="department">
+            <option value="">Select...</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Sales">Sales</option>
+            <option value="Marketing">Marketing</option>
+            <option value="HR">HR</option>
+          </select>
+        </div>
+        <div class="field-error" id="error-dept">Please select a department.</div>
+      </div>
+
+      <!-- Terms -->
+      <div class="form-group form-group-terms">
+        <input id="reg-terms" type="checkbox">
+        <label for="reg-terms">I agree to the Terms and Conditions *</label>
+        <div class="field-error" id="error-terms" style="width:100%;">You must agree to the Terms and Conditions.</div>
+      </div>
+
+      <!-- Submit -->
+      <div class="form-group form-group-submit">
+        <button type="submit" class="btn-submit">Register</button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Confirmation message -->
+  <div id="confirmation-message"></div>
+</div>
+
+<!-- Benchmark harness -->
+<script src="/static/benchmark.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // -- Page ID ----------------------------------------------------------
+  window.__benchmarkState.pageId = "broken_layout";
+
+  // -- Element refs -----------------------------------------------------
+  var form          = document.getElementById("registration-form");
+  var nameInput     = document.getElementById("reg-name");
+  var emailInput    = document.getElementById("reg-email");
+  var deptSelect    = document.getElementById("reg-dept");
+  var termsCheckbox = document.getElementById("reg-terms");
+  var confirmation  = document.getElementById("confirmation-message");
+  var errorName     = document.getElementById("error-name");
+  var errorEmail    = document.getElementById("error-email");
+  var errorDept     = document.getElementById("error-dept");
+  var errorTerms    = document.getElementById("error-terms");
+
+  // -- Validation -------------------------------------------------------
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function clearErrors() {
+    errorName.classList.remove("visible");
+    errorEmail.classList.remove("visible");
+    errorDept.classList.remove("visible");
+    errorTerms.classList.remove("visible");
+  }
+
+  // -- Track field interactions -------------------------------------------
+  nameInput.addEventListener("blur", function () {
+    window.__benchmarkUpdate({ name_entered: nameInput.value.trim() });
+  });
+  emailInput.addEventListener("blur", function () {
+    window.__benchmarkUpdate({ email_entered: emailInput.value.trim() });
+  });
+  deptSelect.addEventListener("change", function () {
+    window.__benchmarkUpdate({ department_selected: deptSelect.value });
+  });
+  termsCheckbox.addEventListener("change", function () {
+    window.__benchmarkUpdate({ terms_checked: termsCheckbox.checked });
+  });
+
+  // -- Form submit ------------------------------------------------------
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    clearErrors();
+
+    var name       = nameInput.value.trim();
+    var email      = emailInput.value.trim();
+    var department = deptSelect.value;
+    var agreed     = termsCheckbox.checked;
+    var valid      = true;
+
+    if (!name) {
+      errorName.classList.add("visible");
+      valid = false;
+    }
+    if (!email || !validateEmail(email)) {
+      errorEmail.classList.add("visible");
+      valid = false;
+    }
+    if (!department) {
+      errorDept.classList.add("visible");
+      valid = false;
+    }
+    if (!agreed) {
+      errorTerms.classList.add("visible");
+      valid = false;
+    }
+
+    if (!valid) {
+      window.__benchmarkLog("validation_failed", {
+        name_filled: !!name,
+        email_filled: !!(email && validateEmail(email)),
+        dept_filled: !!department,
+        terms_agreed: agreed
+      });
+      return;
+    }
+
+    // Show confirmation
+    confirmation.textContent = "Registration submitted successfully for " + name;
+    confirmation.classList.add("visible");
+
+    window.__benchmarkComplete(true, {
+      submitted: true,
+      name: name,
+      email: email,
+      department: department,
+      agreed_to_terms: agreed
+    });
+    window.__benchmarkLog("form_submitted");
+  });
+
+})();
+</script>
+
+</body>
+</html>
