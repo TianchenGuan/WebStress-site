@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
 import { Nav } from "@/components/ui/Nav";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -24,8 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
       <body>
-        <Nav />
-        <main>{children}</main>
+        <ThemeProvider>
+          <Nav />
+          <main>{children}</main>
+        </ThemeProvider>
       </body>
     </html>
   );
