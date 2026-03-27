@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UltraView Pro Monitor — TechDirect</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .site-header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .site-header .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+    .site-header .logo span { color: #0071e3; }
+    .site-header nav {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      color: #6e6e73;
+    }
+    .site-header nav a {
+      text-decoration: none;
+      color: inherit;
+    }
+    .site-header nav a:hover { color: #0071e3; }
+
+    /* ── Product Page ──────────────────────────────────────────────── */
+    .product-page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .breadcrumb {
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 24px;
+    }
+    .breadcrumb a { color: #0071e3; text-decoration: none; }
+
+    .product-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      .product-layout { grid-template-columns: 1fr; }
+    }
+
+    .product-image {
+      background: linear-gradient(135deg, #e8f0fe 0%, #d0e2ff 100%);
+      border-radius: 16px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+    }
+
+    .product-details h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .product-rating {
+      font-size: 14px;
+      color: #6e6e73;
+      margin-bottom: 16px;
+    }
+    .product-price-tag {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin-bottom: 24px;
+    }
+    .product-price-tag .original {
+      font-size: 18px;
+      color: #86868b;
+      text-decoration: line-through;
+      margin-left: 12px;
+      font-weight: 400;
+    }
+
+    .product-description {
+      font-size: 15px;
+      color: #6e6e73;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    /* ── Specs Table ───────────────────────────────────────────────── */
+    .specs-section {
+      margin-top: 48px;
+    }
+    .specs-section h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1d1d1f;
+    }
+    .specs-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .specs-table tr {
+      border-bottom: 1px solid #e8e8ed;
+    }
+    .specs-table th,
+    .specs-table td {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 15px;
+    }
+    .specs-table th {
+      color: #6e6e73;
+      font-weight: 500;
+      width: 40%;
+      background: #fafafa;
+    }
+    .specs-table td {
+      color: #1d1d1f;
+      font-weight: 600;
+    }
+
+    /* ── Answer Section ────────────────────────────────────────────── */
+    .answer-section {
+      margin-top: 40px;
+      background: #fff;
+      border: 2px solid #0071e3;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,113,227,.1);
+    }
+    .answer-section h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .answer-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .answer-row input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 15px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      outline: none;
+      max-width: 250px;
+    }
+    .answer-row input:focus {
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+    }
+    .btn-submit {
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-submit:hover { background: #005bb5; }
+    #answer-display {
+      margin-top: 12px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    /* ── Overlay: Cookie Banner (z-index: 1000) ────────────────────── */
+    .cookie-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: #1d1d1f;
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 -4px 16px rgba(0,0,0,.2);
+    }
+    .cookie-banner.hidden { display: none; }
+    .cookie-banner p {
+      font-size: 14px;
+      flex: 1;
+    }
+    .cookie-banner .cookie-actions {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .cookie-banner .btn-cookie {
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-cookie-accept {
+      background: #0071e3;
+      color: #fff;
+    }
+    .btn-cookie-accept:hover { background: #005bb5; }
+    .btn-cookie-manage {
+      background: transparent;
+      color: #fff;
+      border: 1px solid #6e6e73 !important;
+    }
+    .btn-cookie-manage:hover { background: rgba(255,255,255,.1); }
+
+    /* ── Overlay: Promo Bar (z-index: 900) ─────────────────────────── */
+    .promo-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 900;
+      background: linear-gradient(90deg, #ff6f00 0%, #ff9800 100%);
+      color: #fff;
+      padding: 10px 32px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .promo-bar.hidden { display: none; }
+    .promo-bar .promo-close {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      opacity: 0.8;
+      line-height: 1;
+    }
+    .promo-bar .promo-close:hover { opacity: 1; }
+
+    /* ── Overlay: Newsletter Modal (z-index: 1100) ─────────────────── */
+    .newsletter-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 1100;
+      align-items: center;
+      justify-content: center;
+    }
+    .newsletter-overlay.visible { display: flex; }
+    .newsletter-modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      animation: modalSlideIn .3s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .newsletter-modal .nl-icon { font-size: 48px; margin-bottom: 12px; }
+    .newsletter-modal h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .newsletter-modal p {
+      font-size: 14px;
+      color: #6e6e73;
+      margin-bottom: 20px;
+    }
+    .newsletter-modal input[type="email"] {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .newsletter-modal input[type="email"]:focus {
+      border-color: #0071e3;
+    }
+    .btn-subscribe {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: #0071e3;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+    .btn-subscribe:hover { background: #005bb5; }
+    .nl-dismiss {
+      font-size: 12px;
+      color: #86868b;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: underline;
+    }
+    .nl-dismiss:hover { color: #1d1d1f; }
+
+    /* ── Overlay: Chat Widget (z-index: 1200) ──────────────────────── */
+    .chat-bubble {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1200;
+      width: 56px;
+      height: 56px;
+      background: #0071e3;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,113,227,.4);
+      transition: transform .15s;
+    }
+    .chat-bubble:hover { transform: scale(1.05); }
+    .chat-bubble.hidden { display: none; }
+
+    .chat-panel {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1200;
+      width: 340px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      overflow: hidden;
+      animation: chatSlideUp .3s ease-out;
+    }
+    .chat-panel.visible { display: block; }
+    @keyframes chatSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-header {
+      background: #0071e3;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .chat-header .chat-minimize {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+      opacity: 0.9;
+    }
+    .chat-header .chat-minimize:hover { opacity: 1; }
+    .chat-body {
+      padding: 20px 16px;
+      font-size: 14px;
+      color: #1d1d1f;
+      min-height: 120px;
+    }
+    .chat-body .agent-msg {
+      background: #f0f0f5;
+      border-radius: 12px 12px 12px 4px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .chat-body .typing-dots {
+      font-size: 12px;
+      color: #86868b;
+    }
+
+    /* ── Overlay: Exit-Intent (z-index: 1300) ──────────────────────── */
+    .exit-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 1300;
+      align-items: center;
+      justify-content: center;
+    }
+    .exit-overlay.visible { display: flex; }
+    .exit-modal {
+      background: linear-gradient(180deg, #fff 0%, #f8f8ff 100%);
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,.3);
+      animation: exitPop .3s ease-out;
+    }
+    @keyframes exitPop {
+      from { opacity: 0; transform: scale(.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .exit-modal .exit-icon { font-size: 56px; margin-bottom: 16px; }
+    .exit-modal h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .exit-modal p {
+      font-size: 15px;
+      color: #6e6e73;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .exit-modal .discount-code {
+      display: inline-block;
+      background: #fff3e0;
+      border: 2px dashed #ff9800;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #e65100;
+      margin: 16px 0 24px;
+      letter-spacing: 2px;
+    }
+    .btn-claim-discount {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(180deg, #ff9f0a 0%, #ff6f00 100%);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(255,111,0,.3);
+    }
+    .btn-claim-discount:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,111,0,.4); }
+    .exit-dismiss {
+      font-size: 12px;
+      color: #b0b0b0;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    .exit-dismiss:hover { color: #86868b; }
+  </style>
+</head>
+<body>
+
+<!-- Overlay 3: Promo Bar (immediate) -->
+<div class="promo-bar" id="promo-bar">
+  <span>&#127881; NEW 34-inch 4K UltraView Pro &mdash; Now $200 OFF! Limited time! &#127881;</span>
+  <button class="promo-close" id="promo-close" aria-label="Close promo">&times;</button>
+</div>
+
+<!-- Site Header -->
+<div class="site-header" style="margin-top: 40px;">
+  <div class="logo">Tech<span>Direct</span></div>
+  <nav>
+    <a href="#">Monitors</a>
+    <a href="#">Laptops</a>
+    <a href="#">Accessories</a>
+    <a href="#">Deals</a>
+  </nav>
+</div>
+
+<!-- Product Page -->
+<div class="product-page">
+  <div class="breadcrumb">
+    <a href="#">Home</a> / <a href="#">Monitors</a> / UltraView Pro Monitor
+  </div>
+
+  <div class="product-layout">
+    <div class="product-image">&#128424;</div>
+    <div class="product-details">
+      <h1>UltraView Pro Monitor</h1>
+      <div class="product-rating">&#9733;&#9733;&#9733;&#9733;&#9734; 4.2 (1,247 reviews)</div>
+      <div class="product-price-tag">$799.99 <span class="original">$999.99</span></div>
+      <p class="product-description">
+        Experience stunning visuals with the UltraView Pro Monitor. With its expansive 32-inch class
+        display, every detail comes alive in stunning 4K resolution. Designed for professionals and
+        gamers alike, this monitor delivers exceptional color accuracy and buttery-smooth performance
+        with its high refresh rate and ultra-fast response time.
+      </p>
+    </div>
+  </div>
+
+  <!-- Compare Models Section (distractor) -->
+  <div class="specs-section">
+    <h2>Compare UltraView Models</h2>
+    <table class="specs-table">
+      <tr>
+        <th></th>
+        <td><strong>UltraView Basic</strong></td>
+        <td><strong>UltraView Pro</strong></td>
+      </tr>
+      <tr>
+        <th>Screen Size</th>
+        <td>27"</td>
+        <td>~32"</td>
+      </tr>
+      <tr>
+        <th>Resolution</th>
+        <td>QHD (2560 x 1440)</td>
+        <td>4K UHD (3840 x 2160)</td>
+      </tr>
+      <tr>
+        <th>Refresh Rate</th>
+        <td>75Hz</td>
+        <td>144Hz</td>
+      </tr>
+      <tr>
+        <th>Price</th>
+        <td>$399.99</td>
+        <td>$799.99</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Detailed Specs Table -->
+  <div class="specs-section">
+    <h2>Technical Specifications</h2>
+    <table class="specs-table">
+      <tr>
+        <th>Screen Size</th>
+        <td>31.5"</td>
+      </tr>
+      <tr>
+        <th>Resolution</th>
+        <td>4K UHD (3840 x 2160)</td>
+      </tr>
+      <tr>
+        <th>Panel Type</th>
+        <td>IPS</td>
+      </tr>
+      <tr>
+        <th>Refresh Rate</th>
+        <td>144Hz</td>
+      </tr>
+      <tr>
+        <th>Response Time</th>
+        <td>1ms</td>
+      </tr>
+      <tr>
+        <th>HDR Support</th>
+        <td>HDR10</td>
+      </tr>
+      <tr>
+        <th>Connectivity</th>
+        <td>HDMI 2.1, DisplayPort 1.4, USB-C</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Answer Section -->
+  <div class="answer-section">
+    <h3>What is the screen size of the UltraView Pro?</h3>
+    <div class="answer-row">
+      <input type="text" id="answer-input" placeholder='e.g. 31.5"'>
+      <button class="btn-submit" id="btn-submit">Submit</button>
+    </div>
+    <div id="answer-display"></div>
+  </div>
+</div>
+
+<!-- Overlay 1: Cookie Banner (immediate) -->
+<div class="cookie-banner" id="cookie-banner">
+  <p>This site uses cookies for a better experience. By continuing to browse, you agree to our use of cookies.</p>
+  <div class="cookie-actions">
+    <button class="btn-cookie btn-cookie-accept" id="cookie-accept">Accept All</button>
+    <button class="btn-cookie btn-cookie-manage" id="cookie-manage">Manage Preferences</button>
+  </div>
+</div>
+
+<!-- Overlay 2: Newsletter Modal (appears after 2s) -->
+<div class="newsletter-overlay" id="newsletter-overlay">
+  <div class="newsletter-modal">
+    <div class="nl-icon">&#9993;</div>
+    <h2>Don't miss our deals!</h2>
+    <p>Enter your email to receive exclusive discounts and product updates.</p>
+    <input type="email" id="nl-email" placeholder="you@example.com">
+    <button class="btn-subscribe" id="nl-subscribe">Subscribe Now!</button>
+    <button class="nl-dismiss" id="nl-dismiss">No thanks</button>
+  </div>
+</div>
+
+<!-- Overlay 4: Chat Widget (expands after 5s) -->
+<div class="chat-bubble" id="chat-bubble">&#128172;</div>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span>&#128172; TechDirect Support</span>
+    <button class="chat-minimize" id="chat-minimize">Minimize</button>
+  </div>
+  <div class="chat-body">
+    <div class="agent-msg">Hi there! Looking at our popular 32" 4K display? Great choice! I can help with any questions about the UltraView Pro.</div>
+    <div class="typing-dots">Agent is online</div>
+  </div>
+</div>
+
+<!-- Overlay 5: Exit-Intent (mouse to top or 8s fallback) -->
+<div class="exit-overlay" id="exit-overlay">
+  <div class="exit-modal">
+    <div class="exit-icon">&#9888;&#65039;</div>
+    <h2>Wait! Before you go...</h2>
+    <p>Get 15% OFF your purchase with this exclusive discount code:</p>
+    <div class="discount-code">STAY15</div>
+    <button class="btn-claim-discount" id="exit-claim">Claim Discount</button>
+    <button class="exit-dismiss" id="exit-dismiss">No thanks, I'll pay full price</button>
+  </div>
+</div>
+
+<!-- Benchmark harness (must load first) -->
+<script src="/static/benchmark.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Page ID ──────────────────────────────────────────────────────
+  window.__benchmarkState.pageId = "popup_landing";
+
+  // ── State ────────────────────────────────────────────────────────
+  var overlaysDismissed = [];
+
+  function recordDismissal(name) {
+    if (overlaysDismissed.indexOf(name) === -1) {
+      overlaysDismissed.push(name);
+    }
+    window.__benchmarkUpdate({ overlays_dismissed: overlaysDismissed.slice() });
+    window.__benchmarkLog("overlay_dismissed", { overlay: name });
+  }
+
+  // ── Overlay 1: Cookie Banner (immediate) ─────────────────────────
+  var cookieBanner = document.getElementById("cookie-banner");
+  document.getElementById("cookie-accept").addEventListener("click", function () {
+    cookieBanner.classList.add("hidden");
+    recordDismissal("cookie_banner");
+  });
+  document.getElementById("cookie-manage").addEventListener("click", function () {
+    cookieBanner.classList.add("hidden");
+    recordDismissal("cookie_banner");
+  });
+
+  // ── Overlay 3: Promo Bar (immediate) ─────────────────────────────
+  var promoBar = document.getElementById("promo-bar");
+  document.getElementById("promo-close").addEventListener("click", function () {
+    promoBar.classList.add("hidden");
+    recordDismissal("promo_bar");
+  });
+
+  // ── Overlay 2: Newsletter Modal (after 2s) ──────────────────────
+  var nlOverlay = document.getElementById("newsletter-overlay");
+  setTimeout(function () {
+    nlOverlay.classList.add("visible");
+    window.__benchmarkLog("newsletter_shown");
+  }, 2000);
+
+  document.getElementById("nl-subscribe").addEventListener("click", function () {
+    nlOverlay.classList.remove("visible");
+    recordDismissal("newsletter_modal");
+  });
+  document.getElementById("nl-dismiss").addEventListener("click", function () {
+    nlOverlay.classList.remove("visible");
+    recordDismissal("newsletter_modal");
+  });
+
+  // ── Overlay 4: Chat Widget (expands after 5s) ───────────────────
+  var chatBubble = document.getElementById("chat-bubble");
+  var chatPanel  = document.getElementById("chat-panel");
+
+  setTimeout(function () {
+    chatBubble.classList.add("hidden");
+    chatPanel.classList.add("visible");
+    window.__benchmarkLog("chat_expanded");
+  }, 5000);
+
+  document.getElementById("chat-minimize").addEventListener("click", function () {
+    chatPanel.classList.remove("visible");
+    chatBubble.classList.remove("hidden");
+    recordDismissal("chat_widget");
+  });
+
+  chatBubble.addEventListener("click", function () {
+    chatBubble.classList.add("hidden");
+    chatPanel.classList.add("visible");
+  });
+
+  // ── Overlay 5: Exit-Intent (mouse to top OR 8s fallback) ────────
+  var exitOverlay = document.getElementById("exit-overlay");
+  var exitShown = false;
+
+  function showExitIntent() {
+    if (exitShown) return;
+    exitShown = true;
+    exitOverlay.classList.add("visible");
+    window.__benchmarkLog("exit_intent_shown");
+  }
+
+  document.addEventListener("mouseout", function (e) {
+    if (e.clientY <= 5 && e.relatedTarget === null) {
+      showExitIntent();
+    }
+  });
+
+  setTimeout(showExitIntent, 8000);
+
+  document.getElementById("exit-claim").addEventListener("click", function () {
+    exitOverlay.classList.remove("visible");
+    recordDismissal("exit_intent");
+  });
+  document.getElementById("exit-dismiss").addEventListener("click", function () {
+    exitOverlay.classList.remove("visible");
+    recordDismissal("exit_intent");
+  });
+
+  // ── Answer Submission ────────────────────────────────────────────
+  var answerInput   = document.getElementById("answer-input");
+  var btnSubmit     = document.getElementById("btn-submit");
+  var answerDisplay = document.getElementById("answer-display");
+
+  btnSubmit.addEventListener("click", function () {
+    var value = answerInput.value.trim();
+    if (!value) {
+      answerDisplay.textContent = "Please enter a value.";
+      answerDisplay.style.color = "#d32f2f";
+      return;
+    }
+
+    var isCorrect = value.indexOf("31.5") !== -1;
+    answerDisplay.textContent = "Submitted: " + value;
+    answerDisplay.style.color = "#1d1d1f";
+
+    window.__benchmarkLog("answer_submitted", { value: value, correct: isCorrect });
+    window.__benchmarkComplete(isCorrect, {
+      answer_submitted: true,
+      reported_screen_size: value,
+      overlays_dismissed: overlaysDismissed.slice()
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>

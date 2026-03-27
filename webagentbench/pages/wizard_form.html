@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insurance Application Wizard</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+    }
+
+    .wizard-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      max-width: 680px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .wizard-header {
+      background: #1a3a5c;
+      color: #fff;
+      padding: 28px 32px 20px;
+    }
+
+    .wizard-header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    /* ── Step Indicator ──────────────────────────────────── */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .step-indicator .line {
+      position: absolute;
+      top: 16px;
+      left: 32px;
+      right: 32px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.25);
+      z-index: 0;
+    }
+
+    .step-indicator .line-fill {
+      position: absolute;
+      top: 16px;
+      left: 32px;
+      height: 3px;
+      background: #4da6ff;
+      z-index: 1;
+      transition: width 0.35s ease;
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 2;
+      flex: 1;
+    }
+
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .step-item.active .step-circle {
+      background: #4da6ff;
+      color: #fff;
+      border-color: #fff;
+      box-shadow: 0 0 0 4px rgba(77, 166, 255, 0.3);
+    }
+
+    .step-item.completed .step-circle {
+      background: #28a745;
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .step-label {
+      font-size: 11px;
+      margin-top: 6px;
+      color: rgba(255, 255, 255, 0.5);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-label {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .step-item.completed .step-label {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .step-counter {
+      text-align: center;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 14px;
+    }
+
+    /* ── Form Body ───────────────────────────────────────── */
+    .wizard-body {
+      padding: 32px;
+    }
+
+    .step-section {
+      display: none;
+    }
+
+    .step-section.visible {
+      display: block;
+    }
+
+    .step-section h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #1a3a5c;
+    }
+
+    .step-section .step-desc {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+
+    .form-group input[type="text"],
+    .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 15px;
+      color: #1a1a2e;
+      background: #fff;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input[type="text"]:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #4da6ff;
+      box-shadow: 0 0 0 3px rgba(77, 166, 255, 0.15);
+    }
+
+    /* ── Plan Cards ──────────────────────────────────────── */
+    .plan-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .plan-card {
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .plan-card:hover {
+      border-color: #93c5fd;
+      background: #f8faff;
+    }
+
+    .plan-card.selected {
+      border-color: #4da6ff;
+      background: #eff6ff;
+    }
+
+    .plan-card input[type="radio"] {
+      margin-top: 3px;
+      accent-color: #4da6ff;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .plan-info {
+      flex: 1;
+    }
+
+    .plan-info .plan-title {
+      font-weight: 600;
+      font-size: 16px;
+      color: #1a3a5c;
+    }
+
+    .plan-info .plan-price {
+      font-size: 14px;
+      color: #4da6ff;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .plan-info .plan-desc {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .plan-info .plan-note {
+      font-size: 12px;
+      color: #059669;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    /* ── Coverage Checkboxes ─────────────────────────────── */
+    .coverage-option {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: opacity 0.2s;
+    }
+
+    .coverage-option.disabled {
+      opacity: 0.5;
+      background: #f9fafb;
+    }
+
+    .coverage-option input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: #4da6ff;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .coverage-info .coverage-title {
+      display: block;
+      font-weight: 600;
+      font-size: 15px;
+      color: #1a3a5c;
+      cursor: pointer;
+    }
+
+    .coverage-info .coverage-note {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .coverage-select {
+      margin-top: 8px;
+      width: 220px;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #1a1a2e;
+      background: #fff;
+    }
+
+    /* ── Warning Alert ───────────────────────────────────── */
+    .warning-alert {
+      background: #fff7ed;
+      border: 1px solid #fb923c;
+      border-left: 4px solid #f97316;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .warning-alert.visible {
+      display: block;
+    }
+
+    .warning-alert .warning-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #c2410c;
+      margin-bottom: 4px;
+    }
+
+    .warning-alert .warning-text {
+      font-size: 14px;
+      color: #9a3412;
+      line-height: 1.5;
+    }
+
+    /* ── Review Summary ──────────────────────────────────── */
+    .review-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+
+    .review-table tr {
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .review-table td {
+      padding: 10px 0;
+      font-size: 14px;
+    }
+
+    .review-table td:first-child {
+      font-weight: 500;
+      color: #6b7280;
+      width: 160px;
+    }
+
+    .review-table td:last-child {
+      color: #1a1a2e;
+      font-weight: 500;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    .btn-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-warning {
+      background: #f59e0b;
+      color: #fff;
+    }
+
+    .btn-warning:hover {
+      background: #d97706;
+    }
+
+    .btn-submit {
+      background: #059669;
+      color: #fff;
+      padding: 12px 32px;
+      font-size: 16px;
+    }
+
+    .btn-submit:hover {
+      background: #047857;
+    }
+
+    .btn-spacer {
+      flex: 1;
+    }
+
+    /* ── Confirmation ─────────────────────────────────────── */
+    #confirmation-message {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    #confirmation-message.visible {
+      display: block;
+    }
+
+    #confirmation-message .confirm-icon {
+      width: 64px;
+      height: 64px;
+      background: #d1fae5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 32px;
+      color: #059669;
+    }
+
+    #confirmation-message h2 {
+      font-size: 22px;
+      color: #059669;
+      margin-bottom: 8px;
+    }
+
+    #confirmation-message p {
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    /* ── Change Plan Link ─────────────────────────────────── */
+    .change-plan-row {
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wizard-container">
+  <!-- Header with Step Indicator -->
+  <div class="wizard-header">
+    <h1>Insurance Application</h1>
+    <div class="step-indicator">
+      <div class="line"></div>
+      <div class="line-fill" id="line-fill"></div>
+      <div class="step-item active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Personal Info</div>
+      </div>
+      <div class="step-item" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Plan</div>
+      </div>
+      <div class="step-item" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Coverage</div>
+      </div>
+      <div class="step-item" data-step="4">
+        <div class="step-circle">4</div>
+        <div class="step-label">Review</div>
+      </div>
+    </div>
+    <div class="step-counter" id="step-counter">Step 1 of 4</div>
+  </div>
+
+  <div class="wizard-body">
+
+    <!-- ──────────────── Step 1: Personal Information ──────────────── -->
+    <div class="step-section visible" id="step-1">
+      <h2>Personal Information</h2>
+      <p class="step-desc">Tell us about yourself to get started.</p>
+
+      <div class="form-group">
+        <label for="input-state">State</label>
+        <select id="input-state">
+          <option value="">Select state...</option>
+          <option value="CA">California (CA)</option>
+          <option value="NY">New York (NY)</option>
+          <option value="TX">Texas (TX)</option>
+          <option value="FL">Florida (FL)</option>
+          <option value="IL">Illinois (IL)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="input-name">Full Name</label>
+        <input type="text" id="input-name" placeholder="e.g. Jane Doe">
+      </div>
+
+      <div class="form-group">
+        <label for="input-property-value">Estimated Property Value</label>
+        <select id="input-property-value">
+          <option value="">Select value range...</option>
+          <option value="250000">Up to $250,000</option>
+          <option value="500000">$250,001 — $500,000</option>
+          <option value="750000">$500,001 — $750,000</option>
+          <option value="1000000">$750,001 — $1,000,000</option>
+          <option value="1500000">Over $1,000,000</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <div class="btn-spacer"></div>
+        <button class="btn btn-primary" id="btn-next-1">Next &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ──────────────── Step 2: Plan Selection ──────────────────── -->
+    <div class="step-section" id="step-2">
+      <h2>Plan Selection</h2>
+      <p class="step-desc">Choose the insurance plan that best fits your needs.</p>
+
+      <div class="plan-cards">
+        <label class="plan-card" id="card-basic">
+          <input type="radio" name="plan" value="basic">
+          <div class="plan-info">
+            <div class="plan-title">Basic</div>
+            <div class="plan-price">$50/mo</div>
+            <div class="plan-desc">Essential property coverage for common risks including fire, theft, and liability.</div>
+          </div>
+        </label>
+
+        <label class="plan-card" id="card-standard">
+          <input type="radio" name="plan" value="standard">
+          <div class="plan-info">
+            <div class="plan-title">Standard</div>
+            <div class="plan-price">$100/mo</div>
+            <div class="plan-desc">Comprehensive coverage with extended natural disaster protection, higher claim limits, and priority processing. Recommended for properties in high-risk zones.</div>
+            <div class="plan-note">Most Popular &mdash; chosen by 73% of homeowners</div>
+          </div>
+        </label>
+
+        <label class="plan-card" id="card-premium">
+          <input type="radio" name="plan" value="premium">
+          <div class="plan-info">
+            <div class="plan-title">Premium</div>
+            <div class="plan-price">$200/mo</div>
+            <div class="plan-desc">Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btn-back-2">&larr; Back</button>
+        <button class="btn btn-primary" id="btn-next-2">Next &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ──────────────── Step 3: Coverage Options ────────────────── -->
+    <div class="step-section" id="step-3">
+      <h2>Coverage Options</h2>
+      <p class="step-desc">Customize additional coverage for your policy.</p>
+
+      <!-- California coverage gap warning -->
+      <div class="warning-alert" id="coverage-gap-warning">
+        <div class="warning-title">&#9888;&#65039; Coverage Gap Detected</div>
+        <div class="warning-text" id="coverage-gap-text"></div>
+      </div>
+
+      <div class="coverage-option" id="earthquake-option">
+        <input type="checkbox" id="input-earthquake" disabled>
+        <div class="coverage-info">
+          <label for="input-earthquake" class="coverage-title">Earthquake Coverage</label>
+          <div class="coverage-note" id="earthquake-note">Earthquake coverage requires Premium plan</div>
+        </div>
+      </div>
+
+      <div class="coverage-option" id="flood-option">
+        <input type="checkbox" id="input-flood">
+        <div class="coverage-info">
+          <label for="input-flood" class="coverage-title">Flood Coverage</label>
+          <div class="coverage-note">Protection against flood damage to your property.</div>
+        </div>
+      </div>
+
+      <div class="coverage-option" id="cat-deductible-option">
+        <div class="coverage-info">
+          <label for="input-cat-deductible" class="coverage-title">Catastrophe Deductible</label>
+          <div class="coverage-note">For high-value California properties, select the mandatory 2% deductible tier.</div>
+          <select id="input-cat-deductible" class="coverage-select">
+            <option value="">Select deductible...</option>
+            <option value="1pct">1% deductible</option>
+            <option value="2pct">2% deductible</option>
+            <option value="5pct">5% deductible</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="change-plan-row">
+        <button class="btn btn-warning" id="btn-change-plan">&#x21A9; Change Plan</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btn-back-3">&larr; Back</button>
+        <button class="btn btn-primary" id="btn-next-3">Next &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ──────────────── Step 4: Review & Submit ─────────────────── -->
+    <div class="step-section" id="step-4">
+      <h2>Review &amp; Submit</h2>
+      <p class="step-desc">Please review your application before submitting.</p>
+
+      <table class="review-table">
+        <tr>
+          <td>State</td>
+          <td id="review-state">-</td>
+        </tr>
+        <tr>
+          <td>Full Name</td>
+          <td id="review-name">-</td>
+        </tr>
+        <tr>
+          <td>Property Value</td>
+          <td id="review-property-value">-</td>
+        </tr>
+        <tr>
+          <td>Plan</td>
+          <td id="review-plan">-</td>
+        </tr>
+        <tr>
+          <td>Earthquake Coverage</td>
+          <td id="review-earthquake">-</td>
+        </tr>
+        <tr>
+          <td>Flood Coverage</td>
+          <td id="review-flood">-</td>
+        </tr>
+        <tr>
+          <td>Catastrophe Deductible</td>
+          <td id="review-cat-deductible">-</td>
+        </tr>
+      </table>
+
+      <div class="form-group">
+        <label for="input-beneficiary-name">Beneficiary Name</label>
+        <input type="text" id="input-beneficiary-name" placeholder="e.g. John Doe">
+      </div>
+
+      <div class="form-group">
+        <label for="input-beneficiary-relation">Beneficiary Relation</label>
+        <select id="input-beneficiary-relation">
+          <option value="">Select relation...</option>
+          <option value="Spouse">Spouse</option>
+          <option value="Child">Child</option>
+          <option value="Parent">Parent</option>
+          <option value="Sibling">Sibling</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btn-back-4">&larr; Back</button>
+        <button class="btn btn-submit" id="btn-submit">Submit Application</button>
+      </div>
+    </div>
+
+    <!-- ──────────────── Confirmation ─────────────────────────────── -->
+    <div id="confirmation-message">
+      <div class="confirm-icon">&#10003;</div>
+      <h2>Application Submitted!</h2>
+      <p>Your insurance application has been received. We will contact you within 2 business days.</p>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/benchmark.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ── Benchmark page ID ───────────────────────────────────────────
+  window.__benchmarkState.pageId = "wizard_form";
+
+  // ── DOM references ──────────────────────────────────────────────
+  var currentStep = 1;
+  var totalSteps = 4;
+
+  var steps = {
+    1: document.getElementById("step-1"),
+    2: document.getElementById("step-2"),
+    3: document.getElementById("step-3"),
+    4: document.getElementById("step-4"),
+  };
+
+  var stepItems = document.querySelectorAll(".step-item");
+  var lineFill = document.getElementById("line-fill");
+  var stepCounter = document.getElementById("step-counter");
+
+  // Inputs
+  var inputState = document.getElementById("input-state");
+  var inputName = document.getElementById("input-name");
+  var inputPropertyValue = document.getElementById("input-property-value");
+  var planRadios = document.querySelectorAll('input[name="plan"]');
+  var inputEarthquake = document.getElementById("input-earthquake");
+  var inputFlood = document.getElementById("input-flood");
+  var inputCatDeductible = document.getElementById("input-cat-deductible");
+  var inputBeneficiaryName = document.getElementById("input-beneficiary-name");
+  var inputBeneficiaryRelation = document.getElementById("input-beneficiary-relation");
+
+  // Coverage elements
+  var earthquakeOption = document.getElementById("earthquake-option");
+  var earthquakeNote = document.getElementById("earthquake-note");
+  var coverageGapWarning = document.getElementById("coverage-gap-warning");
+  var coverageGapText = document.getElementById("coverage-gap-text");
+
+  // Review cells
+  var reviewState = document.getElementById("review-state");
+  var reviewName = document.getElementById("review-name");
+  var reviewPropertyValue = document.getElementById("review-property-value");
+  var reviewPlan = document.getElementById("review-plan");
+  var reviewEarthquake = document.getElementById("review-earthquake");
+  var reviewFlood = document.getElementById("review-flood");
+  var reviewCatDeductible = document.getElementById("review-cat-deductible");
+
+  // Confirmation
+  var confirmationMessage = document.getElementById("confirmation-message");
+
+  // Plan cards
+  var planCards = document.querySelectorAll(".plan-card");
+
+  // ── Helpers ─────────────────────────────────────────────────────
+
+  function getSelectedPlan() {
+    for (var i = 0; i < planRadios.length; i++) {
+      if (planRadios[i].checked) return planRadios[i].value;
+    }
+    return "";
+  }
+
+  function planDisplayName(value) {
+    var names = { basic: "Basic ($50/mo)", standard: "Standard ($100/mo)", premium: "Premium ($200/mo)" };
+    return names[value] || "-";
+  }
+
+  function planLabel(value) {
+    var labels = { basic: "Basic", standard: "Standard", premium: "Premium" };
+    return labels[value] || value;
+  }
+
+  // ── Step Validation ─────────────────────────────────────────────
+
+  function validateStep(step) {
+    if (step === 1) {
+      // Step 1: require state, name, and property value
+      if (!inputState.value) return "Please select a state.";
+      if (!inputName.value.trim()) return "Please enter your full name.";
+      if (!inputPropertyValue.value) return "Please select a property value range.";
+      return null;
+    }
+    if (step === 2) {
+      // Step 2: require plan selection
+      if (!getSelectedPlan()) return "Please select a plan.";
+      return null;
+    }
+    if (step === 3) {
+      var state = inputState.value;
+      var propVal = parseInt(inputPropertyValue.value || "0", 10);
+      var plan = getSelectedPlan();
+      if (state === "CA" && propVal > 750000) {
+        if (plan !== "premium") {
+          return "High-value California properties require Premium plan.";
+        }
+        if (!inputEarthquake.checked || !inputFlood.checked) {
+          return "Select both Earthquake and Flood coverage for high-value California properties.";
+        }
+        if (inputCatDeductible.value !== "2pct") {
+          return "High-value California properties require the 2% catastrophe deductible.";
+        }
+      }
+      return null;
+    }
+    return null; // Step 4 doesn't gate progression
+  }
+
+  // ── Step Navigation ─────────────────────────────────────────────
+
+  function goToStep(step, skipValidation) {
+    // Validate current step when moving forward (not back)
+    if (!skipValidation && step > currentStep) {
+      var error = validateStep(currentStep);
+      if (error) {
+        window.__benchmarkLog("step_validation_failed", { step: currentStep, error: error });
+        alert(error);
+        return;
+      }
+    }
+
+    // Hide all steps
+    for (var s = 1; s <= totalSteps; s++) {
+      steps[s].classList.remove("visible");
+    }
+    steps[step].classList.add("visible");
+    currentStep = step;
+
+    // Update step indicator
+    stepItems.forEach(function (item) {
+      var n = parseInt(item.getAttribute("data-step"), 10);
+      item.classList.remove("active", "completed");
+      if (n === step) {
+        item.classList.add("active");
+      } else if (n < step) {
+        item.classList.add("completed");
+      }
+    });
+
+    // Update progress line
+    var pct = ((step - 1) / (totalSteps - 1)) * 100;
+    // Calculate the full width from first circle to last circle
+    var indicatorEl = document.querySelector(".step-indicator");
+    if (indicatorEl) {
+      var indicatorWidth = indicatorEl.offsetWidth;
+      var usable = indicatorWidth - 64; // 32px padding on each side
+      lineFill.style.width = (usable * (step - 1) / (totalSteps - 1)) + "px";
+    }
+
+    // Update counter text
+    stepCounter.textContent = "Step " + step + " of " + totalSteps;
+
+    // Log navigation
+    window.__benchmarkLog("navigate", { step: step });
+
+    // Track intermediate state
+    window.__benchmarkUpdate({
+      current_step: step,
+      state: inputState.value,
+      name: inputName.value,
+      property_value: parseInt(inputPropertyValue.value || "0", 10),
+      plan: getSelectedPlan(),
+      earthquake_coverage: inputEarthquake.checked,
+      flood_coverage: inputFlood.checked,
+      cat_deductible: inputCatDeductible.value || null
+    });
+
+    // Run step-specific setup
+    if (step === 3) setupStep3();
+    if (step === 4) setupStep4();
+  }
+
+  // ── Step 3 Setup ────────────────────────────────────────────────
+
+  function setupStep3() {
+    var plan = getSelectedPlan();
+    var state = inputState.value;
+    var propVal = parseInt(inputPropertyValue.value || "0", 10);
+
+    // Earthquake checkbox: only enabled for Premium
+    if (plan === "premium") {
+      inputEarthquake.disabled = false;
+      earthquakeOption.classList.remove("disabled");
+      earthquakeNote.textContent = "Protection against earthquake damage to your property.";
+    } else {
+      inputEarthquake.disabled = true;
+      inputEarthquake.checked = false;
+      earthquakeOption.classList.add("disabled");
+      earthquakeNote.textContent = "Earthquake coverage requires Premium plan";
+    }
+
+    // Flood checkbox: available on Standard and Premium
+    if (plan === "standard" || plan === "premium") {
+      inputFlood.disabled = false;
+      document.getElementById("flood-option").classList.remove("disabled");
+    } else {
+      inputFlood.disabled = true;
+      inputFlood.checked = false;
+      document.getElementById("flood-option").classList.add("disabled");
+    }
+
+    // California warnings
+    if (state === "CA" && plan !== "premium" && plan !== "") {
+      coverageGapWarning.classList.add("visible");
+      coverageGapText.textContent =
+        "Properties in California are required to have Earthquake Coverage, but the " +
+        planLabel(plan) +
+        " plan does not include this option. Please go back and upgrade to the Premium plan.";
+      window.__benchmarkLog("coverage_gap_warning", { type: "wrong_plan", plan: plan, state: state });
+    } else if (state === "CA" && plan === "premium" && propVal > 750000) {
+      coverageGapWarning.classList.add("visible");
+      coverageGapText.textContent =
+        "High-value California properties (over $750,000) are required to carry Earthquake + Flood coverage and use the 2% catastrophe deductible under state regulation HB-4721.";
+      window.__benchmarkLog("coverage_gap_warning", { type: "high_value_ca", property_value: propVal });
+    } else {
+      coverageGapWarning.classList.remove("visible");
+    }
+  }
+
+  // ── Step 4 Setup (Review) ───────────────────────────────────────
+
+  function setupStep4() {
+    var stateVal = inputState.value;
+    var stateText = inputState.options[inputState.selectedIndex]
+      ? inputState.options[inputState.selectedIndex].text
+      : "-";
+    reviewState.textContent = stateVal ? stateText : "-";
+    reviewName.textContent = inputName.value || "-";
+    var pvIdx = inputPropertyValue.selectedIndex;
+    reviewPropertyValue.textContent = pvIdx > 0 ? inputPropertyValue.options[pvIdx].text : "-";
+    reviewPlan.textContent = planDisplayName(getSelectedPlan());
+    reviewEarthquake.textContent = inputEarthquake.checked ? "Yes" : "No";
+    reviewFlood.textContent = inputFlood.checked ? "Yes" : "No";
+    if (inputCatDeductible.value === "1pct") reviewCatDeductible.textContent = "1% deductible";
+    else if (inputCatDeductible.value === "2pct") reviewCatDeductible.textContent = "2% deductible";
+    else if (inputCatDeductible.value === "5pct") reviewCatDeductible.textContent = "5% deductible";
+    else reviewCatDeductible.textContent = "-";
+  }
+
+  // ── Plan Card Selection Styling ─────────────────────────────────
+
+  planRadios.forEach(function (radio) {
+    radio.addEventListener("change", function () {
+      planCards.forEach(function (card) {
+        card.classList.remove("selected");
+      });
+      var parent = radio.closest(".plan-card");
+      if (parent) parent.classList.add("selected");
+    });
+  });
+
+  // ── Button Handlers ─────────────────────────────────────────────
+
+  // Step 1 -> Step 2
+  document.getElementById("btn-next-1").addEventListener("click", function () {
+    goToStep(2);
+  });
+
+  // Step 2 -> Step 1
+  document.getElementById("btn-back-2").addEventListener("click", function () {
+    goToStep(1, true);
+  });
+
+  // Step 2 -> Step 3
+  document.getElementById("btn-next-2").addEventListener("click", function () {
+    goToStep(3);
+  });
+
+  // Step 3 -> Step 2
+  document.getElementById("btn-back-3").addEventListener("click", function () {
+    goToStep(2, true);
+  });
+
+  // Step 3 -> Step 4
+  document.getElementById("btn-next-3").addEventListener("click", function () {
+    goToStep(4);
+  });
+
+  // Step 3: Change Plan -> Step 2 (preserves all other data)
+  document.getElementById("btn-change-plan").addEventListener("click", function () {
+    window.__benchmarkLog("change_plan", { from_step: 3 });
+    goToStep(2, true);
+  });
+
+  // Step 4 -> Step 3
+  document.getElementById("btn-back-4").addEventListener("click", function () {
+    goToStep(3, true);
+  });
+
+  // Submit
+  document.getElementById("btn-submit").addEventListener("click", function () {
+    var plan = getSelectedPlan();
+
+    // Hide all step sections
+    for (var s = 1; s <= totalSteps; s++) {
+      steps[s].classList.remove("visible");
+    }
+
+    // Show confirmation
+    confirmationMessage.classList.add("visible");
+
+    // Mark all steps completed in indicator
+    stepItems.forEach(function (item) {
+      item.classList.remove("active");
+      item.classList.add("completed");
+    });
+    lineFill.style.width = "100%";
+    stepCounter.textContent = "Application Submitted";
+
+    // Benchmark completion
+    window.__benchmarkComplete(true, {
+      submitted: true,
+      state: inputState.value,
+      name: inputName.value,
+      property_value: parseInt(inputPropertyValue.value || "0", 10),
+      plan: plan,
+      earthquake_coverage: inputEarthquake.checked,
+      flood_coverage: inputFlood.checked,
+      cat_deductible: inputCatDeductible.value || null,
+      beneficiary_name: inputBeneficiaryName.value,
+      beneficiary_relation: inputBeneficiaryRelation.value,
+    });
+  });
+
+  // ── Initial State ──────────────────────────────────────────────
+  goToStep(1, true);
+})();
+</script>
+</body>
+</html>
