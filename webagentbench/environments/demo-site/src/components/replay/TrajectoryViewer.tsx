@@ -46,7 +46,7 @@ export function TrajectoryViewer({
     <div className="flex flex-col gap-4 h-full">
       <StepControls current={current} total={steps.length} onStep={handleStep} isBusy={isBusy} />
       <div className="rounded border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-        <p className="font-mono text-[11px] tracking-[2px] uppercase text-[var(--text-tertiary)]">
+        <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
           Active target
         </p>
         <p className="mt-2 text-[13px] leading-[1.6] text-[var(--text-secondary)]">

@@ -12,7 +12,7 @@ export function TaskCard({ task }: { task: TaskMeta }) {
         <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors duration-150">
           {task.title}
         </span>
-        <span className="font-mono text-xs text-[var(--text-tertiary)] ml-4 shrink-0">
+        <span className="text-[12px] text-[var(--text-tertiary)] ml-4 shrink-0">
           {task.difficulty}
         </span>
       </div>
@@ -22,7 +22,7 @@ export function TaskCard({ task }: { task: TaskMeta }) {
             <PrimitivePill key={p} name={p} />
           ))}
         </div>
-        <span className="font-mono text-xs text-[var(--text-tertiary)] ml-auto shrink-0">
+        <span className="text-[12px] text-[var(--text-tertiary)] ml-auto shrink-0">
           {task.expected_steps} steps
         </span>
       </div>

@@ -32,7 +32,7 @@ export default function TaskLibraryPage() {
   return (
     <div className="max-w-[720px] mx-auto px-12">
       <section className="pt-[120px] pb-10">
-        <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-8">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-8">
           Tasks
         </p>
         <h1 className="text-[clamp(2rem,4vw,3.2rem)] font-medium tracking-tight leading-[1.15] mb-3">

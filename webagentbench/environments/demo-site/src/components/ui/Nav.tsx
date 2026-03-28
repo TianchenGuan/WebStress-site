@@ -51,7 +51,7 @@ export function Nav() {
   }, [updatePill]);
 
   return (
-    <nav className="flex justify-between items-center w-full px-6 py-4">
+    <nav className="sticky top-0 z-50 flex justify-between items-center w-full px-6 py-4 bg-[var(--bg)]/80 backdrop-blur-lg border-b border-[var(--border)]/50">
       <Link href="/" className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight no-underline">
         WebAgentBench
       </Link>

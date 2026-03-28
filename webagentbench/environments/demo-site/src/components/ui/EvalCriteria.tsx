@@ -46,7 +46,7 @@ function ScoreBar({ score, success }: { score: number; success: boolean }) {
         {score.toFixed(2)}
       </span>
       <span
-        className="font-mono text-[10px] tracking-[1px] uppercase px-1.5 py-0.5 rounded"
+        className="text-[10px] font-medium px-2 py-0.5 rounded-lg"
         style={{
           color,
           background: success
@@ -56,7 +56,7 @@ function ScoreBar({ score, success }: { score: number; success: boolean }) {
               : "oklch(72% 0.14 25 / 0.12)",
         }}
       >
-        {success ? "pass" : "fail"}
+        {success ? "Pass" : "Fail"}
       </span>
     </div>
   );
@@ -119,7 +119,7 @@ export function EvalCriteria({
     <div>
       {/* Header with label + optional tally */}
       <div className="flex items-baseline gap-3 mb-4">
-        <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)]">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)]">
           {label}
         </p>
         {hasResults && (

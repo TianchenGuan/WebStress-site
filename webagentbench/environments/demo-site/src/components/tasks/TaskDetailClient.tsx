@@ -50,8 +50,8 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
         </h1>
 
         {/* Metadata row */}
-        <div className="flex flex-wrap items-center gap-4 mb-8 font-mono text-xs text-[var(--text-tertiary)]">
-          <span className="px-2.5 py-1 border border-[var(--border)] rounded-sm">
+        <div className="flex flex-wrap items-center gap-4 mb-8 text-[12px] text-[var(--text-tertiary)]">
+          <span className="px-2.5 py-1 border border-[var(--border)] rounded-lg">
             {task.difficulty}
           </span>
           <span>{minutes} min time limit</span>
@@ -60,7 +60,7 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
 
         {/* Primitives */}
         <div className="mb-10">
-          <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-3">
+          <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-3">
             Primitives
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -70,7 +70,7 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
             {(task.secondary_primitives ?? []).map((p) => (
               <span
                 key={p}
-                className="font-mono text-xs px-4 py-[7px] border border-[var(--border)] rounded-sm text-[var(--text-tertiary)] tracking-wide opacity-60"
+                className="text-[13px] px-4 py-[7px] border border-[var(--border)] rounded-xl text-[var(--text-tertiary)] opacity-60"
               >
                 {p}
               </span>
@@ -82,7 +82,7 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
 
         {/* Instruction */}
         <div className="py-10">
-          <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-4">
+          <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-4">
             Instruction
           </p>
           <p className="text-[15px] text-[var(--text-secondary)] leading-[1.75] whitespace-pre-wrap">
@@ -107,13 +107,13 @@ export function TaskDetailClient({ taskId }: { taskId: string }) {
         <div className="flex gap-4 pt-10">
           <Link
             href={`/environment?task=${task.task_id}`}
-            className="text-sm font-medium px-6 py-[10px] bg-[var(--text-primary)] text-[var(--bg)] rounded no-underline hover:opacity-85 transition-opacity"
+            className="text-sm font-medium px-6 py-[10px] bg-[var(--text-primary)] text-[var(--bg)] rounded-xl no-underline hover:opacity-85 transition-opacity"
           >
             Try this environment
           </Link>
           <Link
             href={`/results/${task.task_id}`}
-            className="text-sm font-medium px-6 py-[10px] border border-[var(--border)] text-[var(--text-secondary)] rounded no-underline hover:text-[var(--text-primary)] hover:border-[var(--text-tertiary)] transition-colors"
+            className="text-sm font-medium px-6 py-[10px] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl no-underline hover:text-[var(--text-primary)] hover:border-[var(--text-tertiary)] transition-colors"
           >
             Watch agent attempt
           </Link>
