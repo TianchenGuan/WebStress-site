@@ -232,7 +232,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
         {/* Gmail environment — always full width */}
         <div
           className="absolute inset-0 flex flex-col rounded-xl border border-[var(--border)] overflow-hidden"
-          style={{ right: sidebarOpen ? "332px" : "36px", transition: "right 200ms ease-out" }}
+          style={{ right: sidebarOpen ? "352px" : "56px", transition: "right 250ms cubic-bezier(0.4, 0, 0.2, 1)" }}
         >
           {/* Target indicator bar */}
           <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 flex items-center gap-3">
@@ -266,48 +266,62 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
           )}
         </div>
 
-        {/* Sidebar — open state */}
+        {/* Sidebar */}
         <div
-          className="absolute top-0 bottom-0 right-0 flex flex-col bg-[var(--surface)] border-l border-[var(--border)] overflow-hidden"
+          className="absolute top-0 bottom-0 right-0 flex flex-col bg-[var(--surface)] rounded-xl overflow-hidden"
           style={{
-            width: sidebarOpen ? "320px" : "36px",
-            boxShadow: sidebarOpen ? "-4px 0 20px rgba(0,0,0,0.1)" : "none",
-            transition: "width 200ms ease-out, box-shadow 200ms ease-out",
+            width: sidebarOpen ? "340px" : "44px",
+            boxShadow: sidebarOpen ? "-8px 0 32px rgba(0,0,0,0.15)" : "-2px 0 8px rgba(0,0,0,0.08)",
+            transition: "width 250ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms ease-out",
           }}
         >
           {sidebarOpen ? (
             <>
-              {/* Tab bar */}
-              <div className="shrink-0 flex border-b border-[var(--border)]">
+              {/* Header with tabs + collapse button */}
+              <div className="shrink-0 flex items-center gap-1 px-2 pt-2 pb-0">
+                {/* Tab pills */}
+                <div className="flex-1 flex gap-1 bg-[var(--bg)] rounded-lg p-0.5">
+                  <button
+                    onClick={() => setRightTab("trajectory")}
+                    className={`flex-1 text-[11px] font-medium py-1.5 rounded-md bg-transparent cursor-pointer transition-all duration-150 ${
+                      rightTab === "trajectory"
+                        ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    Trajectory
+                  </button>
+                  <button
+                    onClick={() => setRightTab("criteria")}
+                    className={`flex-1 text-[11px] font-medium py-1.5 rounded-md bg-transparent cursor-pointer transition-all duration-150 ${
+                      rightTab === "criteria"
+                        ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    Criteria
+                    {criteria.length > 0 && (
+                      <span className="ml-1.5 text-[10px]" style={{ color: scoreColor }}>
+                        {passCount}/{criteria.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+                {/* Collapse button — always visible in header */}
                 <button
-                  onClick={() => setRightTab("trajectory")}
-                  className={`flex-1 text-[11px] font-medium px-4 py-2.5 border-b-2 bg-transparent cursor-pointer transition-colors ${
-                    rightTab === "trajectory"
-                      ? "border-[var(--accent)] text-[var(--text-primary)]"
-                      : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  }`}
+                  onClick={() => setSidebarOpen(false)}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg)] cursor-pointer bg-transparent transition-colors"
+                  aria-label="Collapse sidebar"
                 >
-                  Trajectory
-                </button>
-                <button
-                  onClick={() => setRightTab("criteria")}
-                  className={`flex-1 text-[11px] font-medium px-4 py-2.5 border-b-2 bg-transparent cursor-pointer transition-colors ${
-                    rightTab === "criteria"
-                      ? "border-[var(--accent)] text-[var(--text-primary)]"
-                      : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  }`}
-                >
-                  Criteria
-                  {criteria.length > 0 && (
-                    <span className="ml-2 text-[11px]" style={{ color: scoreColor }}>
-                      {passCount}/{criteria.length}
-                    </span>
-                  )}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="13 17 18 12 13 7" />
+                    <polyline points="6 17 11 12 6 7" />
+                  </svg>
                 </button>
               </div>
 
               {/* Tab content */}
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 mt-2">
                 {rightTab === "trajectory" ? (
                   <TrajectoryViewer
                     steps={data.steps}
@@ -315,7 +329,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                     onStep={handleStepChange}
                   />
                 ) : (
-                  <div className="overflow-y-auto h-full flex flex-col gap-0">
+                  <div className="overflow-y-auto h-full flex flex-col gap-0 px-1">
                     {data.evaluation?.reasoning && (
                       <div className="px-3 pb-4 mb-2 border-b border-[var(--border)]">
                         <p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
@@ -330,7 +344,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                       return (
                         <div
                           key={i}
-                          className={`py-3 px-3 border-b border-[var(--border)] last:border-0 ${
+                          className={`py-3 px-3 border-b border-[var(--border)] last:border-0 rounded-lg ${
                             isFailed ? "bg-[oklch(72%_0.14_25_/_0.04)]" : ""
                           }`}
                         >
@@ -372,29 +386,23 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                   </div>
                 )}
               </div>
-
-              {/* Collapse toggle */}
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="shrink-0 py-2 border-t border-[var(--border)] text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent transition-colors"
-              >
-                Collapse ▸
-              </button>
             </>
           ) : (
-            /* Collapsed state — thin vertical strip */
+            /* Collapsed state — rounded strip with expand button */
             <button
               onClick={() => setSidebarOpen(true)}
-              className="flex flex-col items-center py-3 gap-3 cursor-pointer bg-transparent border-none w-full h-full"
+              className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-transparent border-none w-full h-full hover:bg-[var(--bg)]/30 transition-colors rounded-xl"
+              aria-label="Expand sidebar"
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-tertiary)]">
+                <polyline points="11 17 6 12 11 7" />
+                <polyline points="18 17 13 12 18 7" />
+              </svg>
               <span
-                className="text-[9px] font-medium text-[var(--text-tertiary)] tracking-[2px]"
+                className="text-[10px] font-medium text-[var(--text-tertiary)]"
                 style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
               >
-                Trajectory
-              </span>
-              <span className="w-5 h-5 rounded border border-[var(--border)] flex items-center justify-center text-[var(--text-tertiary)] text-[10px]">
-                ◂
+                {rightTab === "trajectory" ? "Trajectory" : "Criteria"}
               </span>
             </button>
           )}
