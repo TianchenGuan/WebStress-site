@@ -35,7 +35,7 @@ export function TrajectoryViewer({
   return (
     <div className="flex flex-col h-full">
       {/* Controls bar */}
-      <div className="shrink-0 px-3 py-2.5 border-b border-[var(--border)]">
+      <div className="shrink-0 px-3 py-2.5">
         <StepControls current={current} total={steps.length} onStep={handleStep} isBusy={isBusy} />
       </div>
 

@@ -281,7 +281,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
           {sidebarOpen ? (
             <>
               {/* Header with tabs + collapse button */}
-              <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-[var(--border)]">
+              <div className="shrink-0 flex items-center gap-2 px-3 py-2.5">
                 {/* Tab pills */}
                 <div className="flex-1 flex gap-0.5 bg-[var(--bg)] rounded-lg p-1">
                   <button
