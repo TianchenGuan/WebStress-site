@@ -82,6 +82,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const [showInstruction, setShowInstruction] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [rightTab, setRightTab] = useState<"trajectory" | "criteria">("trajectory");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,13 +179,15 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   return (
     <div className="w-full px-6 py-4" style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Compact top bar */}
-      <div className="flex items-baseline justify-between mb-3 shrink-0">
-        <div className="flex items-baseline gap-4">
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="flex items-center gap-3">
           <Link href="/results" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] no-underline">
             ← Results
           </Link>
-          <h1 className="text-lg font-medium tracking-tight">{data.title}</h1>
-          <span className="font-mono text-xs text-[var(--text-tertiary)]">{data.difficulty}</span>
+          <h1 className="text-lg font-semibold tracking-tight">{data.title}</h1>
+          <span className="text-[11px] text-[var(--text-tertiary)] bg-[var(--surface)] px-2.5 py-1 rounded-lg">
+            {data.difficulty}
+          </span>
           {/* Score bar inline */}
           <div className="flex items-center gap-2">
             <div className="w-[40px] h-[3px] bg-[var(--border)] rounded-full overflow-hidden">
@@ -194,41 +197,46 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
               {score !== undefined ? score.toFixed(2) : "—"}
             </span>
             <span
-              className="font-mono text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 rounded"
+              className="text-[10px] font-medium px-2 py-0.5 rounded-lg"
               style={{ color: scoreColor, background: success ? "oklch(78% 0.12 155 / 0.1)" : "oklch(72% 0.14 25 / 0.1)" }}
             >
-              {success ? "pass" : "fail"}
+              {success ? "Pass" : "Fail"}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => setShowInstruction(!showInstruction)}
-            className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border border-[var(--border)] rounded px-3 py-1 font-mono"
+            className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border border-[var(--border)] rounded-lg px-3 py-1"
           >
             {showInstruction ? "hide task" : "show task"}
           </button>
-          <div className="flex gap-3 font-mono text-xs text-[var(--text-tertiary)]">
-            <span>{data.model}</span>
-            <span>{totalSteps} steps</span>
-            <span>{elapsedSeconds.toFixed(0)}s</span>
+          <div className="flex gap-3 text-[12px] text-[var(--text-tertiary)]">
+            <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">{data.model}</span>
+            <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">
+              {!sidebarOpen ? `step ${currentStep + 1}/${totalSteps}` : `${totalSteps} steps`}
+            </span>
+            <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">{elapsedSeconds.toFixed(0)}s</span>
           </div>
         </div>
       </div>
 
       {showInstruction && (
-        <div className="mb-3 p-4 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-[var(--text-secondary)] leading-relaxed max-w-[720px] shrink-0">
+        <div className="mb-3 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-secondary)] leading-relaxed max-w-[720px] shrink-0">
           {data.instruction}
         </div>
       )}
 
-      {/* Main split view */}
-      <div className="flex-1 min-h-0 grid grid-cols-[1fr_400px] gap-4">
-        {/* Left: Gmail environment */}
-        <div className="border border-[var(--border)] rounded-md overflow-hidden flex flex-col min-h-0">
+      {/* Main area — Gmail full width + sidebar overlay */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Gmail environment — always full width */}
+        <div
+          className="absolute inset-0 flex flex-col rounded-xl border border-[var(--border)] overflow-hidden"
+          style={{ right: sidebarOpen ? "332px" : "36px", transition: "right 200ms ease-out" }}
+        >
           {/* Target indicator bar */}
           <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 flex items-center gap-3">
-            <span className="font-mono text-[10px] tracking-[2px] uppercase text-[var(--text-tertiary)] shrink-0">
+            <span className="text-[11px] font-medium text-[var(--text-tertiary)] shrink-0">
               Target
             </span>
             <span className="text-[13px] text-[var(--text-secondary)] truncate">
@@ -241,7 +249,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
             )}
           </div>
 
-          {/* Gmail SPA — STABLE KEY, no remount per step */}
+          {/* Gmail SPA */}
           {fixture && replayFixture ? (
             <GmailWrapper
               key={taskId}
@@ -258,112 +266,138 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
           )}
         </div>
 
-        {/* Right: tabbed panel — Trajectory / Criteria */}
-        <div className="flex flex-col min-h-0">
-          {/* Tab bar */}
-          <div className="shrink-0 flex border-b border-[var(--border)] mb-3">
-            <button
-              onClick={() => setRightTab("trajectory")}
-              className={`font-mono text-[10px] tracking-[2px] uppercase px-4 py-2 border-b-2 bg-transparent cursor-pointer transition-colors ${
-                rightTab === "trajectory"
-                  ? "border-[var(--accent)] text-[var(--text-primary)]"
-                  : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Trajectory
-            </button>
-            <button
-              onClick={() => setRightTab("criteria")}
-              className={`font-mono text-[10px] tracking-[2px] uppercase px-4 py-2 border-b-2 bg-transparent cursor-pointer transition-colors ${
-                rightTab === "criteria"
-                  ? "border-[var(--accent)] text-[var(--text-primary)]"
-                  : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Criteria
-              {criteria.length > 0 && (
-                <span className="ml-2 font-mono text-[10px]" style={{ color: scoreColor }}>
-                  {passCount}/{criteria.length}
-                </span>
-              )}
-            </button>
-          </div>
+        {/* Sidebar — open state */}
+        <div
+          className="absolute top-0 bottom-0 right-0 flex flex-col bg-[var(--surface)] border-l border-[var(--border)] overflow-hidden"
+          style={{
+            width: sidebarOpen ? "320px" : "36px",
+            boxShadow: sidebarOpen ? "-4px 0 20px rgba(0,0,0,0.1)" : "none",
+            transition: "width 200ms ease-out, box-shadow 200ms ease-out",
+          }}
+        >
+          {sidebarOpen ? (
+            <>
+              {/* Tab bar */}
+              <div className="shrink-0 flex border-b border-[var(--border)]">
+                <button
+                  onClick={() => setRightTab("trajectory")}
+                  className={`flex-1 text-[11px] font-medium px-4 py-2.5 border-b-2 bg-transparent cursor-pointer transition-colors ${
+                    rightTab === "trajectory"
+                      ? "border-[var(--accent)] text-[var(--text-primary)]"
+                      : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  }`}
+                >
+                  Trajectory
+                </button>
+                <button
+                  onClick={() => setRightTab("criteria")}
+                  className={`flex-1 text-[11px] font-medium px-4 py-2.5 border-b-2 bg-transparent cursor-pointer transition-colors ${
+                    rightTab === "criteria"
+                      ? "border-[var(--accent)] text-[var(--text-primary)]"
+                      : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  }`}
+                >
+                  Criteria
+                  {criteria.length > 0 && (
+                    <span className="ml-2 text-[11px]" style={{ color: scoreColor }}>
+                      {passCount}/{criteria.length}
+                    </span>
+                  )}
+                </button>
+              </div>
 
-          {/* Tab content */}
-          <div className="flex-1 min-h-0">
-            {rightTab === "trajectory" ? (
-              <TrajectoryViewer
-                steps={data.steps}
-                current={currentStep}
-                onStep={handleStepChange}
-              />
-            ) : (
-              <div className="overflow-y-auto h-full flex flex-col gap-0">
-                {/* Reasoning */}
-                {data.evaluation?.reasoning && (
-                  <div className="px-1 pb-4 mb-2 border-b border-[var(--border)]">
-                    <p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
-                      {data.evaluation.reasoning}
-                    </p>
-                  </div>
-                )}
-
-                {/* Criteria list */}
-                {criteria.map((cr, i) => {
-                  const isPassed = cr.passed;
-                  const isFailed = cr.passed === false;
-                  const relevantSteps = findRelevantSteps(data.steps, cr.desc);
-
-                  return (
-                    <div
-                      key={i}
-                      className={`py-3 px-3 border-b border-[var(--border)] last:border-0 rounded-sm ${
-                        isFailed ? "bg-[oklch(72%_0.14_25_/_0.04)]" : ""
-                      }`}
-                    >
-                      {/* Pass/fail + description */}
-                      <div className="flex items-start gap-2.5">
-                        <span
-                          className={`font-mono text-xs mt-0.5 shrink-0 ${
-                            isPassed ? "text-[var(--green)]" : isFailed ? "text-[var(--red)]" : "text-[var(--text-tertiary)]"
+              {/* Tab content */}
+              <div className="flex-1 min-h-0">
+                {rightTab === "trajectory" ? (
+                  <TrajectoryViewer
+                    steps={data.steps}
+                    current={currentStep}
+                    onStep={handleStepChange}
+                  />
+                ) : (
+                  <div className="overflow-y-auto h-full flex flex-col gap-0">
+                    {data.evaluation?.reasoning && (
+                      <div className="px-3 pb-4 mb-2 border-b border-[var(--border)]">
+                        <p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
+                          {data.evaluation.reasoning}
+                        </p>
+                      </div>
+                    )}
+                    {criteria.map((cr, i) => {
+                      const isPassed = cr.passed;
+                      const isFailed = cr.passed === false;
+                      const relevantSteps = findRelevantSteps(data.steps, cr.desc);
+                      return (
+                        <div
+                          key={i}
+                          className={`py-3 px-3 border-b border-[var(--border)] last:border-0 ${
+                            isFailed ? "bg-[oklch(72%_0.14_25_/_0.04)]" : ""
                           }`}
                         >
-                          {isPassed ? "✓" : isFailed ? "✗" : "·"}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] leading-[1.6] ${isFailed ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
-                            {cr.desc}
-                          </p>
-
-                          {/* Penalty badge */}
-                          {isFailed && cr.penalty !== undefined && (
-                            <span className="inline-block mt-1 font-mono text-[10px] text-[var(--red)] bg-[oklch(72%_0.14_25_/_0.08)] px-2 py-0.5 rounded">
-                              penalty: -{cr.penalty}
+                          <div className="flex items-start gap-2.5">
+                            <span
+                              className={`font-mono text-xs mt-0.5 shrink-0 ${
+                                isPassed ? "text-[var(--green)]" : isFailed ? "text-[var(--red)]" : "text-[var(--text-tertiary)]"
+                              }`}
+                            >
+                              {isPassed ? "✓" : isFailed ? "✗" : "·"}
                             </span>
-                          )}
-
-                          {/* Related steps */}
-                          {relevantSteps.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {relevantSteps.map((stepIdx) => (
-                                <button
-                                  key={stepIdx}
-                                  onClick={() => handleStepChange(stepIdx)}
-                                  className="font-mono text-[10px] px-2 py-0.5 rounded border border-[var(--border)] text-[var(--accent)] bg-transparent hover:bg-[var(--surface)] cursor-pointer transition-colors"
-                                >
-                                  step {data.steps[stepIdx].step}
-                                </button>
-                              ))}
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] leading-[1.6] ${isFailed ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
+                                {cr.desc}
+                              </p>
+                              {isFailed && cr.penalty !== undefined && (
+                                <span className="inline-block mt-1 font-mono text-[10px] text-[var(--red)] bg-[oklch(72%_0.14_25_/_0.08)] px-2 py-0.5 rounded-lg">
+                                  penalty: -{cr.penalty}
+                                </span>
+                              )}
+                              {relevantSteps.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {relevantSteps.map((stepIdx) => (
+                                    <button
+                                      key={stepIdx}
+                                      onClick={() => handleStepChange(stepIdx)}
+                                      className="font-mono text-[10px] px-2 py-0.5 rounded-lg border border-[var(--border)] text-[var(--accent)] bg-transparent hover:bg-[var(--bg)] cursor-pointer transition-colors"
+                                    >
+                                      step {data.steps[stepIdx].step}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Collapse toggle */}
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="shrink-0 py-2 border-t border-[var(--border)] text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent transition-colors"
+              >
+                Collapse ▸
+              </button>
+            </>
+          ) : (
+            /* Collapsed state — thin vertical strip */
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex flex-col items-center py-3 gap-3 cursor-pointer bg-transparent border-none w-full h-full"
+            >
+              <span
+                className="text-[9px] font-medium text-[var(--text-tertiary)] tracking-[2px]"
+                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+              >
+                Trajectory
+              </span>
+              <span className="w-5 h-5 rounded border border-[var(--border)] flex items-center justify-center text-[var(--text-tertiary)] text-[10px]">
+                ◂
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
