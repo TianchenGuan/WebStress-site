@@ -40,13 +40,13 @@ export function StepControls({ current, total, onStep, isBusy = false }: StepCon
       </button>
       <button onClick={() => setPlaying((p) => !p)} className={btnClass} aria-label={playing ? "Pause" : "Play"}>
         {playing ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="10" y1="6" x2="10" y2="18" />
-            <line x1="14" y1="6" x2="14" y2="18" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="5" y="4" width="5" height="16" rx="1" />
+            <rect x="14" y="4" width="5" height="16" rx="1" />
           </svg>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="6,4 20,12 6,20" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 4l14 8-14 8V4z" />
           </svg>
         )}
       </button>
