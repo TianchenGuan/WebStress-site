@@ -6,7 +6,7 @@ export function StatRow({ stats }: { stats: { value: string; label: string }[] }
           <span className="font-mono text-[32px] font-medium text-[var(--text-primary)] tracking-tight leading-none">
             {stat.value}
           </span>
-          <span className="text-[13px] text-[var(--text-secondary)] mt-2 tracking-wide">
+          <span className="text-[13px] text-[var(--text-secondary)] mt-2">
             {stat.label}
           </span>
         </div>

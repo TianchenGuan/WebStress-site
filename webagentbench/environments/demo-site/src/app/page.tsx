@@ -12,7 +12,7 @@ export default function LandingPage() {
     <div className="max-w-[720px] mx-auto px-12">
       {/* Hero */}
       <section className="pt-[120px] pb-20">
-        <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-8">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-8">
           Research
         </p>
         <h1 className="text-[clamp(2rem,4vw,3.2rem)] font-medium tracking-tight leading-[1.15] mb-7">
@@ -25,13 +25,13 @@ export default function LandingPage() {
         <div className="flex gap-4 mt-10">
           <Link
             href="/environment"
-            className="text-sm font-medium px-6 py-[10px] bg-[var(--text-primary)] text-[var(--bg)] rounded no-underline hover:opacity-85 transition-opacity"
+            className="text-sm font-medium px-6 py-[10px] bg-[var(--text-primary)] text-[var(--bg)] rounded-xl no-underline hover:opacity-85 transition-opacity"
           >
             Explore environment
           </Link>
           <a
             href="#"
-            className="text-sm font-medium px-6 py-[10px] border border-[var(--border)] text-[var(--text-secondary)] rounded no-underline hover:text-[var(--text-primary)] hover:border-[var(--text-tertiary)] transition-colors"
+            className="text-sm font-medium px-6 py-[10px] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl no-underline hover:text-[var(--text-primary)] hover:border-[var(--text-tertiary)] transition-colors"
           >
             Read paper
           </a>
@@ -52,7 +52,7 @@ export default function LandingPage() {
 
       {/* Environment preview */}
       <section className="py-20">
-        <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-4">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-4">
           Environment
         </p>
         <h2 className="text-2xl font-medium tracking-tight mb-3">
@@ -62,7 +62,7 @@ export default function LandingPage() {
           Each task presents a fully interactive Gmail simulation. The agent perceives the interface
           as an indexed accessibility tree and acts through structured commands.
         </p>
-        <div className="mt-10 border border-[var(--border)] rounded-md overflow-hidden">
+        <div className="mt-10 border border-[var(--border)] rounded-xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)] font-mono text-[13px] text-[var(--text-secondary)]">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--green)]" />
             accessibility tree · gmail_thread_detective
@@ -99,7 +99,7 @@ export default function LandingPage() {
 
       {/* Primitives */}
       <section className="py-20">
-        <p className="font-mono text-xs tracking-[3px] uppercase text-[var(--text-tertiary)] mb-4">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)] mb-4">
           Taxonomy
         </p>
         <h2 className="text-2xl font-medium tracking-tight mb-3">
