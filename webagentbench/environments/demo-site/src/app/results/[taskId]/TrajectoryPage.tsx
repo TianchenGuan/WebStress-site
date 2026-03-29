@@ -333,60 +333,94 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                     onStep={handleStepChange}
                   />
                 ) : (
-                  <div className="overflow-y-auto h-full flex flex-col gap-0 px-1">
+                  <div className="overflow-y-auto h-full px-3 py-3">
+                    {/* Reasoning summary */}
                     {data.evaluation?.reasoning && (
-                      <div className="px-3 pb-4 mb-2 border-b border-[var(--border)]">
-                        <p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
-                          {data.evaluation.reasoning}
-                        </p>
+                      <p className="text-[12px] text-[var(--text-secondary)] leading-[1.7] mb-4">
+                        {data.evaluation.reasoning}
+                      </p>
+                    )}
+
+                    {/* Failed criteria */}
+                    {criteria.some((c) => c.passed === false) && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)]" />
+                          <span className="text-[11px] font-medium text-[var(--red)]">
+                            Failed ({criteria.filter((c) => c.passed === false).length})
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {criteria.map((cr, i) => {
+                            if (cr.passed !== false) return null;
+                            const relevantSteps = findRelevantSteps(data.steps, cr.desc);
+                            return (
+                              <div key={i} className="px-3 py-2.5 rounded-xl bg-[var(--red)]/[0.05]">
+                                <p className="text-[12px] leading-[1.5] text-[var(--text-primary)]">
+                                  {cr.desc}
+                                </p>
+                                {cr.penalty !== undefined && (
+                                  <span className="text-[10px] text-[var(--red)] mt-0.5 inline-block">
+                                    -{cr.penalty} penalty
+                                  </span>
+                                )}
+                                {relevantSteps.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {relevantSteps.map((stepIdx) => (
+                                      <button
+                                        key={stepIdx}
+                                        onClick={() => handleStepChange(stepIdx)}
+                                        className="text-[10px] px-1.5 py-0.5 rounded-md text-[var(--accent)] bg-[var(--accent)]/[0.08] hover:bg-[var(--accent)]/[0.15] cursor-pointer transition-colors"
+                                      >
+                                        step {data.steps[stepIdx].step}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
-                    {criteria.map((cr, i) => {
-                      const isPassed = cr.passed;
-                      const isFailed = cr.passed === false;
-                      const relevantSteps = findRelevantSteps(data.steps, cr.desc);
-                      return (
-                        <div
-                          key={i}
-                          className={`py-3 px-3 border-b border-[var(--border)] last:border-0 rounded-lg ${
-                            isFailed ? "bg-[oklch(72%_0.15_25_/_0.04)]" : ""
-                          }`}
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <span
-                              className={`font-mono text-xs mt-0.5 shrink-0 ${
-                                isPassed ? "text-[var(--green)]" : isFailed ? "text-[var(--red)]" : "text-[var(--text-tertiary)]"
-                              }`}
-                            >
-                              {isPassed ? "✓" : isFailed ? "✗" : "·"}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[13px] leading-[1.6] ${isFailed ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
-                                {cr.desc}
-                              </p>
-                              {isFailed && cr.penalty !== undefined && (
-                                <span className="inline-block mt-1 font-mono text-[10px] text-[var(--red)] bg-[oklch(72%_0.15_25_/_0.08)] px-2 py-0.5 rounded-lg">
-                                  penalty: -{cr.penalty}
-                                </span>
-                              )}
-                              {relevantSteps.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {relevantSteps.map((stepIdx) => (
-                                    <button
-                                      key={stepIdx}
-                                      onClick={() => handleStepChange(stepIdx)}
-                                      className="font-mono text-[10px] px-2 py-0.5 rounded-lg border border-[var(--border)] text-[var(--accent)] bg-transparent hover:bg-[var(--bg)] cursor-pointer transition-colors"
-                                    >
-                                      step {data.steps[stepIdx].step}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+
+                    {/* Passed criteria */}
+                    {criteria.some((c) => c.passed === true) && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--green)]" />
+                          <span className="text-[11px] font-medium text-[var(--green)]">
+                            Passed ({criteria.filter((c) => c.passed === true).length})
+                          </span>
                         </div>
-                      );
-                    })}
+                        <div className="flex flex-col gap-0.5">
+                          {criteria.map((cr, i) => {
+                            if (cr.passed !== true) return null;
+                            const relevantSteps = findRelevantSteps(data.steps, cr.desc);
+                            return (
+                              <div key={i} className="px-3 py-2 rounded-xl hover:bg-[var(--bg)]/50 transition-colors">
+                                <p className="text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                                  {cr.desc}
+                                </p>
+                                {relevantSteps.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {relevantSteps.map((stepIdx) => (
+                                      <button
+                                        key={stepIdx}
+                                        onClick={() => handleStepChange(stepIdx)}
+                                        className="text-[10px] px-1.5 py-0.5 rounded-md text-[var(--accent)] bg-[var(--accent)]/[0.08] hover:bg-[var(--accent)]/[0.15] cursor-pointer transition-colors"
+                                      >
+                                        step {data.steps[stepIdx].step}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
