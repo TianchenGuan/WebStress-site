@@ -160,6 +160,45 @@ def simplify_evaluation(evaluation: dict) -> dict:
     }
 
 
+def build_negative_checks(results_dir: Path) -> None:
+    """Scan all trajectory files and emit negative-checks.json."""
+    trajectories_dir = results_dir / "trajectories"
+    if not trajectories_dir.exists():
+        return
+
+    checks: list[dict] = []
+    for traj_path in sorted(trajectories_dir.glob("*.json")):
+        with open(traj_path) as f:
+            traj = json.load(f)
+        task_id = traj.get("task_id", traj_path.stem)
+        title = traj.get("title", task_id)
+        difficulty = traj.get("difficulty", "")
+        for cr in traj.get("evaluation", {}).get("criteria_results", []):
+            if cr.get("penalty") is not None:
+                checks.append({
+                    "task_id": task_id,
+                    "task_title": title,
+                    "difficulty": difficulty,
+                    "desc": cr.get("desc", ""),
+                    "penalty": cr["penalty"],
+                    "triggered": cr.get("passed") is False,
+                })
+
+    triggered_count = sum(1 for c in checks if c["triggered"])
+    tasks_with_negatives = len({c["task_id"] for c in checks})
+
+    payload = {
+        "total_tasks_with_negatives": tasks_with_negatives,
+        "total_negative_checks": len(checks),
+        "triggered_count": triggered_count,
+        "checks": checks,
+    }
+
+    out_path = results_dir / "negative-checks.json"
+    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    print(f"  Negative checks -> {out_path} ({len(checks)} checks, {triggered_count} triggered)")
+
+
 def process_result(result: dict) -> tuple[dict, dict]:
     """Process a single task result into a summary entry and simplified trajectory."""
     evaluation = result.get("evaluation") or {}
@@ -289,6 +328,7 @@ def main():
     print(f"  Avg score: {avg_score:.4f}  Success: {success_count}/{n}")
     print(f"  Summary  -> {summary_path}")
     print(f"  Trajectories -> {TRAJECTORIES_DIR}/")
+    build_negative_checks(RESULTS_DIR)
 
 
 if __name__ == "__main__":
