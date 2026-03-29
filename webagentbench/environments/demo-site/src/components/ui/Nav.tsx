@@ -8,6 +8,7 @@ const links = [
   { href: "/", label: "Home", exact: true },
   { href: "/environment", label: "Environment", exact: false },
   { href: "/tasks", label: "Tasks", exact: false },
+  { href: "/docs", label: "Docs", exact: false },
   { href: "/results", label: "Results", exact: false },
 ];
 
@@ -51,15 +52,15 @@ export function Nav() {
   }, [updatePill]);
 
   return (
-    <nav className="sticky top-0 z-50 flex justify-between items-center w-full px-6 py-4 bg-[var(--bg)]/80 backdrop-blur-lg border-b border-[var(--border)]/50">
+    <nav className="sticky top-0 z-50 flex justify-between items-center w-full px-6 py-4 bg-[var(--bg)]/80 backdrop-blur-lg">
       <Link href="/" className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight no-underline">
         WebAgentBench
       </Link>
-      <div ref={containerRef} className="relative flex items-center gap-1 bg-[var(--surface)] rounded-xl p-1">
+      <div ref={containerRef} className="relative flex items-center gap-1 bg-[var(--surface-raised)] rounded-xl p-1">
         {/* Sliding pill indicator */}
         {pill && (
           <div
-            className="absolute top-1 bottom-1 rounded-[10px] bg-[var(--bg)] transition-all duration-300 ease-out"
+            className="absolute top-1 bottom-1 rounded-[10px] bg-[var(--surface)] transition-all duration-300 ease-out"
             style={{ left: pill.left, width: pill.width }}
           />
         )}
