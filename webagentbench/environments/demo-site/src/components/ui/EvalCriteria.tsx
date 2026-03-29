@@ -31,7 +31,7 @@ function ScoreBar({ score, success }: { score: number; success: boolean }) {
   const color = success
     ? "var(--green)"
     : score > 0.5
-      ? "oklch(70% 0.12 85)" /* amber */
+      ? "var(--amber)"
       : "var(--red)";
 
   return (
@@ -50,10 +50,10 @@ function ScoreBar({ score, success }: { score: number; success: boolean }) {
         style={{
           color,
           background: success
-            ? "oklch(78% 0.12 155 / 0.12)"
+            ? "oklch(78% 0.14 155 / 0.12)"
             : score > 0.5
-              ? "oklch(70% 0.12 85 / 0.12)"
-              : "oklch(72% 0.14 25 / 0.12)",
+              ? "oklch(75% 0.13 85 / 0.12)"
+              : "oklch(72% 0.15 25 / 0.12)",
         }}
       >
         {success ? "Pass" : "Fail"}
@@ -76,6 +76,9 @@ export function EvalCriteria({
   const passCount = criteria.filter((c) => c.passed).length;
   const totalCount = criteria.length;
 
+  const regularCount = criteria.filter((cr) => cr.penalty == null).length;
+  const impliedWeight = regularCount > 0 ? 1 / regularCount : 0;
+
   if (compact) {
     return (
       <div className="flex items-start gap-6">
@@ -91,6 +94,7 @@ export function EvalCriteria({
           {criteria.map((cr, i) => {
             const isPassed = cr.passed;
             const isFailed = cr.passed === false;
+            const isNegativeCheck = cr.penalty != null;
 
             return (
               <div key={i} className="flex items-center gap-1.5">
@@ -102,9 +106,14 @@ export function EvalCriteria({
                 <span className={`text-[12px] ${isFailed ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
                   {cr.desc}
                 </span>
-                {isFailed && cr.penalty !== undefined && (
+                {isFailed && isNegativeCheck && (
                   <span className="font-mono text-[10px] text-[var(--red)] opacity-70">
-                    -{cr.penalty}
+                    penalty: -{cr.penalty}
+                  </span>
+                )}
+                {isFailed && !isNegativeCheck && (
+                  <span className="font-mono text-[10px] text-[var(--amber)] opacity-70">
+                    weight: {impliedWeight.toFixed(2)}
                   </span>
                 )}
               </div>
@@ -149,12 +158,13 @@ export function EvalCriteria({
           const isPassed = cr.passed;
           const isFailed = cr.passed === false;
           const isUnknown = cr.passed === undefined;
+          const isNegativeCheck = cr.penalty != null;
 
           return (
             <div
               key={i}
               className={`flex items-start gap-3 py-2.5 border-b border-[var(--border)] last:border-0 ${
-                isFailed ? "bg-[oklch(72%_0.14_25_/_0.04)]" : ""
+                isFailed ? "bg-[oklch(72%_0.15_25_/_0.04)]" : ""
               }`}
             >
               {/* Status indicator */}
@@ -174,17 +184,24 @@ export function EvalCriteria({
                 )}
               </div>
 
-              {/* Description + penalty */}
+              {/* Description */}
               <div className="flex-1 min-w-0">
                 <p className={`text-[14px] leading-[1.6] ${isFailed ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
                   {cr.desc}
                 </p>
               </div>
 
-              {/* Penalty badge */}
-              {isFailed && cr.penalty !== undefined && (
-                <span className="shrink-0 font-mono text-[11px] text-[var(--red)] bg-[oklch(72%_0.14_25_/_0.08)] px-2 py-0.5 rounded">
-                  -{cr.penalty}
+              {/* Penalty badge (negative check) */}
+              {isFailed && isNegativeCheck && (
+                <span className="shrink-0 font-mono text-[11px] text-[var(--red)] bg-[oklch(72%_0.15_25_/_0.08)] px-2 py-0.5 rounded">
+                  penalty: -{cr.penalty}
+                </span>
+              )}
+
+              {/* Implied weight badge (regular criterion) */}
+              {isFailed && !isNegativeCheck && (
+                <span className="shrink-0 font-mono text-[11px] text-[var(--amber)] bg-[oklch(75%_0.13_85_/_0.08)] px-2 py-0.5 rounded">
+                  weight: {impliedWeight.toFixed(2)}
                 </span>
               )}
             </div>
