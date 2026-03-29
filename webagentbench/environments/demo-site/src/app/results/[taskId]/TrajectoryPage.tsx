@@ -173,7 +173,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const scoreColor = success
     ? "var(--green)"
     : (score ?? 0) > 0.5
-      ? "oklch(70% 0.12 85)"
+      ? "var(--amber)"
       : "var(--red)";
 
   return (
@@ -201,7 +201,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
             </span>
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-lg"
-              style={{ color: scoreColor, background: success ? "oklch(78% 0.12 155 / 0.1)" : "oklch(72% 0.14 25 / 0.1)" }}
+              style={{ color: scoreColor, background: success ? "oklch(78% 0.14 155 / 0.1)" : "oklch(72% 0.15 25 / 0.1)" }}
             >
               {success ? "Pass" : "Fail"}
             </span>
@@ -271,10 +271,10 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
 
         {/* Sidebar */}
         <div
-          className="absolute top-0 bottom-0 right-0 flex flex-col bg-[var(--surface)] rounded-xl overflow-hidden"
+          className="absolute top-0 bottom-0 right-0 flex flex-col bg-[var(--surface-raised)] rounded-xl overflow-hidden"
           style={{
             width: sidebarOpen ? "340px" : "44px",
-            boxShadow: sidebarOpen ? "-8px 0 32px rgba(0,0,0,0.15)" : "-2px 0 8px rgba(0,0,0,0.08)",
+            boxShadow: sidebarOpen ? "-8px 0 32px var(--shadow)" : "-2px 0 8px var(--shadow)",
             transition: "width 250ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms ease-out",
           }}
         >
@@ -283,10 +283,10 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
               {/* Header with tabs + collapse button */}
               <div className="shrink-0 flex items-center gap-2 px-3 py-2.5">
                 {/* Tab pills */}
-                <div className="flex-1 flex gap-0.5 bg-[var(--bg)] rounded-lg p-1">
+                <div className="flex-1 flex gap-1 bg-[var(--surface-raised)] rounded-xl p-1">
                   <button
                     onClick={() => setRightTab("trajectory")}
-                    className={`flex-1 text-[12px] font-medium py-1.5 rounded-md bg-transparent cursor-pointer transition-all duration-150 ${
+                    className={`flex-1 text-[12px] font-medium py-1.5 rounded-[10px] bg-transparent cursor-pointer transition-all duration-150 ${
                       rightTab === "trajectory"
                         ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
                         : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
@@ -296,7 +296,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                   </button>
                   <button
                     onClick={() => setRightTab("criteria")}
-                    className={`flex-1 text-[12px] font-medium py-1.5 rounded-md bg-transparent cursor-pointer transition-all duration-150 ${
+                    className={`flex-1 text-[12px] font-medium py-1.5 rounded-[10px] bg-transparent cursor-pointer transition-all duration-150 ${
                       rightTab === "criteria"
                         ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
                         : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
@@ -349,7 +349,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                         <div
                           key={i}
                           className={`py-3 px-3 border-b border-[var(--border)] last:border-0 rounded-lg ${
-                            isFailed ? "bg-[oklch(72%_0.14_25_/_0.04)]" : ""
+                            isFailed ? "bg-[oklch(72%_0.15_25_/_0.04)]" : ""
                           }`}
                         >
                           <div className="flex items-start gap-2.5">
@@ -365,7 +365,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                                 {cr.desc}
                               </p>
                               {isFailed && cr.penalty !== undefined && (
-                                <span className="inline-block mt-1 font-mono text-[10px] text-[var(--red)] bg-[oklch(72%_0.14_25_/_0.08)] px-2 py-0.5 rounded-lg">
+                                <span className="inline-block mt-1 font-mono text-[10px] text-[var(--red)] bg-[oklch(72%_0.15_25_/_0.08)] px-2 py-0.5 rounded-lg">
                                   penalty: -{cr.penalty}
                                 </span>
                               )}
