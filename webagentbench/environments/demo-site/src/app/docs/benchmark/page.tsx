@@ -1,3 +1,5 @@
+import { CodeBlock } from "@/components/docs/CodeBlock";
+
 export default function BenchmarkDocsPage() {
   return (
     <>
@@ -54,10 +56,8 @@ export default function BenchmarkDocsPage() {
                 resolved against the seed&apos;s target object at runtime. This keeps the instruction
                 human-readable in the YAML while remaining parametric across fixture variations.
               </p>
-              <div className="border border-[var(--border)] rounded-xl bg-[var(--surface-raised)] p-5 font-mono text-[13px] text-[var(--text-primary)] leading-[2]">
-                {`Find the most recent email from {{target.sender}} and reply`}<br />
-                {`with the meeting time {{target.time}}.`}
-              </div>
+              <CodeBlock code={`Find the most recent email from {{target.sender}} and reply
+with the meeting time {{target.time}}.`} language="yaml" />
             </div>
           </div>
 
@@ -280,15 +280,15 @@ export default function BenchmarkDocsPage() {
           spins up a local FastAPI server, initialises each page with a seeded fixture, then runs
           the agent against the live DOM via Playwright.
         </p>
-        <div className="border border-[var(--border)] rounded-xl bg-[var(--surface-raised)] p-5 font-mono text-[13px] text-[var(--text-primary)] leading-[2]">
-          <p className="text-[var(--text-tertiary)]"># Evaluate on all 15 pages</p>
-          <p>python -m webagentbench.agent_eval --model gpt-4o --provider openai</p>
-          <p className="mt-3 text-[var(--text-tertiary)]"># Specific pages only</p>
-          <p>python -m webagentbench.agent_eval --model gpt-4o --provider openai \</p>
-          <p className="pl-4">--pages dark_checkout wizard_form gmail</p>
-          <p className="mt-3 text-[var(--text-tertiary)]"># With visible browser (useful for debugging)</p>
-          <p>python -m webagentbench.agent_eval --model gpt-4o --provider openai --no-headless</p>
-        </div>
+        <CodeBlock code={`# Evaluate on all 15 pages
+python -m webagentbench.agent_eval --model gpt-4o --provider openai
+
+# Specific pages only
+python -m webagentbench.agent_eval --model gpt-4o --provider openai \\
+    --pages dark_checkout wizard_form gmail
+
+# With visible browser (useful for debugging)
+python -m webagentbench.agent_eval --model gpt-4o --provider openai --no-headless`} language="bash" />
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mt-5">
           Results are written to{" "}
           <code className="font-mono text-[13px] text-[var(--text-primary)] bg-[var(--surface)] px-1.5 py-0.5 rounded">results/webagentbench/results.json</code>{" "}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CodeBlock } from "@/components/docs/CodeBlock";
 
 export default function ScoringDocsPage() {
   return (
@@ -24,9 +25,7 @@ export default function ScoringDocsPage() {
           derived from positive criteria, any penalties from negative checks, and a small trajectory
           efficiency modifier:
         </p>
-        <div className="border border-[var(--border)] rounded-xl p-5 bg-[var(--surface-raised)] font-mono text-[14px] mb-5">
-          final_score = clamp(0–1, base_score − penalties + trajectory_mod)
-        </div>
+        <CodeBlock code="final_score = clamp(0-1, base_score - penalties + trajectory_mod)" language="python" />
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7]">
           The result is always clamped to [0, 1], so penalties can never push the score below zero
           and the trajectory modifier can never push it above one.
@@ -41,9 +40,7 @@ export default function ScoringDocsPage() {
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-5">
           The base score is the fraction of positive criteria the agent satisfied:
         </p>
-        <div className="border border-[var(--border)] rounded-xl p-5 bg-[var(--surface-raised)] font-mono text-[14px] mb-5">
-          base_score = passed_criteria / total_criteria
-        </div>
+        <CodeBlock code="base_score = passed_criteria / total_criteria" language="python" />
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7]">
           Each criterion carries an implied weight of <span className="font-mono">1 / total_criteria</span>.
           Criteria are defined per-task in the benchmark manifest and cover observable outcomes such
@@ -188,14 +185,11 @@ export default function ScoringDocsPage() {
             </tbody>
           </table>
         </div>
-        <div className="border border-[var(--border)] rounded-xl p-5 bg-[var(--surface-raised)] font-mono text-[14px]">
-          <p className="mb-1">base_score     = 4 / 5 = <span className="text-[var(--text-primary)]">0.80</span></p>
-          <p className="mb-1">penalties      = <span className="text-[var(--text-primary)]">0.00</span></p>
-          <p className="mb-1">trajectory_mod = <span className="text-[var(--text-primary)]">0.00</span></p>
-          <p className="mt-3 pt-3 border-t border-[var(--border)]">
-            final_score    = <span className="text-[var(--green)] font-medium">0.80</span>
-          </p>
-        </div>
+        <CodeBlock code={`base_score     = 4 / 5 = 0.80
+penalties      = 0.00
+trajectory_mod = 0.00
+
+final_score    = clamp(0-1, 0.80 - 0.00 + 0.00) = 0.80`} language="python" />
       </section>
 
       {/* Pass/Fail */}

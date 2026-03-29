@@ -1,3 +1,5 @@
+import { CodeBlock } from "@/components/docs/CodeBlock";
+
 export default function TrainingDocsPage() {
   return (
     <>
@@ -61,15 +63,13 @@ export default function TrainingDocsPage() {
             with accurate scores, providing a higher-fidelity signal for the most important tasks.
           </li>
         </ul>
-        <div className="border border-[var(--border)] rounded-xl bg-[var(--surface-raised)] p-5 font-mono text-[13px] text-[var(--text-primary)] leading-[2]">
-          <span className="text-[var(--text-tertiary)]"># Collect from simulator (analyzes WAB failures)</span>{"\n"}
-          python -m llmos collect --wab-results results/webagentbench/baseline.json \{"\n"}
-          {"    "}--episodes 20 --output training/data/raw_episodes.jsonl{"\n"}
-          {"\n"}
-          <span className="text-[var(--text-tertiary)]"># Prepare training data</span>{"\n"}
-          python training/prepare_data.py --llmos-dir llmos/runs/ \{"\n"}
-          {"    "}--min-score 0.0 --output training/data/train.jsonl
-        </div>
+        <CodeBlock code={`# Collect from simulator (analyzes WAB failures)
+python -m llmos collect --wab-results results/webagentbench/baseline.json \\
+    --episodes 20 --output training/data/raw_episodes.jsonl
+
+# Prepare training data
+python training/prepare_data.py --llmos-dir llmos/runs/ \\
+    --min-score 0.0 --output training/data/train.jsonl`} language="bash" />
       </section>
 
       {/* SFT Stage */}
@@ -89,11 +89,9 @@ export default function TrainingDocsPage() {
           A100 capacity and exposes an OpenAI-compatible endpoint for inference once the job
           completes.
         </p>
-        <div className="border border-[var(--border)] rounded-xl bg-[var(--surface-raised)] p-5 font-mono text-[13px] text-[var(--text-primary)] leading-[2]">
-          <span className="text-[var(--text-tertiary)]"># SFT on Qwen via Tinker API</span>{"\n"}
-          python training/train_sft.py --data training/data/train.jsonl \{"\n"}
-          {"    "}--model Qwen/Qwen3-30B-A3B
-        </div>
+        <CodeBlock code={`# SFT on Qwen via Tinker API
+python training/train_sft.py --data training/data/train.jsonl \\
+    --model Qwen/Qwen3-30B-A3B`} language="bash" />
       </section>
 
       {/* DPO Stage */}
@@ -113,13 +111,11 @@ export default function TrainingDocsPage() {
           which groups episodes by task, sorts by score, and produces (high, low) pairs from the
           collected runs.
         </p>
-        <div className="border border-[var(--border)] rounded-xl bg-[var(--surface-raised)] p-5 font-mono text-[13px] text-[var(--text-primary)] leading-[2]">
-          <span className="text-[var(--text-tertiary)]"># Prepare DPO pairs</span>{"\n"}
-          python training/prepare_dpo.py ...{"\n"}
-          {"\n"}
-          <span className="text-[var(--text-tertiary)]"># DPO training</span>{"\n"}
-          python training/train_dpo.py ...
-        </div>
+        <CodeBlock code={`# Prepare DPO pairs
+python training/prepare_dpo.py ...
+
+# DPO training
+python training/train_dpo.py ...`} language="bash" />
       </section>
 
       {/* Tinker API */}

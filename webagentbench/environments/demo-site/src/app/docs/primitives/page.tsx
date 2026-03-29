@@ -121,14 +121,14 @@ export default function PrimitivesPage() {
         Taxonomy
       </h2>
 
-      <div className="flex flex-col gap-10 mb-16">
-        {primitives.map((p) => (
+      <div className="flex flex-col gap-0 mb-16">
+        {primitives.map((p, i) => (
           <section
             key={p.name}
             id={p.name}
-            className="scroll-mt-[100px] border border-[var(--border)] rounded-xl p-6"
+            className={`scroll-mt-[100px] py-6 ${i < primitives.length - 1 ? "border-b border-[var(--border)]" : ""}`}
           >
-            <div className="mb-4">
+            <div className="mb-3">
               <PrimitivePill name={p.name} />
             </div>
             <p className="text-[15px] text-[var(--text-primary)] leading-[1.7] mb-3">
