@@ -373,26 +373,64 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                       </p>
                     )}
 
-                    {/* Failed criteria */}
-                    {criteria.some((c) => c.passed === false) && (
+                    {/* Failed criteria (positive checks that didn't pass) */}
+                    {criteria.some((c) => c.passed === false && c.kind !== "penalty") && (
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-2 px-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)]" />
                           <span className="text-[11px] font-medium text-[var(--red)]">
-                            Failed ({criteria.filter((c) => c.passed === false).length})
+                            Failed ({criteria.filter((c) => c.passed === false && c.kind !== "penalty").length})
                           </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
                           {criteria.map((cr, i) => {
-                            if (cr.passed !== false) return null;
+                            if (cr.passed !== false || cr.kind === "penalty") return null;
                             const relevantSteps = findRelevantSteps(data.steps, cr.desc);
                             return (
                               <div key={i} className="px-3 py-2.5 rounded-xl bg-[var(--red)]/[0.05]">
                                 <p className="text-[12px] leading-[1.5] text-[var(--text-primary)]">
                                   {cr.desc}
                                 </p>
-                                {cr.penalty !== undefined && (
-                                  <span className="text-[10px] text-[var(--red)] mt-0.5 inline-block">
+                                {relevantSteps.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {relevantSteps.map((stepIdx) => (
+                                      <button
+                                        key={stepIdx}
+                                        onClick={() => handleStepChange(stepIdx)}
+                                        className="text-[10px] px-1.5 py-0.5 rounded-md text-[var(--accent)] bg-[var(--accent)]/[0.08] hover:bg-[var(--accent)]/[0.15] cursor-pointer transition-colors"
+                                      >
+                                        step {data.steps[stepIdx].step}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Triggered penalties (negative checks that failed) */}
+                    {criteria.some((c) => c.passed === false && c.kind === "penalty") && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--amber)]" />
+                          <span className="text-[11px] font-medium text-[var(--amber)]">
+                            Penalties ({criteria.filter((c) => c.passed === false && c.kind === "penalty").length})
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {criteria.map((cr, i) => {
+                            if (cr.passed !== false || cr.kind !== "penalty") return null;
+                            const relevantSteps = findRelevantSteps(data.steps, cr.desc);
+                            return (
+                              <div key={i} className="px-3 py-2.5 rounded-xl bg-[var(--amber)]/[0.07]">
+                                <p className="text-[12px] leading-[1.5] text-[var(--text-primary)]">
+                                  {cr.desc}
+                                </p>
+                                {cr.penalty != null && cr.penalty > 0 && (
+                                  <span className="text-[10px] text-[var(--amber)] mt-0.5 inline-block">
                                     -{cr.penalty} penalty
                                   </span>
                                 )}

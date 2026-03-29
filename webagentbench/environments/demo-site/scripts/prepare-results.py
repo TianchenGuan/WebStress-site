@@ -139,7 +139,7 @@ def simplify_evaluation(evaluation: dict) -> dict:
         {
             "desc": item.get("check", "") or item.get("desc", ""),
             "passed": item.get("passed", False),
-            "penalty": item.get("penalty"),
+            "kind": "criterion",
         }
         for item in evaluation.get("criteria_results", []) or []
     ]
@@ -147,7 +147,8 @@ def simplify_evaluation(evaluation: dict) -> dict:
         {
             "desc": item.get("check", "") or item.get("desc", ""),
             "passed": item.get("passed", False),
-            "penalty": item.get("penalty"),
+            "kind": "penalty",
+            "penalty": item.get("penalty", 0),
         }
         for item in evaluation.get("negative_results", []) or []
     )

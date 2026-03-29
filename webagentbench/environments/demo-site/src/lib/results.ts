@@ -73,7 +73,7 @@ export interface TrajectoryData {
     score: number;
     success: boolean;
     reasoning: string;
-    criteria_results?: Array<{ desc: string; passed: boolean; penalty?: number }>;
+    criteria_results?: Array<{ desc: string; passed: boolean; kind?: "criterion" | "penalty"; penalty?: number }>;
   };
   steps: TrajectoryStep[];
 }
