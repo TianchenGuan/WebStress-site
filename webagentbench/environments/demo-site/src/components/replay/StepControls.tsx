@@ -32,7 +32,7 @@ export function StepControls({ current, total, onStep, isBusy = false }: StepCon
     "w-7 h-7 flex items-center justify-center rounded-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-150 disabled:opacity-25 disabled:pointer-events-none bg-transparent";
 
   return (
-    <div className="flex items-center bg-[var(--surface-raised)] rounded-xl p-1 gap-0.5">
+    <div className="flex items-center gap-0.5">
       <button
         onClick={() => onStep(Math.max(0, current - 1))}
         disabled={current === 0}
