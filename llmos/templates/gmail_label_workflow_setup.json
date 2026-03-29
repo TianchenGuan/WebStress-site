@@ -6,18 +6,24 @@
     "platform": "webagentbench",
     "task_category": "gmail_label_workflow_setup",
     "target_primitives": [
+      "planning",
       "attention",
-      "constraint_satisfaction"
+      "verification",
+      "exploration"
     ]
   },
   "hidden_state": {
     "wab_page_id": "gmail_label_workflow_setup",
-    "wab_instruction": "Set up label workflows: apply the 'Client' label to emails from the client domain, and apply the 'Project Review' label to project review emails. Do not label the wrong review email or the non-review email.",
+    "wab_instruction": "Set up a label workflow for the new project. Create three labels: 'Project Alpha', 'Needs Review', and 'Client Feedback'. Then search for emails from {target.client_domain} and apply the 'Client Feedback' label to each. Search for emails with 'review' in the subject and apply the 'Needs Review' label to each. Apply the 'Project Alpha' label to all project-related emails \u2014 the ones from {target.client_domain} and the review emails. Then go to Settings > Labels and set 'Project Alpha' to show if unread, and set 'Client Feedback' to hidden. Finally, remove the 'Needs Review' label from the email about '{target.wrong_review_subject}' \u2014 it was mislabeled.",
     "task_completion_criteria": {
       "client_domain": "client.test",
       "client_email_ids": [
         "email_1",
         "email_2"
+      ],
+      "review_email_ids": [
+        "email_3",
+        "email_4"
       ],
       "wrong_review_subject": "Book review for leisure reading club",
       "wrong_review_id": "email_5",
@@ -26,8 +32,7 @@
         "email_1",
         "email_2",
         "email_3",
-        "email_4",
-        "email_5"
+        "email_4"
       ]
     }
   },
@@ -128,7 +133,7 @@
             ]
           },
           {
-            "bid": "navigation_gmail_navigation_13",
+            "bid": "navigation_gmail_navigation_4",
             "tag": "nav",
             "role": "navigation",
             "text": "Gmail navigation",
@@ -141,7 +146,7 @@
             },
             "children": [
               {
-                "bid": "button_compose_4",
+                "bid": "button_compose_5",
                 "tag": "button",
                 "role": "button",
                 "text": "Compose",
@@ -154,7 +159,7 @@
                 }
               },
               {
-                "bid": "link_inbox_5",
+                "bid": "link_inbox_6",
                 "tag": "a",
                 "role": "link",
                 "text": "Inbox (46)",
@@ -167,7 +172,7 @@
                 }
               },
               {
-                "bid": "link_starred_6",
+                "bid": "link_starred_7",
                 "tag": "a",
                 "role": "link",
                 "text": "Starred",
@@ -180,7 +185,7 @@
                 }
               },
               {
-                "bid": "link_sent_7",
+                "bid": "link_sent_8",
                 "tag": "a",
                 "role": "link",
                 "text": "Sent",
@@ -193,7 +198,7 @@
                 }
               },
               {
-                "bid": "link_drafts_8",
+                "bid": "link_drafts_9",
                 "tag": "a",
                 "role": "link",
                 "text": "Drafts",
@@ -206,7 +211,7 @@
                 }
               },
               {
-                "bid": "link_archive_9",
+                "bid": "link_archive_10",
                 "tag": "a",
                 "role": "link",
                 "text": "Archive",
@@ -219,7 +224,7 @@
                 }
               },
               {
-                "bid": "link_trash_10",
+                "bid": "link_trash_11",
                 "tag": "a",
                 "role": "link",
                 "text": "Trash",
@@ -232,7 +237,7 @@
                 }
               },
               {
-                "bid": "link_settings_11",
+                "bid": "link_settings_12",
                 "tag": "a",
                 "role": "link",
                 "text": "Settings",
@@ -245,7 +250,7 @@
                 }
               },
               {
-                "bid": "link_labels_12",
+                "bid": "link_labels_13",
                 "tag": "a",
                 "role": "link",
                 "text": "Labels",
@@ -352,10 +357,10 @@
                     }
                   },
                   {
-                    "bid": "text_elena_garcia_20",
+                    "bid": "text_elena_patel_20",
                     "tag": "span",
                     "role": "text",
-                    "text": "Elena Garcia",
+                    "text": "Elena Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -432,10 +437,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_19_26",
+                    "bid": "text_jul_06_26",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 19",
+                    "text": "Jul 06",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -473,10 +478,10 @@
                     }
                   },
                   {
-                    "bid": "text_theo_nguyen_29",
+                    "bid": "text_priya_rivera_29",
                     "tag": "span",
                     "role": "text",
-                    "text": "Theo Nguyen",
+                    "text": "Priya Rivera",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -515,7 +520,7 @@
                         "bid": "text_sending_the_updated_contract_terms_for_r_32",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending the updated contract terms for review. Please confirm the revised pricing before end of week. Thanks, Theo",
+                        "text": "Sending the updated contract terms for review. Please confirm the revised pricing before end of week. Thanks, Priya",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -553,10 +558,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_19_35",
+                    "bid": "text_jul_06_35",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 19",
+                    "text": "Jul 06",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -568,7 +573,7 @@
                 ]
               },
               {
-                "bid": "article_notes_from_the_partner_sync_36",
+                "bid": "article_quarterly_metrics_recap_36",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -581,10 +586,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_notes_from_the_partner_sync_37",
+                    "bid": "button_star_quarterly_metrics_recap_37",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Notes from the partner sync",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -594,10 +599,10 @@
                     }
                   },
                   {
-                    "bid": "text_miles_chen_38",
+                    "bid": "text_nina_garcia_38",
                     "tag": "span",
                     "role": "text",
-                    "text": "Miles Chen",
+                    "text": "Nina Garcia",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -607,10 +612,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_notes_from_the_partner_sync_39",
+                    "bid": "link_open_thread_quarterly_metrics_recap_39",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Notes from the partner sync",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -620,10 +625,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_notes_from_the_partner_sync_40",
+                        "bid": "text_quarterly_metrics_recap_40",
                         "tag": "span",
                         "role": "text",
-                        "text": "Notes from the partner sync",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -633,10 +638,10 @@
                         }
                       },
                       {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_41",
+                        "bid": "text_sending_a_quick_status_update_from_today_41",
                         "tag": "span",
                         "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. Nothing looks blocked right now, but we still need one decision on timing. If y",
+                        "text": "Sending a quick status update from today's working session. Nothing looks blocked right now, but we still need one decision on timing. If yo",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -648,10 +653,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_notes_from_the_partner_sync_42",
+                    "bid": "button_archive_quarterly_metrics_recap_42",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Notes from the partner sync",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -661,10 +666,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_notes_from_the_partner_sync_43",
+                    "bid": "button_delete_quarterly_metrics_recap_43",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Notes from the partner sync",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -674,10 +679,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_19_44",
+                    "bid": "text_jul_05_44",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 19",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -689,7 +694,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_45",
+                "bid": "article_client_deliverable_feedback_45",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -702,128 +707,7 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_46",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_marcus_rivera_47",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Marcus Rivera",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_reminder_on_document_review_48",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_reminder_on_document_review_timing_49",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Reminder on document review timing",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_50",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. Most of the edits were minor, with one budget line still waiting on approval. L",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_reminder_on_document_review_timi_51",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_reminder_on_document_review_timin_52",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_18_53",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 18",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_client_deliverable_feedback_54",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_client_deliverable_feedback_55",
+                    "bid": "button_star_client_deliverable_feedback_46",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Client deliverable feedback",
@@ -836,10 +720,10 @@
                     }
                   },
                   {
-                    "bid": "text_miles_wright_56",
+                    "bid": "text_elena_patel_47",
                     "tag": "span",
                     "role": "text",
-                    "text": "Miles Wright",
+                    "text": "Elena Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -849,7 +733,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_client_deliverable_feedback_57",
+                    "bid": "link_open_thread_client_deliverable_feedback_48",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Client deliverable feedback",
@@ -862,7 +746,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_client_deliverable_feedback_58",
+                        "bid": "text_client_deliverable_feedback_49",
                         "tag": "span",
                         "role": "text",
                         "text": "Client deliverable feedback",
@@ -875,7 +759,7 @@
                         }
                       },
                       {
-                        "bid": "text_we_reviewed_the_latest_deliverable_and_h_59",
+                        "bid": "text_we_reviewed_the_latest_deliverable_and_h_50",
                         "tag": "span",
                         "role": "text",
                         "text": "We reviewed the latest deliverable and have a few notes. Overall the direction looks good. A couple of items need adjustment before sign-off",
@@ -890,7 +774,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_client_deliverable_feedback_60",
+                    "bid": "button_archive_client_deliverable_feedback_51",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Client deliverable feedback",
@@ -903,7 +787,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_client_deliverable_feedback_61",
+                    "bid": "button_delete_client_deliverable_feedback_52",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Client deliverable feedback",
@@ -916,10 +800,131 @@
                     }
                   },
                   {
-                    "bid": "text_mar_18_62",
+                    "bid": "text_jul_05_53",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 18",
+                    "text": "Jul 05",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_follow_up_on_venue_estimate_54",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_follow_up_on_venue_estimate_55",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Follow-up on venue estimate",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_miles_kim_56",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Miles Kim",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_follow_up_on_venue_estimate_57",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Follow-up on venue estimate",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_follow_up_on_venue_estimate_58",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Follow-up on venue estimate",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_passing_along_the_current_draft_so_you_h_59",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Passing along the current draft so you have it in one place. Most of the edits were minor, with one budget line still waiting on approval. N",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_follow_up_on_venue_estimate_60",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Follow-up on venue estimate",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_follow_up_on_venue_estimate_61",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Follow-up on venue estimate",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jul_05_62",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -957,10 +962,10 @@
                     }
                   },
                   {
-                    "bid": "text_marcus_garcia_65",
+                    "bid": "text_avery_kim_65",
                     "tag": "span",
                     "role": "text",
-                    "text": "Marcus Garcia",
+                    "text": "Avery Kim",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -999,7 +1004,7 @@
                         "bid": "text_sharing_the_design_review_notes_from_yes_68",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sharing the design review notes from yesterday's session. The team agreed on the main layout changes and the color palette. Thanks, Marcus",
+                        "text": "Sharing the design review notes from yesterday's session. The team agreed on the main layout changes and the color palette. Thanks, Avery",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1037,10 +1042,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_18_71",
+                    "bid": "text_jul_05_71",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 18",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1052,7 +1057,7 @@
                 ]
               },
               {
-                "bid": "article_updated_rollout_checklist_72",
+                "bid": "article_code_review_for_sprint_12_72",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1065,128 +1070,7 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_updated_rollout_checklist_73",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_theo_morris_74",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Theo Morris",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_updated_rollout_checklist_75",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_updated_rollout_checklist_76",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Updated rollout checklist",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_77",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. The open items are mostly ownership questions rather than scope changes. Let me",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_updated_rollout_checklist_78",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_updated_rollout_checklist_79",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_18_80",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 18",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_code_review_for_sprint_12_81",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_code_review_for_sprint_12_82",
+                    "bid": "button_star_code_review_for_sprint_12_73",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Code review for sprint 12",
@@ -1199,10 +1083,10 @@
                     }
                   },
                   {
-                    "bid": "text_avery_wright_83",
+                    "bid": "text_theo_brooks_74",
                     "tag": "span",
                     "role": "text",
-                    "text": "Avery Wright",
+                    "text": "Theo Brooks",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1212,7 +1096,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_code_review_for_sprint_12_84",
+                    "bid": "link_open_thread_code_review_for_sprint_12_75",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Code review for sprint 12",
@@ -1225,7 +1109,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_code_review_for_sprint_12_85",
+                        "bid": "text_code_review_for_sprint_12_76",
                         "tag": "span",
                         "role": "text",
                         "text": "Code review for sprint 12",
@@ -1238,10 +1122,10 @@
                         }
                       },
                       {
-                        "bid": "text_the_code_review_for_sprint_12_is_ready_86",
+                        "bid": "text_the_code_review_for_sprint_12_is_ready_77",
                         "tag": "span",
                         "role": "text",
-                        "text": "The code review for sprint 12 is ready. Please take a look at the pull requests when you have a chance. Thanks, Avery",
+                        "text": "The code review for sprint 12 is ready. Please take a look at the pull requests when you have a chance. Thanks, Theo",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1253,7 +1137,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_code_review_for_sprint_12_87",
+                    "bid": "button_archive_code_review_for_sprint_12_78",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Code review for sprint 12",
@@ -1266,7 +1150,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_code_review_for_sprint_12_88",
+                    "bid": "button_delete_code_review_for_sprint_12_79",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Code review for sprint 12",
@@ -1279,10 +1163,131 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_89",
+                    "bid": "text_jul_04_80",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 04",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_book_review_for_leisure_reading_club_81",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_book_review_for_leisure_reading_clu_82",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Book review for leisure reading club",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_sofia_patel_83",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Sofia Patel",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_book_review_for_leisure_read_84",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Book review for leisure reading club",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_book_review_for_leisure_reading_club_85",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Book review for leisure reading club",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_here_is_my_review_of_the_book_we_discuss_86",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Here is my review of the book we discussed at the leisure reading club. I thought the narrative arc was strong but the ending felt rushed. T",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_book_review_for_leisure_reading_87",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Book review for leisure reading club",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_book_review_for_leisure_reading_c_88",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Book review for leisure reading club",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jul_03_89",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jul 03",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1320,10 +1325,10 @@
                     }
                   },
                   {
-                    "bid": "text_elena_rivera_92",
+                    "bid": "text_theo_rivera_92",
                     "tag": "span",
                     "role": "text",
-                    "text": "Elena Rivera",
+                    "text": "Theo Rivera",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1362,7 +1367,7 @@
                         "bid": "text_passing_along_the_current_draft_so_you_h_95",
                         "tag": "span",
                         "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. The open items are mostly ownership questions rather than scope changes. If you",
+                        "text": "Passing along the current draft so you have it in one place. Nothing looks blocked right now, but we still need one decision on timing. Happ",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1400,10 +1405,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_98",
+                    "bid": "text_jul_03_98",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 03",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1415,7 +1420,7 @@
                 ]
               },
               {
-                "bid": "article_follow_up_on_venue_estimate_99",
+                "bid": "article_quarterly_metrics_recap_99",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1428,10 +1433,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_follow_up_on_venue_estimate_100",
+                    "bid": "button_star_quarterly_metrics_recap_100",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Follow-up on venue estimate",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1441,10 +1446,10 @@
                     }
                   },
                   {
-                    "bid": "text_theo_patel_101",
+                    "bid": "text_maya_brooks_101",
                     "tag": "span",
                     "role": "text",
-                    "text": "Theo Patel",
+                    "text": "Maya Brooks",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1454,10 +1459,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_follow_up_on_venue_estimate_102",
+                    "bid": "link_open_thread_quarterly_metrics_recap_102",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Follow-up on venue estimate",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1467,10 +1472,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_follow_up_on_venue_estimate_103",
+                        "bid": "text_quarterly_metrics_recap_103",
                         "tag": "span",
                         "role": "text",
-                        "text": "Follow-up on venue estimate",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1483,7 +1488,7 @@
                         "bid": "text_sending_a_quick_status_update_from_today_104",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. Le",
+                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. Happy t",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1495,10 +1500,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_follow_up_on_venue_estimate_105",
+                    "bid": "button_archive_quarterly_metrics_recap_105",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Follow-up on venue estimate",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1508,10 +1513,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_follow_up_on_venue_estimate_106",
+                    "bid": "button_delete_quarterly_metrics_recap_106",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Follow-up on venue estimate",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1521,10 +1526,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_107",
+                    "bid": "text_jul_03_107",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 03",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1536,7 +1541,7 @@
                 ]
               },
               {
-                "bid": "article_book_review_for_leisure_reading_club_108",
+                "bid": "article_quarterly_metrics_recap_108",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1549,10 +1554,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_book_review_for_leisure_reading_clu_109",
+                    "bid": "button_star_quarterly_metrics_recap_109",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Book review for leisure reading club",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1562,10 +1567,10 @@
                     }
                   },
                   {
-                    "bid": "text_sofia_wright_110",
+                    "bid": "text_jordan_singh_110",
                     "tag": "span",
                     "role": "text",
-                    "text": "Sofia Wright",
+                    "text": "Jordan Singh",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1575,10 +1580,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_book_review_for_leisure_read_111",
+                    "bid": "link_open_thread_quarterly_metrics_recap_111",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Book review for leisure reading club",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1588,10 +1593,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_book_review_for_leisure_reading_club_112",
+                        "bid": "text_quarterly_metrics_recap_112",
                         "tag": "span",
                         "role": "text",
-                        "text": "Book review for leisure reading club",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1601,10 +1606,10 @@
                         }
                       },
                       {
-                        "bid": "text_here_is_my_review_of_the_book_we_discuss_113",
+                        "bid": "text_i_pulled_the_loose_ends_into_one_note_fo_113",
                         "tag": "span",
                         "role": "text",
-                        "text": "Here is my review of the book we discussed at the leisure reading club. I thought the narrative arc was strong but the ending felt rushed. T",
+                        "text": "I pulled the loose ends into one note for easier review. Nothing looks blocked right now, but we still need one decision on timing. Happy to",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1616,10 +1621,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_book_review_for_leisure_reading_114",
+                    "bid": "button_archive_quarterly_metrics_recap_114",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Book review for leisure reading club",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1629,10 +1634,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_book_review_for_leisure_reading_c_115",
+                    "bid": "button_delete_quarterly_metrics_recap_115",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Book review for leisure reading club",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1642,10 +1647,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_16_116",
+                    "bid": "text_jul_02_116",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 16",
+                    "text": "Jul 02",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1657,7 +1662,7 @@
                 ]
               },
               {
-                "bid": "article_follow_up_on_venue_estimate_117",
+                "bid": "article_customer_feedback_from_pilot_cohort_117",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1670,10 +1675,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_follow_up_on_venue_estimate_118",
+                    "bid": "button_star_customer_feedback_from_pilot_cohort_118",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Follow-up on venue estimate",
+                    "text": "Star Customer feedback from pilot cohort",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1683,10 +1688,10 @@
                     }
                   },
                   {
-                    "bid": "text_avery_garcia_119",
+                    "bid": "text_sofia_morris_119",
                     "tag": "span",
                     "role": "text",
-                    "text": "Avery Garcia",
+                    "text": "Sofia Morris",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1696,10 +1701,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_follow_up_on_venue_estimate_120",
+                    "bid": "link_open_thread_customer_feedback_from_pilot_120",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Follow-up on venue estimate",
+                    "text": "Open thread Customer feedback from pilot cohort",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1709,10 +1714,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_follow_up_on_venue_estimate_121",
+                        "bid": "text_customer_feedback_from_pilot_cohort_121",
                         "tag": "span",
                         "role": "text",
-                        "text": "Follow-up on venue estimate",
+                        "text": "Customer feedback from pilot cohort",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1725,7 +1730,7 @@
                         "bid": "text_sharing_the_latest_notes_before_tomorrow_122",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sharing the latest notes before tomorrow's check-in. The open items are mostly ownership questions rather than scope changes. Let me know if",
+                        "text": "Sharing the latest notes before tomorrow's check-in. The open items are mostly ownership questions rather than scope changes. Happy to conso",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1737,10 +1742,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_follow_up_on_venue_estimate_123",
+                    "bid": "button_archive_customer_feedback_from_pilot_coh_123",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Follow-up on venue estimate",
+                    "text": "Archive Customer feedback from pilot cohort",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1750,10 +1755,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_follow_up_on_venue_estimate_124",
+                    "bid": "button_delete_customer_feedback_from_pilot_coho_124",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Follow-up on venue estimate",
+                    "text": "Delete Customer feedback from pilot cohort",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1763,10 +1768,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_16_125",
+                    "bid": "text_jul_01_125",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 16",
+                    "text": "Jul 01",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1804,10 +1809,10 @@
                     }
                   },
                   {
-                    "bid": "text_marcus_nguyen_128",
+                    "bid": "text_nina_rivera_128",
                     "tag": "span",
                     "role": "text",
-                    "text": "Marcus Nguyen",
+                    "text": "Nina Rivera",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1843,10 +1848,10 @@
                         }
                       },
                       {
-                        "bid": "text_sending_a_quick_status_update_from_today_131",
+                        "bid": "text_sharing_the_latest_notes_before_tomorrow_131",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending a quick status update from today's working session. The team is aligned on the main path and only needs confirmation on the follow-u",
+                        "text": "Sharing the latest notes before tomorrow's check-in. Nothing looks blocked right now, but we still need one decision on timing. If you want,",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1884,10 +1889,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_16_134",
+                    "bid": "text_jun_29_134",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 16",
+                    "text": "Jun 29",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1899,7 +1904,7 @@
                 ]
               },
               {
-                "bid": "article_customer_feedback_from_pilot_cohort_135",
+                "bid": "article_agenda_draft_for_monday_check_in_135",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1912,10 +1917,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_customer_feedback_from_pilot_cohort_136",
+                    "bid": "button_star_agenda_draft_for_monday_check_in_136",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Customer feedback from pilot cohort",
+                    "text": "Star Agenda draft for Monday check-in",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1938,10 +1943,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_customer_feedback_from_pilot_138",
+                    "bid": "link_open_thread_agenda_draft_for_monday_chec_138",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Customer feedback from pilot cohort",
+                    "text": "Open thread Agenda draft for Monday check-in",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1951,10 +1956,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_customer_feedback_from_pilot_cohort_139",
+                        "bid": "text_agenda_draft_for_monday_check_in_139",
                         "tag": "span",
                         "role": "text",
-                        "text": "Customer feedback from pilot cohort",
+                        "text": "Agenda draft for Monday check-in",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1964,10 +1969,10 @@
                         }
                       },
                       {
-                        "bid": "text_sending_a_quick_status_update_from_today_140",
+                        "bid": "text_sharing_the_latest_notes_before_tomorrow_140",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. Le",
+                        "text": "Sharing the latest notes before tomorrow's check-in. The team is aligned on the main path and only needs confirmation on the follow-up items",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1979,10 +1984,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_customer_feedback_from_pilot_coh_141",
+                    "bid": "button_archive_agenda_draft_for_monday_check_in_141",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Customer feedback from pilot cohort",
+                    "text": "Archive Agenda draft for Monday check-in",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1992,10 +1997,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_customer_feedback_from_pilot_coho_142",
+                    "bid": "button_delete_agenda_draft_for_monday_check_in_142",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Customer feedback from pilot cohort",
+                    "text": "Delete Agenda draft for Monday check-in",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2005,10 +2010,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_15_143",
+                    "bid": "text_jun_29_143",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 15",
+                    "text": "Jun 29",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2020,7 +2025,7 @@
                 ]
               },
               {
-                "bid": "article_quarterly_metrics_recap_144",
+                "bid": "article_notes_from_the_partner_sync_144",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -2033,10 +2038,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_quarterly_metrics_recap_145",
+                    "bid": "button_star_notes_from_the_partner_sync_145",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Quarterly metrics recap",
+                    "text": "Star Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2046,10 +2051,10 @@
                     }
                   },
                   {
-                    "bid": "text_miles_wright_146",
+                    "bid": "text_sofia_kim_146",
                     "tag": "span",
                     "role": "text",
-                    "text": "Miles Wright",
+                    "text": "Sofia Kim",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2059,10 +2064,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_quarterly_metrics_recap_147",
+                    "bid": "link_open_thread_notes_from_the_partner_sync_147",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Quarterly metrics recap",
+                    "text": "Open thread Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2072,10 +2077,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_quarterly_metrics_recap_148",
+                        "bid": "text_notes_from_the_partner_sync_148",
                         "tag": "span",
                         "role": "text",
-                        "text": "Quarterly metrics recap",
+                        "text": "Notes from the partner sync",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2085,10 +2090,10 @@
                         }
                       },
                       {
-                        "bid": "text_sharing_the_latest_notes_before_tomorrow_149",
+                        "bid": "text_sending_a_quick_status_update_from_today_149",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sharing the latest notes before tomorrow's check-in. Nothing looks blocked right now, but we still need one decision on timing. If you want,",
+                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. No resp",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2100,10 +2105,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_quarterly_metrics_recap_150",
+                    "bid": "button_archive_notes_from_the_partner_sync_150",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Quarterly metrics recap",
+                    "text": "Archive Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2113,10 +2118,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_quarterly_metrics_recap_151",
+                    "bid": "button_delete_notes_from_the_partner_sync_151",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Quarterly metrics recap",
+                    "text": "Delete Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2126,10 +2131,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_14_152",
+                    "bid": "text_jun_28_152",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 14",
+                    "text": "Jun 28",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2141,7 +2146,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_153",
+                "bid": "article_notes_from_the_partner_sync_153",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -2154,10 +2159,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_154",
+                    "bid": "button_star_notes_from_the_partner_sync_154",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Reminder on document review timing",
+                    "text": "Star Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2167,10 +2172,10 @@
                     }
                   },
                   {
-                    "bid": "text_nina_chen_155",
+                    "bid": "text_elena_brooks_155",
                     "tag": "span",
                     "role": "text",
-                    "text": "Nina Chen",
+                    "text": "Elena Brooks",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2180,10 +2185,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_reminder_on_document_review_156",
+                    "bid": "link_open_thread_notes_from_the_partner_sync_156",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Reminder on document review timing",
+                    "text": "Open thread Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2193,10 +2198,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_reminder_on_document_review_timing_157",
+                        "bid": "text_notes_from_the_partner_sync_157",
                         "tag": "span",
                         "role": "text",
-                        "text": "Reminder on document review timing",
+                        "text": "Notes from the partner sync",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2209,7 +2214,7 @@
                         "bid": "text_i_pulled_the_loose_ends_into_one_note_fo_158",
                         "tag": "span",
                         "role": "text",
-                        "text": "I pulled the loose ends into one note for easier review. The open items are mostly ownership questions rather than scope changes. No respons",
+                        "text": "I pulled the loose ends into one note for easier review. Nothing looks blocked right now, but we still need one decision on timing. If you w",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2221,10 +2226,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_reminder_on_document_review_timi_159",
+                    "bid": "button_archive_notes_from_the_partner_sync_159",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Reminder on document review timing",
+                    "text": "Archive Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2234,10 +2239,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_reminder_on_document_review_timin_160",
+                    "bid": "button_delete_notes_from_the_partner_sync_160",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Reminder on document review timing",
+                    "text": "Delete Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2247,10 +2252,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_13_161",
+                    "bid": "text_jun_27_161",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 13",
+                    "text": "Jun 27",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2262,10 +2267,10 @@
                 ]
               },
               {
-                "bid": "text_1_16_of_34_162",
+                "bid": "text_1_16_of_33_162",
                 "tag": "span",
                 "role": "text",
-                "text": "1\u201316 of 34",
+                "text": "1\u201316 of 33",
                 "visible": true,
                 "bounds": {
                   "x": 0,

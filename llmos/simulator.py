@@ -389,4 +389,9 @@ class Simulator:
         state["hidden_state"]["task_paths"] = [p.replace("~", "/home/user") for p in paths]
         state["hidden_state"]["task_instruction"] = task_text
 
+        # Inject challenge constraints if present in instruction
+        challenge_constraints = instruction.get("challenge_constraints")
+        if challenge_constraints:
+            state["hidden_state"]["challenge_constraints"] = challenge_constraints
+
         return state

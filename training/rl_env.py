@@ -86,6 +86,22 @@ DEFAULT_PRIMITIVE_WEIGHTS = {
     "adversarial_robustness": 0.5,
 }
 
+# Hint level suffixes for curriculum fading
+HINT_SUFFIXES = {
+    "explicit": (
+        "\n\nHINT LEVEL: EXPLICIT. Make feedback clear and actionable. "
+        "Describe the situation so the agent understands what's happening."
+    ),
+    "subtle": (
+        "\n\nHINT LEVEL: SUBTLE. Show brief indicators only. "
+        "Do not explain what the agent should do."
+    ),
+    "minimal": (
+        "\n\nHINT LEVEL: MINIMAL. Do not provide explicit guidance. "
+        "Only the natural state of the page should indicate the situation."
+    ),
+}
+
 
 def _detect_multi_action(text: str) -> bool:
     """Check if text contains multiple concatenated JSON objects."""
@@ -152,6 +168,7 @@ class LLMOSMessageEnv(MessageEnv):
         # Step-level reward tracking
         self.visited_bids: set[str] = set()
         self.prev_action_key: tuple = ()
+        self.prev_was_interactive: bool = False
 
     async def initial_observation(self) -> list[Message]:
         """Reset simulator and return initial conversation messages."""
@@ -261,6 +278,16 @@ class LLMOSMessageEnv(MessageEnv):
         if bid and bid not in self.visited_bids:
             shaping_reward += 0.02
             self.visited_bids.add(bid)
+
+        # Post-action verification bonus: after interactive action, reward reading/checking
+        is_interactive = action_name in ("click", "fill", "select")
+        is_checking = action_name in ("scroll", "wait") or (
+            action_name == "click" and bid and self.node_map.get(bid, {}).get("role", "") in ("text", "heading", "paragraph", "img", "generic")
+        )
+        if self.prev_was_interactive and is_checking:
+            shaping_reward += 0.03
+            step_metrics["verification_bonus"] = 1.0
+        self.prev_was_interactive = is_interactive
 
         # Run simulator step (sync → async)
         try:
@@ -513,6 +540,7 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
             tasks = config["tasks"]
             behavior = config.get("behavior", "")
             prim_max_steps = config.get("max_steps", self.max_steps)
+            challenge_constraints = config.get("challenge_constraints")
             n_tasks = prim_task_counts[prim]
 
             for i in range(n_tasks):
@@ -522,6 +550,8 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
                     "initial_state_template": templates[i % len(templates)],
                     "primitive": prim,
                 }
+                if challenge_constraints:
+                    instruction["challenge_constraints"] = challenge_constraints
                 builders.append(LLMOSEnvGroupBuilder(
                     instruction=instruction,
                     template_name=templates[i % len(templates)],
@@ -538,13 +568,43 @@ class LLMOSRLDatasetBuilder(RLDatasetBuilder):
                     max_trajectory_tokens=self.max_trajectory_tokens,
                 ))
 
-        # Shuffle and repeat for epochs
+        # Shuffle and repeat for epochs with curriculum hint fading
         rng = random.Random(self.seed)
         epoch_builders = []
-        for _ in range(self.num_epochs):
-            epoch = list(builders)
+        for epoch_idx in range(self.num_epochs):
+            # Determine hint level based on epoch position
+            epoch_fraction = epoch_idx / max(self.num_epochs - 1, 1)  # 0.0 → 1.0
+            if epoch_fraction < 0.33:
+                hint_level = "explicit"
+            elif epoch_fraction < 0.66:
+                hint_level = "subtle"
+            else:
+                hint_level = "minimal"
+            hint_suffix = HINT_SUFFIXES[hint_level]
+
+            epoch = []
+            for b in builders:
+                # Create new builder with hint-modified behavior
+                hinted_behavior = b.behavior + hint_suffix
+                epoch.append(LLMOSEnvGroupBuilder(
+                    instruction=b.instruction,
+                    template_name=b.template_name,
+                    behavior=hinted_behavior,
+                    primitive=b.primitive,
+                    config_path=b.config_path,
+                    renderer=b.renderer,
+                    sim_model=b.sim_model,
+                    sim_provider=b.sim_provider,
+                    judge_model=b.judge_model,
+                    judge_provider=b.judge_provider,
+                    max_steps=b.max_steps,
+                    group_size=b.group_size,
+                    max_trajectory_tokens=b.max_trajectory_tokens,
+                ))
             rng.shuffle(epoch)
             epoch_builders.extend(epoch)
+
+            logger.info(f"Epoch {epoch_idx}: hint_level={hint_level}")
 
         logger.info(
             f"Built RL dataset: {len(builders)} tasks x {self.num_epochs} epochs = "

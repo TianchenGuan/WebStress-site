@@ -7,22 +7,27 @@
     "task_category": "gmail_data_compilation",
     "target_primitives": [
       "memory",
-      "exploration"
+      "attention",
+      "exploration",
+      "planning"
     ]
   },
   "hidden_state": {
     "wab_page_id": "gmail_data_compilation",
-    "wab_instruction": "Compile department budget numbers: find the correct budget figure from each department's email (across tabs and pages). Ignore decoy emails with outdated or draft numbers. Reply to the executive with all three correct figures.",
+    "wab_instruction": "The CFO asked you to compile Q1 numbers. Three department heads \u2014 {target.dept_a_name}, {target.dept_b_name}, and {target.dept_c_name} \u2014 each sent an email with their department's quarterly figures. Find all three emails (they may be in different inbox tabs or require scrolling). Extract the budget number from each and compose a new email to {target.exec_email} with a subject line 'Q1 Budget Summary'. List all three numbers in the body, labeled by department. CC all three department heads.",
     "task_completion_criteria": {
-      "exec_email": "avery.singh@executive.test",
+      "exec_email": "elena.patel@executive.test",
       "dept_emails": [
-        "miles.nguyen@engineering.test",
-        "jordan.kim@marketing.test",
-        "jordan.nguyen@operations.test"
+        "priya.rivera@engineering.test",
+        "theo.brooks@marketing.test",
+        "avery.kim@operations.test"
       ],
-      "dept_a_name": "Miles Nguyen",
-      "dept_b_name": "Jordan Kim",
-      "dept_c_name": "Jordan Nguyen",
+      "dept_a_name": "Priya Rivera",
+      "dept_b_name": "Theo Brooks",
+      "dept_c_name": "Avery Kim",
+      "dept_a_dept": "Engineering",
+      "dept_b_dept": "Marketing",
+      "dept_c_dept": "Operations",
       "number_a": "$142,500",
       "number_b": "$89,000",
       "number_c": "$215,750",
@@ -129,7 +134,7 @@
             ]
           },
           {
-            "bid": "navigation_gmail_navigation_13",
+            "bid": "navigation_gmail_navigation_4",
             "tag": "nav",
             "role": "navigation",
             "text": "Gmail navigation",
@@ -142,7 +147,7 @@
             },
             "children": [
               {
-                "bid": "button_compose_4",
+                "bid": "button_compose_5",
                 "tag": "button",
                 "role": "button",
                 "text": "Compose",
@@ -155,7 +160,7 @@
                 }
               },
               {
-                "bid": "link_inbox_5",
+                "bid": "link_inbox_6",
                 "tag": "a",
                 "role": "link",
                 "text": "Inbox (45)",
@@ -168,7 +173,7 @@
                 }
               },
               {
-                "bid": "link_starred_6",
+                "bid": "link_starred_7",
                 "tag": "a",
                 "role": "link",
                 "text": "Starred",
@@ -181,7 +186,7 @@
                 }
               },
               {
-                "bid": "link_sent_7",
+                "bid": "link_sent_8",
                 "tag": "a",
                 "role": "link",
                 "text": "Sent",
@@ -194,7 +199,7 @@
                 }
               },
               {
-                "bid": "link_drafts_8",
+                "bid": "link_drafts_9",
                 "tag": "a",
                 "role": "link",
                 "text": "Drafts",
@@ -207,7 +212,7 @@
                 }
               },
               {
-                "bid": "link_archive_9",
+                "bid": "link_archive_10",
                 "tag": "a",
                 "role": "link",
                 "text": "Archive",
@@ -220,7 +225,7 @@
                 }
               },
               {
-                "bid": "link_trash_10",
+                "bid": "link_trash_11",
                 "tag": "a",
                 "role": "link",
                 "text": "Trash",
@@ -233,7 +238,7 @@
                 }
               },
               {
-                "bid": "link_settings_11",
+                "bid": "link_settings_12",
                 "tag": "a",
                 "role": "link",
                 "text": "Settings",
@@ -246,7 +251,7 @@
                 }
               },
               {
-                "bid": "link_labels_12",
+                "bid": "link_labels_13",
                 "tag": "a",
                 "role": "link",
                 "text": "Labels",
@@ -327,7 +332,7 @@
                 }
               },
               {
-                "bid": "article_revised_budget_worksheet_18",
+                "bid": "article_quarterly_metrics_recap_18",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -340,10 +345,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_revised_budget_worksheet_19",
+                    "bid": "button_star_quarterly_metrics_recap_19",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Revised budget worksheet",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -353,10 +358,10 @@
                     }
                   },
                   {
-                    "bid": "text_sofia_wright_20",
+                    "bid": "text_marcus_patel_20",
                     "tag": "span",
                     "role": "text",
-                    "text": "Sofia Wright",
+                    "text": "Marcus Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -366,10 +371,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_revised_budget_worksheet_21",
+                    "bid": "link_open_thread_quarterly_metrics_recap_21",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Revised budget worksheet",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -379,10 +384,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_revised_budget_worksheet_22",
+                        "bid": "text_quarterly_metrics_recap_22",
                         "tag": "span",
                         "role": "text",
-                        "text": "Revised budget worksheet",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -395,7 +400,7 @@
                         "bid": "text_sending_a_quick_status_update_from_today_23",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending a quick status update from today's working session. The team is aligned on the main path and only needs confirmation on the follow-u",
+                        "text": "Sending a quick status update from today's working session. Nothing looks blocked right now, but we still need one decision on timing. If yo",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -407,10 +412,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_revised_budget_worksheet_24",
+                    "bid": "button_archive_quarterly_metrics_recap_24",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Revised budget worksheet",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -420,10 +425,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_revised_budget_worksheet_25",
+                    "bid": "button_delete_quarterly_metrics_recap_25",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Revised budget worksheet",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -433,10 +438,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_19_26",
+                    "bid": "text_jul_05_26",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 19",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -448,7 +453,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_27",
+                "bid": "article_q1_figures___engineering_27",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -461,128 +466,7 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_28",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_jordan_morris_29",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Jordan Morris",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_reminder_on_document_review_30",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_reminder_on_document_review_timing_31",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Reminder on document review timing",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_sending_a_quick_status_update_from_today_32",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. If",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_reminder_on_document_review_timi_33",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_reminder_on_document_review_timin_34",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_18_35",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 18",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_q1_figures___engineering_36",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_q1_figures___engineering_37",
+                    "bid": "button_star_q1_figures___engineering_28",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Q1 figures \u2014 Engineering",
@@ -595,10 +479,10 @@
                     }
                   },
                   {
-                    "bid": "text_miles_nguyen_38",
+                    "bid": "text_priya_rivera_29",
                     "tag": "span",
                     "role": "text",
-                    "text": "Miles Nguyen",
+                    "text": "Priya Rivera",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -608,7 +492,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_q1_figures___engineering_39",
+                    "bid": "link_open_thread_q1_figures___engineering_30",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Q1 figures \u2014 Engineering",
@@ -621,7 +505,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_q1_figures___engineering_40",
+                        "bid": "text_q1_figures___engineering_31",
                         "tag": "span",
                         "role": "text",
                         "text": "Q1 figures \u2014 Engineering",
@@ -634,10 +518,10 @@
                         }
                       },
                       {
-                        "bid": "text_here_are_the_q1_budget_figures_for_engin_41",
+                        "bid": "text_here_are_the_q1_budget_figures_for_engin_32",
                         "tag": "span",
                         "role": "text",
-                        "text": "Here are the Q1 budget figures for Engineering. Total Q1 spend: $142,500 Let me know if you need a breakdown by cost center. Thanks, Miles",
+                        "text": "Here are the Q1 budget figures for Engineering. Total Q1 spend: $142,500 Let me know if you need a breakdown by cost center. Thanks, Priya",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -649,7 +533,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_q1_figures___engineering_42",
+                    "bid": "button_archive_q1_figures___engineering_33",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Q1 figures \u2014 Engineering",
@@ -662,7 +546,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_q1_figures___engineering_43",
+                    "bid": "button_delete_q1_figures___engineering_34",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Q1 figures \u2014 Engineering",
@@ -675,10 +559,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_18_44",
+                    "bid": "text_jul_05_35",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 18",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -690,7 +574,7 @@
                 ]
               },
               {
-                "bid": "article_notes_from_the_partner_sync_45",
+                "bid": "article_follow_up_on_venue_estimate_36",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -703,10 +587,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_notes_from_the_partner_sync_46",
+                    "bid": "button_star_follow_up_on_venue_estimate_37",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Notes from the partner sync",
+                    "text": "Star Follow-up on venue estimate",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -716,10 +600,10 @@
                     }
                   },
                   {
-                    "bid": "text_jordan_garcia_47",
+                    "bid": "text_maya_rivera_38",
                     "tag": "span",
                     "role": "text",
-                    "text": "Jordan Garcia",
+                    "text": "Maya Rivera",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -729,10 +613,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_notes_from_the_partner_sync_48",
+                    "bid": "link_open_thread_follow_up_on_venue_estimate_39",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Notes from the partner sync",
+                    "text": "Open thread Follow-up on venue estimate",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -742,10 +626,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_notes_from_the_partner_sync_49",
+                        "bid": "text_follow_up_on_venue_estimate_40",
                         "tag": "span",
                         "role": "text",
-                        "text": "Notes from the partner sync",
+                        "text": "Follow-up on venue estimate",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -755,10 +639,10 @@
                         }
                       },
                       {
-                        "bid": "text_sending_a_quick_status_update_from_today_50",
+                        "bid": "text_passing_along_the_current_draft_so_you_h_41",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. If you ",
+                        "text": "Passing along the current draft so you have it in one place. Most of the edits were minor, with one budget line still waiting on approval. N",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -770,10 +654,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_notes_from_the_partner_sync_51",
+                    "bid": "button_archive_follow_up_on_venue_estimate_42",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Notes from the partner sync",
+                    "text": "Archive Follow-up on venue estimate",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -783,10 +667,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_notes_from_the_partner_sync_52",
+                    "bid": "button_delete_follow_up_on_venue_estimate_43",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Notes from the partner sync",
+                    "text": "Delete Follow-up on venue estimate",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -796,10 +680,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_53",
+                    "bid": "text_jul_05_44",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 05",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -811,7 +695,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_54",
+                "bid": "article_reminder_on_document_review_timing_45",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -824,7 +708,7 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_55",
+                    "bid": "button_star_reminder_on_document_review_timing_46",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Reminder on document review timing",
@@ -837,10 +721,10 @@
                     }
                   },
                   {
-                    "bid": "text_nina_nguyen_56",
+                    "bid": "text_nina_patel_47",
                     "tag": "span",
                     "role": "text",
-                    "text": "Nina Nguyen",
+                    "text": "Nina Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -850,7 +734,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_reminder_on_document_review_57",
+                    "bid": "link_open_thread_reminder_on_document_review_48",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Reminder on document review timing",
@@ -863,7 +747,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_reminder_on_document_review_timing_58",
+                        "bid": "text_reminder_on_document_review_timing_49",
                         "tag": "span",
                         "role": "text",
                         "text": "Reminder on document review timing",
@@ -876,10 +760,10 @@
                         }
                       },
                       {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_59",
+                        "bid": "text_passing_along_the_current_draft_so_you_h_50",
                         "tag": "span",
                         "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. The team is aligned on the main path and only needs confirmation on the follow-",
+                        "text": "Passing along the current draft so you have it in one place. Nothing looks blocked right now, but we still need one decision on timing. Happ",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -891,7 +775,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_reminder_on_document_review_timi_60",
+                    "bid": "button_archive_reminder_on_document_review_timi_51",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Reminder on document review timing",
@@ -904,7 +788,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_reminder_on_document_review_timin_61",
+                    "bid": "button_delete_reminder_on_document_review_timin_52",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Reminder on document review timing",
@@ -917,10 +801,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_62",
+                    "bid": "text_jul_03_53",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 03",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -932,7 +816,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_63",
+                "bid": "article_quarterly_metrics_recap_54",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -945,10 +829,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_64",
+                    "bid": "button_star_quarterly_metrics_recap_55",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Reminder on document review timing",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -958,10 +842,10 @@
                     }
                   },
                   {
-                    "bid": "text_sofia_nguyen_65",
+                    "bid": "text_nina_morris_56",
                     "tag": "span",
                     "role": "text",
-                    "text": "Sofia Nguyen",
+                    "text": "Nina Morris",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -971,10 +855,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_reminder_on_document_review_66",
+                    "bid": "link_open_thread_quarterly_metrics_recap_57",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Reminder on document review timing",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -984,10 +868,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_reminder_on_document_review_timing_67",
+                        "bid": "text_quarterly_metrics_recap_58",
                         "tag": "span",
                         "role": "text",
-                        "text": "Reminder on document review timing",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -997,10 +881,10 @@
                         }
                       },
                       {
-                        "bid": "text_i_pulled_the_loose_ends_into_one_note_fo_68",
+                        "bid": "text_sending_a_quick_status_update_from_today_59",
                         "tag": "span",
                         "role": "text",
-                        "text": "I pulled the loose ends into one note for easier review. Most of the edits were minor, with one budget line still waiting on approval. No re",
+                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. Happy t",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1012,10 +896,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_reminder_on_document_review_timi_69",
+                    "bid": "button_archive_quarterly_metrics_recap_60",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Reminder on document review timing",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1025,10 +909,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_reminder_on_document_review_timin_70",
+                    "bid": "button_delete_quarterly_metrics_recap_61",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Reminder on document review timing",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1038,10 +922,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_17_71",
+                    "bid": "text_jul_03_62",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 17",
+                    "text": "Jul 03",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1053,7 +937,7 @@
                 ]
               },
               {
-                "bid": "article_notes_from_the_partner_sync_72",
+                "bid": "article_q1_preliminary_estimates___engineering_63",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1066,491 +950,7 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_notes_from_the_partner_sync_73",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_theo_garcia_74",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Theo Garcia",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_notes_from_the_partner_sync_75",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_notes_from_the_partner_sync_76",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Notes from the partner sync",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_sending_a_quick_status_update_from_today_77",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. If",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_notes_from_the_partner_sync_78",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_notes_from_the_partner_sync_79",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_17_80",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 17",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_reminder_on_document_review_timing_81",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_reminder_on_document_review_timing_82",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_jordan_kim_83",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Jordan Kim",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_reminder_on_document_review_84",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_reminder_on_document_review_timing_85",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Reminder on document review timing",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_sending_a_quick_status_update_from_today_86",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. Le",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_reminder_on_document_review_timi_87",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_reminder_on_document_review_timin_88",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Reminder on document review timing",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_17_89",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 17",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_notes_from_the_partner_sync_90",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_notes_from_the_partner_sync_91",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_miles_kim_92",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Miles Kim",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_notes_from_the_partner_sync_93",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_notes_from_the_partner_sync_94",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Notes from the partner sync",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_sending_a_quick_status_update_from_today_95",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. If you ",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_notes_from_the_partner_sync_96",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_notes_from_the_partner_sync_97",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Notes from the partner sync",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_16_98",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 16",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_updated_rollout_checklist_99",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_updated_rollout_checklist_100",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_sofia_patel_101",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Sofia Patel",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_updated_rollout_checklist_102",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_updated_rollout_checklist_103",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Updated rollout checklist",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_104",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. Nothing looks blocked right now, but we still need one decision on timing. If y",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_updated_rollout_checklist_105",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_updated_rollout_checklist_106",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Updated rollout checklist",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_16_107",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 16",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_q1_preliminary_estimates___engineering_108",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_q1_preliminary_estimates___engineer_109",
+                    "bid": "button_star_q1_preliminary_estimates___engineer_64",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Q1 preliminary estimates \u2014 Engineering (DRAFT)",
@@ -1563,10 +963,10 @@
                     }
                   },
                   {
-                    "bid": "text_theo_chen_110",
+                    "bid": "text_sofia_patel_65",
                     "tag": "span",
                     "role": "text",
-                    "text": "Theo Chen",
+                    "text": "Sofia Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1576,7 +976,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_q1_preliminary_estimates___e_111",
+                    "bid": "link_open_thread_q1_preliminary_estimates___e_66",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Q1 preliminary estimates \u2014 Engineering (DRAFT)",
@@ -1589,7 +989,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_q1_preliminary_estimates___engineering_112",
+                        "bid": "text_q1_preliminary_estimates___engineering_67",
                         "tag": "span",
                         "role": "text",
                         "text": "Q1 preliminary estimates \u2014 Engineering (DRAFT)",
@@ -1602,7 +1002,7 @@
                         }
                       },
                       {
-                        "bid": "text_these_are_preliminary_estimates_only___p_113",
+                        "bid": "text_these_are_preliminary_estimates_only___p_68",
                         "tag": "span",
                         "role": "text",
                         "text": "These are preliminary estimates only \u2014 please do not use for the final report. Draft estimate: $138,200 The final numbers will come from the",
@@ -1617,7 +1017,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_q1_preliminary_estimates___engin_114",
+                    "bid": "button_archive_q1_preliminary_estimates___engin_69",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Q1 preliminary estimates \u2014 Engineering (DRAFT)",
@@ -1630,7 +1030,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_q1_preliminary_estimates___engine_115",
+                    "bid": "button_delete_q1_preliminary_estimates___engine_70",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Q1 preliminary estimates \u2014 Engineering (DRAFT)",
@@ -1643,10 +1043,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_15_116",
+                    "bid": "text_jul_02_71",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 15",
+                    "text": "Jul 02",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1658,7 +1058,7 @@
                 ]
               },
               {
-                "bid": "article_revised_budget_worksheet_117",
+                "bid": "article_quarterly_metrics_recap_72",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1671,10 +1071,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_revised_budget_worksheet_118",
+                    "bid": "button_star_quarterly_metrics_recap_73",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Revised budget worksheet",
+                    "text": "Star Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1684,128 +1084,7 @@
                     }
                   },
                   {
-                    "bid": "text_theo_morris_119",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Theo Morris",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "link_open_thread_revised_budget_worksheet_120",
-                    "tag": "a",
-                    "role": "link",
-                    "text": "Open thread Revised budget worksheet",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    },
-                    "children": [
-                      {
-                        "bid": "text_revised_budget_worksheet_121",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Revised budget worksheet",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      },
-                      {
-                        "bid": "text_sharing_the_latest_notes_before_tomorrow_122",
-                        "tag": "span",
-                        "role": "text",
-                        "text": "Sharing the latest notes before tomorrow's check-in. The team is aligned on the main path and only needs confirmation on the follow-up items",
-                        "visible": true,
-                        "bounds": {
-                          "x": 0,
-                          "y": 0,
-                          "width": 800,
-                          "height": 30
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "bid": "button_archive_revised_budget_worksheet_123",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Archive Revised budget worksheet",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "button_delete_revised_budget_worksheet_124",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Delete Revised budget worksheet",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_mar_15_125",
-                    "tag": "span",
-                    "role": "text",
-                    "text": "Mar 15",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  }
-                ]
-              },
-              {
-                "bid": "article_revised_budget_worksheet_126",
-                "tag": "article",
-                "role": "article",
-                "text": "",
-                "visible": true,
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "width": 800,
-                  "height": 30
-                },
-                "children": [
-                  {
-                    "bid": "button_star_revised_budget_worksheet_127",
-                    "tag": "button",
-                    "role": "button",
-                    "text": "Star Revised budget worksheet",
-                    "visible": true,
-                    "bounds": {
-                      "x": 0,
-                      "y": 0,
-                      "width": 800,
-                      "height": 30
-                    }
-                  },
-                  {
-                    "bid": "text_marcus_rivera_128",
+                    "bid": "text_marcus_rivera_74",
                     "tag": "span",
                     "role": "text",
                     "text": "Marcus Rivera",
@@ -1818,10 +1097,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_revised_budget_worksheet_129",
+                    "bid": "link_open_thread_quarterly_metrics_recap_75",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Revised budget worksheet",
+                    "text": "Open thread Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1831,10 +1110,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_revised_budget_worksheet_130",
+                        "bid": "text_quarterly_metrics_recap_76",
                         "tag": "span",
                         "role": "text",
-                        "text": "Revised budget worksheet",
+                        "text": "Quarterly metrics recap",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1844,10 +1123,10 @@
                         }
                       },
                       {
-                        "bid": "text_sharing_the_latest_notes_before_tomorrow_131",
+                        "bid": "text_i_pulled_the_loose_ends_into_one_note_fo_77",
                         "tag": "span",
                         "role": "text",
-                        "text": "Sharing the latest notes before tomorrow's check-in. Most of the edits were minor, with one budget line still waiting on approval. No respon",
+                        "text": "I pulled the loose ends into one note for easier review. Nothing looks blocked right now, but we still need one decision on timing. Happy to",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -1859,10 +1138,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_revised_budget_worksheet_132",
+                    "bid": "button_archive_quarterly_metrics_recap_78",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Revised budget worksheet",
+                    "text": "Archive Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1872,10 +1151,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_revised_budget_worksheet_133",
+                    "bid": "button_delete_quarterly_metrics_recap_79",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Revised budget worksheet",
+                    "text": "Delete Quarterly metrics recap",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1885,10 +1164,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_14_134",
+                    "bid": "text_jul_02_80",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 14",
+                    "text": "Jul 02",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1900,7 +1179,7 @@
                 ]
               },
               {
-                "bid": "article_agenda_draft_for_monday_check_in_135",
+                "bid": "article_customer_feedback_from_pilot_cohort_81",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -1913,7 +1192,249 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_agenda_draft_for_monday_check_in_136",
+                    "bid": "button_star_customer_feedback_from_pilot_cohort_82",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_theo_singh_83",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Theo Singh",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_customer_feedback_from_pilot_84",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_customer_feedback_from_pilot_cohort_85",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Customer feedback from pilot cohort",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_sharing_the_latest_notes_before_tomorrow_86",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Sharing the latest notes before tomorrow's check-in. The open items are mostly ownership questions rather than scope changes. Happy to conso",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_customer_feedback_from_pilot_coh_87",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_customer_feedback_from_pilot_coho_88",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jul_01_89",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jul 01",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_q1_reforecast___marketing__superseded_90",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_q1_reforecast___marketing__supersed_91",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Q1 reforecast \u2014 Marketing (superseded)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_elena_patel_92",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Elena Patel",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_q1_reforecast___marketing__s_93",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Q1 reforecast \u2014 Marketing (superseded)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_q1_reforecast___marketing__superseded_94",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Q1 reforecast \u2014 Marketing (superseded)",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_ignore_this_earlier_reforecast___the_fin_95",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Ignore this earlier reforecast \u2014 the final numbers were sent separately by the department head. Outdated figure: $91,500 Thanks, Elena",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_q1_reforecast___marketing__super_96",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Q1 reforecast \u2014 Marketing (superseded)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_q1_reforecast___marketing__supers_97",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Q1 reforecast \u2014 Marketing (superseded)",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jun_30_98",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jun 30",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_agenda_draft_for_monday_check_in_99",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_agenda_draft_for_monday_check_in_100",
                     "tag": "button",
                     "role": "button",
                     "text": "Star Agenda draft for Monday check-in",
@@ -1926,10 +1447,10 @@
                     }
                   },
                   {
-                    "bid": "text_avery_garcia_137",
+                    "bid": "text_nina_chen_101",
                     "tag": "span",
                     "role": "text",
-                    "text": "Avery Garcia",
+                    "text": "Nina Chen",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -1939,7 +1460,7 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_agenda_draft_for_monday_chec_138",
+                    "bid": "link_open_thread_agenda_draft_for_monday_chec_102",
                     "tag": "a",
                     "role": "link",
                     "text": "Open thread Agenda draft for Monday check-in",
@@ -1952,7 +1473,7 @@
                     },
                     "children": [
                       {
-                        "bid": "text_agenda_draft_for_monday_check_in_139",
+                        "bid": "text_agenda_draft_for_monday_check_in_103",
                         "tag": "span",
                         "role": "text",
                         "text": "Agenda draft for Monday check-in",
@@ -1965,7 +1486,128 @@
                         }
                       },
                       {
-                        "bid": "text_sharing_the_latest_notes_before_tomorrow_140",
+                        "bid": "text_sharing_the_latest_notes_before_tomorrow_104",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Sharing the latest notes before tomorrow's check-in. Nothing looks blocked right now, but we still need one decision on timing. If you want,",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_agenda_draft_for_monday_check_in_105",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Agenda draft for Monday check-in",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_agenda_draft_for_monday_check_in_106",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Agenda draft for Monday check-in",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jun_29_107",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jun 29",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_agenda_draft_for_monday_check_in_108",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_agenda_draft_for_monday_check_in_109",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Agenda draft for Monday check-in",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_theo_garcia_110",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Theo Garcia",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_agenda_draft_for_monday_chec_111",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Agenda draft for Monday check-in",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_agenda_draft_for_monday_check_in_112",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Agenda draft for Monday check-in",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_sharing_the_latest_notes_before_tomorrow_113",
                         "tag": "span",
                         "role": "text",
                         "text": "Sharing the latest notes before tomorrow's check-in. The team is aligned on the main path and only needs confirmation on the follow-up items",
@@ -1980,7 +1622,7 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_agenda_draft_for_monday_check_in_141",
+                    "bid": "button_archive_agenda_draft_for_monday_check_in_114",
                     "tag": "button",
                     "role": "button",
                     "text": "Archive Agenda draft for Monday check-in",
@@ -1993,7 +1635,7 @@
                     }
                   },
                   {
-                    "bid": "button_delete_agenda_draft_for_monday_check_in_142",
+                    "bid": "button_delete_agenda_draft_for_monday_check_in_115",
                     "tag": "button",
                     "role": "button",
                     "text": "Delete Agenda draft for Monday check-in",
@@ -2006,10 +1648,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_14_143",
+                    "bid": "text_jun_29_116",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 14",
+                    "text": "Jun 29",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2021,7 +1663,7 @@
                 ]
               },
               {
-                "bid": "article_q1_reforecast___marketing__superseded_144",
+                "bid": "article_notes_from_the_partner_sync_117",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -2034,10 +1676,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_q1_reforecast___marketing__supersed_145",
+                    "bid": "button_star_notes_from_the_partner_sync_118",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Q1 reforecast \u2014 Marketing (superseded)",
+                    "text": "Star Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2047,10 +1689,10 @@
                     }
                   },
                   {
-                    "bid": "text_avery_rivera_146",
+                    "bid": "text_avery_patel_119",
                     "tag": "span",
                     "role": "text",
-                    "text": "Avery Rivera",
+                    "text": "Avery Patel",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2060,10 +1702,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_q1_reforecast___marketing__s_147",
+                    "bid": "link_open_thread_notes_from_the_partner_sync_120",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Q1 reforecast \u2014 Marketing (superseded)",
+                    "text": "Open thread Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2073,10 +1715,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_q1_reforecast___marketing__superseded_148",
+                        "bid": "text_notes_from_the_partner_sync_121",
                         "tag": "span",
                         "role": "text",
-                        "text": "Q1 reforecast \u2014 Marketing (superseded)",
+                        "text": "Notes from the partner sync",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2086,10 +1728,10 @@
                         }
                       },
                       {
-                        "bid": "text_ignore_this_earlier_reforecast___the_fin_149",
+                        "bid": "text_sending_a_quick_status_update_from_today_122",
                         "tag": "span",
                         "role": "text",
-                        "text": "Ignore this earlier reforecast \u2014 the final numbers were sent separately by the department head. Outdated figure: $91,500 Thanks, Avery",
+                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. No resp",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2101,10 +1743,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_q1_reforecast___marketing__super_150",
+                    "bid": "button_archive_notes_from_the_partner_sync_123",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Q1 reforecast \u2014 Marketing (superseded)",
+                    "text": "Archive Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2114,10 +1756,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_q1_reforecast___marketing__supers_151",
+                    "bid": "button_delete_notes_from_the_partner_sync_124",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Q1 reforecast \u2014 Marketing (superseded)",
+                    "text": "Delete Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2127,10 +1769,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_13_152",
+                    "bid": "text_jun_28_125",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 13",
+                    "text": "Jun 28",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2142,7 +1784,7 @@
                 ]
               },
               {
-                "bid": "article_reminder_on_document_review_timing_153",
+                "bid": "article_notes_from_the_partner_sync_126",
                 "tag": "article",
                 "role": "article",
                 "text": "",
@@ -2155,10 +1797,10 @@
                 },
                 "children": [
                   {
-                    "bid": "button_star_reminder_on_document_review_timing_154",
+                    "bid": "button_star_notes_from_the_partner_sync_127",
                     "tag": "button",
                     "role": "button",
-                    "text": "Star Reminder on document review timing",
+                    "text": "Star Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2168,10 +1810,10 @@
                     }
                   },
                   {
-                    "bid": "text_maya_chen_155",
+                    "bid": "text_nina_wright_128",
                     "tag": "span",
                     "role": "text",
-                    "text": "Maya Chen",
+                    "text": "Nina Wright",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2181,10 +1823,10 @@
                     }
                   },
                   {
-                    "bid": "link_open_thread_reminder_on_document_review_156",
+                    "bid": "link_open_thread_notes_from_the_partner_sync_129",
                     "tag": "a",
                     "role": "link",
-                    "text": "Open thread Reminder on document review timing",
+                    "text": "Open thread Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2194,10 +1836,10 @@
                     },
                     "children": [
                       {
-                        "bid": "text_reminder_on_document_review_timing_157",
+                        "bid": "text_notes_from_the_partner_sync_130",
                         "tag": "span",
                         "role": "text",
-                        "text": "Reminder on document review timing",
+                        "text": "Notes from the partner sync",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2207,10 +1849,10 @@
                         }
                       },
                       {
-                        "bid": "text_passing_along_the_current_draft_so_you_h_158",
+                        "bid": "text_i_pulled_the_loose_ends_into_one_note_fo_131",
                         "tag": "span",
                         "role": "text",
-                        "text": "Passing along the current draft so you have it in one place. Most of the edits were minor, with one budget line still waiting on approval. I",
+                        "text": "I pulled the loose ends into one note for easier review. Nothing looks blocked right now, but we still need one decision on timing. If you w",
                         "visible": true,
                         "bounds": {
                           "x": 0,
@@ -2222,10 +1864,10 @@
                     ]
                   },
                   {
-                    "bid": "button_archive_reminder_on_document_review_timi_159",
+                    "bid": "button_archive_notes_from_the_partner_sync_132",
                     "tag": "button",
                     "role": "button",
-                    "text": "Archive Reminder on document review timing",
+                    "text": "Archive Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2235,10 +1877,10 @@
                     }
                   },
                   {
-                    "bid": "button_delete_reminder_on_document_review_timin_160",
+                    "bid": "button_delete_notes_from_the_partner_sync_133",
                     "tag": "button",
                     "role": "button",
-                    "text": "Delete Reminder on document review timing",
+                    "text": "Delete Notes from the partner sync",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2248,10 +1890,10 @@
                     }
                   },
                   {
-                    "bid": "text_mar_12_161",
+                    "bid": "text_jun_27_134",
                     "tag": "span",
                     "role": "text",
-                    "text": "Mar 12",
+                    "text": "Jun 27",
                     "visible": true,
                     "bounds": {
                       "x": 0,
@@ -2263,10 +1905,373 @@
                 ]
               },
               {
-                "bid": "text_1_16_of_32_162",
+                "bid": "article_customer_feedback_from_pilot_cohort_135",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_customer_feedback_from_pilot_cohort_136",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_marcus_morris_137",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Marcus Morris",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_customer_feedback_from_pilot_138",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_customer_feedback_from_pilot_cohort_139",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Customer feedback from pilot cohort",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_sending_a_quick_status_update_from_today_140",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. If you ",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_customer_feedback_from_pilot_coh_141",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_customer_feedback_from_pilot_coho_142",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Customer feedback from pilot cohort",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jun_27_143",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jun 27",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_quarterly_metrics_recap_144",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_quarterly_metrics_recap_145",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Quarterly metrics recap",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_marcus_garcia_146",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Marcus Garcia",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_quarterly_metrics_recap_147",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Quarterly metrics recap",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_quarterly_metrics_recap_148",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Quarterly metrics recap",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_sending_a_quick_status_update_from_today_149",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Sending a quick status update from today's working session. Most of the edits were minor, with one budget line still waiting on approval. If",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_quarterly_metrics_recap_150",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Quarterly metrics recap",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_quarterly_metrics_recap_151",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Quarterly metrics recap",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jun_26_152",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jun 26",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "article_updated_rollout_checklist_153",
+                "tag": "article",
+                "role": "article",
+                "text": "",
+                "visible": true,
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 800,
+                  "height": 30
+                },
+                "children": [
+                  {
+                    "bid": "button_star_updated_rollout_checklist_154",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Star Updated rollout checklist",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_elena_wright_155",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Elena Wright",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "link_open_thread_updated_rollout_checklist_156",
+                    "tag": "a",
+                    "role": "link",
+                    "text": "Open thread Updated rollout checklist",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    },
+                    "children": [
+                      {
+                        "bid": "text_updated_rollout_checklist_157",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Updated rollout checklist",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      },
+                      {
+                        "bid": "text_sending_a_quick_status_update_from_today_158",
+                        "tag": "span",
+                        "role": "text",
+                        "text": "Sending a quick status update from today's working session. The team is aligned on the main path and only needs confirmation on the follow-u",
+                        "visible": true,
+                        "bounds": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 800,
+                          "height": 30
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "bid": "button_archive_updated_rollout_checklist_159",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Archive Updated rollout checklist",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "button_delete_updated_rollout_checklist_160",
+                    "tag": "button",
+                    "role": "button",
+                    "text": "Delete Updated rollout checklist",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  },
+                  {
+                    "bid": "text_jun_26_161",
+                    "tag": "span",
+                    "role": "text",
+                    "text": "Jun 26",
+                    "visible": true,
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 800,
+                      "height": 30
+                    }
+                  }
+                ]
+              },
+              {
+                "bid": "text_1_16_of_31_162",
                 "tag": "span",
                 "role": "text",
-                "text": "1\u201316 of 32",
+                "text": "1\u201316 of 31",
                 "visible": true,
                 "bounds": {
                   "x": 0,

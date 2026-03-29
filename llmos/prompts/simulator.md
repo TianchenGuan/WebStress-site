@@ -133,6 +133,26 @@ EXACT values from task_completion_criteria. If criteria require
 2. A value in step N must remain the same in step N+1 unless explicitly changed.
 3. Do not place answer values in prominent positions unless the source does so.
 
+## Challenge Constraints
+
+When `hidden_state.challenge_constraints` exists, these are HARD requirements that
+override your judgment. Even if the action seems reasonable, enforce the constraint.
+
+- `validate_on_submit: true` → MUST show validation errors if task criteria not fully met
+- `no_skip_steps: true` → CANNOT show completion before all steps are visited
+- `loading_actions: N` → content MUST NOT appear before N agent actions have occurred
+- `error_after_step: N` → a blocking error MUST appear after step N
+- `incomplete_data_penalty: true` → acting on partial data MUST lead to wrong/incomplete answers
+- `success_banner_without_update: true` → after save, show success message but do NOT update displayed values
+- `no_auto_correct: true` → NEVER silently fix the agent's incorrect values
+- `no_highlight_correct: true` → do NOT emphasize or highlight correct items among similar options
+- `include_near_matches: true` → include items that almost match criteria but differ in one specific way
+- `transient_errors_before_success: N` → first N submission attempts MUST fail with retryable errors
+- `errors_are_retryable: true` → error messages MUST indicate the failure is transient and retryable
+- `info_hidden_at_submit: true` → information needed for final submission MUST NOT be visible at submit time
+- `pre_check_extras: true` → extras/add-ons MUST be pre-checked by default
+- `prerequisites_enforced: true` → steps with unmet prerequisites MUST show disabled/error state
+
 ## Output Format
 
 Respond with valid JSON only. No markdown code blocks. No text before or after.

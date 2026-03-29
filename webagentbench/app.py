@@ -22,100 +22,48 @@ from fastapi.staticfiles import StaticFiles
 
 from .backend.routes import mount_environment_routes
 from .backend.state import SessionManager
-from .tasks._evaluator import evaluate
-from .tasks._registry import get_task, load_all_tasks, page_tasks, tasks_by_env
+from .backend.tasks import TASKS_BY_ENV
 
 BASE_DIR = Path(__file__).parent
 PAGES_DIR = BASE_DIR / "pages"
 STATIC_DIR = BASE_DIR / "static"
 
-# Load environment metadata from manifest.json (no longer contains task defs)
+
 with open(BASE_DIR / "manifest.json") as f:
     MANIFEST_TEMPLATE = json.load(f)
 
-# Build page index from the YAML registry
-_ALL_TASKS = load_all_tasks()
-_PAGE_TASKS = page_tasks()
-PAGES_INDEX = {t.task_id: t for t in _PAGE_TASKS}
-_ENV_TASK_GROUPS = {k: v for k, v in tasks_by_env().items() if k != "page"}
+PAGES_INDEX = {page["page_id"]: page for page in MANIFEST_TEMPLATE["pages"]}
 
 
-def _env_index_path(env_id: str) -> Path:
-    return STATIC_DIR / "envs" / env_id / "index.html"
-
-
-def _env_is_available(env_id: str) -> bool:
-    return env_id in _ENV_TASK_GROUPS and _env_index_path(env_id).exists()
-
-
-def _env_unavailable_reason(env_id: str) -> str | None:
-    if env_id not in _ENV_TASK_GROUPS:
-        return "Environment is listed in the manifest but has no backend implementation in this build."
-    if not _env_index_path(env_id).exists():
-        return "Environment backend exists but the frontend bundle has not been built."
-    return None
-
-
-def _public_task_from_def(task) -> dict:
-    """Return task metadata safe to expose through the public manifest."""
+def _public_task(task: dict) -> dict:
+    """Return the task metadata safe to expose through the public manifest."""
     return {
-        "task_id": task.task_id,
-        "env_id": task.env_id,
-        "title": task.title,
-        "instruction_template": task.instruction_template or task.instruction,
-        "difficulty": task.difficulty,
-        "primary_primitives": task.primary_primitives,
-        "time_limit_seconds": task.time_limit_seconds,
-        "expected_steps": task.expected_steps,
-        "start_path": task.start_path or "/",
-    }
-
-
-def _page_to_manifest_entry(task) -> dict:
-    """Convert a TaskDefinition (page) to the legacy manifest page format."""
-    return {
-        "page_id": task.task_id,
-        "title": task.title,
-        "url_path": task.url_path,
-        "instruction": task.instruction,
-        "difficulty": task.difficulty,
-        "primary_primitives": task.primary_primitives,
-        "secondary_primitives": task.secondary_primitives,
-        "time_limit_seconds": task.time_limit_seconds,
+        "task_id": task["task_id"],
+        "env_id": task["env_id"],
+        "title": task["title"],
+        "instruction_template": task["instruction_template"],
+        "difficulty": task["difficulty"],
+        "primary_primitives": task.get("primary_primitives", []),
+        "time_limit_seconds": task.get("time_limit_seconds", 180),
+        "expected_steps": task.get("expected_steps"),
+        "start_path": task.get("start_path", "/"),
     }
 
 
 def build_manifest() -> dict:
-    """Build the public manifest from YAML registry + environment metadata."""
-    manifest = {
-        "version": MANIFEST_TEMPLATE.get("version", "2.0.0"),
-        "benchmark": MANIFEST_TEMPLATE.get("benchmark", "WebAgentBench"),
-        "description": MANIFEST_TEMPLATE.get("description", ""),
-        "primitives": MANIFEST_TEMPLATE.get("primitives", []),
-        "pages": [_page_to_manifest_entry(t) for t in _PAGE_TASKS],
-    }
-
-    configured_envs = {env["env_id"]: env for env in MANIFEST_TEMPLATE.get("environments", [])}
+    """Merge legacy manifest metadata with the advanced-environment task registry."""
+    manifest = deepcopy(MANIFEST_TEMPLATE)
     env_entries: list[dict] = []
+    configured_envs = {env["env_id"]: env for env in manifest.get("environments", [])}
 
-    # Environments with tasks in the registry
-    env_task_groups = tasks_by_env()
-    for env_id, env_task_list in env_task_groups.items():
-        if env_id == "page":
-            continue
+    for env_id, env_tasks in TASKS_BY_ENV.items():
         base_env = deepcopy(configured_envs.get(env_id, {"env_id": env_id, "title": env_id, "base_url": f"/env/{env_id}"}))
-        base_env["tasks"] = [_public_task_from_def(t) for t in env_task_list]
-        base_env["available"] = _env_is_available(env_id)
-        base_env["unavailable_reason"] = _env_unavailable_reason(env_id)
+        base_env["tasks"] = [_public_task(task) for task in env_tasks]
         env_entries.append(base_env)
 
-    # Environments listed in manifest.json but not yet in registry
     for env_id, env in configured_envs.items():
-        if env_id not in env_task_groups or env_id == "page":
-            env_copy = deepcopy(env)
-            env_copy["available"] = _env_is_available(env_id)
-            env_copy["unavailable_reason"] = _env_unavailable_reason(env_id)
-            env_entries.append(env_copy)
+        if env_id not in TASKS_BY_ENV:
+            env_entries.append(deepcopy(env))
 
     manifest["environments"] = env_entries
     return manifest
@@ -167,21 +115,12 @@ async def index():
 
     env_rows = ""
     for env in MANIFEST.get("environments", []):
-        available = bool(env.get("available", False))
-        title_html = (
-            f'<a href="{env["base_url"]}">{env["title"]}</a>'
-            if available
-            else f'{env["title"]} <span style="color:#b35c00;font-weight:600;">(Unavailable)</span>'
-        )
-        status = "Available" if available else "Unavailable"
-        reason = env.get("unavailable_reason", "") if not available else env.get("description", "")
         env_rows += (
             f"<tr>"
-            f"<td>{title_html}</td>"
+            f'<td><a href="{env["base_url"]}">{env["title"]}</a></td>'
             f'<td><code>{env["env_id"]}</code></td>'
             f"<td>{len(env.get('tasks', []))}</td>"
-            f"<td>{status}</td>"
-            f"<td>{reason}</td>"
+            f"<td>{env.get('description', '')}</td>"
             f"</tr>\n"
         )
 
@@ -219,7 +158,7 @@ async def index():
     <h2>Advanced Environments</h2>
     <table>
         <thead>
-            <tr><th>Environment</th><th>ID</th><th>Tasks</th><th>Status</th><th>Description</th></tr>
+            <tr><th>Environment</th><th>ID</th><th>Tasks</th><th>Description</th></tr>
         </thead>
         <tbody>{env_rows}</tbody>
     </table>
@@ -258,7 +197,7 @@ async def get_page_manifest(page_id: str):
     """Return a single legacy page manifest entry."""
     if page_id not in PAGES_INDEX:
         raise HTTPException(status_code=404, detail=f"Unknown page_id: {page_id}")
-    return _page_to_manifest_entry(PAGES_INDEX[page_id])
+    return PAGES_INDEX[page_id]
 
 
 @app.post("/benchmark/{page_id}/evaluate")
@@ -270,8 +209,9 @@ async def evaluate_page(page_id: str, request: Request):
     body = await request.json()
     benchmark_state = body.get("benchmarkState", body)
 
-    task = get_task(page_id)
-    result = evaluate(task, browser_state=benchmark_state)
+    from .evaluator import evaluate
+
+    result = evaluate(page_id, benchmark_state, PAGES_INDEX[page_id])
     return JSONResponse(content=result)
 
 
