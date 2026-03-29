@@ -134,6 +134,19 @@ export default function ResultsPage() {
 
       <hr className="border-[var(--border)] mb-8" />
 
+      {/* Negative checks link */}
+      <div className="flex items-center justify-between mb-8">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)]">
+          All tasks
+        </p>
+        <Link
+          href="/results/negative-checks"
+          className="text-[12px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)] transition-colors"
+        >
+          View negative checks →
+        </Link>
+      </div>
+
       {/* task table */}
       <table className="w-full text-[14px] border-collapse">
         <thead>
@@ -179,13 +192,13 @@ export default function ResultsPage() {
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.max(0, Math.min(100, t.score * 100))}%`,
-                        background: t.success ? "var(--green)" : t.score > 0.5 ? "oklch(70% 0.12 85)" : "var(--red)",
+                        background: t.success ? "var(--green)" : t.score > 0.5 ? "var(--amber)" : "var(--red)",
                       }}
                     />
                   </div>
                   <span
                     className="font-mono text-[13px]"
-                    style={{ color: t.success ? "var(--green)" : t.score > 0.5 ? "oklch(70% 0.12 85)" : "var(--red)" }}
+                    style={{ color: t.success ? "var(--green)" : t.score > 0.5 ? "var(--amber)" : "var(--red)" }}
                   >
                     {t.score.toFixed(2)}
                   </span>
@@ -203,8 +216,8 @@ export default function ResultsPage() {
                   }`}
                   style={{
                     background: t.success
-                      ? "oklch(78% 0.12 155 / 0.1)"
-                      : "oklch(72% 0.14 25 / 0.1)",
+                      ? "oklch(78% 0.14 155 / 0.1)"
+                      : "oklch(72% 0.15 25 / 0.1)",
                   }}
                 >
                   {t.success ? "Pass" : "Fail"}
