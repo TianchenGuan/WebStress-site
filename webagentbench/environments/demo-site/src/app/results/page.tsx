@@ -109,14 +109,14 @@ export default function ResultsPage() {
       </p>
 
       {/* aggregate stats */}
-      <div className="flex gap-16 mb-12">
-        <div>
+      <div className="flex gap-6 mb-12">
+        <div className="bg-[var(--surface)] rounded-2xl px-6 py-4">
           <p className="font-mono text-[32px] font-medium tracking-tight text-[var(--text-primary)]">
             {(data.aggregate.success_rate * 100).toFixed(0)}%
           </p>
           <p className="text-xs text-[var(--text-tertiary)]">pass rate</p>
         </div>
-        <div>
+        <div className="bg-[var(--surface)] rounded-2xl px-6 py-4">
           <p className="font-mono text-[32px] font-medium tracking-tight text-[var(--text-primary)]">
             {data.aggregate.avg_score.toFixed(2)}
           </p>
@@ -148,10 +148,10 @@ export default function ResultsPage() {
       </div>
 
       {/* task table */}
-      <table className="w-full text-[14px] border-collapse">
+      <table className="w-full text-[14px] border-separate border-spacing-y-1">
         <thead>
-          <tr className="border-b border-[var(--border)]">
-            <th className={thClass} onClick={() => toggleSort("title")}>
+          <tr>
+            <th className={`${thClass} pl-3`} onClick={() => toggleSort("title")}>
               Task{sortKey === "title" ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
             </th>
             <th className={thClass} onClick={() => toggleSort("difficulty")}>
@@ -163,7 +163,7 @@ export default function ResultsPage() {
             <th className={thClass} onClick={() => toggleSort("steps")}>
               Steps{sortKey === "steps" ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
             </th>
-            <th className={thClass} onClick={() => toggleSort("success")}>
+            <th className={`${thClass} pr-3`} onClick={() => toggleSort("success")}>
               Status{sortKey === "success" ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
             </th>
           </tr>
@@ -172,9 +172,9 @@ export default function ResultsPage() {
           {tasks.map((t) => (
             <tr
               key={t.task_id}
-              className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors rounded-lg"
+              className="group hover:bg-[var(--surface)] transition-colors [&>td:first-child]:rounded-l-xl [&>td:last-child]:rounded-r-xl"
             >
-              <td className="py-3 pr-4">
+              <td className="py-3 pr-4 pl-3">
                 <Link
                   href={`/results/${t.task_id}`}
                   className="text-[var(--text-primary)] no-underline hover:text-[var(--accent)] transition-colors"
@@ -207,9 +207,9 @@ export default function ResultsPage() {
               <td className="py-3 pr-4 text-[13px] text-[var(--text-secondary)]">
                 {t.steps}
               </td>
-              <td className="py-3">
+              <td className="py-3 pr-3">
                 <span
-                  className={`text-[10px] font-medium px-2.5 py-0.5 rounded-lg ${
+                  className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full ${
                     t.success
                       ? "text-[var(--green)]"
                       : "text-[var(--red)]"
