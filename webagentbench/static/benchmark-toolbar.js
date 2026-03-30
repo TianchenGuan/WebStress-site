@@ -166,9 +166,9 @@
         panel.classList.add("visible");
         document.getElementById("wab-toggle-btn").innerHTML = "&uarr;";
 
-        // If recording and evaluation passed, save gold trajectory
+        // Save trajectory if recording is active (gold if passed, regular if failed)
         var rec = window.__WAB_RECORDER;
-        if (rec && rec.recording && success) {
+        if (rec && rec.recording) {
           rec.stop();
           document.getElementById("wab-record-btn").textContent = "\u23FA Record";
           document.getElementById("wab-record-btn").classList.remove("recording");
@@ -185,18 +185,16 @@
             });
             var saveResult = await saveResp.json();
             if (saveResult.saved) {
-              html += '<div style="margin-top:8px;color:#4caf50;font-weight:600;">';
-              html += "\u2713 Gold trajectory saved: " + (saveResult.path || "OK") + "</div>";
+              var goldTag = saveResult.gold ? "Gold trajectory" : "Trajectory";
+              var color = saveResult.gold ? "#4caf50" : "#ff9800";
+              html += '<div style="margin-top:8px;color:' + color + ';font-weight:600;">';
+              html += "\u2713 " + goldTag + " saved (" + saveResult.events + " events): " + (saveResult.filename || "OK") + "</div>";
               panel.innerHTML = html;
             }
           } catch (saveErr) {
             html += '<div style="margin-top:8px;color:#ff9800;">Trajectory save failed: ' + saveErr.message + "</div>";
             panel.innerHTML = html;
           }
-        } else if (rec && rec.recording && !success) {
-          // Recording but failed — don't save, inform user
-          html += '<div style="margin-top:8px;color:#ff9800;">Recording active but evaluation failed — trajectory NOT saved as gold.</div>';
-          panel.innerHTML = html;
         }
       } catch (err) {
         document.getElementById("wab-results-panel").innerHTML =
@@ -216,7 +214,7 @@
       document.head.appendChild(script);
 
       var btn = document.getElementById("wab-record-btn");
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", async function () {
         if (!window.__WAB_RECORDER) {
           btn.textContent = "Loading...";
           setTimeout(function () { btn.click(); }, 500);
@@ -227,10 +225,34 @@
           rec.stop();
           btn.textContent = "\u23FA Record";
           btn.classList.remove("recording");
+          // Auto-save on stop (unevaluated trajectory)
+          if (rec.events && rec.events.length > 0) {
+            try {
+              var saveResp = await fetch("/api/env/" + envId + "/trajectory", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  session_id: sessionId,
+                  events: rec.events,
+                  evaluation: {},
+                }),
+              });
+              var saveResult = await saveResp.json();
+              if (saveResult.saved) {
+                btn.textContent = "\u2713 Saved (" + saveResult.events + " events)";
+                setTimeout(function () { btn.textContent = "\u23FA Record"; }, 3000);
+              }
+            } catch (e) {}
+          }
         } else {
           rec.start(sessionId, envId);
-          btn.textContent = "\u23F9 Stop";
+          btn.textContent = "\u23F9 Stop (" + (rec.events ? rec.events.length : 0) + ")";
           btn.classList.add("recording");
+          // Update event count periodically
+          var countInterval = setInterval(function () {
+            if (!rec.recording) { clearInterval(countInterval); return; }
+            btn.textContent = "\u23F9 Stop (" + (rec.events ? rec.events.length : 0) + ")";
+          }, 2000);
         }
       });
     })();
