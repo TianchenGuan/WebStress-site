@@ -1,0 +1,28 @@
+task_id: gmail_mark_all_read
+env_id: gmail
+title: Mark All Unread Emails as Read
+instruction_template: Mark all unread emails in your inbox as read. There are 5 unread
+  emails.
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 12
+primary_primitives:
+- patience
+- state_tracking
+start_path: /inbox
+seed:
+  distractors: 5
+  steps:
+  - use: mark_all_read
+    params: {}
+    outputs:
+    - unread_email_ids
+    - unread_count
+  targets:
+    unread_count: '{output.unread_count}'
+eval:
+  source: server_state
+  checks:
+  - expr: all(e.is_read for e in state.list_emails('inbox'))
+    desc: All inbox emails are marked as read
+  negative_checks: []

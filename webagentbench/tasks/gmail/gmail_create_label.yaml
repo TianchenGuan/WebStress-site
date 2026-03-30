@@ -1,0 +1,24 @@
+task_id: gmail_create_label
+env_id: gmail
+title: Create a New Label
+instruction_template: Create a new label called "Important Projects".
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 5
+primary_primitives:
+- planning
+- exploration
+start_path: /inbox
+seed:
+  distractors: 5
+  steps:
+  - use: create_label
+    params: {}
+    outputs: []
+  targets: {}
+eval:
+  source: server_state
+  checks:
+  - expr: any(l.name == 'Important Projects' for l in state.labels)
+    desc: Label 'Important Projects' exists
+  negative_checks: []

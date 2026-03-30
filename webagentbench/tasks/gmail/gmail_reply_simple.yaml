@@ -1,0 +1,34 @@
+task_id: gmail_reply_simple
+env_id: gmail
+title: Reply to an Email
+instruction_template: 'Find the email from Bob Martinez with subject "Meeting Tomorrow
+  at 2pm" and reply with exactly: "I''ll be there. Thanks!"'
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+- grounding
+- verification
+start_path: /inbox
+seed:
+  distractors: 10
+  steps:
+  - use: reply_simple
+    params: {}
+    outputs:
+    - target_email_id
+    - target_thread_id
+  targets:
+    target_email_id: '{output.target_email_id}'
+    target_thread_id: '{output.target_thread_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: any(m.in_reply_to == '{target.target_email_id}' for m in state.sent)
+    desc: Reply sent to Bob's email
+  - expr: any("I'll be there" in m.body for m in state.sent)
+    desc: Reply contains the required message
+  negative_checks:
+  - expr: len(state.sent) <= 1
+    desc: Only one reply sent
+    penalty: 0.2

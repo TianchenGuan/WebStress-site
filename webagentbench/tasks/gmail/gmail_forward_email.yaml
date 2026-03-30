@@ -1,0 +1,31 @@
+task_id: gmail_forward_email
+env_id: gmail
+title: Forward an Invoice Email
+instruction_template: 'Find the email from Carol Wang with subject "Invoice #1234
+  — March Services" and forward it to dave@company.test with the note "Please review
+  this invoice."'
+difficulty: easy
+time_limit_seconds: 150
+expected_steps: 10
+primary_primitives:
+- grounding
+- planning
+start_path: /inbox
+seed:
+  distractors: 10
+  steps:
+  - use: forward_email
+    params: {}
+    outputs:
+    - target_email_id
+  targets:
+    target_email_id: '{output.target_email_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: 'any(''dave@company.test'' in m.to and ''Invoice #1234'' in m.subject for
+      m in state.sent)'
+    desc: Email forwarded to dave@company.test
+  - expr: any('Please review this invoice' in m.body for m in state.sent)
+    desc: Forward note included
+  negative_checks: []

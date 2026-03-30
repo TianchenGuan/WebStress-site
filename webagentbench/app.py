@@ -16,7 +16,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .backend.routes import mount_environment_routes
@@ -333,11 +333,21 @@ async def get_manifest():
 
 
 @app.get("/env/{env_id}")
+async def redirect_env_root(env_id: str):
+    """Redirect bare /env/<id> to the home-page launcher (which has variant support)."""
+    if env_id not in KNOWN_ENV_IDS:
+        raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
+    return RedirectResponse(url="/", status_code=302)
+
+
 @app.get("/env/{env_id}/{path:path}")
 async def serve_environment_spa(env_id: str, path: str = ""):
     """Serve a built React SPA for an advanced environment."""
     if env_id not in KNOWN_ENV_IDS:
         raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
+    # Bare /env/gmail/ (trailing slash, empty path) → redirect to home launcher
+    if not path:
+        return RedirectResponse(url="/", status_code=302)
     index_path = STATIC_DIR / "envs" / env_id / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail=f"Environment '{env_id}' has not been built yet")

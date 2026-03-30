@@ -1,0 +1,31 @@
+task_id: gmail_delete_spam
+env_id: gmail
+title: Delete a Spam Email
+instruction_template: Delete the spam email from winner@spamfarm.test with subject
+  "YOU WON $1,000,000!!! Click NOW!!!". Do not delete any other emails.
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 5
+primary_primitives:
+- grounding
+start_path: /inbox
+seed:
+  distractors: 5
+  steps:
+  - use: delete_spam
+    params: {}
+    outputs:
+    - spam_email_id
+    - normal_email_id
+  targets:
+    spam_email_id: '{output.spam_email_id}'
+    normal_email_id: '{output.normal_email_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: any(e.id == '{target.spam_email_id}' for e in state.deleted)
+    desc: Spam email was deleted
+  negative_checks:
+  - expr: not any(e.id == '{target.normal_email_id}' for e in state.deleted)
+    desc: Normal email was NOT deleted
+    penalty: 0.5

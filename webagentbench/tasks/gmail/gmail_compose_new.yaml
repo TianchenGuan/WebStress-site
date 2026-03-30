@@ -1,0 +1,33 @@
+task_id: gmail_compose_new
+env_id: gmail
+title: Compose and Send a New Email
+instruction_template: Compose a new email to alice@company.test with subject "Weekly
+  Report" and body "Hi Alice, please find the weekly report attached. Best regards."
+  Then send it.
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+- planning
+- verification
+start_path: /inbox
+seed:
+  distractors: 5
+  steps:
+  - use: compose_new
+    params: {}
+    outputs: []
+  targets: {}
+eval:
+  source: server_state
+  checks:
+  - expr: any('alice@company.test' in m.to for m in state.sent)
+    desc: Email sent to alice@company.test
+  - expr: any('Weekly Report' in m.subject for m in state.sent)
+    desc: Subject is 'Weekly Report'
+  - expr: any('weekly report' in m.body.lower() for m in state.sent)
+    desc: Body mentions weekly report
+  negative_checks:
+  - expr: len(state.sent) <= 1
+    desc: Only one email sent
+    penalty: 0.2

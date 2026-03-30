@@ -1,0 +1,30 @@
+task_id: gmail_update_contact
+env_id: gmail
+title: Update a Contact Note
+instruction_template: Find the contact "Alice Chen" and update her note to "Team lead
+  — Project Atlas".
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+- exploration
+- verification
+start_path: /inbox
+seed:
+  distractors: 5
+  steps:
+  - use: update_contact
+    params: {}
+    outputs:
+    - contact_id
+    - contact_name
+  targets:
+    contact_id: '{output.contact_id}'
+    contact_name: '{output.contact_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: any(c.name == 'Alice Chen' and 'Project Atlas' in (c.note or '') for c in
+      state.contacts)
+    desc: Alice Chen contact note updated to mention Project Atlas
+  negative_checks: []
