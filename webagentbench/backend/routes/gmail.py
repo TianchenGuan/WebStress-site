@@ -360,24 +360,54 @@ def get_client_degradation(session_id: str) -> dict[str, Any]:
 
 @router.get("/variants")
 def list_variants() -> list[dict[str, Any]]:
-    """List available degradation variants for the Gmail environment."""
+    """List available degradation variants for the Gmail environment.
+
+    Includes hand-written YAML variants plus auto-generated defaults for
+    tasks whose primary primitive has no specific variant.
+    """
     from pathlib import Path
     import yaml
+    from ...injector.config import _DEFAULT_TEMPLATES
+
     variants_dir = Path(__file__).parent.parent.parent / "injector" / "variants"
     result = []
+    covered: set[tuple[str, str]] = set()  # (base_task_id, primitive)
+
+    # 1. Hand-written YAML variants
     if variants_dir.exists():
         for f in sorted(variants_dir.glob("*.yaml")):
             try:
                 data = yaml.safe_load(f.read_text())
+                btid = data.get("base_task_id", "")
+                prim = data.get("target_primitive", "")
                 result.append({
                     "filename": f.name,
                     "variant_id": data.get("variant_id", ""),
-                    "base_task_id": data.get("base_task_id", ""),
-                    "target_primitive": data.get("target_primitive", ""),
+                    "base_task_id": btid,
+                    "target_primitive": prim,
                     "description": data.get("description", ""),
+                    "source": "yaml",
                 })
+                covered.add((btid, prim))
             except Exception:
                 pass
+
+    # 2. Auto-generated defaults for uncovered tasks
+    from ...tasks._registry import tasks_by_env
+    gmail_tasks = tasks_by_env().get("gmail", [])
+    for task in gmail_tasks:
+        primary = task.primary_primitives[0] if task.primary_primitives else None
+        if primary and (task.task_id, primary) not in covered and primary in _DEFAULT_TEMPLATES:
+            tmpl = _DEFAULT_TEMPLATES[primary]
+            result.append({
+                "filename": f"__auto__{task.task_id}__{primary}",
+                "variant_id": f"{task.task_id}__{primary}_auto",
+                "base_task_id": task.task_id,
+                "target_primitive": primary,
+                "description": tmpl["description"],
+                "source": "auto",
+            })
+
     return result
 
 
@@ -391,17 +421,41 @@ def create_session(body: SessionCreateRequest, session_manager: SessionManager =
     # never allocate live benchmark state.
     degradation = dict(body.degradation) if body.degradation else None
     if body.variant_filename and not degradation:
-        from pathlib import Path
-        import yaml
+        # Handle auto-generated variants (filename starts with __auto__)
+        if body.variant_filename.startswith("__auto__"):
+            # Format: __auto__{task_id}__{primitive}
+            # Split from the right on __ to separate primitive from task_id
+            remainder = body.variant_filename[len("__auto__"):]
+            sep_pos = remainder.rfind("__")
+            if sep_pos > 0:
+                auto_task_id = remainder[:sep_pos]
+                auto_primitive = remainder[sep_pos + 2:]
+                from ...injector.config import DegradationConfig
+                auto_cfg = DegradationConfig.default_for_primitive(auto_task_id, auto_primitive)
+                if auto_cfg is None:
+                    raise HTTPException(status_code=404, detail=f"No default template for primitive: {auto_primitive}")
+                degradation = {
+                    "variant_filename": body.variant_filename,
+                    "variant_id": auto_cfg.variant_id,
+                    "base_task_id": auto_cfg.base_task_id,
+                    "target_primitive": auto_cfg.target_primitive,
+                    "description": auto_cfg.description,
+                    "injections": [{"layer": inj.layer, "params": inj.params} for inj in auto_cfg.injections],
+                }
+            else:
+                raise HTTPException(status_code=400, detail=f"Malformed auto variant filename: {body.variant_filename}")
+        else:
+            from pathlib import Path
+            import yaml
 
-        variant_path = Path(__file__).parent.parent.parent / "injector" / "variants" / body.variant_filename
-        if not variant_path.exists():
-            raise HTTPException(status_code=404, detail=f"Unknown degradation variant: {body.variant_filename}")
-        variant_data = yaml.safe_load(variant_path.read_text()) or {}
-        degradation = {
-            "variant_filename": body.variant_filename,
-            **variant_data,
-        }
+            variant_path = Path(__file__).parent.parent.parent / "injector" / "variants" / body.variant_filename
+            if not variant_path.exists():
+                raise HTTPException(status_code=404, detail=f"Unknown degradation variant: {body.variant_filename}")
+            variant_data = yaml.safe_load(variant_path.read_text()) or {}
+            degradation = {
+                "variant_filename": body.variant_filename,
+                **variant_data,
+            }
 
     if degradation and degradation.get("base_task_id") and degradation.get("base_task_id") != body.task_id:
         raise HTTPException(
