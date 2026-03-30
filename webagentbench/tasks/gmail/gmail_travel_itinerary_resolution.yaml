@@ -1,16 +1,23 @@
 task_id: gmail_travel_itinerary_resolution
 env_id: gmail
 title: Travel Itinerary Resolution
-instruction_template: |-
-  You have two flight confirmation emails and two hotel confirmation emails for your trip to the Denver conference on March 25. One flight was rebooked — find the current flight confirmation (the one with a rebooking reference starting with "RBK-"). You also have two hotel bookings: one in Denver with a non-refundable cancellation deadline that has passed, and one in Boulder that is freely cancellable. The Denver hotel is the correct one for the conference. Forward the current flight confirmation and the Denver hotel confirmation — exactly those two emails, as two separate forwards — to travel.assistant@ops.test. Do not forward the superseded flight or the Boulder hotel. After forwarding, create a Gmail filter for emails from {target.airline_sender} that automatically applies the label "Travel."
+instruction_template: 'You have two flight confirmation emails and two hotel confirmation
+  emails for your trip to the Denver conference on March 25. One flight was rebooked
+  — find the current flight confirmation (the one with a rebooking reference starting
+  with "RBK-"). You also have two hotel bookings: one in Denver with a non-refundable
+  cancellation deadline that has passed, and one in Boulder that is freely cancellable.
+  The Denver hotel is the correct one for the conference. Forward the current flight
+  confirmation and the Denver hotel confirmation — exactly those two emails, as two
+  separate forwards — to travel.assistant@ops.test. Do not forward the superseded
+  flight or the Boulder hotel. After forwarding, create a Gmail filter for emails
+  from {target.airline_sender} that automatically applies the label "Travel."'
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 36
 primary_primitives:
 - verification
-- memory
-- attention
-- adversarial_robustness
+- state_tracking
+- grounding
 secondary_primitives:
 - planning
 start_path: /inbox
@@ -30,32 +37,39 @@ seed:
     - decoy_summary_email_id
     - jordan_name
   targets:
-    airline_sender: "{output.airline_sender}"
-    flight_original_email_id: "{output.flight_original_email_id}"
-    flight_rebooked_email_id: "{output.flight_rebooked_email_id}"
-    hotel_denver_email_id: "{output.hotel_denver_email_id}"
-    hotel_boulder_email_id: "{output.hotel_boulder_email_id}"
-    conference_email_id: "{output.conference_email_id}"
-    decoy_summary_email_id: "{output.decoy_summary_email_id}"
-    jordan_name: "{output.jordan_name}"
+    airline_sender: '{output.airline_sender}'
+    flight_original_email_id: '{output.flight_original_email_id}'
+    flight_rebooked_email_id: '{output.flight_rebooked_email_id}'
+    hotel_denver_email_id: '{output.hotel_denver_email_id}'
+    hotel_boulder_email_id: '{output.hotel_boulder_email_id}'
+    conference_email_id: '{output.conference_email_id}'
+    decoy_summary_email_id: '{output.decoy_summary_email_id}'
+    jordan_name: '{output.jordan_name}'
 eval:
   source: server_state
   checks:
-  - expr: sum(1 for m in state.sent if 'travel.assistant@ops.test' in m.to and m.forwarded_from_id) == 2
+  - expr: sum(1 for m in state.sent if 'travel.assistant@ops.test' in m.to and m.forwarded_from_id)
+      == 2
     desc: Exactly 2 forwards sent to travel assistant
-  - expr: any(m.forwarded_from_id == '{target.flight_rebooked_email_id}' and 'travel.assistant@ops.test' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.flight_rebooked_email_id}' and 'travel.assistant@ops.test'
+      in m.to for m in state.sent)
     desc: Rebooked flight forwarded to travel assistant
-  - expr: any(m.forwarded_from_id == '{target.hotel_denver_email_id}' and 'travel.assistant@ops.test' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.hotel_denver_email_id}' and 'travel.assistant@ops.test'
+      in m.to for m in state.sent)
     desc: Denver hotel forwarded to travel assistant
-  - expr: any(f.sender == '{target.airline_sender}' and 'Travel' in f.add_labels for f in state.filters)
+  - expr: any(f.sender == '{target.airline_sender}' and 'Travel' in f.add_labels for
+      f in state.filters)
     desc: Filter created for airline sender with Travel label
   negative_checks:
-  - expr: not any(m.forwarded_from_id == '{target.flight_original_email_id}' and 'travel.assistant@ops.test' in m.to for m in state.sent)
+  - expr: not any(m.forwarded_from_id == '{target.flight_original_email_id}' and 'travel.assistant@ops.test'
+      in m.to for m in state.sent)
     desc: Did not forward superseded flight
     penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.hotel_boulder_email_id}' and 'travel.assistant@ops.test' in m.to for m in state.sent)
+  - expr: not any(m.forwarded_from_id == '{target.hotel_boulder_email_id}' and 'travel.assistant@ops.test'
+      in m.to for m in state.sent)
     desc: Did not forward Boulder hotel
     penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.decoy_summary_email_id}' and 'travel.assistant@ops.test' in m.to for m in state.sent)
+  - expr: not any(m.forwarded_from_id == '{target.decoy_summary_email_id}' and 'travel.assistant@ops.test'
+      in m.to for m in state.sent)
     desc: Did not forward decoy itinerary summary
     penalty: 0.25

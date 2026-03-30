@@ -1,18 +1,23 @@
 task_id: gmail_schedule_recovery
 env_id: gmail
 title: Schedule Recovery
-instruction_template: |-
-  You previously confirmed "Wednesday, 10:00 AM" for the Q2 planning sync with {target.hana_name}, but that time may no longer be valid. Review the full thread "Q2 Planning Sync — Time Proposal" and any related emails from {target.hana_name}. If the confirmed time has been cancelled, find the replacement time she proposed and send a CORRECTION reply in the original thread with exact text: "Disregard my previous confirmation. The correct time is Thursday, 2:00 PM." Do NOT confirm Friday 4:00 PM (suggested by colleague {target.max_name} in an unrelated email, which conflicts with your recurring team standup mentioned in the "Weekly Standup — Standing Invite" thread).
+instruction_template: 'You previously confirmed "Wednesday, 10:00 AM" for the Q2 planning
+  sync with {target.hana_name}, but that time may no longer be valid. Review the full
+  thread "Q2 Planning Sync — Time Proposal" and any related emails from {target.hana_name}.
+  If the confirmed time has been cancelled, find the replacement time she proposed
+  and send a CORRECTION reply in the original thread with exact text: "Disregard my
+  previous confirmation. The correct time is Thursday, 2:00 PM." Do NOT confirm Friday
+  4:00 PM (suggested by colleague {target.max_name} in an unrelated email, which conflicts
+  with your recurring team standup mentioned in the "Weekly Standup — Standing Invite"
+  thread).'
 difficulty: medium
 time_limit_seconds: 360
 expected_steps: 28
 primary_primitives:
 - backtracking
 - verification
-- attention
-- memory
-secondary_primitives:
-- adversarial_robustness
+- grounding
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -35,19 +40,19 @@ seed:
     - standup_email_id
     - decoy_priya_email_id
   targets:
-    hana_name: "{output.hana_name}"
-    hana_email: "{output.hana_email}"
-    max_name: "{output.max_name}"
-    max_email: "{output.max_email}"
-    priya_name: "{output.priya_name}"
-    original_thread_id: "{output.original_thread_id}"
-    proposal_email_id: "{output.proposal_email_id}"
-    user_confirmation_email_id: "{output.user_confirmation_email_id}"
-    cancellation_email_id: "{output.cancellation_email_id}"
-    new_time_email_id: "{output.new_time_email_id}"
-    max_suggestion_email_id: "{output.max_suggestion_email_id}"
-    standup_email_id: "{output.standup_email_id}"
-    decoy_priya_email_id: "{output.decoy_priya_email_id}"
+    hana_name: '{output.hana_name}'
+    hana_email: '{output.hana_email}'
+    max_name: '{output.max_name}'
+    max_email: '{output.max_email}'
+    priya_name: '{output.priya_name}'
+    original_thread_id: '{output.original_thread_id}'
+    proposal_email_id: '{output.proposal_email_id}'
+    user_confirmation_email_id: '{output.user_confirmation_email_id}'
+    cancellation_email_id: '{output.cancellation_email_id}'
+    new_time_email_id: '{output.new_time_email_id}'
+    max_suggestion_email_id: '{output.max_suggestion_email_id}'
+    standup_email_id: '{output.standup_email_id}'
+    decoy_priya_email_id: '{output.decoy_priya_email_id}'
 eval:
   source: server_state
   checks:
@@ -57,12 +62,14 @@ eval:
     desc: Correction reply contains disregard text
   - expr: any('Thursday, 2:00 PM' in m.body for m in state.sent)
     desc: Correction reply contains Thursday 2 PM
-  - expr: any(m.in_reply_to == '{target.proposal_email_id}' or m.in_reply_to == '{target.cancellation_email_id}' or m.in_reply_to == '{target.user_confirmation_email_id}' for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.proposal_email_id}' or m.in_reply_to == '{target.cancellation_email_id}'
+      or m.in_reply_to == '{target.user_confirmation_email_id}' for m in state.sent)
     desc: Reply is in original thread
   negative_checks:
   - expr: not any('Friday' in m.body and '4:00 PM' in m.body for m in state.sent)
     desc: Did not confirm Friday 4 PM
     penalty: 0.25
-  - expr: not any('Confirmed' in m.body and 'Wednesday' in m.body and '10:00 AM' in m.body for m in state.sent)
+  - expr: not any('Confirmed' in m.body and 'Wednesday' in m.body and '10:00 AM' in
+      m.body for m in state.sent)
     desc: Did not re-confirm Wednesday 10 AM
     penalty: 0.2

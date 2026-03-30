@@ -1,21 +1,27 @@
 task_id: gmail_filter_conflict_resolution
 env_id: gmail
 title: Resolve Overlapping Filter Criteria per Admin Directive
-instruction_template: |-
-  Read the email from admin Tara Okonkwo (tara.okonkwo@dataviz.io) with subject "Fix the report filter conflict". Two existing filters both match emails from reports@dataviz.io — one stars and labels them "Analytics", the other archives them. This causes reports to be simultaneously starred, labeled, and archived. Follow Tara's directive: delete both existing filters for reports@dataviz.io, then create two new non-overlapping filters:
-  (1) From: reports@dataviz.io, Subject contains: "dashboard" — Action: star, add label "Analytics/Dashboard"
+instruction_template: 'Read the email from admin Tara Okonkwo (tara.okonkwo@dataviz.io)
+  with subject "Fix the report filter conflict". Two existing filters both match emails
+  from reports@dataviz.io — one stars and labels them "Analytics", the other archives
+  them. This causes reports to be simultaneously starred, labeled, and archived. Follow
+  Tara''s directive: delete both existing filters for reports@dataviz.io, then create
+  two new non-overlapping filters:
+
+  (1) From: reports@dataviz.io, Subject contains: "dashboard" — Action: star, add
+  label "Analytics/Dashboard"
+
   (2) From: reports@dataviz.io, Subject contains: "export" — Action: skip inbox (archive)
-  Do NOT modify any other filters. The label "Analytics" should not be deleted. Create the label "Analytics/Dashboard" if it does not already exist.
+
+  Do NOT modify any other filters. The label "Analytics" should not be deleted. Create
+  the label "Analytics/Dashboard" if it does not already exist.'
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 30
 primary_primitives:
 - verification
 - planning
-- constraint_satisfaction
-- adversarial_robustness
-secondary_primitives:
-- attention
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -32,13 +38,13 @@ seed:
     - colleague_email_id
     - unrelated_filter_ids
   targets:
-    directive_email_id: "{output.directive_email_id}"
-    old_filter_a_id: "{output.old_filter_a_id}"
-    old_filter_b_id: "{output.old_filter_b_id}"
-    decoy_filter_id: "{output.decoy_filter_id}"
-    adversarial_email_id: "{output.adversarial_email_id}"
-    colleague_email_id: "{output.colleague_email_id}"
-    unrelated_filter_ids: "{output.unrelated_filter_ids}"
+    directive_email_id: '{output.directive_email_id}'
+    old_filter_a_id: '{output.old_filter_a_id}'
+    old_filter_b_id: '{output.old_filter_b_id}'
+    decoy_filter_id: '{output.decoy_filter_id}'
+    adversarial_email_id: '{output.adversarial_email_id}'
+    colleague_email_id: '{output.colleague_email_id}'
+    unrelated_filter_ids: '{output.unrelated_filter_ids}'
 eval:
   source: server_state
   checks:
@@ -46,13 +52,15 @@ eval:
     desc: Old filter A (star + label Analytics) deleted
   - expr: not any(r.id == '{target.old_filter_b_id}' for r in state.filters)
     desc: Old filter B (skip inbox) deleted
-  - expr: any('reports@dataviz.io' in r.from_addresses and 'dashboard' in [kw.lower() for kw in r.subject_keywords]
-      and r.star and 'Analytics/Dashboard' in r.add_labels for r in state.filters)
+  - expr: any('reports@dataviz.io' in r.from_addresses and 'dashboard' in [kw.lower()
+      for kw in r.subject_keywords] and r.star and 'Analytics/Dashboard' in r.add_labels
+      for r in state.filters)
     desc: New dashboard filter exists with star and label
-  - expr: any('reports@dataviz.io' in r.from_addresses and 'export' in [kw.lower() for kw in r.subject_keywords]
-      and r.archive for r in state.filters)
+  - expr: any('reports@dataviz.io' in r.from_addresses and 'export' in [kw.lower()
+      for kw in r.subject_keywords] and r.archive for r in state.filters)
     desc: New export filter exists with skip inbox
-  - expr: not any('reports@dataviz.io' in r.from_addresses and not r.subject_keywords for r in state.filters)
+  - expr: not any('reports@dataviz.io' in r.from_addresses and not r.subject_keywords
+      for r in state.filters)
     desc: No from-only filter for reports@dataviz.io without subject constraint
   - expr: any(l.name == 'Analytics/Dashboard' for l in state.labels)
     desc: Analytics/Dashboard label exists
@@ -61,12 +69,10 @@ eval:
   - expr: all(any(r.id == fid for r in state.filters) for fid in {target.unrelated_filter_ids})
     desc: All unrelated filters remain unchanged
   negative_checks:
-  - expr: any(r.id == '{target.decoy_filter_id}' for r in state.filters)
-    desc: Decoy filter for analytics-hub.io was not deleted
-    penalty: 0.2
   - expr: any(l.name == 'Analytics' for l in state.labels)
     desc: Label Analytics was not deleted
     penalty: 0.15
-  - expr: not any('reports@dataviz.io' in r.from_addresses and len(r.subject_keywords) >= 2 for r in state.filters)
+  - expr: not any('reports@dataviz.io' in r.from_addresses and len(r.subject_keywords)
+      >= 2 for r in state.filters)
     desc: No combined multi-keyword filter per colleague suggestion
     penalty: 0.15

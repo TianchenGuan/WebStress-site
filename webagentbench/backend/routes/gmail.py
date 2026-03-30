@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ...tasks._evaluator import evaluate as unified_evaluate
 from ...tasks._registry import get_task
+from ..models.base import AuditEntry
 from ..models.gmail import Attachment, Contact, Email, FilterRule, GmailState
 from ..state import SessionManager
 from ...task_rendering import render_template
@@ -20,6 +21,8 @@ router = APIRouter(prefix="/api/env/gmail", tags=["gmail"])
 class SessionCreateRequest(BaseModel):
     task_id: str
     seed: int | None = None
+    degradation: dict | None = None  # Optional seed/server injections to apply post-seed
+    variant_filename: str | None = None  # Load degradation from injector/variants/<filename>
 
 
 class SessionScopedRequest(BaseModel):
@@ -275,12 +278,184 @@ def _paginate(items: list[dict[str, Any]], page: int, page_size: int) -> dict[st
     }
 
 
+class TrajectorySubmission(BaseModel):
+    session_id: str
+    events: list[dict[str, Any]] = Field(default_factory=list)
+    evaluation: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/trajectory")
+def save_gold_trajectory(
+    body: TrajectorySubmission,
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    """Save a human gold trajectory for a passed task.
+
+    Only saves if the evaluation indicates success. Stores the trajectory
+    alongside task settings (seed, degradation, resolved targets) so it can
+    be reproduced exactly.
+    """
+    import json as _json
+    from pathlib import Path
+    from datetime import datetime, timezone
+
+    if not body.evaluation.get("success"):
+        return {"saved": False, "reason": "Evaluation did not pass — only successful trajectories are saved as gold."}
+
+    try:
+        state = session_manager.get(body.session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    task = get_task(state.task_id)
+    instruction = render_template(
+        task.instruction_template or task.instruction or "", state.resolved_targets
+    )
+
+    # Build gold trajectory record
+    gold = {
+        "type": "gold_trajectory",
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorder": "human",
+        "task_id": state.task_id,
+        "env_id": state.env_id,
+        "title": task.title,
+        "difficulty": task.difficulty,
+        "primitives": task.primary_primitives,
+        "instruction": instruction,
+        "settings": {
+            "session_id": body.session_id,
+            "seed": state.seed,
+            "degradation": state.degradation,
+            "resolved_targets": state.resolved_targets,
+        },
+        "evaluation": body.evaluation,
+        "events": body.events,
+        "audit_log": [entry.model_dump() for entry in state.audit_log],
+        "total_events": len(body.events),
+        "total_audit_entries": len(state.audit_log),
+    }
+
+    # Save to gold_trajectories/ directory
+    gold_dir = Path(__file__).parent.parent.parent / "gold_trajectories"
+    gold_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"{state.task_id}_{timestamp}.json"
+    path = gold_dir / filename
+
+    with open(path, "w") as f:
+        _json.dump(gold, f, indent=2, default=str)
+
+    return {"saved": True, "path": str(path), "filename": filename, "events": len(body.events)}
+
+
+@router.get("/degradation/{session_id}")
+def get_client_degradation(session_id: str) -> dict[str, Any]:
+    """Return client-layer degradation injections for a session as executable JS."""
+    from ...injector.middleware import get_client_injections
+    injections = get_client_injections(session_id)
+    return {"session_id": session_id, "client_injections": injections}
+
+
+@router.get("/variants")
+def list_variants() -> list[dict[str, Any]]:
+    """List available degradation variants for the Gmail environment."""
+    from pathlib import Path
+    import yaml
+    variants_dir = Path(__file__).parent.parent.parent / "injector" / "variants"
+    result = []
+    if variants_dir.exists():
+        for f in sorted(variants_dir.glob("*.yaml")):
+            try:
+                data = yaml.safe_load(f.read_text())
+                result.append({
+                    "filename": f.name,
+                    "variant_id": data.get("variant_id", ""),
+                    "base_task_id": data.get("base_task_id", ""),
+                    "target_primitive": data.get("target_primitive", ""),
+                    "description": data.get("description", ""),
+                })
+            except Exception:
+                pass
+    return result
+
+
 @router.post("/session")
 def create_session(body: SessionCreateRequest, session_manager: SessionManager = Depends(get_session_manager)) -> dict[str, Any]:
     task = get_task(body.task_id)
     if task.env_id != "gmail":
         raise HTTPException(status_code=404, detail=f"Unknown Gmail task_id: {body.task_id}")
+
+    # Load/validate degradation before creating the session so mismatched variants
+    # never allocate live benchmark state.
+    degradation = dict(body.degradation) if body.degradation else None
+    if body.variant_filename and not degradation:
+        from pathlib import Path
+        import yaml
+
+        variant_path = Path(__file__).parent.parent.parent / "injector" / "variants" / body.variant_filename
+        if not variant_path.exists():
+            raise HTTPException(status_code=404, detail=f"Unknown degradation variant: {body.variant_filename}")
+        variant_data = yaml.safe_load(variant_path.read_text()) or {}
+        degradation = {
+            "variant_filename": body.variant_filename,
+            **variant_data,
+        }
+
+    if degradation and degradation.get("base_task_id") and degradation.get("base_task_id") != body.task_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Degradation variant is bound to task {degradation.get('base_task_id')!r}, "
+                f"but the session request targets {body.task_id!r}"
+            ),
+        )
+
     session_id, resolved_targets, actual_seed = session_manager.create_session("gmail", body.task_id, body.seed)
+    state = session_manager.get(session_id)
+
+    if degradation:
+        state._degradation = {
+            "variant_filename": degradation.get("variant_filename"),
+            "variant_id": degradation.get("variant_id", ""),
+            "base_task_id": degradation.get("base_task_id", body.task_id),
+            "target_primitive": degradation.get("target_primitive", ""),
+            "description": degradation.get("description", ""),
+            "injections": list(degradation.get("injections", [])),
+        }
+        state.audit_log.append(
+            AuditEntry(
+                action="benchmark.degradation.apply",
+                payload={
+                    "variant_id": state.degradation.get("variant_id", ""),
+                    "target_primitive": state.degradation.get("target_primitive", ""),
+                    "variant_filename": state.degradation.get("variant_filename"),
+                    "injections": len(state.degradation.get("injections", [])),
+                },
+                summary="Applied degradation configuration",
+                snapshot={"task_id": state.task_id, "seed": state.seed},
+            )
+        )
+
+    # Apply seed/server degradation injections post-seed, pre-response
+    if degradation:
+        from ...injector.seed import apply_seed_injection
+        from ...injector.server import apply_server_injection
+        for injection in degradation.get("injections", []):
+            layer = injection.get("layer")
+            params = injection.get("params", {})
+            if layer == "seed":
+                apply_seed_injection(state, params)
+            elif layer == "server":
+                apply_server_injection(state, params)
+        state.touch()
+
+    # Register network degradation for server-side middleware
+    if degradation:
+        from ...injector.middleware import register_session_degradation
+        register_session_degradation(session_id, degradation.get("injections", []))
+
     instruction = render_template(
         task.instruction_template or task.instruction or "", resolved_targets
     )
@@ -292,13 +467,22 @@ def create_session(body: SessionCreateRequest, session_manager: SessionManager =
         "resolved_targets": resolved_targets,
         "title": task.title,
         "instruction": instruction,
+        "degradation_active": bool(degradation),
     }
 
 
 @router.get("/session/{session_id}")
 def get_session(session_id: str, session_manager: SessionManager = Depends(get_session_manager)) -> dict[str, Any]:
     try:
-        return session_manager.session_summary(session_id)
+        summary = session_manager.session_summary(session_id)
+        # Enrich with instruction and title for the human play toolbar
+        state = session_manager.get(session_id)
+        task = get_task(state.task_id)
+        summary["title"] = task.title
+        summary["instruction"] = render_template(
+            task.instruction_template or task.instruction or "", state.resolved_targets
+        )
+        return summary
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -310,6 +494,8 @@ def destroy_session(session_id: str, session_manager: SessionManager = Depends(g
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     session_manager.destroy(session_id)
+    from ...injector.middleware import unregister_session_degradation
+    unregister_session_degradation(session_id)
     return {"ok": True, "session_id": session_id}
 
 

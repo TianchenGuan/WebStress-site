@@ -34,6 +34,8 @@ class BaseEnvState(BaseModel):
     audit_log: list[AuditEntry] = Field(default_factory=list)
     benchmark_state: dict[str, Any] = Field(default_factory=dict)
     _resolved_targets: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _seed: int | None = PrivateAttr(default=None)
+    _degradation: dict[str, Any] = PrivateAttr(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
@@ -47,3 +49,11 @@ class BaseEnvState(BaseModel):
     @property
     def resolved_targets(self) -> dict[str, Any]:
         return dict(self._resolved_targets)
+
+    @property
+    def seed(self) -> int | None:
+        return self._seed
+
+    @property
+    def degradation(self) -> dict[str, Any]:
+        return dict(self._degradation)

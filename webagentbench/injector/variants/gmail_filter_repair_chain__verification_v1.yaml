@@ -1,0 +1,22 @@
+variant_id: gmail_filter_repair_chain__verification_v1
+base_task_id: gmail_filter_repair_chain
+target_primitive: verification
+description: >
+  30% of filter creation writes silently fail (return 200 but don't persist).
+  Deterministic with seed — same pattern every run. Agent must verify each
+  filter creation by reading the filter list, and retry any that were dropped.
+  Without verification, ~30% of filters will be missing.
+injections:
+  - layer: network
+    params:
+      action: silent_fail
+      url_pattern: "**/api/env/gmail/filters"
+      response_body:
+        success: true
+        message: "Filter created successfully"
+        id: "fake_filter_id"
+      methods: ["POST"]
+      behavior:
+        mode: intermittent
+        probability: 0.3
+        seed: 42

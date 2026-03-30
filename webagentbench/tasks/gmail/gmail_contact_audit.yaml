@@ -1,16 +1,20 @@
 task_id: gmail_contact_audit
 env_id: gmail
 title: Contact Audit
-instruction_template: |-
-  Do a quarterly contact cleanup. Go to your Contacts and review each entry — delete any contacts that have not been in touch for more than 30 days (check the 'Last Contact' column). You may need to page through the list. Do not delete {target.keep_contact_name}. Then search your inbox for emails from {target.new_contact_a_name} and {target.new_contact_b_name}, and add them both as contacts using the information from their emails. Mark {target.new_contact_a_name} as a VIP.
+instruction_template: Do a quarterly contact cleanup. Go to your Contacts and review
+  each entry — delete any contacts that have not been in touch for more than 30 days
+  (check the 'Last Contact' column). You may need to page through the list. Do not
+  delete {target.keep_contact_name}. Then search your inbox for emails from {target.new_contact_a_name}
+  and {target.new_contact_b_name}, and add them both as contacts using the information
+  from their emails. Mark {target.new_contact_a_name} as a VIP.
 difficulty: medium
 time_limit_seconds: 360
 expected_steps: 42
 primary_primitives:
 - exploration
 - verification
-- memory
-- attention
+- state_tracking
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -32,18 +36,18 @@ seed:
     - new_a_email
     - new_b_email
   targets:
-    stale_1_id: "{output.stale_1_id}"
-    stale_2_id: "{output.stale_2_id}"
-    stale_3_id: "{output.stale_3_id}"
-    stale_4_id: "{output.stale_4_id}"
-    near_id: "{output.near_id}"
-    near_b_id: "{output.near_b_id}"
-    keep_contact_name: "{output.keep_contact_name}"
-    keep_contact_id: "{output.keep_contact_id}"
-    new_contact_a_name: "{output.new_contact_a_name}"
-    new_contact_b_name: "{output.new_contact_b_name}"
-    new_a_email: "{output.new_a_email}"
-    new_b_email: "{output.new_b_email}"
+    stale_1_id: '{output.stale_1_id}'
+    stale_2_id: '{output.stale_2_id}'
+    stale_3_id: '{output.stale_3_id}'
+    stale_4_id: '{output.stale_4_id}'
+    near_id: '{output.near_id}'
+    near_b_id: '{output.near_b_id}'
+    keep_contact_name: '{output.keep_contact_name}'
+    keep_contact_id: '{output.keep_contact_id}'
+    new_contact_a_name: '{output.new_contact_a_name}'
+    new_contact_b_name: '{output.new_contact_b_name}'
+    new_a_email: '{output.new_a_email}'
+    new_b_email: '{output.new_b_email}'
 eval:
   source: server_state
   checks:

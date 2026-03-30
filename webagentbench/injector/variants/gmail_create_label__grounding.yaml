@@ -1,0 +1,25 @@
+variant_id: gmail_create_label__grounding_v1
+base_task_id: gmail_create_label
+target_primitive: grounding
+description: >
+  First label-create API call silently fails (returns success but label not
+  created). 3 pre-existing decoy labels with similar names injected via seed.
+  Agent must verify label was actually created and retry, while identifying
+  the correct label among decoys.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/gmail/labels"
+    methods: ["POST"]
+    response_body: {"label": {"id": "fake_label", "name": "Important Projects", "color": "#1a73e8"}}
+    fail_count: 1
+    behavior:
+      mode: once
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    field: labels
+    count: 3
+    pattern: "Important {variant}"
+    variants: ["Updates", "Notices", "Reminders"]

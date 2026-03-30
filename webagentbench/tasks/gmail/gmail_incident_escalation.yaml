@@ -1,14 +1,22 @@
 task_id: gmail_incident_escalation
 env_id: gmail
 title: Incident Escalation
-instruction_template: |-
-  A production incident has been reported. Find the alert email (check all inbox tabs) and read the full thread to understand the issue. The error code is in one of the earlier messages, and the on-call engineer's email is mentioned in another. Forward the alert to the on-call engineer, including the error code in your note. Then reply to the separate thread from {target.manager_name} confirming you are handling the incident (Reply only — the thread includes leadership). Star all emails related to the incident. Create a 'P0 Incident' label and apply it to all incident-related emails. Finally, go to Settings and create a filter that stars and labels future emails from the alerting system address with 'CRITICAL' in the subject.
+instruction_template: A production incident has been reported. Find the alert email
+  (check all inbox tabs) and read the full thread to understand the issue. The error
+  code is in one of the earlier messages, and the on-call engineer's email is mentioned
+  in another. Forward the alert to the on-call engineer, including the error code
+  in your note. Then reply to the separate thread from {target.manager_name} confirming
+  you are handling the incident (Reply only — the thread includes leadership). Star
+  all emails related to the incident. Create a 'P0 Incident' label and apply it to
+  all incident-related emails. Finally, go to Settings and create a filter that stars
+  and labels future emails from the alerting system address with 'CRITICAL' in the
+  subject.
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 55
 primary_primitives:
-- memory
-- attention
+- state_tracking
+- grounding
 - planning
 - exploration
 - verification
@@ -30,29 +38,33 @@ seed:
     - alert_system_email
     - resolved_alert_id
   targets:
-    alert_id: "{output.alert_id}"
-    oncall_email: "{output.oncall_email}"
-    error_code: "{output.error_code}"
-    manager_email_id: "{output.manager_email_id}"
-    manager_name: "{output.manager_name}"
-    status_phrase: "{output.status_phrase}"
-    incident_ids: "{output.incident_ids}"
-    alert_system_email: "{output.alert_system_email}"
-    resolved_alert_id: "{output.resolved_alert_id}"
+    alert_id: '{output.alert_id}'
+    oncall_email: '{output.oncall_email}'
+    error_code: '{output.error_code}'
+    manager_email_id: '{output.manager_email_id}'
+    manager_name: '{output.manager_name}'
+    status_phrase: '{output.status_phrase}'
+    incident_ids: '{output.incident_ids}'
+    alert_system_email: '{output.alert_system_email}'
+    resolved_alert_id: '{output.resolved_alert_id}'
 eval:
   source: server_state
   checks:
-  - expr: any(m.forwarded_from_id == '{target.alert_id}' and '{target.oncall_email}' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.alert_id}' and '{target.oncall_email}'
+      in m.to for m in state.sent)
     desc: Alert forwarded to on-call
-  - expr: any(m.in_reply_to == '{target.manager_email_id}' and '{target.status_phrase}' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.manager_email_id}' and '{target.status_phrase}'
+      in m.body for m in state.sent)
     desc: Manager thread replied
   - expr: all(state.get_email(eid).is_starred for eid in {target.incident_ids})
     desc: All incident emails starred
   - expr: all('P0 Incident' in state.get_email(eid).labels for eid in {target.incident_ids})
     desc: P0 label applied
-  - expr: any(r.star and '{target.alert_system_email}' in r.from_addresses and 'CRITICAL' in r.subject_keywords and 'P0 Incident' in r.add_labels for r in state.filters)
+  - expr: any(r.star and '{target.alert_system_email}' in r.from_addresses and 'CRITICAL'
+      in r.subject_keywords and 'P0 Incident' in r.add_labels for r in state.filters)
     desc: Alert filter stars and labels P0 Incident
-  - expr: any('{target.error_code}' in m.body and m.forwarded_from_id == '{target.alert_id}' for m in state.sent)
+  - expr: any('{target.error_code}' in m.body and m.forwarded_from_id == '{target.alert_id}'
+      for m in state.sent)
     desc: Error code included in forward
   negative_checks:
   - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.manager_email_id}')

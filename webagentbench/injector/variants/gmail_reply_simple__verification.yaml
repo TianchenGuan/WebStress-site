@@ -1,0 +1,16 @@
+variant_id: gmail_reply_simple__verification_v1
+base_task_id: gmail_reply_simple
+target_primitive: verification
+description: >
+  Silent fail on the first send attempt — server returns fake success but
+  email is not actually sent. Agent must verify the sent folder and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/gmail/send"
+    methods: ["POST"]
+    response_body: {"success": true, "email": {"id": "fake_sent", "subject": "Reply"}}
+    fail_count: 1
+    behavior:
+      mode: once

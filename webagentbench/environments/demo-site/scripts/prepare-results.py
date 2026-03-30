@@ -135,13 +135,25 @@ def derive_replay_paths(
 
 def simplify_evaluation(evaluation: dict) -> dict:
     """Extract the evaluation fields needed by the replay page."""
+    # Support both old field names (criteria_results/negative_results) and
+    # current evaluator output (checks/negative_checks).
+    positive_items = (
+        evaluation.get("criteria_results")
+        or evaluation.get("checks")
+        or []
+    )
+    negative_items = (
+        evaluation.get("negative_results")
+        or evaluation.get("negative_checks")
+        or []
+    )
     criteria = [
         {
             "desc": item.get("check", "") or item.get("desc", ""),
             "passed": item.get("passed", False),
             "kind": "criterion",
         }
-        for item in evaluation.get("criteria_results", []) or []
+        for item in positive_items
     ]
     criteria.extend(
         {
@@ -150,7 +162,7 @@ def simplify_evaluation(evaluation: dict) -> dict:
             "kind": "penalty",
             "penalty": item.get("penalty", 0),
         }
-        for item in evaluation.get("negative_results", []) or []
+        for item in negative_items
     )
 
     return {

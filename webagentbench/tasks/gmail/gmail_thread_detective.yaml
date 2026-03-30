@@ -1,15 +1,18 @@
 task_id: gmail_thread_detective
 env_id: gmail
 title: Thread Detective
-instruction_template: |-
-  Read the scheduling threads from {target.sender_name} to find all proposed meeting times. Then find the calendar email from {target.other_sender_name} that lists which times conflict with the calendar — look for the most recent one if there are multiple. Reply to {target.sender_name}'s most recent scheduling thread confirming the one time that does not conflict.
+instruction_template: Read the scheduling threads from {target.sender_name} to find
+  all proposed meeting times. Then find the calendar email from {target.other_sender_name}
+  that lists which times conflict with the calendar — look for the most recent one
+  if there are multiple. Reply to {target.sender_name}'s most recent scheduling thread
+  confirming the one time that does not conflict.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 30
 primary_primitives:
-- memory
+- state_tracking
 - exploration
-- attention
+- grounding
 - planning
 start_path: /inbox
 seed:
@@ -29,11 +32,11 @@ seed:
       other_sender: other_sender
       cc: cc
       meeting_times:
-      - "9:00 AM"
-      - "10:00 AM"
-      - "11:00 AM"
-      - "2:30 PM"
-      - "4:00 PM"
+      - 9:00 AM
+      - 10:00 AM
+      - 11:00 AM
+      - 2:30 PM
+      - 4:00 PM
     outputs:
     - sender_name
     - sender_email
@@ -47,18 +50,21 @@ seed:
     params:
       actor: sender
       count: 2
-      age_range: [6, 12]
+      age_range:
+      - 6
+      - 12
       is_read: true
-      labels: ["inbox"]
+      labels:
+      - inbox
   targets:
-    sender_name: "{output.sender_name}"
-    sender_email: "{output.sender_email}"
-    other_sender_name: "{output.other_sender_name}"
-    other_sender_email: "{output.other_sender_email}"
-    calendar_subject: "{output.calendar_subject}"
-    correct_time: "{output.correct_time}"
-    wrong_times: "{output.wrong_times}"
-    most_recent_thread_id: "{output.most_recent_thread_id}"
+    sender_name: '{output.sender_name}'
+    sender_email: '{output.sender_email}'
+    other_sender_name: '{output.other_sender_name}'
+    other_sender_email: '{output.other_sender_email}'
+    calendar_subject: '{output.calendar_subject}'
+    correct_time: '{output.correct_time}'
+    wrong_times: '{output.wrong_times}'
+    most_recent_thread_id: '{output.most_recent_thread_id}'
 eval:
   source: server_state
   checks:

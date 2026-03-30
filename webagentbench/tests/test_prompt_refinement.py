@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from shared.format import SCROLL_HINT_TEXT, SYSTEM_PROMPT, TreeNode, render_indexed_tree
 from shared.playwright_adapter import _mark_scroll_hint
-from webagentbench.agent_eval import _build_history_fallback_summary, _serialize_action_for_history, _trim_messages
+from webagentbench.agent import _build_fallback_summary as _build_history_fallback_summary, trim_messages as _trim_messages
+
+
+def _serialize_action_for_history(action: dict) -> str:
+    """Serialize an action dict to compact JSON, stripping the 'thought' key."""
+    import json
+    clean = {k: v for k, v in action.items() if k != "thought"}
+    return json.dumps(clean, separators=(",", ":"))
 
 
 class _FakePage:
@@ -44,16 +51,16 @@ def test_scroll_hint_stays_generic_for_scrollable_pages() -> None:
 
 def test_history_fallback_summary_prefers_facts_over_thoughts() -> None:
     messages = [
-        {"role": "assistant", "content": '{"thought":"I think this is probably the inbox","action":"click","ref":30}'},
+        {"role": "assistant", "content": "click('a30')"},
         {
             "role": "user",
             "content": (
-                'Result: Clicked [30] button "Back to inbox"\n\n'
-                '[1] main "Inbox"\n'
-                '  [2] tab "Updates" selected\n'
-                '  [3] text "1–15 of 15"\n'
-                '  [4] textbox "Email subject" value="Atlas"\n'
-                '  [5] checkbox "Needs follow-up" checked\n'
+                'Last action: click(\'a30\')\n'
+                '[a1] main "Inbox"\n'
+                '  [a2] tab "Updates" selected\n'
+                '  [a3] text "1–15 of 15"\n'
+                '  [a4] textbox "Email subject" value="Atlas"\n'
+                '  [a5] checkbox "Needs follow-up" checked\n'
             ),
         },
     ]
@@ -61,10 +68,9 @@ def test_history_fallback_summary_prefers_facts_over_thoughts() -> None:
     summary = _build_history_fallback_summary(messages)
 
     assert 'Latest route/view: main "Inbox"' in summary
-    assert 'Recent verified outcomes: Clicked button "Back to inbox"' in summary
+    assert "click('a30')" in summary  # recent outcome captured
     assert 'Current selection state: tab "Updates" selected' in summary
     assert 'Current field values: textbox "Email subject" value="Atlas"' in summary
-    assert '[30]' not in summary
     assert 'probably the inbox' not in summary
 
 

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebAgentBench — Technical Architecture &amp; Call Flow</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f6f8fa; --surface2: #eef1f5;
+    --border: #d0d7de; --text: #1f2328; --text-dim: #656d76;
+    --accent: #0969da; --green: #1a7f37; --red: #cf222e;
+    --orange: #bf8700; --purple: #8250df; --cyan: #0550ae;
+    --code-bg: #f6f8fa; --code-border: #d0d7de;
+    --blue-light: #ddf4ff; --green-light: #dafbe1;
+    --red-light: #ffebe9; --orange-light: #fff8c5;
+    --purple-light: #fbefff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+         background:var(--bg); color:var(--text); line-height:1.65;
+         max-width:1100px; margin:0 auto; padding:2.5rem 2rem; }
+  h1 { font-size:2rem; font-weight:700; letter-spacing:-0.02em; }
+  h2 { font-size:1.4rem; font-weight:600; margin:3rem 0 0.8rem;
+       border-bottom:2px solid var(--border); padding-bottom:0.4rem; color:var(--text); }
+  h3 { font-size:1.05rem; font-weight:600; margin:1.5rem 0 0.4rem; color:var(--accent); }
+  h4 { font-size:0.92rem; font-weight:600; margin:1rem 0 0.3rem; color:var(--text); }
+  p { margin-bottom:0.5rem; }
+  a { color:var(--accent); }
+  code { background:var(--code-bg); border:1px solid var(--code-border); padding:1px 5px;
+         border-radius:4px; font-size:0.84em; font-family:'JetBrains Mono','Fira Code',monospace; }
+  pre { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+        padding:1rem 1.2rem; overflow-x:auto; font-size:0.82rem; margin:0.8rem 0; line-height:1.55;
+        font-family:'JetBrains Mono','Fira Code',monospace; color:#24292f; }
+  pre .cm { color:var(--text-dim); }  /* comment */
+  pre .kw { color:var(--purple); font-weight:600; }  /* keyword */
+  pre .fn { color:var(--accent); }  /* function */
+  pre .st { color:var(--green); }  /* string */
+  pre .hl { background:#fff8c5; display:inline; }  /* highlight */
+  .subtitle { color:var(--text-dim); font-size:0.95rem; margin-bottom:2.5rem; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+          padding:1.1rem 1.3rem; margin:0.8rem 0; }
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.8rem; }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+  @media(max-width:800px){ .split{grid-template-columns:1fr;} }
+
+  table { width:100%; border-collapse:collapse; margin:0.8rem 0; font-size:0.88rem; }
+  th { text-align:left; padding:8px 10px; background:var(--surface); font-weight:600;
+       border-bottom:2px solid var(--border); }
+  td { padding:7px 10px; border-bottom:1px solid #eaecef; vertical-align:top; }
+  tr:hover td { background:#f9fbfd; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .dim { color:var(--text-dim); }
+  .mono { font-family:'JetBrains Mono','Fira Code',monospace; font-size:0.84em; }
+
+  .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:0.72rem;
+           font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
+  .badge-file { background:var(--blue-light); color:var(--cyan); }
+  .badge-fn { background:var(--green-light); color:var(--green); }
+  .badge-data { background:var(--orange-light); color:var(--orange); }
+  .badge-red { background:var(--red-light); color:var(--red); }
+  .badge-purple { background:var(--purple-light); color:var(--purple); }
+
+  /* ── Sequence diagram ── */
+  .seq { width:100%; overflow-x:auto; margin:1rem 0; }
+  .seq svg { display:block; margin:0 auto; }
+  .seq-label { font-size:11px; font-family:'JetBrains Mono',monospace; }
+  .seq-head { font-size:12px; font-weight:700; }
+
+  /* ── Flow boxes ── */
+  .flow-h { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin:0.8rem 0; font-size:0.84rem; }
+  .flow-box { border:1px solid var(--border); border-radius:6px; padding:0.35rem 0.7rem;
+              background:#fff; white-space:nowrap; }
+  .flow-box.active { border-color:var(--accent); background:var(--blue-light); }
+  .flow-box.danger { border-color:var(--red); background:var(--red-light); }
+  .flow-arrow { color:var(--text-dim); font-size:1.1rem; flex-shrink:0; }
+
+  /* ── Layer stack ── */
+  .layer-stack { display:flex; flex-direction:column; gap:3px; margin:1rem 0; }
+  .layer-row { display:grid; grid-template-columns:90px 1fr 180px; align-items:center;
+               border-radius:6px; padding:0.55rem 0.9rem; font-size:0.85rem; gap:0.5rem; }
+  .layer-row .lname { font-weight:700; font-size:0.82rem; }
+  .layer-row .lacts { color:var(--text-dim); font-size:0.8rem; }
+  .layer-row .lfile { font-size:0.78rem; }
+  .l-seed { background:#fbefff; border:1px solid #e8d5f5; }
+  .l-server { background:#fff8c5; border:1px solid #ebd98b; }
+  .l-network { background:#ffebe9; border:1px solid #f5c6c2; }
+  .l-client { background:#dafbe1; border:1px solid #aceebb; }
+
+  /* ── Directory tree ── */
+  .tree { font-family:'JetBrains Mono',monospace; font-size:0.82rem; line-height:1.7;
+          background:var(--surface); border:1px solid var(--border); border-radius:8px;
+          padding:1rem 1.2rem; margin:0.8rem 0; }
+  .tree .dir { color:var(--accent); font-weight:600; }
+  .tree .file { color:var(--text); }
+  .tree .ann { color:var(--text-dim); font-style:italic; }
+
+  /* ── Stat boxes ── */
+  .stat-row { display:flex; gap:0.8rem; flex-wrap:wrap; margin:1rem 0; }
+  .stat-box { flex:1; min-width:120px; text-align:center; padding:0.8rem;
+              border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+  .stat-box .num { font-size:2rem; font-weight:700; color:var(--accent); line-height:1; }
+  .stat-box .label { font-size:0.78rem; color:var(--text-dim); margin-top:2px; }
+
+  /* ── Callout ── */
+  .callout { border-left:4px solid var(--accent); padding:0.7rem 1rem; margin:1rem 0;
+             background:var(--blue-light); border-radius:0 6px 6px 0; font-size:0.9rem; }
+  .callout.warn { border-color:var(--orange); background:var(--orange-light); }
+  .callout.err { border-color:var(--red); background:var(--red-light); }
+
+  /* ── Primitives grid ── */
+  .prim-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:0.7rem; margin:1rem 0; }
+  .prim-card { border-radius:8px; padding:0.9rem 1.1rem; border:1px solid var(--border); }
+  .prim-card h4 { margin:0 0 0.3rem; font-size:0.95rem; }
+  .prim-card p { font-size:0.84rem; color:var(--text-dim); margin:0; }
+  .prim-card .prim-fail { font-size:0.8rem; margin-top:0.3rem; padding:3px 0; border-top:1px dashed #e0e0e0; }
+  .prim-card .prim-test { font-size:0.8rem; color:var(--accent); }
+
+  /* ── File tree ── */
+  .ftree { font-family:'JetBrains Mono','Fira Code',monospace; font-size:0.82rem; line-height:1.8;
+           background:var(--surface); border:1px solid var(--border); border-radius:8px;
+           padding:1rem 1.2rem; margin:0.8rem 0; columns:2; column-gap:2rem; }
+  @media(max-width:800px){ .ftree{columns:1;} }
+  .ftree .row { display:flex; break-inside:avoid; padding:1px 0; }
+  .ftree .indent { color:var(--border); user-select:none; white-space:pre; }
+  .ftree .dir { color:var(--accent); font-weight:700; }
+  .ftree .file { color:var(--text); }
+  .ftree .ann { color:var(--text-dim); font-size:0.78rem; margin-left:auto; padding-left:1rem; text-align:right; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<h1>WebAgentBench &mdash; Technical Architecture</h1>
+<p class="subtitle">Call flows, code structure, and injection mechanics for the stress-test benchmark. March 2026.</p>
+
+<div class="stat-row">
+  <div class="stat-box"><div class="num">80</div><div class="label">Gmail Tasks</div></div>
+  <div class="stat-box"><div class="num">7</div><div class="label">Primitives</div></div>
+  <div class="stat-box"><div class="num">28</div><div class="label">Degradation Variants</div></div>
+  <div class="stat-box"><div class="num">4</div><div class="label">Injection Layers</div></div>
+  <div class="stat-box"><div class="num">117</div><div class="label">Tests</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>1. The Seven Cognitive Primitives</h2>
+<p>We decompose web agent competence into 7 orthogonal primitives. Each describes a distinct capability; an agent can be strong on some and weak on others. The benchmark measures each independently.</p>
+
+<div class="prim-grid">
+  <div class="prim-card" style="background:#ffebe9">
+    <h4 style="color:#cf222e">Grounding</h4>
+    <p>Map observation to the correct semantic understanding of UI state. Distinguish real targets from decoys.</p>
+    <div class="prim-fail"><strong>Without it:</strong> clicks wrong element, trusts misleading signals, confuses similar items</div>
+    <div class="prim-test">Test: <code>silent_fail</code> on API + confusing decoy data</div>
+  </div>
+  <div class="prim-card" style="background:#fff8c5">
+    <h4 style="color:#bf8700">Planning</h4>
+    <p>Decompose a goal into ordered sub-goals, respecting dependencies between steps.</p>
+    <div class="prim-fail"><strong>Without it:</strong> misordered steps, dropped constraints, monolithic attempts</div>
+    <div class="prim-test">Test: scrambled timestamps + <code>stale_data</code> on search</div>
+  </div>
+  <div class="prim-card" style="background:#fbefff">
+    <h4 style="color:#8250df">State Tracking</h4>
+    <p>Maintain working memory of what's done vs. pending across multi-step tasks.</p>
+    <div class="prim-fail"><strong>Without it:</strong> forgets extracted values, opens wrong item, loses count</div>
+    <div class="prim-test">Test: distractor emails from the same sender with similar subjects</div>
+  </div>
+  <div class="prim-card" style="background:#dafbe1">
+    <h4 style="color:#1a7f37">Backtracking</h4>
+    <p>Detect a dead-end or failure, then revert to a prior decision point and try an alternative.</p>
+    <div class="prim-fail"><strong>Without it:</strong> perseveration loops, continues past errors, never retries</div>
+    <div class="prim-test">Test: <code>error_then_success</code> (503) on critical send action</div>
+  </div>
+  <div class="prim-card" style="background:#ddf4ff">
+    <h4 style="color:#0969da">Patience</h4>
+    <p>Know when to wait vs. re-act. Calibrate retry timing across progressive delays.</p>
+    <div class="prim-fail"><strong>Without it:</strong> race conditions, reads stale state, double submissions</div>
+    <div class="prim-test">Test: <code>delay</code> (progressive 1s&rarr;3s&rarr;5s) + transient 503</div>
+  </div>
+  <div class="prim-card" style="background:#fff0f5">
+    <h4 style="color:#bf3989">Exploration</h4>
+    <p>Discover affordances and alternative paths when the obvious approach fails.</p>
+    <div class="prim-fail"><strong>Without it:</strong> premature abandonment, misses hidden features</div>
+    <div class="prim-test">Test: <code>silent_fail</code> on delete + distractor noise</div>
+  </div>
+  <div class="prim-card" style="background:#f0f3ff">
+    <h4 style="color:#0550ae">Verification</h4>
+    <p>After performing an action, check whether it actually achieved its intended effect.</p>
+    <div class="prim-fail"><strong>Without it:</strong> trusts fake success responses, silent failure propagation</div>
+    <div class="prim-test">Test: <code>silent_fail</code> returns fake <code>200 OK</code>, data not persisted</div>
+  </div>
+</div>
+
+<div class="callout">
+<strong>Orthogonality:</strong> Grounding vs Verification = perceiving correctly vs inspecting outcome. Planning vs State Tracking = generating a sequence vs maintaining coherence during execution. Backtracking vs Exploration = recovering from known failure vs probing the unknown. Patience is a unique temporal dimension orthogonal to all others.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>2. Why It Works &mdash; Design Rationale</h2>
+
+<p>Degradation operates on <strong>three independent dimensions</strong>. Each is real &mdash; not a mocked overlay &mdash; and affects the agent through the same interfaces it uses normally.</p>
+
+<h3>Dimension 1: Data Content (Seed &amp; Server Layers)</h3>
+<div class="card">
+<p>Before the agent sees its first observation, the <strong>seed layer</strong> and <strong>server layer</strong> mutate the actual <code>GmailState</code> object that backs all API responses. These are not cosmetic overlays &mdash; they change the ground-truth data the environment serves.</p>
+<ul style="margin:0.5rem 0 0.5rem 1.5rem;">
+  <li><strong>Distractor injection</strong> (<code>inject_distractor_emails</code>) &mdash; adds 5 real <code>Email</code> objects to <code>state.emails</code> with the same sender and similar subjects as the target. The SPA renders them in the inbox list. The API returns them in search results. There is no metadata flag marking them as distractors &mdash; the agent must distinguish targets from noise by reading content.</li>
+  <li><strong>Timestamp scrambling</strong> (<code>scramble_timestamps</code>) &mdash; applies random <code>timedelta</code> offsets to every <code>email.timestamp</code>. The inbox is re-sorted by the SPA, so chronological reasoning breaks. The agent must use content-based cues instead.</li>
+  <li><strong>Contradictory updates</strong> (<code>add_contradictory_update</code>) &mdash; inserts a newer email that contradicts an older one. The agent must identify which supersedes which by date and sender authority.</li>
+  <li><strong>Prerequisite removal</strong> (<code>hide_prerequisite</code>) &mdash; deletes a label or contact the task description assumes exists. The agent must detect the missing prerequisite and create it before proceeding.</li>
+</ul>
+<p>Because these mutations happen on the canonical <code>GmailState</code>, every subsequent API call (list emails, search, get thread, etc.) reflects the degraded data. The SPA faithfully renders whatever the API returns, so the agent sees a consistent but harder world.</p>
+</div>
+
+<h3>Dimension 2: Web Logic (Network Middleware Layer)</h3>
+<div class="card">
+<p>The <strong>network layer</strong> intercepts live HTTP requests inside FastAPI via <code>DegradationMiddleware</code>. When the React SPA calls <code>POST /api/env/gmail/emails/X/star</code>, the request passes through the middleware <em>before reaching the route handler</em>. The middleware can:</p>
+<ul style="margin:0.5rem 0 0.5rem 1.5rem;">
+  <li><strong>Return a real <code>503 Service Unavailable</code></strong> (<code>error_then_success</code>) &mdash; the SPA receives a genuine HTTP error. Its error handling (or lack thereof) determines what the agent sees. The server state is untouched. On the next retry the counter exceeds <code>error_count</code> and the request passes through normally.</li>
+  <li><strong>Return a fake <code>200 OK</code></strong> (<code>silent_fail</code>) &mdash; the response body has the exact JSON shape the SPA expects (<code>{"email": {"id": "...", "subject": "..."}}</code>), so no JS error is thrown. But the route handler never ran &mdash; the server state is <em>not mutated</em>. The star was never set, the email was never sent. The agent can only discover this by navigating to the Sent folder or re-checking the starred status.</li>
+  <li><strong>Inject real latency</strong> (<code>delay</code>) &mdash; <code>await asyncio.sleep(delay_ms / 1000)</code> blocks the response. Playwright's timeout and the browser's loading indicator reflect the wait. Progressive mode escalates: 1s for the first 3 calls, 3s for the next 5, 5s thereafter.</li>
+  <li><strong>Serve stale data</strong> (<code>stale_data</code>) &mdash; the first N <code>GET</code> requests return a cached (empty or outdated) response body. The agent sees an empty search result or an old inbox snapshot, and must re-query.</li>
+</ul>
+<p>This layer is <strong>the core innovation</strong>. Because it operates at the HTTP level inside the server process, it works identically for human browsers and Playwright agents &mdash; same 503, same fake 200, same latency. No Playwright-specific hooks, no DOM timing races.</p>
+</div>
+
+<h3>Dimension 3: UI Presentation (Client Layer)</h3>
+<div class="card">
+<p>The <strong>client layer</strong> mutates the rendered DOM via JavaScript. When a session has client degradation registered, the <code>benchmark-toolbar.js</code> script fetches the injection config from <code>GET /api/env/gmail/degradation/{session_id}</code> and applies mutations:</p>
+<ul style="margin:0.5rem 0 0.5rem 1.5rem;">
+  <li><strong>ARIA label scrambling</strong> (<code>scramble_aria</code>) &mdash; shifts <code>aria-label</code> attributes between sibling elements. Agents relying on accessibility semantics for element identification are misdirected.</li>
+  <li><strong>Affordance hiding</strong> (<code>hide_affordance</code>) &mdash; sets <code>display:none</code> on a button and reveals it on a non-obvious trigger (e.g., right-click). Agents must explore alternative interactions.</li>
+  <li><strong>False banners</strong> (<code>false_banner</code>) &mdash; injects a misleading alert element (e.g., "Feature temporarily unavailable"). Grounded agents check actual page behavior instead of trusting the banner.</li>
+</ul>
+<p>Persistent mode uses a <code>MutationObserver</code> to re-apply mutations after SPA route changes. <strong>Caveat:</strong> client-layer injections have a race condition with BrowserGym's AXTree snapshots (the observer fires after the snapshot). For reliable agent testing, we prefer network-layer alternatives (e.g., <code>silent_fail</code> instead of <code>hide_affordance</code>).</p>
+</div>
+
+<h3>Why All Three Dimensions Together</h3>
+<div class="card">
+<p>Each dimension alone is insufficient. Data content changes test whether the agent can <em>find the right information</em> in a noisy environment. Web logic changes test whether the agent can <em>handle failures and verify outcomes</em>. UI presentation changes test whether the agent can <em>navigate despite misleading signals</em>.</p>
+
+<p>Combined in a single variant, they create realistic stress conditions: the inbox is noisy (seed), some API calls fail silently (network), and navigation labels are misleading (client). An agent needs the target primitive to overcome <em>all three at once</em> &mdash; this is why the degradation is a <strong>filter</strong> (solvable with the right capability) rather than a <strong>wall</strong> (impossible regardless).</p>
+
+<p><strong>Evaluation ground truth</strong>: Check expressions run against the <strong>live server state</strong> (not DOM snapshots). A silently-failed star or send is caught regardless of what the UI shows, because the evaluator asks <code>state.get_email('email_3').is_starred</code> &mdash; and the answer is <code>False</code> if the middleware intercepted the request.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>3. Repository Structure</h2>
+
+<div class="ftree">
+  <div class="row"><span class="indent"></span><span class="dir">webagentbench/</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="file">app.py</span><span class="ann">FastAPI server + middleware mount</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">agent.py</span><span class="ann">LLMAgent, obs formatting, LLM call</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">agent_eval.py</span><span class="ann">CLI: run_episode + run_evaluation</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">browsergym_task.py</span><span class="ann">setup / validate / teardown</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">browsergym_env.py</span><span class="ann">make_env() wrapper</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">browsergym_register.py</span><span class="ann">auto-register 80 tasks</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">primitives.py</span><span class="ann">7-primitive taxonomy</span></div>
+  <div class="row"><span class="indent">  </span><span class="file">manifest.json</span><span class="ann">benchmark metadata v3.0</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">backend/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">state.py</span><span class="ann">SessionManager (in-memory)</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">models/</span></div>
+  <div class="row"><span class="indent">      </span><span class="file">base.py</span><span class="ann">BaseEnvState, AuditEntry</span></div>
+  <div class="row"><span class="indent">      </span><span class="file">gmail.py</span><span class="ann">GmailState, Email, Contact...</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">routes/</span></div>
+  <div class="row"><span class="indent">      </span><span class="file">gmail.py</span><span class="ann">25 REST endpoints + evaluate</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">seeders/</span></div>
+  <div class="row"><span class="indent">      </span><span class="file">gmail.py</span><span class="ann">YAML &rarr; seeded GmailState</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">injector/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">config.py</span><span class="ann">DegradationConfig dataclass</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">seed.py</span><span class="ann">7 seed-layer actions</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">server.py</span><span class="ann">5 server-layer actions</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">middleware.py</span><span class="ann">DegradationMiddleware</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">client.py</span><span class="ann">6 client-layer (deprecated)</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">variants/</span><span class="ann">28 YAML degradation configs</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">tasks/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">_schema.py</span><span class="ann">TaskDefinition, EvalConfig</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">_registry.py</span><span class="ann">YAML discovery + caching</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">_evaluator.py</span><span class="ann">restricted-eval checker</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">_seed_builders.py</span><span class="ann">70 per-task seed builders</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">gmail/</span><span class="ann">80 task YAML definitions</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">scripts/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">compute_delta.py</span><span class="ann">&Delta; diagnostic + time-ratio</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">static/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">benchmark-toolbar.js</span><span class="ann">human toolbar + client inject</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">trajectory-recorder.js</span><span class="ann">gold trajectory recording</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">envs/gmail/</span><span class="ann">React SPA build</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">tests/</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">test_e2e_integration.py</span><span class="ann">18 end-to-end (TestClient)</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">test_benchmark_integrity.py</span><span class="ann">variant, penalty, seed tests</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">test_gmail_seed_stability.py</span><span class="ann">80 task determinism</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>4. Standard Evaluation Call Flow</h2>
+<p>This is the complete call chain when running <code>python -m webagentbench.agent_eval --model gpt-5.4 --tasks gmail_star_email --seed 42</code>.</p>
+
+<div class="seq">
+<svg viewBox="0 0 1050 720" width="1050" height="720" xmlns="http://www.w3.org/2000/svg">
+  <!-- Column headers -->
+  <text x="80" y="22" class="seq-head" text-anchor="middle" fill="#0969da">agent_eval.py</text>
+  <text x="260" y="22" class="seq-head" text-anchor="middle" fill="#8250df">BrowserGym</text>
+  <text x="460" y="22" class="seq-head" text-anchor="middle" fill="#bf8700">browsergym_task.py</text>
+  <text x="660" y="22" class="seq-head" text-anchor="middle" fill="#1a7f37">FastAPI Server</text>
+  <text x="860" y="22" class="seq-head" text-anchor="middle" fill="#cf222e">agent.py</text>
+
+  <!-- Lifelines -->
+  <g stroke="#d0d7de" stroke-dasharray="4,3">
+    <line x1="80" y1="32" x2="80" y2="710" />
+    <line x1="260" y1="32" x2="260" y2="710" />
+    <line x1="460" y1="32" x2="460" y2="710" />
+    <line x1="660" y1="32" x2="660" y2="710" />
+    <line x1="860" y1="32" x2="860" y2="710" />
+  </g>
+
+  <!-- ─── Phase 1: Setup ─── -->
+  <rect x="0" y="42" width="1050" height="18" fill="#ddf4ff" rx="3" />
+  <text x="525" y="55" text-anchor="middle" fill="#0550ae" font-size="11" font-weight="700">PHASE 1: Environment Setup</text>
+
+  <!-- 1a: make_env -->
+  <line x1="80" y1="72" x2="260" y2="72" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="170" y="67" class="seq-label" text-anchor="middle" fill="#0969da">make_env(task_id, degradation)</text>
+
+  <!-- 1b: env.reset -->
+  <line x1="80" y1="100" x2="260" y2="100" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="170" y="95" class="seq-label" text-anchor="middle" fill="#0969da">env.reset(seed=42)</text>
+
+  <!-- 1c: setup -->
+  <line x1="260" y1="128" x2="460" y2="128" stroke="#8250df" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="360" y="123" class="seq-label" text-anchor="middle" fill="#8250df">task.setup(page)</text>
+
+  <!-- 1d: ensure server -->
+  <line x1="460" y1="156" x2="660" y2="156" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="560" y="151" class="seq-label" text-anchor="middle" fill="#bf8700">_ensure_server() &rarr; uvicorn</text>
+
+  <!-- 1e: POST session -->
+  <line x1="460" y1="184" x2="660" y2="184" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="560" y="179" class="seq-label" text-anchor="middle" fill="#bf8700">POST /api/env/gmail/session</text>
+  <text x="560" y="194" class="seq-label" text-anchor="middle" fill="#656d76">{task_id, seed: 42}</text>
+
+  <!-- 1f: Server creates session -->
+  <rect x="590" y="205" width="140" height="50" rx="5" fill="#dafbe1" stroke="#aceebb" />
+  <text x="660" y="221" text-anchor="middle" fill="#1a7f37" font-size="10" font-weight="600">SessionManager</text>
+  <text x="660" y="234" text-anchor="middle" fill="#656d76" font-size="9.5">.create_session()</text>
+  <text x="660" y="247" text-anchor="middle" fill="#656d76" font-size="9.5">seed &rarr; GmailState</text>
+
+  <!-- 1g: Return session_id -->
+  <line x1="660" y1="264" x2="460" y2="264" stroke="#1a7f37" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)" />
+  <text x="560" y="259" class="seq-label" text-anchor="middle" fill="#1a7f37">{session_id, resolved_targets}</text>
+
+  <!-- 1h: Navigate browser -->
+  <line x1="460" y1="292" x2="260" y2="292" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="360" y="287" class="seq-label" text-anchor="middle" fill="#bf8700">page.goto(/env/gmail/inbox?session=X)</text>
+
+  <!-- 1i: Return obs -->
+  <line x1="260" y1="316" x2="80" y2="316" stroke="#8250df" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)" />
+  <text x="170" y="311" class="seq-label" text-anchor="middle" fill="#8250df">(obs, info) &mdash; AXTree + goal</text>
+
+  <!-- ─── Phase 2: Agent Loop ─── -->
+  <rect x="0" y="338" width="1050" height="18" fill="#fff8c5" rx="3" />
+  <text x="525" y="351" text-anchor="middle" fill="#bf8700" font-size="11" font-weight="700">PHASE 2: Agent Loop (repeat for each step)</text>
+
+  <!-- 2a: agent.act -->
+  <line x1="80" y1="375" x2="860" y2="375" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="470" y="370" class="seq-label" text-anchor="middle" fill="#0969da">agent.act(obs)</text>
+
+  <!-- 2b: LLM call -->
+  <rect x="790" y="385" width="140" height="44" rx="5" fill="#fbefff" stroke="#e8d5f5" />
+  <text x="860" y="401" text-anchor="middle" fill="#8250df" font-size="10" font-weight="600">LLM API Call</text>
+  <text x="860" y="414" text-anchor="middle" fill="#656d76" font-size="9.5">format_obs &rarr; chat &rarr; parse</text>
+  <text x="860" y="424" text-anchor="middle" fill="#656d76" font-size="9.5">_extract_action(response)</text>
+
+  <!-- 2c: return action -->
+  <line x1="860" y1="438" x2="80" y2="438" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)" />
+  <text x="470" y="433" class="seq-label" text-anchor="middle" fill="#cf222e">click("75")</text>
+
+  <!-- 2d: env.step -->
+  <line x1="80" y1="466" x2="260" y2="466" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="170" y="461" class="seq-label" text-anchor="middle" fill="#0969da">env.step('click("75")')</text>
+
+  <!-- 2e: execute in browser -->
+  <line x1="260" y1="490" x2="460" y2="490" stroke="#8250df" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="360" y="485" class="seq-label" text-anchor="middle" fill="#8250df">page.click('[bid="75"]')</text>
+
+  <!-- 2f: SPA calls API -->
+  <line x1="460" y1="514" x2="660" y2="514" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="560" y="509" class="seq-label" text-anchor="middle" fill="#bf8700">SPA &rarr; POST /api/env/gmail/emails/X/star</text>
+
+  <!-- 2g: validate -->
+  <line x1="260" y1="542" x2="460" y2="542" stroke="#8250df" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="360" y="537" class="seq-label" text-anchor="middle" fill="#8250df">task.validate(page, chat_msgs)</text>
+
+  <!-- 2h: return obs -->
+  <line x1="260" y1="566" x2="80" y2="566" stroke="#8250df" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)" />
+  <text x="170" y="561" class="seq-label" text-anchor="middle" fill="#8250df">(obs, reward, terminated, ...)</text>
+
+  <!-- ─── Phase 3: Evaluation ─── -->
+  <rect x="0" y="588" width="1050" height="18" fill="#dafbe1" rx="3" />
+  <text x="525" y="601" text-anchor="middle" fill="#1a7f37" font-size="11" font-weight="700">PHASE 3: Evaluation (on agent send_msg_to_user)</text>
+
+  <!-- 3a: evaluate call -->
+  <line x1="460" y1="622" x2="660" y2="622" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr)" />
+  <text x="560" y="617" class="seq-label" text-anchor="middle" fill="#bf8700">POST /api/env/gmail/evaluate</text>
+
+  <!-- 3b: evaluator -->
+  <rect x="590" y="633" width="140" height="36" rx="5" fill="#dafbe1" stroke="#aceebb" />
+  <text x="660" y="649" text-anchor="middle" fill="#1a7f37" font-size="10" font-weight="600">_evaluator.evaluate()</text>
+  <text x="660" y="662" text-anchor="middle" fill="#656d76" font-size="9.5">check exprs vs GmailState</text>
+
+  <!-- 3c: return score -->
+  <line x1="660" y1="678" x2="80" y2="678" stroke="#1a7f37" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)" />
+  <text x="370" y="673" class="seq-label" text-anchor="middle" fill="#1a7f37">{score: 1.0, success: true, checks: [...], reasoning: "..."}</text>
+
+  <!-- 3d: teardown -->
+  <line x1="80" y1="700" x2="460" y2="700" stroke="#656d76" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arr)" />
+  <text x="270" y="695" class="seq-label" text-anchor="middle" fill="#656d76">teardown() &rarr; DELETE session</text>
+
+  <!-- Arrow marker -->
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#656d76" /></marker></defs>
+</svg>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>5. Degraded Evaluation Call Flow</h2>
+<p>When <code>--degradation gmail_star_email__patience.yaml</code> is added, the flow changes at highlighted points:</p>
+
+<div class="seq">
+<svg viewBox="0 0 1050 580" width="1050" height="580" xmlns="http://www.w3.org/2000/svg">
+  <!-- Column headers -->
+  <text x="100" y="22" class="seq-head" text-anchor="middle" fill="#0969da">agent_eval</text>
+  <text x="300" y="22" class="seq-head" text-anchor="middle" fill="#bf8700">browsergym_task</text>
+  <text x="530" y="22" class="seq-head" text-anchor="middle" fill="#1a7f37">FastAPI + Routes</text>
+  <text x="780" y="22" class="seq-head" text-anchor="middle" fill="#cf222e">Middleware</text>
+  <text x="950" y="22" class="seq-head" text-anchor="middle" fill="#656d76">injector/*</text>
+
+  <g stroke="#d0d7de" stroke-dasharray="4,3">
+    <line x1="100" y1="32" x2="100" y2="570" />
+    <line x1="300" y1="32" x2="300" y2="570" />
+    <line x1="530" y1="32" x2="530" y2="570" />
+    <line x1="780" y1="32" x2="780" y2="570" />
+    <line x1="950" y1="32" x2="950" y2="570" />
+  </g>
+
+  <!-- Phase: Load variant -->
+  <rect x="0" y="42" width="1050" height="18" fill="#fbefff" rx="3" />
+  <text x="525" y="55" text-anchor="middle" fill="#8250df" font-size="11" font-weight="700">SETUP: Load Variant &amp; Register Degradation</text>
+
+  <!-- Load YAML -->
+  <line x1="100" y1="78" x2="300" y2="78" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="200" y="73" class="seq-label" text-anchor="middle" fill="#0969da">DegradationConfig.from_yaml(path)</text>
+
+  <!-- POST session with degradation -->
+  <line x1="300" y1="108" x2="530" y2="108" stroke="#bf8700" stroke-width="2" marker-end="url(#arr2)" />
+  <rect x="155" y="93" width="300" height="17" rx="3" fill="#fff8c5" stroke="#ebd98b" />
+  <text x="305" y="105" text-anchor="middle" fill="#bf8700" font-size="10" font-weight="600">POST /session {task_id, seed, degradation: {variant_id, injections: [...]}}</text>
+
+  <!-- Server applies seed/server -->
+  <line x1="530" y1="138" x2="950" y2="138" stroke="#1a7f37" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="740" y="133" class="seq-label" text-anchor="middle" fill="#1a7f37">seed.apply_seed_injection(state, params)</text>
+
+  <line x1="530" y1="162" x2="950" y2="162" stroke="#1a7f37" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="740" y="157" class="seq-label" text-anchor="middle" fill="#1a7f37">server.apply_server_injection(state, params)</text>
+
+  <!-- Register middleware -->
+  <line x1="530" y1="192" x2="780" y2="192" stroke="#1a7f37" stroke-width="2" marker-end="url(#arr2)" />
+  <rect x="545" y="178" width="250" height="17" rx="3" fill="#ffebe9" stroke="#f5c6c2" />
+  <text x="670" y="190" text-anchor="middle" fill="#cf222e" font-size="10" font-weight="600">register_session_degradation(session_id, injections)</text>
+
+  <!-- Stores -->
+  <rect x="715" y="205" width="130" height="36" rx="5" fill="#ffebe9" stroke="#f5c6c2" />
+  <text x="780" y="220" text-anchor="middle" fill="#cf222e" font-size="9.5" font-weight="600">_SESSION_NETWORK[sid]</text>
+  <text x="780" y="233" text-anchor="middle" fill="#cf222e" font-size="9.5">_SESSION_CLIENT[sid]</text>
+
+  <!-- Phase: Agent Loop with interception -->
+  <rect x="0" y="252" width="1050" height="18" fill="#ffebe9" rx="3" />
+  <text x="525" y="265" text-anchor="middle" fill="#cf222e" font-size="11" font-weight="700">RUNTIME: Middleware Intercepts API Calls</text>
+
+  <!-- Agent action -->
+  <line x1="100" y1="290" x2="300" y2="290" stroke="#0969da" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="200" y="285" class="seq-label" text-anchor="middle" fill="#0969da">env.step('click("75")') &mdash; stars email</text>
+
+  <!-- SPA fires API -->
+  <line x1="300" y1="314" x2="780" y2="314" stroke="#bf8700" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="540" y="309" class="seq-label" text-anchor="middle" fill="#bf8700">SPA &rarr; POST /api/env/gmail/emails/email_3/star</text>
+
+  <!-- Middleware intercepts -->
+  <rect x="710" y="328" width="140" height="76" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5" />
+  <text x="780" y="343" text-anchor="middle" fill="#cf222e" font-size="10" font-weight="700">dispatch()</text>
+  <text x="780" y="358" text-anchor="middle" fill="#656d76" font-size="9">1. extract session_id</text>
+  <text x="780" y="370" text-anchor="middle" fill="#656d76" font-size="9">2. match URL pattern</text>
+  <text x="780" y="382" text-anchor="middle" fill="#656d76" font-size="9">3. check call_count &le; 2</text>
+  <text x="780" y="396" text-anchor="middle" fill="#cf222e" font-size="9.5" font-weight="700">4. return 503 &uarr;</text>
+
+  <!-- 503 back to SPA -->
+  <line x1="780" y1="412" x2="300" y2="412" stroke="#cf222e" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arr2)" />
+  <rect x="400" y="399" width="180" height="17" rx="3" fill="#ffebe9" stroke="#cf222e" />
+  <text x="490" y="411" text-anchor="middle" fill="#cf222e" font-size="10" font-weight="700">HTTP 503 {"error": "Server Error"}</text>
+
+  <!-- Agent doesn't retry -->
+  <line x1="300" y1="442" x2="100" y2="442" stroke="#8250df" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)" />
+  <text x="200" y="437" class="seq-label" text-anchor="middle" fill="#656d76">obs (star action had no visible error)</text>
+
+  <!-- Agent finishes -->
+  <line x1="100" y1="468" x2="300" y2="468" stroke="#cf222e" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="200" y="463" class="seq-label" text-anchor="middle" fill="#cf222e">send_msg_to_user("Done") &mdash; no retry!</text>
+
+  <!-- Evaluate -->
+  <rect x="0" y="490" width="1050" height="18" fill="#dafbe1" rx="3" />
+  <text x="525" y="503" text-anchor="middle" fill="#1a7f37" font-size="11" font-weight="700">EVALUATE: Check server state (email NOT starred)</text>
+
+  <line x1="300" y1="522" x2="530" y2="522" stroke="#1a7f37" stroke-width="1.5" marker-end="url(#arr2)" />
+  <text x="415" y="517" class="seq-label" text-anchor="middle" fill="#1a7f37">POST /evaluate</text>
+
+  <line x1="530" y1="546" x2="100" y2="546" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)" />
+  <rect x="200" y="534" width="260" height="17" rx="3" fill="#ffebe9" stroke="#cf222e" />
+  <text x="330" y="546" text-anchor="middle" fill="#cf222e" font-size="10" font-weight="700">{score: 0.0, success: false} &mdash; email.is_starred == False</text>
+
+  <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#656d76" /></marker></defs>
+</svg>
+</div>
+
+<div class="callout err">
+<strong>Key difference:</strong> The middleware returned a <strong>real HTTP 503</strong> for the star API call. The SPA showed no visible error to the agent. A patient agent would retry; gpt-5.4 did not &rarr; &Delta;=1.0.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>6. Four-Layer Injection System</h2>
+
+<div class="layer-stack">
+  <div class="layer-row l-seed">
+    <div class="lname" style="color:#8250df">Seed</div>
+    <div class="lacts"><code>add_confusing_decoys</code> <code>split_information</code> <code>add_contradictory_update</code> <code>plant_wrong_answer</code> <code>increase_distractors</code> <code>alias_entities</code> <code>hide_in_non_obvious_location</code></div>
+    <div class="lfile"><span class="badge badge-purple">injector/seed.py</span></div>
+  </div>
+  <div class="layer-row l-server">
+    <div class="lname" style="color:#bf8700">Server</div>
+    <div class="lacts"><code>scramble_timestamps</code> <code>shuffle_contacts</code> <code>hide_prerequisite</code> <code>inject_distractor_emails</code> <code>corrupt_state</code></div>
+    <div class="lfile"><span class="badge badge-data">injector/server.py</span></div>
+  </div>
+  <div class="layer-row l-network">
+    <div class="lname" style="color:#cf222e">Network</div>
+    <div class="lacts"><code>delay</code> <code>error_then_success</code> <code>silent_fail</code> <code>stale_data</code> <code>transient_flash</code></div>
+    <div class="lfile"><span class="badge badge-red">injector/middleware.py</span></div>
+  </div>
+  <div class="layer-row l-client">
+    <div class="lname" style="color:#1a7f37">Client</div>
+    <div class="lacts"><code>scramble_aria</code> <code>swap_labels</code> <code>add_decoy</code> <code>hide_affordance</code> <code>false_banner</code> <code>inject_script</code></div>
+    <div class="lfile"><span class="badge badge-fn">benchmark-toolbar.js</span></div>
+  </div>
+</div>
+
+<h3>When Each Layer Fires</h3>
+<div class="flow-h">
+  <div class="flow-box" style="border-color:#8250df;background:#fbefff"><strong>Seed</strong> &mdash; session create</div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box" style="border-color:#bf8700;background:#fff8c5"><strong>Server</strong> &mdash; post-seed, once</div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box danger"><strong>Network</strong> &mdash; every API call</div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box" style="border-color:#1a7f37;background:#dafbe1"><strong>Client</strong> &mdash; every page render</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>7. Network Middleware Deep Dive</h2>
+<p><span class="badge badge-red">injector/middleware.py</span> &mdash; The core innovation. All degradation is server-side, so it works identically for human browsers and Playwright agents.</p>
+
+<pre>
+<span class="kw">class</span> <span class="fn">DegradationMiddleware</span>(BaseHTTPMiddleware):
+
+    <span class="kw">async def</span> <span class="fn">dispatch</span>(self, request, call_next):
+        <span class="cm"># ── Step 1: Identify session (without reading body) ──</span>
+        session_id = (
+            request.query_params.get(<span class="st">"session_id"</span>)           <span class="cm"># GET ?session_id=X</span>
+            <span class="kw">or</span> _extract_session_from_referer(referer)         <span class="cm"># POST Referer: ?session=X</span>
+            <span class="kw">or</span> _extract_session_from_cookie(cookies)          <span class="cm"># wab_session=X cookie</span>
+        )
+        <span class="cm"># Fallback: single-session heuristic for agent_eval runs</span>
+        <span class="kw">if</span> <span class="kw">not</span> session_id <span class="kw">and</span> len(_SESSION_NETWORK) == 1:
+            <span class="kw">if</span> request.method <span class="kw">in</span> (<span class="st">"POST"</span>, <span class="st">"PUT"</span>) <span class="kw">and</span> <span class="st">"/api/env/"</span> <span class="kw">in</span> url_path:
+                session_id = next(iter(_SESSION_NETWORK))
+
+        <span class="cm"># ── Step 2: Match URL pattern ──</span>
+        <span class="kw">for</span> inj <span class="kw">in</span> _SESSION_NETWORK[session_id]:
+            <span class="kw">if</span> _url_matches_pattern(url, inj[<span class="st">"url_pattern"</span>]):
+
+                <span class="cm"># ── Step 3: Apply degradation action ──</span>
+                <span class="kw">if</span> action == <span class="st">"error_then_success"</span>:
+                    call_num = <span class="fn">_get_counter</span>(session_id, key)
+                    <span class="kw">if</span> call_num &lt;= error_count:
+                        <span class="hl"><span class="kw">return</span> JSONResponse(status_code=503, ...)</span>  <span class="cm"># real 503!</span>
+
+                <span class="kw">elif</span> action == <span class="st">"silent_fail"</span>:
+                    <span class="kw">if</span> call_num &lt;= fail_count:
+                        <span class="hl"><span class="kw">return</span> JSONResponse(200, body=fake_success)</span>  <span class="cm"># looks OK, data lost</span>
+
+                <span class="kw">elif</span> action == <span class="st">"delay"</span>:
+                    <span class="hl"><span class="kw">await</span> asyncio.sleep(delay_ms / 1000)</span>          <span class="cm"># real latency</span>
+
+        <span class="kw">return await</span> call_next(request)  <span class="cm"># normal handler</span>
+</pre>
+
+<h4>Deterministic Firing (Seeded)</h4>
+<pre>
+<span class="kw">def</span> <span class="fn">_seeded_should_fire</span>(seed: int, call_index: int, probability: float) -> bool:
+    <span class="cm">"""md5(seed:call_index) &rarr; deterministic coin flip. Same seed = same pattern."""</span>
+    h = hashlib.md5(f<span class="st">"{seed}:{call_index}"</span>.encode()).hexdigest()
+    <span class="kw">return</span> (int(h[:8], 16) / 0xFFFFFFFF) &lt; probability
+</pre>
+
+<h4>URL Pattern Matching</h4>
+<pre>
+<span class="cm"># Pattern: "**/api/env/gmail/emails/*/star"</span>
+<span class="cm"># URL:     "http://127.0.0.1:8080/api/env/gmail/emails/email_3/star"</span>
+<span class="cm"># ** strips prefix, * matches one path segment &rarr; match!</span>
+<span class="kw">def</span> <span class="fn">_url_matches_pattern</span>(url, pattern):
+    <span class="kw">if</span> pattern.startswith(<span class="st">"**/"</span>):
+        regex = _glob_to_regex(pattern[3:])
+        <span class="kw">return</span> bool(re.search(regex, url))
+</pre>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>8. Session Creation &amp; Injection Registration</h2>
+<p><span class="badge badge-file">backend/routes/gmail.py</span> <code>create_session()</code> &mdash; the critical path where degradation is applied.</p>
+
+<pre>
+<span class="kw">@router.post</span>(<span class="st">"/session"</span>)
+<span class="kw">def</span> <span class="fn">create_session</span>(body: SessionCreateRequest, session_manager):
+    <span class="cm"># 1. Validate task/variant binding</span>
+    <span class="kw">if</span> degradation.base_task_id != body.task_id:
+        <span class="kw">raise</span> HTTPException(400, <span class="st">"variant bound to wrong task"</span>)
+
+    <span class="cm"># 2. Create seeded session (deterministic GmailState)</span>
+    session_id, resolved_targets, seed = session_manager.<span class="fn">create_session</span>(
+        <span class="st">"gmail"</span>, body.task_id, body.seed)
+
+    <span class="cm"># 3. Store degradation metadata on session state</span>
+    state._degradation = {variant_id, base_task_id, target_primitive, injections}
+
+    <span class="cm"># 4. Apply seed + server injections (mutate state in-place)</span>
+    <span class="kw">for</span> inj <span class="kw">in</span> degradation[<span class="st">"injections"</span>]:
+        <span class="kw">if</span> inj.layer == <span class="st">"seed"</span>:
+            <span class="hl">seed.<span class="fn">apply_seed_injection</span>(state, inj.params)</span>
+        <span class="kw">elif</span> inj.layer == <span class="st">"server"</span>:
+            <span class="hl">server.<span class="fn">apply_server_injection</span>(state, inj.params)</span>
+
+    <span class="cm"># 5. Register network + client for middleware interception</span>
+    <span class="hl">middleware.<span class="fn">register_session_degradation</span>(session_id, injections)</span>
+    <span class="cm">#    &rarr; _SESSION_NETWORK[sid] = [network injections]</span>
+    <span class="cm">#    &rarr; _SESSION_CLIENT[sid]  = [client injections]</span>
+
+    <span class="kw">return</span> {session_id, resolved_targets, instruction, degradation_active: <span class="kw">True</span>}
+</pre>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>9. Expression-Based Evaluator</h2>
+<p><span class="badge badge-file">tasks/_evaluator.py</span> &mdash; Check expressions run against live <code>GmailState</code> in a restricted namespace.</p>
+
+<pre>
+<span class="kw">def</span> <span class="fn">evaluate</span>(task, *, server_state, targets, trajectory):
+    <span class="cm"># Restricted namespace &mdash; no __import__, no file I/O</span>
+    namespace = {
+        <span class="st">"__builtins__"</span>: {any, all, len, str, int, float, sorted, min, max, sum, abs},
+        <span class="st">"state"</span>: server_state,      <span class="cm"># the live GmailState</span>
+        <span class="st">"target"</span>: _DotDict(targets), <span class="cm"># {target.email_id} &rarr; "email_3"</span>
+    }
+
+    <span class="cm"># Evaluate positive checks</span>
+    <span class="kw">for</span> check <span class="kw">in</span> task.eval.checks:
+        expr = _substitute_targets(check.expr, targets)  <span class="cm"># "{target.X}" &rarr; "email_3"</span>
+        passed = <span class="fn">eval</span>(compile(expr, <span class="st">"&lt;check&gt;"</span>, <span class="st">"eval"</span>), namespace)
+
+    <span class="cm"># Evaluate negative checks (penalties, capped at 0.95)</span>
+    penalty = min(sum_of_failed_penalties, <span class="hl">0.95</span>)
+
+    score = (passed_count / total_checks) - penalty      <span class="cm"># clamped to [-1, 1]</span>
+    success = all_positive_passed <span class="kw">and</span> score &gt;= 0.5
+</pre>
+
+<h4>Example: gmail_star_email evaluation</h4>
+<div class="split">
+<div>
+<h4>Task YAML check</h4>
+<pre>
+eval:
+  checks:
+    - expr: |
+        state.get_email(
+          '<span class="hl">{target.target_email_id}</span>'
+        ).is_starred
+      desc: "Target email is starred"
+  negative_checks:
+    - expr: |
+        sum(1 for e in state.emails
+            if e.is_starred) &lt;= 2
+      desc: "Did not star too many"
+      penalty: 0.2
+</pre>
+</div>
+<div>
+<h4>After target substitution</h4>
+<pre>
+<span class="cm"># target.target_email_id = "email_3"</span>
+<span class="cm"># Substituted expression:</span>
+
+state.get_email(<span class="st">'email_3'</span>).is_starred
+
+<span class="cm"># Evaluated against live GmailState:</span>
+<span class="cm">#   Standard: email_3.is_starred = True  &rarr; PASS</span>
+<span class="cm">#   Stressed: email_3.is_starred = False &rarr; FAIL</span>
+<span class="cm">#   (503 prevented the star API call)</span>
+</pre>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>10. BrowserGym Integration</h2>
+<p><span class="badge badge-file">browsergym_task.py</span> implements <code>AbstractBrowserTask</code> from BrowserGym.</p>
+
+<pre>
+<span class="kw">class</span> <span class="fn">WebAgentBenchTask</span>(AbstractBrowserTask):
+
+    <span class="kw">def</span> <span class="fn">setup</span>(self, page) -> (str, dict):
+        <span class="cm"># 1. Start server if not running</span>
+        self.<span class="fn">_ensure_server</span>()
+        <span class="cm"># 2. POST /session with full degradation config</span>
+        session = _http_json(url, method=<span class="st">"POST"</span>, payload={
+            task_id, seed, degradation: {variant_id, injections: [...]}
+        })
+        <span class="cm"># 3. Navigate Playwright page</span>
+        page.goto(f<span class="st">"/env/gmail/inbox?session={sid}<span class="hl">&amp;agent_mode=1</span>"</span>)
+        <span class="cm">#    agent_mode=1 suppresses human toolbar, keeps degradation active</span>
+        <span class="kw">return</span> (instruction, task_info)
+
+    <span class="kw">def</span> <span class="fn">validate</span>(self, page, chat_messages) -> (reward, done, msg, info):
+        <span class="cm"># Detect agent calling send_msg_to_user() (new msgs beyond initial greeting)</span>
+        new_messages = chat_messages[self.<span class="hl">_initial_chat_count</span>:]
+        <span class="kw">if</span> any(m.role == <span class="st">"assistant"</span> <span class="kw">for</span> m <span class="kw">in</span> new_messages):
+            result = _http_json(<span class="st">"/evaluate"</span>, method=<span class="st">"POST"</span>, payload={session_id, task_id})
+            <span class="kw">return</span> (result[<span class="st">"score"</span>], True, <span class="st">""</span>, {<span class="st">"evaluation"</span>: result})
+        <span class="kw">return</span> (0.0, False, <span class="st">""</span>, {})  <span class="cm"># not done yet</span>
+
+    <span class="kw">def</span> <span class="fn">teardown</span>(self):
+        _http_json(f<span class="st">"/session/{sid}"</span>, method=<span class="st">"DELETE"</span>)  <span class="cm"># also unregisters degradation</span>
+</pre>
+
+<div class="callout">
+<strong>agent_mode=1</strong> in the URL query prevents <code>benchmark-toolbar.js</code> from rendering the human evaluation toolbar. The client degradation fetch (<code>GET /degradation/{sid}</code>) still runs, so DOM mutations apply to agents too.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>11. Agent Observation Pipeline</h2>
+<p><span class="badge badge-file">agent.py</span> &mdash; Converts BrowserGym's raw observation dict into LLM-friendly text.</p>
+
+<pre>
+<span class="kw">def</span> <span class="fn">format_obs_for_llm</span>(obs: dict) -> str:
+    <span class="kw">from</span> browsergym.utils.obs <span class="kw">import</span> <span class="fn">flatten_axtree_to_str</span>
+
+    parts = []
+    parts.append(f<span class="st">"Task: {obs['goal']}"</span>)
+    <span class="kw">if</span> obs[<span class="st">"last_action_error"</span>]:
+        parts.append(f<span class="st">"Last action error: {obs['last_action_error']}"</span>)
+
+    <span class="cm"># Use BrowserGym's native AXTree formatter (not raw CDP dicts!)</span>
+    axtree_txt = <span class="fn">flatten_axtree_to_str</span>(
+        obs[<span class="st">"axtree_object"</span>],
+        extra_properties=obs.get(<span class="st">"extra_element_properties"</span>, {}),
+        <span class="hl">with_clickable=True, with_visible=True,
+        filter_visible_only=True, filter_with_bid_only=True,</span>
+    )
+    parts.append(f<span class="st">"Accessibility tree:\n{axtree_txt}"</span>)
+    <span class="kw">return</span> <span class="st">"\n"</span>.join(parts)
+</pre>
+
+<h4>What the LLM sees</h4>
+<pre>
+Task: Find the email from Alice Chen with subject "Project Update" and star it.
+
+Accessibility tree:
+[11] banner '', visible
+[18] textbox 'Search mail', clickable, visible
+[23] button 'Compose a new message', clickable, visible
+[28] link 'Inbox', clickable, visible
+[73] region 'Email results', visible
+  [74] article '', clickable, visible
+    <span class="hl">[75] button 'Star Project Update &mdash; Q1 Milestones', clickable, visible</span>
+    [79] strong '' &mdash; 'Alice Chen'
+    [80] link 'Open thread Project Update &mdash; Q1 Milestones', clickable, visible
+</pre>
+<p class="dim">Agent responds: <code>click("75")</code></p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>12. Variant YAML &rarr; Middleware Registration</h2>
+<p>Complete data flow from YAML config to runtime interception.</p>
+
+<div class="split">
+<div>
+<h4>1. Variant YAML file</h4>
+<pre>
+<span class="cm"># injector/variants/gmail_star_email__patience.yaml</span>
+variant_id: gmail_star_email__patience_v1
+base_task_id: gmail_star_email
+target_primitive: patience
+injections:
+  - layer: <span class="hl">network</span>
+    params:
+      action: error_then_success
+      url_pattern: "**/api/env/gmail/emails/*/star"
+      error_status: 503
+      error_count: 2
+      behavior: { mode: once }
+</pre>
+</div>
+<div>
+<h4>2. Loaded by DegradationConfig</h4>
+<pre>
+<span class="cm"># injector/config.py</span>
+@dataclass
+<span class="kw">class</span> <span class="fn">Injection</span>:
+    layer: Literal[<span class="st">"client"</span>,<span class="st">"network"</span>,<span class="st">"server"</span>,<span class="st">"seed"</span>]
+    params: dict
+
+@dataclass
+<span class="kw">class</span> <span class="fn">DegradationConfig</span>:
+    variant_id: str
+    base_task_id: str
+    target_primitive: str
+    injections: list[Injection]
+
+    @classmethod
+    <span class="kw">def</span> <span class="fn">from_yaml</span>(cls, path):
+        raw = yaml.safe_load(open(path))
+        injections = [Injection(**inj)
+                      <span class="kw">for</span> inj <span class="kw">in</span> raw.pop(<span class="st">"injections"</span>)]
+        <span class="kw">return</span> cls(**raw, injections=injections)
+</pre>
+</div>
+</div>
+
+<div class="flow-h" style="margin-top:0.3rem">
+  <div class="flow-box">YAML file</div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box"><code>DegradationConfig.from_yaml()</code></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box"><code>browsergym_task.setup()</code></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box active"><code>POST /session</code> with injections</div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box danger"><code>register_session_degradation()</code></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-box danger"><code>_SESSION_NETWORK[sid]</code></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>13. Delta Computation</h2>
+<p><span class="badge badge-file">scripts/compute_delta.py</span> &mdash; Compares standard vs degraded result JSONs.</p>
+
+<pre>
+<span class="cm"># Usage:</span>
+<span class="cm"># python -m webagentbench.scripts.compute_delta \</span>
+<span class="cm">#     --standard results/normal.json \</span>
+<span class="cm">#     --degraded results/stress_patience.json results/stress_grounding.json</span>
+
+<span class="kw">def</span> <span class="fn">compute_delta</span>(standard_path, degraded_paths) -> dict:
+    standard_scores = {r.task_id: r.score <span class="kw">for</span> r <span class="kw">in</span> standard_results}
+    standard_times  = {r.task_id: r.elapsed <span class="kw">for</span> r <span class="kw">in</span> standard_results}
+
+    <span class="kw">for</span> deg_result <span class="kw">in</span> all_degraded_results:
+        delta = standard_scores[tid] - deg_result.score
+        time_ratio = deg_result.elapsed / standard_times[tid]
+
+        <span class="cm"># Signal detection:</span>
+        <span class="kw">if</span> delta > 0.1:       signal = <span class="st">"WEAK"</span>    <span class="cm"># score dropped</span>
+        <span class="kw">elif</span> time_ratio > 1.3: signal = <span class="st">"ADAPT"</span>   <span class="cm"># score held, agent adapted</span>
+        <span class="kw">else</span>:                  signal = <span class="st">"-"</span>       <span class="cm"># no effect</span>
+</pre>
+
+<h4>Output format</h4>
+<pre>
+Primitive        Score &Delta;   Std    Deg    Time Ratio   Signal
+&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;
+backtracking      +1.000   1.00   0.00       1.0x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+verification      +1.000   1.00   0.00       1.1x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+exploration       +1.000   1.00   0.00       1.4x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+grounding         +1.000   1.00   0.00       1.1x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+patience          +0.500   1.00   0.50       1.4x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+state_tracking    +0.500   1.00   0.50       0.8x   <span style="color:#cf222e;font-weight:700">WEAK</span>
+planning          +0.000   1.00   1.00       2.1x   <span style="color:#bf8700;font-weight:700">ADAPT</span>
+</pre>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>14. Key Engineering Decisions</h2>
+
+<table>
+<thead><tr><th>Decision</th><th>Why</th><th>Files</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Server-side middleware for ALL network degradation</strong></td>
+  <td>Client-side (Playwright <code>page.route()</code>) has race conditions with BrowserGym AXTree snapshots. Server-side intercepts work identically for humans and agents.</td>
+  <td><code>injector/middleware.py</code></td>
+</tr>
+<tr>
+  <td><strong>Single-session fallback for POST session extraction</strong></td>
+  <td>React Router drops <code>?session=</code> from Referer on SPA navigation. POST bodies can't be read without breaking Pydantic parsing. When exactly 1 session is active (agent_eval mode), assume it.</td>
+  <td><code>middleware.py:dispatch()</code></td>
+</tr>
+<tr>
+  <td><strong>Guaranteed first-N-fail, not probabilistic</strong></td>
+  <td>20% probability &times; 3 API calls = 51% chance of zero hits. Use <code>error_count: 2</code> (mode: once) for reliable testing.</td>
+  <td><code>variants/*.yaml</code></td>
+</tr>
+<tr>
+  <td><strong>BrowserGym's <code>flatten_axtree_to_str()</code> for observation</strong></td>
+  <td>Raw CDP AXTree dicts are unreadable by LLMs. BrowserGym's formatter produces <code>[75] button 'Star...'</code> format with bid references.</td>
+  <td><code>agent.py:format_obs_for_llm</code></td>
+</tr>
+<tr>
+  <td><strong>Track <code>_initial_chat_count</code> in validate()</strong></td>
+  <td>BrowserGym seeds 2 chat messages (greeting + goal) on reset. Without tracking, validate() terminates every episode at step 1.</td>
+  <td><code>browsergym_task.py:validate</code></td>
+</tr>
+<tr>
+  <td><strong>Expression evaluator against server state (not DOM)</strong></td>
+  <td>Server state is deterministic and fast. DOM checks require browser interaction and are fragile to layout changes. All Gmail mutations go through the API, so server state is ground truth.</td>
+  <td><code>tasks/_evaluator.py</code></td>
+</tr>
+<tr>
+  <td><strong>Time-ratio as secondary metric</strong></td>
+  <td>Patience/planning degradation may not drop scores (agent adapts) but increases time 1.6&ndash;2.1x. Score-only delta misses this signal.</td>
+  <td><code>scripts/compute_delta.py</code></td>
+</tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2>15. Running the Benchmark</h2>
+
+<pre>
+<span class="cm"># ── Install ──</span>
+uv sync && playwright install chromium
+
+<span class="cm"># ── Standard evaluation ──</span>
+python -m webagentbench.agent_eval \
+    --model gpt-5.4 --provider openai --api-key $KEY \
+    --tasks gmail_star_email gmail_reply_simple gmail_create_label \
+    --max-steps 50 --seed 42 --output results/standard.json
+
+<span class="cm"># ── Stressed evaluation (one variant per primitive) ──</span>
+<span class="kw">for</span> variant <span class="kw">in</span> gmail_star_email__patience.yaml \
+                gmail_reply_simple__verification.yaml \
+                gmail_compose_new__backtracking.yaml; <span class="kw">do</span>
+    python -m webagentbench.agent_eval \
+        --model gpt-5.4 --provider openai --api-key $KEY \
+        --degradation $variant --max-steps 50 --seed 42 \
+        --output results/stress_$(echo $variant | sed 's/.yaml//').json
+<span class="kw">done</span>
+
+<span class="cm"># ── Compute delta diagnostic ──</span>
+python -m webagentbench.scripts.compute_delta \
+    --standard results/standard.json \
+    --degraded results/stress_*.json \
+    --output results/delta_report.json
+
+<span class="cm"># ── Human play (browser) ──</span>
+python -m webagentbench.app --port 8080
+<span class="cm"># Open http://localhost:8080/launch</span>
+</pre>
+
+<div style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--text-dim);font-size:0.82rem;">
+  WebAgentBench v3.0 &mdash; Xunjian Yin &amp; collaborators &mdash; March 2026
+</div>
+
+</body>
+</html>

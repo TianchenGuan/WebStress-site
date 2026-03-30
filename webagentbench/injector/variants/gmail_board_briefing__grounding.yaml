@@ -1,0 +1,14 @@
+variant_id: gmail_board_briefing__grounding_v1
+base_task_id: gmail_board_briefing_prep
+target_primitive: grounding
+description: >
+  Persistent ARIA label scrambling that re-applies after every SPA navigation.
+  Agent must use text content and structural cues (not ARIA labels) to identify
+  elements on every page, not just the first one.
+injections:
+  - layer: client
+    params:
+      action: scramble_aria
+      selector: "[role='listitem'] [aria-label]"
+      behavior:
+        mode: persistent

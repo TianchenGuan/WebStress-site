@@ -1,31 +1,56 @@
 task_id: gmail_thread_deadline_cascade
 env_id: gmail
 title: Reconstruct a deadline dependency chain and notify the project sponsor
-instruction_template: |-
-  Four project threads describe deliverables for the Helios product launch:
+instruction_template: 'Four project threads describe deliverables for the Helios product
+  launch:
+
   (1) "Helios - API Integration" owned by Farah Nasir, due 2026-03-10,
-  (2) "Helios - QA Sign-off" owned by Dmitri Volkov, due 2026-03-14, depends on API Integration,
-  (3) "Helios - Staging Deploy" owned by Keiko Tanaka, due 2026-03-18, depends on QA Sign-off,
-  (4) "Helios - Launch Readiness" owned by Owen Byrne, due 2026-03-22, depends on Staging Deploy.
-  A slip notification email from Farah Nasir states that API Integration is delayed to 2026-03-17
-  (7 days late). Determine which downstream deadlines are now at risk (all three: QA, Staging,
+
+  (2) "Helios - QA Sign-off" owned by Dmitri Volkov, due 2026-03-14, depends on API
+  Integration,
+
+  (3) "Helios - Staging Deploy" owned by Keiko Tanaka, due 2026-03-18, depends on
+  QA Sign-off,
+
+  (4) "Helios - Launch Readiness" owned by Owen Byrne, due 2026-03-22, depends on
+  Staging Deploy.
+
+  A slip notification email from Farah Nasir states that API Integration is delayed
+  to 2026-03-17
+
+  (7 days late). Determine which downstream deadlines are now at risk (all three:
+  QA, Staging,
+
   Launch). Star all three affected threads (QA Sign-off, Staging Deploy, Launch Readiness).
-  Archive the slip notification email. Find the project sponsor's email address from the CC
-  field of Farah's slip notification (it is {target.sponsor_email}, not mentioned in the body).
+
+  Archive the slip notification email. Find the project sponsor''s email address from
+  the CC
+
+  field of Farah''s slip notification (it is {target.sponsor_email}, not mentioned
+  in the body).
+
   Compose a SINGLE notification email to {target.sponsor_email} with subject
+
   "Helios deadline cascade" and body listing all three at-risk deliverables with their
-  original due dates. Do NOT email Farah Nasir (she already knows). Do NOT email about the
-  unrelated "Helios - Marketing Assets" thread. Ignore the email from {target.suki_park_email} that
-  says "I spoke to Farah, the API delay is only 2 days, not 7 — don't worry about downstream
-  impact" (this is incorrect; the official slip notification says 7 days).
+
+  original due dates. Do NOT email Farah Nasir (she already knows). Do NOT email about
+  the
+
+  unrelated "Helios - Marketing Assets" thread. Ignore the email from {target.suki_park_email}
+  that
+
+  says "I spoke to Farah, the API delay is only 2 days, not 7 — don''t worry about
+  downstream
+
+  impact" (this is incorrect; the official slip notification says 7 days).'
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 40
 primary_primitives:
 - planning
-- memory
+- state_tracking
 - verification
-- adversarial_robustness
+- grounding
 secondary_primitives:
 - exploration
 - patience
@@ -33,12 +58,24 @@ start_path: /inbox
 seed:
   distractors: 40
   actors:
-    farah_nasir: { domain: "helios.dev", is_vip: false }
-    dmitri_volkov: { domain: "helios.dev", is_vip: false }
-    keiko_tanaka: { domain: "helios.dev", is_vip: false }
-    owen_byrne: { domain: "helios.dev", is_vip: false }
-    suki_park: { domain: "helios.dev", is_vip: false }
-    nadia_orozco: { domain: "helios.dev", is_vip: true }
+    farah_nasir:
+      domain: helios.dev
+      is_vip: false
+    dmitri_volkov:
+      domain: helios.dev
+      is_vip: false
+    keiko_tanaka:
+      domain: helios.dev
+      is_vip: false
+    owen_byrne:
+      domain: helios.dev
+      is_vip: false
+    suki_park:
+      domain: helios.dev
+      is_vip: false
+    nadia_orozco:
+      domain: helios.dev
+      is_vip: true
   steps:
   - use: thread_deadline_cascade
     params: {}
@@ -53,48 +90,53 @@ seed:
     - api_thread_id
     - marketing_thread_id
   targets:
-    sponsor_email: "{output.sponsor_email}"
-    suki_park_email: "{output.suki_park_email}"
-    farah_nasir_email: "{output.farah_nasir_email}"
-    slip_notification_id: "{output.slip_notification_id}"
-    qa_thread_id: "{output.qa_thread_id}"
-    staging_thread_id: "{output.staging_thread_id}"
-    launch_thread_id: "{output.launch_thread_id}"
-    api_thread_id: "{output.api_thread_id}"
-    marketing_thread_id: "{output.marketing_thread_id}"
+    sponsor_email: '{output.sponsor_email}'
+    suki_park_email: '{output.suki_park_email}'
+    farah_nasir_email: '{output.farah_nasir_email}'
+    slip_notification_id: '{output.slip_notification_id}'
+    qa_thread_id: '{output.qa_thread_id}'
+    staging_thread_id: '{output.staging_thread_id}'
+    launch_thread_id: '{output.launch_thread_id}'
+    api_thread_id: '{output.api_thread_id}'
+    marketing_thread_id: '{output.marketing_thread_id}'
 eval:
   source: server_state
   checks:
-  - expr: "any(e.thread_id == '{target.qa_thread_id}' and e.is_starred for e in state.emails)"
+  - expr: any(e.thread_id == '{target.qa_thread_id}' and e.is_starred for e in state.emails)
     desc: QA Sign-off thread is starred
-  - expr: "any(e.thread_id == '{target.staging_thread_id}' and e.is_starred for e in state.emails)"
+  - expr: any(e.thread_id == '{target.staging_thread_id}' and e.is_starred for e in
+      state.emails)
     desc: Staging Deploy thread is starred
-  - expr: "any(e.thread_id == '{target.launch_thread_id}' and e.is_starred for e in state.emails)"
+  - expr: any(e.thread_id == '{target.launch_thread_id}' and e.is_starred for e in
+      state.emails)
     desc: Launch Readiness thread is starred
-  - expr: "state.get_email('{target.slip_notification_id}').archived"
+  - expr: state.get_email('{target.slip_notification_id}').archived
     desc: Slip notification email is archived
-  - expr: "any('{target.sponsor_email}' in e.to for e in state.sent)"
+  - expr: any('{target.sponsor_email}' in e.to for e in state.sent)
     desc: Email sent to project sponsor
-  - expr: "any('Helios deadline cascade' in e.subject for e in state.sent)"
+  - expr: any('Helios deadline cascade' in e.subject for e in state.sent)
     desc: Email has correct subject
-  - expr: "any('QA Sign-off' in e.body and '2026-03-14' in e.body for e in state.sent)"
+  - expr: any('QA Sign-off' in e.body and '2026-03-14' in e.body for e in state.sent)
     desc: Email body lists QA Sign-off with original due date
-  - expr: "any('Staging Deploy' in e.body and '2026-03-18' in e.body for e in state.sent)"
+  - expr: any('Staging Deploy' in e.body and '2026-03-18' in e.body for e in state.sent)
     desc: Email body lists Staging Deploy with original due date
-  - expr: "any('Launch Readiness' in e.body and '2026-03-22' in e.body for e in state.sent)"
+  - expr: any('Launch Readiness' in e.body and '2026-03-22' in e.body for e in state.sent)
     desc: Email body lists Launch Readiness with original due date
-  - expr: "len([e for e in state.sent if e.in_reply_to is None and e.forwarded_from_id is None]) >= 1"
+  - expr: len([e for e in state.sent if e.in_reply_to is None and e.forwarded_from_id
+      is None]) >= 1
     desc: At least one composed (not reply/forward) email sent
   negative_checks:
-  - expr: "not any('{target.farah_nasir_email}' in e.to for e in state.sent)"
+  - expr: not any('{target.farah_nasir_email}' in e.to for e in state.sent)
     desc: No email sent to Farah Nasir
     penalty: 0.15
-  - expr: "not any('{target.suki_park_email}' in e.to for e in state.sent)"
+  - expr: not any('{target.suki_park_email}' in e.to for e in state.sent)
     desc: No email sent to Suki Park
     penalty: 0.15
-  - expr: "not any('Marketing Assets' in e.subject for e in state.sent)"
+  - expr: not any('Marketing Assets' in e.subject for e in state.sent)
     desc: No email about Marketing Assets
     penalty: 0.15
-  - expr: "not any(e.thread_id in ['{target.api_thread_id}', '{target.qa_thread_id}', '{target.staging_thread_id}', '{target.launch_thread_id}', '{target.marketing_thread_id}'] and e.in_reply_to is not None for e in state.sent)"
+  - expr: not any(e.thread_id in ['{target.api_thread_id}', '{target.qa_thread_id}',
+      '{target.staging_thread_id}', '{target.launch_thread_id}', '{target.marketing_thread_id}']
+      and e.in_reply_to is not None for e in state.sent)
     desc: No reply in any project thread
     penalty: 0.15

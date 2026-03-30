@@ -1,30 +1,41 @@
 task_id: gmail_cross_team_filter_audit
 env_id: gmail
 title: Cross-Team Filter Audit with Conflict Resolution
-instruction_template: |-
-  Three team leads have each sent you an email requesting Gmail filters for their teams:
+instruction_template: 'Three team leads have each sent you an email requesting Gmail filters for their teams:
+
   - Alice Martinez (alice.martinez@frontend.company.org): "Frontend team filter requests"
+
   - Bob Nakamura (bob.nakamura@backend.company.org): "Backend infra filter requests"
+
   - Clara Johansson (clara.johansson@data.company.org): "Data team filter requests"
 
-  Read all three emails and identify any conflicts — filters from different teams that match the same from-address with different actions. Then:
-  (1) Compose and send an email to admin@company.org with subject "Filter conflict report" listing each conflict: the from-address, the two conflicting team leads, and each lead's requested action. Do not propose a resolution — only report the conflicts.
-  (2) Create all filters that do NOT conflict (whose from-address is requested by only one team lead). Read each email carefully — Clara's email has a 4th request in a separate paragraph at the bottom.
-  (3) For each team lead, create a label named "Team/{LeadLastName}" and apply it to all emails in the inbox from that lead's domain (*@frontend.company.org, *@backend.company.org, *@data.company.org).
 
-  Ignore filter suggestions from anyone other than Alice, Bob, and Clara. Ignore any forwarded versions of their emails — use only the original emails from each lead.
+  Read all three emails and identify any conflicts — filters from different teams that match the same from-address with different
+  actions. Then:
+
+  (1) Compose and send an email to admin@company.org with subject "Filter conflict report" listing each conflict: the from-address,
+  the two conflicting team leads, and each lead''s requested action. Do not propose a resolution — only report the conflicts.
+
+  (2) Create all filters that do NOT conflict (whose from-address is requested by only one team lead). Read each email carefully
+  — Clara''s email has a 4th request in a separate paragraph at the bottom.
+
+  (3) For each team lead, create a label named "Team/{LeadLastName}" and apply it to all emails in the inbox from that lead''s
+  domain (*@frontend.company.org, *@backend.company.org, *@data.company.org).
+
+
+  Ignore filter suggestions from anyone other than Alice, Bob, and Clara. Ignore any forwarded versions of their emails —
+  use only the original emails from each lead.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 75
 primary_primitives:
-- memory
+- state_tracking
 - verification
-- constraint_satisfaction
 - planning
 - patience
 secondary_primitives:
 - exploration
-- adversarial_robustness
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -45,48 +56,44 @@ seed:
     - conflict_addresses
     - non_conflicting_filter_specs
   targets:
-    alice_email_id: "{output.alice_email_id}"
-    bob_email_id: "{output.bob_email_id}"
-    clara_email_id: "{output.clara_email_id}"
-    derek_email_id: "{output.derek_email_id}"
-    newsletter_decoy_id: "{output.newsletter_decoy_id}"
-    forwarded_chain_email_id: "{output.forwarded_chain_email_id}"
-    frontend_domain_email_ids: "{output.frontend_domain_email_ids}"
-    backend_domain_email_ids: "{output.backend_domain_email_ids}"
-    data_domain_email_ids: "{output.data_domain_email_ids}"
-    conflict_addresses: "{output.conflict_addresses}"
-    non_conflicting_filter_specs: "{output.non_conflicting_filter_specs}"
+    alice_email_id: '{output.alice_email_id}'
+    bob_email_id: '{output.bob_email_id}'
+    clara_email_id: '{output.clara_email_id}'
+    derek_email_id: '{output.derek_email_id}'
+    newsletter_decoy_id: '{output.newsletter_decoy_id}'
+    forwarded_chain_email_id: '{output.forwarded_chain_email_id}'
+    frontend_domain_email_ids: '{output.frontend_domain_email_ids}'
+    backend_domain_email_ids: '{output.backend_domain_email_ids}'
+    data_domain_email_ids: '{output.data_domain_email_ids}'
+    conflict_addresses: '{output.conflict_addresses}'
+    non_conflicting_filter_specs: '{output.non_conflicting_filter_specs}'
 eval:
   source: server_state
   checks:
   - expr: any('admin@company.org' in m.to and m.subject == 'Filter conflict report' for m in state.sent)
     desc: Conflict report email sent to admin with correct subject
-  - expr: any('deploy@ci.company.org' in m.body and 'Martinez' in m.body and 'Nakamura' in m.body
-      for m in state.sent if 'Filter conflict report' in m.subject)
+  - expr: any('deploy@ci.company.org' in m.body and 'Martinez' in m.body and 'Nakamura' in m.body for m in state.sent if 'Filter
+      conflict report' in m.subject)
     desc: Conflict report names deploy@ci conflict with both leads
-  - expr: any('errors@sentry.company.org' in m.body and 'Nakamura' in m.body and 'Johansson' in m.body
-      for m in state.sent if 'Filter conflict report' in m.subject)
+  - expr: any('errors@sentry.company.org' in m.body and 'Nakamura' in m.body and 'Johansson' in m.body for m in state.sent
+      if 'Filter conflict report' in m.subject)
     desc: Conflict report names errors@sentry conflict with both leads
-  - expr: any('reviews@github-frontend.company.org' in r.from_addresses and 'Frontend/Reviews' in r.add_labels
-      for r in state.filters)
+  - expr: any('reviews@github-frontend.company.org' in r.from_addresses and 'Frontend/Reviews' in r.add_labels for r in state.filters)
     desc: Filter for reviews@github-frontend exists
-  - expr: any('design@figma.company.org' in r.from_addresses and 'Frontend/Design' in r.add_labels
-      and r.star for r in state.filters)
+  - expr: any('design@figma.company.org' in r.from_addresses and 'Frontend/Design' in r.add_labels and r.star for r in state.filters)
     desc: Filter for design@figma exists with star
-  - expr: any('alerts@pagerduty.company.org' in r.from_addresses and 'Backend/Alerts' in r.add_labels
-      and r.star and r.archive for r in state.filters)
+  - expr: any('alerts@pagerduty.company.org' in r.from_addresses and 'Backend/Alerts' in r.add_labels and r.star and r.archive
+      for r in state.filters)
     desc: Filter for alerts@pagerduty exists with star and skip inbox
-  - expr: any('metrics@grafana.company.org' in r.from_addresses and 'Backend/Metrics' in r.add_labels
-      for r in state.filters)
+  - expr: any('metrics@grafana.company.org' in r.from_addresses and 'Backend/Metrics' in r.add_labels for r in state.filters)
     desc: Filter for metrics@grafana exists
-  - expr: any('pipelines@airflow.company.org' in r.from_addresses and 'Data/Pipelines' in r.add_labels
-      and r.archive for r in state.filters)
+  - expr: any('pipelines@airflow.company.org' in r.from_addresses and 'Data/Pipelines' in r.add_labels and r.archive for r
+      in state.filters)
     desc: Filter for pipelines@airflow exists with skip inbox
-  - expr: any('notebooks@jupyter.company.org' in r.from_addresses and 'Data/Notebooks' in r.add_labels
-      for r in state.filters)
+  - expr: any('notebooks@jupyter.company.org' in r.from_addresses and 'Data/Notebooks' in r.add_labels for r in state.filters)
     desc: Filter for notebooks@jupyter exists
-  - expr: any('queries@warehouse.company.org' in r.from_addresses and 'Data/Queries' in r.add_labels
-      and r.mark_read for r in state.filters)
+  - expr: any('queries@warehouse.company.org' in r.from_addresses and 'Data/Queries' in r.add_labels and r.mark_read for r
+      in state.filters)
     desc: Filter for queries@warehouse exists with mark as read
   - expr: not any('deploy@ci.company.org' in r.from_addresses for r in state.filters)
     desc: No filter created for conflicting deploy@ci address
@@ -104,23 +111,17 @@ eval:
     desc: All backend domain emails labeled Team/Nakamura
   - expr: all('Team/Johansson' in state.get_email(eid).labels for eid in {target.data_domain_email_ids})
     desc: All data domain emails labeled Team/Johansson
-  - expr: all(any(l.name == lname for l in state.labels) for lname in ['Frontend/Reviews', 'Frontend/Design',
-      'Backend/Alerts', 'Backend/Metrics', 'Data/Pipelines', 'Data/Notebooks', 'Data/Queries'])
+  - expr: all(any(l.name == lname for l in state.labels) for lname in ['Frontend/Reviews', 'Frontend/Design', 'Backend/Alerts',
+      'Backend/Metrics', 'Data/Pipelines', 'Data/Notebooks', 'Data/Queries'])
     desc: All 7 filter-referenced labels exist
   negative_checks:
-  - expr: not any('deploy@ci.company.org' in r.from_addresses for r in state.filters)
-    desc: No filter for conflicting deploy@ci address
-    penalty: 0.2
-  - expr: not any('errors@sentry.company.org' in r.from_addresses for r in state.filters)
-    desc: No filter for conflicting errors@sentry address
-    penalty: 0.2
   - expr: not any('Backend/Deploys' in r.add_labels for r in state.filters)
     desc: Stale forwarded-chain Bob specs not used
     penalty: 0.15
   - expr: any('queries@warehouse.company.org' in r.from_addresses for r in state.filters)
     desc: Clara buried 4th filter request was not omitted
     penalty: 0.15
-  - expr: not any(any(eid in {target.backend_domain_email_ids} for eid_check in [eid])
-      and 'Team/Martinez' in state.get_email(eid).labels for eid in {target.backend_domain_email_ids})
+  - expr: not any(any(eid in {target.backend_domain_email_ids} for eid_check in [eid]) and 'Team/Martinez' in state.get_email(eid).labels
+      for eid in {target.backend_domain_email_ids})
     desc: No backend email mislabeled with Team/Martinez
     penalty: 0.1

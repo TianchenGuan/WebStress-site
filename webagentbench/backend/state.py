@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import random
+import threading
+import uuid
 from collections.abc import Callable
 from typing import Any
-from uuid import uuid4
 
 from .models.base import AuditEntry, BaseEnvState
 from .models.gmail import GmailState
@@ -21,6 +22,7 @@ class SessionManager:
 
     def __init__(self):
         self._sessions: dict[str, BaseEnvState] = {}
+        self._lock = threading.Lock()
 
     def create_session(self, env_id: str, task_id: str, seed: int | None = None) -> tuple[str, dict[str, Any], int]:
         runner = SEEDER_REGISTRY.get(env_id)
@@ -35,7 +37,8 @@ class SessionManager:
         seeded_data, resolved_targets = runner.run(task, actual_seed, fake, rng)
         state = state_cls.model_validate(seeded_data)
         state._resolved_targets = dict(resolved_targets)
-        session_id = f"{env_id}_{task_id}_{uuid4().hex[:10]}"
+        state._seed = actual_seed
+        session_id = f"{env_id}_{task_id}_{uuid.uuid4().hex[:10]}"
         self._sessions[session_id] = state
         return session_id, resolved_targets, actual_seed
 
@@ -70,18 +73,19 @@ class SessionManager:
         payload: dict[str, Any],
         mutator: Callable[[BaseEnvState], Any],
     ) -> Any:
-        state = self.get(session_id)
-        result = mutator(state)
-        state.touch()
-        state.audit_log.append(
-            AuditEntry(
-                action=action,
-                payload=payload,
-                summary=self._summarize_result(result),
-                snapshot=self._snapshot(state),
+        with self._lock:
+            state = self.get(session_id)
+            result = mutator(state)
+            state.touch()
+            state.audit_log.append(
+                AuditEntry(
+                    action=action,
+                    payload=payload,
+                    summary=self._summarize_result(result),
+                    snapshot=self._snapshot(state),
+                )
             )
-        )
-        return result
+            return result
 
     def session_summary(self, session_id: str) -> dict[str, Any]:
         state = self.get(session_id)
@@ -89,10 +93,13 @@ class SessionManager:
             "session_id": session_id,
             "env_id": state.env_id,
             "task_id": state.task_id,
+            "seed": state.seed,
             "created_at": state.created_at,
             "updated_at": state.updated_at,
             "audit_entries": len(state.audit_log),
         }
+        if state.degradation:
+            summary["degradation"] = state.degradation
         if isinstance(state, GmailState):
             summary["state"] = state.session_summary()
         return summary
@@ -119,3 +126,28 @@ class SessionManager:
                 "contacts": len(state.contacts),
             }
         return snapshot
+
+
+def materialize_task_state(
+    env_id: str, task_id: str, seed: int | None = None
+) -> tuple:
+    """Create a seeded task state without persisting it in a session.
+
+    Returns ``(task, state, resolved_targets, actual_seed)``.
+    """
+    from webagentbench.tasks._registry import get_task
+
+    runner = SEEDER_REGISTRY.get(env_id)
+    state_cls = STATE_TYPES.get(env_id)
+    if runner is None or state_cls is None:
+        raise KeyError(f"Unknown environment: {env_id}")
+
+    task = get_task(task_id)
+    actual_seed = seed if seed is not None else derive_seed(f"{env_id}:{task_id}")
+    rng = random.Random(actual_seed)
+    fake = FakeDataGenerator(actual_seed)
+    seeded_data, resolved_targets = runner.run(task, actual_seed, fake, rng)
+    state = state_cls.model_validate(seeded_data)
+    state._resolved_targets = dict(resolved_targets)
+    state._seed = actual_seed
+    return task, state, resolved_targets, actual_seed

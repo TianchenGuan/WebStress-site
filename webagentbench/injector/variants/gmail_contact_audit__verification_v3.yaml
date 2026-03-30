@@ -1,0 +1,17 @@
+variant_id: gmail_contact_audit__verification_v3
+base_task_id: gmail_contact_audit
+target_primitive: verification
+description: Intermittent stale contact data — 30% of reads return outdated list.
+  Agent must re-read to get accurate state after mutations.
+injections:
+- layer: network
+  params:
+    action: stale_data
+    url_pattern: '**/api/env/gmail/contacts'
+    stale_body:
+      contacts: []
+      total: 0
+    behavior:
+      mode: intermittent
+      probability: 0.3
+      seed: 42

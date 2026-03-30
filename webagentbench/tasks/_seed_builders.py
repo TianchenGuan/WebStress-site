@@ -3118,3 +3118,4 @@ import webagentbench.tasks._seed_builders_batch07 as _batch07  # noqa: E402, F40
 import webagentbench.tasks._seed_builders_batch08 as _batch08  # noqa: E402, F401
 import webagentbench.tasks._seed_builders_batch09 as _batch09  # noqa: E402, F401
 import webagentbench.tasks._seed_builders_batch10 as _batch10  # noqa: E402, F401
+import webagentbench.tasks._seed_builders_easy as _easy  # noqa: E402, F401

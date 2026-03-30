@@ -1,0 +1,16 @@
+variant_id: gmail_compose_new__backtracking_v1
+base_task_id: gmail_compose_new
+target_primitive: backtracking
+description: >
+  First 2 send attempts return 503. Agent must recognize the error,
+  backtrack to the compose form (which may have been cleared), re-enter
+  content if needed, and retry sending.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: "**/api/env/gmail/send"
+    error_status: 503
+    error_count: 2
+    behavior:
+      mode: once

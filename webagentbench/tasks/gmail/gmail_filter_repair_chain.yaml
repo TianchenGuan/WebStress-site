@@ -1,18 +1,24 @@
 task_id: gmail_filter_repair_chain
 env_id: gmail
 title: Diagnose and Repair a Broken Email Filter
-instruction_template: |-
-  Read the email from Lena Park (lena.park@company.com) with subject "Set up Acme Widgets invoice filter." Follow the instructions to create a filter that catches invoices from Acme Widgets and applies the label "Vendor/AcmeWidgets" while skipping the inbox. The instruction says to use from:invoices@acmewidgets.com. After creating this filter, check your inbox — you should notice that a test email from billing@acmewidgets.com with subject "Invoice #AW-2290" is still sitting in the inbox without the label. The filter didn't catch it because the from-address was too narrow. Delete the broken filter and recreate it using from:*@acmewidgets.com so it catches all mail from the Acme Widgets domain. Make sure the new filter does NOT match emails from acmewidgets-pro.com — that is a different vendor.
+instruction_template: 'Read the email from Lena Park (lena.park@company.com) with
+  subject "Set up Acme Widgets invoice filter." Follow the instructions to create
+  a filter that catches invoices from Acme Widgets and applies the label "Vendor/AcmeWidgets"
+  while skipping the inbox. The instruction says to use from:invoices@acmewidgets.com.
+  After creating this filter, check your inbox — you should notice that a test email
+  from billing@acmewidgets.com with subject "Invoice #AW-2290" is still sitting in
+  the inbox without the label. The filter didn''t catch it because the from-address
+  was too narrow. Delete the broken filter and recreate it using from:*@acmewidgets.com
+  so it catches all mail from the Acme Widgets domain. Make sure the new filter does
+  NOT match emails from acmewidgets-pro.com — that is a different vendor.'
 difficulty: medium
 time_limit_seconds: 360
 expected_steps: 28
 primary_primitives:
-- error_recovery
+- backtracking
 - verification
-- attention
+- grounding
 - planning
-secondary_primitives:
-- adversarial_robustness
 start_path: /inbox
 seed:
   distractors: 40
@@ -28,17 +34,17 @@ seed:
     - old_suggestion_email_id
     - unrelated_filter_ids
   targets:
-    instruction_email_id: "{output.instruction_email_id}"
-    test_email_id: "{output.test_email_id}"
-    decoy_domain_email_id: "{output.decoy_domain_email_id}"
-    adversarial_email_id: "{output.adversarial_email_id}"
-    old_suggestion_email_id: "{output.old_suggestion_email_id}"
-    unrelated_filter_ids: "{output.unrelated_filter_ids}"
+    instruction_email_id: '{output.instruction_email_id}'
+    test_email_id: '{output.test_email_id}'
+    decoy_domain_email_id: '{output.decoy_domain_email_id}'
+    adversarial_email_id: '{output.adversarial_email_id}'
+    old_suggestion_email_id: '{output.old_suggestion_email_id}'
+    unrelated_filter_ids: '{output.unrelated_filter_ids}'
 eval:
   source: server_state
   checks:
-  - expr: any(r.from_addresses == ['*@acmewidgets.com'] and 'Vendor/AcmeWidgets' in r.add_labels
-      and r.archive for r in state.filters)
+  - expr: any(r.from_addresses == ['*@acmewidgets.com'] and 'Vendor/AcmeWidgets' in
+      r.add_labels and r.archive for r in state.filters)
     desc: Wildcard domain filter exists with correct label and skip inbox
   - expr: not any('invoices@acmewidgets.com' in r.from_addresses for r in state.filters)
     desc: Broken narrow filter was deleted
@@ -47,8 +53,9 @@ eval:
   - expr: all(any(r.id == fid for r in state.filters) for fid in {target.unrelated_filter_ids})
     desc: All 3 unrelated pre-existing filters remain
   negative_checks:
-  - expr: not any('*@acmewidgets-pro.com' in r.from_addresses or 'acmewidgets-pro' in ''.join(r.from_addresses)
-      for r in state.filters if 'Vendor/AcmeWidgets' in r.add_labels)
+  - expr: not any('*@acmewidgets-pro.com' in r.from_addresses or 'acmewidgets-pro'
+      in ''.join(r.from_addresses) for r in state.filters if 'Vendor/AcmeWidgets'
+      in r.add_labels)
     desc: No filter catches acmewidgets-pro.com domain
     penalty: 0.2
   - expr: not any(r.subject_keywords and any('invoice' in kw.lower() for kw in r.subject_keywords)
@@ -58,6 +65,3 @@ eval:
   - expr: state.get_email('{target.test_email_id}') is not None and not state.get_email('{target.test_email_id}').deleted
     desc: Test email was not deleted
     penalty: 0.15
-  - expr: not any('invoices@acmewidgets.com' in r.from_addresses for r in state.filters)
-    desc: Narrow filter not left alongside wildcard
-    penalty: 0.2

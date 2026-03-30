@@ -1,20 +1,27 @@
 task_id: gmail_contract_negotiation_tracker
 env_id: gmail
 title: Contract Negotiation Tracker
-instruction_template: |-
-  Over the past 2 weeks, Legal, Finance, and Product teams negotiated contract terms with vendor Lattice Works across 6 email threads. Read all 6 threads to determine the status of each contract term. A term is "agreed" only if the last message referencing it from each involved party accepts it. A term is "open" if any involved party's last message rejects or counters it. The 9 terms are: (1) payment schedule, (2) liability cap, (3) IP ownership, (4) termination clause, (5) SLA uptime guarantee, (6) data residency, (7) audit rights, (8) renewal pricing, (9) support response time. Identify the 3 terms that remain open. Compose a new email to nora.zhang@ops.test with subject "Contract Status — Lattice Works" containing a section "Open items:" listing exactly the 3 open terms and for each term, which department last objected and their stated concern. For each open item, quote the objecting department's exact words from their most recent message. Create a label "Lattice Works Contract" and apply it to every email in the 6 negotiation threads. Do not apply the label to any other email.
+instruction_template: 'Over the past 2 weeks, Legal, Finance, and Product teams negotiated contract terms with vendor Lattice
+  Works across 6 email threads. Read all 6 threads to determine the status of each contract term. A term is "agreed" only
+  if the last message referencing it from each involved party accepts it. A term is "open" if any involved party''s last message
+  rejects or counters it. The 9 terms are: (1) payment schedule, (2) liability cap, (3) IP ownership, (4) termination clause,
+  (5) SLA uptime guarantee, (6) data residency, (7) audit rights, (8) renewal pricing, (9) support response time. Identify
+  the 3 terms that remain open. Compose a new email to nora.zhang@ops.test with subject "Contract Status — Lattice Works"
+  containing a section "Open items:" listing exactly the 3 open terms and for each term, which department last objected and
+  their stated concern. For each open item, quote the objecting department''s exact words from their most recent message.
+  Create a label "Lattice Works Contract" and apply it to every email in the 6 negotiation threads. Do not apply the label
+  to any other email.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 72
 primary_primitives:
-- memory
+- state_tracking
 - patience
 - verification
-- adversarial_robustness
+- grounding
 - exploration
 secondary_primitives:
 - planning
-- constraint_satisfaction
 start_path: /inbox
 seed:
   distractors: 40
@@ -30,12 +37,12 @@ seed:
     - renewal_pricing_concern
     - support_response_concern
   targets:
-    all_negotiation_email_ids: "{output.all_negotiation_email_ids}"
-    intern_summary_email_id: "{output.intern_summary_email_id}"
-    vendor_pressure_email_id: "{output.vendor_pressure_email_id}"
-    liability_cap_concern: "{output.liability_cap_concern}"
-    renewal_pricing_concern: "{output.renewal_pricing_concern}"
-    support_response_concern: "{output.support_response_concern}"
+    all_negotiation_email_ids: '{output.all_negotiation_email_ids}'
+    intern_summary_email_id: '{output.intern_summary_email_id}'
+    vendor_pressure_email_id: '{output.vendor_pressure_email_id}'
+    liability_cap_concern: '{output.liability_cap_concern}'
+    renewal_pricing_concern: '{output.renewal_pricing_concern}'
+    support_response_concern: '{output.support_response_concern}'
 eval:
   source: server_state
   checks:
@@ -62,30 +69,30 @@ eval:
   - expr: all('Lattice Works Contract' in state.get_email(eid).labels for eid in {target.all_negotiation_email_ids})
     desc: Label applied to all negotiation emails
   negative_checks:
-  - expr: "'Lattice Works Contract' not in state.get_email('{target.intern_summary_email_id}').labels"
+  - expr: '''Lattice Works Contract'' not in state.get_email(''{target.intern_summary_email_id}'').labels'
     desc: Label not applied to intern summary
-    penalty: 0.15
-  - expr: "'Lattice Works Contract' not in state.get_email('{target.vendor_pressure_email_id}').labels"
+    penalty: 0.13
+  - expr: '''Lattice Works Contract'' not in state.get_email(''{target.vendor_pressure_email_id}'').labels'
     desc: Label not applied to vendor pressure email
-    penalty: 0.15
+    penalty: 0.13
   - expr: not any('payment schedule' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: Payment schedule not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any('IP ownership' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: IP ownership not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any('termination clause' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: Termination clause not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any('SLA uptime' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: SLA uptime not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any('data residency' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: Data residency not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any('audit rights' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: Audit rights not listed as open
-    penalty: 0.1
+    penalty: 0.09
   - expr: not any(m.to and any('@latticeworks.test' in addr for addr in m.to) for m in state.sent)
     desc: No email sent to vendor
-    penalty: 0.2
+    penalty: 0.15

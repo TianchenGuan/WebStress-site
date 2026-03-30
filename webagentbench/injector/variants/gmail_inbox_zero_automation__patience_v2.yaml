@@ -1,0 +1,24 @@
+variant_id: gmail_inbox_zero_automation__patience_v2
+base_task_id: gmail_inbox_zero_automation
+target_primitive: patience
+description: 20% of archive/label API calls return 503 errors intermittently. Agent
+  must retry patiently throughout, not just the first time.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/gmail/emails/*/archive'
+    error_status: 503
+    behavior:
+      mode: intermittent
+      probability: 0.2
+      seed: 42
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/gmail/emails/*/label'
+    error_status: 503
+    behavior:
+      mode: intermittent
+      probability: 0.2
+      seed: 43

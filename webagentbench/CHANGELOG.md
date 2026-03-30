@@ -4,6 +4,43 @@ Iterative optimization of 15 self-contained web pages for evaluating LLM agent c
 
 Benchmark overview and versioned result tables are maintained in `README.md`. This file is the change log for version-by-version benchmark modifications.
 
+## Unreleased — Stress Benchmark Integrity Fixes (2026-03-30)
+
+### What changed
+
+- fixed BrowserGym stress runs to send the full degradation configuration during session creation instead of stripping variants down to seed/server injections only
+- enabled agent-mode Gmail sessions to keep client and network degradations active while hiding the human evaluation toolbar from the live DOM
+- enforced `base_task_id` validation when a degradation variant is attached to a session request, so task/variant mismatches now fail fast with `400`
+- narrowed the launcher variant picker to variants for the currently selected task instead of surfacing cross-task options
+- stored `seed` and degradation metadata on session state, exposed them in session summaries, and persisted them into saved gold trajectories
+- changed session identifiers from deterministic task-seed hashes to unique per-session IDs so repeated runs do not overwrite live benchmark state
+- wired `agent_eval --seed` through to `env.reset(seed=...)` and treated terminated zero-score runs as completed episodes instead of incomplete runs
+- fixed `scramble_timestamps` to mutate `datetime` values with `timedelta` rather than invalid integer addition
+- capped aggregate negative-check penalties at `0.95` in the evaluator to match the documented scoring contract
+- added targeted regression coverage for:
+  - task/variant mismatch rejection
+  - seed + degradation metadata persistence
+  - timestamp scrambling type safety
+  - negative penalty capping
+  - seeded BrowserGym episode completion handling
+
+### Validation
+
+- syntax checks passed:
+  - `python -m compileall -q .`
+  - `node --check static/benchmark-toolbar.js`
+  - `git diff --check`
+- targeted regression suite passed:
+  - `UV_CACHE_DIR=/tmp/uv-cache uv run python -m pytest -q webagentbench/tests/test_benchmark_integrity.py`
+- full local suite passed from the project root:
+  - `UV_CACHE_DIR=/tmp/uv-cache uv run python -m pytest -q webagentbench/tests`
+  - result: `99 passed`
+
+### Critical Review Notes
+
+- no new blocking benchmark-integrity defects were found in this pass after the fixes and full test sweep
+- one operational caveat showed up during validation: the pytest suite should be run from the workspace root (`LLMOS/`), not from inside `webagentbench/`, because one subprocess-based import test expects `webagentbench` to be importable as a package from that root
+
 ## v10 — Validation Cleanup, Shared-Runtime Adaptation, and Curated Trajectories
 
 ### What changed

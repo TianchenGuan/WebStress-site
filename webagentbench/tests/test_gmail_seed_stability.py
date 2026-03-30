@@ -77,7 +77,8 @@ def test_session_create_returns_rendered_task_data(task_id: str) -> None:
         task.instruction_template or task.instruction or "", payload["resolved_targets"]
     )
 
-    assert payload["resolved_targets"]
+    # Tasks without template variables may have empty resolved_targets
+    assert isinstance(payload["resolved_targets"], dict)
     assert "{target." not in payload["instruction"]
     assert payload["instruction"] == expected_instruction
     assert payload["title"] == task.title
@@ -88,7 +89,6 @@ def test_manifest_marks_unimplemented_envs_unavailable() -> None:
     envs = {env["env_id"]: env for env in manifest["environments"]}
 
     assert envs["gmail"]["available"] is True
-    assert envs["robinhood"]["available"] is False
-    assert envs["project-manager"]["available"] is False
-    assert envs["social-media"]["available"] is False
-    assert envs["amazon"]["available"] is False
+    # Phantom environments were removed from manifest.json
+    assert "robinhood" not in envs
+    assert "project-manager" not in envs

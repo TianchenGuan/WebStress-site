@@ -1,16 +1,19 @@
 task_id: gmail_interview_scheduling
 env_id: gmail
 title: Interview Scheduling
-instruction_template: |-
-  HR coordinator {target.lisa_name} sent an email with subject "Interview Slots — Backend Engineer" listing 5 available times. Three interviewers each sent emails stating which slots they cannot attend: {target.marco_singh_name} (subject "My availability — Backend interviews"), {target.priya_name} (in a thread with subject "Re: Panel schedule update"), and {target.avery_name} (subject "Scheduling conflicts this week"). Find the one slot where all three interviewers are available. Reply to {target.lisa_name}'s email with the selected slot written as "Confirmed: Wednesday, 2:00 PM" and CC {target.marco_singh_email}, {target.priya_email}, and {target.avery_email}.
+instruction_template: 'HR coordinator {target.lisa_name} sent an email with subject "Interview Slots — Backend Engineer" listing
+  5 available times. Three interviewers each sent emails stating which slots they cannot attend: {target.marco_singh_name}
+  (subject "My availability — Backend interviews"), {target.priya_name} (in a thread with subject "Re: Panel schedule update"),
+  and {target.avery_name} (subject "Scheduling conflicts this week"). Find the one slot where all three interviewers are available.
+  Reply to {target.lisa_name}''s email with the selected slot written as "Confirmed: Wednesday, 2:00 PM" and CC {target.marco_singh_email},
+  {target.priya_email}, and {target.avery_email}.'
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 35
 primary_primitives:
-- constraint_satisfaction
-- memory
-- attention
 - planning
+- state_tracking
+- grounding
 secondary_primitives:
 - verification
 start_path: /inbox
@@ -34,24 +37,24 @@ seed:
     - hr_slots_email_id
     - hr_frontend_decoy_email_id
   targets:
-    lisa_name: "{output.lisa_name}"
-    lisa_email: "{output.lisa_email}"
-    marco_singh_name: "{output.marco_singh_name}"
-    marco_singh_email: "{output.marco_singh_email}"
-    priya_name: "{output.priya_name}"
-    priya_email: "{output.priya_email}"
-    avery_name: "{output.avery_name}"
-    avery_email: "{output.avery_email}"
-    marco_santos_name: "{output.marco_santos_name}"
-    marco_santos_email: "{output.marco_santos_email}"
-    hr_slots_email_id: "{output.hr_slots_email_id}"
-    hr_frontend_decoy_email_id: "{output.hr_frontend_decoy_email_id}"
+    lisa_name: '{output.lisa_name}'
+    lisa_email: '{output.lisa_email}'
+    marco_singh_name: '{output.marco_singh_name}'
+    marco_singh_email: '{output.marco_singh_email}'
+    priya_name: '{output.priya_name}'
+    priya_email: '{output.priya_email}'
+    avery_name: '{output.avery_name}'
+    avery_email: '{output.avery_email}'
+    marco_santos_name: '{output.marco_santos_name}'
+    marco_santos_email: '{output.marco_santos_email}'
+    hr_slots_email_id: '{output.hr_slots_email_id}'
+    hr_frontend_decoy_email_id: '{output.hr_frontend_decoy_email_id}'
 eval:
   source: server_state
   checks:
   - expr: len(state.sent) >= 1
     desc: At least one email sent
-  - expr: "any('Confirmed: Wednesday, 2:00 PM' in m.body for m in state.sent)"
+  - expr: 'any(''Confirmed: Wednesday, 2:00 PM'' in m.body for m in state.sent)'
     desc: Reply contains confirmed slot
   - expr: any(m.in_reply_to == '{target.hr_slots_email_id}' for m in state.sent)
     desc: Reply is in Lisa's thread
@@ -66,19 +69,19 @@ eval:
   negative_checks:
   - expr: not any(m.in_reply_to == '{target.hr_frontend_decoy_email_id}' for m in state.sent)
     desc: Did not reply to Frontend Designer thread
-    penalty: 0.25
+    penalty: 0.21
   - expr: not any('Monday' in m.body and 'Confirmed' in m.body for m in state.sent)
     desc: Did not confirm Monday
-    penalty: 0.15
+    penalty: 0.14
   - expr: not any('Tuesday' in m.body and 'Confirmed' in m.body for m in state.sent)
     desc: Did not confirm Tuesday
-    penalty: 0.15
+    penalty: 0.14
   - expr: not any('Thursday' in m.body and 'Confirmed' in m.body for m in state.sent)
     desc: Did not confirm Thursday
-    penalty: 0.15
+    penalty: 0.14
   - expr: not any('Friday' in m.body and 'Confirmed' in m.body for m in state.sent)
     desc: Did not confirm Friday
-    penalty: 0.15
+    penalty: 0.14
   - expr: not any('{target.marco_santos_email}' in m.cc for m in state.sent)
     desc: Did not CC Marco Santos
-    penalty: 0.2
+    penalty: 0.18

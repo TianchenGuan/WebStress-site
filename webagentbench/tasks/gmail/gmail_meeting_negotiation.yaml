@@ -1,16 +1,19 @@
 task_id: gmail_meeting_negotiation
 env_id: gmail
 title: Meeting Negotiation
-instruction_template: |-
-  Five people have sent you their availability for the {target.meeting_name} meeting. Find all five emails and note each person's available times. Then check the venue confirmation email (it may not be in your Primary tab) to see which room is available and when. Compose a new email to {target.organizer_email} confirming the one time slot that works for all five attendees AND the venue. CC all five attendees. Your email body must mention the confirmed time and the room name.
+instruction_template: Five people have sent you their availability for the {target.meeting_name}
+  meeting. Find all five emails and note each person's available times. Then check
+  the venue confirmation email (it may not be in your Primary tab) to see which room
+  is available and when. Compose a new email to {target.organizer_email} confirming
+  the one time slot that works for all five attendees AND the venue. CC all five attendees.
+  Your email body must mention the confirmed time and the room name.
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 50
 primary_primitives:
-- memory
-- attention
+- state_tracking
+- grounding
 - planning
-- constraint_satisfaction
 start_path: /inbox
 seed:
   distractors: 40
@@ -25,11 +28,11 @@ seed:
     - correct_time
     - room_name
   targets:
-    meeting_name: "{output.meeting_name}"
-    organizer_email: "{output.organizer_email}"
-    attendee_emails: "{output.attendee_emails}"
-    correct_time: "{output.correct_time}"
-    room_name: "{output.room_name}"
+    meeting_name: '{output.meeting_name}'
+    organizer_email: '{output.organizer_email}'
+    attendee_emails: '{output.attendee_emails}'
+    correct_time: '{output.correct_time}'
+    room_name: '{output.room_name}'
 eval:
   source: server_state
   checks:

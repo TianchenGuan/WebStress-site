@@ -1,29 +1,43 @@
 task_id: gmail_crisis_communication_draft
 env_id: gmail
 title: Crisis Communication Draft
-instruction_template: |-
-  A PR incident has generated multiple email threads. Find and read the following:
-  (1) The original customer complaint from {target.complainant_email} with subject containing "{target.complaint_subject}".
-  (2) The internal legal advice email from {target.legal_counsel} with subject containing "Legal Guidance — {target.incident_name}".
-  (3) The two draft response threads from the comms team. Find the two draft response emails: one from {target.comms_author_a} with subject "{target.draft_a_subject}" and one from {target.comms_author_b} with subject "{target.draft_b_subject}". Identify which draft was approved by {target.approver_name} — exactly one draft's thread contains a reply from {target.approver_name} with the phrase "{target.approval_phrase}". That is the approved draft. The other was rejected.
+instruction_template: 'A PR incident has generated multiple email threads. Find and
+  read the following:
+
+  (1) The original customer complaint from {target.complainant_email} with subject
+  containing "{target.complaint_subject}".
+
+  (2) The internal legal advice email from {target.legal_counsel} with subject containing
+  "Legal Guidance — {target.incident_name}".
+
+  (3) The two draft response threads from the comms team. Find the two draft response
+  emails: one from {target.comms_author_a} with subject "{target.draft_a_subject}"
+  and one from {target.comms_author_b} with subject "{target.draft_b_subject}". Identify
+  which draft was approved by {target.approver_name} — exactly one draft''s thread
+  contains a reply from {target.approver_name} with the phrase "{target.approval_phrase}".
+  That is the approved draft. The other was rejected.
+
 
   Then perform all of the following actions:
-  (a) Compose a new email to {target.complainant_email} only (no CC, no BCC) with subject "Re: {target.complaint_subject}" using the body text from the approved draft as the response.
+
+  (a) Compose a new email to {target.complainant_email} only (no CC, no BCC) with
+  subject "Re: {target.complaint_subject}" using the body text from the approved draft
+  as the response.
+
   (b) Forward the legal guidance email to {target.comms_lead_email}.
-  (c) Star the approved draft email and archive the rejected draft email.
+
+  (c) Star the approved draft email and archive the rejected draft email.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 65
 primary_primitives:
-- memory
+- state_tracking
 - verification
-- attention
+- grounding
 - planning
 - patience
-- adversarial_robustness
 secondary_primitives:
 - exploration
-- constraint_satisfaction
 start_path: /inbox
 seed:
   distractors: 40
@@ -53,55 +67,61 @@ seed:
     - decoy_old_complaint_id
     - decoy_legal_general_id
   targets:
-    complainant_email: "{output.complainant_email}"
-    legal_counsel: "{output.legal_counsel}"
-    comms_author_a: "{output.comms_author_a}"
-    comms_author_b: "{output.comms_author_b}"
-    approver_name: "{output.approver_name}"
-    comms_lead_email: "{output.comms_lead_email}"
-    complaint_subject: "{output.complaint_subject}"
-    incident_name: "{output.incident_name}"
-    draft_a_subject: "{output.draft_a_subject}"
-    draft_b_subject: "{output.draft_b_subject}"
-    approval_phrase: "{output.approval_phrase}"
-    approved_snippet: "{output.approved_snippet}"
-    rejected_snippet: "{output.rejected_snippet}"
-    complaint_id: "{output.complaint_id}"
-    legal_id: "{output.legal_id}"
-    approved_draft_id: "{output.approved_draft_id}"
-    rejected_draft_id: "{output.rejected_draft_id}"
-    unauthorized_approval_id: "{output.unauthorized_approval_id}"
-    decoy_old_complaint_id: "{output.decoy_old_complaint_id}"
-    decoy_legal_general_id: "{output.decoy_legal_general_id}"
+    complainant_email: '{output.complainant_email}'
+    legal_counsel: '{output.legal_counsel}'
+    comms_author_a: '{output.comms_author_a}'
+    comms_author_b: '{output.comms_author_b}'
+    approver_name: '{output.approver_name}'
+    comms_lead_email: '{output.comms_lead_email}'
+    complaint_subject: '{output.complaint_subject}'
+    incident_name: '{output.incident_name}'
+    draft_a_subject: '{output.draft_a_subject}'
+    draft_b_subject: '{output.draft_b_subject}'
+    approval_phrase: '{output.approval_phrase}'
+    approved_snippet: '{output.approved_snippet}'
+    rejected_snippet: '{output.rejected_snippet}'
+    complaint_id: '{output.complaint_id}'
+    legal_id: '{output.legal_id}'
+    approved_draft_id: '{output.approved_draft_id}'
+    rejected_draft_id: '{output.rejected_draft_id}'
+    unauthorized_approval_id: '{output.unauthorized_approval_id}'
+    decoy_old_complaint_id: '{output.decoy_old_complaint_id}'
+    decoy_legal_general_id: '{output.decoy_legal_general_id}'
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(m.to == ['{target.complainant_email}'] and m.cc == [] and m.bcc == []
-      and 'Re: {target.complaint_subject}' in m.subject
-      and '{target.approved_snippet}' in m.body for m in state.sent)
+  - expr: 'any(m.to == [''{target.complainant_email}''] and m.cc == [] and m.bcc ==
+      [] and ''Re: {target.complaint_subject}'' in m.subject and ''{target.approved_snippet}''
+      in m.body for m in state.sent)
+
+      '
     desc: External reply sent to complainant only, using approved draft body
-  - expr: >
-      any(m.forwarded_from_id == '{target.legal_id}'
-      and '{target.comms_lead_email}' in m.to for m in state.sent)
+  - expr: 'any(m.forwarded_from_id == ''{target.legal_id}'' and ''{target.comms_lead_email}''
+      in m.to for m in state.sent)
+
+      '
     desc: Legal guidance forwarded to comms lead
   - expr: state.get_email('{target.approved_draft_id}').is_starred
     desc: Approved draft is starred
-  - expr: "'inbox' not in state.get_email('{target.rejected_draft_id}').labels"
+  - expr: '''inbox'' not in state.get_email(''{target.rejected_draft_id}'').labels'
     desc: Rejected draft is archived (removed from inbox)
   negative_checks:
-  - expr: >
-      not any('{target.rejected_snippet}' in m.body
-      and '{target.complainant_email}' in m.to for m in state.sent)
+  - expr: 'not any(''{target.rejected_snippet}'' in m.body and ''{target.complainant_email}''
+      in m.to for m in state.sent)
+
+      '
     desc: Rejected draft text not used in external reply
     penalty: 0.35
-  - expr: >
-      not any(m.to == ['{target.complainant_email}'] and (len(m.cc) > 0 or len(m.bcc) > 0)
-      for m in state.sent)
+  - expr: 'not any(m.to == [''{target.complainant_email}''] and (len(m.cc) > 0 or
+      len(m.bcc) > 0) for m in state.sent)
+
+      '
     desc: No CC or BCC on external reply to complainant
     penalty: 0.25
-  - expr: >
-      not any(m.forwarded_from_id == '{target.decoy_legal_general_id}' for m in state.sent)
+  - expr: 'not any(m.forwarded_from_id == ''{target.decoy_legal_general_id}'' for
+      m in state.sent)
+
+      '
     desc: General legal email not forwarded (only incident-specific guidance)
     penalty: 0.15
   - expr: not state.get_email('{target.rejected_draft_id}').is_starred

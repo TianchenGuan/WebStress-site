@@ -121,6 +121,11 @@ app = FastAPI(
 )
 app.state.session_manager = SessionManager()
 
+# Server-side network degradation middleware — applies delays, errors, silent failures
+# for both Playwright agents and human browsers
+from .injector.middleware import DegradationMiddleware
+app.add_middleware(DegradationMiddleware)
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 mount_environment_routes(app)
 
@@ -189,6 +194,146 @@ async def index():
         <li><code>GET /manifest</code> — Full benchmark manifest</li>
         <li><code>/api/env/gmail/*</code> — Advanced Gmail session, CRUD, and evaluation routes</li>
     </ul>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+@app.get("/launch", response_class=HTMLResponse)
+async def launch_page():
+    """Human play launcher with task + degradation selection."""
+    # Collect tasks
+    task_options = ""
+    for env in MANIFEST.get("environments", []):
+        for task in env.get("tasks", []):
+            tid = task["task_id"]
+            title = task.get("title", tid)
+            diff = task.get("difficulty", "")
+            prims = ", ".join(task.get("primary_primitives", []))
+            task_options += f'<option value="{tid}">[{diff}] {title} — {prims}</option>\n'
+
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebAgentBench — Launch Task</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 60px auto; padding: 0 20px; color: #333; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 8px; }
+        label { display: block; font-weight: 600; margin-top: 16px; margin-bottom: 4px; }
+        select, input { width: 100%%; padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .hint { color: #888; font-size: 12px; margin-top: 2px; }
+        button { margin-top: 24px; padding: 12px 32px; background: #0f3460; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .mode-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-left: 8px; }
+        .mode-standard { background: #e8f5e9; color: #2e7d32; }
+        .mode-stress { background: #fce4ec; color: #c62828; }
+        #variant-info { margin-top: 8px; padding: 8px 12px; background: #fff3e0; border-radius: 6px; font-size: 13px; display: none; }
+        #status { margin-top: 16px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>WebAgentBench <span class="mode-badge mode-standard" id="mode-badge">Standard</span></h1>
+    <p>Launch a task for human play. Complete the task in the Gmail SPA, then click <b>Evaluate</b> in the toolbar.</p>
+
+    <label for="task">Task</label>
+    <select id="task">""" + task_options + """</select>
+
+    <label for="variant">Degradation Variant (optional)</label>
+    <select id="variant">
+        <option value="">None (standard / healthy environment)</option>
+    </select>
+    <div class="hint">Select a variant to test under stress conditions for a specific cognitive primitive.</div>
+    <div id="variant-info"></div>
+
+    <label for="seed">Seed (optional)</label>
+    <input id="seed" type="number" placeholder="Leave empty for default" />
+    <div class="hint">Same seed = same data every time. Leave empty for the deterministic default.</div>
+
+    <button onclick="launch()">Launch Task</button>
+    <div id="status"></div>
+
+    <script>
+    // Load variants
+    fetch('/api/env/gmail/variants')
+        .then(r => r.json())
+        .then(variants => {
+            const sel = document.getElementById('variant');
+            const taskSel = document.getElementById('task');
+
+            function updateVariants() {
+                const tid = taskSel.value;
+                // Clear options except first
+                while (sel.options.length > 1) sel.remove(1);
+                // Add matching variants
+                const matching = variants.filter(v => v.base_task_id === tid);
+                for (const v of matching) {
+                    const opt = document.createElement('option');
+                    opt.value = v.filename;
+                    opt.textContent = '[' + v.target_primitive + '] ' + v.description.slice(0, 80);
+                    opt.dataset.desc = v.description;
+                    opt.dataset.primitive = v.target_primitive;
+                    sel.appendChild(opt);
+                }
+            }
+
+            taskSel.addEventListener('change', updateVariants);
+            updateVariants();
+
+            sel.addEventListener('change', function() {
+                const info = document.getElementById('variant-info');
+                const badge = document.getElementById('mode-badge');
+                const opt = sel.options[sel.selectedIndex];
+                if (sel.value) {
+                    info.style.display = 'block';
+                    info.textContent = 'Primitive: ' + (opt.dataset.primitive || '?') + ' — ' + (opt.dataset.desc || '');
+                    badge.textContent = 'Stress Test';
+                    badge.className = 'mode-badge mode-stress';
+                } else {
+                    info.style.display = 'none';
+                    badge.textContent = 'Standard';
+                    badge.className = 'mode-badge mode-standard';
+                }
+            });
+        });
+
+    async function launch() {
+        const taskId = document.getElementById('task').value;
+        const variant = document.getElementById('variant').value;
+        const seedVal = document.getElementById('seed').value;
+        const status = document.getElementById('status');
+
+        status.textContent = 'Creating session...';
+
+        const payload = { task_id: taskId };
+        if (seedVal) payload.seed = parseInt(seedVal);
+
+        // Load degradation config if selected
+        if (variant) {
+            try {
+                const resp = await fetch('/static/injector-variants/' + variant);
+                // We can't load YAML in browser easily, so pass filename to server
+                // The server needs to support variant_filename in the request
+                payload.variant_filename = variant;
+            } catch(e) {}
+        }
+
+        try {
+            const resp = await fetch('/api/env/gmail/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            const sessionId = data.session_id;
+            const startPath = data.start_path || '/inbox';
+            const mode = variant ? '&degradation=' + encodeURIComponent(variant) : '';
+            window.location.href = '/env/gmail' + startPath + '?session=' + encodeURIComponent(sessionId) + mode;
+        } catch(e) {
+            status.textContent = 'Error: ' + e.message;
+        }
+    }
+    </script>
 </body>
 </html>"""
     return HTMLResponse(content=html)

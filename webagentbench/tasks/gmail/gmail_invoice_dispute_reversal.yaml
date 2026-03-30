@@ -1,18 +1,30 @@
 task_id: gmail_invoice_dispute_reversal
 env_id: gmail
 title: Retract Incorrect Invoice Rejection After Discovering CFO Exception
-instruction_template: |-
-  Read the finance policy email from finance-policy@company.com titled "Q1 Invoice Processing Rules" which states: reject any vendor invoice exceeding $10,000 by replying "This invoice exceeds our processing limit and is rejected." Three vendor invoices are in your inbox: Sterling Manufacturing (Invoice #SM-4410, $8,200), Hawthorne Supply Co (Invoice #HS-7782, $14,500), and Ridgeline Logistics (Invoice #RL-3301, $12,800). Apply the $10,000 policy to the two over-limit invoices by replying with the rejection message. Do NOT reply to Sterling (under limit). After processing all invoices, check the Updates tab for exceptions. Find the email from CFO Marcus Webb (cfo@company.com) — its subject may not look like an exception approval. Read it carefully. The CFO has approved a one-time exception for one specific vendor's invoice. Send a follow-up reply to that vendor retracting the rejection with: "Please disregard our previous rejection. Invoice #{target.approved_invoice_number} has been approved under a one-time exception." Reply to the CFO confirming: "Exception applied for {target.approved_vendor_name} invoice #{target.approved_invoice_number}." Star the CFO's approval email. The other over-limit vendor has no exception and must remain rejected.
+instruction_template: 'Read the finance policy email from finance-policy@company.com
+  titled "Q1 Invoice Processing Rules" which states: reject any vendor invoice exceeding
+  $10,000 by replying "This invoice exceeds our processing limit and is rejected."
+  Three vendor invoices are in your inbox: Sterling Manufacturing (Invoice #SM-4410,
+  $8,200), Hawthorne Supply Co (Invoice #HS-7782, $14,500), and Ridgeline Logistics
+  (Invoice #RL-3301, $12,800). Apply the $10,000 policy to the two over-limit invoices
+  by replying with the rejection message. Do NOT reply to Sterling (under limit).
+  After processing all invoices, check the Updates tab for exceptions. Find the email
+  from CFO Marcus Webb (cfo@company.com) — its subject may not look like an exception
+  approval. Read it carefully. The CFO has approved a one-time exception for one specific
+  vendor''s invoice. Send a follow-up reply to that vendor retracting the rejection
+  with: "Please disregard our previous rejection. Invoice #{target.approved_invoice_number}
+  has been approved under a one-time exception." Reply to the CFO confirming: "Exception
+  applied for {target.approved_vendor_name} invoice #{target.approved_invoice_number}."
+  Star the CFO''s approval email. The other over-limit vendor has no exception and
+  must remain rejected.'
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - backtracking
 - verification
-- constraint_satisfaction
-- attention
-secondary_primitives:
-- adversarial_robustness
+- planning
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -30,24 +42,30 @@ seed:
     - cfo_approval_email_id
     - adversarial_vendor_email_id
   targets:
-    approved_vendor_name: "{output.approved_vendor_name}"
-    approved_invoice_number: "{output.approved_invoice_number}"
-    policy_email_id: "{output.policy_email_id}"
-    sterling_email_id: "{output.sterling_email_id}"
-    hawthorne_email_id: "{output.hawthorne_email_id}"
-    ridgeline_email_id: "{output.ridgeline_email_id}"
-    cfo_approval_email_id: "{output.cfo_approval_email_id}"
-    adversarial_vendor_email_id: "{output.adversarial_vendor_email_id}"
+    approved_vendor_name: '{output.approved_vendor_name}'
+    approved_invoice_number: '{output.approved_invoice_number}'
+    policy_email_id: '{output.policy_email_id}'
+    sterling_email_id: '{output.sterling_email_id}'
+    hawthorne_email_id: '{output.hawthorne_email_id}'
+    ridgeline_email_id: '{output.ridgeline_email_id}'
+    cfo_approval_email_id: '{output.cfo_approval_email_id}'
+    adversarial_vendor_email_id: '{output.adversarial_vendor_email_id}'
 eval:
   source: server_state
   checks:
-  - expr: any(m.in_reply_to == '{target.hawthorne_email_id}' and 'exceeds our processing limit and is rejected' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.hawthorne_email_id}' and 'exceeds our processing
+      limit and is rejected' in m.body for m in state.sent)
     desc: Initial rejection sent to Hawthorne
-  - expr: any(m.in_reply_to == '{target.hawthorne_email_id}' and 'disregard our previous rejection' in m.body and 'HS-7782' in m.body and 'approved under a one-time exception' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.hawthorne_email_id}' and 'disregard our previous
+      rejection' in m.body and 'HS-7782' in m.body and 'approved under a one-time
+      exception' in m.body for m in state.sent)
     desc: Correction sent to Hawthorne retracting rejection
-  - expr: any(m.in_reply_to == '{target.ridgeline_email_id}' and 'exceeds our processing limit and is rejected' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.ridgeline_email_id}' and 'exceeds our processing
+      limit and is rejected' in m.body for m in state.sent)
     desc: Rejection sent to Ridgeline
-  - expr: any(m.in_reply_to == '{target.cfo_approval_email_id}' and 'Exception applied' in m.body and 'Hawthorne Supply Co' in m.body and 'HS-7782' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.cfo_approval_email_id}' and 'Exception applied'
+      in m.body and 'Hawthorne Supply Co' in m.body and 'HS-7782' in m.body for m
+      in state.sent)
     desc: Confirmation reply sent to CFO
   - expr: state.get_email('{target.cfo_approval_email_id}').is_starred
     desc: CFO approval email starred
@@ -55,9 +73,11 @@ eval:
   - expr: not any(m.in_reply_to == '{target.sterling_email_id}' for m in state.sent)
     desc: No reply to Sterling (under limit)
     penalty: 0.2
-  - expr: not any(m.in_reply_to == '{target.ridgeline_email_id}' and 'disregard' in m.body for m in state.sent)
+  - expr: not any(m.in_reply_to == '{target.ridgeline_email_id}' and 'disregard' in
+      m.body for m in state.sent)
     desc: No correction sent to Ridgeline (no CFO exception for them)
     penalty: 0.3
-  - expr: not any(m.in_reply_to == '{target.cfo_approval_email_id}' and 'rejected' in m.body for m in state.sent)
+  - expr: not any(m.in_reply_to == '{target.cfo_approval_email_id}' and 'rejected'
+      in m.body for m in state.sent)
     desc: CFO approval email must not receive a rejection reply
     penalty: 0.2

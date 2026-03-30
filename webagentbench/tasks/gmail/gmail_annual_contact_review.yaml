@@ -1,44 +1,47 @@
 task_id: gmail_annual_contact_review
 env_id: gmail
-title: End-of-year contact review with activity audit, protected list, enrichment, and summary
-instruction_template: |-
-  Perform an end-of-year contact review. Complete all of the following steps:
-
-  1. AUDIT: Page through all contacts. For each contact, search the inbox for emails from that person within the last 90 days (since December 20, 2025). Identify contacts with zero email activity in that period.
-
-  2. PROTECTED LIST: Open the email from your manager Grace Lin with subject "Protected Contacts — Do Not Delete". This email lists 4 contacts by name that must NOT be deleted regardless of activity: Patricia Engel, Kenji Matsuda, Ines Herrera, and Tobias Falk.
-
-  3. DELETE INACTIVE: Delete every contact that has zero email activity in the last 90 days AND is NOT on Grace's protected list. Based on the seeded data, this should be exactly 3 contacts: Rupert Haines <r.haines@oldvendor.com>, Simone Arcuri <s.arcuri@legacypartner.it>, and Chen Wei-Lin <w.chen@discontinuedclient.tw>.
-
-  4. UPDATE NOTES: Find the most recent thread from each of the following 4 contacts and update their note with the specified information:
-     - Patricia Engel: set note to her new role from her latest email signature ("Chief Revenue Officer at Engel & Partners")
-     - Kenji Matsuda: set note to the project name mentioned in his latest thread subject ("Project Sakura — Phase 2")
-     - Ines Herrera: set note to the conference name she mentions in her latest email body ("WebSummit Lisbon 2026")
-     - Tobias Falk: set note to his new phone number from his latest email signature ("+49 170 555 8823")
-
-  5. ADD NEW: Three people have emailed you recently but have no contact entry. Add contacts for:
-     - Nadia Kowalski <n.kowalski@freshstart.pl> with note "Inbound lead — March 2026"
-     - Ravi Sundaram <r.sundaram@deltaforge.in> with note "Referred by Kenji Matsuda"
-     - Amara Diallo <a.diallo@sahelconsulting.sn> with note "Conference connection — WebSummit"
-
-  6. SUMMARY: Compose a new email (not reply) to Grace Lin (g.lin@company.com) with subject "Annual Contact Review — Complete" and body listing:
-     - "Deleted: Chen Wei-Lin, Rupert Haines, Simone Arcuri"
-     - "Updated: Ines Herrera, Kenji Matsuda, Patricia Engel, Tobias Falk"
-     - "Added: Amara Diallo, Nadia Kowalski, Ravi Sundaram"
+title: End-of-year contact review with activity audit, protected list, enrichment,
+  and summary
+instruction_template: "Perform an end-of-year contact review. Complete all of the\
+  \ following steps:\n\n1. AUDIT: Page through all contacts. For each contact, search\
+  \ the inbox for emails from that person within the last 90 days (since December\
+  \ 20, 2025). Identify contacts with zero email activity in that period.\n\n2. PROTECTED\
+  \ LIST: Open the email from your manager Grace Lin with subject \"Protected Contacts\
+  \ — Do Not Delete\". This email lists 4 contacts by name that must NOT be deleted\
+  \ regardless of activity: Patricia Engel, Kenji Matsuda, Ines Herrera, and Tobias\
+  \ Falk.\n\n3. DELETE INACTIVE: Delete every contact that has zero email activity\
+  \ in the last 90 days AND is NOT on Grace's protected list. Based on the seeded\
+  \ data, this should be exactly 3 contacts: Rupert Haines <r.haines@oldvendor.com>,\
+  \ Simone Arcuri <s.arcuri@legacypartner.it>, and Chen Wei-Lin <w.chen@discontinuedclient.tw>.\n\
+  \n4. UPDATE NOTES: Find the most recent thread from each of the following 4 contacts\
+  \ and update their note with the specified information:\n   - Patricia Engel: set\
+  \ note to her new role from her latest email signature (\"Chief Revenue Officer\
+  \ at Engel & Partners\")\n   - Kenji Matsuda: set note to the project name mentioned\
+  \ in his latest thread subject (\"Project Sakura — Phase 2\")\n   - Ines Herrera:\
+  \ set note to the conference name she mentions in her latest email body (\"WebSummit\
+  \ Lisbon 2026\")\n   - Tobias Falk: set note to his new phone number from his latest\
+  \ email signature (\"+49 170 555 8823\")\n\n5. ADD NEW: Three people have emailed\
+  \ you recently but have no contact entry. Add contacts for:\n   - Nadia Kowalski\
+  \ <n.kowalski@freshstart.pl> with note \"Inbound lead — March 2026\"\n   - Ravi\
+  \ Sundaram <r.sundaram@deltaforge.in> with note \"Referred by Kenji Matsuda\"\n\
+  \   - Amara Diallo <a.diallo@sahelconsulting.sn> with note \"Conference connection\
+  \ — WebSummit\"\n\n6. SUMMARY: Compose a new email (not reply) to Grace Lin (g.lin@company.com)\
+  \ with subject \"Annual Contact Review — Complete\" and body listing:\n   - \"Deleted:\
+  \ Chen Wei-Lin, Rupert Haines, Simone Arcuri\"\n   - \"Updated: Ines Herrera, Kenji\
+  \ Matsuda, Patricia Engel, Tobias Falk\"\n   - \"Added: Amara Diallo, Nadia Kowalski,\
+  \ Ravi Sundaram\""
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 72
 primary_primitives:
 - patience
 - exploration
-- memory
+- state_tracking
 - verification
 - planning
-- attention
+- grounding
 secondary_primitives:
-- constraint_satisfaction
-- adversarial_robustness
-- error_recovery
+- backtracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -59,17 +62,17 @@ seed:
     - rupert_global_id
     - protected_email_id
   targets:
-    rupert_haines_id: "{output.rupert_haines_id}"
-    simone_arcuri_id: "{output.simone_arcuri_id}"
-    chen_weilin_id: "{output.chen_weilin_id}"
-    patricia_engel_id: "{output.patricia_engel_id}"
-    kenji_matsuda_id: "{output.kenji_matsuda_id}"
-    ines_herrera_id: "{output.ines_herrera_id}"
-    tobias_falk_id: "{output.tobias_falk_id}"
-    rupesh_haines_id: "{output.rupesh_haines_id}"
-    chen_wei_id: "{output.chen_wei_id}"
-    rupert_global_id: "{output.rupert_global_id}"
-    protected_email_id: "{output.protected_email_id}"
+    rupert_haines_id: '{output.rupert_haines_id}'
+    simone_arcuri_id: '{output.simone_arcuri_id}'
+    chen_weilin_id: '{output.chen_weilin_id}'
+    patricia_engel_id: '{output.patricia_engel_id}'
+    kenji_matsuda_id: '{output.kenji_matsuda_id}'
+    ines_herrera_id: '{output.ines_herrera_id}'
+    tobias_falk_id: '{output.tobias_falk_id}'
+    rupesh_haines_id: '{output.rupesh_haines_id}'
+    chen_wei_id: '{output.chen_wei_id}'
+    rupert_global_id: '{output.rupert_global_id}'
+    protected_email_id: '{output.protected_email_id}'
 eval:
   source: server_state
   checks:
@@ -79,56 +82,70 @@ eval:
     desc: Simone Arcuri deleted
   - expr: all(c.id != '{target.chen_weilin_id}' for c in state.contacts)
     desc: Chen Wei-Lin deleted
-  - expr: any(c.id == '{target.patricia_engel_id}' and c.note == 'Chief Revenue Officer at Engel & Partners' for c in state.contacts)
+  - expr: any(c.id == '{target.patricia_engel_id}' and c.note == 'Chief Revenue Officer
+      at Engel & Partners' for c in state.contacts)
     desc: Patricia Engel note updated with current role
-  - expr: "any(c.id == '{target.kenji_matsuda_id}' and c.note == 'Project Sakura — Phase 2' for c in state.contacts)"
+  - expr: any(c.id == '{target.kenji_matsuda_id}' and c.note == 'Project Sakura —
+      Phase 2' for c in state.contacts)
     desc: Kenji Matsuda note updated with project name
-  - expr: any(c.id == '{target.ines_herrera_id}' and c.note == 'WebSummit Lisbon 2026' for c in state.contacts)
+  - expr: any(c.id == '{target.ines_herrera_id}' and c.note == 'WebSummit Lisbon 2026'
+      for c in state.contacts)
     desc: Ines Herrera note updated with conference
-  - expr: any(c.id == '{target.tobias_falk_id}' and c.note == '+49 170 555 8823' for c in state.contacts)
+  - expr: any(c.id == '{target.tobias_falk_id}' and c.note == '+49 170 555 8823' for
+      c in state.contacts)
     desc: Tobias Falk note updated with phone number
-  - expr: "any(c.email == 'n.kowalski@freshstart.pl' and c.note == 'Inbound lead — March 2026' for c in state.contacts)"
+  - expr: any(c.email == 'n.kowalski@freshstart.pl' and c.note == 'Inbound lead —
+      March 2026' for c in state.contacts)
     desc: Nadia Kowalski added with note
-  - expr: any(c.email == 'r.sundaram@deltaforge.in' and c.note == 'Referred by Kenji Matsuda' for c in state.contacts)
+  - expr: any(c.email == 'r.sundaram@deltaforge.in' and c.note == 'Referred by Kenji
+      Matsuda' for c in state.contacts)
     desc: Ravi Sundaram added with note
-  - expr: "any(c.email == 'a.diallo@sahelconsulting.sn' and c.note == 'Conference connection — WebSummit' for c in state.contacts)"
+  - expr: any(c.email == 'a.diallo@sahelconsulting.sn' and c.note == 'Conference connection
+      — WebSummit' for c in state.contacts)
     desc: Amara Diallo added with note
-  - expr: "any(m.in_reply_to is None and 'Annual Contact Review' in m.subject and 'g.lin@company.com' in m.to for m in state.sent)"
+  - expr: any(m.in_reply_to is None and 'Annual Contact Review' in m.subject and 'g.lin@company.com'
+      in m.to for m in state.sent)
     desc: Summary email composed (not reply) to Grace Lin
-  - expr: "any('Rupert Haines' in m.body and 'Simone Arcuri' in m.body and 'Chen Wei-Lin' in m.body for m in state.sent if 'Annual Contact Review' in m.subject)"
+  - expr: any('Rupert Haines' in m.body and 'Simone Arcuri' in m.body and 'Chen Wei-Lin'
+      in m.body for m in state.sent if 'Annual Contact Review' in m.subject)
     desc: Summary email lists all deleted contacts
-  - expr: "any('Patricia Engel' in m.body and 'Kenji Matsuda' in m.body for m in state.sent if 'Annual Contact Review' in m.subject)"
+  - expr: any('Patricia Engel' in m.body and 'Kenji Matsuda' in m.body for m in state.sent
+      if 'Annual Contact Review' in m.subject)
     desc: Summary email lists updated contacts
-  - expr: "any('Nadia Kowalski' in m.body and 'Ravi Sundaram' in m.body and 'Amara Diallo' in m.body for m in state.sent if 'Annual Contact Review' in m.subject)"
+  - expr: any('Nadia Kowalski' in m.body and 'Ravi Sundaram' in m.body and 'Amara
+      Diallo' in m.body for m in state.sent if 'Annual Contact Review' in m.subject)
     desc: Summary email lists added contacts
   negative_checks:
   - expr: any(c.id == '{target.patricia_engel_id}' for c in state.contacts)
     desc: Patricia Engel not deleted (protected)
-    penalty: 0.15
+    penalty: 0.11
   - expr: any(c.id == '{target.kenji_matsuda_id}' for c in state.contacts)
     desc: Kenji Matsuda not deleted (protected)
-    penalty: 0.15
+    penalty: 0.11
   - expr: any(c.id == '{target.ines_herrera_id}' for c in state.contacts)
     desc: Ines Herrera not deleted (protected)
-    penalty: 0.15
+    penalty: 0.11
   - expr: any(c.id == '{target.tobias_falk_id}' for c in state.contacts)
     desc: Tobias Falk not deleted (protected)
-    penalty: 0.15
+    penalty: 0.11
   - expr: any(c.id == '{target.rupesh_haines_id}' for c in state.contacts)
     desc: Rupesh Haines decoy preserved
-    penalty: 0.1
+    penalty: 0.08
   - expr: any(c.id == '{target.chen_wei_id}' for c in state.contacts)
     desc: Chen Wei decoy preserved
-    penalty: 0.1
+    penalty: 0.08
   - expr: any(c.id == '{target.rupert_global_id}' for c in state.contacts)
     desc: Rupert Haines (globalconsulting) not deleted — different person
-    penalty: 0.15
-  - expr: "not any(c.id == '{target.patricia_engel_id}' and c.note == 'VP of Sales at Engel & Partners' for c in state.contacts)"
+    penalty: 0.11
+  - expr: not any(c.id == '{target.patricia_engel_id}' and c.note == 'VP of Sales
+      at Engel & Partners' for c in state.contacts)
     desc: Patricia not enriched with outdated role
-    penalty: 0.1
-  - expr: "not any(c.id == '{target.kenji_matsuda_id}' and c.note == 'Project Hinoki — Final Report' for c in state.contacts)"
+    penalty: 0.08
+  - expr: not any(c.id == '{target.kenji_matsuda_id}' and c.note == 'Project Hinoki
+      — Final Report' for c in state.contacts)
     desc: Kenji not enriched with wrong project
-    penalty: 0.1
-  - expr: not any(c.id == '{target.tobias_falk_id}' and c.note == '+49 170 555 1234' for c in state.contacts)
+    penalty: 0.08
+  - expr: not any(c.id == '{target.tobias_falk_id}' and c.note == '+49 170 555 1234'
+      for c in state.contacts)
     desc: Tobias not enriched with old phone number
-    penalty: 0.1
+    penalty: 0.08
