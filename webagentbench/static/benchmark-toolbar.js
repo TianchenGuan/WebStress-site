@@ -257,9 +257,47 @@
       });
     })();
 
-    // --- Reset ---
-    document.getElementById("wab-reset-btn").addEventListener("click", function () {
-      window.location.reload();
+    // --- Reset: destroy session, create a new one with same settings ---
+    document.getElementById("wab-reset-btn").addEventListener("click", async function () {
+      this.disabled = true;
+      this.textContent = "Resetting...";
+      try {
+        // 1. Get current session settings (task, seed, degradation)
+        var infoResp = await fetch("/api/env/" + envId + "/session/" + encodeURIComponent(sessionId));
+        var info = await infoResp.json();
+        var taskId = info.task_id;
+        var seed = info.seed;
+        var degradation = info.degradation;
+
+        // 2. Destroy old session
+        await fetch("/api/env/" + envId + "/session/" + encodeURIComponent(sessionId), { method: "DELETE" });
+
+        // 3. Create new session with same settings
+        var payload = { task_id: taskId };
+        if (seed != null) payload.seed = seed;
+        if (degradation && degradation.variant_filename) {
+          payload.variant_filename = degradation.variant_filename;
+        } else if (degradation && degradation.injections && degradation.injections.length > 0) {
+          payload.degradation = degradation;
+        }
+
+        var createResp = await fetch("/api/env/" + envId + "/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        var newSession = await createResp.json();
+
+        // 4. Navigate to new session
+        var startPath = newSession.start_path || "/inbox";
+        window.location.href = "/env/" + envId + startPath + "?session=" + encodeURIComponent(newSession.session_id);
+      } catch (e) {
+        this.textContent = "Reset failed: " + e.message;
+        setTimeout(function () {
+          document.getElementById("wab-reset-btn").disabled = false;
+          document.getElementById("wab-reset-btn").textContent = "Reset";
+        }, 3000);
+      }
     });
   }
 
