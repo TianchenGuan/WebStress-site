@@ -299,8 +299,7 @@ def save_gold_trajectory(
     from pathlib import Path
     from datetime import datetime, timezone
 
-    if not body.evaluation.get("success"):
-        return {"saved": False, "reason": "Evaluation did not pass — only successful trajectories are saved as gold."}
+    is_gold = bool(body.evaluation.get("success"))
 
     try:
         state = session_manager.get(body.session_id)
@@ -312,9 +311,9 @@ def save_gold_trajectory(
         task.instruction_template or task.instruction or "", state.resolved_targets
     )
 
-    # Build gold trajectory record
-    gold = {
-        "type": "gold_trajectory",
+    # Build trajectory record
+    record = {
+        "type": "gold_trajectory" if is_gold else "trajectory",
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "recorder": "human",
         "task_id": state.task_id,
@@ -336,18 +335,23 @@ def save_gold_trajectory(
         "total_audit_entries": len(state.audit_log),
     }
 
-    # Save to gold_trajectories/ directory
-    gold_dir = Path(__file__).parent.parent.parent / "gold_trajectories"
-    gold_dir.mkdir(parents=True, exist_ok=True)
+    # Gold trajectories go to gold_trajectories/, others to trajectories/
+    base_dir = Path(__file__).parent.parent.parent
+    if is_gold:
+        save_dir = base_dir / "gold_trajectories"
+    else:
+        save_dir = base_dir / "trajectories"
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"{state.task_id}_{timestamp}.json"
-    path = gold_dir / filename
+    prefix = "gold_" if is_gold else ""
+    filename = f"{prefix}{state.task_id}_{timestamp}.json"
+    path = save_dir / filename
 
     with open(path, "w") as f:
-        _json.dump(gold, f, indent=2, default=str)
+        _json.dump(record, f, indent=2, default=str)
 
-    return {"saved": True, "path": str(path), "filename": filename, "events": len(body.events)}
+    return {"saved": True, "gold": is_gold, "path": str(path), "filename": filename, "events": len(body.events)}
 
 
 @router.get("/degradation/{session_id}")
