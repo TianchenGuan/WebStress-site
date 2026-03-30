@@ -22,70 +22,112 @@
 
   if (!agentMode) {
     // --- Inject styles + HTML ---
+    // Floating panel on the right edge — collapsed by default so it never
+    // covers the Gmail UI. Click the tab to expand.
     const toolbar = document.createElement("div");
     toolbar.id = "wab-toolbar";
     toolbar.innerHTML = `
     <style>
+      /* ── Collapsed tab (always visible, right edge) ── */
       #wab-toolbar {
-        position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-        background: #1a1a2e; color: #e0e0e0;
+        position: fixed; top: 50%; right: 0; z-index: 99999;
+        transform: translateY(-50%);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 13px; border-top: 2px solid #0f3460;
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        font-size: 13px;
       }
-      #wab-toolbar-header {
+      #wab-tab {
+        position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+        writing-mode: vertical-rl; text-orientation: mixed;
+        background: #1a1a2e; color: #e94560; border-radius: 6px 0 0 6px;
+        padding: 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+        text-transform: uppercase; cursor: pointer; user-select: none;
+        border: 1px solid #0f3460; border-right: none;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+        transition: background 0.2s;
+      }
+      #wab-tab:hover { background: #252545; }
+
+      /* ── Expanded panel ── */
+      #wab-panel {
+        position: absolute; right: 30px; top: 50%; transform: translateY(-50%);
+        width: 340px; max-height: 80vh; overflow-y: auto;
+        background: #1a1a2e; color: #e0e0e0; border-radius: 8px;
+        border: 1px solid #0f3460; box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+        display: none;
+      }
+      #wab-panel.open { display: block; }
+
+      #wab-panel-header {
+        padding: 10px 14px; border-bottom: 1px solid #333;
         display: flex; align-items: center; justify-content: space-between;
-        padding: 8px 16px; gap: 12px;
       }
       .wab-label {
         font-weight: 600; color: #e94560; font-size: 11px;
-        text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;
+        text-transform: uppercase; letter-spacing: 1px;
       }
+      #wab-close-btn {
+        background: none; border: none; color: #888; font-size: 18px;
+        cursor: pointer; padding: 0 4px; line-height: 1;
+      }
+      #wab-close-btn:hover { color: #fff; }
+
       #wab-toolbar-instruction {
-        flex: 1; overflow: hidden; text-overflow: ellipsis;
-        white-space: nowrap; color: #ccc; cursor: pointer;
+        padding: 10px 14px; color: #ccc; font-size: 12px; line-height: 1.5;
+        border-bottom: 1px solid #333; max-height: 120px; overflow-y: auto;
       }
-      #wab-toolbar-instruction.expanded {
-        white-space: normal; max-height: 200px; overflow-y: auto;
+
+      #wab-toolbar-actions {
+        display: flex; gap: 6px; padding: 10px 14px; flex-wrap: wrap;
       }
-      #wab-toolbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
       #wab-toolbar button {
-        padding: 6px 16px; border: none; border-radius: 4px;
-        cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s;
+        padding: 6px 14px; border: none; border-radius: 4px;
+        cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.2s;
       }
       #wab-toolbar button:hover { opacity: 0.85; }
-      #wab-evaluate-btn { background: #0f3460; color: #fff; }
+      #wab-evaluate-btn { background: #0f3460; color: #fff; flex: 1; }
       #wab-evaluate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       #wab-record-btn { background: #333; color: #ccc; }
       #wab-record-btn.recording { background: #c62828; color: #fff; animation: wab-pulse 1.5s infinite; }
       @keyframes wab-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
       #wab-reset-btn { background: #333; color: #ccc; }
-      #wab-toggle-btn { background: transparent; color: #888; padding: 6px 8px; font-size: 16px; }
+
       #wab-results-panel {
-        display: none; padding: 12px 16px; border-top: 1px solid #333;
-        max-height: 300px; overflow-y: auto;
+        display: none; padding: 10px 14px; border-top: 1px solid #333;
+        max-height: 250px; overflow-y: auto; font-size: 12px;
       }
       #wab-results-panel.visible { display: block; }
-      .wab-check { padding: 3px 0; }
+      .wab-check { padding: 2px 0; }
       .wab-check-pass { color: #4caf50; }
       .wab-check-fail { color: #f44336; }
-      .wab-score { font-size: 24px; font-weight: 700; margin-right: 12px; }
+      .wab-score { font-size: 22px; font-weight: 700; margin-right: 8px; }
       .wab-score-pass { color: #4caf50; }
       .wab-score-fail { color: #f44336; }
     </style>
-    <div id="wab-toolbar-header">
-      <span class="wab-label">WebAgentBench</span>
+
+    <div id="wab-tab">WAB</div>
+    <div id="wab-panel">
+      <div id="wab-panel-header">
+        <span class="wab-label">WebAgentBench</span>
+        <button id="wab-close-btn">&times;</button>
+      </div>
       <div id="wab-toolbar-instruction">(Loading task...)</div>
       <div id="wab-toolbar-actions">
         <button id="wab-record-btn">\u23FA Record</button>
         <button id="wab-evaluate-btn">Evaluate</button>
         <button id="wab-reset-btn">Reset</button>
-        <button id="wab-toggle-btn">&darr;</button>
       </div>
+      <div id="wab-results-panel"></div>
     </div>
-    <div id="wab-results-panel"></div>
   `;
     document.body.appendChild(toolbar);
+
+    // Toggle panel open/close
+    document.getElementById("wab-tab").addEventListener("click", function () {
+      document.getElementById("wab-panel").classList.toggle("open");
+    });
+    document.getElementById("wab-close-btn").addEventListener("click", function () {
+      document.getElementById("wab-panel").classList.remove("open");
+    });
 
     // --- Fetch task instruction ---
     fetch("/api/env/" + envId + "/session/" + encodeURIComponent(sessionId))
@@ -98,17 +140,7 @@
       })
       .catch(function () {});
 
-    // --- Expand/collapse instruction ---
-    document.getElementById("wab-toolbar-instruction").addEventListener("click", function () {
-      this.classList.toggle("expanded");
-    });
-
-    // --- Toggle results panel ---
-    document.getElementById("wab-toggle-btn").addEventListener("click", function () {
-      var panel = document.getElementById("wab-results-panel");
-      panel.classList.toggle("visible");
-      this.innerHTML = panel.classList.contains("visible") ? "&uarr;" : "&darr;";
-    });
+    // Results panel auto-opens when evaluation completes (no toggle button needed)
 
     // --- Evaluate ---
     document.getElementById("wab-evaluate-btn").addEventListener("click", async function () {
@@ -164,7 +196,8 @@
         var panel = document.getElementById("wab-results-panel");
         panel.innerHTML = html;
         panel.classList.add("visible");
-        document.getElementById("wab-toggle-btn").innerHTML = "&uarr;";
+        // Ensure the panel is open so results are visible
+        document.getElementById("wab-panel").classList.add("open");
 
         // Save trajectory if recording is active (gold if passed, regular if failed)
         var rec = window.__WAB_RECORDER;
