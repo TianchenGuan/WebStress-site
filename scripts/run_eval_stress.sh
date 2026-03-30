@@ -4,8 +4,7 @@ set -euo pipefail
 cd /hpc/group/szhoulab/yinxunjian/mycode/Env/LLMOS
 export OPENSSL_CONF=""
 
-API_KEY='***REDACTED***'
-COMMON="--model gpt-5.4 --provider openai --api-key $API_KEY --max-steps 25 --timeout 180 --seed 42 --server-port 8081"
+COMMON="--model gpt-5.4 --provider openai --api-key $OPENAI_API_KEY --max-steps 25 --timeout 180 --seed 42 --server-port 8081"
 
 # One variant per primitive
 VARIANTS=(

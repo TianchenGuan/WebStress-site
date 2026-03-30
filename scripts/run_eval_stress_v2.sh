@@ -4,8 +4,7 @@ set -euo pipefail
 cd /hpc/group/szhoulab/yinxunjian/mycode/Env/LLMOS
 export OPENSSL_CONF=""
 
-API_KEY='***REDACTED***'
-COMMON="--model gpt-5.4 --provider openai --api-key $API_KEY --max-steps 50 --timeout 300 --seed 42 --server-port 8081"
+COMMON="--model gpt-5.4 --provider openai --api-key $OPENAI_API_KEY --max-steps 50 --timeout 300 --seed 42 --server-port 8081"
 
 # Easy task variants (normal score = 1.0, room for delta)
 EASY_VARIANTS=(

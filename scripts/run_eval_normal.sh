@@ -23,7 +23,7 @@ TASKS=(
 UV_CACHE_DIR=/tmp/uv-cache uv run python -m webagentbench.agent_eval \
   --model gpt-5.4 \
   --provider openai \
-  --api-key '***REDACTED***' \
+  --api-key "$OPENAI_API_KEY" \
   --tasks "${TASKS[@]}" \
   --max-steps 25 \
   --timeout 180 \
