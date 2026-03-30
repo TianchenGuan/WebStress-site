@@ -55,11 +55,13 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
 
     from webagentbench.backend.models.gmail import Email
 
+    import random as _random
+    _rng = rng or _random.Random(99)
     base_time = state.emails[0].timestamp if state.emails else "2026-01-15T10:00:00Z"
     for i, decoy_spec in enumerate(decoys):
         email = Email(
-            id=f"confusing_decoy_{i}",
-            thread_id=f"confusing_decoy_thread_{i}",
+            id=f"email_{_rng.randint(10000, 99999)}",
+            thread_id=f"thread_{_rng.randint(10000, 99999)}",
             from_name=decoy_spec.get("from_name", ""),
             from_addr=decoy_spec.get("from", "decoy@example.test"),
             to=[state.emails[0].to[0]] if state.emails and state.emails[0].to else ["me@company.test"],
@@ -95,12 +97,22 @@ def _split_information(state: Any, params: dict[str, Any], *, rng=None) -> None:
 
     from webagentbench.backend.models.gmail import Email
 
+    import random as _random
+    _rng = rng or _random.Random(88)
+    _COLLEAGUE_NAMES = [
+        ("Priya Sharma", "priya.sharma@company.test"),
+        ("Daniel Osei", "daniel.osei@company.test"),
+        ("Lena Kowalski", "lena.kowalski@company.test"),
+        ("Marcus Tan", "marcus.tan@company.test"),
+        ("Sofia Bergström", "sofia.bergstrom@company.test"),
+    ]
     for i, fragment in enumerate(fragments[:split_count]):
+        fallback_name, fallback_addr = _COLLEAGUE_NAMES[i % len(_COLLEAGUE_NAMES)]
         email = Email(
-            id=f"split_{source_id}_{i}",
-            thread_id=f"split_thread_{i}",
-            from_name=fragment.get("from_name", f"Colleague {i}"),
-            from_addr=fragment.get("from", f"colleague{i}@company.test"),
+            id=f"email_{_rng.randint(10000, 99999)}",
+            thread_id=f"thread_{_rng.randint(10000, 99999)}",
+            from_name=fragment.get("from_name", fallback_name),
+            from_addr=fragment.get("from", fallback_addr),
             to=source.to,
             subject=fragment.get("subject", f"Re: {source.subject} (part {i+1})"),
             body=fragment.get("body", ""),
@@ -123,9 +135,11 @@ def _add_contradictory_update(state: Any, params: dict[str, Any], *, rng=None) -
 
     from webagentbench.backend.models.gmail import Email
 
+    import random as _random
+    _rng = rng or _random.Random(77)
     email = Email(
-        id=params.get("email_id", "contradictory_update"),
-        thread_id=params.get("thread_id", "contradictory_thread"),
+        id=params.get("email_id", f"email_{_rng.randint(10000, 99999)}"),
+        thread_id=params.get("thread_id", f"thread_{_rng.randint(10000, 99999)}"),
         from_name=params.get("from_name", ""),
         from_addr=params.get("from", "update@company.test"),
         to=params.get("to", ["me@company.test"]),
@@ -151,9 +165,11 @@ def _plant_wrong_answer(state: Any, params: dict[str, Any], *, rng=None) -> None
 
     from webagentbench.backend.models.gmail import Email
 
+    import random as _random
+    _rng = rng or _random.Random(66)
     email = Email(
-        id=params.get("email_id", "wrong_answer"),
-        thread_id=params.get("thread_id", "wrong_answer_thread"),
+        id=params.get("email_id", f"email_{_rng.randint(10000, 99999)}"),
+        thread_id=params.get("thread_id", f"thread_{_rng.randint(10000, 99999)}"),
         from_name=params.get("from_name", "Helpful Colleague"),
         from_addr=params.get("from", "helpful@company.test"),
         to=params.get("to", ["me@company.test"]),
@@ -173,6 +189,9 @@ def _increase_distractors(state: Any, params: dict[str, Any], *, rng=None) -> No
     Some distractors are on the same topic as the task (topical noise)
     rather than unrelated (random noise). Topical noise is much harder.
     """
+    import random as _random
+    from datetime import datetime, timezone
+
     count = params.get("count", 20)
     topical_count = params.get("topical_count", 5)
     topical_subjects = params.get("topical_subjects", [])
@@ -182,23 +201,73 @@ def _increase_distractors(state: Any, params: dict[str, Any], *, rng=None) -> No
 
     from webagentbench.backend.models.gmail import Email
 
+    _rng = rng or _random.Random(42)
+
+    _GENERIC_SUBJECTS = [
+        "Weekly status update", "Budget review notes", "Team meeting recap",
+        "Project timeline update", "Vendor contract follow-up",
+        "HR policy change notification", "Office supply request",
+        "Quarterly review preparation", "Travel reimbursement update",
+        "New process rollout — please read", "Infrastructure migration update",
+        "Client feedback summary", "Training session registration",
+        "Benefits enrollment reminder", "Security awareness update",
+        "End-of-quarter checklist", "Workspace reorganization plan",
+        "Cross-team collaboration proposal", "Performance review schedule",
+        "Holiday calendar finalized",
+    ]
+    _NAMES = [
+        ("Priya Sharma", "priya.sharma@company.test"),
+        ("Daniel Osei", "daniel.osei@company.test"),
+        ("Lena Kowalski", "lena.kowalski@company.test"),
+        ("Marcus Tan", "marcus.tan@company.test"),
+        ("Sofia Bergström", "sofia.bergstrom@company.test"),
+        ("Yuki Tanaka", "yuki.tanaka@company.test"),
+        ("Carlos Mendez", "carlos.mendez@company.test"),
+        ("Aisha Hassan", "aisha.hassan@company.test"),
+        ("Nikolai Petrov", "nikolai.petrov@company.test"),
+        ("Elena Vasquez", "elena.vasquez@company.test"),
+        ("Tomás Ferreira", "tomas.ferreira@company.test"),
+        ("Mei-Lin Wu", "meiling.wu@company.test"),
+        ("David Okonkwo", "david.okonkwo@company.test"),
+        ("Rachel Andersen", "rachel.andersen@company.test"),
+        ("Omar Farid", "omar.farid@company.test"),
+        ("Ingrid Larsson", "ingrid.larsson@company.test"),
+        ("James Whitfield", "james.whitfield@company.test"),
+        ("Fatima Al-Rashid", "fatima.alrashid@company.test"),
+        ("Patrick O'Brien", "patrick.obrien@company.test"),
+        ("Hannah Müller", "hannah.mueller@company.test"),
+    ]
+    _BODIES = [
+        "Hi team, sharing a quick update. Please review and let me know if anything needs adjustment.",
+        "Just wanted to flag this for your attention. Happy to discuss in our next sync.",
+        "Passing this along for visibility. No immediate action required from your side.",
+        "Following up on our earlier conversation. The attached notes have the latest details.",
+        "Please take a look when you get a chance. I'll follow up next week if needed.",
+    ]
+
+    base_dt = datetime(2026, 1, 14, 10, 0, tzinfo=timezone.utc)
+
     for i in range(count):
         if i < topical_count and i < len(topical_subjects):
             subject = topical_subjects[i]
         else:
-            subject = f"FYI: Unrelated topic #{i}"
+            subject = _rng.choice(_GENERIC_SUBJECTS)
+
+        name, addr = _NAMES[i % len(_NAMES)]
+        body = _rng.choice(_BODIES)
+        offset_secs = _rng.randint(-86400 * 7, 86400 * 2)
 
         email = Email(
-            id=f"extra_distractor_{i}",
-            thread_id=f"extra_distractor_thread_{i}",
-            from_name=f"Person {i}",
-            from_addr=f"person{i}@misc.test",
+            id=f"email_{_rng.randint(10000, 99999)}",
+            thread_id=f"thread_{_rng.randint(10000, 99999)}",
+            from_name=name,
+            from_addr=addr,
             to=["me@company.test"],
             subject=subject,
-            body=f"This is distractor email {i}. No action needed.",
-            timestamp="2026-01-14T10:00:00Z",
+            body=body,
+            timestamp=base_dt + timedelta(seconds=offset_secs),
             labels=["inbox"],
-            is_read=True,
+            is_read=_rng.random() > 0.35,
         )
         state.emails.append(email)
 
@@ -212,10 +281,12 @@ def _alias_entities(state: Any, params: dict[str, Any], *, rng=None) -> None:
 
     if hasattr(state, "contacts"):
         from webagentbench.backend.models.gmail import Contact
+        import random as _random
+        _rng = rng or _random.Random(55)
 
         for alias in aliases:
             contact = Contact(
-                id=f"alias_{alias.get('name', '').replace(' ', '_').lower()}",
+                id=f"contact_{_rng.randint(10000, 99999)}",
                 name=alias.get("name", ""),
                 email=alias.get("email", ""),
                 note=alias.get("note", ""),

@@ -38,15 +38,49 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
 
     elif action == "inject_distractor_emails":
         count = params.get("count", 5)
-        subject_prefix = params.get("subject_prefix", "URGENT: ")
+        subject_prefix = params.get("subject_prefix", "")
         if hasattr(state, "emails") and state.emails:
+            # Use realistic subjects/senders derived from existing emails
+            _REALISTIC_SUBJECTS = [
+                "Quick follow-up on our earlier discussion",
+                "Updated timeline for the deliverables",
+                "Notes from today's sync",
+                "Revised figures — please review",
+                "Re: Action items from the meeting",
+                "One more thing on the project scope",
+                "Sharing the latest draft for your feedback",
+                "Heads up on the schedule change",
+                "Checking in on the open items",
+                "Summary of decisions from this morning",
+            ]
+            _REALISTIC_NAMES = [
+                ("Jordan Park", "jordan.park@company.test"),
+                ("Morgan Liu", "morgan.liu@company.test"),
+                ("Casey Rivera", "casey.rivera@company.test"),
+                ("Taylor Brooks", "taylor.brooks@company.test"),
+                ("Riley Santos", "riley.santos@company.test"),
+                ("Quinn Patel", "quinn.patel@company.test"),
+                ("Drew Nakamura", "drew.nakamura@company.test"),
+                ("Jamie Okafor", "jamie.okafor@company.test"),
+                ("Alex Drummond", "alex.drummond@company.test"),
+                ("Avery Kim", "avery.kim@company.test"),
+            ]
+            rng = random.Random(params.get("seed", 42))
             template = state.emails[0]
             for i in range(count):
                 distractor = template.model_copy(deep=True)
-                distractor.id = f"distractor_{i}"
-                distractor.subject = f"{subject_prefix}Distractor email #{i}"
-                distractor.is_read = False
-                state.emails.insert(0, distractor)
+                distractor.id = f"email_{rng.randint(10000, 99999)}"
+                distractor.thread_id = f"thread_{rng.randint(10000, 99999)}"
+                subj = _REALISTIC_SUBJECTS[i % len(_REALISTIC_SUBJECTS)]
+                distractor.subject = f"{subject_prefix}{subj}"
+                name, addr = _REALISTIC_NAMES[i % len(_REALISTIC_NAMES)]
+                distractor.from_name = name
+                distractor.from_addr = addr
+                distractor.body = f"Hi, {subj.lower()}. Let me know if you have questions."
+                distractor.is_read = rng.random() > 0.4  # 60% read, 40% unread
+                offset = rng.randint(-3600 * 48, 3600 * 2)
+                distractor.timestamp += timedelta(seconds=offset)
+                state.emails.insert(rng.randint(0, len(state.emails)), distractor)
                 mutated = True
 
     elif action == "corrupt_state":
