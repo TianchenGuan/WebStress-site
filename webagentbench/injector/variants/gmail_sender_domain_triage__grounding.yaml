@@ -1,0 +1,28 @@
+variant_id: gmail_sender_domain_triage__grounding_v1
+base_task_id: gmail_sender_domain_triage
+target_primitive: grounding
+description: Lookalike domain decoys and ARIA scrambling push the agent to ground
+  actions on real sender domains only.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: Partner-B Team
+      from: alerts@partner-b-support.test
+      subject: Partner-B routing note
+      body: Display name says Partner-B but the domain does not match the ops rules.
+      labels:
+      - inbox
+    - from_name: Spam-C Review
+      from: review@spam-c-news.test
+      subject: Spam-c digest
+      body: Looks spammy but comes from a different domain family than spam-c.test.
+      labels:
+      - inbox

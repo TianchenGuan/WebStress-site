@@ -15,7 +15,6 @@ injections:
       page_size: 25
       pages: 1
       query: ''
-      message: No results found
     stale_count: 2
     behavior:
       mode: once
@@ -27,12 +26,10 @@ injections:
     behavior:
       mode: progressive
       stages:
-      - requests: 2
+      - after_call: 2
         delay_ms: 3000
-      - requests: 3
+      - after_call: 3
         delay_ms: 5000
-- layer: seed
+- layer: server
   params:
-    action: hide_in_non_obvious_location
-    email_id: '{target.corrected_email_id}'
-    move_to_label: updates
+    action: hide_prerequisite

@@ -1,0 +1,22 @@
+variant_id: gmail_team_roster_sync__state_tracking_v1
+base_task_id: gmail_team_roster_sync
+target_primitive: state_tracking
+description: Timestamps are scrambled and topical distractors are added, forcing the
+  agent to aggregate the right evidence across related threads.
+injections:
+- layer: server
+  params:
+    action: scramble_timestamps
+    seed: 71
+- layer: seed
+  params:
+    action: increase_distractors
+    count: 8
+    topical_count: 6
+    topical_subjects:
+    - Q1 engineering roster spreadsheet
+    - Departures confirmation
+    - Roster correction for manager cc
+    - Congrats Marcus!
+    - Team lead promotion note
+    - Roster onboarding checklist

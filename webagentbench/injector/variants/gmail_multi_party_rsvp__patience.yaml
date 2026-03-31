@@ -1,0 +1,26 @@
+variant_id: gmail_multi_party_rsvp__patience_v1
+base_task_id: gmail_multi_party_rsvp
+target_primitive: patience
+description: Thread reads and the final send slow down progressively while RSVP evidence
+  is gathered.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/gmail/emails**'
+    behavior:
+      mode: progressive
+      stages:
+      - after_call: 0
+        delay_ms: 900
+      - after_call: 5
+        delay_ms: 2200
+      - after_call: 10
+        delay_ms: 4200
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/gmail/send'
+    delay_ms: 2500
+    behavior:
+      mode: once

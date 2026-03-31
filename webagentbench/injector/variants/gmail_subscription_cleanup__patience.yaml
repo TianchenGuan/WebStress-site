@@ -16,6 +16,7 @@ injections:
   params:
     action: error_then_success
     url_pattern: '**/api/env/gmail/filters'
+    methods: [POST, PUT, PATCH]
     error_status: 503
     error_count: 2
     behavior:
@@ -28,9 +29,9 @@ injections:
     behavior:
       mode: progressive
       stages:
-      - call_number: 1
+      - after_call: 1
         delay_ms: 1000
-      - call_number: 2
+      - after_call: 2
         delay_ms: 2000
-      - call_number: 3
+      - after_call: 3
         delay_ms: 3000

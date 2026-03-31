@@ -69,7 +69,7 @@ def get_client_injections(session_id: str) -> list[dict]:
 def _seeded_should_fire(seed: int, call_index: int, probability: float) -> bool:
     """Deterministic coin flip using md5 hash."""
     h = hashlib.md5(f"{seed}:{call_index}".encode()).hexdigest()
-    return (int(h[:8], 16) / 0xFFFFFFFF) < probability
+    return (int(h[:8], 16) / 0x100000000) < probability
 
 
 def _glob_to_regex(pattern: str) -> str:
@@ -87,13 +87,21 @@ def _glob_to_regex(pattern: str) -> str:
 
 
 def _url_matches_pattern(url: str, pattern: str) -> bool:
-    """Check if URL matches a glob-like pattern (** = any path)."""
+    """Check if URL matches a glob-like pattern (** = any path).
+
+    For ``**/`` prefixed patterns, anchors the suffix to a path boundary
+    so ``**/emails`` won't accidentally match ``/emails/e001/star``.
+    Query strings and fragments are stripped before matching.
+    """
+    # Strip query string and fragment for matching
+    clean = url.split("?")[0].split("#")[0]
     if pattern.startswith("**/"):
         suffix = pattern[3:]
         regex = _glob_to_regex(suffix)
-        return bool(re.search(regex, url))
+        # Anchor: must appear after a '/' and reach end-of-path
+        return bool(re.search(r"/" + regex + r"$", clean))
     regex = "^" + _glob_to_regex(pattern) + "$"
-    return bool(re.match(regex, url))
+    return bool(re.match(regex, clean))
 
 
 def _get_counter(session_id: str, key: str) -> int:
@@ -101,93 +109,6 @@ def _get_counter(session_id: str, key: str) -> int:
     counters = _CALL_COUNTERS.setdefault(session_id, {})
     counters[key] = counters.get(key, 0) + 1
     return counters[key]
-
-
-def _coerce_non_negative_int(value: Any, default: int = 0) -> int:
-    try:
-        return max(int(value), 0)
-    except (TypeError, ValueError):
-        return default
-
-
-def _normalize_progressive_stages(
-    stages: list[dict[str, Any]],
-    default_delay_ms: int,
-) -> list[dict[str, int]]:
-    """Normalize legacy stage syntaxes into ``after_call`` thresholds.
-
-    ``after_call`` counts completed matching calls before a stage begins:
-    ``after_call: 0`` applies on call 1, ``after_call: 3`` applies on call 4.
-    """
-    if not stages:
-        return [{"after_call": 0, "delay_ms": _coerce_non_negative_int(default_delay_ms)}]
-
-    if any("requests" in stage for stage in stages):
-        normalized: list[dict[str, int]] = []
-        after_call = 0
-        for stage in stages:
-            normalized.append({
-                "after_call": after_call,
-                "delay_ms": _coerce_non_negative_int(
-                    stage.get("delay_ms"),
-                    _coerce_non_negative_int(default_delay_ms),
-                ),
-            })
-            after_call += _coerce_non_negative_int(stage.get("requests"), 0)
-        return normalized
-
-    if any("until_count" in stage for stage in stages):
-        normalized = []
-        after_call = 0
-        for stage in stages:
-            normalized.append({
-                "after_call": after_call,
-                "delay_ms": _coerce_non_negative_int(
-                    stage.get("delay_ms"),
-                    _coerce_non_negative_int(default_delay_ms),
-                ),
-            })
-            if "until_count" in stage:
-                after_call = _coerce_non_negative_int(stage.get("until_count"), after_call)
-        return normalized
-
-    if any("call_number" in stage for stage in stages):
-        normalized = []
-        for stage in stages:
-            call_number = max(_coerce_non_negative_int(stage.get("call_number"), 1), 1)
-            normalized.append({
-                "after_call": call_number - 1,
-                "delay_ms": _coerce_non_negative_int(
-                    stage.get("delay_ms"),
-                    _coerce_non_negative_int(default_delay_ms),
-                ),
-            })
-        return sorted(normalized, key=lambda stage: stage["after_call"])
-
-    normalized = [
-        {
-            "after_call": _coerce_non_negative_int(stage.get("after_call"), 0),
-            "delay_ms": _coerce_non_negative_int(
-                stage.get("delay_ms"),
-                _coerce_non_negative_int(default_delay_ms),
-            ),
-        }
-        for stage in stages
-    ]
-    return sorted(normalized, key=lambda stage: stage["after_call"])
-
-
-def _progressive_delay_ms(
-    call_num: int,
-    stages: list[dict[str, Any]],
-    default_delay_ms: int,
-) -> int:
-    """Return the active progressive delay for the current 1-indexed call."""
-    current_delay = 0
-    for stage in _normalize_progressive_stages(stages, default_delay_ms):
-        if call_num > stage.get("after_call", 0):
-            current_delay = stage.get("delay_ms", 0)
-    return current_delay
 
 
 def _extract_session_from_referer(referer: str) -> str | None:
@@ -232,12 +153,13 @@ class DegradationMiddleware(BaseHTTPMiddleware):
         )
 
         # Fallback: if exactly one session has network degradation AND the
-        # request is a POST to an API endpoint (SPA internal call where
-        # session_id is in the body, not extractable without consuming the
-        # stream), assume it belongs to the sole degraded session.
-        if (not session_id or session_id not in _SESSION_NETWORK) and len(_SESSION_NETWORK) == 1:
+        # request targets an API endpoint but the session_id could not be
+        # extracted, assume it belongs to the sole degraded session.
+        # Includes GET so that stale_data and delay degradations on read
+        # endpoints are not silently skipped.
+        if not session_id and len(_SESSION_NETWORK) == 1:
             url_path = request.url.path
-            if request.method in ("POST", "PUT", "DELETE") and "/api/env/" in url_path:
+            if "/api/env/" in url_path:
                 session_id = next(iter(_SESSION_NETWORK))
 
         if not session_id or session_id not in _SESSION_NETWORK:
@@ -248,7 +170,7 @@ class DegradationMiddleware(BaseHTTPMiddleware):
         method = request.method
         injections = _SESSION_NETWORK[session_id]
 
-        for inj in injections:
+        for inj_idx, inj in enumerate(injections):
             params = inj.get("params", {})
             action = params.get("action", "")
             url_pattern = params.get("url_pattern", "**/*")
@@ -256,22 +178,49 @@ class DegradationMiddleware(BaseHTTPMiddleware):
             if not _url_matches_pattern(url, url_pattern):
                 continue
 
+            # For method-filtered actions, check the method BEFORE
+            # incrementing the counter so that non-matching methods
+            # (e.g. a GET to load a page) don't consume the fail budget.
+            if action == "silent_fail":
+                methods = set(params.get("methods", ["POST", "PUT"]))
+                if method not in methods:
+                    continue
+            elif action == "stale_data":
+                if method not in ("GET",):
+                    continue
+            elif action == "error_then_success":
+                ets_methods = params.get("methods")
+                if ets_methods and method not in set(ets_methods):
+                    continue
+            elif action == "delay":
+                delay_methods = params.get("methods")
+                if delay_methods and method not in set(delay_methods):
+                    continue
+
             behavior = params.get("behavior", {})
             mode = behavior.get("mode", "once")
             beh_seed = behavior.get("seed", 42)
+            counter_key = f"{action}:{url_pattern}:{inj_idx}"
+            call_num = _get_counter(session_id, counter_key)
 
             if action == "delay":
-                counter_key = f"{action}:{url_pattern}"
-                call_num = _get_counter(session_id, counter_key)
                 delay_ms = params.get("delay_ms", 3000)
                 should_delay = False
 
                 if mode == "progressive":
-                    current_delay = _progressive_delay_ms(
-                        call_num,
-                        behavior.get("stages", []),
-                        delay_ms,
-                    )
+                    stages = behavior.get("stages", [{"after_call": 0, "delay_ms": delay_ms}])
+                    current_delay = 0
+                    for stage in stages:
+                        # Accept common key name variants from YAML files
+                        threshold = (
+                            stage.get("after_call")
+                            or stage.get("call_number")
+                            or stage.get("requests")
+                            or stage.get("until_count")
+                            or 0
+                        )
+                        if call_num >= threshold:
+                            current_delay = stage.get("delay_ms", 0)
                     if current_delay > 0:
                         delay_ms = current_delay
                         should_delay = True
@@ -285,8 +234,6 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     await asyncio.sleep(delay_ms / 1000)
 
             elif action == "error_then_success":
-                counter_key = f"{action}:{url_pattern}"
-                call_num = _get_counter(session_id, counter_key)
                 error_status = params.get("error_status", 503)
                 should_error = False
 
@@ -304,12 +251,6 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     )
 
             elif action == "silent_fail":
-                methods = set(params.get("methods", ["POST", "PUT"]))
-                if method not in methods:
-                    continue
-
-                counter_key = f"{action}:{url_pattern}"
-                call_num = _get_counter(session_id, counter_key)
                 fake_body = params.get("response_body", {"success": True})
                 should_fail = False
 
@@ -327,11 +268,6 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     )
 
             elif action == "stale_data":
-                if method not in ("GET",):
-                    continue
-
-                counter_key = f"{action}:{url_pattern}"
-                call_num = _get_counter(session_id, counter_key)
                 stale_body = params.get("stale_body", {})
                 should_stale = False
 

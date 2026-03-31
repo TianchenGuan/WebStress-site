@@ -1,0 +1,13 @@
+variant_id: gmail_contact_cleanup__exploration_v1
+base_task_id: gmail_contact_cleanup
+target_primitive: exploration
+description: The Labels & contacts entry is hidden, forcing exploration before contact
+  cleanup can start.
+injections:
+- layer: client
+  params:
+    action: hide_affordance
+    selector: a[aria-label="Labels"]
+    trigger: contextmenu
+    behavior:
+      mode: persistent

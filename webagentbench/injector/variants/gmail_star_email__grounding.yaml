@@ -1,0 +1,28 @@
+variant_id: gmail_star_email__grounding_v1
+base_task_id: gmail_star_email
+target_primitive: grounding
+description: Near-identical Alice Chen messages and ARIA scrambling make the exact
+  milestone email harder to identify.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: Alice Chen
+      from: alice.chen@company.test
+      subject: Project Update - Q1 Milestones
+      body: ASCII-hyphen duplicate with an outdated milestone summary.
+      labels:
+      - inbox
+    - from_name: Alice Chen
+      from: alice.chen@partner.test
+      subject: Project Update — Q1 Milestones
+      body: Same subject from a different domain and unrelated project.
+      labels:
+      - inbox

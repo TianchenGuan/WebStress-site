@@ -1,0 +1,28 @@
+variant_id: gmail_triage_with_interrupts__grounding_v1
+base_task_id: gmail_triage_with_interrupts
+target_primitive: grounding
+description: Rubric-adjacent decoys and ARIA scrambling make it harder to ground which
+  threads are explicitly in scope.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: Client Success
+      from: update@client-domain-extra.test
+      subject: Account follow-up
+      body: Looks like a client-domain message but is not one of the 10 listed emails.
+      labels:
+      - inbox
+    - from_name: Escalation Desk
+      from: alerts@urgent-ops.test
+      subject: Escalation notice
+      body: Appears urgent but is not one of the two listed escalation senders.
+      labels:
+      - inbox

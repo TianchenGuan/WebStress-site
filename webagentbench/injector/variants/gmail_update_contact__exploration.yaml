@@ -1,0 +1,13 @@
+variant_id: gmail_update_contact__exploration_v1
+base_task_id: gmail_update_contact
+target_primitive: exploration
+description: The Labels & contacts entry is hidden, forcing exploration before the
+  contact editor can be reached.
+injections:
+- layer: client
+  params:
+    action: hide_affordance
+    selector: a[aria-label="Labels"]
+    trigger: contextmenu
+    behavior:
+      mode: persistent

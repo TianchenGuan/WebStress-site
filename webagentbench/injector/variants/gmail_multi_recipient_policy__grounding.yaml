@@ -1,0 +1,29 @@
+variant_id: gmail_multi_recipient_policy__grounding_v1
+base_task_id: gmail_multi_recipient_policy
+target_primitive: grounding
+description: Reply-mode lookalikes and ARIA scrambling make it harder to ground each
+  thread to the correct action.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: Board Office
+      from: board-office@company.test
+      subject: Board Strategy Review - summary
+      body: Forwarding summary that says reply-all to the board after every revision.
+      labels:
+      - inbox
+    - from_name: Apex Systems Legal
+      from: contracts@apexsystems.test
+      subject: Vendor Contract Renewal - Apex Systems (internal note)
+      body: Internal note that asks you to reply directly to the vendor instead of
+        forwarding to your delegate.
+      labels:
+      - inbox

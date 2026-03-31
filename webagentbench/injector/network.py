@@ -27,7 +27,7 @@ def _seeded_should_fire(seed: int, call_index: int, probability: float) -> bool:
     Same seed + index always returns the same result across runs.
     """
     h = hashlib.md5(f"{seed}:{call_index}".encode()).hexdigest()
-    return (int(h[:8], 16) / 0xFFFFFFFF) < probability
+    return (int(h[:8], 16) / 0x100000000) < probability
 
 
 async def apply_network_injection(page: Any, params: dict[str, Any]) -> None:

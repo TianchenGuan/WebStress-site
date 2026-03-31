@@ -1,0 +1,17 @@
+variant_id: gmail_contact_deduplication__verification_v1
+base_task_id: gmail_contact_deduplication
+target_primitive: verification
+description: The first contact deletion silently fails, so the agent must verify which
+  Priya contact actually remains.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/gmail/contacts/*'
+    methods:
+    - DELETE
+    response_body:
+      success: true
+    fail_count: 1
+    behavior:
+      mode: once

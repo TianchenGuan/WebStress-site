@@ -1,0 +1,13 @@
+variant_id: gmail_change_setting__exploration_v1
+base_task_id: gmail_change_setting
+target_primitive: exploration
+description: Settings navigation is hidden behind a non-obvious interaction before
+  the agent can reach Undo Send.
+injections:
+- layer: client
+  params:
+    action: hide_affordance
+    selector: a[aria-label="Settings"]
+    trigger: contextmenu
+    behavior:
+      mode: persistent

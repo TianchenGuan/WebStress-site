@@ -1,0 +1,26 @@
+variant_id: gmail_contact_enrichment__patience_v1
+base_task_id: gmail_contact_enrichment
+target_primitive: patience
+description: Search and contacts calls slow down progressively while contact enrichment
+  is underway.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/gmail/search**'
+    behavior:
+      mode: progressive
+      stages:
+      - after_call: 0
+        delay_ms: 800
+      - after_call: 4
+        delay_ms: 2000
+      - after_call: 8
+        delay_ms: 4000
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/gmail/contacts**'
+    delay_ms: 1500
+    behavior:
+      mode: once

@@ -1,0 +1,18 @@
+variant_id: gmail_travel_itinerary_resolution__verification_v1
+base_task_id: gmail_travel_itinerary_resolution
+target_primitive: verification
+description: The first forward silently fails, so the agent must verify both travel
+  confirmations were actually forwarded.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/gmail/emails/*/forward'
+    methods:
+    - POST
+    response_body:
+      success: true
+      forwarded: true
+    fail_count: 1
+    behavior:
+      mode: once

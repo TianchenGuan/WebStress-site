@@ -76,6 +76,7 @@ _DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
             {"layer": "network", "params": {
                 "action": "error_then_success",
                 "url_pattern": "**/api/env/gmail/emails",
+                "methods": ["POST", "PUT", "PATCH", "DELETE"],
                 "error_status": 503, "error_count": 1,
                 "behavior": {"mode": "once"}}},
             {"layer": "network", "params": {
@@ -113,11 +114,13 @@ _DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
             {"layer": "network", "params": {
                 "action": "error_then_success",
                 "url_pattern": "**/api/env/gmail/send",
+                "methods": ["POST"],
                 "error_status": 503, "error_count": 2,
                 "behavior": {"mode": "once"}}},
             {"layer": "network", "params": {
                 "action": "error_then_success",
                 "url_pattern": "**/api/env/gmail/labels",
+                "methods": ["POST"],
                 "error_status": 503, "error_count": 1,
                 "behavior": {"mode": "once"}}},
         ],

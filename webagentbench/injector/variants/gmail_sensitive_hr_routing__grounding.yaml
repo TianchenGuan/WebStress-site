@@ -1,0 +1,29 @@
+variant_id: gmail_sensitive_hr_routing__grounding_v1
+base_task_id: gmail_sensitive_hr_routing
+target_primitive: grounding
+description: HR thread decoys and ARIA scrambling make it harder to ground each message
+  to the right confidential action.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: HR Announcements
+      from: announcements-archive@company.test
+      subject: Updated PTO Policy - Effective March 1 (draft)
+      body: Older draft announcement that should not be archived in place of the real
+        policy email.
+      labels:
+      - inbox
+    - from_name: HR Director Office
+      from: director-office@company.test
+      subject: Performance Concern escalation template
+      body: Template message that suggests replying-all instead of forwarding confidentially.
+      labels:
+      - inbox

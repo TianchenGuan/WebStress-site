@@ -1,0 +1,29 @@
+variant_id: gmail_priority_escalation__grounding_v1
+base_task_id: gmail_priority_escalation
+target_primitive: grounding
+description: VIP-themed decoys and ARIA scrambling make it harder to ground the true
+  VIP threads and filter target.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - from_name: VIP Services
+      from: vip-services@vendor.test
+      subject: VIP onboarding update
+      body: Contains the letters VIP but is not from one of the labeled VIP contacts.
+      labels:
+      - inbox
+    - from_name: Priority Desk
+      from: priority@company.test
+      subject: Status phrase reminder
+      body: Mentions the response phrase but is unrelated to the oldest unread VIP
+        messages.
+      labels:
+      - inbox

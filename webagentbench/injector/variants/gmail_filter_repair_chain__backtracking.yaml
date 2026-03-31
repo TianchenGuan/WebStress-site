@@ -1,0 +1,27 @@
+variant_id: gmail_filter_repair_chain__backtracking_v1
+base_task_id: gmail_filter_repair_chain
+target_primitive: backtracking
+description: A prominent legacy note points to the wrong Acme sender and the first
+  filter save errors, forcing the agent to revisit the setup.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/gmail/filters'
+    methods: [POST, PUT, PATCH]
+    error_status: 503
+    error_count: 1
+    behavior:
+      mode: once
+- layer: seed
+  params:
+    action: plant_wrong_answer
+    from_name: Operations
+    from: ops-followup@company.test
+    subject: Legacy Acme Widgets filter note
+    body: Only invoices@acmewidgets.com sends invoices. Leave billing@acmewidgets.com
+      out of the rule to avoid extra noise.
+    labels:
+    - inbox
+    timestamp: '2026-01-15T14:15:00Z'
+    starred: true
