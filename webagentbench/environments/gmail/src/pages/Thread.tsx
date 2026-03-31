@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { EmptyState } from "@webagentbench/shared";
+import { EmptyState, preserveQueryParams } from "@webagentbench/shared";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { IconArrowBack, IconArchive, IconDelete, IconForward, IconStar, IconLabel } from "../icons";
@@ -109,7 +109,7 @@ export function ThreadPage() {
   const returnPath =
     typeof (location.state as { from?: unknown } | null)?.from === "string"
       ? ((location.state as { from: string }).from)
-      : "/inbox?label=inbox";
+      : preserveQueryParams("/inbox?label=inbox", location.search);
 
   return (
     <main className="gmail-page" aria-label="Thread view">
@@ -137,7 +137,7 @@ export function ThreadPage() {
                   await refreshMailbox();
                 });
                 await refreshMailbox();
-                navigate("/inbox?label=inbox");
+                navigate(preserveQueryParams("/inbox?label=inbox", location.search));
               }
             }}
           >
@@ -152,7 +152,7 @@ export function ThreadPage() {
                 await api.deleteEmail(thread.email.id);
                 notify("Moved to trash", thread.email.subject);
                 await refreshMailbox();
-                navigate("/inbox?label=inbox");
+                navigate(preserveQueryParams("/inbox?label=inbox", location.search));
               }
             }}
           >

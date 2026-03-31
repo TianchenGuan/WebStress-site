@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Button, classNames } from "@webagentbench/shared";
-import { formatDateTime } from "@webagentbench/shared";
+import { Button, classNames, formatDateTime, preserveQueryParams } from "@webagentbench/shared";
 
 import { IconStar, IconArchive, IconDelete } from "../icons";
 import { LabelChip } from "./LabelChip";
@@ -22,7 +21,7 @@ export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete }: E
     (label) => normalizedEmailLabels.has(label.id.toLowerCase()) || normalizedEmailLabels.has(label.name.toLowerCase()),
   );
   const returnPath = `${location.pathname}${location.search}`;
-  const threadPath = `/thread/${email.id}`;
+  const threadPath = preserveQueryParams(`/thread/${email.id}`, location.search);
   const unreadState = email.is_read ? "Read" : "Unread";
   const threadLabel = `${unreadState} thread from ${email.from_name}: ${email.subject || "(no subject)"}`;
 

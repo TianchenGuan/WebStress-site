@@ -1,3 +1,4 @@
+import { preserveQueryParams } from "@webagentbench/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { ComposeForm } from "../components/ComposeForm";
@@ -19,7 +20,7 @@ export function ComposePage() {
           await api.sendMessage(payload);
           notify("Message sent", payload.subject);
           await refreshMailbox();
-          navigate("/inbox?label=sent");
+          navigate(preserveQueryParams("/inbox?label=sent", location.search));
         }}
       />
     </main>
