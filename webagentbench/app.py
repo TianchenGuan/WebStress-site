@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -38,39 +40,134 @@ def _env_index_path(env_id: str) -> Path:
     return STATIC_DIR / "envs" / env_id / "index.html"
 
 
-# Scripts that should be present in every environment SPA but aren't part of the
-# Vite build.  Injected at serve-time so the build output stays self-contained.
-_INJECT_SCRIPTS = '<script src="/static/benchmark-toolbar.js" defer></script>'
+def _env_assets_path(env_id: str) -> Path:
+    return STATIC_DIR / "envs" / env_id / "assets"
 
 
-def _serve_env_html(env_id: str) -> HTMLResponse:
-    """Read the Vite-built index.html and inject benchmark scripts."""
+def _frontend_build_command() -> str:
+    return "scripts/webagentbench.sh build"
+
+
+def _dev_frontend_overrides() -> dict[str, str]:
+    raw = os.getenv("WEBAGENTBENCH_DEV_FRONTENDS", "").strip()
+    if not raw:
+        return {}
+
+    overrides: dict[str, str] = {}
+    for entry in raw.split(","):
+        item = entry.strip()
+        if not item:
+            continue
+        env_id, sep, url = item.partition("=")
+        if not sep:
+            continue
+        env_id = env_id.strip()
+        url = url.strip().rstrip("/")
+        if env_id and url:
+            overrides[env_id] = url
+    return overrides
+
+
+def _env_dev_base_url(env_id: str) -> str | None:
+    return _dev_frontend_overrides().get(env_id)
+
+
+def _join_public_base_url(base_url: str, path: str = "", query: str = "") -> str:
+    normalized_base = base_url.rstrip("/")
+    normalized_path = path.lstrip("/")
+    joined = f"{normalized_base}/{normalized_path}" if normalized_path else f"{normalized_base}/"
+    return f"{joined}?{query}" if query else joined
+
+
+@lru_cache(maxsize=None)
+def _env_source_inputs(env_id: str) -> tuple[Path, ...]:
+    workspace_dir = BASE_DIR / "environments"
+    env_dir = workspace_dir / env_id
+    shared_dir = workspace_dir / "shared"
+    candidates = [
+        env_dir / "index.html",
+        env_dir / "package.json",
+        env_dir / "vite.config.ts",
+        env_dir / "tsconfig.json",
+        env_dir / "src",
+        shared_dir / "package.json",
+        shared_dir / "tsconfig.json",
+        shared_dir / "src",
+        workspace_dir / "package.json",
+        workspace_dir / "pnpm-lock.yaml",
+        workspace_dir / "pnpm-workspace.yaml",
+        workspace_dir / "tsconfig.base.json",
+    ]
+    return tuple(path for path in candidates if path.exists())
+
+
+def _latest_mtime_ns(paths: list[Path]) -> int | None:
+    latest: int | None = None
+    for path in paths:
+        if not path.exists():
+            continue
+        if path.is_file():
+            mtime = path.stat().st_mtime_ns
+            latest = mtime if latest is None else max(latest, mtime)
+            continue
+        for child in path.rglob("*"):
+            if child.is_file():
+                mtime = child.stat().st_mtime_ns
+                latest = mtime if latest is None else max(latest, mtime)
+    return latest
+
+
+def _frontend_bundle_status(index_path: Path, assets_dir: Path, source_inputs: list[Path]) -> tuple[bool, str | None]:
+    build_command = _frontend_build_command()
+    if not index_path.exists() or not assets_dir.exists():
+        return False, f"Environment backend exists but the frontend bundle has not been built. Run `{build_command}`."
+
+    build_inputs = [index_path, assets_dir]
+    latest_build = _latest_mtime_ns(build_inputs)
+    latest_source = _latest_mtime_ns(source_inputs)
+
+    if latest_build is None:
+        return False, f"Environment backend exists but the frontend bundle has not been built. Run `{build_command}`."
+    if latest_source is not None and latest_source > latest_build:
+        return False, f"Environment backend exists but the frontend bundle is stale. Rebuild it with `{build_command}`."
+    return True, None
+
+
+def _env_frontend_status(env_id: str) -> tuple[bool, str | None]:
+    dev_url = _env_dev_base_url(env_id)
+    if dev_url:
+        return True, None
+    return _frontend_bundle_status(
+        _env_index_path(env_id),
+        _env_assets_path(env_id),
+        list(_env_source_inputs(env_id)),
+    )
+
+
+def _env_public_base_url(env_id: str, fallback: str | None = None) -> str:
+    return _env_dev_base_url(env_id) or fallback or f"/env/{env_id}"
+
+def _serve_env_html(env_id: str) -> FileResponse:
+    """Serve the built environment index.html without runtime mutation."""
     index_path = _env_index_path(env_id)
-    if not index_path.exists():
-        raise HTTPException(status_code=404, detail=f"Environment '{env_id}' has not been built yet")
-    html = index_path.read_text()
-    # Inject after benchmark.js (which Vite preserves from the source template)
-    # or fall back to injecting before </head>
-    if "/static/benchmark.js" in html and _INJECT_SCRIPTS not in html:
-        html = html.replace(
-            '<script src="/static/benchmark.js"></script>',
-            '<script src="/static/benchmark.js"></script>\n    ' + _INJECT_SCRIPTS,
-        )
-    elif "</head>" in html and _INJECT_SCRIPTS not in html:
-        html = html.replace("</head>", "    " + _INJECT_SCRIPTS + "\n  </head>")
-    return HTMLResponse(content=html)
+    available, reason = _env_frontend_status(env_id)
+    if not available:
+        raise HTTPException(status_code=503, detail=reason)
+    return FileResponse(index_path)
 
 
 def _env_is_available(env_id: str) -> bool:
-    return env_id in _ENV_TASK_GROUPS and _env_index_path(env_id).exists()
+    if env_id not in _ENV_TASK_GROUPS:
+        return False
+    available, _ = _env_frontend_status(env_id)
+    return available
 
 
 def _env_unavailable_reason(env_id: str) -> str | None:
     if env_id not in _ENV_TASK_GROUPS:
         return "Environment is listed in the manifest but has no backend implementation in this build."
-    if not _env_index_path(env_id).exists():
-        return "Environment backend exists but the frontend bundle has not been built."
-    return None
+    _, reason = _env_frontend_status(env_id)
+    return reason
 
 
 def _public_task_from_def(task) -> dict:
@@ -92,7 +189,10 @@ def _build_env_manifest_entry(env_meta: dict, tasks: list) -> dict:
     entry = deepcopy(env_meta)
     entry.setdefault("env_id", env_meta.get("env_id"))
     entry.setdefault("title", entry["env_id"])
-    entry.setdefault("base_url", f"/env/{entry['env_id']}")
+    entry["base_url"] = _env_public_base_url(
+        entry["env_id"],
+        env_meta.get("base_url", f"/env/{entry['env_id']}"),
+    )
     entry["tasks"] = [_public_task_from_def(task) for task in tasks]
     entry["available"] = _env_is_available(entry["env_id"])
     entry["unavailable_reason"] = _env_unavailable_reason(entry["env_id"])
@@ -157,18 +257,27 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 mount_environment_routes(app)
 
 for env_id in KNOWN_ENV_IDS:
-    assets_dir = STATIC_DIR / "envs" / env_id / "assets"
-    if assets_dir.exists():
-        app.mount(f"/env/{env_id}/assets", StaticFiles(directory=str(assets_dir)), name=f"{env_id}-assets")
+    assets_dir = _env_assets_path(env_id)
+    app.mount(
+        f"/env/{env_id}/assets",
+        StaticFiles(directory=str(assets_dir), check_dir=False),
+        name=f"{env_id}-assets",
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
 @app.get("/launch", response_class=HTMLResponse)
 async def index():
     """Home page: environment overview + task launcher."""
+    current_manifest = build_manifest()
+    env_base_urls = {
+        env["env_id"]: env.get("base_url", f"/env/{env['env_id']}")
+        for env in current_manifest.get("environments", [])
+    }
+
     # Build environment cards
     env_cards = ""
-    for env in MANIFEST.get("environments", []):
+    for env in current_manifest.get("environments", []):
         available = bool(env.get("available", False))
         task_count = len(env.get("tasks", []))
         status_cls = "env-available" if available else "env-unavailable"
@@ -186,7 +295,7 @@ async def index():
     _DIFF_ORDER = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
     _DIFF_EMOJI = {"easy": "\u2714", "medium": "\u26a0", "hard": "\u2b50", "expert": "\U0001f525", "frontier": "\U0001f680"}  # ✔ ⚠ ⭐ 🔥 🚀
     all_tasks: list[dict] = []
-    for env in MANIFEST.get("environments", []):
+    for env in current_manifest.get("environments", []):
         for task in env.get("tasks", []):
             all_tasks.append({**task, "_env_id": env["env_id"]})
     all_tasks.sort(key=lambda t: (_DIFF_ORDER.get(t.get("difficulty", ""), 9), t.get("title", "")))
@@ -209,6 +318,8 @@ async def index():
         task_options += f'<option value="{tid}" data-env="{task["_env_id"]}">{title}{step_hint} — {prims}</option>\n'
     if current_group is not None:
         task_options += "</optgroup>\n"
+
+    env_base_url_json = json.dumps(env_base_urls, sort_keys=True)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -293,6 +404,8 @@ async def index():
     </div>
 
     <script>
+    var envBaseUrls = {env_base_url_json};
+
     fetch('/api/env/gmail/variants')
         .then(function(r) {{ return r.json(); }})
         .then(function(variants) {{
@@ -347,6 +460,9 @@ async def index():
         if (variant) payload.variant_filename = variant;
 
         try {{
+            var taskSelect = document.getElementById('task');
+            var selectedTask = taskSelect.options[taskSelect.selectedIndex];
+            var envId = selectedTask.dataset.env;
             var resp = await fetch('/api/env/gmail/session', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
@@ -360,7 +476,9 @@ async def index():
             var data = await resp.json();
             var sessionId = data.session_id;
             var startPath = data.start_path || '/inbox';
-            window.location.href = '/env/gmail' + startPath + '?session=' + encodeURIComponent(sessionId);
+            var baseUrl = envBaseUrls[envId] || ('/env/' + envId);
+            var separator = startPath.indexOf('?') >= 0 ? '&' : '?';
+            window.location.href = baseUrl.replace(/\\/+$/, '') + startPath + separator + 'session=' + encodeURIComponent(sessionId);
         }} catch(e) {{
             status.textContent = 'Error: ' + e.message;
         }}
@@ -374,22 +492,28 @@ async def index():
 @app.get("/manifest")
 async def get_manifest():
     """Return the merged benchmark manifest."""
-    return MANIFEST
+    return build_manifest()
 
 
 @app.get("/env/{env_id}")
-async def redirect_env_root(env_id: str):
+async def redirect_env_root(env_id: str, request: Request):
     """Redirect bare /env/<id> to the home-page launcher (which has variant support)."""
     if env_id not in KNOWN_ENV_IDS:
         raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
+    dev_url = _env_dev_base_url(env_id)
+    if dev_url:
+        return RedirectResponse(url=_join_public_base_url(dev_url, query=request.url.query), status_code=307)
     return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/env/{env_id}/{path:path}")
-async def serve_environment_spa(env_id: str, path: str = ""):
+async def serve_environment_spa(env_id: str, request: Request, path: str = ""):
     """Serve a built React SPA for an advanced environment."""
     if env_id not in KNOWN_ENV_IDS:
         raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
+    dev_url = _env_dev_base_url(env_id)
+    if dev_url:
+        return RedirectResponse(url=_join_public_base_url(dev_url, path=path, query=request.url.query), status_code=307)
     # Bare /env/gmail/ (trailing slash, empty path) → redirect to home launcher
     if not path:
         return RedirectResponse(url="/", status_code=302)

@@ -4,7 +4,7 @@
  * Records human interactions (clicks, typing, navigation) as a replayable
  * trajectory. Works alongside the benchmark toolbar.
  *
- * Usage: Injected by benchmark-toolbar.js when recording is enabled.
+ * Usage: Loaded by the in-app benchmark toolbar when recording is enabled.
  *
  * Recorded events:
  *   - click: element bid/selector, text, role
@@ -166,6 +166,6 @@
     },
   };
 
-  // Expose globally for benchmark-toolbar.js
+  // Expose globally for the in-app benchmark toolbar
   window.__WAB_RECORDER = WAB_RECORDER;
 })();

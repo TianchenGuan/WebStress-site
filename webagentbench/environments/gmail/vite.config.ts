@@ -4,6 +4,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "/env/gmail/",
+  optimizeDeps: {
+    exclude: ["@webagentbench/shared", "@webagentbench/gmail"],
+  },
   build: {
     outDir: "../../static/envs/gmail",
     emptyOutDir: true,

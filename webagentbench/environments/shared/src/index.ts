@@ -1,5 +1,6 @@
 export * from "./components/Avatar";
 export * from "./components/Badge";
+export * from "./components/BenchmarkToolbar";
 export * from "./components/Button";
 export * from "./components/DataTable";
 export * from "./components/Dropdown";
@@ -15,6 +16,7 @@ export * from "./hooks/useApi";
 export * from "./hooks/useBenchmarkState";
 export * from "./hooks/useSession";
 export * from "./utils/format";
+export * from "./utils/navigation";
 export * from "./adapters/types";
 export * from "./adapters/index";
 export { AdapterProvider, useAdapterContext } from "./hooks/useAdapter";

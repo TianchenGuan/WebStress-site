@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { Badge } from "./Badge";
+import { preserveQueryParams } from "../utils/navigation";
 
 export interface SidebarItem {
   label: string;
@@ -52,9 +53,11 @@ function useIsActive(to: string): boolean {
 
 function SidebarLink({ item }: { item: SidebarItem }) {
   const active = useIsActive(item.to);
+  const location = useLocation();
+  const to = preserveQueryParams(item.to, location.search);
   return (
     <Link
-      to={item.to}
+      to={to}
       className={`wab-sidebar__link${active ? " wab-sidebar__link--active" : ""}`}
       aria-current={active ? "page" : undefined}
       aria-label={item.label}

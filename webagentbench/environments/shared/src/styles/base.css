@@ -402,8 +402,238 @@ a {
   box-shadow: var(--shadow-soft);
 }
 
+.wab-bench-toolbar {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 99999;
+  transform: translateY(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+}
+
+.wab-bench-toolbar__tab {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  border: 1px solid #0f3460;
+  border-right: 0;
+  border-radius: 6px 0 0 6px;
+  background: #1a1a2e;
+  color: #e94560;
+  padding: 12px 6px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s;
+}
+
+.wab-bench-toolbar__tab:hover {
+  background: #252545;
+}
+
+.wab-bench-toolbar__panel {
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  display: none;
+  width: 340px;
+  max-width: calc(100vw - 3rem);
+  max-height: 80vh;
+  overflow-y: auto;
+  transform: translateY(-50%);
+  border-radius: 8px;
+  border: 1px solid #0f3460;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.wab-bench-toolbar__panel--open {
+  display: block;
+}
+
+.wab-bench-toolbar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #333;
+}
+
+.wab-bench-toolbar__label {
+  color: #e94560;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.wab-bench-toolbar__close {
+  border: 0;
+  background: transparent;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.wab-bench-toolbar__close:hover {
+  color: #fff;
+}
+
+.wab-bench-toolbar__instruction {
+  padding: 10px 14px;
+  border-bottom: 1px solid #333;
+  color: #ccc;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.wab-bench-toolbar__actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.wab-bench-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  min-height: auto;
+  border-radius: 4px;
+  border: 0;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.wab-bench-toolbar__button:hover {
+  opacity: 0.85;
+}
+
+.wab-bench-toolbar__button--primary {
+  background: #0f3460;
+  color: #fff;
+  flex: 1;
+}
+
+.wab-bench-toolbar__button--secondary {
+  background: #333;
+  color: #ccc;
+}
+
+.wab-bench-toolbar__button--recording {
+  background: #c62828;
+  color: #fff;
+  animation: wab-bench-toolbar-pulse 1.5s infinite;
+}
+
+@keyframes wab-bench-toolbar-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.wab-bench-toolbar__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wab-bench-toolbar__launcher {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.wab-bench-toolbar__message {
+  padding: 0 14px 10px;
+  color: #888;
+  font-size: 12px;
+}
+
+.wab-bench-toolbar__results {
+  display: block;
+  padding: 10px 14px;
+  border-top: 1px solid #333;
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.wab-bench-toolbar__score-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.wab-bench-toolbar__score {
+  font-size: 22px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.wab-bench-toolbar__score--pass {
+  color: #4caf50;
+}
+
+.wab-bench-toolbar__score--fail {
+  color: #f44336;
+}
+
+.wab-bench-toolbar__section-title {
+  margin-top: 8px;
+  margin-bottom: 0;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wab-bench-toolbar__check {
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.wab-bench-toolbar__check--pass {
+  color: #4caf50;
+}
+
+.wab-bench-toolbar__check--fail {
+  color: #f44336;
+}
+
+.wab-bench-toolbar__reasoning {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  color: #888;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 @media (max-width: 980px) {
   .wab-modal-backdrop {
     padding: 1rem;
+  }
+
+  .wab-bench-toolbar__panel {
+    right: 1rem;
+    width: min(340px, calc(100vw - 3rem));
   }
 }

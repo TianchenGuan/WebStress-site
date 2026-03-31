@@ -34,6 +34,25 @@ python scripts/run_environment_tests.py --frontend-only --require-frontend
 
 The backend runner will use the current Python interpreter if it has `pytest`, then fall back to a local conda interpreter when present. The frontend runner prefers a repo-local Node install under `.tools/node-v*/bin/node`, then falls back to `node` on `PATH`, and finally the LM Studio helper binary if no other runtime is available. You can also override the frontend runtime explicitly with `WEBAGENTBENCH_NODE=/abs/path/to/node`.
 
+## Frontend Workflow
+
+The React source under `webagentbench/environments/gmail/src/` and `webagentbench/environments/shared/src/` is the source of truth. The files under `webagentbench/static/envs/` are generated Vite output and are ignored by git.
+
+Use the single WebAgentBench entrypoint:
+
+```bash
+./scripts/webagentbench.sh build
+./scripts/webagentbench.sh dev
+```
+
+`./scripts/webagentbench.sh build` runs the workspace build in `webagentbench/environments/` and refreshes the static frontend bundles under `webagentbench/static/envs/`. The FastAPI app refuses to serve a stale bundle; if frontend source files are newer than the built assets, the launcher marks the environment unavailable until you rebuild.
+
+`./scripts/webagentbench.sh dev` starts the backend plus any configured frontend dev servers, then opens `http://localhost:8080/launch`. In dev mode the launcher redirects directly into the live frontend dev server, so you do not need a separate prebuild before local development. Add `--no-open` to skip opening the browser.
+
+If you run `./scripts/webagentbench.sh` with no subcommand, it defaults to `dev`. Use `--env gmail` to limit dev startup to a specific environment; if you omit `--env`, the script starts every supported frontend dev server.
+
+The benchmark toolbar now lives in the shared React source and is mounted from the Gmail shell. There is no standalone `benchmark-toolbar.js` path and no runtime HTML mutation fallback; dev and built modes both use the same in-app toolbar flow.
+
 ## Version Registry
 
 | Version | Manifest | Pages | Primary change | Result status |

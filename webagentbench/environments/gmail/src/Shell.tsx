@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  BenchmarkToolbar,
   Button,
   SearchBar,
   Sidebar,
   Toast,
+  preserveQueryParams,
   useApi,
   useBenchmarkState,
 } from "@webagentbench/shared";
@@ -124,7 +126,7 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
             <SearchBar
               value={searchValue}
               onChange={setSearchValue}
-              onSubmit={() => navigate(`/search?q=${encodeURIComponent(searchValue)}`)}
+              onSubmit={() => navigate(preserveQueryParams(`/search?q=${encodeURIComponent(searchValue)}`, location.search))}
               placeholder="Search mail"
               ariaLabel="Search mail"
               className="gmail-topbar__search"
@@ -140,7 +142,7 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
               variant="primary"
               className="gmail-compose-trigger"
               aria-label="Compose a new message"
-              onClick={() => navigate("/compose")}
+              onClick={() => navigate(preserveQueryParams("/compose", location.search))}
             >
               <IconCompose /> Compose
             </Button>
@@ -173,6 +175,7 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
           </div>
         </div>
         <Toast messages={toasts} onDismiss={dismissToast} />
+        <BenchmarkToolbar envId="gmail" sessionId={sessionId} />
       </div>
     </GmailLayoutContext.Provider>
   );
