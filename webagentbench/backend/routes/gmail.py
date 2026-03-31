@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import shlex
 from collections.abc import Callable
 from datetime import datetime
@@ -514,10 +515,9 @@ def create_session(body: SessionCreateRequest, session_manager: SessionManager =
 
     # Apply seed/server degradation injections post-seed, pre-response
     if degradation:
-        import random as _random
         from ...injector.seed import apply_seed_injection
         from ...injector.server import apply_server_injection
-        seed_rng = _random.Random(actual_seed)
+        seed_rng = random.Random(actual_seed)
         for injection in degradation.get("injections", []):
             layer = injection.get("layer")
             params = injection.get("params", {})

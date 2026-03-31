@@ -173,16 +173,17 @@ class TestStressPatience:
         ev = _eval(client, sid, "gmail_star_email")
         assert ev["success"] is True, f"After retry, should pass: {ev['reasoning'][:200]}"
 
-    def test_email_list_503_also_fires(self, client):
+    def test_email_list_get_not_consumed_by_error_budget(self, client):
+        """GET /emails passes through — methods filter preserves budget for writes."""
         s = _session(client, "gmail_star_email",
                      variant_filename="gmail_star_email__patience.yaml")
         sid = s["session_id"]
 
         r1 = _emails(client, sid)
-        assert r1.status_code == 503, "First email list should be 503"
+        assert r1.status_code == 200, "GET email list should not consume error budget"
 
         r2 = _emails(client, sid)
-        assert r2.status_code == 200, "Second email list should succeed"
+        assert r2.status_code == 200, "Second GET email list should also succeed"
 
 
 class TestStressVerification:

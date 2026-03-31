@@ -1,6 +1,9 @@
-"""DEPRECATED: Client injections are now delivered server-side via
-benchmark-toolbar.js (fetches GET /api/env/gmail/degradation/{session_id}
-and applies DOM mutations in-browser for both human and Playwright agents).
+"""DEPRECATED: Legacy Playwright DOM mutation helpers.
+
+Live client degradations are now delivered through the in-app React
+BenchmarkToolbar component (`environments/shared/src/components/BenchmarkToolbar.tsx`),
+which fetches `GET /api/env/gmail/degradation/{session_id}` and applies DOM
+mutations in-browser for both human sessions and agent-mode sessions.
 
 This module is retained for reference only. The Playwright page.evaluate()
 approach below is no longer called by the benchmark harness.

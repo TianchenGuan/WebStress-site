@@ -211,13 +211,16 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     stages = behavior.get("stages", [{"after_call": 0, "delay_ms": delay_ms}])
                     current_delay = 0
                     for stage in stages:
-                        # Accept common key name variants from YAML files
-                        threshold = (
-                            stage.get("after_call")
-                            or stage.get("call_number")
-                            or stage.get("requests")
-                            or stage.get("until_count")
-                            or 0
+                        # Accept common key name variants from YAML files.
+                        # Use explicit None checks — 0 is a valid threshold.
+                        threshold = next(
+                            (v for v in (
+                                stage.get("after_call"),
+                                stage.get("call_number"),
+                                stage.get("requests"),
+                                stage.get("until_count"),
+                            ) if v is not None),
+                            0,
                         )
                         if call_num >= threshold:
                             current_delay = stage.get("delay_ms", 0)
