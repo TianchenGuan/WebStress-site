@@ -43,8 +43,8 @@ def register_all() -> int:
 
 # Auto-register on import
 try:
-    _registered = register_all()
-    if _registered:
-        logger.info("Registered %d WebAgentBench tasks with BrowserGym", _registered)
+    count = register_all()
+    if count:
+        logger.info("Registered %d WebAgentBench tasks with BrowserGym", count)
 except Exception:
     pass

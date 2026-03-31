@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from shared.format import SCROLL_HINT_TEXT, SYSTEM_PROMPT, TreeNode, render_indexed_tree
 from shared.playwright_adapter import _mark_scroll_hint
-from webagentbench.agent import _build_fallback_summary as _build_history_fallback_summary, trim_messages as _trim_messages
+from webagentbench.agent import (
+    _build_fallback_summary as _build_history_fallback_summary,
+    _extract_action,
+    trim_messages as _trim_messages,
+)
 
 
 def _serialize_action_for_history(action: dict) -> str:
@@ -108,3 +112,9 @@ def test_trim_messages_inserts_factual_memory_marker() -> None:
 
     assert any("Compressed factual state" in msg["content"] for msg in trimmed)
     assert any('textbox "Search mail" value="budget"' in msg["content"] for msg in trimmed)
+
+
+def test_extract_action_quotes_numeric_bid_arguments() -> None:
+    assert _extract_action("click(75)") == 'click("75")'
+    assert _extract_action("drag_and_drop(1, 2)") == 'drag_and_drop("1", "2")'
+    assert _extract_action("fill(18, 30)") == 'fill("18", "30")'

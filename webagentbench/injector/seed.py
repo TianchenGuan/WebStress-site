@@ -57,15 +57,27 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
 
     import random as _random
     _rng = rng or _random.Random(99)
-    base_time = state.emails[0].timestamp if state.emails else "2026-01-15T10:00:00Z"
+    template = state.emails[0] if state.emails else None
+    base_time = template.timestamp if template else "2026-01-15T10:00:00Z"
     for i, decoy_spec in enumerate(decoys):
+        if isinstance(decoy_spec, str):
+            decoy_spec = {
+                "subject": template.subject if template else f"Re: Update {i + 1}",
+                "body": decoy_spec,
+            }
+        elif not isinstance(decoy_spec, dict):
+            continue
+
         email = Email(
             id=f"email_{_rng.randint(10000, 99999)}",
             thread_id=f"thread_{_rng.randint(10000, 99999)}",
-            from_name=decoy_spec.get("from_name", ""),
-            from_addr=decoy_spec.get("from", "decoy@example.test"),
-            to=[state.emails[0].to[0]] if state.emails and state.emails[0].to else ["me@company.test"],
-            subject=decoy_spec.get("subject", ""),
+            from_name=decoy_spec.get("from_name", template.from_name if template else ""),
+            from_addr=decoy_spec.get("from", template.from_addr if template else "decoy@example.test"),
+            to=decoy_spec.get(
+                "to",
+                [template.to[0]] if template and template.to else ["me@company.test"],
+            ),
+            subject=decoy_spec.get("subject", template.subject if template else ""),
             body=decoy_spec.get("body", ""),
             timestamp=decoy_spec.get("timestamp", base_time),
             labels=decoy_spec.get("labels", ["inbox"]),

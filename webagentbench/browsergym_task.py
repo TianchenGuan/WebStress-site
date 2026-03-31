@@ -38,6 +38,26 @@ def _http_json(url: str, *, method: str = "GET", payload: dict | None = None) ->
         return json.loads(text) if text else {}
 
 
+def _assert_server_matches_local_manifest(base_url: str, host: str, port: int) -> None:
+    from .app import MANIFEST_FINGERPRINT
+
+    try:
+        health = _http_json(f"{base_url}/health")
+    except Exception as exc:  # pragma: no cover - defensive guard for non-benchmark servers
+        raise RuntimeError(
+            f"Service already running on {host}:{port} did not return a valid WebAgentBench health response. "
+            "Choose a free port or restart the benchmark server."
+        ) from exc
+
+    remote_fingerprint = health.get("manifest_fingerprint")
+    if remote_fingerprint != MANIFEST_FINGERPRINT:
+        raise RuntimeError(
+            f"WebAgentBench server already running on {host}:{port} does not match the local benchmark manifest "
+            f"({remote_fingerprint or 'missing'} != {MANIFEST_FINGERPRINT}). "
+            "Choose a free port or restart the benchmark server."
+        )
+
+
 class WebAgentBenchTask(AbstractBrowserTask):
     """A single WebAgentBench task, compatible with BrowserGym's BrowserEnv."""
 
@@ -65,7 +85,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         self._instruction: str = ""
         self._degradation_config = None
         self._evaluated = False
-        self._initial_chat_count = 0  # track initial chat messages to avoid false termination
+        self._initial_chat_count = -1  # track initial chat messages to avoid false termination
 
         # BrowserGym task properties
         self.viewport = {"width": 1280, "height": 720}
@@ -86,10 +106,12 @@ class WebAgentBenchTask(AbstractBrowserTask):
     def _ensure_server(self) -> None:
         from .runner import start_server, wait_for_server
         if wait_for_server(self.server_host, self.server_port, timeout=2):
+            _assert_server_matches_local_manifest(self._bench_url, self.server_host, self.server_port)
             return
         self._server_proc = start_server(self.server_host, self.server_port)
         if not wait_for_server(self.server_host, self.server_port):
             raise RuntimeError("WebAgentBench server failed to start")
+        _assert_server_matches_local_manifest(self._bench_url, self.server_host, self.server_port)
 
     def setup(self, page: playwright.sync_api.Page) -> tuple[str, dict]:
         """Start server, create session, navigate page, apply degradations."""
@@ -147,7 +169,8 @@ class WebAgentBenchTask(AbstractBrowserTask):
 
         # BrowserGym seeds initial chat messages (greeting + goal).
         # We must ignore these when checking for agent-initiated termination.
-        self._initial_chat_count = 0  # will be set after first validate() call
+        # Use a sentinel to distinguish "not yet set" from "set to 0".
+        self._initial_chat_count = -1
 
         info: dict[str, Any] = {
             "task_id": self.task_id,
@@ -170,8 +193,13 @@ class WebAgentBenchTask(AbstractBrowserTask):
         """Check if the agent finished (via send_msg_to_user) and evaluate."""
         # On the first call, snapshot how many chat messages already exist
         # (BrowserGym adds an initial greeting + goal before any agent action).
-        if self._initial_chat_count == 0 and chat_messages:
-            self._initial_chat_count = len(chat_messages)
+        # BrowserGym calls validate() AFTER processing the action, so on the
+        # first call chat_messages may already include the agent's first message.
+        # We snapshot only the non-assistant messages as the baseline.
+        if self._initial_chat_count == -1 and chat_messages:
+            self._initial_chat_count = sum(
+                1 for m in chat_messages if m.get("role") != "assistant" and m.get("role") != "infeasible"
+            )
 
         # The agent is "done" when NEW chat messages appear beyond the initial set.
         # This happens when the agent calls send_msg_to_user() or report_infeasible().

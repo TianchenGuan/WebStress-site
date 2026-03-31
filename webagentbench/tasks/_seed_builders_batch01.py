@@ -162,6 +162,8 @@ def build_thread_version_conflict(ctx: SeedContext, params: dict[str, Any]) -> d
         "target_thread_id": target_thread_id,
         "decoy_thread_id": decoy_thread_id,
         "adversarial_email_id": adversarial_email.id,
+        "agreed_version": "4.2.1",
+        "reply_text": "Confirmed: version 4.2.1 is the agreed release.",
     }
 
 

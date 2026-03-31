@@ -11,6 +11,7 @@ Task definitions are loaded from YAML files via the unified task registry.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -110,6 +111,9 @@ MANIFEST = build_manifest()
 ENVIRONMENT_COUNT = len(MANIFEST.get("environments", []))
 ENV_TASK_COUNT = sum(len(env.get("tasks", [])) for env in MANIFEST.get("environments", []))
 MANIFEST_VERSION = MANIFEST.get("version", "1.0.0")
+MANIFEST_FINGERPRINT = hashlib.sha256(
+    json.dumps(MANIFEST, sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()[:12]
 KNOWN_ENV_IDS = {env["env_id"] for env in MANIFEST.get("environments", [])}
 
 description = f"{ENV_TASK_COUNT} advanced environment tasks across {ENVIRONMENT_COUNT} simulated applications"
@@ -361,6 +365,7 @@ async def health():
         "status": "ok",
         "environments": ENVIRONMENT_COUNT,
         "environment_tasks": ENV_TASK_COUNT,
+        "manifest_fingerprint": MANIFEST_FINGERPRINT,
     }
 
 

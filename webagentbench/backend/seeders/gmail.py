@@ -59,6 +59,7 @@ class GmailSeedRunner:
                 key,
                 domain=actor_spec.domain,
                 is_vip=actor_spec.is_vip,
+                name=actor_spec.name,
             )
 
         # 2. Execute steps in order

@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import logging
 import os
@@ -29,6 +30,94 @@ _MANIFEST = json.loads((BASE_DIR / "manifest.json").read_text())
 # =============================================================================
 # Episode runner
 # =============================================================================
+
+def _literal_from_ast(node: ast.AST) -> Any:
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
+        operand = node.operand.value
+        if isinstance(operand, (int, float)) and not isinstance(operand, bool):
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return operand
+    raise ValueError("non-literal action argument")
+
+
+def _parse_action_string(raw_action: str) -> dict[str, Any]:
+    """Convert a BrowserGym function-call string into structured action metadata."""
+    action_text = (raw_action or "").strip()
+    if not action_text:
+        return {"action": "unknown"}
+
+    try:
+        expr = ast.parse(action_text, mode="eval").body
+    except SyntaxError:
+        return {"action": action_text}
+
+    if not isinstance(expr, ast.Call) or not isinstance(expr.func, ast.Name):
+        return {"action": action_text}
+    if expr.keywords:
+        return {"action": expr.func.id, "raw": action_text}
+
+    try:
+        args = [_literal_from_ast(node) for node in expr.args]
+    except ValueError:
+        return {"action": expr.func.id, "raw": action_text}
+
+    func_name = expr.func.id
+    if func_name in {"click", "dblclick", "hover", "clear", "focus"}:
+        return {"action": func_name, "ref": args[0] if args else None}
+    if func_name in {"fill", "select_option", "upload_file"}:
+        return {
+            "action": func_name,
+            "ref": args[0] if len(args) > 0 else None,
+            "value": args[1] if len(args) > 1 else None,
+        }
+    if func_name == "press":
+        return {
+            "action": func_name,
+            "ref": args[0] if len(args) > 0 else None,
+            "key": args[1] if len(args) > 1 else None,
+        }
+    if func_name == "scroll":
+        delta_x = args[0] if len(args) > 0 else 0
+        delta_y = args[1] if len(args) > 1 else 0
+        return {
+            "action": "scroll",
+            "delta_x": delta_x,
+            "delta_y": delta_y,
+            "direction": "down" if (delta_y or 0) >= 0 else "up",
+        }
+    if func_name == "drag_and_drop":
+        return {
+            "action": func_name,
+            "from_ref": args[0] if len(args) > 0 else None,
+            "to_ref": args[1] if len(args) > 1 else None,
+        }
+    if func_name == "send_msg_to_user":
+        return {"action": "finish", "answer": args[0] if args else ""}
+    if func_name == "report_infeasible":
+        return {"action": "report_infeasible", "reason": args[0] if args else ""}
+    if func_name == "noop":
+        return {"action": "noop", "wait_ms": args[0] if args else 1000}
+    return {"action": func_name, "args": args}
+
+
+def _trajectory_status(
+    parsed_action: dict[str, Any],
+    last_action_error: str,
+    terminated: bool,
+) -> str:
+    if last_action_error:
+        return f"ERROR: {last_action_error}"
+    if terminated:
+        action_name = parsed_action.get("action")
+        if action_name == "finish":
+            return "FINISH"
+        if action_name == "report_infeasible":
+            return "INFEASIBLE"
+    return ""
 
 def run_episode(
     env,
@@ -79,13 +168,18 @@ def run_episode(
             print(f"    Step {step + 1}: {action[:80]}{'...' if len(action) > 80 else ''}")
 
         obs, reward, terminated, truncated, step_info = env.step(action)
+        last_action_error = obs.get("last_action_error", "") if isinstance(obs, dict) else ""
+        parsed_action = _parse_action_string(action)
 
         trajectory.append({
             "step": step + 1,
-            "action": action,
+            "thought": "",
+            "action": parsed_action,
+            "raw_action": action,
+            "status": _trajectory_status(parsed_action, last_action_error, terminated),
             "reward": reward,
             "elapsed_seconds": round(time.time() - start_time, 1),
-            "last_action_error": obs.get("last_action_error", "") if isinstance(obs, dict) else "",
+            "last_action_error": last_action_error,
         })
 
         if terminated:

@@ -24,7 +24,9 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import copy
+import json
 import logging
 import os
 import re
@@ -33,6 +35,21 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 MAX_INPUT_TOKENS = 26_000
+
+_STRING_ARG_POSITIONS: dict[str, set[int]] = {
+    "click": {0},
+    "fill": {0, 1},
+    "select_option": {0, 1},
+    "hover": {0},
+    "press": {0, 1},
+    "dblclick": {0},
+    "drag_and_drop": {0, 1},
+    "clear": {0},
+    "focus": {0},
+    "send_msg_to_user": {0},
+    "report_infeasible": {0},
+    "upload_file": {0, 1},
+}
 
 
 # =============================================================================
@@ -52,26 +69,27 @@ Each step you receive an accessibility tree (AXTree) of the current page. Elemen
 ## Actions
 Respond with a single Python function call. Available actions:
 
-click(bid)                        — Click element
-fill(bid, value)                  — Fill text field
-select_option(bid, option)        — Select dropdown option
-hover(bid)                        — Hover over element
-press(bid, key_comb)              — Press key (e.g. 'Enter', 'Backspace')
-scroll(delta_x, delta_y)          — Scroll (pixels, positive=down/right)
-dblclick(bid)                     — Double-click element
-drag_and_drop(bid_from, bid_to)   — Drag and drop
-clear(bid)                        — Clear text field
-focus(bid)                        — Focus element
-send_msg_to_user(text)            — Report your answer/completion
-report_infeasible(reason)         — Report task is impossible
-noop(wait_ms)                     — Wait (default 1000ms)
+click('a51')                      — Click element
+fill('b22', 'hello world')        — Fill text field
+select_option('c3', 'California') — Select dropdown option
+hover('d7')                       — Hover over element
+press('48', 'Enter')              — Press key (e.g. 'Enter', 'Backspace')
+scroll(0, 300)                    — Scroll (pixels, positive=down/right)
+dblclick('12')                    — Double-click element
+drag_and_drop('a1', 'b2')         — Drag and drop
+clear('b22')                      — Clear text field
+focus('b22')                      — Focus element
+send_msg_to_user('done')          — Report your answer/completion
+report_infeasible('reason')       — Report task is impossible
+noop(1000)                        — Wait (default 1000ms)
 
 ## Rules
 1. Output EXACTLY ONE function call per step. No extra text, no markdown.
 2. Use bid values from the CURRENT observation only. Never reuse old bids.
-3. Handle overlays/dialogs before interacting with background elements.
-4. Before calling send_msg_to_user, verify the task is actually complete.
-5. If the task asks for a specific answer, pass it to send_msg_to_user.
+3. Any action argument that refers to a bid must be a quoted string, e.g. click('75'), not click(75).
+4. Handle overlays/dialogs before interacting with background elements.
+5. Before calling send_msg_to_user, verify the task is actually complete.
+6. If the task asks for a specific answer, pass it to send_msg_to_user.
 """
 
 
@@ -348,13 +366,16 @@ class LLMAgent:
         self.system_prompt = system_prompt
         self.client = create_client(provider, base_url, api_key)
         self.messages: list[dict] = []
+        self._has_initial_obs = False
 
     def reset(self, obs: dict | None = None) -> None:
         """Clear history for a new episode. Optionally process first obs."""
         self.messages = [{"role": "system", "content": self.system_prompt}]
+        self._has_initial_obs = False
         if obs is not None:
             content = format_obs_for_llm(obs) if isinstance(obs, dict) else str(obs)
             self.messages.append({"role": "user", "content": content})
+            self._has_initial_obs = True
 
     def act(self, obs: dict | str) -> str:
         """Given a BrowserGym observation, return an action string.
@@ -365,8 +386,12 @@ class LLMAgent:
         Returns:
             Action string like ``click('a51')`` or ``fill('b22', 'hello')``.
         """
-        content = format_obs_for_llm(obs) if isinstance(obs, dict) else str(obs)
-        self.messages.append({"role": "user", "content": content})
+        # Skip appending if this is the same observation already added by reset()
+        if self._has_initial_obs:
+            self._has_initial_obs = False
+        else:
+            content = format_obs_for_llm(obs) if isinstance(obs, dict) else str(obs)
+            self.messages.append({"role": "user", "content": content})
 
         trimmed = trim_messages(
             self.messages,
@@ -442,7 +467,61 @@ def _extract_action(raw: str) -> str:
         re.DOTALL,
     )
     if match:
-        return match.group(0)
+        return _normalize_action_call(match.group(0))
 
     # Fallback: return the cleaned text (BrowserGym will try to parse it)
     return cleaned.strip() or 'noop()'
+
+
+def _normalize_action_call(action: str) -> str:
+    """Canonicalize simple function-call actions and quote string args when needed."""
+    try:
+        expr = ast.parse(action.strip(), mode="eval").body
+    except SyntaxError:
+        return action.strip()
+
+    if not isinstance(expr, ast.Call) or not isinstance(expr.func, ast.Name):
+        return action.strip()
+    if expr.keywords:
+        return action.strip()
+
+    func_name = expr.func.id
+    args: list[Any] = []
+    for index, node in enumerate(expr.args):
+        try:
+            value = _literal_from_ast(node)
+        except ValueError:
+            return action.strip()
+        if index in _STRING_ARG_POSITIONS.get(func_name, set()) and not isinstance(value, str):
+            value = str(value)
+        args.append(value)
+
+    rendered_args = ", ".join(_python_literal(value) for value in args)
+    return f"{func_name}({rendered_args})"
+
+
+def _literal_from_ast(node: ast.AST) -> Any:
+    """Return the literal value represented by a simple AST node."""
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
+        operand = node.operand.value
+        if isinstance(operand, (int, float)) and not isinstance(operand, bool):
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return operand
+    raise ValueError("non-literal action argument")
+
+
+def _python_literal(value: Any) -> str:
+    """Serialize a simple Python literal for BrowserGym actions."""
+    if isinstance(value, str):
+        return json.dumps(value)
+    if value is True:
+        return "True"
+    if value is False:
+        return "False"
+    if value is None:
+        return "None"
+    return repr(value)

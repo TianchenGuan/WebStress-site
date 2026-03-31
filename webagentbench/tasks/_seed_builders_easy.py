@@ -146,9 +146,10 @@ def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any
 
 @_register("search_and_star")
 def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
-    """Target email is below the fold — agent must search or scroll."""
-    # Add several emails so the target isn't immediately visible
-    for i in range(8):
+    """Target email starts off the first inbox page so search is the shortest path."""
+    # Add enough primary-category emails that the target is not visible on the
+    # initial 16-thread inbox page, even before generic distractors are added.
+    for i in range(20):
         t = ctx.next_id("thread")
         ctx.base["emails"].append(ctx.email(
             from_name=f"Person {i}",
@@ -172,7 +173,7 @@ def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
             "We came in 8% under budget. Great work everyone.",
             signoff_name="Finance Team",
         ),
-        timestamp=ctx.now - timedelta(days=2),
+        timestamp=ctx.now - timedelta(days=5),
         thread_id=target_thread,
         labels=["inbox"],
     )

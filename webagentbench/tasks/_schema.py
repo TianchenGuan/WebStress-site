@@ -20,6 +20,7 @@ import yaml
 @dataclass
 class ActorSpec:
     """One entry in ``seed.actors``."""
+    name: str | None = None
     domain: str = "example.test"
     is_vip: bool = False
 

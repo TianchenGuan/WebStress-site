@@ -65,7 +65,9 @@ def _substitute_targets(expr: str, targets: dict[str, Any]) -> str:
                 value = getattr(value, part, None)
             if value is None:
                 return match.group(0)  # leave placeholder if unresolved
-        return _sanitize_target_value(str(value))
+        if isinstance(value, str):
+            return _sanitize_target_value(value)
+        return repr(value)
 
     return _TARGET_RE.sub(_replacer, expr)
 

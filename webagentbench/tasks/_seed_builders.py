@@ -228,11 +228,17 @@ class SeedContext:
 
     # -- Actor resolution --------------------------------------------------
 
-    def resolve_actor(self, key: str, domain: str = "generic.test", is_vip: bool = False) -> ResolvedActor:
+    def resolve_actor(
+        self,
+        key: str,
+        domain: str = "generic.test",
+        is_vip: bool = False,
+        name: str | None = None,
+    ) -> ResolvedActor:
         """Generate a deterministic actor and cache it under *key*."""
         if key in self.actors:
             return self.actors[key]
-        name = self.fake.name()
+        name = name or self.fake.name()
         actor = ResolvedActor(
             name=name,
             email=self.email_for_name(name, domain=domain),

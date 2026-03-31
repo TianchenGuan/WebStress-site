@@ -19,6 +19,14 @@ type ContactMutationApi = {
   updateContact?: (contactId: string, payload: { starred?: boolean; is_starred?: boolean }) => Promise<unknown>;
 };
 
+const EMPTY_CONTACT_DRAFT = {
+  name: "",
+  email: "",
+  company: "",
+  note: "",
+  is_vip: false,
+};
+
 function formatRelativeDate(value: string | null | undefined): string {
   if (!value) return "—";
 
@@ -55,18 +63,95 @@ function extractContactRecord(result: unknown): ContactRecord | null {
   return null;
 }
 
+function contactToDraft(contact: ContactRecord) {
+  return {
+    name: contact.name,
+    email: contact.email,
+    company: contact.company ?? "",
+    note: contact.note ?? "",
+    is_vip: Boolean(contact.is_vip),
+  };
+}
+
+function sortContacts(items: ContactRecord[]): ContactRecord[] {
+  return [...items].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function optionalContactValue(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+}
+
 export function LabelsPage() {
   const { api, notify, summary, refreshMailbox } = useGmailLayout();
   const [labels, setLabels] = useState<Label[]>([]);
   const [contacts, setContacts] = useState<ContactRecord[]>([]);
   const [draftLabel, setDraftLabel] = useState({ name: "", color: "#1a73e8" });
-  const [draftContact, setDraftContact] = useState({ name: "", email: "", company: "", note: "", is_vip: false });
+  const [draftContact, setDraftContact] = useState(EMPTY_CONTACT_DRAFT);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactPage, setContactPage] = useState(1);
 
   useEffect(() => {
     api.getLabels().then(setLabels);
-    api.getContacts().then(setContacts);
+    api.getContacts().then((items) => setContacts(sortContacts(items)));
   }, [api]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(contacts.length / CONTACTS_PAGE_SIZE));
+    if (contactPage > totalPages) {
+      setContactPage(totalPages);
+    }
+  }, [contactPage, contacts.length]);
+
+  const resetContactForm = () => {
+    setDraftContact({ ...EMPTY_CONTACT_DRAFT });
+    setEditingContactId(null);
+  };
+
+  const handleCreateLabel = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    const labelName = draftLabel.name.trim();
+    if (labelName === "") {
+      return;
+    }
+
+    const created = await api.createLabel({ ...draftLabel, name: labelName });
+    setLabels((current) => [...current, created]);
+    setDraftLabel({ name: "", color: "#1a73e8" });
+    notify("Label created", created.name);
+    await refreshMailbox();
+  };
+
+  const handleStartEditContact = (contact: ContactRecord) => {
+    setEditingContactId(contact.id);
+    setDraftContact(contactToDraft(contact));
+  };
+
+  const handleSaveContact = async () => {
+    const payload = {
+      name: draftContact.name.trim(),
+      email: draftContact.email.trim(),
+      company: optionalContactValue(draftContact.company),
+      note: optionalContactValue(draftContact.note),
+      is_vip: draftContact.is_vip,
+    };
+
+    if (editingContactId) {
+      const updated = await api.updateContact(editingContactId, payload) as ContactRecord;
+      setContacts((current) =>
+        sortContacts(current.map((item) => (item.id === editingContactId ? { ...item, ...updated } : item))),
+      );
+      notify("Contact updated", updated.name);
+      resetContactForm();
+      return;
+    }
+
+    const created = await api.createContact(payload as Omit<Contact, "id">);
+    setContacts((current) => sortContacts([...current, created as ContactRecord]));
+    notify("Contact added", created.name);
+    resetContactForm();
+  };
 
   const handleToggleContactStar = async (contact: ContactRecord) => {
     const contactApi = api as ContactMutationApi;
@@ -96,6 +181,15 @@ export function LabelsPage() {
     notify(nextStarred ? "Contact starred" : "Contact unstarred", contact.name);
   };
 
+  const editingContact = editingContactId
+    ? contacts.find((contact) => contact.id === editingContactId) ?? null
+    : null;
+  const isEditingContact = editingContact !== null;
+  const visibleContacts = contacts.slice(
+    (contactPage - 1) * CONTACTS_PAGE_SIZE,
+    contactPage * CONTACTS_PAGE_SIZE,
+  );
+
   return (
     <main className="gmail-page gmail-page--labels" aria-label="Labels and contacts">
       <header className="gmail-page__header">
@@ -107,6 +201,59 @@ export function LabelsPage() {
       <section className="gmail-settings-grid">
         <section className="wab-card gmail-settings-card" aria-label="Labels">
           <h2>Labels</h2>
+          <form
+            className="gmail-label-form"
+            aria-label="Create a new label"
+            onSubmit={(event) => {
+              void handleCreateLabel(event);
+            }}
+          >
+            <div className="gmail-label-form__header">
+              <h3>Create a label</h3>
+              <p className="gmail-label-form__helper">
+                Enter a label name and press Enter, or use the create button below.
+              </p>
+            </div>
+            <div className="gmail-modal-grid">
+              <FormField
+                id="new-label-name"
+                label="New label"
+                inputProps={{
+                  value: draftLabel.name,
+                  onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+                    setDraftLabel((current) => ({ ...current, name: event.target.value })),
+                  placeholder: "Important Projects",
+                  "aria-label": "New label name",
+                }}
+              />
+              <FormField
+                id="new-label-color"
+                label="Color"
+                inputProps={{
+                  type: "color",
+                  value: draftLabel.color,
+                  onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+                    setDraftLabel((current) => ({ ...current, color: event.target.value })),
+                  "aria-label": "New label color",
+                }}
+              />
+            </div>
+            <div className="gmail-label-form__actions">
+              <Button
+                variant="primary"
+                type="submit"
+                aria-label={draftLabel.name.trim() ? `Create label ${draftLabel.name.trim()}` : "Create label"}
+                disabled={draftLabel.name.trim() === ""}
+              >
+                {draftLabel.name.trim() ? `Create label "${draftLabel.name.trim()}"` : "Create label"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="gmail-label-list__header">
+            <h3>Existing labels</h3>
+            <p>Review the current label counts below.</p>
+          </div>
           <div className="gmail-label-list">
             {labels.map((label) => (
               <div key={label.id} className="gmail-label-list__item">
@@ -117,43 +264,6 @@ export function LabelsPage() {
               </div>
             ))}
           </div>
-          <div className="gmail-modal-grid">
-            <FormField
-              id="new-label-name"
-              label="New label"
-              inputProps={{
-                value: draftLabel.name,
-                onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-                  setDraftLabel((current) => ({ ...current, name: event.target.value })),
-                "aria-label": "New label name",
-              }}
-            />
-            <FormField
-              id="new-label-color"
-              label="Color"
-              inputProps={{
-                type: "color",
-                value: draftLabel.color,
-                onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-                  setDraftLabel((current) => ({ ...current, color: event.target.value })),
-                "aria-label": "New label color",
-              }}
-            />
-          </div>
-          <Button
-            variant="primary"
-            aria-label="Create label"
-            onClick={async () => {
-              const created = await api.createLabel(draftLabel);
-              setLabels((current) => [...current, created]);
-              setDraftLabel({ name: "", color: "#1a73e8" });
-              notify("Label created", created.name);
-              await refreshMailbox();
-            }}
-            disabled={draftLabel.name.trim() === ""}
-          >
-            Create label
-          </Button>
         </section>
 
         <section className="gmail-settings-card" aria-label="Contacts">
@@ -164,6 +274,21 @@ export function LabelsPage() {
               { key: "name", header: "Name", render: (item) => item.name },
               { key: "email", header: "Email", render: (item) => item.email },
               { key: "company", header: "Company", render: (item) => item.company ?? "—" },
+              { key: "note", header: "Note", render: (item) => item.note ?? "—" },
+              {
+                key: "edit",
+                header: "",
+                render: (item) => (
+                  <button
+                    type="button"
+                    className="gmail-labels-table__toggle"
+                    aria-label={`Edit contact ${item.name}`}
+                    onClick={() => handleStartEditContact(item)}
+                  >
+                    Edit
+                  </button>
+                ),
+              },
               {
                 key: "star",
                 header: "Star",
@@ -206,10 +331,7 @@ export function LabelsPage() {
                 ),
               },
             ]}
-            rows={contacts.slice(
-              (contactPage - 1) * CONTACTS_PAGE_SIZE,
-              contactPage * CONTACTS_PAGE_SIZE,
-            )}
+            rows={visibleContacts}
           />
           {contacts.length > CONTACTS_PAGE_SIZE && (
             <div className="gmail-toolbar__right" style={{ marginTop: 8 }}>
@@ -237,8 +359,16 @@ export function LabelsPage() {
               </button>
             </div>
           )}
-          <div className="gmail-add-contact-form" aria-label="Add a new contact">
-            <h3>Add contact</h3>
+          <div
+            className="gmail-add-contact-form"
+            aria-label={isEditingContact ? "Edit selected contact" : "Add a new contact"}
+          >
+            <h3>{isEditingContact ? "Edit contact" : "Add contact"}</h3>
+            <p className="gmail-contact-form__helper">
+              {isEditingContact
+                ? `Updating ${editingContact?.name}.`
+                : "Use Edit in the table to update an existing contact, or fill out this form to add a new one."}
+            </p>
             <div className="gmail-modal-grid">
               <FormField
                 id="new-contact-name"
@@ -293,25 +423,25 @@ export function LabelsPage() {
               />
               VIP contact
             </label>
-            <Button
-              variant="primary"
-              aria-label="Add contact"
-              disabled={draftContact.name.trim() === "" || draftContact.email.trim() === ""}
-              onClick={async () => {
-                const created = await api.createContact({
-                  name: draftContact.name.trim(),
-                  email: draftContact.email.trim(),
-                  company: draftContact.company.trim() || undefined,
-                  note: draftContact.note.trim() || undefined,
-                  is_vip: draftContact.is_vip,
-                } as Omit<Contact, "id">);
-                setContacts((current) => [...current, created as ContactRecord]);
-                setDraftContact({ name: "", email: "", company: "", note: "", is_vip: false });
-                notify("Contact added", created.name);
-              }}
-            >
-              Add contact
-            </Button>
+            <div className="gmail-contact-form__actions">
+              <Button
+                variant="primary"
+                aria-label={isEditingContact ? "Save contact changes" : "Add contact"}
+                disabled={draftContact.name.trim() === "" || draftContact.email.trim() === ""}
+                onClick={handleSaveContact}
+              >
+                {isEditingContact ? "Save contact" : "Add contact"}
+              </Button>
+              {isEditingContact ? (
+                <Button
+                  variant="secondary"
+                  aria-label="Cancel contact editing"
+                  onClick={resetContactForm}
+                >
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
           </div>
         </section>
       </section>

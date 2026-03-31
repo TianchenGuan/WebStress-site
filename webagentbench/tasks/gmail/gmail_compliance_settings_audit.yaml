@@ -63,8 +63,8 @@ eval:
   - expr: any(m.in_reply_to == '{target.it_email_id}' and 'undo send' in m.body.lower()
       for m in state.sent)
     desc: Reply names undo send as changed
-  - expr: any(m.in_reply_to == '{target.it_email_id}' and 'send-and-archive' in m.body.lower()
-      or 'send and archive' in m.body.lower() for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.it_email_id}' and ('send-and-archive' in m.body.lower()
+      or 'send and archive' in m.body.lower()) for m in state.sent)
     desc: Reply names send-and-archive as changed
   negative_checks:
   - expr: not any(m.in_reply_to == '{target.decoy_email_id}' for m in state.sent)

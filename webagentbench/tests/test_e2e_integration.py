@@ -234,6 +234,53 @@ class TestNetworkSilentFail:
         assert r2.status_code == 200
         assert "email" in r2.json()  # real response has "email" key
 
+    def test_silent_fail_post_budget_is_not_consumed_by_matching_get(self, client: TestClient):
+        session = _create_session(
+            client,
+            task_id="gmail_create_label",
+            degradation={
+                "variant_id": "test_silent_fail_labels",
+                "base_task_id": "gmail_create_label",
+                "target_primitive": "verification",
+                "description": "test",
+                "injections": [{
+                    "layer": "network",
+                    "params": {
+                        "action": "silent_fail",
+                        "url_pattern": "**/api/env/gmail/labels",
+                        "methods": ["POST"],
+                        "response_body": {"label": {"id": "fake_label", "name": "Important Projects"}},
+                        "fail_count": 1,
+                        "behavior": {"mode": "once"},
+                    },
+                }],
+            },
+        )
+        sid = session["session_id"]
+
+        # Matching GET should not consume the one-shot POST failure.
+        list_resp = client.get(
+            f"/api/env/gmail/labels?session_id={sid}",
+            headers=_referer(sid),
+        )
+        assert list_resp.status_code == 200
+
+        first_post = client.post(
+            "/api/env/gmail/labels",
+            json={"session_id": sid, "name": "Important Projects", "color": "#1a73e8"},
+            headers=_referer(sid),
+        )
+        assert first_post.status_code == 200
+        assert first_post.json()["label"]["id"] == "fake_label"
+
+        second_post = client.post(
+            "/api/env/gmail/labels",
+            json={"session_id": sid, "name": "Important Projects Real", "color": "#1a73e8"},
+            headers=_referer(sid),
+        )
+        assert second_post.status_code == 200
+        assert second_post.json()["label"]["id"] != "fake_label"
+
 
 # ── 5. Client injection registration + retrieval ────────────────────────
 

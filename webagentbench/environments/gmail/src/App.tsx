@@ -243,6 +243,12 @@ function GmailShell({ sessionId }: { sessionId: string }) {
     log("route_change", { pathname: location.pathname, query: location.search, sessionId });
   }, [location.pathname, location.search, log, sessionId]);
 
+  const handleSearchSubmit = useCallback(() => {
+    const query = searchValue.trim();
+    log("search_submit", { query, route: location.pathname });
+    navigate(`/search?q=${encodeURIComponent(query)}`);
+  }, [location.pathname, log, navigate, searchValue]);
+
   const navItems = [
     {
       title: "main",
@@ -279,7 +285,7 @@ function GmailShell({ sessionId }: { sessionId: string }) {
             <SearchBar
               value={searchValue}
               onChange={setSearchValue}
-              onSubmit={() => navigate(`/search?q=${encodeURIComponent(searchValue)}`)}
+              onSubmit={handleSearchSubmit}
               placeholder="Search mail"
               ariaLabel="Search mail"
               className="gmail-topbar__search"

@@ -23,9 +23,12 @@ export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete }: E
   );
   const returnPath = `${location.pathname}${location.search}`;
   const threadPath = `/thread/${email.id}`;
+  const unreadState = email.is_read ? "Read" : "Unread";
+  const threadLabel = `${unreadState} thread from ${email.from_name}: ${email.subject || "(no subject)"}`;
 
   return (
     <article
+      aria-label={threadLabel}
       className={classNames("gmail-email-row", !email.is_read && "gmail-email-row--unread")}
       onClick={() => navigate(threadPath, { state: { from: returnPath } })}
       style={{ cursor: "pointer" }}
@@ -44,12 +47,13 @@ export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete }: E
         <div className="gmail-email-row__header">
           <strong>{email.from_name}</strong>
           {email.thread_size && email.thread_size > 1 ? <span className="gmail-email-row__thread-count">({email.thread_size})</span> : null}
+          {!email.is_read ? <span className="gmail-email-row__status">Unread</span> : null}
         </div>
         <Link
           to={threadPath}
           state={{ from: returnPath }}
           className="gmail-email-row__subject"
-          aria-label={`Open thread ${email.subject}`}
+          aria-label={`Open ${email.is_read ? "read" : "unread"} thread ${email.subject}`}
         >
           <span>{email.subject || "(no subject)"}</span>
           <span className="gmail-email-row__preview">{email.snippet || email.body.slice(0, 100)}</span>

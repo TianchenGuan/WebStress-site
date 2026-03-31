@@ -60,6 +60,50 @@ def test_label_workflow_project_ids_exclude_wrong_review_decoy() -> None:
     assert set(targets["review_email_ids"]).issubset(set(targets["project_email_ids"]))
 
 
+def test_thread_version_conflict_instruction_uses_fixed_actor_names_without_leaking_answer() -> None:
+    session_manager = SessionManager()
+
+    payload = create_session(
+        SessionCreateRequest(task_id="gmail_thread_version_conflict", seed=42),
+        session_manager=session_manager,
+    )
+
+    assert payload["resolved_targets"]["chen_wei_name"] == "Chen Wei"
+    assert payload["resolved_targets"]["dana_okafor_name"] == "Dana Okafor"
+    assert "Chen Wei" in payload["instruction"]
+    assert "Dana Okafor" in payload["instruction"]
+    assert "4.2.1" not in payload["instruction"]
+    assert "[the agreed version number]" in payload["instruction"]
+
+
+def test_search_and_star_target_starts_below_initial_primary_inbox_page() -> None:
+    base, targets = _run_seed("gmail_search_and_star")
+
+    primary_inbox = [
+        email
+        for email in sorted(base["emails"], key=lambda email: email.timestamp, reverse=True)
+        if "inbox" in email.labels
+        and "promotions" not in {label.lower() for label in email.labels}
+        and "updates" not in {label.lower() for label in email.labels}
+    ]
+    first_page_ids = {email.id for email in primary_inbox[:16]}
+
+    assert targets["target_email_id"] not in first_page_ids
+
+
+def test_thread_blame_trace_uses_fixed_mariela_voss_identity() -> None:
+    session_manager = SessionManager()
+
+    payload = create_session(
+        SessionCreateRequest(task_id="gmail_thread_blame_trace", seed=42),
+        session_manager=session_manager,
+    )
+
+    assert "Mariela Voss" in payload["instruction"]
+    assert "<mariela.voss@procure.co>" in payload["instruction"]
+    assert payload["resolved_targets"]["mariela_voss_email"] == "mariela.voss@procure.co"
+
+
 _GMAIL_TASK_IDS = [t.task_id for t in env_tasks("gmail")]
 
 

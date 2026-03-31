@@ -1,16 +1,16 @@
 task_id: gmail_thread_version_conflict
 env_id: gmail
 title: Find the final agreed version number in a thread with superseded proposals
-instruction_template: 'Read the thread with subject "Release Version for Q3 Launch"
-  from the sender
+instruction_template: |
+  Read the thread with subject "Release Version for Q3 Launch" from {target.chen_wei_name}.
+  Identify the version number that both {target.chen_wei_name} and {target.dana_okafor_name}
+  explicitly agreed on in that thread.
 
-  Chen Wei. Identify the version number that both Chen Wei and Dana Okafor explicitly
+  Begin your reply to {target.chen_wei_name}'s most recent message in the thread with exact text:
+  "Confirmed: version [the agreed version number] is the agreed release."
 
-  agreed on in that thread. State the version as ''4.2.1'' (without a ''v'' prefix).
-
-  Reply to Chen Wei''s most recent message in the thread with exact text:
-
-  "Confirmed: version 4.2.1 is the agreed release."'
+  Replace [the agreed version number] with the agreed version number from the thread,
+  and do not include a "v" prefix.
 difficulty: medium
 time_limit_seconds: 360
 expected_steps: 18
@@ -25,18 +25,23 @@ seed:
   distractors: 40
   actors:
     chen_wei:
+      name: Chen Wei
       domain: launchpad.io
       is_vip: false
     dana_okafor:
+      name: Dana Okafor
       domain: launchpad.io
       is_vip: false
     raj_patel:
+      name: Raj Patel
       domain: launchpad.io
       is_vip: false
     priya_menon:
+      name: Priya Menon
       domain: otherproduct.com
       is_vip: false
     kai_bremer:
+      name: Kai Bremer
       domain: launchpad.io
       is_vip: false
   steps:
@@ -48,18 +53,23 @@ seed:
     - target_thread_id
     - decoy_thread_id
     - adversarial_email_id
+    - agreed_version
+    - reply_text
   targets:
     chen_wei_email: '{output.chen_wei_email}'
     chen_wei_latest_email_id: '{output.chen_wei_latest_email_id}'
     target_thread_id: '{output.target_thread_id}'
     decoy_thread_id: '{output.decoy_thread_id}'
     adversarial_email_id: '{output.adversarial_email_id}'
+    chen_wei_name: '{actor.chen_wei.name}'
+    dana_okafor_name: '{actor.dana_okafor.name}'
+    agreed_version: '{output.agreed_version}'
+    reply_text: '{output.reply_text}'
 eval:
   source: server_state
   checks:
-  - expr: 'any(e.thread_id == ''{target.target_thread_id}'' and ''Confirmed: version
-      4.2.1 is the agreed release.'' in e.body for e in state.sent)'
-    desc: Reply in correct thread with exact confirmation text
+  - expr: any(e.thread_id == '{target.target_thread_id}' and e.body.strip().startswith('{target.reply_text}') for e in state.sent)
+    desc: Reply begins with the correct confirmation text in the correct thread
   - expr: any(e.in_reply_to == '{target.chen_wei_latest_email_id}' for e in state.sent)
     desc: Reply is to Chen Wei's most recent message
   - expr: any('{target.chen_wei_email}' in e.to for e in state.sent)
