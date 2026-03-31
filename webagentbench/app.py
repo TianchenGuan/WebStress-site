@@ -38,6 +38,29 @@ def _env_index_path(env_id: str) -> Path:
     return STATIC_DIR / "envs" / env_id / "index.html"
 
 
+# Scripts that should be present in every environment SPA but aren't part of the
+# Vite build.  Injected at serve-time so the build output stays self-contained.
+_INJECT_SCRIPTS = '<script src="/static/benchmark-toolbar.js" defer></script>'
+
+
+def _serve_env_html(env_id: str) -> HTMLResponse:
+    """Read the Vite-built index.html and inject benchmark scripts."""
+    index_path = _env_index_path(env_id)
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail=f"Environment '{env_id}' has not been built yet")
+    html = index_path.read_text()
+    # Inject after benchmark.js (which Vite preserves from the source template)
+    # or fall back to injecting before </head>
+    if "/static/benchmark.js" in html and _INJECT_SCRIPTS not in html:
+        html = html.replace(
+            '<script src="/static/benchmark.js"></script>',
+            '<script src="/static/benchmark.js"></script>\n    ' + _INJECT_SCRIPTS,
+        )
+    elif "</head>" in html and _INJECT_SCRIPTS not in html:
+        html = html.replace("</head>", "    " + _INJECT_SCRIPTS + "\n  </head>")
+    return HTMLResponse(content=html)
+
+
 def _env_is_available(env_id: str) -> bool:
     return env_id in _ENV_TASK_GROUPS and _env_index_path(env_id).exists()
 
@@ -370,10 +393,7 @@ async def serve_environment_spa(env_id: str, path: str = ""):
     # Bare /env/gmail/ (trailing slash, empty path) → redirect to home launcher
     if not path:
         return RedirectResponse(url="/", status_code=302)
-    index_path = STATIC_DIR / "envs" / env_id / "index.html"
-    if not index_path.exists():
-        raise HTTPException(status_code=404, detail=f"Environment '{env_id}' has not been built yet")
-    return FileResponse(index_path, media_type="text/html")
+    return _serve_env_html(env_id)
 
 
 @app.get("/health")
