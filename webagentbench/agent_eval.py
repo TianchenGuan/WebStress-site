@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent
 _MANIFEST = json.loads((BASE_DIR / "manifest.json").read_text())
 
+_DEFAULT_MAX_STEPS = 30
+_DEFAULT_TIMEOUT = 300
+
 
 # =============================================================================
 # Episode runner
@@ -292,14 +295,30 @@ def run_evaluation(
         print(f"Tasks: {len(task_ids)}")
         if deg_config:
             print(f"Degradation: {deg_config.variant_id} ({deg_config.target_primitive})")
-        print(f"Max steps: {max_steps}  |  Timeout: {timeout_per_task}s")
+        budget_mode = "per-task (from YAML)" if (max_steps == _DEFAULT_MAX_STEPS and timeout_per_task == _DEFAULT_TIMEOUT) else f"fixed (steps={max_steps}, timeout={timeout_per_task}s)"
+        print(f"Budget: {budget_mode}")
         print(f"Environment: BrowserGym (bid actions, multimodal obs)")
         print(f"{'=' * 60}\n")
 
+    # Per-task budgets: use task YAML expected_steps / time_limit when CLI
+    # doesn't override.  A 1.5x multiplier on expected_steps gives the agent
+    # headroom for retries without making short tasks wait forever.
+    from .tasks._registry import get_task as _get_task
+    use_per_task_budget = (max_steps == _DEFAULT_MAX_STEPS and timeout_per_task == _DEFAULT_TIMEOUT)
+
     results = []
     for task_id in task_ids:
+        task_def = _get_task(task_id)
+        if use_per_task_budget:
+            task_max_steps = int((task_def.expected_steps or _DEFAULT_MAX_STEPS) * 1.5)
+            task_timeout = task_def.time_limit_seconds or _DEFAULT_TIMEOUT
+        else:
+            task_max_steps = max_steps
+            task_timeout = timeout_per_task
+
         if verbose:
-            print(f"[{task_id}]")
+            budget = f"steps<={task_max_steps}, timeout={task_timeout}s"
+            print(f"[{task_id}] ({budget})")
 
         env = make_env(
             task_id=task_id,
@@ -314,8 +333,8 @@ def run_evaluation(
                 env,
                 agent,
                 episode_seed=seed,
-                max_steps=max_steps,
-                timeout_seconds=timeout_per_task,
+                max_steps=task_max_steps,
+                timeout_seconds=task_timeout,
                 verbose=verbose,
             )
             evaluation = episode["evaluation"]
@@ -421,8 +440,10 @@ def main():
     parser.add_argument("--environments", nargs="*")
     parser.add_argument("--degradation", default=None)
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--max-steps", type=int, default=30)
-    parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--max-steps", type=int, default=_DEFAULT_MAX_STEPS,
+                        help=f"Max steps per task (default: {_DEFAULT_MAX_STEPS}, uses per-task YAML budget when unchanged)")
+    parser.add_argument("--timeout", type=int, default=_DEFAULT_TIMEOUT,
+                        help=f"Timeout per task in seconds (default: {_DEFAULT_TIMEOUT}, uses per-task YAML budget when unchanged)")
     parser.add_argument("--headless", action="store_true", default=True)
     parser.add_argument("--no-headless", action="store_false", dest="headless")
     parser.add_argument("--server-host", default="127.0.0.1")

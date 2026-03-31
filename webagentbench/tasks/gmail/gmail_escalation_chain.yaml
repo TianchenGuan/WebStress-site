@@ -83,8 +83,9 @@ eval:
   - expr: any(m.in_reply_to == '{target.unresolved_first_msg_id}' and 'Received. Escalating
       to engineering lead now.' in m.body for m in state.sent)
     desc: Reply sent to reporter on unresolved thread
-  - expr: any(m.forwarded_from_id == '{target.unresolved_first_msg_id}' and '{target.team_lead_email}'
-      in m.to and 'Unresolved payment timeout on Order
+  - expr: "any(m.forwarded_from_id == '{target.unresolved_first_msg_id}' and '{target.team_lead_email}'\
+      \ in m.to and 'Unresolved payment timeout on Order #88421' in m.body for m in\
+      \ state.sent)"
     desc: Forwarded to team lead with correct body
   - expr: any(m.forwarded_from_id == '{target.unresolved_first_msg_id}' and '{target.director_email}'
       in m.to and 'Escalated to {target.team_lead_name} per protocol' in m.body for
@@ -101,7 +102,7 @@ eval:
       == '{target.resolved_thread_id}' for m in state.sent if m.forwarded_from_id)
     desc: No forward on resolved thread
     penalty: 0.25
-  - expr: not any('Order
+  - expr: "not any('Order #88419' in m.body for m in state.sent)"
     desc: No sent email mentions resolved order number
     penalty: 0.15
   - expr: not any('{target.vp_email}' in m.to + m.cc + m.bcc for m in state.sent)
