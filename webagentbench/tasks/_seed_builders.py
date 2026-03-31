@@ -3111,6 +3111,192 @@ def build_subscription_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict
 
 
 # ---------------------------------------------------------------------------
+# Easy-task builders (simple Gmail operations)
+# ---------------------------------------------------------------------------
+
+@_register("star_email")
+def build_star_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed an email that the agent must star."""
+    thread_id = ctx.next_id("thread")
+    em = ctx.email(
+        from_name="Alice Chen",
+        from_addr="alice.chen@company.test",
+        subject="Project Update — Q1 Milestones",
+        body=ctx.format_email_body(
+            "Hi team, here's a quick summary of where we stand on Q1 milestones.",
+            "Design phase is complete. Engineering is at 80%. QA starts next week.",
+            signoff_name="Alice",
+        ),
+        timestamp=ctx.now - timedelta(days=1),
+        thread_id=thread_id,
+        labels=["inbox"],
+    )
+    ctx.base["emails"].append(em)
+    ctx.ensure_contact("Alice Chen", "alice.chen@company.test")
+    return {"target_email_id": em.id}
+
+
+@_register("compose_new")
+def build_compose_new(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed baseline state for composing a new email (no special setup needed)."""
+    ctx.ensure_contact("Alice", "alice@company.test")
+    return {}
+
+
+@_register("reply_simple")
+def build_reply_simple(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed an email from Bob that the agent must reply to."""
+    thread_id = ctx.next_id("thread")
+    em = ctx.email(
+        from_name="Bob Martinez",
+        from_addr="bob.martinez@company.test",
+        subject="Meeting Tomorrow at 2pm",
+        body=ctx.format_email_body(
+            "Hi, just confirming our meeting tomorrow at 2pm in Conference Room B.",
+            "I'll bring the project deck. Let me know if you can make it.",
+            signoff_name="Bob",
+        ),
+        timestamp=ctx.now - timedelta(hours=4),
+        thread_id=thread_id,
+        labels=["inbox"],
+    )
+    ctx.base["emails"].append(em)
+    ctx.ensure_contact("Bob Martinez", "bob.martinez@company.test")
+    return {"target_email_id": em.id, "target_thread_id": thread_id}
+
+
+@_register("delete_spam")
+def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed a spam email and a normal email for the delete-spam task."""
+    thread_spam = ctx.next_id("thread")
+    spam = ctx.email(
+        from_name="Winner Notification",
+        from_addr="winner@spamfarm.test",
+        subject="YOU WON $1,000,000!!! Click NOW!!!",
+        body="Congratulations! You have been selected as our lucky winner. Click the link below to claim your prize immediately!",
+        timestamp=ctx.now - timedelta(hours=2),
+        thread_id=thread_spam,
+        labels=["inbox"],
+    )
+    ctx.base["emails"].append(spam)
+
+    thread_normal = ctx.next_id("thread")
+    normal = ctx.email(
+        from_name="Team Lead",
+        from_addr="lead@company.test",
+        subject="Sprint Planning Notes",
+        body=ctx.format_email_body(
+            "Here are the notes from today's sprint planning session.",
+            signoff_name="Team Lead",
+        ),
+        timestamp=ctx.now - timedelta(hours=3),
+        thread_id=thread_normal,
+        labels=["inbox"],
+    )
+    ctx.base["emails"].append(normal)
+    return {"spam_email_id": spam.id, "normal_email_id": normal.id}
+
+
+@_register("forward_email")
+def build_forward_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed an invoice email from Carol Wang to be forwarded."""
+    thread_id = ctx.next_id("thread")
+    em = ctx.email(
+        from_name="Carol Wang",
+        from_addr="carol.wang@vendor.test",
+        subject="Invoice #1234 — March Services",
+        body=ctx.format_email_body(
+            "Hi, please find attached the invoice for March consulting services.",
+            "Total: $4,500.00. Payment terms: Net 30.",
+            "Let me know if you have any questions.",
+            signoff_name="Carol",
+        ),
+        timestamp=ctx.now - timedelta(days=2),
+        thread_id=thread_id,
+        labels=["inbox"],
+    )
+    ctx.base["emails"].append(em)
+    ctx.ensure_contact("Carol Wang", "carol.wang@vendor.test")
+    ctx.ensure_contact("Dave", "dave@company.test")
+    return {"target_email_id": em.id}
+
+
+@_register("create_label")
+def build_create_label(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """No special seed setup needed for creating a label."""
+    return {}
+
+
+@_register("mark_all_read")
+def build_mark_all_read(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed 5 unread emails in the inbox."""
+    senders = [
+        ("Dana Lee", "dana.lee@company.test"),
+        ("Eric Zhao", "eric.zhao@company.test"),
+        ("Fiona Park", "fiona.park@company.test"),
+        ("Greg Novak", "greg.novak@company.test"),
+        ("Hannah Reeves", "hannah.reeves@company.test"),
+    ]
+    email_ids: list[str] = []
+    for i, (name, addr) in enumerate(senders):
+        thread_id = ctx.next_id("thread")
+        em = ctx.email(
+            from_name=name,
+            from_addr=addr,
+            subject=f"Update #{i + 1} — {ctx.initiative_name().title()}",
+            body=ctx.generic_email_body(name),
+            timestamp=ctx.now - timedelta(hours=i + 1),
+            thread_id=thread_id,
+            labels=["inbox"],
+            is_read=False,
+        )
+        ctx.base["emails"].append(em)
+        email_ids.append(em.id)
+    return {"unread_email_ids": email_ids, "unread_count": len(email_ids)}
+
+
+@_register("search_and_star")
+def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed a budget summary email from Finance Team to be found and starred."""
+    thread_id = ctx.next_id("thread")
+    em = ctx.email(
+        from_name="Finance Team",
+        from_addr="finance@company.test",
+        subject="Q4 Budget Summary",
+        body=ctx.format_email_body(
+            "Hi team, attached is the Q4 budget summary for your review.",
+            "Total spend was within 3% of forecast. Please flag any line items that need adjustment before the board meeting.",
+            signoff_name="Finance Team",
+        ),
+        timestamp=ctx.now - timedelta(days=3),
+        thread_id=thread_id,
+        labels=["inbox"],
+        is_read=True,
+    )
+    ctx.base["emails"].append(em)
+    return {"target_email_id": em.id}
+
+
+@_register("change_setting")
+def build_change_setting(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """No special seed setup needed for changing a setting."""
+    return {}
+
+
+@_register("update_contact")
+def build_update_contact(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Seed a contact for Alice Chen that the agent must update."""
+    c = ctx.contact(
+        name="Alice Chen",
+        email="alice.chen@company.test",
+        company="Company Inc.",
+        note="Engineering",
+    )
+    ctx.base["contacts"].append(c)
+    return {"contact_id": c.id, "contact_name": c.name}
+
+
+# ---------------------------------------------------------------------------
 # Import batch modules so their @_register decorators fire
 # ---------------------------------------------------------------------------
 
@@ -3124,4 +3310,3 @@ import webagentbench.tasks._seed_builders_batch07 as _batch07  # noqa: E402, F40
 import webagentbench.tasks._seed_builders_batch08 as _batch08  # noqa: E402, F401
 import webagentbench.tasks._seed_builders_batch09 as _batch09  # noqa: E402, F401
 import webagentbench.tasks._seed_builders_batch10 as _batch10  # noqa: E402, F401
-import webagentbench.tasks._seed_builders_easy as _easy  # noqa: E402, F401

@@ -12,6 +12,28 @@ For the Gmail environment task authoring standard and batch-generation guide, se
 
 For a record of the retired page-based runtime and other removed legacy systems, see [docs/PAST_IMPLEMENTATIONS.md](/Users/michael/Documents/GitHub/LLMOS/webagentbench/docs/PAST_IMPLEMENTATIONS.md).
 
+## Testing
+
+There are now two layers of environment checks:
+
+- Python contract tests for backend state transitions and mailbox invariants.
+- Gmail frontend unit tests under `webagentbench/environments/gmail/tests/` for view-specific logic.
+
+The unified entrypoint is:
+
+```bash
+python scripts/run_environment_tests.py
+```
+
+Useful variants:
+
+```bash
+python scripts/run_environment_tests.py --backend-only
+python scripts/run_environment_tests.py --frontend-only --require-frontend
+```
+
+The backend runner will use the current Python interpreter if it has `pytest`, then fall back to a local conda interpreter when present. The frontend runner prefers a repo-local Node install under `.tools/node-v*/bin/node`, then falls back to `node` on `PATH`, and finally the LM Studio helper binary if no other runtime is available. You can also override the frontend runtime explicitly with `WEBAGENTBENCH_NODE=/abs/path/to/node`.
+
 ## Version Registry
 
 | Version | Manifest | Pages | Primary change | Result status |
