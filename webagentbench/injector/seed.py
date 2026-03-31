@@ -313,10 +313,18 @@ def _hide_in_non_obvious_location(state: Any, params: dict[str, Any], *, rng=Non
     info in a contact note instead of an email body.
     """
     email_id = params.get("email_id")
+    email_ids = params.get("email_ids")
     move_to_label = params.get("move_to_label")
 
-    if email_id and move_to_label and hasattr(state, "emails"):
+    target_ids: set[str] = set()
+    if isinstance(email_ids, list):
+        target_ids.update(str(email_id) for email_id in email_ids)
+    elif isinstance(email_ids, str):
+        target_ids.add(email_ids)
+    if email_id:
+        target_ids.add(str(email_id))
+
+    if target_ids and move_to_label and hasattr(state, "emails"):
         for email in state.emails:
-            if email.id == email_id:
+            if email.id in target_ids:
                 email.labels = [move_to_label]
-                break

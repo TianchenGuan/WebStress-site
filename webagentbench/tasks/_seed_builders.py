@@ -535,28 +535,27 @@ def build_scheduling_conflicts(ctx: SeedContext, params: dict[str, Any]) -> dict
     ]
 
     # Real calendar email (pushed to page 2 / Updates tab)
-    ctx.base["emails"].append(
-        ctx.email(
-            from_name=other.name,
-            from_addr=other.email,
-            subject=calendar_subject,
-            body=ctx.format_email_body(
-                (
-                    f"I checked the proposed times from {sender.first_name} against the operating calendar "
-                    f"for the {initiative}. The following options already have immovable holds:"
-                ),
-                ctx.bullet_lines(conflict_lines),
-                (
-                    "I have not placed anything on your calendar yet because I wanted to send the "
-                    "conflicts first."
-                ),
-                signoff_name=other.first_name,
+    calendar_email = ctx.email(
+        from_name=other.name,
+        from_addr=other.email,
+        subject=calendar_subject,
+        body=ctx.format_email_body(
+            (
+                f"I checked the proposed times from {sender.first_name} against the operating calendar "
+                f"for the {initiative}. The following options already have immovable holds:"
             ),
-            timestamp=ctx.now - timedelta(days=7),
-            thread_id=ctx.next_id("thread"),
-            labels=["inbox", "updates", "important"],
-        )
+            ctx.bullet_lines(conflict_lines),
+            (
+                "I have not placed anything on your calendar yet because I wanted to send the "
+                "conflicts first."
+            ),
+            signoff_name=other.first_name,
+        ),
+        timestamp=ctx.now - timedelta(days=7),
+        thread_id=ctx.next_id("thread"),
+        labels=["inbox", "updates", "important"],
     )
+    ctx.base["emails"].append(calendar_email)
 
     # Decoy calendar email (outdated, only 2 conflicts)
     decoy_conflict_lines = ctx.rng.sample(conflict_lines, k=2)
@@ -595,6 +594,7 @@ def build_scheduling_conflicts(ctx: SeedContext, params: dict[str, Any]) -> dict
         "other_sender_name": other.name,
         "other_sender_email": other.email,
         "calendar_subject": calendar_subject,
+        "calendar_email_id": calendar_email.id,
         "correct_time": correct_time,
         "wrong_times": wrong_times,
         "most_recent_thread_id": most_recent_thread_id,

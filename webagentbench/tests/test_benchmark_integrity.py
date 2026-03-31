@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 from fastapi import HTTPException
 
 from webagentbench.agent_eval import run_episode
@@ -16,6 +18,7 @@ from webagentbench.injector.middleware import (
     _progressive_delay_ms,
 )
 from webagentbench.injector.server import apply_server_injection
+from webagentbench.task_rendering import render_template
 from webagentbench.tasks._evaluator import evaluate
 from webagentbench.tasks._schema import Check, EvalConfig, NegativeCheck
 from webagentbench.tasks._registry import get_task
@@ -74,6 +77,127 @@ def test_create_session_accepts_string_based_confusing_decoys_variants() -> None
 
         state = session_manager.get(payload["session_id"])
         assert state.degradation["variant_filename"] == variant_filename
+
+
+def test_render_template_preserves_exact_target_types() -> None:
+    targets = {"email_ids": ["email_1", "email_2"], "count": 2}
+
+    rendered = render_template(
+        {
+            "email_ids": "{target.email_ids}",
+            "summary": "Need {target.count} emails",
+        },
+        targets,
+    )
+
+    assert rendered == {
+        "email_ids": ["email_1", "email_2"],
+        "summary": "Need 2 emails",
+    }
+
+
+def test_create_session_renders_degradation_target_params_before_seed_injection() -> None:
+    session_manager = SessionManager()
+
+    payload = create_session(
+        SessionCreateRequest(
+            task_id="gmail_thread_detective",
+            seed=42,
+            degradation={
+                "variant_id": "test_hide_calendar_email",
+                "base_task_id": "gmail_thread_detective",
+                "target_primitive": "exploration",
+                "description": "test",
+                "injections": [
+                    {
+                        "layer": "seed",
+                        "params": {
+                            "action": "hide_in_non_obvious_location",
+                            "email_id": "{target.calendar_email_id}",
+                            "move_to_label": "updates",
+                        },
+                    }
+                ],
+            },
+        ),
+        session_manager=session_manager,
+    )
+
+    state = session_manager.get(payload["session_id"])
+    assert state.degradation["injections"][0]["params"]["email_id"] == payload["resolved_targets"]["calendar_email_id"]
+    assert state.get_email(payload["resolved_targets"]["calendar_email_id"]).labels == ["updates"]
+
+
+def test_thread_detective_exploration_variant_hides_calendar_email() -> None:
+    session_manager = SessionManager()
+
+    payload = create_session(
+        SessionCreateRequest(
+            task_id="gmail_thread_detective",
+            seed=42,
+            variant_filename="gmail_thread_detective__exploration.yaml",
+        ),
+        session_manager=session_manager,
+    )
+
+    state = session_manager.get(payload["session_id"])
+    calendar_email = state.get_email(payload["resolved_targets"]["calendar_email_id"])
+    assert calendar_email.labels == ["updates"]
+
+
+def test_incident_postmortem_exploration_variant_hides_corrected_email() -> None:
+    session_manager = SessionManager()
+
+    payload = create_session(
+        SessionCreateRequest(
+            task_id="gmail_incident_postmortem_assembly",
+            seed=42,
+            variant_filename="gmail_incident_postmortem_assembly__exploration.yaml",
+        ),
+        session_manager=session_manager,
+    )
+
+    state = session_manager.get(payload["session_id"])
+    corrected_email = state.get_email(payload["resolved_targets"]["corrected_email_id"])
+    assert corrected_email.labels == ["updates"]
+
+
+def test_hide_prerequisite_variants_always_specify_label_name() -> None:
+    variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
+
+    for path in variants_dir.glob("*.yaml"):
+        data = yaml.safe_load(path.read_text()) or {}
+        for injection in data.get("injections", []):
+            params = injection.get("params", {})
+            if params.get("action") == "hide_prerequisite":
+                assert params.get("label_name"), f"{path.name} is missing label_name"
+
+
+def test_gmail_stale_email_and_search_variants_use_paginated_items_schema() -> None:
+    variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
+    required_page_keys = {"items", "page", "page_size", "pages", "total"}
+
+    for path in variants_dir.glob("*.yaml"):
+        data = yaml.safe_load(path.read_text()) or {}
+        for injection in data.get("injections", []):
+            params = injection.get("params", {})
+            if params.get("action") != "stale_data":
+                continue
+
+            url_pattern = str(params.get("url_pattern", ""))
+            if "/api/env/gmail/emails" not in url_pattern and "/api/env/gmail/search" not in url_pattern:
+                continue
+
+            stale_body = params.get("stale_body")
+            assert isinstance(stale_body, dict), f"{path.name} must define stale_body as a mapping"
+            assert "emails" not in stale_body, f"{path.name} must use items, not emails"
+            assert required_page_keys.issubset(stale_body), (
+                f"{path.name} must include paginated keys {sorted(required_page_keys)}"
+            )
+            assert isinstance(stale_body["items"], list), f"{path.name} items must be a list"
+
+            if "/api/env/gmail/search" in url_pattern:
+                assert "query" in stale_body, f"{path.name} search stale_body must include query"
 
 
 class _TimestampState:

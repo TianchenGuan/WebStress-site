@@ -8,8 +8,11 @@ injections:
     action: stale_data
     url_pattern: '**/api/env/gmail/emails'
     stale_body:
-      emails: []
+      items: []
       total: 0
+      page: 1
+      page_size: 25
+      pages: 1
     stale_count: 1
     behavior:
       mode: once
@@ -23,6 +26,8 @@ injections:
       stages:
       - requests: 1
         delay_ms: 2000
-- layer: server
+- layer: seed
   params:
-    action: hide_prerequisite
+    action: hide_in_non_obvious_location
+    email_id: '{target.wrong_review_id}'
+    move_to_label: updates

@@ -158,6 +158,20 @@ def _gmail_state(session_manager: SessionManager, session_id: str) -> GmailState
     return state
 
 
+def _render_degradation_params(degradation: dict[str, Any], targets: dict[str, Any]) -> dict[str, Any]:
+    """Resolve {target.*} placeholders inside degradation injections."""
+    return {
+        **degradation,
+        "injections": [
+            {
+                **injection,
+                "params": render_template(injection.get("params", {}), targets),
+            }
+            for injection in degradation.get("injections", [])
+        ],
+    }
+
+
 def _serialize_email(state: GmailState, email: Email) -> dict[str, Any]:
     payload = email.model_dump(mode="json")
     payload["thread_size"] = len(state.get_thread(email.thread_id))
@@ -472,6 +486,8 @@ def create_session(body: SessionCreateRequest, session_manager: SessionManager =
 
     session_id, resolved_targets, actual_seed = session_manager.create_session("gmail", body.task_id, body.seed)
     state = session_manager.get(session_id)
+    if degradation:
+        degradation = _render_degradation_params(degradation, resolved_targets)
 
     if degradation:
         state._degradation = {

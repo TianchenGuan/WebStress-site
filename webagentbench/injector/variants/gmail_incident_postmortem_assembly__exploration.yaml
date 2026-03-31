@@ -9,8 +9,12 @@ injections:
     action: stale_data
     url_pattern: '**/api/env/gmail/search**'
     stale_body:
-      emails: []
+      items: []
       total: 0
+      page: 1
+      page_size: 25
+      pages: 1
+      query: ''
       message: No results found
     stale_count: 2
     behavior:
@@ -27,6 +31,8 @@ injections:
         delay_ms: 3000
       - requests: 3
         delay_ms: 5000
-- layer: server
+- layer: seed
   params:
-    action: hide_prerequisite
+    action: hide_in_non_obvious_location
+    email_id: '{target.corrected_email_id}'
+    move_to_label: updates

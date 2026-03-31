@@ -472,6 +472,7 @@ def build_incident_postmortem_assembly(ctx: SeedContext, params: dict[str, Any])
         "resolution_time": resolution_time,
         "remediation": remediation,
         "incident_email_ids": incident_email_ids,
+        "corrected_email_id": carol_corrected.id,
         "decoy_email_id": decoy_email.id,
     }
 
