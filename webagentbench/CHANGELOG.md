@@ -4,6 +4,24 @@ Iterative optimization of 15 self-contained web pages for evaluating LLM agent c
 
 Benchmark overview and versioned result tables are maintained in `README.md`. This file is the change log for version-by-version benchmark modifications.
 
+## Unreleased — Frontend Workflow And Toolbar Consolidation (2026-03-31)
+
+### What changed
+
+- consolidated local frontend entrypoints into `./scripts/webagentbench.sh`, which now owns both `dev` and `build`
+- made `dev` mode open `http://localhost:8080/launch` directly while wiring the launcher to live frontend dev servers through manifest `base_url` overrides
+- enforced built-bundle freshness against frontend source mtimes so stale static assets are rejected until rebuilt
+- moved the benchmark toolbar into the shared React source as `environments/shared/src/components/BenchmarkToolbar.tsx`
+- removed runtime HTML mutation and the old standalone toolbar script path; both human play and agent mode now use the same in-app client degradation fetch path
+- preserved `session` query parameters through Gmail navigation so the toolbar and evaluation context survive route changes and reloads
+- refreshed repository docs and share docs to match the new launcher and toolbar architecture
+
+### Validation
+
+- `bash -n scripts/webagentbench.sh`
+- `python -m pytest -q webagentbench/tests/test_frontend_build_guard.py`
+- `git diff --check`
+
 ## Unreleased — Stress Benchmark Integrity Fixes (2026-03-30)
 
 ### What changed
@@ -28,7 +46,6 @@ Benchmark overview and versioned result tables are maintained in `README.md`. Th
 
 - syntax checks passed:
   - `python -m compileall -q .`
-  - `node --check static/benchmark-toolbar.js`
   - `git diff --check`
 - targeted regression suite passed:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run python -m pytest -q webagentbench/tests/test_benchmark_integrity.py`

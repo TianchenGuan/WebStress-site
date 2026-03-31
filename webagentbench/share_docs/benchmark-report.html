@@ -225,7 +225,7 @@
 
 <h3>Dimension 3: UI Presentation (Client Layer)</h3>
 <div class="card">
-<p>The <strong>client layer</strong> mutates the rendered DOM via JavaScript. When a session has client degradation registered, the <code>benchmark-toolbar.js</code> script fetches the injection config from <code>GET /api/env/gmail/degradation/{session_id}</code> and applies mutations:</p>
+<p>The <strong>client layer</strong> mutates the rendered DOM via JavaScript. When a session has client degradation registered, the shared React <code>BenchmarkToolbar</code> component fetches the injection config from <code>GET /api/env/gmail/degradation/{session_id}</code> and applies mutations:</p>
 <ul style="margin:0.5rem 0 0.5rem 1.5rem;">
   <li><strong>ARIA label scrambling</strong> (<code>scramble_aria</code>) &mdash; shifts <code>aria-label</code> attributes between sibling elements. Agents relying on accessibility semantics for element identification are misdirected.</li>
   <li><strong>Affordance hiding</strong> (<code>hide_affordance</code>) &mdash; sets <code>display:none</code> on a button and reveals it on a non-obvious trigger (e.g., right-click). Agents must explore alternative interactions.</li>
@@ -273,21 +273,24 @@
   <div class="row"><span class="indent">    </span><span class="file">seed.py</span><span class="ann">7 seed-layer actions</span></div>
   <div class="row"><span class="indent">    </span><span class="file">server.py</span><span class="ann">5 server-layer actions</span></div>
   <div class="row"><span class="indent">    </span><span class="file">middleware.py</span><span class="ann">DegradationMiddleware</span></div>
-  <div class="row"><span class="indent">    </span><span class="file">client.py</span><span class="ann">6 client-layer (deprecated)</span></div>
-  <div class="row"><span class="indent">    </span><span class="dir">variants/</span><span class="ann">28 YAML degradation configs</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">client.py</span><span class="ann">legacy Playwright client-layer helpers (deprecated)</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">variants/</span><span class="ann">153 YAML degradation configs (as of 2026-03-31)</span></div>
 
   <div class="row"><span class="indent">  </span><span class="dir">tasks/</span></div>
   <div class="row"><span class="indent">    </span><span class="file">_schema.py</span><span class="ann">TaskDefinition, EvalConfig</span></div>
   <div class="row"><span class="indent">    </span><span class="file">_registry.py</span><span class="ann">YAML discovery + caching</span></div>
   <div class="row"><span class="indent">    </span><span class="file">_evaluator.py</span><span class="ann">restricted-eval checker</span></div>
-  <div class="row"><span class="indent">    </span><span class="file">_seed_builders.py</span><span class="ann">70 per-task seed builders</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">_seed_builders*.py</span><span class="ann">80 task seed builders across 12 files</span></div>
   <div class="row"><span class="indent">    </span><span class="dir">gmail/</span><span class="ann">80 task YAML definitions</span></div>
+
+  <div class="row"><span class="indent">  </span><span class="dir">environments/</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">shared/src/components/</span></div>
+  <div class="row"><span class="indent">      </span><span class="file">BenchmarkToolbar.tsx</span><span class="ann">in-app benchmark toolbar + client injections</span></div>
 
   <div class="row"><span class="indent">  </span><span class="dir">scripts/</span></div>
   <div class="row"><span class="indent">    </span><span class="file">compute_delta.py</span><span class="ann">&Delta; diagnostic + time-ratio</span></div>
 
   <div class="row"><span class="indent">  </span><span class="dir">static/</span></div>
-  <div class="row"><span class="indent">    </span><span class="file">benchmark-toolbar.js</span><span class="ann">human toolbar + client inject</span></div>
   <div class="row"><span class="indent">    </span><span class="file">trajectory-recorder.js</span><span class="ann">gold trajectory recording</span></div>
   <div class="row"><span class="indent">    </span><span class="dir">envs/gmail/</span><span class="ann">React SPA build</span></div>
 
@@ -553,7 +556,7 @@
   <div class="layer-row l-client">
     <div class="lname" style="color:#1a7f37">Client</div>
     <div class="lacts"><code>scramble_aria</code> <code>swap_labels</code> <code>add_decoy</code> <code>hide_affordance</code> <code>false_banner</code> <code>inject_script</code></div>
-    <div class="lfile"><span class="badge badge-fn">benchmark-toolbar.js</span></div>
+    <div class="lfile"><span class="badge badge-fn">BenchmarkToolbar.tsx</span></div>
   </div>
 </div>
 
@@ -752,7 +755,7 @@ state.get_email(<span class="st">'email_3'</span>).is_starred
 </pre>
 
 <div class="callout">
-<strong>agent_mode=1</strong> in the URL query prevents <code>benchmark-toolbar.js</code> from rendering the human evaluation toolbar. The client degradation fetch (<code>GET /degradation/{sid}</code>) still runs, so DOM mutations apply to agents too.
+<strong>agent_mode=1</strong> in the URL query suppresses the human controls inside <code>BenchmarkToolbar</code>. The component still fetches client degradations (<code>GET /degradation/{sid}</code>), so DOM mutations apply to agents too.
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
@@ -969,8 +972,8 @@ python -m webagentbench.scripts.compute_delta \
     --output results/delta_report.json
 
 <span class="cm"># ── Human play (browser) ──</span>
-python -m webagentbench.app --port 8080
-<span class="cm"># Open http://localhost:8080/launch</span>
+./scripts/webagentbench.sh dev
+<span class="cm"># Opens http://localhost:8080/launch</span>
 </pre>
 
 <div style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--text-dim);font-size:0.82rem;">

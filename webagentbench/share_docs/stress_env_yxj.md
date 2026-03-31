@@ -2,7 +2,7 @@
 
 **Author**: Xunjian Yin
 **Date**: 2026-03-30
-**Status**: Implemented and validated. Gmail environment (80 tasks, 28 variants). End-to-end tested with gpt-5.4 — all 7 primitives show signal. BrowserGym-native.
+**Status**: Implemented and validated. Gmail environment (80 tasks, 153 YAML degradation variants as of 2026-03-31). End-to-end tested with gpt-5.4 — all 7 primitives show signal. BrowserGym-native.
 
 ---
 
@@ -185,9 +185,9 @@ This means:
 | **Seed** | Data mutations (emails, contacts) | Session creation | All, especially State Tracking, Grounding | Data stays in state forever |
 | **Server** | Structural state mutations | Post-seed | Planning, Backtracking | State stays modified forever |
 | **Network** | Server-side FastAPI middleware (`injector/middleware.py`) | Every API call | Patience, Verification | Active throughout session |
-| **Client** | DOM/JS mutations via benchmark-toolbar.js | Every page render | Grounding, Exploration | Re-applied via MutationObserver |
+| **Client** | In-app React toolbar (`BenchmarkToolbar`) applies DOM/JS mutations | Every page render | Grounding, Exploration | Re-applied via MutationObserver |
 
-> **Implementation note**: Network injections run server-side via `DegradationMiddleware` (works for both Playwright agents and human browsers). A legacy Playwright `page.route()` implementation exists in `injector/network.py` but is not used by the primary evaluation path. Similarly, `injector/client.py` (Playwright-based DOM mutations) is deprecated — client injections are now delivered server-side via the `/api/env/gmail/degradation/{session_id}` endpoint and applied by `benchmark-toolbar.js`.
+> **Implementation note**: Network injections run server-side via `DegradationMiddleware` (works for both Playwright agents and human browsers). A legacy Playwright `page.route()` implementation exists in `injector/network.py` but is not used by the primary evaluation path. Similarly, `injector/client.py` (Playwright-based DOM mutations) is deprecated — client injections are now delivered through `GET /api/env/gmail/degradation/{session_id}` and applied by the shared React `BenchmarkToolbar` component mounted in the Gmail shell.
 
 ### 5.2 Behavior Modes (Non-Homogeneity)
 
@@ -248,7 +248,7 @@ Persistent (grounding):
 | `stale_data` | once, intermittent | Verification | First N reads return stale data |
 | `transient_flash` | once, intermittent | Patience | Briefly show wrong content then real (legacy `network.py` only) |
 
-**Client layer** (primary: `benchmark-toolbar.js`, legacy: `injector/client.py`):
+**Client layer** (primary: `environments/shared/src/components/BenchmarkToolbar.tsx`, legacy: `injector/client.py`):
 
 | Action | Modes | Target Primitive | What It Does |
 |--------|-------|-----------------|-------------|
@@ -299,7 +299,7 @@ The only currently implemented environment. 80 tasks across 5 difficulty tiers.
 | Total positive eval checks | 566 |
 | Total negative eval checks | 235 |
 | Average checks per task | 10.0 |
-| Degradation variants | 28 (4 per primitive avg) |
+| Degradation variants | 153 YAML variants (as of 2026-03-31) |
 | Max negative penalty per task | 0.95 (capped) |
 
 ### 6.2 Task Structure (YAML)
@@ -441,19 +441,16 @@ A human interacts with the live environment (clicking, typing, navigating) to co
 
 **Implementation**:
 - **Launcher page** (`/launch`): Pick task + degradation variant + seed, then launch
-- **Benchmark toolbar** (`static/benchmark-toolbar.js`): Floating bar in the SPA with Evaluate, Reset, and Record buttons
+- **Benchmark toolbar** (`environments/shared/src/components/BenchmarkToolbar.tsx`): In-app React toolbar mounted in the Gmail shell with Evaluate, Reset, and Record buttons
 - **Trajectory recorder** (`static/trajectory-recorder.js`): Records click, input, keypress, scroll, navigate events during human play
 - **Gold trajectory saving**: On successful evaluation with recording active, `POST /api/env/gmail/trajectory` saves the trajectory with task settings (seed, degradation, resolved targets) and server audit log
-- **Client degradation**: Toolbar fetches `GET /api/env/gmail/degradation/{session_id}` and applies DOM mutations for stress mode
-- **Variants endpoint** (`GET /api/env/gmail/variants`): Lists all 28 degradation variants, filtered by task in the launcher
+- **Client degradation**: `BenchmarkToolbar` fetches `GET /api/env/gmail/degradation/{session_id}` and applies DOM mutations for stress mode
+- **Variants endpoint** (`GET /api/env/gmail/variants`): Lists YAML-backed variants, filtered by task in the launcher
 
 **Usage**:
 ```bash
-# Start the server
-python -m webagentbench.app
-
-# Open the launcher in browser:
-# http://localhost:8080/launch
+# Start backend + live frontend and open the launcher:
+./scripts/webagentbench.sh dev
 #
 # 1. Select a task
 # 2. Optionally select a degradation variant (stress-test mode)
@@ -513,15 +510,25 @@ playwright install chromium    # download browser binary
 set -a; source .env; set +a   # load API keys + OPENSSL_CONF="" fix
 ```
 
-### 10.2 Start the server manually
+### 10.2 Start the launcher (recommended)
 
 ```bash
-python -m webagentbench.app --port 8080
-# Browse: http://localhost:8080/env/gmail  (launcher UI)
+./scripts/webagentbench.sh dev
+# Opens: http://localhost:8080/launch
 # Health: http://localhost:8080/health
 ```
 
-### 10.3 Run agent evaluation
+`./scripts/webagentbench.sh` defaults to `dev` when run without a subcommand. Use `./scripts/webagentbench.sh dev --env gmail --no-open` if you want Gmail-only startup without opening a browser.
+
+### 10.3 Refresh static frontend bundles
+
+```bash
+./scripts/webagentbench.sh build
+```
+
+Use `build` when you want FastAPI to serve the static bundle from `webagentbench/static/envs/`. The backend rejects stale bundles until they are rebuilt.
+
+### 10.4 Run agent evaluation
 
 ```bash
 # All 80 Gmail tasks (deterministic, max 50 steps)
@@ -549,7 +556,7 @@ python -m webagentbench.agent_eval --model gpt-5.4 --provider openai \
     --reasoning-effort medium
 ```
 
-### 10.4 Compute Delta diagnostic
+### 10.5 Compute Delta diagnostic
 
 ```bash
 python -m webagentbench.scripts.compute_delta \
@@ -557,11 +564,11 @@ python -m webagentbench.scripts.compute_delta \
     --degraded results/degraded_grounding.json results/degraded_patience.json
 ```
 
-### 10.5 Human play mode
+### 10.6 Human play mode
 
 ```bash
-python -m webagentbench.app
-# Open http://localhost:8080/launch
+./scripts/webagentbench.sh dev
+# /launch opens automatically
 # 1. Pick task + optional degradation variant + seed
 # 2. Click Launch → opens Gmail SPA
 # 3. Complete the task manually
@@ -570,7 +577,7 @@ python -m webagentbench.app
 # 6. If recording + evaluation passed → gold trajectory auto-saved to gold_trajectories/
 ```
 
-### 10.6 BrowserGym API (programmatic)
+### 10.7 BrowserGym API (programmatic)
 
 ```python
 import gymnasium as gym
@@ -668,10 +675,19 @@ app.include_router(robinhood_router)
 
 ### Step 4: Build the React SPA
 
-Create `environments/<env_id>/` with React source. Build output goes to `static/envs/<env_id>/index.html`. Include the benchmark toolbar:
+Create `environments/<env_id>/` with React source. Build output goes to `static/envs/<env_id>/index.html`. Keep `/static/benchmark.js` in the environment `index.html`, and mount the shared benchmark toolbar from the environment shell instead of injecting a standalone script:
 
-```html
-<script src="/static/benchmark-toolbar.js"></script>
+```tsx
+import { BenchmarkToolbar } from "@webagentbench/shared";
+
+export function RobinhoodShell({ sessionId }: { sessionId: string }) {
+  return (
+    <>
+      <Outlet />
+      <BenchmarkToolbar envId="robinhood" sessionId={sessionId} />
+    </>
+  );
+}
 ```
 
 ### Step 5: Define tasks in YAML
@@ -837,7 +853,7 @@ injections:
         mode: persistent
 ```
 
-**3. Apply the degradation** — Client injections are fetched from the server by `benchmark-toolbar.js` at page load (via `GET /api/env/gmail/degradation/{session_id}`). New client actions work automatically if they follow the `action == "name"` pattern in the toolbar's `applyClientInjections()` handler.
+**3. Apply the degradation** — Client injections are fetched from the server by the in-app `BenchmarkToolbar` component (via `GET /api/env/gmail/degradation/{session_id}`) at load time and across SPA route changes. New client actions work automatically if they follow the `action == "name"` pattern in the component's `applyClientInjections()` handler.
 
 ### Adding a new behavior mode
 
@@ -919,21 +935,25 @@ webagentbench/
                                Session extraction: query → referer → cookie → single-session fallback
     seed.py                    7 seed-layer actions
     server.py                  5 server-layer actions (scramble_timestamps uses timedelta)
-    client.py                  6 client-layer actions (DEPRECATED — see benchmark-toolbar.js)
-    variants/                  28 YAML degradation configs
+    client.py                  Legacy Playwright client-layer actions (deprecated)
+    variants/                  153 YAML degradation configs (as of 2026-03-31)
 
   tasks/
     _schema.py                 TaskDefinition, EvalConfig, Check, NegativeCheck, SeedConfig
     _registry.py               YAML discovery, loading, validation, caching
     _evaluator.py              Expression evaluator: restricted eval, target substitution, penalty cap 0.95
-    _seed_builders*.py         Per-task seeding logic (80 builders)
+    _seed_builders*.py         Per-task seeding logic (80 builders across 12 files)
     gmail/                     80 YAML task definitions
+
+  environments/
+    shared/
+      src/components/
+        BenchmarkToolbar.tsx   In-app benchmark toolbar + client injection delivery
 
   scripts/
     compute_delta.py           Delta diagnostic: score delta + time ratio (WEAK/ADAPT/- signals)
 
   static/
-    benchmark-toolbar.js       Human toolbar (Evaluate/Reset/Record) + client injection delivery
     trajectory-recorder.js     Gold trajectory recording (click, input, scroll, navigate events)
     envs/gmail/                Built React SPA (index.html + assets)
 
