@@ -49,11 +49,11 @@ class PlaceOrderRequest(SessionScopedRequest):
     symbol: str
     side: Literal["buy", "sell"]
     order_type: Literal["market", "limit", "stop", "stop_limit", "trailing_stop"] = "market"
-    quantity: str  # Decimal as string
-    limit_price: str | None = None
-    stop_price: str | None = None
-    trail_amount: str | None = None
-    trail_pct: str | None = None
+    quantity: float | str
+    limit_price: float | str | None = None
+    stop_price: float | str | None = None
+    trail_amount: float | str | None = None
+    trail_pct: float | str | None = None
     time_in_force: Literal["gfd", "gtc", "ioc", "opg"] = "gfd"
     extended_hours: bool = False
 
@@ -97,7 +97,7 @@ class AddSymbolRequest(SessionScopedRequest):
 
 class InitiateTransferRequest(SessionScopedRequest):
     direction: Literal["deposit", "withdrawal"]
-    amount: str  # Decimal as string
+    amount: float | str
     bank_account_id: str
 
 
@@ -111,13 +111,13 @@ class LinkBankRequest(SessionScopedRequest):
 
 class CreateRecurringRequest(SessionScopedRequest):
     symbol: str
-    amount: str
+    amount: float | str
     frequency: Literal["daily", "weekly", "biweekly", "monthly"]
     next_execution_date: date
 
 
 class UpdateRecurringRequest(SessionScopedRequest):
-    amount: str | None = None
+    amount: float | str | None = None
     frequency: str | None = None
     status: str | None = None
 
@@ -127,7 +127,7 @@ class UpdateRecurringRequest(SessionScopedRequest):
 class CreateAlertRequest(SessionScopedRequest):
     symbol: str
     condition: Literal["above", "below"]
-    target_price: str
+    target_price: float | str
 
 
 # --- Settings ---
@@ -585,11 +585,11 @@ def place_order(
             symbol=body.symbol,
             side=body.side,
             order_type=body.order_type,
-            quantity=Decimal(body.quantity),
-            limit_price=Decimal(body.limit_price) if body.limit_price else None,
-            stop_price=Decimal(body.stop_price) if body.stop_price else None,
-            trail_amount=Decimal(body.trail_amount) if body.trail_amount else None,
-            trail_pct=Decimal(body.trail_pct) if body.trail_pct else None,
+            quantity=Decimal(str(body.quantity)),
+            limit_price=Decimal(str(body.limit_price)) if body.limit_price is not None else None,
+            stop_price=Decimal(str(body.stop_price)) if body.stop_price is not None else None,
+            trail_amount=Decimal(str(body.trail_amount)) if body.trail_amount is not None else None,
+            trail_pct=Decimal(str(body.trail_pct)) if body.trail_pct is not None else None,
             time_in_force=body.time_in_force,
             extended_hours=body.extended_hours,
         ),
@@ -816,7 +816,7 @@ def initiate_transfer(
         session_manager, body.session_id,
         "robinhood.transfer.initiate",
         {"direction": body.direction, "amount": body.amount, "bank_account_id": body.bank_account_id},
-        lambda s: s.initiate_transfer(body.direction, Decimal(body.amount), body.bank_account_id),
+        lambda s: s.initiate_transfer(body.direction, Decimal(str(body.amount)), body.bank_account_id),
     )
     return {"transfer": result.model_dump(mode="json")}
 
@@ -885,7 +885,7 @@ def create_recurring(
         "robinhood.recurring.create",
         {"symbol": body.symbol, "amount": body.amount, "frequency": body.frequency},
         lambda s: s.create_recurring_investment(
-            body.symbol, Decimal(body.amount), body.frequency, body.next_execution_date,
+            body.symbol, Decimal(str(body.amount)), body.frequency, body.next_execution_date,
         ),
     )
     return {"recurring": result.model_dump(mode="json")}
@@ -904,7 +904,7 @@ def update_recurring(
         {"ri_id": ri_id},
         lambda s: s.update_recurring_investment(
             ri_id,
-            amount=Decimal(body.amount) if body.amount else None,
+            amount=Decimal(str(body.amount)) if body.amount is not None else None,
             frequency=body.frequency,
             status=body.status,
         ),
@@ -1069,7 +1069,7 @@ def create_alert(
         session_manager, body.session_id,
         "robinhood.alert.create",
         {"symbol": body.symbol, "condition": body.condition, "target_price": body.target_price},
-        lambda s: s.create_price_alert(body.symbol, body.condition, Decimal(body.target_price)),
+        lambda s: s.create_price_alert(body.symbol, body.condition, Decimal(str(body.target_price))),
     )
     return {"alert": result.model_dump(mode="json")}
 
