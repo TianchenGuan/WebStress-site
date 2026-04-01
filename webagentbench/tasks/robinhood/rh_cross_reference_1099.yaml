@@ -1,0 +1,39 @@
+task_id: rh_cross_reference_1099
+env_id: robinhood
+title: Cross-Reference 1099-B with Transaction History
+instruction_template: "Open your 1099-B tax document for this year. Cross-reference each sale listed against your transaction history. Find any sale where the reported cost basis differs from your transaction records. Report each discrepancy with both figures."
+difficulty: expert
+time_limit_seconds: 350
+expected_steps: 20
+primary_primitives:
+  - state_tracking
+  - verification
+  - grounding
+  - exploration
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "TSLA", "MSFT", "AMZN", "NFLX"]
+      outputs: []
+    - use: tax_documents
+      params:
+        include_1099b: true
+        discrepancy_count: 2
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 12
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.orders) == 0"
+      desc: This is a reporting task; no trades should be placed
+  negative_checks: []

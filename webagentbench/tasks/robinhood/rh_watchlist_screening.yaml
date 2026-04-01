@@ -1,0 +1,39 @@
+task_id: rh_watchlist_screening
+env_id: robinhood
+title: Screen and Act on Watchlist Stocks
+instruction_template: "Screen your \"Potential Buys\" watchlist. For each stock, check if it meets ALL of these criteria: P/E ratio under 25, dividend yield above 2%, and current price within 10% of the 52-week high. Remove stocks that fail all three criteria. For stocks that pass all three, place a limit buy order for $500 worth at 3% below current price."
+difficulty: expert
+time_limit_seconds: 400
+expected_steps: 24
+primary_primitives:
+  - state_tracking
+  - exploration
+  - planning
+  - grounding
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["KO", "JNJ", "PG", "XOM", "CVX", "T", "VZ", "MO"]
+      outputs: []
+    - use: watchlist
+      params:
+        name: "Potential Buys"
+        symbols: ["KO", "JNJ", "PG", "XOM", "CVX", "T", "VZ", "MO"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    watchlist_name: "Potential Buys"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'buy' and o.order_type == 'limit' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: At least one limit buy order was placed for a passing stock
+  negative_checks: []

@@ -1,0 +1,77 @@
+task_id: rh_options_income_portfolio
+env_id: robinhood
+title: Build Monthly Options Income Strategy
+instruction_template: "Build a monthly income strategy across your portfolio. For each stock where you own 100 or more shares, sell a covered call at the nearest monthly expiration with a delta closest to 0.30. For stocks where you own fewer than 100 shares, sell a cash-secured put at a delta closest to -0.30. Calculate the total premium collected and the maximum assignment risk."
+difficulty: frontier
+time_limit_seconds: 500
+expected_steps: 32
+primary_primitives:
+  - state_tracking
+  - planning
+  - exploration
+  - grounding
+  - verification
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 6
+        mixed_quantities: true
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "AAPL"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "MSFT"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "GOOGL"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "AMZN"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "TSLA"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "META"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.asset_type == 'option' and o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: At least one option sell order was placed
+    - expr: "sum(1 for o in state.orders if o.asset_type == 'option' and o.side == 'sell') >= 3"
+      desc: At least 3 option sell orders were placed across portfolio positions
+  negative_checks: []

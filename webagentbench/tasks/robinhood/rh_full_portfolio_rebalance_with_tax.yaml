@@ -1,0 +1,55 @@
+task_id: rh_full_portfolio_rebalance_with_tax
+env_id: robinhood
+title: Tax-Aware Portfolio Rebalance
+instruction_template: "Rebalance your portfolio to: VTI 40%, VXUS 20%, BND 25%, GLD 15%. Minimize tax impact by selling lots with losses first, avoiding wash sales from recent purchases, and preferring to sell lots held over 1 year when you must realize gains. Execute all trades and report the expected tax impact."
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 35
+primary_primitives:
+  - state_tracking
+  - planning
+  - backtracking
+  - verification
+  - grounding
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["VTI", "VXUS", "BND", "GLD", "AAPL", "TSLA", "MSFT"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 8
+        multi_lot: true
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 6
+        include_recent_buys: true
+      outputs: []
+    - use: tax_documents
+      params:
+        include_gains: true
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    target_allocation:
+      VTI: 40
+      VXUS: 20
+      BND: 25
+      GLD: 15
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Sell orders exist as part of the rebalancing
+    - expr: "any(o.side == 'buy' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Buy orders exist as part of the rebalancing
+  negative_checks: []

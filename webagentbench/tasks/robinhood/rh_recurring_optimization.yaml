@@ -1,0 +1,41 @@
+task_id: rh_recurring_optimization
+env_id: robinhood
+title: Optimize Recurring Investments
+instruction_template: "Analyze all active recurring investments. Pause any where the average purchase price from history is more than 5% above the current stock price. Also pause any that are for stocks with earnings in the next 3 days. Report what you changed."
+difficulty: expert
+time_limit_seconds: 350
+expected_steps: 18
+primary_primitives:
+  - state_tracking
+  - planning
+  - verification
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META"]
+      outputs: []
+    - use: recurring_investments
+      params:
+        count: 5
+        include_history: true
+        overpaying_count: 2
+      outputs: []
+    - use: earnings_calendar
+      params:
+        days_ahead: 7
+        include_symbols: ["AAPL", "GOOGL"]
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(r.status == 'paused' for r in state.recurring_investments)"
+      desc: At least one recurring investment was paused
+  negative_checks: []

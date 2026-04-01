@@ -1,0 +1,45 @@
+task_id: rh_complex_transfer_reconciliation
+env_id: robinhood
+title: Cash Balance Reconciliation from Scratch
+instruction_template: "Your cash balance seems incorrect. Reconcile it from scratch: start from your first deposit, add all subsequent deposits, subtract all withdrawals, add all sell proceeds, subtract all buy costs, add all dividends and interest, and subtract all fees. Compare your calculated balance to the actual cash balance. If there is a discrepancy greater than $1, identify the specific transaction causing it."
+difficulty: frontier
+time_limit_seconds: 550
+expected_steps: 35
+primary_primitives:
+  - state_tracking
+  - verification
+  - grounding
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "TSLA", "MSFT", "AMZN"]
+      outputs: []
+    - use: transfers_history
+      params:
+        months: 6
+        count: 12
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 6
+        include_discrepancy: true
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 5
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.orders) == 0"
+      desc: This is a reporting task; no trades should be placed
+  negative_checks: []

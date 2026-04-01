@@ -1,0 +1,77 @@
+task_id: rh_options_expiration_management
+env_id: robinhood
+title: Manage 8 Expiring Options Positions
+instruction_template: "You have 8 options positions expiring this Friday. For each position: if it is a profitable long option with more than 20% gain, sell to close it; if it is a losing long option, let it expire; if it is a short option that is in-the-money, buy to close to avoid assignment; if it is a short option that is out-of-the-money, let it expire. Execute all necessary actions and report the net profit or loss."
+difficulty: frontier
+time_limit_seconds: 500
+expected_steps: 32
+primary_primitives:
+  - state_tracking
+  - planning
+  - grounding
+  - verification
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "SPY"]
+      outputs: []
+    - use: complex_options_book
+      params:
+        positions_count: 8
+        days_to_expiry: 3
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "AAPL"
+        expirations_count: 2
+        strikes_per_expiration: 10
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "MSFT"
+        expirations_count: 2
+        strikes_per_expiration: 10
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "GOOGL"
+        expirations_count: 2
+        strikes_per_expiration: 10
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "TSLA"
+        expirations_count: 2
+        strikes_per_expiration: 10
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "SPY"
+        expirations_count: 2
+        strikes_per_expiration: 10
+      outputs: []
+    - use: portfolio_basic
+      params:
+        stocks: ["AAPL", "MSFT", "GOOGL"]
+        quantities: ["100", "100", "50"]
+        cost_bases: ["170.00", "380.00", "140.00"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.asset_type == 'option' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Options orders were placed for positions that needed closing
+    - expr: "sum(1 for o in state.orders if o.asset_type == 'option') >= 2"
+      desc: At least 2 options orders were placed
+  negative_checks: []

@@ -1,0 +1,48 @@
+task_id: rh_multi_leg_options
+env_id: robinhood
+title: Execute an Iron Condor on SPY
+instruction_template: "Execute an iron condor on SPY: sell a call and a put at strikes 5% above and below current price, and buy protective legs 2% further out, all expiring in approximately 45 days. Report the maximum profit and maximum loss."
+difficulty: expert
+time_limit_seconds: 400
+expected_steps: 22
+primary_primitives:
+  - planning
+  - state_tracking
+  - exploration
+  - grounding
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["SPY", "QQQ", "AAPL", "MSFT"]
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "SPY"
+        expirations_count: 3
+        strikes_per_expiration: 20
+      outputs: []
+    - use: portfolio_basic
+      params:
+        stocks: ["QQQ", "AAPL"]
+        quantities: ["50", "20"]
+        cost_bases: ["380.00", "175.00"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    symbol: "SPY"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.symbol == 'SPY' and o.asset_type == 'option' and o.strategy == 'iron_condor' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: An iron condor options order for SPY exists
+    - expr: "sum(1 for o in state.orders if o.symbol == 'SPY' and o.asset_type == 'option') >= 4"
+      desc: At least 4 option legs were placed for SPY
+  negative_checks: []

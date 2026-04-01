@@ -51,7 +51,39 @@ EXPECTED_RH_HARD_TASKS = [
     "rh_transfer_history_audit",
 ]
 
-EXPECTED_RH_TASKS = EXPECTED_RH_EASY_TASKS + EXPECTED_RH_MEDIUM_TASKS + EXPECTED_RH_HARD_TASKS
+EXPECTED_RH_EXPERT_TASKS = [
+    "rh_multi_leg_options",
+    "rh_tax_optimization",
+    "rh_portfolio_risk_assessment",
+    "rh_earnings_play_setup",
+    "rh_dividend_reinvestment_analysis",
+    "rh_margin_call_resolution",
+    "rh_watchlist_screening",
+    "rh_recurring_optimization",
+    "rh_cross_reference_1099",
+    "rh_options_roll_strategy",
+]
+
+EXPECTED_RH_FRONTIER_TASKS = [
+    "rh_full_portfolio_rebalance_with_tax",
+    "rh_options_income_portfolio",
+    "rh_year_end_tax_planning",
+    "rh_suspicious_activity_investigation",
+    "rh_complex_transfer_reconciliation",
+    "rh_portfolio_transition",
+    "rh_options_expiration_management",
+    "rh_complete_account_audit",
+    "rh_multi_strategy_execution",
+    "rh_quarterly_performance_review",
+]
+
+EXPECTED_RH_TASKS = (
+    EXPECTED_RH_EASY_TASKS
+    + EXPECTED_RH_MEDIUM_TASKS
+    + EXPECTED_RH_HARD_TASKS
+    + EXPECTED_RH_EXPERT_TASKS
+    + EXPECTED_RH_FRONTIER_TASKS
+)
 
 
 def test_all_robinhood_tasks_load():
@@ -65,6 +97,10 @@ def test_all_robinhood_tasks_load():
         difficulty_map[t] = "medium"
     for t in EXPECTED_RH_HARD_TASKS:
         difficulty_map[t] = "hard"
+    for t in EXPECTED_RH_EXPERT_TASKS:
+        difficulty_map[t] = "expert"
+    for t in EXPECTED_RH_FRONTIER_TASKS:
+        difficulty_map[t] = "frontier"
 
     for task_id in EXPECTED_RH_TASKS:
         assert task_id in all_tasks, f"Task {task_id} not found in registry"

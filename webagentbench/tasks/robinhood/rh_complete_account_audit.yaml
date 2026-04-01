@@ -1,0 +1,56 @@
+task_id: rh_complete_account_audit
+env_id: robinhood
+title: Complete Account Audit
+instruction_template: "Perform a complete account audit. Verify: (1) all position quantities match your buy/sell transaction totals, (2) your cash balance reconciles with all cash flows, (3) all recurring investments have been executing on schedule, (4) all price alerts are for stocks you still own, (5) no transfers have been pending for more than 5 business days. Report every discrepancy you find."
+difficulty: frontier
+time_limit_seconds: 550
+expected_steps: 38
+primary_primitives:
+  - state_tracking
+  - verification
+  - exploration
+  - patience
+  - grounding
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "NFLX"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 6
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 6
+        quantity_mismatch_stock: "TSLA"
+      outputs: []
+    - use: recurring_investments
+      params:
+        count: 3
+        include_history: true
+      outputs: []
+    - use: price_alerts
+      params:
+        count: 4
+        include_stale: true
+        stale_symbol: "NFLX"
+      outputs: []
+    - use: transfers_history
+      params:
+        months: 3
+        include_old_pending: true
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.orders) == 0"
+      desc: This is a reporting task; no trades should be placed
+  negative_checks: []

@@ -1,0 +1,64 @@
+task_id: rh_multi_strategy_execution
+env_id: robinhood
+title: Execute Three Simultaneous Strategies
+instruction_template: "Execute three strategies simultaneously: (a) Tax-loss harvest any position with more than $500 in unrealized losses, checking for wash sale conflicts; (b) Set up a protective collar on your largest position by buying a put and selling a call; (c) Start a weekly $100 recurring investment into each of the 3 stocks on your \"Growth Picks\" watchlist. Important: do not sell a stock in strategy (a) that you are protecting in strategy (b)."
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 38
+primary_primitives:
+  - planning
+  - state_tracking
+  - backtracking
+  - verification
+  - grounding
+  - exploration
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["AAPL", "TSLA", "INTC", "BA", "MSFT", "NVDA", "AMZN", "SQ", "PLTR"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 7
+        include_losers: true
+        loser_count: 3
+        large_position_stock: "AAPL"
+      outputs: []
+    - use: options_chain
+      params:
+        symbol: "AAPL"
+        expirations_count: 2
+        strikes_per_expiration: 15
+      outputs: []
+    - use: watchlist
+      params:
+        name: "Growth Picks"
+        symbols: ["SQ", "PLTR", "NVDA"]
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 3
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    watchlist_name: "Growth Picks"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'sell' and o.asset_type == 'stock' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Sell orders exist for tax-loss harvesting
+    - expr: "any(o.asset_type == 'option' and o.side == 'buy' and o.option_type == 'put' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: A protective put was purchased for the collar
+    - expr: "any(o.asset_type == 'option' and o.side == 'sell' and o.option_type == 'call' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: A covered call was sold for the collar
+    - expr: "sum(1 for r in state.recurring_investments if r.frequency == 'weekly' and r.amount == 100 and r.status == 'active') >= 3"
+      desc: Three weekly $100 recurring investments were created
+  negative_checks: []

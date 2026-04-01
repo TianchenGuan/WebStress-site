@@ -1,0 +1,43 @@
+task_id: rh_margin_call_resolution
+env_id: robinhood
+title: Resolve Margin Maintenance Warning
+instruction_template: "Your account has a margin maintenance warning. Calculate how much you need to either deposit or sell to meet the maintenance requirement. Sell the position with the smallest impact on total returns to cover the shortfall, then deposit $500 as additional buffer."
+difficulty: expert
+time_limit_seconds: 350
+expected_steps: 18
+primary_primitives:
+  - state_tracking
+  - planning
+  - grounding
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "TSLA", "MSFT", "AMZN", "INTC"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 5
+      outputs: []
+    - use: margin_account
+      params:
+        near_maintenance: true
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: A sell order exists to cover margin shortfall
+    - expr: "any(t.transfer_type == 'deposit' and t.amount == 500 and t.status in ('completed', 'pending') for t in state.transfers)"
+      desc: A $500 deposit transfer exists
+  negative_checks: []

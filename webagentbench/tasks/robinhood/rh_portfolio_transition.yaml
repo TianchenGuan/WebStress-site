@@ -1,0 +1,47 @@
+task_id: rh_portfolio_transition
+env_id: robinhood
+title: Growth to Income Portfolio Transition
+instruction_template: "Switch your portfolio from a growth strategy to an income strategy. Sell all positions with a dividend yield below 1% using limit orders at the current bid price. With the total proceeds, allocate: 50% equally among the top 3 highest-yielding stocks from your \"Income Ideas\" watchlist, 30% to BND, and 20% to SCHD. Place all buy orders and report the estimated change in annual dividend income."
+difficulty: frontier
+time_limit_seconds: 550
+expected_steps: 35
+primary_primitives:
+  - planning
+  - state_tracking
+  - exploration
+  - grounding
+  - verification
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["TSLA", "AMZN", "GOOGL", "META", "NVDA", "BND", "SCHD", "T", "VZ", "MO", "PM", "XOM"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 6
+        growth_focused: true
+      outputs: []
+    - use: watchlist
+      params:
+        name: "Income Ideas"
+        symbols: ["T", "VZ", "MO", "PM", "XOM"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    watchlist_name: "Income Ideas"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'sell' and o.order_type == 'limit' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Limit sell orders exist for low-yield growth stocks
+    - expr: "any(o.side == 'buy' and o.symbol in ('BND', 'SCHD') and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: Buy orders for BND or SCHD exist
+  negative_checks: []

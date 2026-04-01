@@ -1,0 +1,52 @@
+task_id: rh_suspicious_activity_investigation
+env_id: robinhood
+title: Investigate Suspicious Account Activity
+instruction_template: "You received a security alert about an unrecognized login. Investigate: check the security log for the flagged entry, check if any orders were placed during that suspicious session's time window, check if your settings were changed. If you find unauthorized activity, cancel those orders and enable authenticator-based two-factor authentication. Report all findings."
+difficulty: frontier
+time_limit_seconds: 500
+expected_steps: 30
+primary_primitives:
+  - exploration
+  - state_tracking
+  - verification
+  - planning
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["AAPL", "TSLA", "MSFT", "GME", "AMC"]
+      outputs: []
+    - use: security_log
+      params:
+        include_suspicious: true
+      outputs: []
+    - use: pending_orders
+      params:
+        count: 4
+        include_suspicious_window: true
+      outputs: []
+    - use: notifications
+      params:
+        include_security_alert: true
+      outputs: []
+    - use: portfolio_basic
+      params:
+        stocks: ["AAPL", "MSFT"]
+        quantities: ["25", "30"]
+        cost_bases: ["170.00", "380.00"]
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.status == 'cancelled' for o in state.orders)"
+      desc: Suspicious orders were cancelled
+    - expr: "state.settings.two_factor_auth == 'authenticator'"
+      desc: Two-factor authentication was enabled with authenticator
+  negative_checks: []

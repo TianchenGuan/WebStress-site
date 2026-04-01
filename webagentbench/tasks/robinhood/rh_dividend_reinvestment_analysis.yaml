@@ -1,0 +1,41 @@
+task_id: rh_dividend_reinvestment_analysis
+env_id: robinhood
+title: Dividend Yield Analysis and Recurring Investment
+instruction_template: "Calculate the yield-on-cost for each stock in your portfolio (annual dividends divided by your cost basis). For any stock with yield-on-cost below 1%, disable dividend reinvestment. Set up a recurring weekly $50 investment in the stock with the highest yield-on-cost."
+difficulty: expert
+time_limit_seconds: 400
+expected_steps: 22
+primary_primitives:
+  - state_tracking
+  - planning
+  - exploration
+  - verification
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 25
+        must_include: ["KO", "JNJ", "PG", "T", "AAPL", "MSFT"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 6
+      outputs: []
+    - use: dividend_schedule
+      params:
+        quarters: 4
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active' for r in state.recurring_investments)"
+      desc: A weekly $50 recurring investment exists
+  negative_checks: []

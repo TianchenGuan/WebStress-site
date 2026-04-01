@@ -1,0 +1,47 @@
+task_id: rh_quarterly_performance_review
+env_id: robinhood
+title: Comprehensive Quarterly Performance Review
+instruction_template: "Generate a comprehensive quarterly performance review. Calculate: your total portfolio return vs SPY over the last 3 months, a breakdown of returns by sector, your best and worst performing positions, total fees paid, dividend income received this quarter compared to last quarter, and whether any positions have upcoming corporate actions. Compile and report all findings."
+difficulty: frontier
+time_limit_seconds: 500
+expected_steps: 35
+primary_primitives:
+  - state_tracking
+  - exploration
+  - grounding
+  - verification
+  - patience
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["SPY", "AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "XOM", "JNJ"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 8
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 6
+      outputs: []
+    - use: dividend_schedule
+      params:
+        quarters: 2
+      outputs: []
+    - use: notifications
+      params:
+        include_corporate_actions: true
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.orders) == 0"
+      desc: This is a reporting task; no trades should be placed
+  negative_checks: []

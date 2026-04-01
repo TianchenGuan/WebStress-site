@@ -1,0 +1,49 @@
+task_id: rh_tax_optimization
+env_id: robinhood
+title: Tax-Loss Harvesting to Offset Gains
+instruction_template: "You have short-term capital gains this year. Find positions with unrealized losses that you have held for more than 30 days (to avoid wash sale conflicts with recent purchases). Sell enough losing positions to offset your gains. Report the expected tax impact."
+difficulty: expert
+time_limit_seconds: 400
+expected_steps: 20
+primary_primitives:
+  - state_tracking
+  - planning
+  - backtracking
+  - verification
+start_path: /
+
+seed:
+  distractors: 20
+  steps:
+    - use: stock_universe
+      params:
+        count: 30
+        must_include: ["AAPL", "TSLA", "NFLX", "META", "AMZN", "INTC", "BA"]
+      outputs: []
+    - use: portfolio_diverse
+      params:
+        position_count: 8
+        include_losers: true
+        loser_count: 3
+      outputs: []
+    - use: tax_documents
+      params:
+        include_gains: true
+        short_term_gains: 5000
+      outputs: []
+    - use: transaction_ledger
+      params:
+        months: 3
+        include_recent_buys: true
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)"
+      desc: At least one sell order exists for a losing position
+  negative_checks: []
