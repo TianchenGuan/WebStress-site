@@ -814,6 +814,64 @@ class RobinhoodState(BaseEnvState):
         self.touch()
         return self.settings
 
+    def rename_watchlist(self, watchlist_id: str, name: str) -> Watchlist:
+        wl = self.get_watchlist(watchlist_id)
+        if wl is None:
+            raise KeyError(f"Unknown watchlist id: {watchlist_id}")
+        wl.name = name
+        self.touch()
+        return wl
+
+    def delete_watchlist(self, watchlist_id: str) -> Watchlist:
+        wl = self.get_watchlist(watchlist_id)
+        if wl is None:
+            raise KeyError(f"Unknown watchlist id: {watchlist_id}")
+        self.watchlists = [w for w in self.watchlists if w.id != watchlist_id]
+        self.touch()
+        return wl
+
+    def link_bank(
+        self,
+        bank_name: str,
+        account_type: Literal["checking", "savings"],
+        last_four: str,
+    ) -> LinkedBank:
+        bank = LinkedBank(
+            id=f"bank_{len(self.linked_banks) + 1}",
+            bank_name=bank_name,
+            account_type=account_type,
+            last_four=last_four,
+            status="verified",
+            is_default=len(self.linked_banks) == 0,
+        )
+        self.linked_banks.append(bank)
+        self.touch()
+        return bank
+
+    def unlink_bank(self, bank_id: str) -> LinkedBank:
+        bank = self.get_bank(bank_id)
+        if bank is None:
+            raise KeyError(f"Unknown bank account id: {bank_id}")
+        self.linked_banks = [b for b in self.linked_banks if b.id != bank_id]
+        self.touch()
+        return bank
+
+    def delete_recurring_investment(self, ri_id: str) -> RecurringInvestment:
+        ri = next((r for r in self.recurring_investments if r.id == ri_id), None)
+        if ri is None:
+            raise KeyError(f"Unknown recurring investment id: {ri_id}")
+        self.recurring_investments = [r for r in self.recurring_investments if r.id != ri_id]
+        self.touch()
+        return ri
+
+    def delete_price_alert(self, alert_id: str) -> PriceAlert:
+        alert = next((a for a in self.price_alerts if a.id == alert_id), None)
+        if alert is None:
+            raise KeyError(f"Unknown price alert id: {alert_id}")
+        self.price_alerts = [a for a in self.price_alerts if a.id != alert_id]
+        self.touch()
+        return alert
+
     def update_2fa(self, method: Literal["sms", "authenticator", "none"]) -> AccountSettings:
         self.settings.two_factor_method = method
         self.security_log.append(
