@@ -34,12 +34,27 @@ class StepSpec:
 
 
 @dataclass
+class TrajectoryStock:
+    """Price trajectory for one stock in a live-price task."""
+    keyframes: list[list[float]] = field(default_factory=list)
+    noise_pct: float = 0.3
+
+
+@dataclass
+class PriceTrajectoryConfig:
+    """The ``seed.price_trajectory`` section of a task YAML."""
+    tick_interval_seconds: float = 2.0
+    stocks: dict[str, TrajectoryStock] = field(default_factory=dict)
+
+
+@dataclass
 class SeedConfig:
     """The ``seed:`` section of a task YAML."""
     distractors: int = 20
     actors: dict[str, ActorSpec] = field(default_factory=dict)
     steps: list[StepSpec] = field(default_factory=list)
     targets: dict[str, str] = field(default_factory=dict)
+    price_trajectory: PriceTrajectoryConfig | None = None
 
 
 # Backward-compatible aliases expected by tasks/__init__.py
@@ -135,12 +150,27 @@ class TaskDefinition:
                 )
                 for s in (seed_raw.get("steps") or [])
             ]
-            td.seed = SeedConfig(
+            seed_cfg = SeedConfig(
                 distractors=seed_raw.get("distractors", 20),
                 actors=actors,
                 steps=steps,
                 targets=seed_raw.get("targets") or {},
             )
+
+            pt_raw = seed_raw.get("price_trajectory")
+            if pt_raw and isinstance(pt_raw, dict):
+                pt_stocks = {}
+                for sym, traj_data in pt_raw.get("stocks", {}).items():
+                    pt_stocks[sym] = TrajectoryStock(
+                        keyframes=traj_data.get("keyframes", []),
+                        noise_pct=traj_data.get("noise_pct", 0.3),
+                    )
+                seed_cfg.price_trajectory = PriceTrajectoryConfig(
+                    tick_interval_seconds=pt_raw.get("tick_interval_seconds", 2.0),
+                    stocks=pt_stocks,
+                )
+
+            td.seed = seed_cfg
 
         if eval_raw is not None:
             checks = [

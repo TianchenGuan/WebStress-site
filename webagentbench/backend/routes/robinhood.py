@@ -166,6 +166,7 @@ def _robinhood_state(session_manager: SessionManager, session_id: str) -> Robinh
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if not isinstance(state, RobinhoodState):
         raise HTTPException(status_code=404, detail=f"Session {session_id} is not a Robinhood session")
+    state.tick()  # Advance prices based on wall-clock time
     return state
 
 
@@ -523,6 +524,36 @@ def get_stock_dividends(
     state = _robinhood_state(session_manager, session_id)
     divs = [d for d in state.dividend_schedule if d.symbol == symbol]
     return {"symbol": symbol, "items": [d.model_dump(mode="json") for d in divs]}
+
+
+@router.get("/prices")
+def get_live_prices(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    """Lightweight endpoint for frontend price polling."""
+    state = _robinhood_state(session_manager, session_id)
+    engine = state._price_engine
+    prices = {}
+    for stock in state.stocks:
+        prices[stock.symbol] = {
+            "price": str(stock.price),
+            "day_change": str(stock.day_change),
+            "day_change_pct": str(stock.day_change_pct),
+            "bid": str(stock.bid),
+            "ask": str(stock.ask),
+        }
+    filled_ids = [
+        o.id for o in state.orders
+        if o.status == "filled" and o.filled_at is not None
+    ]
+    return {
+        "tick": engine.tick_count if engine else 0,
+        "prices": prices,
+        "portfolio_value": str(state.portfolio_value),
+        "cash_balance": str(state.cash_balance),
+        "pending_orders_filled": filled_ids,
+    }
 
 
 @router.get("/search")

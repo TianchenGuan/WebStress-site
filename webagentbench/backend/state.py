@@ -40,6 +40,22 @@ class SessionManager:
         state = state_cls.model_validate(seeded_data)
         state._resolved_targets = dict(resolved_targets)
         state._seed = actual_seed
+
+        # Initialize price engine for robinhood tasks with trajectories
+        if env_id == "robinhood":
+            from webagentbench.tasks._schema import PriceTrajectoryConfig
+            pt = getattr(task.seed, 'price_trajectory', None) if task.seed else None
+            if pt is not None and isinstance(pt, PriceTrajectoryConfig) and pt.stocks:
+                from webagentbench.backend.price_engine import PriceEngine, TrajectoryConfig, StockTrajectory
+                tconfig = TrajectoryConfig(
+                    tick_interval_seconds=pt.tick_interval_seconds,
+                    stocks={
+                        sym: StockTrajectory(keyframes=ts.keyframes, noise_pct=ts.noise_pct)
+                        for sym, ts in pt.stocks.items()
+                    },
+                )
+                state._price_engine = PriceEngine(config=tconfig, seed=actual_seed)
+
         session_id = f"{env_id}_{task_id}_{uuid.uuid4().hex[:10]}"
         with self._lock:
             self._sessions[session_id] = state
@@ -110,7 +126,7 @@ class SessionManager:
             }
             if state.degradation:
                 summary["degradation"] = state.degradation
-            if isinstance(state, GmailState):
+            if hasattr(state, "session_summary"):
                 summary["state"] = state.session_summary()
             return summary
 
@@ -127,14 +143,10 @@ class SessionManager:
 
     def _snapshot(self, state: BaseEnvState) -> dict[str, Any]:
         snapshot = {"task_id": state.task_id, "audit_entries": len(state.audit_log) + 1}
-        if isinstance(state, GmailState):
-            snapshot["counts"] = {
-                "inbox": len(state.list_emails("inbox")),
-                "sent": len(state.sent),
-                "trash": len(state.deleted),
-                "filters": len(state.filters),
-                "contacts": len(state.contacts),
-            }
+        if hasattr(state, "session_summary"):
+            summary = state.session_summary()
+            if "counts" in summary:
+                snapshot["counts"] = summary["counts"]
         return snapshot
 
 

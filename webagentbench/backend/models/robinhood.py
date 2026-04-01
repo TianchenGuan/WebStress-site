@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from .base import BaseEntity, BaseEnvState, utc_now
 
@@ -433,7 +433,43 @@ class RobinhoodState(BaseEnvState):
     security_log: list[SecurityEntry] = Field(default_factory=list)
     referral_history: list[Referral] = Field(default_factory=list)
 
+    # Monotonic counter for ID generation (survives deletions)
+    _next_id: int = PrivateAttr(default=1)
+    _price_engine: Any = PrivateAttr(default=None)
+
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    def model_post_init(self, __context: Any) -> None:
+        """Set the monotonic counter past any IDs already present from seed data."""
+        max_id = 0
+        for collection in (
+            self.positions, self.orders, self.options_orders, self.watchlists,
+            self.transactions, self.transfers, self.linked_banks,
+            self.recurring_investments, self.price_alerts, self.notifications,
+        ):
+            for item in collection:
+                if hasattr(item, "id") and isinstance(item.id, str) and "_" in item.id:
+                    try:
+                        max_id = max(max_id, int(item.id.rsplit("_", 1)[1]))
+                    except (ValueError, IndexError):
+                        pass
+        self._next_id = max_id + 1
+
+    def _gen_id(self, prefix: str) -> str:
+        """Generate a unique ID with the given prefix using a monotonic counter."""
+        id_val = f"{prefix}_{self._next_id}"
+        self._next_id += 1
+        return id_val
+
+    def tick(self) -> list[str]:
+        """Advance the price engine based on wall-clock time. Returns event list."""
+        if self._price_engine is None:
+            return []
+        from webagentbench.backend.price_engine import cascade_update
+        new_prices = self._price_engine.tick_by_clock()
+        if not new_prices:
+            return []
+        return cascade_update(self, new_prices, self._price_engine)
 
     # ---- Query methods ----
 
@@ -528,7 +564,7 @@ class RobinhoodState(BaseEnvState):
         time_in_force: Literal["gfd", "gtc", "ioc", "opg"] = "gfd",
         extended_hours: bool = False,
     ) -> Order:
-        order_id = f"ord_{len(self.orders) + 1}"
+        order_id = self._gen_id("ord")
         now = utc_now()
 
         order = Order(
@@ -557,7 +593,7 @@ class RobinhoodState(BaseEnvState):
             total = price * quantity
 
             if side == "buy":
-                if total > self.cash_balance:
+                if total > self.buying_power:
                     raise ValueError("Insufficient funds")
                 self.cash_balance -= total
                 self.buying_power -= total
@@ -566,7 +602,7 @@ class RobinhoodState(BaseEnvState):
                 pos = self.get_position(symbol)
                 if pos is None:
                     pos = Position(
-                        id=f"pos_{len(self.positions) + 1}",
+                        id=self._gen_id("pos"),
                         symbol=symbol,
                         name=stock.name,
                         asset_type=stock.asset_type,
@@ -604,7 +640,7 @@ class RobinhoodState(BaseEnvState):
             # Add transaction
             self.transactions.append(
                 Transaction(
-                    id=f"txn_{len(self.transactions) + 1}",
+                    id=self._gen_id("txn"),
                     type=side,
                     symbol=symbol,
                     quantity=quantity,
@@ -617,7 +653,7 @@ class RobinhoodState(BaseEnvState):
             # Add notification
             self.notifications.append(
                 Notification(
-                    id=f"notif_{len(self.notifications) + 1}",
+                    id=self._gen_id("notif"),
                     type="order_fill",
                     title=f"Order Filled: {symbol}",
                     message=f"Your market {side} order for {quantity} shares of {symbol} was filled at ${price}.",
@@ -647,7 +683,7 @@ class RobinhoodState(BaseEnvState):
         legs: list[OptionsLeg],
     ) -> OptionsOrder:
         order = OptionsOrder(
-            id=f"oord_{len(self.options_orders) + 1}",
+            id=self._gen_id("oord"),
             strategy=strategy,
             legs=legs,
             status="pending",
@@ -659,7 +695,7 @@ class RobinhoodState(BaseEnvState):
 
     def create_watchlist(self, name: str, symbols: list[str] | None = None) -> Watchlist:
         wl = Watchlist(
-            id=f"wl_{len(self.watchlists) + 1}",
+            id=self._gen_id("wl"),
             name=name,
             symbols=list(symbols or []),
             created_at=utc_now(),
@@ -697,7 +733,7 @@ class RobinhoodState(BaseEnvState):
 
         now = utc_now()
         transfer = Transfer(
-            id=f"xfer_{len(self.transfers) + 1}",
+            id=self._gen_id("xfer"),
             direction=direction,
             amount=amount,
             status="pending",
@@ -709,14 +745,14 @@ class RobinhoodState(BaseEnvState):
             self.cash_balance += amount
             self.buying_power += amount
         else:  # withdrawal
-            if amount > self.cash_balance:
+            if amount > self.buying_power:
                 raise ValueError("Insufficient funds for withdrawal")
             self.cash_balance -= amount
             self.buying_power -= amount
 
         self.transactions.append(
             Transaction(
-                id=f"txn_{len(self.transactions) + 1}",
+                id=self._gen_id("txn"),
                 type=direction,
                 symbol=None,
                 quantity=None,
@@ -738,7 +774,7 @@ class RobinhoodState(BaseEnvState):
         next_execution_date: date,
     ) -> RecurringInvestment:
         ri = RecurringInvestment(
-            id=f"ri_{len(self.recurring_investments) + 1}",
+            id=self._gen_id("ri"),
             symbol=symbol,
             amount=amount,
             frequency=frequency,
@@ -776,7 +812,7 @@ class RobinhoodState(BaseEnvState):
         target_price: Decimal,
     ) -> PriceAlert:
         alert = PriceAlert(
-            id=f"alert_{len(self.price_alerts) + 1}",
+            id=self._gen_id("alert"),
             symbol=symbol,
             condition=condition,
             target_price=target_price,
@@ -837,7 +873,7 @@ class RobinhoodState(BaseEnvState):
         last_four: str,
     ) -> LinkedBank:
         bank = LinkedBank(
-            id=f"bank_{len(self.linked_banks) + 1}",
+            id=self._gen_id("bank"),
             bank_name=bank_name,
             account_type=account_type,
             last_four=last_four,
