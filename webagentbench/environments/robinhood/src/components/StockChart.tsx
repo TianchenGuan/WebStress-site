@@ -5,7 +5,7 @@ interface ChartProps {
   positive?: boolean;
 }
 
-const RANGES = ["1D", "1W", "1M", "3M", "1Y", "ALL"] as const;
+const RANGES = ["1D", "1W", "1M", "3M", "YTD", "1Y", "MAX"] as const;
 
 export function StockChart({ data, positive = true }: ChartProps) {
   const [range, setRange] = useState<string>("1M");
@@ -83,7 +83,7 @@ function TimeRangeButtons({ range, onRange }: { range: string; onRange: (r: stri
 }
 
 function filterByRange(data: Array<{ date: string; close: string }>, range: string) {
-  if (!data.length || range === "ALL") return data;
+  if (!data.length || range === "MAX") return data;
   const now = new Date();
   let cutoff: Date;
   switch (range) {
@@ -91,6 +91,7 @@ function filterByRange(data: Array<{ date: string; close: string }>, range: stri
     case "1W": cutoff = new Date(now.getTime() - 7 * 86400000); break;
     case "1M": cutoff = new Date(now.getTime() - 30 * 86400000); break;
     case "3M": cutoff = new Date(now.getTime() - 90 * 86400000); break;
+    case "YTD": cutoff = new Date(now.getFullYear(), 0, 1); break;
     case "1Y": cutoff = new Date(now.getTime() - 365 * 86400000); break;
     default: return data;
   }

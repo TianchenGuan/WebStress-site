@@ -232,25 +232,204 @@ h2 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(-
 .rh-position-row__price { display: block; font-size: 0.9rem; font-weight: 500; }
 .rh-position-row__change { display: block; font-size: 0.75rem; }
 
-/* ── Stock Detail ────────────────────────────────────────────── */
+/* ── Stock Detail — Two-Column Layout ───────────────────────── */
 
+.rh-stock-detail-layout {
+  display: flex; gap: 2rem; align-items: flex-start;
+}
+.rh-stock-detail__main { flex: 1; min-width: 0; }
+.rh-stock-detail__sidebar {
+  width: 300px; flex-shrink: 0;
+  position: sticky; top: calc(var(--rh-topbar-height) + 24px);
+}
 .rh-stock-detail__header { margin-bottom: 0.5rem; }
 .rh-stock-detail__name {
   font-size: 0.9rem; font-weight: 500; color: var(--rh-gray-700); margin: 0 0 0.25rem;
 }
-.rh-stock-detail__price { display: flex; align-items: baseline; gap: 0.75rem; }
 .rh-stock-detail__price-value { font-size: 2rem; font-weight: 700; }
-.rh-stock-detail__day-change { font-size: 0.95rem; font-weight: 500; }
-.rh-stock-detail__actions {
-  display: flex; gap: 0.75rem; margin: 1.5rem 0;
+.rh-stock-detail__day-change { font-size: 0.95rem; font-weight: 500; margin-top: 0.15rem; }
+
+/* ── Generic Section ────────────────────────────────────────── */
+
+.rh-section {
+  border-top: 1px solid var(--rh-gray-200); padding-top: 1.5rem; margin-top: 1.5rem;
 }
-.rh-stock-detail__position { margin-top: 1.5rem; }
-.rh-stock-detail__stats { margin-top: 1.5rem; }
-.rh-stock-detail__about { margin-top: 1.5rem; }
-.rh-stock-detail__about p { font-size: 0.9rem; line-height: 1.6; color: var(--rh-gray-700); }
-.rh-stock-detail__meta {
-  display: flex; gap: 1.5rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--rh-gray-500);
+.rh-section h2 { font-size: 20px; font-weight: 700; margin: 0 0 16px; }
+.rh-section__text { font-size: 0.9rem; line-height: 1.6; color: var(--rh-gray-700); margin: 0 0 1rem; }
+
+/* ── About Grid ─────────────────────────────────────────────── */
+
+.rh-about-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border-top: 1px solid var(--rh-gray-200); margin-top: 1rem;
 }
+.rh-about-grid__item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 0; border-bottom: 1px solid var(--rh-gray-200);
+}
+.rh-about-grid__item:nth-child(odd) { padding-right: 1.5rem; }
+.rh-about-grid__item:nth-child(even) { padding-left: 1.5rem; }
+.rh-about-grid__label { font-size: 0.85rem; color: var(--rh-gray-700); }
+.rh-about-grid__value { font-size: 0.85rem; font-weight: 500; }
+
+/* ── Key Stats Grid (4-col, label above value) ──────────────── */
+
+.rh-key-stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+}
+.rh-key-stats-grid__item {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 0; border-bottom: 1px solid var(--rh-gray-200);
+}
+.rh-key-stats-grid__item:not(:nth-child(4n)) { padding-right: 1rem; }
+.rh-key-stats-grid__label { font-size: 0.8rem; color: var(--rh-gray-500); }
+.rh-key-stats-grid__value { font-size: 0.9rem; font-weight: 500; }
+
+/* ── Category Chips ─────────────────────────────────────────── */
+
+.rh-category-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rh-category-chip {
+  display: inline-flex; align-items: center; padding: 8px 16px;
+  border-radius: 20px; border: 1px solid var(--rh-gray-200);
+  background: var(--rh-white); font-size: 13px; font-weight: 500;
+  color: var(--rh-black); cursor: pointer; transition: all 0.15s;
+}
+.rh-category-chip:hover { background: var(--rh-gray-50); border-color: var(--rh-gray-300); }
+
+/* ── News Card ──────────────────────────────────────────────── */
+
+.rh-news-card {
+  display: flex; gap: 1rem; padding: 16px 0;
+  border-bottom: 1px solid var(--rh-gray-200); align-items: flex-start;
+}
+.rh-news-card__text { flex: 1; min-width: 0; }
+.rh-news-card__meta { display: flex; gap: 6px; align-items: center; font-size: 0.8rem; color: var(--rh-gray-500); margin-bottom: 6px; }
+.rh-news-card__source { font-weight: 500; }
+.rh-news-card__dot { color: var(--rh-gray-300); }
+.rh-news-card__headline { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px; line-height: 1.3; }
+.rh-news-card__snippet { font-size: 0.85rem; color: var(--rh-gray-700); line-height: 1.4; margin: 0 0 8px; }
+.rh-news-card__tickers { display: flex; gap: 6px; }
+.rh-news-card__ticker {
+  font-size: 0.75rem; font-weight: 600; color: var(--rh-green);
+  background: rgba(0, 200, 5, 0.08); padding: 2px 8px; border-radius: 4px;
+}
+.rh-news-card__image {
+  width: 100px; height: 80px; border-radius: 8px; flex-shrink: 0;
+}
+
+/* ── Buy Card (sidebar) ─────────────────────────────────────── */
+
+.rh-buy-card {
+  border: 1px solid var(--rh-gray-200); border-radius: 8px; padding: 20px;
+}
+.rh-buy-card__tabs { display: flex; border-bottom: 2px solid var(--rh-gray-200); margin-bottom: 16px; }
+.rh-buy-card__tab {
+  flex: 1; background: none; border: none; padding: 8px 4px;
+  font-size: 0.85rem; font-weight: 600; color: var(--rh-gray-500);
+  border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer;
+}
+.rh-buy-card__tab--active { color: var(--rh-black); border-bottom-color: var(--rh-green); }
+.rh-buy-card__tab--sell.rh-buy-card__tab--active { border-bottom-color: var(--rh-red); }
+.rh-buy-card__field {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; font-size: 0.9rem;
+}
+.rh-buy-card__field label { font-weight: 500; }
+.rh-buy-card__field input {
+  width: 80px; text-align: right; padding: 4px 8px;
+  border: 1px solid var(--rh-gray-300); border-radius: 4px; font-size: 0.9rem;
+}
+.rh-buy-card__field input:focus { outline: none; border-color: var(--rh-green); }
+.rh-buy-card__price { font-weight: 500; }
+.rh-buy-card__divider { border-top: 1px solid var(--rh-gray-200); margin: 8px 0; }
+.rh-buy-card__estimate {
+  display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;
+  padding: 8px 0;
+}
+.rh-buy-card__error { color: var(--rh-red); font-size: 0.85rem; margin: 4px 0; }
+.rh-buy-card__submit { width: 100%; margin-top: 12px; }
+.rh-buy-card__buying-power {
+  text-align: center; font-size: 0.8rem; color: var(--rh-gray-500); margin-top: 12px;
+}
+.rh-buy-card__actions { margin-top: 8px; text-align: center; }
+.rh-buy-card__advanced { width: 100%; font-size: 0.85rem; }
+.rh-buy-card__add-list {
+  width: 100%; margin-top: 8px;
+  background: transparent !important; color: var(--rh-green) !important;
+  border: 1px solid var(--rh-green) !important;
+}
+.rh-buy-card__success { text-align: center; padding: 1rem 0; }
+.rh-buy-card__success h3 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+.rh-buy-card__success p { font-size: 0.9rem; color: var(--rh-gray-700); margin: 0 0 1rem; line-height: 1.5; }
+
+/* ── Trading Trends ─────────────────────────────────────────── */
+
+.rh-trends__tabs { display: flex; gap: 0; border-bottom: 2px solid var(--rh-gray-200); margin-bottom: 1rem; }
+.rh-trends__bar-container { margin-bottom: 1rem; }
+.rh-trends__bar {
+  display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 12px;
+}
+.rh-trends__bar-buy { background: var(--rh-green); }
+.rh-trends__bar-hold { background: var(--rh-gray-300); }
+.rh-trends__bar-sell { background: var(--rh-red); }
+.rh-trends__labels { display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--rh-gray-700); }
+.rh-trends__labels span { display: flex; align-items: center; gap: 6px; }
+.rh-trends__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.rh-trends__dot--buy { background: var(--rh-green); }
+.rh-trends__dot--hold { background: var(--rh-gray-300); }
+.rh-trends__dot--sell { background: var(--rh-red); }
+
+/* ── Analyst Ratings ────────────────────────────────────────── */
+
+.rh-analyst { display: flex; gap: 2rem; align-items: flex-start; }
+.rh-analyst__summary { text-align: center; min-width: 80px; }
+.rh-analyst__pct { display: block; font-size: 2rem; font-weight: 700; color: var(--rh-green); }
+.rh-analyst__count { display: block; font-size: 0.8rem; color: var(--rh-gray-500); margin-top: 4px; }
+.rh-analyst__bar-container { flex: 1; }
+.rh-analyst__row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.rh-analyst__label { font-size: 0.85rem; font-weight: 500; min-width: 32px; }
+.rh-analyst__bar { flex: 1; height: 8px; background: var(--rh-gray-100); border-radius: 4px; overflow: hidden; }
+.rh-analyst__fill { height: 100%; border-radius: 4px; }
+.rh-analyst__fill--buy { background: var(--rh-green); }
+.rh-analyst__fill--hold { background: #f5a623; }
+.rh-analyst__fill--sell { background: var(--rh-red); }
+.rh-analyst__val { font-size: 0.85rem; color: var(--rh-gray-700); min-width: 36px; text-align: right; }
+
+/* ── Earnings ───────────────────────────────────────────────── */
+
+.rh-earnings {
+  display: flex; gap: 2rem; justify-content: center; align-items: flex-end;
+  height: 160px; padding: 0 1rem;
+}
+.rh-earnings__quarter { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+.rh-earnings__bars { display: flex; gap: 4px; align-items: flex-end; height: 120px; }
+.rh-earnings__bar {
+  width: 20px; border-radius: 3px 3px 0 0; min-height: 4px;
+}
+.rh-earnings__bar--est { background: var(--rh-gray-300); }
+.rh-earnings__bar--beat { background: var(--rh-green); }
+.rh-earnings__bar--miss { background: var(--rh-red); }
+.rh-earnings__label { font-size: 0.75rem; color: var(--rh-gray-500); white-space: nowrap; }
+.rh-earnings__legend {
+  display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem;
+  font-size: 0.8rem; color: var(--rh-gray-700);
+}
+.rh-earnings__legend span { display: flex; align-items: center; gap: 6px; }
+.rh-earnings__legend-box { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.rh-earnings__legend-box--est { background: var(--rh-gray-300); }
+.rh-earnings__legend-box--act { background: var(--rh-green); }
+
+/* ── People Also Own ────────────────────────────────────────── */
+
+.rh-also-own { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 4px; }
+.rh-also-own__card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 100px; padding: 16px; border: 1px solid var(--rh-gray-200);
+  border-radius: 8px; text-align: center; flex-shrink: 0;
+}
+.rh-also-own__symbol { font-size: 0.9rem; font-weight: 600; }
+.rh-also-own__price { font-size: 0.85rem; }
+.rh-also-own__change { font-size: 0.8rem; font-weight: 500; }
 
 /* ── Order Form ──────────────────────────────────────────────── */
 
@@ -582,4 +761,7 @@ h2 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(-
   .rh-sidebar { display: none; }
   .rh-topbar__nav { display: none; }
   .rh-main { padding: 1rem; }
+  .rh-stock-detail-layout { flex-direction: column; }
+  .rh-stock-detail__sidebar { width: 100%; position: static; order: -1; }
+  .rh-key-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
