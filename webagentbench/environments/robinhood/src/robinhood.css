@@ -765,3 +765,42 @@ h2 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(-
   .rh-stock-detail__sidebar { width: 100%; position: static; order: -1; }
   .rh-key-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Live price indicator */
+.rh-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #00C805;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+.rh-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00C805;
+  animation: rh-pulse 2s ease-in-out infinite;
+}
+@keyframes rh-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Price flash animations */
+@keyframes rh-flash-green {
+  0% { background-color: rgba(0, 200, 5, 0.15); }
+  100% { background-color: transparent; }
+}
+@keyframes rh-flash-red {
+  0% { background-color: rgba(255, 80, 0, 0.15); }
+  100% { background-color: transparent; }
+}
+.rh-price-flash-up {
+  animation: rh-flash-green 0.6s ease-out;
+}
+.rh-price-flash-down {
+  animation: rh-flash-red 0.6s ease-out;
+}

@@ -13,6 +13,7 @@ import type {
   PortfolioData,
   Position,
   PriceAlert,
+  PricesResponse,
   RealizedGainLoss,
   RecurringInvestment,
   Referral,
@@ -28,6 +29,10 @@ type RequestFn = <T>(path: string, options?: ApiRequestOptions) => Promise<T>;
 
 export function createRobinhoodApi(request: RequestFn) {
   return {
+    /* Live Prices */
+    getPrices: () =>
+      request<PricesResponse>("prices"),
+
     /* Account */
     getAccount: () =>
       request<AccountData>("account"),

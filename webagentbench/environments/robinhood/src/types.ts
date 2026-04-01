@@ -287,3 +287,19 @@ export interface PortfolioData {
   total_return: string;
   total_return_pct: string;
 }
+
+export interface PriceData {
+  price: string;
+  day_change: string;
+  day_change_pct: string;
+  bid: string;
+  ask: string;
+}
+
+export interface PricesResponse {
+  tick: number;
+  prices: Record<string, PriceData>;
+  portfolio_value: string;
+  cash_balance: string;
+  pending_orders_filled: string[];
+}

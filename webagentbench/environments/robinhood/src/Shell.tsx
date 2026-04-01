@@ -27,6 +27,8 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
     portfolio_value: string;
   } | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [liveTick, setLiveTick] = useState(0);
+  const [isLive, setIsLive] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: string; title: string; description?: string }>>([]);
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [watchlistStocks, setWatchlistStocks] = useState<Record<string, Stock>>({});
@@ -108,6 +110,32 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
     return () => clearTimeout(debounceRef.current);
   }, [location.pathname, location.search, refreshAccount, loadWatchlists]);
 
+  // Live price polling (every 2 seconds)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getPrices();
+        setLiveTick(data.tick);
+        setIsLive(data.tick > 0);
+        setAccount((prev) =>
+          prev
+            ? { ...prev, portfolio_value: data.portfolio_value, cash_balance: data.cash_balance }
+            : prev,
+        );
+        if (data.pending_orders_filled.length > 0) {
+          void refreshAccount();
+          void loadWatchlists();
+          for (const orderId of data.pending_orders_filled) {
+            notify("Order Filled", `Order ${orderId} has been filled`);
+          }
+        }
+      } catch {
+        // silently continue
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [api, notify, refreshAccount, loadWatchlists]);
+
   useEffect(() => {
     log("route_change", { pathname: location.pathname, query: location.search, sessionId });
   }, [location.pathname, location.search, log, sessionId]);
@@ -148,6 +176,12 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
               className="rh-topbar__search"
             />
           </div>
+          {isLive && (
+            <span className="rh-live-indicator" aria-label="Live prices active">
+              <span className="rh-live-dot" />
+              Live
+            </span>
+          )}
           <div className="rh-topbar__right">
             <Link
               to={preserveQueryParams("/notifications", location.search)}
