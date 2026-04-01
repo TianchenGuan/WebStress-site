@@ -38,11 +38,11 @@ export function createRobinhoodApi(request: RequestFn) {
     listPositions: () =>
       request<{ items: Position[] }>("positions").then((r) => r.items),
     getPosition: (symbol: string) =>
-      request<{ position: Position }>(`positions/${symbol}`).then((r) => r.position),
+      request<Position>(`positions/${symbol}`),
 
     /* Stocks */
     getStock: (symbol: string) =>
-      request<{ stock: Stock }>(`stocks/${symbol}`).then((r) => r.stock),
+      request<Stock>(`stocks/${symbol}`),
     getStockChart: (symbol: string, query?: Record<string, string>) =>
       request<{ prices: Array<{ date: string; close: string }> }>(`stocks/${symbol}/chart`, { query }),
     searchStocks: (q: string) =>

@@ -316,6 +316,69 @@ def create_session(
     }
 
 
+@router.get("/session/{session_id}")
+def get_session(
+    session_id: str,
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    try:
+        summary = session_manager.session_summary(session_id)
+        state = session_manager.get(session_id)
+        task = get_task(state.task_id)
+        summary["title"] = task.title
+        summary["instruction"] = render_template(
+            task.instruction_template or task.instruction or "", state.resolved_targets
+        )
+        return summary
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/session/{session_id}")
+def delete_session(
+    session_id: str,
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    try:
+        session_manager.destroy(session_id)
+        return {"deleted": True}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/degradation/{session_id}")
+def get_client_degradation(session_id: str) -> dict[str, Any]:
+    from ...injector.middleware import get_client_injections
+    injections = get_client_injections(session_id)
+    return {"session_id": session_id, "client_injections": injections}
+
+
+@router.get("/variants")
+def list_variants() -> list[dict[str, Any]]:
+    from pathlib import Path
+    variants_dir = Path(__file__).parent.parent.parent / "injector" / "variants"
+    if not variants_dir.is_dir():
+        return []
+    import yaml
+    results = []
+    for f in sorted(variants_dir.glob("*.yaml")):
+        if not f.name.startswith("rh_"):
+            continue
+        try:
+            data = yaml.safe_load(f.read_text())
+            results.append({
+                "filename": f.name,
+                "variant_id": data.get("variant_id", f.stem),
+                "base_task_id": data.get("base_task_id", ""),
+                "target_primitive": data.get("target_primitive", ""),
+                "description": data.get("description", ""),
+                "source": "yaml",
+            })
+        except Exception:
+            continue
+    return results
+
+
 @router.post("/evaluate")
 def evaluate_session(
     body: EvaluateRequest,
