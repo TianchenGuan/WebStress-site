@@ -29,11 +29,13 @@ EOF
 
 all_dev_envs() {
   echo "gmail"
+  echo "robinhood"
 }
 
 env_port() {
   case "$1" in
     gmail) echo "4173" ;;
+    robinhood) echo "4174" ;;
     *) return 1 ;;
   esac
 }
@@ -43,6 +45,7 @@ env_base_url() {
   port="$(env_port "$1")"
   case "$1" in
     gmail) echo "http://localhost:${port}/env/gmail" ;;
+    robinhood) echo "http://localhost:${port}/env/robinhood" ;;
     *) return 1 ;;
   esac
 }
@@ -53,6 +56,13 @@ start_env_dev_server() {
       (
         cd "$ENV_DIR"
         pnpm dev:gmail 2>&1 | sed 's/^/  [frontend:gmail] /'
+      ) &
+      PIDS+=($!)
+      ;;
+    robinhood)
+      (
+        cd "$ENV_DIR"
+        pnpm dev:robinhood 2>&1 | sed 's/^/  [frontend:robinhood] /'
       ) &
       PIDS+=($!)
       ;;

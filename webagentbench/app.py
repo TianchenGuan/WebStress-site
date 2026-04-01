@@ -374,6 +374,11 @@ async def index():
         <h2 style="margin-top:0">Launch Task <span class="mode-badge mode-standard" id="mode-badge">Standard</span></h2>
         <p style="color:#656d76;font-size:0.88rem;margin-bottom:12px;">Pick a task, optionally add a stress-test variant, then launch. Complete the task in the SPA and click <b>Evaluate</b> in the toolbar.</p>
 
+        <label for="env-filter">Environment</label>
+        <select id="env-filter">
+            <option value="">All environments</option>
+        </select>
+
         <label for="task">Task</label>
         <select id="task">{task_options}</select>
 
@@ -400,17 +405,51 @@ async def index():
             <li><code>GET /manifest</code> &mdash; Full benchmark manifest</li>
             <li><code>GET /health</code> &mdash; Server health check</li>
             <li><code>/api/env/gmail/*</code> &mdash; Gmail session, CRUD, and evaluation endpoints</li>
+            <li><code>/api/env/robinhood/*</code> &mdash; Robinhood session, CRUD, and evaluation endpoints</li>
         </ul>
     </div>
 
     <script>
     var envBaseUrls = {env_base_url_json};
+    var taskSel = document.getElementById('task');
+    var allTaskOptions = Array.from(taskSel.querySelectorAll('option'));
 
-    fetch('/api/env/gmail/variants')
-        .then(function(r) {{ return r.json(); }})
+    // --- Environment filter ---
+    var envFilter = document.getElementById('env-filter');
+    Object.keys(envBaseUrls).forEach(function(eid) {{
+        var opt = document.createElement('option');
+        opt.value = eid;
+        opt.textContent = eid.charAt(0).toUpperCase() + eid.slice(1);
+        envFilter.appendChild(opt);
+    }});
+    function filterTasks() {{
+        var envId = envFilter.value;
+        allTaskOptions.forEach(function(opt) {{
+            var show = !envId || opt.dataset.env === envId;
+            opt.style.display = show ? '' : 'none';
+            opt.disabled = !show;
+        }});
+        var selected = taskSel.options[taskSel.selectedIndex];
+        if (selected && selected.disabled) {{
+            for (var i = 0; i < taskSel.options.length; i++) {{
+                if (!taskSel.options[i].disabled) {{ taskSel.selectedIndex = i; break; }}
+            }}
+        }}
+        taskSel.dispatchEvent(new Event('change'));
+    }}
+    envFilter.addEventListener('change', filterTasks);
+
+    // --- Fetch variants for all environments ---
+    var envIds = Object.keys(envBaseUrls);
+    Promise.all(envIds.map(function(eid) {{
+        return fetch('/api/env/' + eid + '/variants').then(function(r) {{ return r.json(); }}).catch(function() {{ return []; }});
+    }})).then(function(results) {{
+        var variants = [];
+        for (var i = 0; i < results.length; i++) variants = variants.concat(results[i]);
+        return variants;
+    }})
         .then(function(variants) {{
             var sel = document.getElementById('variant');
-            var taskSel = document.getElementById('task');
 
             function updateVariants() {{
                 var tid = taskSel.value;
@@ -463,7 +502,7 @@ async def index():
             var taskSelect = document.getElementById('task');
             var selectedTask = taskSelect.options[taskSelect.selectedIndex];
             var envId = selectedTask.dataset.env;
-            var resp = await fetch('/api/env/gmail/session', {{
+            var resp = await fetch('/api/env/' + envId + '/session', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify(payload),
@@ -475,7 +514,7 @@ async def index():
             }}
             var data = await resp.json();
             var sessionId = data.session_id;
-            var startPath = data.start_path || '/inbox';
+            var startPath = data.start_path || '/';
             var baseUrl = envBaseUrls[envId] || ('/env/' + envId);
             var separator = startPath.indexOf('?') >= 0 ? '&' : '?';
             window.location.href = baseUrl.replace(/\\/+$/, '') + startPath + separator + 'session=' + encodeURIComponent(sessionId);
