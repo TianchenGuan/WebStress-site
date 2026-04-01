@@ -195,12 +195,17 @@ def evaluate(
         desc = neg.desc
         penalty = float(neg.penalty)
         passed, error = _eval_expr(expr, server_state, targets)
-        if not passed:
+        # Only apply penalty if the expression evaluated cleanly and failed.
+        # If it crashed (e.g. IndexError on empty state.sent), the check is
+        # not applicable — don't penalise the agent for something that can't
+        # be meaningfully assessed.
+        if not passed and error is None:
             penalty_total += penalty
         neg_results.append({
             "expr": expr,
             "desc": desc,
             "passed": passed,
+            "error": error,
             "penalty": penalty,
         })
     raw_penalty_total = penalty_total

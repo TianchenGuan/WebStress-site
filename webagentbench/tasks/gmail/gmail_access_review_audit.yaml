@@ -58,9 +58,9 @@ eval:
     desc: IT email starred
   - expr: state.get_email('{target.hr_email_id}').is_starred
     desc: HR email starred
-  - expr: state.get_email('{target.it_email_id}').is_archived
+  - expr: state.get_email('{target.it_email_id}').archived
     desc: IT email archived
-  - expr: state.get_email('{target.hr_email_id}').is_archived
+  - expr: state.get_email('{target.hr_email_id}').archived
     desc: HR email archived
   negative_checks:
   - expr: not any('{target.compose_to}' in m.to and 'klee' in m.body for m in state.sent)

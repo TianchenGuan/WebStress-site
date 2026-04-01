@@ -264,6 +264,58 @@ def test_variant_silent_fail_response_has_correct_top_level_key() -> None:
     assert not warnings, "\n".join(warnings)
 
 
+def test_filter_silent_fail_payloads_include_required_filter_fields() -> None:
+    """Fake filter responses must be structurally valid for the Settings UI.
+
+    The Settings page renders created filters immediately and expects arrays
+    like ``add_labels`` to exist. Returning ``{"filter": {"id": ...}}`` can
+    break the page after a silent-fail instead of testing verification.
+    """
+    required_keys = {
+        "id",
+        "name",
+        "query",
+        "from_addresses",
+        "subject_keywords",
+        "label_requirements",
+        "add_labels",
+        "archive",
+        "mark_read",
+        "forward_to",
+        "star",
+        "never_spam",
+    }
+    violations: list[str] = []
+    for fname, variant in ALL_VARIANTS:
+        vid = variant.get("variant_id", fname)
+        for inj in variant.get("injections", []):
+            if inj.get("layer") != "network":
+                continue
+            params = inj.get("params", {})
+            if params.get("action") != "silent_fail":
+                continue
+            if "/filters" not in str(params.get("url_pattern", "")):
+                continue
+
+            response_body = params.get("response_body", {})
+            if not isinstance(response_body, dict):
+                continue
+            fake_filter = response_body.get("filter")
+            if not isinstance(fake_filter, dict):
+                violations.append(f"[{vid}] missing filter object in fake filter response")
+                continue
+
+            missing = sorted(required_keys - set(fake_filter.keys()))
+            if missing:
+                violations.append(f"[{vid}] fake filter payload missing keys: {missing}")
+                continue
+
+            for key in ("from_addresses", "subject_keywords", "label_requirements", "add_labels"):
+                if not isinstance(fake_filter.get(key), list):
+                    violations.append(f"[{vid}] fake filter payload field '{key}' must be a list")
+    assert not violations, "\n".join(violations)
+
+
 # ── 7. Variant base_task_id references valid tasks ───────────────────────
 
 def test_variant_base_task_ids_exist() -> None:
@@ -314,6 +366,31 @@ def test_eval_expressions_use_valid_settings_attributes() -> None:
                 violations.append(
                     f"[{tid}] {kind}: state.settings.{attr} — "
                     f"'{attr}' is not a GmailSettings field"
+                )
+    assert not violations, "\n".join(violations)
+
+
+def test_eval_expressions_use_valid_email_attributes() -> None:
+    """Email attribute references in eval must match Email model fields.
+
+    Catches bugs like ``.is_deleted`` (should be ``.deleted``) or
+    ``.is_archived`` (should be ``.archived``).
+    """
+    violations: list[str] = []
+    # Match e.ATTR or m.ATTR where the variable iterates over emails
+    email_attr_re = re.compile(r"(?<!['\"])\b[ems]\.(\w+)")
+    for tid, kind, expr in ALL_EXPRS:
+        for m in email_attr_re.finditer(expr):
+            attr = m.group(1)
+            # Skip known non-email patterns (method calls, builtins)
+            if attr in ("body", "lower", "upper", "strip", "split", "startswith",
+                        "endswith", "get", "join", "model_dump"):
+                continue
+            # Only flag attributes that look like email fields but aren't valid
+            if attr.startswith("is_") and attr not in _VALID_EMAIL_ATTRS:
+                violations.append(
+                    f"[{tid}] {kind}: .{attr} — "
+                    f"'{attr}' is not an Email field (valid: {sorted(a for a in _VALID_EMAIL_ATTRS if a.startswith('is_'))})"
                 )
     assert not violations, "\n".join(violations)
 

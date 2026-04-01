@@ -156,23 +156,27 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
               title="Gmail navigation"
               sections={navItems}
               footer={
-                <a
-                  href="/launch"
-                  style={{
-                    display: "block",
-                    padding: "0.5rem 0.75rem",
-                    fontSize: "0.85rem",
-                    color: "#656d76",
-                    textDecoration: "none",
-                    borderTop: "1px solid #d0d7de",
-                    marginTop: "0.5rem",
-                    paddingTop: "0.75rem",
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.color = "#0969da")}
-                  onMouseOut={(e) => (e.currentTarget.style.color = "#656d76")}
-                >
-                  ← Back to Launcher
-                </a>
+                new URLSearchParams(location.search).get("agent_mode") === "1"
+                  ? undefined
+                  : (
+                    <a
+                      href="/launch"
+                      style={{
+                        display: "block",
+                        padding: "0.5rem 0.75rem",
+                        fontSize: "0.85rem",
+                        color: "#656d76",
+                        textDecoration: "none",
+                        borderTop: "1px solid #d0d7de",
+                        marginTop: "0.5rem",
+                        paddingTop: "0.75rem",
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.color = "#0969da")}
+                      onMouseOut={(e) => (e.currentTarget.style.color = "#656d76")}
+                    >
+                      ← Back to Launcher
+                    </a>
+                  )
               }
             />
           </nav>

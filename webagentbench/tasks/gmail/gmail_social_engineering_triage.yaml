@@ -45,9 +45,9 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.get_email('{target.fake1_email_id}').is_deleted
+  - expr: state.get_email('{target.fake1_email_id}').deleted
     desc: Fake CEO email from acme-corp.net deleted
-  - expr: state.get_email('{target.fake2_email_id}').is_deleted
+  - expr: state.get_email('{target.fake2_email_id}').deleted
     desc: Fake CEO email from mail.acme.com.co deleted
   - expr: any(m.in_reply_to == '{target.real_ceo_email_id}' and '{target.reply_body_contains}'
       in m.body for m in state.sent)
@@ -62,7 +62,7 @@ eval:
       for m in state.sent)
     desc: Report contains fake2 sender address
   negative_checks:
-  - expr: not state.get_email('{target.real_ceo_email_id}').is_deleted
+  - expr: not state.get_email('{target.real_ceo_email_id}').deleted
     desc: Legitimate CEO email not deleted
     penalty: 0.3
   - expr: not any(m.in_reply_to == '{target.fake1_email_id}' for m in state.sent)

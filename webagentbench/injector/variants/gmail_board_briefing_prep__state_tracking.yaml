@@ -2,7 +2,10 @@ variant_id: gmail_board_briefing_prep__state_tracking_v1
 base_task_id: gmail_board_briefing_prep
 target_primitive: state_tracking
 description: >
-  Scrambles email timestamps and injects 10 topical distractor emails about briefing topics to complicate finding the 3 correct topic emails.
+  Scrambles timestamps, injects exact-topic decoys from the wrong senders, and
+  adds 12 topical distractors that share the task keywords. This forces the
+  agent to track which sender matches which topic (not just search by keyword)
+  and to remember which emails it has already processed.
 injections:
 - layer: server
   params:
@@ -10,17 +13,44 @@ injections:
     seed: 55
 - layer: seed
   params:
+    action: add_confusing_decoys
+    decoys:
+      - from_name: Board Ops
+        from: board.ops@company.test
+        subject: "{target.topic_a}"
+        body: >
+          FYI only. Sharing background material on {target.topic_a}; this is
+          not the direct owner update you need for the board packet.
+        labels: [inbox]
+      - from_name: Chief of Staff
+        from: chief.of.staff@company.test
+        subject: "Re: {target.topic_b}"
+        body: >
+          Passing along notes on {target.topic_b}. This is not from the topic
+          owner and should not be used as the board-forward source.
+        labels: [inbox]
+      - from_name: Executive Assistant
+        from: executive.assistant@company.test
+        subject: "{target.topic_c}"
+        body: >
+          Forwarding material on {target.topic_c} for visibility. The original
+          sender's latest update is elsewhere in your inbox.
+        labels: [inbox]
+- layer: seed
+  params:
     action: increase_distractors
-    count: 10
-    topical_count: 10
+    count: 12
+    topical_count: 12
     topical_subjects:
-      - "Board meeting agenda draft"
-      - "Quarterly briefing materials"
-      - "Executive summary template"
-      - "Board presentation guidelines"
-      - "Strategic planning update"
-      - "Governance committee notes"
-      - "Board pack preparation"
-      - "Executive briefing checklist"
-      - "Board report format"
-      - "Strategic initiative overview"
+      - "Re: Revenue Projections — revised numbers"
+      - "Fwd: Revenue forecast update"
+      - "Revenue Projections Q3 (outdated)"
+      - "Re: Supply Chain status from last quarter"
+      - "Supply Chain Optimization — draft notes"
+      - "Fwd: Supply chain vendor update"
+      - "Re: Market Expansion timeline"
+      - "Market Expansion Initiative — old proposal"
+      - "Fwd: Market expansion research"
+      - "Revenue and budget alignment"
+      - "Supply chain risk assessment"
+      - "Market and revenue crossover analysis"

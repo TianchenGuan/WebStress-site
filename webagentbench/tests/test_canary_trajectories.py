@@ -262,6 +262,22 @@ class TestStressBacktracking:
         ev = _eval(client, sid, "gmail_compose_new")
         assert ev["success"] is True, f"After retry, should pass: {ev['reasoning'][:200]}"
 
+    def test_filter_repair_chain_surfaces_recent_starred_wrong_answer(self, client):
+        s = _session(client, "gmail_filter_repair_chain",
+                     variant_filename="gmail_filter_repair_chain__backtracking.yaml")
+        items = _emails(client, s["session_id"]).json()["items"]
+        bait = next(
+            (
+                item for item in items[:10]
+                if item["from_name"] == "Lena Park"
+                and "IMPORTANT clarification" in item["subject"]
+            ),
+            None,
+        )
+
+        assert bait is not None, "Backtracking bait email should be prominent on page 1"
+        assert bait["is_starred"] is True
+
 
 class TestStressExploration:
     """delete_spam + exploration: first 2 deletes silently fail, distractors added."""
@@ -300,6 +316,24 @@ class TestStressExploration:
         urgent_count = sum(1 for e in emails["items"]
                           if "URGENT" in e.get("subject", ""))
         assert urgent_count >= 3, f"Expected URGENT distractors, found {urgent_count}"
+
+    def test_thread_archaeology_is_buried_until_search_retries(self, client):
+        s = _session(client, "gmail_thread_archaeology",
+                     variant_filename="gmail_thread_archaeology__exploration.yaml")
+        sid = s["session_id"]
+        target = s["resolved_targets"]["thread_email_id"]
+        q = s["resolved_targets"]["thread_subject"]
+
+        inbox = _emails(client, sid).json()["items"]
+        assert all(item["id"] != target for item in inbox[:25]), "Target thread should not be on inbox page 1"
+
+        r1 = _search(client, sid, q)
+        r2 = _search(client, sid, q)
+        r3 = _search(client, sid, q)
+        assert r1.status_code == 200 and r1.json()["total"] == 0
+        assert r2.status_code == 200 and r2.json()["total"] == 0
+        assert r3.status_code == 200
+        assert any(item["id"] == target for item in r3.json()["items"])
 
 
 class TestStressGrounding:
@@ -353,6 +387,19 @@ class TestStressStateTracking:
         emails = r.json()
         # state_tracking variant injects 5 distractors
         assert emails["total"] > 15, f"Expected extra distractors, got {emails['total']} total"
+
+    def test_board_briefing_adds_exact_topic_wrong_sender_decoys(self, client):
+        s = _session(client, "gmail_board_briefing_prep",
+                     variant_filename="gmail_board_briefing_prep__state_tracking.yaml")
+        sid = s["session_id"]
+        targets = s["resolved_targets"]
+        decoy_senders = {"Board Ops", "Chief of Staff", "Executive Assistant"}
+
+        for topic in (targets["topic_a"], targets["topic_b"], targets["topic_c"]):
+            results = _search(client, sid, topic).json()["items"]
+            assert any(item["from_name"] in decoy_senders for item in results), (
+                f"Expected wrong-sender decoy for topic {topic!r}"
+            )
 
 
 class TestStressPlanning:

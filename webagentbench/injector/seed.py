@@ -15,7 +15,7 @@ Targets all primitives, especially:
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 
@@ -41,6 +41,29 @@ def apply_seed_injection(state: Any, params: dict[str, Any], *, rng=None) -> Non
         _alias_entities(state, params, rng=rng)
     elif action == "hide_in_non_obvious_location":
         _hide_in_non_obvious_location(state, params, rng=rng)
+
+
+def _coerce_timestamp(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def _latest_state_timestamp(state: Any, fallback: datetime) -> datetime:
+    if not hasattr(state, "emails"):
+        return fallback
+
+    latest = fallback
+    for email in getattr(state, "emails", []):
+        timestamp = _coerce_timestamp(getattr(email, "timestamp", None))
+        if timestamp is not None and timestamp > latest:
+            latest = timestamp
+    return latest
 
 
 def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> None:
@@ -149,6 +172,10 @@ def _add_contradictory_update(state: Any, params: dict[str, Any], *, rng=None) -
 
     import random as _random
     _rng = rng or _random.Random(77)
+    fallback_timestamp = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+    timestamp = params.get("timestamp")
+    if timestamp is None:
+        timestamp = _latest_state_timestamp(state, fallback_timestamp) + timedelta(minutes=30)
     email = Email(
         id=params.get("email_id", f"email_{_rng.randint(10000, 99999)}"),
         thread_id=params.get("thread_id", f"thread_{_rng.randint(10000, 99999)}"),
@@ -157,7 +184,7 @@ def _add_contradictory_update(state: Any, params: dict[str, Any], *, rng=None) -
         to=params.get("to", ["me@company.test"]),
         subject=params.get("subject", "CORRECTION: Previous email had errors"),
         body=params.get("body", "Please disregard my previous email. The correct information is..."),
-        timestamp=params.get("timestamp", "2026-01-15T12:00:00Z"),
+        timestamp=timestamp,
         labels=params.get("labels", ["inbox"]),
         is_read=False,
     )
@@ -179,6 +206,10 @@ def _plant_wrong_answer(state: Any, params: dict[str, Any], *, rng=None) -> None
 
     import random as _random
     _rng = rng or _random.Random(66)
+    fallback_timestamp = datetime(2026, 1, 15, 11, 0, tzinfo=timezone.utc)
+    timestamp = params.get("timestamp")
+    if timestamp is None:
+        timestamp = _latest_state_timestamp(state, fallback_timestamp) + timedelta(minutes=15)
     email = Email(
         id=params.get("email_id", f"email_{_rng.randint(10000, 99999)}"),
         thread_id=params.get("thread_id", f"thread_{_rng.randint(10000, 99999)}"),
@@ -187,7 +218,7 @@ def _plant_wrong_answer(state: Any, params: dict[str, Any], *, rng=None) -> None
         to=params.get("to", ["me@company.test"]),
         subject=params.get("subject", ""),
         body=params.get("body", ""),
-        timestamp=params.get("timestamp", "2026-01-15T11:00:00Z"),
+        timestamp=timestamp,
         labels=params.get("labels", ["inbox"]),
         is_read=False,
         is_starred=params.get("starred", True),
@@ -202,7 +233,6 @@ def _increase_distractors(state: Any, params: dict[str, Any], *, rng=None) -> No
     rather than unrelated (random noise). Topical noise is much harder.
     """
     import random as _random
-    from datetime import datetime, timezone
 
     count = params.get("count", 20)
     topical_count = params.get("topical_count", 5)
@@ -257,7 +287,8 @@ def _increase_distractors(state: Any, params: dict[str, Any], *, rng=None) -> No
         "Please take a look when you get a chance. I'll follow up next week if needed.",
     ]
 
-    base_dt = datetime(2026, 1, 14, 10, 0, tzinfo=timezone.utc)
+    fallback_timestamp = datetime(2026, 1, 14, 10, 0, tzinfo=timezone.utc)
+    base_dt = _latest_state_timestamp(state, fallback_timestamp)
 
     for i in range(count):
         if i < topical_count and i < len(topical_subjects):
@@ -314,6 +345,7 @@ def _hide_in_non_obvious_location(state: Any, params: dict[str, Any], *, rng=Non
     """
     email_id = params.get("email_id")
     email_ids = params.get("email_ids")
+    subject_contains = str(params.get("subject_contains", "")).strip().lower()
     move_to_label = params.get("move_to_label")
 
     target_ids: set[str] = set()
@@ -323,6 +355,12 @@ def _hide_in_non_obvious_location(state: Any, params: dict[str, Any], *, rng=Non
         target_ids.add(email_ids)
     if email_id:
         target_ids.add(str(email_id))
+    if subject_contains and hasattr(state, "emails"):
+        target_ids.update(
+            str(email.id)
+            for email in state.emails
+            if subject_contains in getattr(email, "subject", "").lower()
+        )
 
     if target_ids and move_to_label and hasattr(state, "emails"):
         for email in state.emails:

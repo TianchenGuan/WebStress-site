@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, FormField } from "@webagentbench/shared";
 
@@ -10,6 +10,7 @@ interface ComposeFormProps {
   onCancel?: () => void;
   onSubmit: (payload: ComposePayload) => Promise<void> | void;
   submitLabel?: string;
+  autoScrollIntoView?: boolean;
 }
 
 function splitAddresses(value: string) {
@@ -25,7 +26,15 @@ export function ComposeForm({
   onCancel,
   onSubmit,
   submitLabel = "Send",
+  autoScrollIntoView = false,
 }: ComposeFormProps) {
+  const formRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (autoScrollIntoView && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [autoScrollIntoView]);
   const initialCc = (initialValue?.cc ?? []).join(", ");
   const initialBcc = (initialValue?.bcc ?? []).join(", ");
 
@@ -43,6 +52,19 @@ export function ComposeForm({
     () => splitAddresses(attachmentNames),
     [attachmentNames],
   );
+
+  const isSubmitDisabled =
+    isSubmitting ||
+    splitAddresses(to).length === 0 ||
+    subject.trim() === "" ||
+    (title !== "Forward" && body.trim() === "");
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !isSubmitDisabled) {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -71,7 +93,7 @@ export function ComposeForm({
   };
 
   return (
-    <section className="gmail-compose-form wab-card" aria-label={title}>
+    <section ref={formRef} className="gmail-compose-form wab-card" aria-label={title} onKeyDown={handleKeyDown}>
       <header className="gmail-compose-form__header">
         <h2>{title}</h2>
       </header>
@@ -183,7 +205,7 @@ export function ComposeForm({
         <Button
           variant="primary"
           onClick={handleSubmit}
-          disabled={isSubmitting || splitAddresses(to).length === 0 || subject.trim() === "" || body.trim() === ""}
+          disabled={isSubmitDisabled}
           aria-label={submitLabel}
         >
           {isSubmitting ? "Sending…" : submitLabel}

@@ -289,6 +289,7 @@ export function ThreadPage() {
         <ComposeForm
           title={replyAllMode ? "Reply All" : "Reply"}
           submitLabel="Send reply"
+          autoScrollIntoView
           initialValue={{
             to: [replyingTo.from_addr],
             cc: replyAllMode
@@ -313,6 +314,7 @@ export function ThreadPage() {
         <ComposeForm
           title="Forward"
           submitLabel="Forward"
+          autoScrollIntoView
           initialValue={{
             to: [],
             subject: forwardingEmail.subject.startsWith("Fwd:") ? forwardingEmail.subject : `Fwd: ${forwardingEmail.subject}`,

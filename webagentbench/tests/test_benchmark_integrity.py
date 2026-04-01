@@ -17,6 +17,7 @@ from webagentbench.injector.middleware import (
     _normalize_progressive_stages,
     _progressive_delay_ms,
 )
+from webagentbench.injector.seed import apply_seed_injection
 from webagentbench.injector.server import apply_server_injection
 from webagentbench.task_rendering import render_template
 from webagentbench.tasks._evaluator import evaluate
@@ -204,6 +205,65 @@ def test_gmail_stale_email_and_search_variants_use_paginated_items_schema() -> N
 
             if "/api/env/gmail/search" in url_pattern:
                 assert "query" in stale_body, f"{path.name} search stale_body must include query"
+
+
+def test_board_briefing_state_tracking_uses_email_decoys_not_contact_shuffle() -> None:
+    variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
+    data = yaml.safe_load((variants_dir / "gmail_board_briefing_prep__state_tracking.yaml").read_text()) or {}
+    actions = [injection.get("params", {}).get("action") for injection in data.get("injections", [])]
+
+    assert "shuffle_contacts" not in actions
+    assert "add_confusing_decoys" in actions
+
+
+def test_seed_increase_distractors_anchor_to_task_recency() -> None:
+    base_timestamp = datetime(2026, 7, 7, 11, 5, tzinfo=timezone.utc)
+    state = SimpleNamespace(emails=[SimpleNamespace(timestamp=base_timestamp)])
+
+    apply_seed_injection(state, {"action": "increase_distractors", "count": 5, "topical_count": 0})
+
+    added = state.emails[1:]
+    assert len(added) == 5
+    assert min(email.timestamp for email in added) > datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+def test_seed_plant_wrong_answer_defaults_to_recent_prominent_timestamp() -> None:
+    base_timestamp = datetime(2026, 7, 7, 11, 5, tzinfo=timezone.utc)
+    state = SimpleNamespace(emails=[SimpleNamespace(timestamp=base_timestamp)])
+
+    apply_seed_injection(
+        state,
+        {
+            "action": "plant_wrong_answer",
+            "subject": "Wrong answer",
+            "body": "Use the wrong setting.",
+        },
+    )
+
+    planted = state.emails[0]
+    assert planted.timestamp > base_timestamp
+    assert planted.is_starred is True
+
+
+def test_hide_in_non_obvious_location_can_match_subject_substrings() -> None:
+    state = SimpleNamespace(
+        emails=[
+            SimpleNamespace(id="email_1", subject="Signal launch review action items", labels=["inbox"]),
+            SimpleNamespace(id="email_2", subject="Unrelated topic", labels=["inbox"]),
+        ]
+    )
+
+    apply_seed_injection(
+        state,
+        {
+            "action": "hide_in_non_obvious_location",
+            "subject_contains": "signal launch review action items",
+            "move_to_label": "updates",
+        },
+    )
+
+    assert state.emails[0].labels == ["updates"]
+    assert state.emails[1].labels == ["inbox"]
 
 
 class _TimestampState:

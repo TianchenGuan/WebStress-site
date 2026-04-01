@@ -74,6 +74,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         server_port: int = _DEFAULT_PORT,
     ):
         super().__init__(seed)
+        self._wab_seed = seed  # preserve the actual seed for session creation
         self.task_id = task_id
         self.degradation = degradation
         self.server_host = server_host
@@ -126,7 +127,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         # Create session
         session_payload: dict[str, Any] = {
             "task_id": self.task_id,
-            "seed": self.seed if hasattr(self, 'seed') else int(self.random.randint(0, 2**31)),
+            "seed": self._wab_seed,
         }
 
         # Deliver the full degradation config so the server can apply seed/server
