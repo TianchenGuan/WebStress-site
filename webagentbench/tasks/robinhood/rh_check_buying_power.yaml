@@ -1,0 +1,35 @@
+task_id: rh_check_buying_power
+env_id: robinhood
+title: Check and Report Buying Power
+instruction_template: "What is your current buying power? Report the exact amount."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+  - grounding
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: stock_universe
+      params:
+        count: 15
+      outputs: []
+    - use: portfolio_basic
+      params:
+        stocks: ["AAPL", "MSFT"]
+        quantities: ["10", "5"]
+        cost_bases: ["175.00", "380.00"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.orders) == 0"
+      desc: No unintended orders were placed
+  negative_checks: []

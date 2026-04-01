@@ -1,0 +1,28 @@
+task_id: rh_create_watchlist
+env_id: robinhood
+title: Create a New Watchlist with Stocks
+instruction_template: 'Create a new watchlist called "Dividend Kings" and add KO, PG, and JNJ to it.'
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 7
+primary_primitives:
+  - grounding
+  - planning
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: stock_universe
+      params:
+        count: 20
+        must_include: ["KO", "PG", "JNJ"]
+      outputs: []
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(w.name == 'Dividend Kings' and 'KO' in w.symbols and 'PG' in w.symbols and 'JNJ' in w.symbols for w in state.watchlists)"
+      desc: A watchlist named Dividend Kings exists with KO, PG, and JNJ
+  negative_checks: []

@@ -1,0 +1,35 @@
+task_id: rh_cancel_pending_order
+env_id: robinhood
+title: Cancel a Pending Limit Order
+instruction_template: "Cancel the pending limit order for MSFT."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 5
+primary_primitives:
+  - grounding
+  - state_tracking
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: stock_universe
+      params:
+        count: 20
+        must_include: ["MSFT", "AAPL", "GOOGL"]
+      outputs: []
+    - use: pending_orders
+      params:
+        count: 3
+        order_types: ["limit"]
+        symbols: ["MSFT", "AAPL", "GOOGL"]
+      outputs: [order_ids]
+  targets:
+    order_ids: "{output.order_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.symbol == 'MSFT' and o.status == 'cancelled' for o in state.orders)"
+      desc: The MSFT pending order has been cancelled
+  negative_checks: []

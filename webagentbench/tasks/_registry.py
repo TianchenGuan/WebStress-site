@@ -55,16 +55,24 @@ def _validate_builder_references(
 ) -> None:
     """Verify every seed step references a registered builder.
 
-    Importing BUILDER_REGISTRY here (not at module level) avoids circular
+    Importing registries here (not at module level) avoids circular
     imports while still catching missing builders at startup.
     """
     from ._seed_builders import BUILDER_REGISTRY
+    from ._seed_builders_robinhood import ROBINHOOD_BUILDER_REGISTRY
+
+    # Combine registries so each task validates against its own env's builders
+    combined_registries: dict[str, dict] = {
+        "gmail": BUILDER_REGISTRY,
+        "robinhood": ROBINHOOD_BUILDER_REGISTRY,
+    }
 
     for task in index.values():
         if task.seed is None:
             continue
+        registry = combined_registries.get(task.env_id, BUILDER_REGISTRY)
         for step in task.seed.steps:
-            if step.use not in BUILDER_REGISTRY:
+            if step.use not in registry:
                 raise ValueError(
                     f"Task '{task.task_id}' ({sources[task.task_id]}) "
                     f"references unknown builder '{step.use}'"

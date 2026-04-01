@@ -13,6 +13,7 @@ from typing import Any, Protocol
 from webagentbench.tasks._schema import TaskDefinition
 
 from .gmail import GmailSeedRunner
+from .robinhood import RobinhoodSeedRunner
 
 
 class SeedRunner(Protocol):
@@ -31,7 +32,8 @@ class SeedRunner(Protocol):
 
 SEEDER_REGISTRY: dict[str, SeedRunner] = {
     "gmail": GmailSeedRunner(),
+    "robinhood": RobinhoodSeedRunner(),
 }
 
 
-__all__ = ["GmailSeedRunner", "SeedRunner", "SEEDER_REGISTRY"]
+__all__ = ["GmailSeedRunner", "RobinhoodSeedRunner", "SeedRunner", "SEEDER_REGISTRY"]

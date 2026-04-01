@@ -1,0 +1,37 @@
+task_id: rh_buy_market_order
+env_id: robinhood
+title: Buy Shares at Market Price
+instruction_template: "Buy 3 shares of AAPL at market price."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 5
+primary_primitives:
+  - grounding
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: stock_universe
+      params:
+        count: 20
+        must_include: ["AAPL", "TSLA", "MSFT"]
+      outputs: []
+    - use: portfolio_basic
+      params:
+        stocks: ["TSLA", "MSFT"]
+        quantities: ["10", "5"]
+        cost_bases: ["220.00", "380.00"]
+      outputs: []
+    - use: linked_banks
+      params: {}
+      outputs: []
+  targets:
+    symbol: "AAPL"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market' and o.quantity == 3 and o.status == 'filled' for o in state.orders)"
+      desc: A filled market buy order for 3 shares of AAPL exists
+  negative_checks: []

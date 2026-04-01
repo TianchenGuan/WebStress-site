@@ -1,0 +1,31 @@
+task_id: rh_deposit_funds
+env_id: robinhood
+title: Deposit Funds from Bank Account
+instruction_template: "Deposit $500 from your default bank account."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 5
+primary_primitives:
+  - grounding
+  - planning
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: linked_banks
+      params:
+        banks:
+          - name: "Chase Checking"
+            type: "checking"
+            last_four: "4521"
+      outputs: [bank_ids]
+  targets:
+    bank_ids: "{output.bank_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "any(t.direction == 'deposit' and t.amount == 500 for t in state.transfers)"
+      desc: A $500 deposit transfer exists
+  negative_checks: []
