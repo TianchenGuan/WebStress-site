@@ -454,7 +454,7 @@ def get_position(
     pos = state.get_position(symbol)
     if pos is None:
         raise HTTPException(status_code=404, detail=f"No position for symbol: {symbol}")
-    return pos.model_dump(mode="json")
+    return {"position": pos.model_dump(mode="json")}
 
 
 # ---------------------------------------------------------------------------
@@ -471,7 +471,7 @@ def get_stock(
     stock = state.get_stock(symbol)
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown stock: {symbol}")
-    return stock.model_dump(mode="json")
+    return {"stock": stock.model_dump(mode="json")}
 
 
 @router.get("/stocks/{symbol}/chart")
@@ -550,7 +550,7 @@ def place_order(
         session_manager, body.session_id,
         "robinhood.order.place",
         {"symbol": body.symbol, "side": body.side, "order_type": body.order_type, "quantity": body.quantity},
-        lambda s: state.place_order(
+        lambda s: s.place_order(
             symbol=body.symbol,
             side=body.side,
             order_type=body.order_type,
@@ -603,7 +603,7 @@ def cancel_order(
         session_manager, body.session_id,
         "robinhood.order.cancel",
         {"order_id": order_id},
-        lambda s: state.cancel_order(order_id),
+        lambda s: s.cancel_order(order_id),
     )
     return {"order": result.model_dump(mode="json")}
 
@@ -633,7 +633,7 @@ def place_options_order(
         session_manager, body.session_id,
         "robinhood.options.order.place",
         {"strategy": body.strategy, "legs_count": len(legs)},
-        lambda s: state.place_options_order(strategy=body.strategy, legs=legs),
+        lambda s: s.place_options_order(strategy=body.strategy, legs=legs),
     )
     return {"order": result.model_dump(mode="json")}
 
@@ -692,7 +692,7 @@ def create_watchlist(
         session_manager, body.session_id,
         "robinhood.watchlist.create",
         {"name": body.name, "symbols": body.symbols},
-        lambda s: state.create_watchlist(body.name, body.symbols or None),
+        lambda s: s.create_watchlist(body.name, body.symbols or None),
     )
     return {"watchlist": result.model_dump(mode="json")}
 
@@ -708,7 +708,7 @@ def update_watchlist(
         session_manager, body.session_id,
         "robinhood.watchlist.rename",
         {"watchlist_id": watchlist_id, "name": body.name},
-        lambda s: state.rename_watchlist(watchlist_id, body.name or ""),
+        lambda s: s.rename_watchlist(watchlist_id, body.name or ""),
     )
     return {"watchlist": result.model_dump(mode="json")}
 
@@ -724,7 +724,7 @@ def delete_watchlist(
         session_manager, session_id,
         "robinhood.watchlist.delete",
         {"watchlist_id": watchlist_id},
-        lambda s: state.delete_watchlist(watchlist_id),
+        lambda s: s.delete_watchlist(watchlist_id),
     )
     return {"watchlist": result.model_dump(mode="json")}
 
@@ -740,7 +740,7 @@ def add_watchlist_symbol(
         session_manager, body.session_id,
         "robinhood.watchlist.add_symbol",
         {"watchlist_id": watchlist_id, "symbol": body.symbol},
-        lambda s: state.add_to_watchlist(watchlist_id, body.symbol),
+        lambda s: s.add_to_watchlist(watchlist_id, body.symbol),
     )
     return {"watchlist": result.model_dump(mode="json")}
 
@@ -757,7 +757,7 @@ def remove_watchlist_symbol(
         session_manager, session_id,
         "robinhood.watchlist.remove_symbol",
         {"watchlist_id": watchlist_id, "symbol": symbol},
-        lambda s: state.remove_from_watchlist(watchlist_id, symbol),
+        lambda s: s.remove_from_watchlist(watchlist_id, symbol),
     )
     return {"watchlist": result.model_dump(mode="json")}
 
@@ -785,7 +785,7 @@ def initiate_transfer(
         session_manager, body.session_id,
         "robinhood.transfer.initiate",
         {"direction": body.direction, "amount": body.amount, "bank_account_id": body.bank_account_id},
-        lambda s: state.initiate_transfer(body.direction, Decimal(body.amount), body.bank_account_id),
+        lambda s: s.initiate_transfer(body.direction, Decimal(body.amount), body.bank_account_id),
     )
     return {"transfer": result.model_dump(mode="json")}
 
@@ -809,7 +809,7 @@ def link_bank(
         session_manager, body.session_id,
         "robinhood.bank.link",
         {"bank_name": body.bank_name, "account_type": body.account_type, "last_four": body.last_four},
-        lambda s: state.link_bank(body.bank_name, body.account_type, body.last_four),
+        lambda s: s.link_bank(body.bank_name, body.account_type, body.last_four),
     )
     return {"bank": result.model_dump(mode="json")}
 
@@ -825,7 +825,7 @@ def unlink_bank(
         session_manager, session_id,
         "robinhood.bank.unlink",
         {"bank_id": bank_id},
-        lambda s: state.unlink_bank(bank_id),
+        lambda s: s.unlink_bank(bank_id),
     )
     return {"bank": result.model_dump(mode="json")}
 
@@ -853,7 +853,7 @@ def create_recurring(
         session_manager, body.session_id,
         "robinhood.recurring.create",
         {"symbol": body.symbol, "amount": body.amount, "frequency": body.frequency},
-        lambda s: state.create_recurring_investment(
+        lambda s: s.create_recurring_investment(
             body.symbol, Decimal(body.amount), body.frequency, body.next_execution_date,
         ),
     )
@@ -871,7 +871,7 @@ def update_recurring(
         session_manager, body.session_id,
         "robinhood.recurring.update",
         {"ri_id": ri_id},
-        lambda s: state.update_recurring_investment(
+        lambda s: s.update_recurring_investment(
             ri_id,
             amount=Decimal(body.amount) if body.amount else None,
             frequency=body.frequency,
@@ -892,7 +892,7 @@ def delete_recurring(
         session_manager, session_id,
         "robinhood.recurring.delete",
         {"ri_id": ri_id},
-        lambda s: state.delete_recurring_investment(ri_id),
+        lambda s: s.delete_recurring_investment(ri_id),
     )
     return {"recurring": result.model_dump(mode="json")}
 
@@ -995,7 +995,7 @@ def mark_notification_read(
         session_manager, body.session_id,
         "robinhood.notification.read",
         {"notification_id": notification_id},
-        lambda s: state.mark_notification_read(notification_id),
+        lambda s: s.mark_notification_read(notification_id),
     )
     return {"notification": result.model_dump(mode="json")}
 
@@ -1010,7 +1010,7 @@ def mark_all_notifications_read(
         session_manager, body.session_id,
         "robinhood.notification.read_all",
         {},
-        lambda s: state.mark_all_notifications_read(),
+        lambda s: s.mark_all_notifications_read(),
     )
     return {"count": result}
 
@@ -1038,7 +1038,7 @@ def create_alert(
         session_manager, body.session_id,
         "robinhood.alert.create",
         {"symbol": body.symbol, "condition": body.condition, "target_price": body.target_price},
-        lambda s: state.create_price_alert(body.symbol, body.condition, Decimal(body.target_price)),
+        lambda s: s.create_price_alert(body.symbol, body.condition, Decimal(body.target_price)),
     )
     return {"alert": result.model_dump(mode="json")}
 
@@ -1054,7 +1054,7 @@ def delete_alert(
         session_manager, session_id,
         "robinhood.alert.delete",
         {"alert_id": alert_id},
-        lambda s: state.delete_price_alert(alert_id),
+        lambda s: s.delete_price_alert(alert_id),
     )
     return {"alert": result.model_dump(mode="json")}
 
@@ -1099,7 +1099,7 @@ def update_settings(
         session_manager, body.session_id,
         "robinhood.settings.update",
         kwargs,
-        lambda s: state.update_settings(**kwargs),
+        lambda s: s.update_settings(**kwargs),
     )
     return result.model_dump(mode="json")
 
@@ -1127,7 +1127,7 @@ def update_2fa(
         session_manager, body.session_id,
         "robinhood.security.2fa",
         {"method": body.method},
-        lambda s: state.update_2fa(body.method),
+        lambda s: s.update_2fa(body.method),
     )
     return result.model_dump(mode="json")
 
