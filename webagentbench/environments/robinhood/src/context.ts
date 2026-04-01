@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 
 import type { createRobinhoodApi } from "./api";
+import type { PriceData } from "./types";
 
 export interface RobinhoodLayoutContextValue {
   sessionId: string;
@@ -10,6 +11,8 @@ export interface RobinhoodLayoutContextValue {
   notify: (title: string, description?: string) => void;
   searchValue: string;
   setSearchValue: (value: string) => void;
+  livePrices: Record<string, PriceData>;
+  liveTick: number;
 }
 
 export const RobinhoodLayoutContext = createContext<RobinhoodLayoutContextValue | null>(null);

@@ -18,7 +18,7 @@ import {
 
 export function StockDetailPage() {
   const { symbol } = useParams<{ symbol: string }>();
-  const { api } = useRobinhoodLayout();
+  const { api, liveTick } = useRobinhoodLayout();
   const [stock, setStock] = useState<Stock | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +38,7 @@ export function StockDetailPage() {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [api, symbol]);
+  }, [api, symbol, liveTick]);
 
   if (loading) return <div className="rh-loading">Loading...</div>;
   if (!stock) return <div className="rh-empty">Stock not found: {symbol}</div>;

@@ -10,7 +10,7 @@ import { CategoryChips, getDiscoverChips } from "../components/CategoryChips";
 import { NewsCard } from "../components/NewsCard";
 
 export function PortfolioPage() {
-  const { api, account } = useRobinhoodLayout();
+  const { api, account, liveTick } = useRobinhoodLayout();
   const location = useLocation();
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -32,7 +32,7 @@ export function PortfolioPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [api]);
+  }, [api, liveTick]);
 
   if (loading) return <div className="rh-loading">Loading...</div>;
 

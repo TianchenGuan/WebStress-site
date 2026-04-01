@@ -12,7 +12,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { createRobinhoodApi } from "./api";
 import { RobinhoodLayoutContext } from "./context";
 import { FeatherLogo, IconBell, IconAccount } from "./icons";
-import type { Watchlist, Stock } from "./types";
+import type { Watchlist, Stock, PriceData } from "./types";
 
 export function RobinhoodShell({ sessionId }: { sessionId: string }) {
   const location = useLocation();
@@ -29,6 +29,7 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
   const [searchValue, setSearchValue] = useState("");
   const [liveTick, setLiveTick] = useState(0);
   const [isLive, setIsLive] = useState(false);
+  const [livePrices, setLivePrices] = useState<Record<string, PriceData>>({});
   const [toasts, setToasts] = useState<Array<{ id: string; title: string; description?: string }>>([]);
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [watchlistStocks, setWatchlistStocks] = useState<Record<string, Stock>>({});
@@ -117,11 +118,22 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
         const data = await api.getPrices();
         setLiveTick(data.tick);
         setIsLive(data.tick > 0);
+        setLivePrices(data.prices);
         setAccount((prev) =>
           prev
             ? { ...prev, portfolio_value: data.portfolio_value, cash_balance: data.cash_balance }
             : prev,
         );
+        // Update watchlist stock prices from live data
+        setWatchlistStocks((prev) => {
+          const next = { ...prev };
+          for (const [sym, pd] of Object.entries(data.prices)) {
+            if (next[sym]) {
+              next[sym] = { ...next[sym], price: pd.price, day_change: pd.day_change, day_change_pct: pd.day_change_pct };
+            }
+          }
+          return next;
+        });
         if (data.pending_orders_filled.length > 0) {
           void refreshAccount();
           void loadWatchlists();
@@ -150,7 +162,7 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
 
   return (
     <RobinhoodLayoutContext.Provider
-      value={{ sessionId, account, api, refreshAccount, notify, searchValue, setSearchValue }}
+      value={{ sessionId, account, api, refreshAccount, notify, searchValue, setSearchValue, livePrices, liveTick }}
     >
       <div className="rh-shell">
         <header className="rh-topbar" role="banner">
