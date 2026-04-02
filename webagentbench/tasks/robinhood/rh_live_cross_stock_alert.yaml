@@ -1,61 +1,85 @@
+---
 task_id: rh_live_cross_stock_alert
 env_id: robinhood
 title: Cross-Stock Pairs Trade via Alerts
-instruction_template: "Execute a pairs trade: set alerts for XOM above $120 and CVX below $145. When both have triggered, sell your XOM position and buy CVX with the proceeds. Report the price spread between the two at the time of your trades."
+instruction_template: 'Execute a pairs trade: set alerts for XOM above $120 and CVX
+  below $145. When both have triggered, sell your XOM position and buy CVX with the
+  proceeds.'
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 28
 primary_primitives:
-  - planning
-  - patience
-  - state_tracking
-  - verification
-  - exploration
-start_path: /
-
+- planning
+- patience
+- state_tracking
+- verification
+- exploration
+start_path: "/"
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["XOM", "CVX", "AAPL", "MSFT"]
-      outputs: []
-    - use: portfolio_basic
-      params:
-        stocks: ["XOM"]
-        quantities: ["20"]
-        cost_bases: ["110.00"]
-      outputs: []
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - XOM
+      - CVX
+      - AAPL
+      - MSFT
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - XOM
+      quantities:
+      - '20'
+      cost_bases:
+      - '110.00'
+    outputs: []
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       XOM:
         keyframes:
-          - [0, 115.0]
-          - [12, 122.0]
-          - [30, 124.0]
+        - - 0
+          - 115.0
+        - - 12
+          - 122.0
+        - - 30
+          - 124.0
         noise_pct: 0.3
       CVX:
         keyframes:
-          - [0, 150.0]
-          - [18, 143.0]
-          - [30, 144.0]
+        - - 0
+          - 150.0
+        - - 18
+          - 143.0
+        - - 30
+          - 144.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(a.symbol == 'XOM' and a.condition == 'above' and a.triggered for a in state.price_alerts)"
-      desc: A price alert for XOM above $120 was triggered
-    - expr: "any(a.symbol == 'CVX' and a.condition == 'below' and a.triggered for a in state.price_alerts)"
-      desc: A price alert for CVX below $145 was triggered
-    - expr: "any(o.symbol == 'XOM' and o.side == 'sell' and o.status == 'filled' for o in state.orders)"
-      desc: A filled sell order for XOM exists
-    - expr: "any(o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled' for o in state.orders)"
-      desc: A filled buy order for CVX exists
-  negative_checks: []
+  - expr: any(a.symbol == 'XOM' and a.condition == 'above' and a.status == 'triggered'
+      for a in state.price_alerts)
+    desc: A price alert for XOM above $120 was triggered
+  - expr: any(a.symbol == 'CVX' and a.condition == 'below' and a.status == 'triggered'
+      for a in state.price_alerts)
+    desc: A price alert for CVX below $145 was triggered
+  - expr: any(o.symbol == 'XOM' and o.side == 'sell' and o.status == 'filled' for
+      o in state.orders)
+    desc: A filled sell order for XOM exists
+  - expr: any(o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled' for o
+      in state.orders)
+    desc: A filled buy order for CVX exists
+  negative_checks:
+  - expr: not any(o.symbol == 'CVX' and o.side == 'sell' for o in state.orders)
+    desc: The pairs trade did not take the opposite CVX leg
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, state_tracking, verification, exploration
+  by requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

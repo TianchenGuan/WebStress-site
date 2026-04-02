@@ -1,46 +1,62 @@
+---
 task_id: rh_live_intraday_reversal
 env_id: robinhood
 title: Intraday Reversal Buy
-instruction_template: "Watch NVDA's price. It will experience a decline followed by a recovery. Buy 10 shares once you believe the reversal has begun — after the price starts going back up."
+instruction_template: Watch NVDA's price. It will experience a decline followed by
+  a recovery. Buy 10 shares once you believe the reversal has begun — after the price
+  starts going back up.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 22
 primary_primitives:
-  - patience
-  - state_tracking
-  - grounding
-  - verification
-start_path: /
-
+- patience
+- state_tracking
+- grounding
+- verification
+start_path: "/"
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["NVDA", "AAPL", "MSFT", "TSLA"]
-      outputs: []
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - NVDA
+      - AAPL
+      - MSFT
+      - TSLA
+    outputs: []
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       NVDA:
         keyframes:
-          - [0, 875.0]
-          - [15, 838.0]
-          - [30, 870.0]
-          - [45, 885.0]
+        - - 0
+          - 875.0
+        - - 15
+          - 838.0
+        - - 30
+          - 870.0
+        - - 45
+          - 885.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type == 'market' and o.status == 'filled' and o.quantity == 10 for o in state.orders)"
-      desc: A filled market buy order for 10 shares of NVDA exists
+  - expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type == 'market'
+      and o.status == 'filled' and o.quantity == 10 for o in state.orders)
+    desc: A filled market buy order for 10 shares of NVDA exists
+  - expr: len(state.orders) == 1
+    desc: Only the intended reversal buy order was placed
   negative_checks:
-    - expr: "not any(o.order_type == 'limit' and o.symbol == 'NVDA' for o in state.orders)"
-      desc: No limit orders were placed for NVDA (must watch and buy manually)
-      penalty: 0.5
+  - expr: not any(o.order_type == 'limit' and o.symbol == 'NVDA' for o in state.orders)
+    desc: No limit orders were placed for NVDA (must watch and buy manually)
+    penalty: 0.5
+secondary_primitives: []
+primitive_thesis: Measures patience, state_tracking, grounding, verification by requiring
+  exact completion of the requested Robinhood workflow while ignoring distractor account
+  state.

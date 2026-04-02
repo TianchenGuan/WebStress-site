@@ -1,46 +1,64 @@
+---
 task_id: rh_live_alert_chain
 env_id: robinhood
 title: Alert-Triggered Portfolio Rebalance
-instruction_template: "Set a price alert for NVDA above $900. When the alert triggers, check your portfolio's Technology sector concentration. If Technology exceeds 60% of your portfolio, sell enough NVDA to bring it to 50%. Otherwise, buy 5 more shares."
+instruction_template: Set a price alert for NVDA above $900. When the alert triggers,
+  check your portfolio's Technology sector concentration. If Technology exceeds 60%
+  of your portfolio, sell enough NVDA to bring it to 50%. Otherwise, buy 5 more shares.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 20
 primary_primitives:
-  - planning
-  - patience
-  - state_tracking
-  - grounding
-  - verification
-start_path: /
-
+- planning
+- patience
+- state_tracking
+- grounding
+- verification
+start_path: "/"
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["NVDA", "AAPL", "MSFT", "JNJ", "XOM"]
-      outputs: []
-    - use: portfolio_diverse
-      params:
-        tech_heavy: true
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - NVDA
+      - AAPL
+      - MSFT
+      - JNJ
+      - XOM
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      tech_heavy: true
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       NVDA:
         keyframes:
-          - [0, 875.0]
-          - [20, 905.0]
-          - [35, 910.0]
+        - - 0
+          - 875.0
+        - - 20
+          - 905.0
+        - - 35
+          - 910.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(a.symbol == 'NVDA' and a.condition == 'above' and a.triggered for a in state.price_alerts)"
-      desc: A price alert for NVDA above $900 was triggered
-    - expr: "any(o.symbol == 'NVDA' and o.status == 'filled' for o in state.orders)"
-      desc: A buy or sell order for NVDA was filled after alert triggered
-  negative_checks: []
+  - expr: any(a.symbol == 'NVDA' and a.condition == 'above' and a.status == 'triggered'
+      for a in state.price_alerts)
+    desc: A price alert for NVDA above $900 was triggered
+  - expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity == 5 and o.status
+      == 'filled' for o in state.orders)
+    desc: The seeded below-60%-tech branch bought 5 more NVDA shares after the alert
+  negative_checks:
+  - expr: not any(o.symbol == 'NVDA' and o.side == 'sell' for o in state.orders)
+    desc: The seeded branch did not incorrectly sell NVDA when technology concentration
+      was below 60%
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, state_tracking, grounding, verification
+  by requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

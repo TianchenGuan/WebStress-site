@@ -1,58 +1,81 @@
+---
 task_id: rh_live_multi_stock_limits
 env_id: robinhood
 title: Multi-Stock Limit Order Monitoring
-instruction_template: "Set limit buy orders: AAPL below $180 for 10 shares, GOOGL below $165 for 10 shares, AMZN below $175 for 10 shares. Monitor which orders fill. Report which stocks you successfully bought and which limit was never reached."
+instruction_template: 'Set limit buy orders: AAPL below $180 for 10 shares, GOOGL
+  below $165 for 10 shares, AMZN below $175 for 10 shares. Monitor which orders fill.'
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 30
 primary_primitives:
-  - planning
-  - patience
-  - state_tracking
-  - verification
-  - grounding
-start_path: /
-
+- planning
+- patience
+- state_tracking
+- verification
+- grounding
+start_path: "/"
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 30
-        must_include: ["AAPL", "GOOGL", "AMZN", "MSFT", "TSLA"]
-      outputs: []
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 30
+      must_include:
+      - AAPL
+      - GOOGL
+      - AMZN
+      - MSFT
+      - TSLA
+    outputs: []
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       AAPL:
         keyframes:
-          - [0, 190.0]
-          - [15, 178.0]
-          - [30, 183.0]
+        - - 0
+          - 190.0
+        - - 15
+          - 178.0
+        - - 30
+          - 183.0
         noise_pct: 0.3
       AMZN:
         keyframes:
-          - [0, 185.0]
-          - [20, 173.0]
-          - [35, 179.0]
+        - - 0
+          - 185.0
+        - - 20
+          - 173.0
+        - - 35
+          - 179.0
         noise_pct: 0.3
       GOOGL:
         keyframes:
-          - [0, 171.0]
-          - [50, 171.0]
+        - - 0
+          - 171.0
+        - - 50
+          - 171.0
         noise_pct: 0.2
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'filled' and o.quantity == 10 for o in state.orders)"
-      desc: A filled limit buy order for 10 shares of AAPL exists
-    - expr: "any(o.symbol == 'AMZN' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'filled' and o.quantity == 10 for o in state.orders)"
-      desc: A filled limit buy order for 10 shares of AMZN exists
-    - expr: "any(o.symbol == 'GOOGL' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'pending' for o in state.orders)"
-      desc: A pending limit buy order for GOOGL still exists (price never reached)
-  negative_checks: []
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit' and
+      o.status == 'filled' and o.quantity == 10 for o in state.orders)
+    desc: A filled limit buy order for 10 shares of AAPL exists
+  - expr: any(o.symbol == 'AMZN' and o.side == 'buy' and o.order_type == 'limit' and
+      o.status == 'filled' and o.quantity == 10 for o in state.orders)
+    desc: A filled limit buy order for 10 shares of AMZN exists
+  - expr: any(o.symbol == 'GOOGL' and o.side == 'buy' and o.order_type == 'limit'
+      and o.status == 'pending' for o in state.orders)
+    desc: A pending limit buy order for GOOGL still exists (price never reached)
+  negative_checks:
+  - expr: not any(o.symbol == 'GOOGL' and o.status == 'filled' for o in state.orders)
+    desc: GOOGL was not incorrectly reported as filled when the price never reached
+      the limit
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, state_tracking, verification, grounding
+  by requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

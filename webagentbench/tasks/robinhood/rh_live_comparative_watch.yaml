@@ -1,57 +1,83 @@
+---
 task_id: rh_live_comparative_watch
 env_id: robinhood
 title: Comparative Price Watch and Trade
-instruction_template: "Watch AAPL and MSFT prices simultaneously. When AAPL's daily change percentage exceeds MSFT's by more than 2 percentage points, sell all MSFT shares and buy AAPL with the proceeds. If MSFT outperforms AAPL by 2 points, do the opposite. Report which direction the trade went."
+instruction_template: Watch AAPL and MSFT prices simultaneously. When AAPL's daily
+  change percentage exceeds MSFT's by more than 2 percentage points, sell all MSFT
+  shares and buy AAPL with the proceeds. If MSFT outperforms AAPL by 2 points, do
+  the opposite.
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 30
 primary_primitives:
-  - patience
-  - state_tracking
-  - grounding
-  - planning
-  - verification
-start_path: /
-
+- patience
+- state_tracking
+- grounding
+- planning
+- verification
+start_path: "/"
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["AAPL", "MSFT", "TSLA", "GOOGL"]
-      outputs: []
-    - use: portfolio_basic
-      params:
-        stocks: ["AAPL", "MSFT"]
-        quantities: ["10", "5"]
-        cost_bases: ["185.00", "400.00"]
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - AAPL
+      - MSFT
+      - TSLA
+      - GOOGL
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - AAPL
+      - MSFT
+      quantities:
+      - '10'
+      - '5'
+      cost_bases:
+      - '185.00'
+      - '400.00'
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       AAPL:
         keyframes:
-          - [0, 189.0]
-          - [22, 198.0]
-          - [35, 197.0]
+        - - 0
+          - 189.0
+        - - 22
+          - 198.0
+        - - 35
+          - 197.0
         noise_pct: 0.3
       MSFT:
         keyframes:
-          - [0, 412.0]
-          - [22, 414.0]
-          - [35, 413.0]
+        - - 0
+          - 412.0
+        - - 22
+          - 414.0
+        - - 35
+          - 413.0
         noise_pct: 0.2
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.symbol == 'MSFT' and o.side == 'sell' and o.status == 'filled' for o in state.orders)"
-      desc: A filled sell order for MSFT exists (AAPL outperformed)
-    - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled' for o in state.orders)"
-      desc: A filled buy order for AAPL exists (rotated into outperformer)
+  - expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.status == 'filled' for
+      o in state.orders)
+    desc: A filled sell order for MSFT exists (AAPL outperformed)
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled' for
+      o in state.orders)
+    desc: A filled buy order for AAPL exists (rotated into outperformer)
   negative_checks:
-    - expr: "not any(o.order_type == 'limit' for o in state.orders)"
-      desc: No limit orders were placed (must watch and trade manually)
-      penalty: 0.5
+  - expr: not any(o.order_type == 'limit' for o in state.orders)
+    desc: No limit orders were placed (must watch and trade manually)
+    penalty: 0.5
+  - expr: not any(o.symbol == 'AAPL' and o.side == 'sell' for o in state.orders)
+    desc: The opposite branch was not taken during the seeded AAPL-outperformance scenario
+secondary_primitives: []
+primitive_thesis: Measures patience, state_tracking, grounding, planning, verification
+  by requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

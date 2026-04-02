@@ -1,44 +1,64 @@
+---
 task_id: rh_live_take_profit
 env_id: robinhood
 title: Take Profit with Limit Sell
-instruction_template: "You own 10 shares of TSLA bought at an average of $220. Set a limit sell for your entire TSLA position at $260 or above to lock in profits."
+instruction_template: You own 10 shares of TSLA bought at an average of $220. Set
+  a limit sell for your entire TSLA position at $260 or above to lock in profits.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 8
 primary_primitives:
-  - planning
-  - patience
-  - grounding
-start_path: /
-
+- planning
+- patience
+- grounding
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["TSLA", "AAPL", "MSFT"]
-      outputs: []
-    - use: portfolio_basic
-      params:
-        stocks: ["TSLA"]
-        quantities: ["10"]
-        cost_bases: ["220.00"]
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - TSLA
+      - AAPL
+      - MSFT
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - TSLA
+      quantities:
+      - '10'
+      cost_bases:
+      - '220.00'
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       TSLA:
         keyframes:
-          - [0, 248.0]
-          - [20, 265.0]
-          - [35, 260.0]
+        - - 0
+          - 248.0
+        - - 20
+          - 265.0
+        - - 35
+          - 260.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit' and o.status == 'filled' for o in state.orders)"
-      desc: A filled limit sell order for TSLA exists
-  negative_checks: []
+  - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit'
+      and o.status == 'pending' and o.quantity == 10 for o in state.orders)
+    desc: A pending limit sell order exists for the full TSLA position
+  - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit'
+      and float(o.limit_price) >= 260.0 for o in state.orders)
+    desc: The take-profit limit is at or above $260
+  negative_checks:
+  - expr: not any(o.side == 'buy' for o in state.orders)
+    desc: The take-profit workflow did not place buy orders
+  - expr: not any(o.side == 'sell' and o.symbol != 'TSLA' for o in state.orders)
+    desc: The take-profit workflow did not place sell orders for another symbol
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, grounding by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

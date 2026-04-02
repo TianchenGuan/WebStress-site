@@ -1,43 +1,57 @@
+---
 task_id: rh_live_alert_and_buy
 env_id: robinhood
 title: Alert-Triggered Market Buy
-instruction_template: "Set a price alert for AAPL when it drops below $182. When the alert triggers, buy 5 shares at market price."
+instruction_template: Set a price alert for AAPL when it drops below $182. When the
+  alert triggers, buy 5 shares at market price.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 10
 primary_primitives:
-  - planning
-  - patience
-  - grounding
-start_path: /
-
+- planning
+- patience
+- grounding
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["AAPL", "TSLA", "MSFT"]
-      outputs: []
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - AAPL
+      - TSLA
+      - MSFT
+    outputs: []
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       AAPL:
         keyframes:
-          - [0, 190.0]
-          - [18, 179.0]
-          - [30, 184.0]
+        - - 0
+          - 190.0
+        - - 18
+          - 179.0
+        - - 30
+          - 184.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(a.symbol == 'AAPL' and a.condition == 'below' and a.triggered for a in state.price_alerts)"
-      desc: A price alert for AAPL below $182 was triggered
-    - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market' and o.status == 'filled' and o.quantity == 5 for o in state.orders)"
-      desc: A filled market buy order for 5 shares of AAPL exists
-  negative_checks: []
+  - expr: any(a.symbol == 'AAPL' and a.condition == 'below' and a.status == 'triggered'
+      for a in state.price_alerts)
+    desc: A price alert for AAPL below $182 was triggered
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'
+      and o.status == 'filled' and o.quantity == 5 for o in state.orders)
+    desc: A filled market buy order for 5 shares of AAPL exists
+  negative_checks:
+  - expr: not any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type != 'market'
+      for o in state.orders)
+    desc: The triggered buy used a market order rather than a limit or stop order
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, grounding by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

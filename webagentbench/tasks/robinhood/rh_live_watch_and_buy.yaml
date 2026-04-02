@@ -1,44 +1,57 @@
+---
 task_id: rh_live_watch_and_buy
 env_id: robinhood
 title: Watch Price and Market Buy on Dip
-instruction_template: "Watch AAPL's price on the stock detail page. When it drops below $182, immediately buy 10 shares at market price. Do not use limit orders."
+instruction_template: Watch AAPL's price on the stock detail page. When it drops below
+  $182, immediately buy 10 shares at market price. Do not use limit orders.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 15
 primary_primitives:
-  - patience
-  - grounding
-  - state_tracking
-start_path: /
-
+- patience
+- grounding
+- state_tracking
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["AAPL", "TSLA", "MSFT"]
-      outputs: []
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - AAPL
+      - TSLA
+      - MSFT
+    outputs: []
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       AAPL:
         keyframes:
-          - [0, 190.0]
-          - [12, 179.0]
-          - [25, 184.0]
+        - - 0
+          - 190.0
+        - - 12
+          - 179.0
+        - - 25
+          - 184.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market' and o.status == 'filled' and o.quantity == 10 for o in state.orders)"
-      desc: A filled market buy order for 10 shares of AAPL exists
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'
+      and o.status == 'filled' and o.quantity == 10 for o in state.orders)
+    desc: A filled market buy order for 10 shares of AAPL exists
+  - expr: len(state.orders) == 1
+    desc: Only the intended dip-buy order was placed
   negative_checks:
-    - expr: "not any(o.order_type == 'limit' and o.symbol == 'AAPL' for o in state.orders)"
-      desc: No limit orders were placed for AAPL (must watch and buy manually)
-      penalty: 0.5
+  - expr: not any(o.order_type == 'limit' and o.symbol == 'AAPL' for o in state.orders)
+    desc: No limit orders were placed for AAPL (must watch and buy manually)
+    penalty: 0.5
+secondary_primitives: []
+primitive_thesis: Measures patience, grounding, state_tracking by requiring exact
+  completion of the requested Robinhood workflow while ignoring distractor account
+  state.

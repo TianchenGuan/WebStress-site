@@ -1,46 +1,62 @@
+---
 task_id: rh_live_alert_and_sell
 env_id: robinhood
 title: Alert-Triggered Market Sell
-instruction_template: "Set a price alert for TSLA when it goes above $270. When the alert triggers, sell your entire TSLA position at market price."
+instruction_template: Set a price alert for TSLA when it goes above $270. When the
+  alert triggers, sell your entire TSLA position at market price.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 10
 primary_primitives:
-  - planning
-  - patience
-  - grounding
-start_path: /
-
+- planning
+- patience
+- grounding
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["TSLA", "AAPL", "MSFT"]
-      outputs: []
-    - use: portfolio_basic
-      params:
-        stocks: ["TSLA"]
-        quantities: ["10"]
-        cost_bases: ["240.00"]
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - TSLA
+      - AAPL
+      - MSFT
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - TSLA
+      quantities:
+      - '10'
+      cost_bases:
+      - '240.00'
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       TSLA:
         keyframes:
-          - [0, 248.0]
-          - [22, 275.0]
-          - [35, 272.0]
+        - - 0
+          - 248.0
+        - - 22
+          - 275.0
+        - - 35
+          - 272.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(a.symbol == 'TSLA' and a.condition == 'above' and a.triggered for a in state.price_alerts)"
-      desc: A price alert for TSLA above $270 was triggered
-    - expr: "any(o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled' for o in state.orders)"
-      desc: A filled sell order for TSLA exists
-  negative_checks: []
+  - expr: any(a.symbol == 'TSLA' and a.condition == 'above' and a.status == 'triggered'
+      for a in state.price_alerts)
+    desc: A price alert for TSLA above $270 was triggered
+  - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled' for
+      o in state.orders)
+    desc: A filled sell order for TSLA exists
+  negative_checks:
+  - expr: not any(o.symbol == 'TSLA' and o.side == 'buy' for o in state.orders)
+    desc: The trigger caused a sell, not an additional buy
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, grounding by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

@@ -1,42 +1,62 @@
+---
 task_id: rh_live_watch_portfolio
 env_id: robinhood
 title: Watch Portfolio Value and Sell Winner
-instruction_template: "Monitor your total portfolio value. When it crosses above $15,000, sell your most profitable position by total return percentage to lock in gains."
+instruction_template: Monitor your total portfolio value. When it crosses above $15,000,
+  sell your most profitable position by total return percentage to lock in gains.
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 18
 primary_primitives:
-  - patience
-  - state_tracking
-  - planning
-start_path: /
-
+- patience
+- state_tracking
+- planning
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["AAPL", "TSLA", "MSFT", "GOOGL"]
-      outputs: []
-    - use: portfolio_diverse
-      params:
-        total_value_target: 14200
-      outputs: []
-  targets: {}
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - AAPL
+      - TSLA
+      - MSFT
+      - GOOGL
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      total_value_target: 14200
+    outputs:
+    - best_symbol
+    - portfolio_value
+  targets:
+    best_symbol: "{output.best_symbol}"
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       AAPL:
         keyframes:
-          - [0, 189.0]
-          - [18, 210.0]
-          - [30, 208.0]
+        - - 0
+          - 189.0
+        - - 18
+          - 210.0
+        - - 30
+          - 208.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(o.side == 'sell' and o.status == 'filled' for o in state.orders)"
-      desc: The most profitable position was sold to lock in gains
-  negative_checks: []
+  - expr: any(o.side == 'sell' and o.status == 'filled' and o.symbol == '{target.best_symbol}'
+      for o in state.orders)
+    desc: The seeded most profitable position was sold after the portfolio crossed
+      the trigger
+  - expr: not any(o.side == 'buy' for o in state.orders)
+    desc: The task was completed with a sell decision rather than a new purchase
+  negative_checks:
+  - expr: len([o for o in state.orders if o.side == 'sell' and o.status == 'filled'])
+      == 1
+    desc: Only the single winner-lock-in sell was executed
+secondary_primitives: []
+primitive_thesis: Measures patience, state_tracking, planning by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

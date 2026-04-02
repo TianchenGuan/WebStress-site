@@ -1,49 +1,68 @@
+---
 task_id: rh_live_dual_alert_decision
 env_id: robinhood
 title: Dual Alert Decision Making
-instruction_template: "Set two price alerts for META: one for above $520 and one for below $480. When one triggers, buy more if it went up (bullish), sell your position if it went down (bearish)."
+instruction_template: 'Set two price alerts for META: one for above $520 and one for
+  below $480. When one triggers, buy more if it went up (bullish), sell your position
+  if it went down (bearish).'
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 14
 primary_primitives:
-  - planning
-  - patience
-  - state_tracking
-  - grounding
-start_path: /
-
+- planning
+- patience
+- state_tracking
+- grounding
+start_path: "/"
 seed:
   distractors: 5
   steps:
-    - use: stock_universe
-      params:
-        count: 20
-        must_include: ["META", "AAPL", "MSFT"]
-      outputs: []
-    - use: portfolio_basic
-      params:
-        stocks: ["META"]
-        quantities: ["5"]
-        cost_bases: ["490.00"]
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 20
+      must_include:
+      - META
+      - AAPL
+      - MSFT
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - META
+      quantities:
+      - '5'
+      cost_bases:
+      - '490.00'
+    outputs: []
   targets: {}
   price_trajectory:
     tick_interval_seconds: 2
     stocks:
       META:
         keyframes:
-          - [0, 505.0]
-          - [15, 475.0]
-          - [30, 485.0]
+        - - 0
+          - 505.0
+        - - 15
+          - 475.0
+        - - 30
+          - 485.0
         noise_pct: 0.3
-
 eval:
   source: server_state
   checks:
-    - expr: "any(a.symbol == 'META' and a.condition == 'above' and a.target_price == 520 for a in state.price_alerts)"
-      desc: A price alert for META above $520 exists
-    - expr: "any(a.symbol == 'META' and a.condition == 'below' and a.target_price == 480 and a.triggered for a in state.price_alerts)"
-      desc: A price alert for META below $480 was triggered
-    - expr: "any(o.symbol == 'META' and o.side == 'sell' and o.status == 'filled' for o in state.orders)"
-      desc: A filled sell order for META exists (bearish response)
-  negative_checks: []
+  - expr: any(a.symbol == 'META' and a.condition == 'above' and a.target_price ==
+      520 for a in state.price_alerts)
+    desc: A price alert for META above $520 exists
+  - expr: any(a.symbol == 'META' and a.condition == 'below' and a.target_price ==
+      480 and a.status == 'triggered' for a in state.price_alerts)
+    desc: A price alert for META below $480 was triggered
+  - expr: any(o.symbol == 'META' and o.side == 'sell' and o.status == 'filled' for
+      o in state.orders)
+    desc: A filled sell order for META exists (bearish response)
+  negative_checks:
+  - expr: not any(o.symbol == 'META' and o.side == 'buy' for o in state.orders)
+    desc: The seeded bearish branch did not incorrectly place a bullish buy
+secondary_primitives: []
+primitive_thesis: Measures planning, patience, state_tracking, grounding by requiring
+  exact completion of the requested Robinhood workflow while ignoring distractor account
+  state.
