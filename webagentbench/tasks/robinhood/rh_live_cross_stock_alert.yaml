@@ -76,6 +76,12 @@ eval:
   - expr: any(o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled' for o
       in state.orders)
     desc: A filled buy order for CVX exists
+  - expr: "all(o.filled_price is not None and o.filled_price > 119 for o in state.orders\
+      \ if o.symbol == 'XOM' and o.side == 'sell' and o.status == 'filled')"
+    desc: XOM was sold after it rallied above $120
+  - expr: "all(o.filled_price is not None and o.filled_price < 146 for o in state.orders\
+      \ if o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled')"
+    desc: CVX was bought after it dropped below $145
   negative_checks:
   - expr: not any(o.symbol == 'CVX' and o.side == 'sell' for o in state.orders)
     desc: The pairs trade did not take the opposite CVX leg

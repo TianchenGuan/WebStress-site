@@ -53,6 +53,9 @@ eval:
       the trigger
   - expr: not any(o.side == 'buy' for o in state.orders)
     desc: The task was completed with a sell decision rather than a new purchase
+  - expr: "all(o.filled_tick is not None and o.filled_tick >= 10 for o in state.orders\
+      \ if o.side == 'sell' and o.status == 'filled')"
+    desc: The sell happened after the portfolio had time to rally past $15K
   negative_checks:
   - expr: len([o for o in state.orders if o.side == 'sell' and o.status == 'filled'])
       == 1

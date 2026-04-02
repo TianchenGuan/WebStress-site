@@ -71,6 +71,9 @@ eval:
   - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled' for
       o in state.orders)
     desc: A filled buy order for AAPL exists (rotated into outperformer)
+  - expr: "all(o.filled_tick is not None and o.filled_tick >= 15 for o in state.orders\
+      \ if o.status == 'filled')"
+    desc: Trades were executed after enough time for the performance gap to develop
   negative_checks:
   - expr: not any(o.order_type == 'limit' for o in state.orders)
     desc: No limit orders were placed (must watch and trade manually)

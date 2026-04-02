@@ -59,6 +59,9 @@ eval:
   - expr: any(o.symbol == 'META' and o.side == 'sell' and o.status == 'filled' for
       o in state.orders)
     desc: A filled sell order for META exists (bearish response)
+  - expr: "all(o.filled_price is not None and o.filled_price < 482 for o in state.orders\
+      \ if o.symbol == 'META' and o.side == 'sell' and o.status == 'filled')"
+    desc: META was sold near or below the $480 alert trigger
   negative_checks:
   - expr: not any(o.symbol == 'META' and o.side == 'buy' for o in state.orders)
     desc: The seeded bearish branch did not incorrectly place a bullish buy

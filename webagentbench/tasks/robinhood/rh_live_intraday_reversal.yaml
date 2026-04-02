@@ -52,6 +52,12 @@ eval:
     desc: A filled market buy order for 10 shares of NVDA exists
   - expr: len(state.orders) == 1
     desc: Only the intended reversal buy order was placed
+  - expr: "all(o.filled_tick is not None and o.filled_tick >= 12 for o in state.orders\
+      \ if o.symbol == 'NVDA' and o.side == 'buy' and o.status == 'filled')"
+    desc: NVDA was purchased after the decline phase (not too early)
+  - expr: "all(o.filled_price is not None and o.filled_price < 870 for o in state.orders\
+      \ if o.symbol == 'NVDA' and o.side == 'buy' and o.status == 'filled')"
+    desc: NVDA was bought near the trough, not at the starting price
   negative_checks:
   - expr: not any(o.order_type == 'limit' and o.symbol == 'NVDA' for o in state.orders)
     desc: No limit orders were placed for NVDA (must watch and buy manually)

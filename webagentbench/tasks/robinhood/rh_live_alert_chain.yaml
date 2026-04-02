@@ -54,6 +54,9 @@ eval:
   - expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity == 5 and o.status
       == 'filled' for o in state.orders)
     desc: The seeded below-60%-tech branch bought 5 more NVDA shares after the alert
+  - expr: "all(o.filled_price is not None and o.filled_price > 898 for o in state.orders\
+      \ if o.symbol == 'NVDA' and o.status == 'filled')"
+    desc: NVDA action occurred near or above the $900 alert trigger
   negative_checks:
   - expr: not any(o.symbol == 'NVDA' and o.side == 'sell' for o in state.orders)
     desc: The seeded branch did not incorrectly sell NVDA when technology concentration

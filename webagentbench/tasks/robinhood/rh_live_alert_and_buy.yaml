@@ -48,6 +48,9 @@ eval:
   - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'
       and o.status == 'filled' and o.quantity == 5 for o in state.orders)
     desc: A filled market buy order for 5 shares of AAPL exists
+  - expr: "all(o.filled_price is not None and o.filled_price < 184 for o in state.orders\
+      \ if o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled')"
+    desc: AAPL was bought near the alert trigger price, not at the starting price
   negative_checks:
   - expr: not any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type != 'market'
       for o in state.orders)

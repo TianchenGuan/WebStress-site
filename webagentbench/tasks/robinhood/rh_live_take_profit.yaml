@@ -54,6 +54,9 @@ eval:
   - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit'
       and float(o.limit_price) >= 260.0 for o in state.orders)
     desc: The take-profit limit is at or above $260
+  - expr: "all(o.filled_price is not None and o.filled_price >= 258 for o in state.orders\
+      \ if o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled')"
+    desc: TSLA limit sell filled at or near the $260 target price
   negative_checks:
   - expr: not any(o.side == 'buy' for o in state.orders)
     desc: The take-profit workflow did not place buy orders

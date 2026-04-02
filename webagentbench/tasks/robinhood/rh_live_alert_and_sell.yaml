@@ -54,6 +54,9 @@ eval:
   - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled' for
       o in state.orders)
     desc: A filled sell order for TSLA exists
+  - expr: "all(o.filled_price is not None and o.filled_price > 268 for o in state.orders\
+      \ if o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled')"
+    desc: TSLA was sold near the alert trigger price, not before it rallied
   negative_checks:
   - expr: not any(o.symbol == 'TSLA' and o.side == 'buy' for o in state.orders)
     desc: The trigger caused a sell, not an additional buy
