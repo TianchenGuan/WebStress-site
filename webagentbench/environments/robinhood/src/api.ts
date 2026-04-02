@@ -4,6 +4,7 @@ import type {
   AccountData,
   AccountSettings,
   DividendEntry,
+  EarningsEvent,
   LinkedBank,
   Notification,
   OptionsContract,
@@ -50,6 +51,8 @@ export function createRobinhoodApi(request: RequestFn) {
       request<{ stock: Stock }>(`stocks/${symbol}`).then((r) => r.stock),
     getStockChart: (symbol: string, query?: Record<string, string>) =>
       request<{ prices: Array<{ date: string; close: string }> }>(`stocks/${symbol}/chart`, { query }),
+    getStockEarnings: (symbol: string) =>
+      request<{ items: EarningsEvent[] }>(`stocks/${symbol}/earnings`).then((r) => r.items),
     searchStocks: (q: string) =>
       request<{ items: Stock[] }>("search", { query: { q } }).then((r) => r.items),
 

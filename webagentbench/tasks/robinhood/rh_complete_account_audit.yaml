@@ -1,56 +1,97 @@
+---
 task_id: rh_complete_account_audit
 env_id: robinhood
 title: Complete Account Audit
-instruction_template: "Perform a complete account audit. Verify: (1) all position quantities match your buy/sell transaction totals, (2) your cash balance reconciles with all cash flows, (3) all recurring investments have been executing on schedule, (4) all price alerts are for stocks you still own, (5) no transfers have been pending for more than 5 business days. Report every discrepancy you find."
+instruction_template: 'Perform a complete account audit. Verify: (1) all position
+  quantities match your buy/sell transaction totals, (2) your cash balance reconciles
+  with all cash flows, (3) all recurring investments have been executing on schedule,
+  (4) all price alerts are for stocks you still own, (5) no transfers have been pending
+  for more than 5 business days. Report every discrepancy you find.'
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 38
 primary_primitives:
-  - state_tracking
-  - verification
-  - exploration
-  - patience
-  - grounding
-start_path: /
-
+- state_tracking
+- verification
+- exploration
+- patience
+- grounding
+start_path: "/"
 seed:
   distractors: 20
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "NFLX"]
-      outputs: []
-    - use: portfolio_diverse
-      params:
-        position_count: 6
-      outputs: []
-    - use: transaction_ledger
-      params:
-        months: 6
-        quantity_mismatch_stock: "TSLA"
-      outputs: []
-    - use: recurring_investments
-      params:
-        count: 3
-        include_history: true
-      outputs: []
-    - use: price_alerts
-      params:
-        count: 4
-        include_stale: true
-        stale_symbol: "NFLX"
-      outputs: []
-    - use: transfers_history
-      params:
-        months: 3
-        include_old_pending: true
-      outputs: []
-  targets: {}
-
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - AAPL
+      - TSLA
+      - MSFT
+      - AMZN
+      - GOOGL
+      - NFLX
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      position_count: 6
+    outputs: []
+  - use: transaction_ledger
+    params:
+      months: 6
+      quantity_mismatch_stock: TSLA
+    outputs:
+    - mismatch_symbol
+  - use: recurring_investments
+    params:
+      count: 3
+      include_history: true
+      overdue_count: 1
+    outputs:
+    - overdue_symbols
+  - use: price_alerts
+    params:
+      count: 4
+      include_stale: true
+      stale_symbol: NFLX
+    outputs: []
+  - use: transfers_history
+    params:
+      months: 3
+      include_old_pending: true
+    outputs:
+    - transfer_ids
+  targets:
+    mismatch_symbol: "{output.mismatch_symbol}"
+    stale_symbol: NFLX
+    overdue_symbols: "{output.overdue_symbols}"
+    initial_transfer_ids: "{output.transfer_ids}"
 eval:
   source: server_state
   checks:
-    - expr: "len(state.orders) == 0"
-      desc: This is a reporting task; no trades should be placed
-  negative_checks: []
+  - expr: len(state.orders) == 0
+    desc: This remains a report-only audit task
+  - expr: len(state.pending_transfers_older_than(5)) >= 1
+    desc: The seeded account contains an old pending transfer to audit
+  - expr: "'{target.stale_symbol}' in state.stale_alert_symbols()"
+    desc: The seeded account contains a stale alert for an unowned stock
+  - expr: len(state.overdue_recurring_investments()) >= 1
+    desc: The seeded account contains an overdue recurring investment to audit
+  - expr: state.last_agent_message != ''
+    desc: An audit report was sent
+  - expr: state.report_contains('{target.mismatch_symbol}')
+    desc: The report names the seeded mismatch symbol
+  - expr: state.report_contains('{target.stale_symbol}')
+    desc: The report names the seeded stale-alert symbol
+  - expr: any(state.report_contains(sym) for sym in {target.overdue_symbols})
+    desc: The report names an overdue recurring investment
+  - expr: state.report_contains_any('pending transfer', 'pending', 'transfer')
+    desc: The report mentions the pending-transfer finding
+  negative_checks:
+  - expr: len(state.orders) == 0
+    desc: The audit stayed read-only and did not place any orders
+  - expr: len(state.transfers) == len({target.initial_transfer_ids})
+    desc: The audit did not create or remove transfer history
+secondary_primitives: []
+primitive_thesis: Measures state_tracking, verification, exploration, patience, grounding
+  by requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

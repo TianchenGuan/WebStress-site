@@ -1,4 +1,7 @@
-import type { Stock } from "../types";
+import { useEffect, useState } from "react";
+
+import type { EarningsEvent, Stock } from "../types";
+import { useRobinhoodLayout } from "../context";
 import { NewsCard, generateNews } from "./NewsCard";
 import { CategoryChips, getRelatedLists } from "./CategoryChips";
 
@@ -202,7 +205,7 @@ export function AnalystRatingsSection({ symbol }: AnalystRatingsProps) {
 /* ── Earnings Section ───────────────────────────────────────── */
 interface EarningsProps { symbol: string; eps: string | null }
 
-export function EarningsSection({ symbol, eps }: EarningsProps) {
+function HistoricalEarningsChart({ symbol, eps }: { symbol: string; eps: string | null }) {
   const h = hash(symbol);
   const baseEps = eps ? parseFloat(eps) : 1.5;
   const quarters = ["Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024"];
@@ -215,8 +218,7 @@ export function EarningsSection({ symbol, eps }: EarningsProps) {
   const maxVal = Math.max(...data.map((d) => Math.max(parseFloat(d.estimate), parseFloat(d.actual))));
 
   return (
-    <section className="rh-section" aria-label="Earnings">
-      <h2>Earnings</h2>
+    <>
       <div className="rh-earnings">
         {data.map((d) => {
           const estH = (parseFloat(d.estimate) / maxVal) * 100;
@@ -237,6 +239,69 @@ export function EarningsSection({ symbol, eps }: EarningsProps) {
         <span><span className="rh-earnings__legend-box rh-earnings__legend-box--est" />Estimate</span>
         <span><span className="rh-earnings__legend-box rh-earnings__legend-box--act" />Actual</span>
       </div>
+    </>
+  );
+}
+
+function formatEarningsTime(time: "before_market" | "after_market"): string {
+  return time === "before_market" ? "Before Market Open" : "After Market Close";
+}
+
+export function EarningsSection({ symbol, eps }: EarningsProps) {
+  const { api } = useRobinhoodLayout();
+  const [upcomingEvents, setUpcomingEvents] = useState<EarningsEvent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getStockEarnings(symbol).then((events) => {
+      if (!cancelled) setUpcomingEvents(events);
+    }).catch(() => {
+      /* silently fall back to historical-only view */
+    });
+    return () => { cancelled = true; };
+  }, [api, symbol]);
+
+  return (
+    <section className="rh-section" aria-label="Earnings">
+      <h2>Earnings</h2>
+      {upcomingEvents.length > 0 && (
+        <div className="rh-earnings__upcoming" aria-label="Upcoming Earnings">
+          <h3 className="rh-earnings__upcoming-title">Upcoming Earnings</h3>
+          {upcomingEvents.map((event) => (
+            <div key={`${event.symbol}-${event.date}`} className="rh-earnings__upcoming-event">
+              <div className="rh-earnings__upcoming-date">
+                <span className="rh-earnings__upcoming-date-value">{event.date}</span>
+                <span className="rh-earnings__upcoming-date-time">{formatEarningsTime(event.time)}</span>
+              </div>
+              {event.eps_estimate && (
+                <div className="rh-earnings__upcoming-detail">
+                  <span className="rh-earnings__upcoming-label">EPS Estimate</span>
+                  <span className="rh-earnings__upcoming-value">${event.eps_estimate}</span>
+                </div>
+              )}
+              {event.revenue_estimate && (
+                <div className="rh-earnings__upcoming-detail">
+                  <span className="rh-earnings__upcoming-label">Revenue Estimate</span>
+                  <span className="rh-earnings__upcoming-value">${event.revenue_estimate}</span>
+                </div>
+              )}
+              {event.eps_actual && (
+                <div className="rh-earnings__upcoming-detail">
+                  <span className="rh-earnings__upcoming-label">EPS Actual</span>
+                  <span className="rh-earnings__upcoming-value">${event.eps_actual}</span>
+                </div>
+              )}
+              {event.revenue_actual && (
+                <div className="rh-earnings__upcoming-detail">
+                  <span className="rh-earnings__upcoming-label">Revenue Actual</span>
+                  <span className="rh-earnings__upcoming-value">${event.revenue_actual}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <HistoricalEarningsChart symbol={symbol} eps={eps} />
     </section>
   );
 }
