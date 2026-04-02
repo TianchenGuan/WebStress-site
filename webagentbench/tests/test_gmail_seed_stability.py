@@ -108,6 +108,19 @@ _GMAIL_TASK_IDS = [t.task_id for t in env_tasks("gmail")]
 
 
 @pytest.mark.parametrize("task_id", _GMAIL_TASK_IDS)
+def test_seed_produces_stable_state(task_id: str) -> None:
+    """Seeding the same task twice with the same seed must produce identical targets and email sets."""
+    base_a, targets_a = _run_seed(task_id)
+    base_b, targets_b = _run_seed(task_id)
+
+    assert targets_a == targets_b, f"Targets differ for {task_id}"
+    assert len(base_a["emails"]) == len(base_b["emails"]), f"Email count differs for {task_id}"
+    ids_a = sorted(e.id for e in base_a["emails"])
+    ids_b = sorted(e.id for e in base_b["emails"])
+    assert ids_a == ids_b, f"Email IDs differ for {task_id}"
+
+
+@pytest.mark.parametrize("task_id", _GMAIL_TASK_IDS)
 def test_session_create_returns_rendered_task_data(task_id: str) -> None:
     session_manager = SessionManager()
 

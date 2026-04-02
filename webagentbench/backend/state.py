@@ -22,7 +22,7 @@ class SessionManager:
 
     def __init__(self):
         self._sessions: dict[str, BaseEnvState] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def create_session(self, env_id: str, task_id: str, seed: int | None = None) -> tuple[str, dict[str, Any], int]:
         runner = SEEDER_REGISTRY.get(env_id)
@@ -39,32 +39,39 @@ class SessionManager:
         state._resolved_targets = dict(resolved_targets)
         state._seed = actual_seed
         session_id = f"{env_id}_{task_id}_{uuid.uuid4().hex[:10]}"
-        self._sessions[session_id] = state
+        with self._lock:
+            self._sessions[session_id] = state
         return session_id, resolved_targets, actual_seed
 
     def get(self, session_id: str) -> BaseEnvState:
-        try:
-            return self._sessions[session_id]
-        except KeyError as exc:
-            raise KeyError(f"Unknown session_id: {session_id}") from exc
+        with self._lock:
+            try:
+                return self._sessions[session_id]
+            except KeyError as exc:
+                raise KeyError(f"Unknown session_id: {session_id}") from exc
 
     def destroy(self, session_id: str) -> None:
-        self._sessions.pop(session_id, None)
+        with self._lock:
+            self._sessions.pop(session_id, None)
 
     def get_targets(self, session_id: str) -> dict[str, Any]:
-        return self.get(session_id).resolved_targets
+        with self._lock:
+            return self.get(session_id).resolved_targets
 
     def set_benchmark_state(self, session_id: str, benchmark_state: dict[str, Any]) -> None:
-        state = self.get(session_id)
-        state.set_benchmark_state(benchmark_state)
-        state.audit_log.append(
-            AuditEntry(
-                action="benchmark_state.capture",
-                payload={"keys": sorted(benchmark_state.keys())},
-                summary="Captured client benchmark state",
-                snapshot={"completed": bool(benchmark_state.get("completed"))},
+        with self._lock:
+            state = self._sessions.get(session_id)
+            if state is None:
+                raise KeyError(f"Unknown session_id: {session_id}")
+            state.set_benchmark_state(benchmark_state)
+            state.audit_log.append(
+                AuditEntry(
+                    action="benchmark_state.capture",
+                    payload={"keys": sorted(benchmark_state.keys())},
+                    summary="Captured client benchmark state",
+                    snapshot={"completed": bool(benchmark_state.get("completed"))},
+                )
             )
-        )
 
     def mutate(
         self,
@@ -88,21 +95,22 @@ class SessionManager:
             return result
 
     def session_summary(self, session_id: str) -> dict[str, Any]:
-        state = self.get(session_id)
-        summary = {
-            "session_id": session_id,
-            "env_id": state.env_id,
-            "task_id": state.task_id,
-            "seed": state.seed,
-            "created_at": state.created_at,
-            "updated_at": state.updated_at,
-            "audit_entries": len(state.audit_log),
-        }
-        if state.degradation:
-            summary["degradation"] = state.degradation
-        if isinstance(state, GmailState):
-            summary["state"] = state.session_summary()
-        return summary
+        with self._lock:
+            state = self.get(session_id)
+            summary = {
+                "session_id": session_id,
+                "env_id": state.env_id,
+                "task_id": state.task_id,
+                "seed": state.seed,
+                "created_at": state.created_at,
+                "updated_at": state.updated_at,
+                "audit_entries": len(state.audit_log),
+            }
+            if state.degradation:
+                summary["degradation"] = state.degradation
+            if isinstance(state, GmailState):
+                summary["state"] = state.session_summary()
+            return summary
 
     def _summarize_result(self, result: Any) -> str:
         if isinstance(result, BaseEnvState):

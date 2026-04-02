@@ -440,6 +440,9 @@ def create_session(body: SessionCreateRequest, session_manager: SessionManager =
     # never allocate live benchmark state.
     degradation = dict(body.degradation) if body.degradation else None
     if body.variant_filename and not degradation:
+        # Reject path traversal attempts in variant filenames
+        if "/" in body.variant_filename or "\\" in body.variant_filename or ".." in body.variant_filename:
+            raise HTTPException(status_code=400, detail="Invalid variant filename")
         # Handle auto-generated variants (filename starts with __auto__)
         if body.variant_filename.startswith("__auto__"):
             # Format: __auto__{task_id}__{primitive}

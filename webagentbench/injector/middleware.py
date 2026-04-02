@@ -239,16 +239,6 @@ class DegradationMiddleware(BaseHTTPMiddleware):
             or _extract_session_from_cookie(request.headers.get("cookie", ""))
         )
 
-        # Fallback: if exactly one session has network degradation AND the
-        # request targets an API endpoint but the session_id could not be
-        # extracted, assume it belongs to the sole degraded session.
-        # Includes GET so that stale_data and delay degradations on read
-        # endpoints are not silently skipped.
-        if not session_id and len(_SESSION_NETWORK) == 1:
-            url_path = request.url.path
-            if "/api/env/" in url_path:
-                session_id = next(iter(_SESSION_NETWORK))
-
         if not session_id or session_id not in _SESSION_NETWORK:
             return await call_next(request)
 

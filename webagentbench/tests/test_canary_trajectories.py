@@ -63,23 +63,29 @@ def _ref(sid):
     return {"Referer": f"http://testserver/env/gmail/inbox?session={sid}"}
 
 def _star(client, sid, email_id):
-    return client.post(f"/api/env/gmail/emails/{email_id}/star", json={"session_id": sid})
+    return client.post(f"/api/env/gmail/emails/{email_id}/star",
+                       json={"session_id": sid}, headers=_ref(sid))
 
 def _send(client, sid, **kw):
-    return client.post("/api/env/gmail/send", json={"session_id": sid, **kw})
+    return client.post("/api/env/gmail/send",
+                       json={"session_id": sid, **kw}, headers=_ref(sid))
 
 def _delete(client, sid, email_id):
-    return client.post(f"/api/env/gmail/emails/{email_id}/delete", json={"session_id": sid})
+    return client.post(f"/api/env/gmail/emails/{email_id}/delete",
+                       json={"session_id": sid}, headers=_ref(sid))
 
 def _forward(client, sid, email_id, to, body=""):
     return client.post(f"/api/env/gmail/emails/{email_id}/forward",
-                       json={"session_id": sid, "to": to, "body": body})
+                       json={"session_id": sid, "to": to, "body": body},
+                       headers=_ref(sid))
 
 def _search(client, sid, q):
-    return client.get(f"/api/env/gmail/search?session_id={sid}&q={q}")
+    return client.get(f"/api/env/gmail/search?session_id={sid}&q={q}",
+                      headers=_ref(sid))
 
 def _emails(client, sid, label="inbox"):
-    return client.get(f"/api/env/gmail/emails?session_id={sid}&label={label}")
+    return client.get(f"/api/env/gmail/emails?session_id={sid}&label={label}",
+                      headers=_ref(sid))
 
 
 # ═══════════════════════════════════════════════════════════════════════════

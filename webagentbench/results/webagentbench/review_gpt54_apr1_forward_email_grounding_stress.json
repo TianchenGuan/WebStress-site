@@ -1,0 +1,196 @@
+{
+  "benchmark": "WebAgentBench",
+  "version": "3.0.0",
+  "format": "browsergym",
+  "timestamp": "2026-04-01T05:43:20.711738+00:00",
+  "agent": {
+    "model": "gpt-5.4",
+    "provider": "openai"
+  },
+  "results": [
+    {
+      "task_id": "gmail_forward_email",
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "Passed 2/2 checks.\n  [PASS] Email forwarded to dave@company.test\n  [PASS] Forward note included\nFinal score: 1.000 | Success: True",
+        "checks": [
+          {
+            "expr": "any('dave@company.test' in m.to and 'Invoice #1234' in m.subject for m in state.sent)",
+            "desc": "Email forwarded to dave@company.test",
+            "passed": true,
+            "error": null
+          },
+          {
+            "expr": "any('Please review this invoice' in m.body for m in state.sent)",
+            "desc": "Forward note included",
+            "passed": true,
+            "error": null
+          }
+        ],
+        "negative_checks": [],
+        "final_score": 1.0
+      },
+      "agent": {
+        "model": "gpt-5.4",
+        "provider": "openai",
+        "steps": 6,
+        "elapsed_seconds": 19.0,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "",
+            "action": {
+              "action": "click",
+              "ref": "153"
+            },
+            "raw_action": "click(\"153\")",
+            "status": "",
+            "reward": 0.0,
+            "elapsed_seconds": 9.6,
+            "last_action_error": ""
+          },
+          {
+            "step": 2,
+            "thought": "",
+            "action": {
+              "action": "click",
+              "ref": "302"
+            },
+            "raw_action": "click(\"302\")",
+            "status": "",
+            "reward": 0.0,
+            "elapsed_seconds": 11.5,
+            "last_action_error": ""
+          },
+          {
+            "step": 3,
+            "thought": "",
+            "action": {
+              "action": "fill",
+              "ref": "339",
+              "value": "dave@company.test"
+            },
+            "raw_action": "fill(\"339\", \"dave@company.test\")",
+            "status": "",
+            "reward": 0.0,
+            "elapsed_seconds": 13.7,
+            "last_action_error": ""
+          },
+          {
+            "step": 4,
+            "thought": "",
+            "action": {
+              "action": "fill",
+              "ref": "348",
+              "value": "Please review this invoice."
+            },
+            "raw_action": "fill(\"348\", \"Please review this invoice.\")",
+            "status": "",
+            "reward": 0.0,
+            "elapsed_seconds": 15.5,
+            "last_action_error": ""
+          },
+          {
+            "step": 5,
+            "thought": "",
+            "action": {
+              "action": "click",
+              "ref": "355"
+            },
+            "raw_action": "click(\"355\")",
+            "status": "",
+            "reward": 0.0,
+            "elapsed_seconds": 17.1,
+            "last_action_error": ""
+          },
+          {
+            "step": 6,
+            "thought": "",
+            "action": {
+              "action": "finish",
+              "answer": "done"
+            },
+            "raw_action": "send_msg_to_user(\"done\")",
+            "status": "FINISH",
+            "reward": 1.0,
+            "elapsed_seconds": 19.0,
+            "last_action_error": ""
+          }
+        ],
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a web agent. You interact with web pages to complete tasks.\n\n## Observation\nEach step you receive an accessibility tree (AXTree) of the current page. Elements are marked with string IDs called `bid`:\n- `[bid] role \"name\"` \u2014 interactive or meaningful elements\n- Indentation shows nesting\n- Attributes: value=\"...\", checked, unchecked, disabled, focused, selected\n- `[OVERLAY]` marks dialogs blocking the page \u2014 handle these first\n\n## Actions\nRespond with a single Python function call. Available actions:\n\nclick('a51')                      \u2014 Click element\nfill('b22', 'hello world')        \u2014 Fill text field\nselect_option('c3', 'California') \u2014 Select dropdown option\nhover('d7')                       \u2014 Hover over element\npress('48', 'Enter')              \u2014 Press key (e.g. 'Enter', 'Backspace')\nscroll(0, 300)                    \u2014 Scroll (pixels, positive=down/right)\ndblclick('12')                    \u2014 Double-click element\ndrag_and_drop('a1', 'b2')         \u2014 Drag and drop\nclear('b22')                      \u2014 Clear text field\nfocus('b22')                      \u2014 Focus element\nsend_msg_to_user('done')          \u2014 Report your answer/completion\nreport_infeasible('reason')       \u2014 Report task is impossible\nnoop(1000)                        \u2014 Wait (default 1000ms)\n\n## Rules\n1. Output EXACTLY ONE function call per step. No extra text, no markdown.\n2. Use bid values from the CURRENT observation only. Never reuse old bids.\n3. Any action argument that refers to a bid must be a quoted string, e.g. click('75'), not click(75).\n4. Handle overlays/dialogs before interacting with background elements.\n5. Before calling send_msg_to_user, verify the task is actually complete.\n6. If the task asks for a specific answer, pass it to send_msg_to_user.\n"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nURL: http://127.0.0.1:8094/env/gmail/inbox?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[11] banner '', visible\n\tStaticText 'Gmail'\n\t[16] search '', visible\n\t\t[18] textbox 'Search mail', clickable, visible\n\t\t[19] button 'Run search', clickable, visible\n\t\t\tStaticText 'Search'\n[22] navigation 'Gmail navigation', visible\n\t[23] button 'Compose a new message', clickable, visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[28] link 'Inbox', clickable, visible\n\t\t\t\tStaticText 'Inbox'\n\t\t\t\tStaticText '15'\n\t\t\t[32] link 'Starred', clickable, visible\n\t\t\t\tStaticText 'Starred'\n\t\t\t\tStaticText '0'\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '0'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[59] main 'Inbox', visible\n\t[62] tablist 'Inbox categories', visible, multiselectable=False, orientation='horizontal'\n\t\t[63] tab 'Primary', clickable, visible, selected=True\n\t\t[64] tab 'Promotions', clickable, visible, selected=False\n\t\t[65] tab 'Updates', clickable, visible, selected=False\n\t\t[66] tab 'All Mail', clickable, visible, selected=False\n\tStaticText '1'\n\tStaticText '\u2013'\n\tStaticText '12'\n\tStaticText 'of'\n\tStaticText '12'\n\t[69] button 'Previous page', visible, disabled=True\n\t[71] button 'Next page', visible, disabled=True\n\t[73] region 'Email results', visible\n\t\t[74] article 'Unread thread from Carol Wang: Invoice #1234 - Revised', clickable, visible\n\t\t\t[75] button 'Star Invoice #1234 - Revised', clickable, visible\n\t\t\t[79] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[81] link 'Open unread thread Invoice #1234 - Revised', clickable, visible\n\t\t\t\tStaticText 'Invoice #1234 - Revised'\n\t\t\t\tStaticText '\u2014'\n\t\t\t[91] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t[92] article 'Unread thread from Carol Wang: Re: Invoice #1234', clickable, visible\n\t\t\t[93] button 'Star Re: Invoice #1234', clickable, visible\n\t\t\t[97] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[99] link 'Open unread thread Re: Invoice #1234', clickable, visible\n\t\t\t\tStaticText 'Re: Invoice #1234'\n\t\t\t\tStaticText '\u2014'\n\t\t\t[109] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t[110] article 'Unread thread from Carol Wang: Invoice for Project', clickable, visible\n\t\t\t[111] button 'Star Invoice for Project', clickable, visible\n\t\t\t[115] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[117] link 'Open unread thread Invoice for Project', clickable, visible\n\t\t\t\tStaticText 'Invoice for Project'\n\t\t\t\tStaticText '\u2014'\n\t\t\t[127] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t[128] article 'Unread thread from Carol Wang: Invoice #1235', clickable, visible\n\t\t\t[129] button 'Star Invoice #1235', clickable, visible\n\t\t\t[133] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[135] link 'Open unread thread Invoice #1235', clickable, visible\n\t\t\t\tStaticText 'Invoice #1235'\n\t\t\t\tStaticText '\u2014'\n\t\t\t[145] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t[146] article 'Unread thread from Carol Wang: Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t[147] button 'Star Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t[151] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[153] link 'Open unread thread Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t\tStaticText 'Invoice #1234 \u2014 March Services'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText 'Hi, Attached is invoice #1234 for March consulting services. Total: $4,500.00. Net 30 terms. Thanks, Carol Wang Accounts Receivable, VendorC'\n\t\t\t[163] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t[164] article 'Read thread from Theo Rivera: Follow-up on venue estimate', clickable, visible\n\t\t\t[165] button 'Star Follow-up on venue estimate', clickable, visible\n\t\t\t[169] strong '', visible\n\t\t\t\tStaticText 'Theo Rivera'\n\t\t\t[170] link 'Open read thread Follow-up on venue estimate', clickable, visible\n\t\t\t\tStaticText 'Follow-up on venue estimate'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText 'Passing along the current draft so you have it in one place. Most of the edits were minor, with one budget line still waiting on approval. N'\n\t\t\tStaticText '\ud83d\udcce'\n\t\t\t[181] time '', visible\n\t\t\t\tStaticText 'Jul 5, 6:05 AM'\n\t\t[182] article 'Read thread from Priya Rivera: Reminder on document review timing', clickable, visible\n\t\t\t[183] button 'Star Reminder on document review timing', clickable, visible\n\t\t\t[187] strong '', visible\n\t\t\t\tStaticText 'Priya Rivera'\n\t\t\t[188] link 'Open read thread Reminder on document review timing', clickable, visible\n\t\t\t\tStaticText 'Reminder on document review timing'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText 'Passing along the current draft so you have it in one place. Nothing looks blocked right now, but we still need one decision on timing. Happ'\n\t\t\t[198] time '', visible\n\t\t\t\tStaticText 'Jul 3, 7:05 AM'\n\t\t[199] article 'Unread thread from Sofia Brooks: Quarterly metrics recap', clickable, visible\n\t\t\t[200] button 'Star Quarterly metrics recap', clickable, visible\n\t\t\t[204] strong '', visible\n\t\t\t\tStaticText 'Sofia Brooks'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[206] link 'Open unread thread Quarterly metrics recap', clickable, visible\n\t\t\t\tStaticText 'Quarterly metrics recap'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText 'I pulled the loose ends into one note for easier review. Nothing looks blocked right now, but we still need one decision on timing. Happy to'\n\t\t\t[216] time '', visible\n\t\t\t\tStaticText 'Jul 2, 2:05 AM'\n\t\t[217] article 'Read thread from Elena Patel: Updated rollout checklist', clickable, visible\n\t\t\t[218] button 'Star Updated rollout checklist', clickable, visible\n\t\t\t[222] strong '', visible\n\t\t\t\tStaticText 'Elena Patel'\n\t\t\t[223] link 'Open read thread Updated rollout checklist', clickable, visible\n\t\t\t\tStaticText 'Updated rollout checklist'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText 'Passing along the current draft so you have it in one place. The open items are mostly ownership questions rather than scope changes. Happy'\n\t\t\t[233] time '', visible\n\t\t\t\tStaticText 'Jun 24, 1:05 AM'\n\t\t[234] article 'Read thread from Sofia Patel: Reminder on document review timing', clickable, visible\n\t\t\t[235] button 'Star Reminder on document review timing', clickable, visible\n\t\t\t[239] strong '', visible\n\t\t\t\tStaticText 'Sofia Patel'\n\t\t\t[240] link 'Open read thread Reminder on document review timing', clickable, visible\n\t\t\t\tStaticText 'Reminder on document review timing'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText \"Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. If you\"\n\t\t\t[250] time '', visible\n\t\t\t\tStaticText 'Jun 19, 2:05 AM'\n\t\t[251] article 'Unread thread from Theo Nguyen: Follow-up on venue estimate', clickable, visible\n\t\t\t[252] button 'Star Follow-up on venue estimate', clickable, visible\n\t\t\t[256] strong '', visible\n\t\t\t\tStaticText 'Theo Nguyen'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[258] link 'Open unread thread Follow-up on venue estimate', clickable, visible\n\t\t\t\tStaticText 'Follow-up on venue estimate'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText \"Sending a quick status update from today's working session. The open items are mostly ownership questions rather than scope changes. No resp\"\n\t\t\t[268] time '', visible\n\t\t\t\tStaticText 'Jun 19, 1:05 AM'\n\t\t[269] article 'Unread thread from Theo Brooks: Notes from the partner sync', clickable, visible\n\t\t\t[270] button 'Star Notes from the partner sync', clickable, visible\n\t\t\t[274] strong '', visible\n\t\t\t\tStaticText 'Theo Brooks'\n\t\t\tStaticText 'UNREAD'\n\t\t\t[276] link 'Open unread thread Notes from the partner sync', clickable, visible\n\t\t\t\tStaticText 'Notes from the partner sync'\n\t\t\t\tStaticText '\u2014'\n\t\t\t\tStaticText \"Sharing the latest notes before tomorrow's check-in. Most of the edits were minor, with one budget line still waiting on approval. No respon\"\n\t\t\t[286] time '', visible\n\t\t\t\tStaticText 'Jun 19, 12:05 AM'"
+          },
+          {
+            "role": "assistant",
+            "content": "click(\"153\")"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nLast action: click(\"153\")\nURL: http://127.0.0.1:8094/env/gmail/thread/email_1?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[11] banner '', visible\n\tStaticText 'Gmail'\n\t[16] search '', visible\n\t\t[18] textbox 'Search mail', clickable, visible\n\t\t[19] button 'Run search', clickable, visible\n\t\t\tStaticText 'Search'\n[22] navigation 'Gmail navigation', visible\n\t[23] button 'Compose a new message', clickable, visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[28] link 'Inbox', clickable, visible\n\t\t\t\tStaticText 'Inbox'\n\t\t\t\tStaticText '15'\n\t\t\t[32] link 'Starred', clickable, visible\n\t\t\t\tStaticText 'Starred'\n\t\t\t\tStaticText '0'\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '0'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[288] main 'Thread view', visible\n\t[291] button 'Back to inbox', clickable, visible\n\t[293] button 'Archive this thread', clickable, visible\n\t[295] button 'Delete this thread', clickable, visible\n\t[297] button 'Star this thread', clickable, visible\n\t[300] button 'Apply label to this thread', clickable, visible\n\t[302] button 'Forward this thread', clickable, visible\n\t[305] region 'Email thread', visible\n\t\t[306] heading 'Invoice #1234 \u2014 March Services', visible\n\t\t[307] article '', visible\n\t\t\t[313] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText '<'\n\t\t\tStaticText 'carol.wang@vendor.test'\n\t\t\tStaticText '>'\n\t\t\tStaticText 'to'\n\t\t\tStaticText 'avery.quinn@webagentbench.test'\n\t\t\t[317] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t\t[318] button 'Reply to Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t[320] button 'Reply all to Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t\tStaticText 'Reply All'\n\t\t\t[323] paragraph '', visible\n\t\t\t\tStaticText 'Hi,'\n\t\t\t[324] paragraph '', visible\n\t\t\t\tStaticText 'Attached is invoice #1234 for March consulting services.'\n\t\t\t[325] paragraph '', visible\n\t\t\t\tStaticText 'Total: $4,500.00. Net 30 terms.'\n\t\t\t[326] paragraph '', visible\n\t\t\t\tStaticText 'Thanks,'\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\t\tStaticText 'Accounts Receivable, VendorCo'"
+          },
+          {
+            "role": "assistant",
+            "content": "click(\"302\")"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nLast action: click(\"302\")\nURL: http://127.0.0.1:8094/env/gmail/thread/email_1?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[22] navigation 'Gmail navigation', visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '0'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[288] main 'Thread view', visible\n\t[305] region 'Email thread', visible\n\t\t[307] article '', visible\n\t\t\t[323] paragraph '', visible\n\t\t\t\tStaticText 'Hi,'\n\t\t\t[324] paragraph '', visible\n\t\t\t\tStaticText 'Attached is invoice #1234 for March consulting services.'\n\t\t\t[325] paragraph '', visible\n\t\t\t\tStaticText 'Total: $4,500.00. Net 30 terms.'\n\t\t\t[326] paragraph '', visible\n\t\t\t\tStaticText 'Thanks,'\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\t\tStaticText 'Accounts Receivable, VendorCo'\n\t[332] region 'Forward', visible\n\t\t[334] heading 'Forward', visible\n\t\t[337] LabelText '', clickable, visible\n\t\t\tStaticText 'To'\n\t\t\t[339] textbox 'Recipients', clickable, visible\n\t\t[341] button 'Show CC field', clickable, visible\n\t\t\tStaticText 'Cc'\n\t\t[342] button 'Show BCC field', clickable, visible\n\t\t\tStaticText 'Bcc'\n\t\t[343] LabelText '', clickable, visible\n\t\t\tStaticText 'Subject'\n\t\t\t[345] textbox 'Email subject' value='Fwd: Invoice #1234 \u2014 March Services', clickable, visible\n\t\t[346] LabelText '', visible\n\t\t\tStaticText 'Message'\n\t\t\t[348] textbox 'Email body', visible\n\t\t[349] LabelText '', clickable, visible\n\t\t\tStaticText 'Attachments'\n\t\t\t[351] textbox 'Attachment filenames', clickable, visible\n\t\t\tStaticText 'Mock attachments use comma-separated filenames.'\n\t\t[354] button 'Cancel compose', clickable, visible\n\t\t[355] button 'Forward', visible, disabled=True"
+          },
+          {
+            "role": "assistant",
+            "content": "fill(\"339\", \"dave@company.test\")"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nLast action: fill(\"339\", \"dave@company.test\")\nURL: http://127.0.0.1:8094/env/gmail/thread/email_1?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[22] navigation 'Gmail navigation', visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '0'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[288] main 'Thread view', visible\n\t[305] region 'Email thread', visible\n\t\t[307] article '', visible\n\t\t\t[323] paragraph '', visible\n\t\t\t\tStaticText 'Hi,'\n\t\t\t[324] paragraph '', visible\n\t\t\t\tStaticText 'Attached is invoice #1234 for March consulting services.'\n\t\t\t[325] paragraph '', visible\n\t\t\t\tStaticText 'Total: $4,500.00. Net 30 terms.'\n\t\t\t[326] paragraph '', visible\n\t\t\t\tStaticText 'Thanks,'\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\t\tStaticText 'Accounts Receivable, VendorCo'\n\t[332] region 'Forward', visible\n\t\t[334] heading 'Forward', visible\n\t\t[337] LabelText '', clickable, visible\n\t\t\tStaticText 'To'\n\t\t\t[339] textbox 'Recipients' value='dave@company.test', clickable, visible, focused\n\t\t[341] button 'Show CC field', clickable, visible\n\t\t\tStaticText 'Cc'\n\t\t[342] button 'Show BCC field', clickable, visible\n\t\t\tStaticText 'Bcc'\n\t\t[343] LabelText '', clickable, visible\n\t\t\tStaticText 'Subject'\n\t\t\t[345] textbox 'Email subject' value='Fwd: Invoice #1234 \u2014 March Services', clickable, visible\n\t\t[346] LabelText '', visible\n\t\t\tStaticText 'Message'\n\t\t\t[348] textbox 'Email body', visible\n\t\t[349] LabelText '', clickable, visible\n\t\t\tStaticText 'Attachments'\n\t\t\t[351] textbox 'Attachment filenames', clickable, visible\n\t\t\tStaticText 'Mock attachments use comma-separated filenames.'\n\t\t[354] button 'Cancel compose', clickable, visible\n\t\t[355] button 'Forward', clickable, visible"
+          },
+          {
+            "role": "assistant",
+            "content": "fill(\"348\", \"Please review this invoice.\")"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nLast action: fill(\"348\", \"Please review this invoice.\")\nURL: http://127.0.0.1:8094/env/gmail/thread/email_1?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[22] navigation 'Gmail navigation', visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '0'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[288] main 'Thread view', visible\n\t[305] region 'Email thread', visible\n\t\t[307] article '', visible\n\t\t\t[323] paragraph '', visible\n\t\t\t\tStaticText 'Hi,'\n\t\t\t[324] paragraph '', visible\n\t\t\t\tStaticText 'Attached is invoice #1234 for March consulting services.'\n\t\t\t[325] paragraph '', visible\n\t\t\t\tStaticText 'Total: $4,500.00. Net 30 terms.'\n\t\t\t[326] paragraph '', visible\n\t\t\t\tStaticText 'Thanks,'\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\t\tStaticText 'Accounts Receivable, VendorCo'\n\t[332] region 'Forward', visible\n\t\t[334] heading 'Forward', visible\n\t\t[337] LabelText '', clickable, visible\n\t\t\tStaticText 'To'\n\t\t\t[339] textbox 'Recipients' value='dave@company.test', clickable, visible\n\t\t[341] button 'Show CC field', clickable, visible\n\t\t\tStaticText 'Cc'\n\t\t[342] button 'Show BCC field', clickable, visible\n\t\t\tStaticText 'Bcc'\n\t\t[343] LabelText '', clickable, visible\n\t\t\tStaticText 'Subject'\n\t\t\t[345] textbox 'Email subject' value='Fwd: Invoice #1234 \u2014 March Services', clickable, visible\n\t\t[346] LabelText '', visible\n\t\t\tStaticText 'Message'\n\t\t\t[348] textbox 'Email body' value='Please review this invoice.', visible, focused\n\t\t[349] LabelText '', clickable, visible\n\t\t\tStaticText 'Attachments'\n\t\t\t[351] textbox 'Attachment filenames', clickable, visible\n\t\t\tStaticText 'Mock attachments use comma-separated filenames.'\n\t\t[354] button 'Cancel compose', clickable, visible\n\t\t[355] button 'Forward', clickable, visible"
+          },
+          {
+            "role": "assistant",
+            "content": "click(\"355\")"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"\nLast action: click(\"355\")\nURL: http://127.0.0.1:8094/env/gmail/thread/email_1?session=gmail_gmail_forward_email_933cfbf44b&agent_mode=1\n\nAccessibility tree:\n[11] banner '', visible\n\tStaticText 'Gmail'\n\t[16] search '', visible\n\t\t[18] textbox 'Search mail', clickable, visible\n\t\t[19] button 'Run search', clickable, visible\n\t\t\tStaticText 'Search'\n[22] navigation 'Gmail navigation', visible\n\t[23] button 'Compose a new message', clickable, visible\n\t[25] complementary 'Gmail navigation', visible\n\t\t[26] region 'main', visible\n\t\t\t[28] link 'Inbox', clickable, visible\n\t\t\t\tStaticText 'Inbox'\n\t\t\t\tStaticText '15'\n\t\t\t[32] link 'Starred', clickable, visible\n\t\t\t\tStaticText 'Starred'\n\t\t\t\tStaticText '0'\n\t\t\t[36] link 'Sent', clickable, visible\n\t\t\t\tStaticText 'Sent'\n\t\t\t\tStaticText '1'\n\t\t\t[40] link 'Drafts', clickable, visible\n\t\t\t\tStaticText 'Drafts'\n\t\t\t\tStaticText '0'\n\t\t\t[44] link 'Archive', clickable, visible\n\t\t\t\tStaticText 'Archive'\n\t\t\t[47] link 'Trash', clickable, visible\n\t\t\t\tStaticText 'Trash'\n\t\t[50] region 'manage', visible\n\t\t\t[52] link 'Settings', clickable, visible\n\t\t\t\tStaticText 'Settings'\n\t\t\t[55] link 'Labels', clickable, visible\n\t\t\t\tStaticText 'Labels'\n[288] main 'Thread view', visible\n\t[291] button 'Back to inbox', clickable, visible\n\t[293] button 'Archive this thread', clickable, visible\n\t[295] button 'Delete this thread', clickable, visible\n\t[297] button 'Star this thread', clickable, visible\n\t[300] button 'Apply label to this thread', clickable, visible\n\t[302] button 'Forward this thread', clickable, visible\n\t[305] region 'Email thread', visible\n\t\t[306] heading 'Invoice #1234 \u2014 March Services', visible\n\t\t[307] article '', visible\n\t\t\t[313] strong '', visible\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\tStaticText '<'\n\t\t\tStaticText 'carol.wang@vendor.test'\n\t\t\tStaticText '>'\n\t\t\tStaticText 'to'\n\t\t\tStaticText 'avery.quinn@webagentbench.test'\n\t\t\t[317] time '', visible\n\t\t\t\tStaticText 'Jul 7, 4:05 AM'\n\t\t\t[318] button 'Reply to Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t[320] button 'Reply all to Invoice #1234 \u2014 March Services', clickable, visible\n\t\t\t\tStaticText 'Reply All'\n\t\t\t[323] paragraph '', visible\n\t\t\t\tStaticText 'Hi,'\n\t\t\t[324] paragraph '', visible\n\t\t\t\tStaticText 'Attached is invoice #1234 for March consulting services.'\n\t\t\t[325] paragraph '', visible\n\t\t\t\tStaticText 'Total: $4,500.00. Net 30 terms.'\n\t\t\t[326] paragraph '', visible\n\t\t\t\tStaticText 'Thanks,'\n\t\t\t\tStaticText 'Carol Wang'\n\t\t\t\tStaticText 'Accounts Receivable, VendorCo'\n[356] generic 'Notifications', visible, live='polite', relevant='additions text'\n\t[357] Section '', visible\n\t\t[358] strong '', visible\n\t\t\tStaticText 'Forwarded'\n\t\t[359] paragraph '', visible\n\t\t\tStaticText 'Invoice #1234 \u2014 March Services'"
+          },
+          {
+            "role": "assistant",
+            "content": "send_msg_to_user(\"done\")"
+          }
+        ]
+      },
+      "degradation": {
+        "variant_id": "gmail_forward_email__grounding_v1",
+        "target_primitive": "grounding",
+        "description": "Add confusing decoy emails with similar subjects and senders. Agent must correctly ground to the specific email from Carol Wang with exact subject \"Invoice #1234\" among multiple invoice emails.\n"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 1,
+    "passed": 1,
+    "failed": 0,
+    "average_score": 1.0,
+    "average_steps": 6.0,
+    "average_elapsed_seconds": 19.0
+  },
+  "degradation": {
+    "variant_id": "gmail_forward_email__grounding_v1",
+    "target_primitive": "grounding"
+  }
+}

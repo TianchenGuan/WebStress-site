@@ -487,6 +487,7 @@ class GmailState(BaseEnvState):
         forwarded_from_id: str | None = None,
         from_name: str | None = None,
         from_addr: str | None = None,
+        timestamp: datetime | None = None,
     ) -> Email:
         if in_reply_to and thread_id is None:
             original = self._require_email(in_reply_to)
@@ -501,7 +502,7 @@ class GmailState(BaseEnvState):
             bcc=bcc or [],
             subject=subject,
             body=body,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=timestamp or datetime.now(timezone.utc),
             is_read=True,
             labels=["sent"],
             thread_id=thread_id,

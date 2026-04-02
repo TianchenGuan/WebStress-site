@@ -117,6 +117,16 @@ class WebAgentBenchTask(AbstractBrowserTask):
     def setup(self, page: playwright.sync_api.Page) -> tuple[str, dict]:
         """Start server, create session, navigate page, apply degradations."""
         self._ensure_server()
+        try:
+            return self._setup_session(page)
+        except Exception:
+            # Clean up server process if we started it, since BrowserGym
+            # only calls teardown() after a successful setup().
+            self.teardown()
+            raise
+
+    def _setup_session(self, page: playwright.sync_api.Page) -> tuple[str, dict]:
+        """Internal setup logic, separated so setup() can catch and clean up."""
         self._evaluated = False
 
         # Resolve task metadata
@@ -197,7 +207,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         # BrowserGym calls validate() AFTER processing the action, so on the
         # first call chat_messages may already include the agent's first message.
         # We snapshot only the non-assistant messages as the baseline.
-        if self._initial_chat_count == -1 and chat_messages:
+        if self._initial_chat_count == -1:
             self._initial_chat_count = sum(
                 1 for m in chat_messages if m.get("role") != "assistant" and m.get("role") != "infeasible"
             )
