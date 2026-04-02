@@ -161,20 +161,29 @@ python scripts/debug.py see /orders   # Should show the order you placed
 
 ## Parallel Agent Execution
 
-Multiple agents can test tasks simultaneously. Each agent needs its own session file:
+Sessions are server-side isolated. `start` auto-generates a task-scoped session file
+(`scripts/.debug_<task_id>.json`) so parallel starts never collide:
 
 ```bash
-# Agent 1
-DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py start gmail_compose_new
-DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py act send '{"to":"alice@company.test",...}'
-DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py check
+# Agent 1 — session file auto-created at scripts/.debug_gmail_compose_new.json
+python scripts/debug.py start gmail_compose_new
+python scripts/debug.py -s scripts/.debug_gmail_compose_new.json act send '{"to":"alice@company.test",...}'
+python scripts/debug.py -s scripts/.debug_gmail_compose_new.json check
 
-# Agent 2 (runs concurrently)
-DEBUG_SESSION_FILE=/tmp/agent_2.json python scripts/debug.py start rh_check_buying_power
-DEBUG_SESSION_FILE=/tmp/agent_2.json python scripts/debug.py check
+# Agent 2 (runs concurrently) — scripts/.debug_rh_check_buying_power.json
+python scripts/debug.py start rh_check_buying_power
+python scripts/debug.py -s scripts/.debug_rh_check_buying_power.json check
 ```
 
-Sessions are server-side isolated — each `start` creates an independent session with its own state.
+The `-s` flag (or `DEBUG_SESSION_FILE` env var) tells follow-up commands which session to use.
+Without `-s`, commands pick the most recently modified session file — convenient for
+single-operator use but ambiguous with multiple agents.
+
+For Claude Code subagents, set `DEBUG_SESSION_FILE` in the agent's environment:
+```bash
+DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py start gmail_compose_new
+DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py check
+```
 
 ## Common Issues Checklist
 

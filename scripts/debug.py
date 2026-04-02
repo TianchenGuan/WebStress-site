@@ -16,6 +16,14 @@ Usage:
   python debug.py state                               Dump all server state
   python debug.py check                               Run eval checks
   python debug.py batch [task_id ...] [-w N]          Parallel quick-test
+
+Parallel agents (each gets its own isolated session automatically):
+  python debug.py start gmail_compose_new             # writes scripts/.debug_gmail_compose_new.json
+  python debug.py -s scripts/.debug_gmail_compose_new.json see /inbox
+  python debug.py -s scripts/.debug_gmail_compose_new.json check
+
+Or use the env var:
+  DEBUG_SESSION_FILE=/tmp/agent_1.json python debug.py start ...
 """
 
 import argparse
@@ -101,6 +109,10 @@ ROBINHOOD = EnvConfig(
 
 ENVS = {"gmail": GMAIL, "robinhood": ROBINHOOD, "rh": ROBINHOOD}
 
+# Set by --session / -s CLI flag or DEBUG_SESSION_FILE env var.
+# When set, ALL commands use this file instead of the env-default.
+_SESSION_OVERRIDE: str | None = os.environ.get("DEBUG_SESSION_FILE")
+
 
 def _detect_env(task_id: str | None) -> EnvConfig:
     """Auto-detect environment from task_id prefix."""
@@ -114,10 +126,14 @@ def _detect_env(task_id: str | None) -> EnvConfig:
 # ── session helpers ─────────────────────────────────────────────────────
 
 def _sf(env: EnvConfig) -> Path:
-    override = os.environ.get("DEBUG_SESSION_FILE")
-    if override:
-        return Path(override)
+    if _SESSION_OVERRIDE:
+        return Path(_SESSION_OVERRIDE)
     return Path(env.session_file)
+
+
+def _sf_for_task(task_id: str) -> Path:
+    """Generate a unique, collision-free session file path from task_id."""
+    return Path(f"scripts/.debug_{task_id}.json")
 
 
 def _save(env: EnvConfig, d: dict):
@@ -132,20 +148,34 @@ def _load(env: EnvConfig) -> dict:
 
 
 def _load_any() -> tuple[dict, EnvConfig]:
-    """Load session from whichever env file exists, or fail."""
-    override = os.environ.get("DEBUG_SESSION_FILE")
-    if override:
-        p = Path(override)
+    """Load session from override path or most-recent env default, or fail."""
+    if _SESSION_OVERRIDE:
+        p = Path(_SESSION_OVERRIDE)
         if p.exists():
             data = json.loads(p.read_text())
             env_name = data.get("env", "gmail")
             return data, ENVS.get(env_name, GMAIL)
+        sys.exit(f"Session file not found: {p}\nRun: debug.py start <task_id>")
 
+    # No override — find the most recently modified session file
+    candidates = []
     for cfg in (GMAIL, ROBINHOOD):
         sf = Path(cfg.session_file)
         if sf.exists():
-            data = json.loads(sf.read_text())
-            return data, cfg
+            candidates.append((sf.stat().st_mtime, sf, cfg))
+    # Also check task-scoped session files (scripts/.debug_<task_id>.json)
+    for sf in Path("scripts").glob(".debug_*.json"):
+        data = json.loads(sf.read_text())
+        env_name = data.get("env", "gmail")
+        cfg = ENVS.get(env_name, GMAIL)
+        candidates.append((sf.stat().st_mtime, sf, cfg))
+
+    if candidates:
+        candidates.sort(reverse=True)  # most recent first
+        _, sf, cfg = candidates[0]
+        data = json.loads(sf.read_text())
+        return data, cfg
+
     sys.exit("No session. Run: debug.py start <task_id>")
 
 
@@ -156,9 +186,12 @@ def _sid_and_env() -> tuple[str, EnvConfig]:
     return data["session_id"], env
 
 
-def _artifact_stem(env: EnvConfig) -> str:
+def _artifact_stem(env: EnvConfig, task_id: str | None = None) -> str:
+    """Unique stem for screenshots/trees. Uses task_id when available."""
+    if task_id:
+        return task_id
     sf = _sf(env)
-    stem = sf.stem.lstrip(".")
+    stem = sf.stem.lstrip(".").removeprefix("debug_")
     return stem or "session"
 
 
@@ -214,7 +247,7 @@ def see(path=None):
         page.goto(url, wait_until="networkidle", timeout=15000)
         time.sleep(1)
 
-        stem = _artifact_stem(env)
+        stem = _artifact_stem(env, st.get("task_id"))
         ss = DIR / f"{stem}_current.png"
         page.screenshot(path=str(ss), full_page=True)
 
@@ -325,8 +358,19 @@ def check():
 # ── start ───────────────────────────────────────────────────────────────
 
 def start(task_id, seed=42, variant_filename=None, env_override=None):
-    """Create a session and take initial screenshot."""
+    """Create a session and take initial screenshot.
+
+    When no --session / DEBUG_SESSION_FILE is set, auto-generates a
+    task-scoped session file (scripts/.debug_<task_id>.json) so that
+    parallel starts never collide.
+    """
+    global _SESSION_OVERRIDE
     env = ENVS.get(env_override, _detect_env(task_id)) if env_override else _detect_env(task_id)
+
+    # Auto-generate a collision-free session file when no override is set
+    if not _SESSION_OVERRIDE:
+        auto_path = _sf_for_task(task_id)
+        _SESSION_OVERRIDE = str(auto_path)
 
     body = {"task_id": task_id, "seed": seed}
     if variant_filename:
@@ -346,9 +390,14 @@ def start(task_id, seed=42, variant_filename=None, env_override=None):
         "seed": seed,
     })
 
+    sf = _sf(env)
     print(f"ENV: {env.name}")
     print(f"SESSION: {sid}")
+    print(f"SESSION_FILE: {sf}")
     print(f"TASK: {resp['instruction']}")
+    print(f"\nFor subsequent commands, use:")
+    print(f"  python scripts/debug.py -s {sf} see /inbox")
+    print(f"  python scripts/debug.py -s {sf} check")
 
     see()
     return sid
@@ -478,8 +527,11 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False, env_
 # ── main ────────────────────────────────────────────────────────────────
 
 def main():
+    global _SESSION_OVERRIDE
+
     p = argparse.ArgumentParser(description="WebAgentBench task debugger")
     p.add_argument("--env", choices=["gmail", "robinhood", "rh"], help="Force environment (auto-detected from task_id if omitted)")
+    p.add_argument("-s", "--session", help="Session file path (isolates parallel agents)")
     sub = p.add_subparsers(dest="cmd")
 
     s = sub.add_parser("start");  s.add_argument("task_id"); s.add_argument("--seed", type=int, default=42); s.add_argument("--variant")
@@ -490,6 +542,11 @@ def main():
     s = sub.add_parser("batch");  s.add_argument("task_ids", nargs="*"); s.add_argument("-w", "--workers", type=int, default=8); s.add_argument("--include-variants", action="store_true"); s.add_argument("--variants-only", action="store_true")
 
     args = p.parse_args()
+
+    # CLI flag takes precedence over env var
+    if args.session:
+        _SESSION_OVERRIDE = args.session
+
     env_flag = getattr(args, "env", None)
 
     if args.cmd == "start":   start(args.task_id, args.seed, args.variant, env_override=env_flag)
