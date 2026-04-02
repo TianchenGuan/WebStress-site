@@ -49,6 +49,10 @@ seed:
     params:
       include_1099b: true
       discrepancy_count: 2
+      symbols:
+      - AAPL
+      - TSLA
+      - MSFT
     outputs:
     - discrepancy_symbols
     - reported_cost_bases
@@ -64,6 +68,8 @@ eval:
   checks:
   - expr: state.tax_document_for_year() is not None
     desc: A seeded tax document is available for review
+  - expr: any(sym in state.owned_symbols() for sym in {target.discrepancy_symbols})
+    desc: At least one discrepancy symbol is still held in the portfolio
   - expr: all(any(a.symbol == sym for a in state.price_alerts) for sym in {target.discrepancy_symbols}
       if sym in state.owned_symbols())
     desc: Every discrepancy symbol still held in the portfolio has a price alert

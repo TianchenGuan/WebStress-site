@@ -75,8 +75,9 @@ eval:
     desc: All notifications were marked as read
   - expr: state.watchlist_named('Corporate Actions Watch') is not None
     desc: A watchlist named "Corporate Actions Watch" was created
-  - expr: all(sym in state.watchlist_symbols('Corporate Actions Watch') for sym in
-      state.corporate_action_symbols() if sym in state.owned_symbols())
+  - expr: state.watchlist_named('Corporate Actions Watch') is not None and all(sym
+      in state.watchlist_symbols('Corporate Actions Watch') for sym in state.corporate_action_symbols()
+      if sym in state.owned_symbols())
     desc: All owned stocks with upcoming corporate actions were added to the watchlist
   negative_checks:
   - expr: not any(o.side == 'sell' and o.symbol != state.worst_position_symbol() for
