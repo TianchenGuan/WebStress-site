@@ -542,6 +542,9 @@ async def redirect_env_root(env_id: str, request: Request):
     dev_url = _env_dev_base_url(env_id)
     if dev_url:
         return RedirectResponse(url=_join_public_base_url(dev_url, query=request.url.query), status_code=307)
+    # If a session is attached, serve the SPA so the environment can load
+    if request.query_params.get("session"):
+        return _serve_env_html(env_id)
     return RedirectResponse(url="/", status_code=302)
 
 
@@ -553,8 +556,10 @@ async def serve_environment_spa(env_id: str, request: Request, path: str = ""):
     dev_url = _env_dev_base_url(env_id)
     if dev_url:
         return RedirectResponse(url=_join_public_base_url(dev_url, path=path, query=request.url.query), status_code=307)
-    # Bare /env/gmail/ (trailing slash, empty path) → redirect to home launcher
+    # Bare /env/gmail/ (trailing slash, empty path) → serve SPA if session attached, else redirect to launcher
     if not path:
+        if request.query_params.get("session"):
+            return _serve_env_html(env_id)
         return RedirectResponse(url="/", status_code=302)
     return _serve_env_html(env_id)
 
