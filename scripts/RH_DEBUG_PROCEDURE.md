@@ -17,12 +17,14 @@ cd webagentbench/environments/robinhood && npx vite build && cd -
 
 ## Phase 1: Batch Smoke Test
 
-Run all 65 tasks in parallel to catch crashes and vacuous checks:
+Run the Robinhood task set and/or the RH variants in parallel to catch crashes and vacuous checks:
 
 ```bash
 python scripts/rh_debug.py batch                # all tasks, 8 workers (default)
 python scripts/rh_debug.py batch -w 16          # more workers for faster runs
 python scripts/rh_debug.py batch rh_foo rh_bar  # specific tasks only
+python scripts/rh_debug.py batch --include-variants
+python scripts/rh_debug.py batch --variants-only -w 24
 ```
 
 This creates a session for each task, runs eval checks, and flags:
@@ -43,7 +45,7 @@ python scripts/rh_debug.py start rh_check_buying_power
 ```
 
 This creates the session, screenshots the home page, and prints the a11y tree.
-Read the screenshot (`scripts/debug_screenshots/_current.png`) to verify the UI renders.
+Read the screenshot (`scripts/debug_screenshots/<session_file_stem>_current.png`) to verify the UI renders.
 
 ### Step 2: Navigate and observe key pages
 
@@ -51,11 +53,13 @@ Read the screenshot (`scripts/debug_screenshots/_current.png`) to verify the UI 
 python scripts/rh_debug.py see /stocks/AAPL        # Stock detail
 python scripts/rh_debug.py see /orders              # Orders page
 python scripts/rh_debug.py see /notifications       # Notifications
+python scripts/rh_debug.py see /alerts              # Price alerts
 python scripts/rh_debug.py see /account             # Settings
 python scripts/rh_debug.py see /options/positions    # Options positions
 python scripts/rh_debug.py see /recurring            # Recurring investments
 python scripts/rh_debug.py see /transfers            # Transfers
 python scripts/rh_debug.py see /tax                  # Tax center
+python scripts/rh_debug.py see '/alerts?symbol=AAPL' # Query-string paths also work
 ```
 
 Check for:
@@ -101,10 +105,10 @@ python scripts/rh_debug.py act recurring '{"symbol":"VTI","amount":"200","freque
 python scripts/rh_debug.py act orders/ord_1/cancel '{}'
 
 # Delete a price alert
-# (use DELETE via curl: curl -X DELETE ".../alerts/alert_1?session_id=...")
+python scripts/rh_debug.py act alerts/alert_1 '{}' --method DELETE
 
 # Update settings (e.g. enable 2FA)
-# python scripts/rh_debug.py act settings '{"two_factor_method":"authenticator"}'
+python scripts/rh_debug.py act settings '{"two_factor_method":"authenticator"}' --method PUT
 ```
 
 ### Step 5: Verify with eval checks
@@ -158,13 +162,14 @@ Sessions are server-side isolated — each `start` creates an independent sessio
 ## After Fixes
 
 ```bash
-# Always restart server after editing YAML
+# Always restart server after editing Python or YAML
 lsof -i :8080 -t | xargs kill 2>/dev/null; sleep 1
 python -m webagentbench.app --host 127.0.0.1 --port 8080 &
 sleep 3
 
-# Re-run batch to confirm
+# Re-run the relevant sweep to confirm
 python scripts/rh_debug.py batch
+python scripts/rh_debug.py batch --variants-only -w 24
 
 # Commit
 git add -A && git commit -m "fix(robinhood): ..."
