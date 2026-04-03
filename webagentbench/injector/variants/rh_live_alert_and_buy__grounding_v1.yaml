@@ -1,0 +1,32 @@
+variant_id: rh_live_alert_and_buy__grounding_v1
+base_task_id: rh_live_alert_and_buy
+target_primitive: grounding
+description: >
+  Noise orders for similar symbols (AAPLX, AAPL-related) and a misleading
+  alert for AAPL above $195 distract the agent from the correct below-$182
+  alert trigger and market buy workflow.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+    - symbol: AAPL
+      side: buy
+      order_type: limit
+      quantity: 10
+      limit_price: "175.00"
+      time_in_force: gtc
+      status: pending
+    - symbol: TSLA
+      side: buy
+      order_type: market
+      quantity: 5
+      status: pending
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alerts:
+    - symbol: AAPL
+      condition: above
+      target_price: 195.00
+      message: "AAPL surging — consider buying before it goes higher"

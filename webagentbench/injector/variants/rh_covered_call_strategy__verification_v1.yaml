@@ -1,0 +1,32 @@
+variant_id: rh_covered_call_strategy__verification_v1
+base_task_id: rh_covered_call_strategy
+target_primitive: verification
+description: >
+  Silent fail on the first options order submission. The server returns a fake
+  filled covered call order with a single sell-call leg for AAPL at a strike
+  ~10% above current, but the order is never recorded. Agent must verify the
+  options order history and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/options/orders"
+    methods: ["POST"]
+    response_body:
+      order:
+        id: "opt_fake_001"
+        strategy: "covered_call"
+        status: "filled"
+        created_at: "2026-04-02T14:30:00Z"
+        filled_at: "2026-04-02T14:30:01Z"
+        legs:
+          - underlying_symbol: "AAPL"
+            side: "sell"
+            option_type: "call"
+            strike: "210.00"
+            expiration: "2026-05-02"
+            quantity: 1
+            premium: "4.85"
+    fail_count: 1
+    behavior:
+      mode: once

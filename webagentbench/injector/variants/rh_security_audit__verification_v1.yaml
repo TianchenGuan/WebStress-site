@@ -1,0 +1,24 @@
+variant_id: rh_security_audit__verification_v1
+base_task_id: rh_security_audit
+target_primitive: verification
+description: >
+  The 2FA enable request returns fake success but the setting is not persisted.
+  The agent must verify that two_factor_method actually changed to authenticator
+  and retry if it remains unchanged.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/security/2fa"
+    methods: ["PUT", "PATCH"]
+    response_body:
+      display_theme: "light"
+      default_order_type: "market"
+      reinvest_dividends: true
+      extended_hours_enabled: false
+      biometric_login: false
+      two_factor_method: "authenticator"
+      notification_prefs: {}
+    fail_count: 1
+    behavior:
+      mode: once

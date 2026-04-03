@@ -1,0 +1,24 @@
+variant_id: rh_cross_reference_1099__verification_v1
+base_task_id: rh_cross_reference_1099
+target_primitive: verification
+description: >
+  Silent fail on the first price alert creation -- server returns a fake
+  success with a plausible alert object for AAPL, but no alert is persisted.
+  Agent must verify alerts were actually created and retry the failed one.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/alerts"
+    methods: ["POST"]
+    response_body:
+      success: true
+      alert:
+        id: "alert_fake_1099"
+        symbol: "AAPL"
+        condition: "above"
+        target_price: "175.50"
+        status: "active"
+    fail_count: 1
+    behavior:
+      mode: once

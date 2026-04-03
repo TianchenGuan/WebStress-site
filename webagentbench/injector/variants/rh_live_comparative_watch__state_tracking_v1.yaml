@@ -1,0 +1,34 @@
+variant_id: rh_live_comparative_watch__state_tracking_v1
+base_task_id: rh_live_comparative_watch
+target_primitive: state_tracking
+description: >
+  Confusing positions in similar symbols and distractor notifications about
+  price movements make it harder to correctly track relative performance
+  between AAPL and MSFT. The agent must compute percentage changes
+  accurately despite noise.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_positions
+    positions:
+    - symbol: GOOGL
+      quantity: 8
+      cost_basis: "175.00"
+      sector: Technology
+    - symbol: TSLA
+      quantity: 3
+      cost_basis: "260.00"
+      sector: Technology
+- layer: server
+  params:
+    action: inject_distractor_notifications
+    notifications:
+    - title: "Price Alert: MSFT"
+      message: "MSFT up 3.2% today — outperforming the sector"
+      type: alert
+    - title: "Portfolio Update"
+      message: "Your tech holdings are up 2.5% overall today"
+      type: system
+    - title: "Price Alert: GOOGL"
+      message: "GOOGL surging 4.1% — consider rotating from underperformers"
+      type: alert

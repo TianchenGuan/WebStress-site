@@ -1,0 +1,34 @@
+variant_id: rh_limit_order_with_check__grounding_v1
+base_task_id: rh_limit_order_with_check
+target_primitive: grounding
+description: >
+  Pending noise orders for confusingly similar symbols (AMZN vs AMZ, AMGN)
+  and a misleading alert make it harder to identify the correct symbol and
+  confirm the right order was placed.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+    - symbol: AMGN
+      side: buy
+      order_type: limit
+      quantity: 10
+      limit_price: "260.00"
+      time_in_force: gtc
+      status: pending
+    - symbol: AMZN
+      side: sell
+      order_type: limit
+      quantity: 5
+      limit_price: "200.00"
+      time_in_force: day
+      status: pending
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alerts:
+    - symbol: AMZN
+      condition: below
+      target_price: 170.00
+      message: "AMZN dropped below your buy target — consider placing a market order now"

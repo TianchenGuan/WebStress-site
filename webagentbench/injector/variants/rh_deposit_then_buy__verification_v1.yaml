@@ -1,0 +1,25 @@
+variant_id: rh_deposit_then_buy__verification_v1
+base_task_id: rh_deposit_then_buy
+target_primitive: verification
+description: >
+  Silent fail on the first buy order for VTI -- server returns a fake success
+  showing a filled market buy, but the order is not persisted. Agent must
+  verify the order exists in order history and retry the purchase.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body:
+      success: true
+      order:
+        id: "ord_fake_vti"
+        symbol: "VTI"
+        side: "buy"
+        order_type: "market"
+        dollar_amount: 1500.00
+        status: "filled"
+    fail_count: 1
+    behavior:
+      mode: once

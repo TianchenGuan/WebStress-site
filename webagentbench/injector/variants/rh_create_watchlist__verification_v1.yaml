@@ -1,0 +1,22 @@
+variant_id: rh_create_watchlist__verification_v1
+base_task_id: rh_create_watchlist
+target_primitive: verification
+description: >
+  Silent fail on the first watchlist creation call -- server returns a fake
+  success with a plausible watchlist object, but the watchlist is not actually
+  persisted. Agent must verify the watchlist exists and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/watchlists"
+    methods: ["POST"]
+    response_body:
+      success: true
+      watchlist:
+        id: "wl_fake_001"
+        name: "Dividend Kings"
+        symbols: ["KO", "PG", "JNJ"]
+    fail_count: 1
+    behavior:
+      mode: once

@@ -1,0 +1,24 @@
+variant_id: rh_dividend_reinvestment_analysis__verification_v1
+base_task_id: rh_dividend_reinvestment_analysis
+target_primitive: verification
+description: >
+  Silent fail on the first recurring investment setup -- server returns a
+  fake success showing an active weekly $50 recurring buy, but it is not
+  persisted. Agent must verify the recurring investment appears in account
+  settings and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/recurring"
+    methods: ["POST"]
+    response_body:
+      recurring:
+        id: "rec_fake_001"
+        symbol: "KO"
+        frequency: "weekly"
+        amount: 50.00
+        status: "active"
+    fail_count: 1
+    behavior:
+      mode: once

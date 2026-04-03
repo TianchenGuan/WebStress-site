@@ -1,0 +1,33 @@
+variant_id: rh_options_roll_strategy__state_tracking_v1
+base_task_id: rh_options_roll_strategy
+target_primitive: state_tracking
+description: >
+  Confusing existing MSFT call positions at nearby strikes and expirations
+  make it harder for the agent to identify the specific expiring covered
+  call that needs to be rolled versus other open positions.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_positions
+    positions:
+    - symbol: MSFT
+      option_type: call
+      side: sell
+      strike: "365.00"
+      expiration: "2025-05-16"
+      quantity: 1
+      average_cost: "7.20"
+    - symbol: MSFT
+      option_type: call
+      side: sell
+      strike: "370.00"
+      expiration: "2025-06-20"
+      quantity: 1
+      average_cost: "5.40"
+    - symbol: MSFT
+      option_type: call
+      side: buy
+      strike: "355.00"
+      expiration: "2025-05-09"
+      quantity: 2
+      average_cost: "8.90"

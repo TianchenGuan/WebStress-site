@@ -1,0 +1,18 @@
+variant_id: rh_live_intraday_reversal__state_tracking_v1
+base_task_id: rh_live_intraday_reversal
+target_primitive: state_tracking
+description: >
+  Noise orders for unrelated symbols and confusing positions clutter the
+  account state. The agent must track NVDA's price trajectory and ignore
+  the distractor activity when deciding to buy 5 shares at the reversal.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    symbols: ["AAPL", "MSFT", "TSLA"]
+    count: 4
+- layer: seed
+  params:
+    action: add_confusing_positions
+    symbols: ["AMD", "INTC"]
+    quantities: [10, 15]

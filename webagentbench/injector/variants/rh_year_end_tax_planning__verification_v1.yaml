@@ -1,0 +1,26 @@
+variant_id: rh_year_end_tax_planning__verification_v1
+base_task_id: rh_year_end_tax_planning
+target_primitive: verification
+description: >
+  The first sell order and the first recurring investment creation both
+  return fake successes but are never applied. Agent must verify each
+  write took effect and retry the ones that silently failed.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"success": true, "order": {"id": "fake_order_004", "side": "sell", "status": "filled", "symbol": "INTC", "quantity": 40}}
+    fail_count: 1
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/recurring"
+    methods: ["POST"]
+    response_body: {"recurring": {"id": "fake_ri_003", "symbol": "INTC", "amount": 100, "frequency": "monthly", "status": "active"}}
+    fail_count: 1
+    behavior:
+      mode: once

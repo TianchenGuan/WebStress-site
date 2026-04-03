@@ -1,0 +1,17 @@
+variant_id: rh_transfer_history_audit__verification_v1
+base_task_id: rh_transfer_history_audit
+target_primitive: verification
+description: >
+  The first recurring investment setup call returns a fake success, but
+  the investment is never created. Agent must verify the recurring
+  investment exists in its list and retry when it is missing.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/recurring"
+    methods: ["POST"]
+    response_body: {"recurring": {"id": "fake_ri_002", "symbol": "VTI", "amount": 200, "frequency": "weekly", "status": "active"}}
+    fail_count: 1
+    behavior:
+      mode: once

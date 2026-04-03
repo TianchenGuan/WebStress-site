@@ -1,0 +1,24 @@
+variant_id: rh_find_earnings_and_alert__verification_v1
+base_task_id: rh_find_earnings_and_alert
+target_primitive: verification
+description: >
+  Silent fail on the first price alert creation -- server returns a fake
+  success with a plausible alert for the first earnings stock, but it is
+  not persisted. Agent must verify the alert was actually created and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/alerts"
+    methods: ["POST"]
+    response_body:
+      success: true
+      alert:
+        id: "alert_fake_earn"
+        symbol: "AAPL"
+        condition: "below"
+        target_price: "170.25"
+        status: "active"
+    fail_count: 1
+    behavior:
+      mode: once

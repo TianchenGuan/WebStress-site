@@ -1,0 +1,32 @@
+variant_id: rh_deposit_then_buy__planning_v1
+base_task_id: rh_deposit_then_buy
+target_primitive: planning
+description: >
+  Noise orders for SPY and QQQ are pre-seeded to suggest recent trading
+  activity, and order timestamps are scrambled. Agent must plan the correct
+  two-step sequence (deposit first, then buy) without being distracted by
+  the existing order clutter or confused about execution order.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+      - symbol: "SPY"
+        side: "buy"
+        order_type: "market"
+        dollar_amount: 2000.00
+        status: "filled"
+      - symbol: "QQQ"
+        side: "buy"
+        order_type: "limit"
+        dollar_amount: 1500.00
+        status: "cancelled"
+      - symbol: "VTI"
+        side: "sell"
+        order_type: "market"
+        quantity: "5"
+        status: "filled"
+- layer: server
+  params:
+    action: scramble_order_timestamps
+    seed: 55

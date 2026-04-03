@@ -1,0 +1,18 @@
+variant_id: rh_sector_concentration__verification_v1
+base_task_id: rh_sector_concentration
+target_primitive: verification
+description: >
+  The first sell order for the overweight tech stock returns fake success but
+  is not placed, so the portfolio concentration remains unchanged. The agent
+  must verify the sell order exists and the tech percentage dropped before
+  proceeding to buy SCHD.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"success": true, "order": {"id": "fake_sector", "status": "filled", "side": "sell"}}
+    fail_count: 1
+    behavior:
+      mode: once

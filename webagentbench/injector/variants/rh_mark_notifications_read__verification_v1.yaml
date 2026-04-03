@@ -1,0 +1,18 @@
+variant_id: rh_mark_notifications_read__verification_v1
+base_task_id: rh_mark_notifications_read
+target_primitive: verification
+description: >
+  The mark-all-as-read endpoint silently fails — the server returns a
+  fake success response but notifications remain unread. The agent must
+  verify that all notifications are actually marked read and retry the
+  action if they are not.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/notifications/**"
+    methods: ["POST", "PUT", "PATCH"]
+    response_body: {"success": true, "message": "All notifications marked as read"}
+    fail_count: 1
+    behavior:
+      mode: once

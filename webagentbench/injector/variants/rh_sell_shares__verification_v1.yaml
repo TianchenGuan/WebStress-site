@@ -1,0 +1,17 @@
+variant_id: rh_sell_shares__verification_v1
+base_task_id: rh_sell_shares
+target_primitive: verification
+description: >
+  The sell-order submission returns fake success but the order is not placed.
+  The agent must verify the order actually appears in the order book and retry
+  if TSLA shares are still held.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"success": true, "order": {"id": "fake_tsla_sell", "status": "filled", "side": "sell", "symbol": "TSLA", "quantity": 5}}
+    fail_count: 1
+    behavior:
+      mode: once

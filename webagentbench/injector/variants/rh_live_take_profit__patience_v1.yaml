@@ -1,0 +1,30 @@
+variant_id: rh_live_take_profit__patience_v1
+base_task_id: rh_live_take_profit
+target_primitive: patience
+description: >
+  The order submission endpoint returns 503 errors on the first two
+  attempts before succeeding. The agent must patiently retry placing the
+  TSLA limit sell at $260 rather than giving up or changing the strategy.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    error_status: 503
+    error_count: 2
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/positions"
+    delay_ms: 2000
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 2
+      - delay_ms: 2500
+        after_call: 5
+      - delay_ms: 1500

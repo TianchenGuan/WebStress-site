@@ -1,0 +1,25 @@
+variant_id: rh_deposit_funds__verification_v1
+base_task_id: rh_deposit_funds
+target_primitive: verification
+description: >
+  Silent fail on the first deposit transfer -- server returns a fake success
+  showing a $500 deposit from Chase Checking (****4521) as pending, but the
+  transfer is not actually created. Agent must verify the transfer exists
+  and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/transfers"
+    methods: ["POST"]
+    response_body:
+      success: true
+      transfer:
+        id: "txfr_fake_dep"
+        direction: "deposit"
+        amount: 500.00
+        status: "pending"
+        bank_account: "Chase Checking (****4521)"
+    fail_count: 1
+    behavior:
+      mode: once

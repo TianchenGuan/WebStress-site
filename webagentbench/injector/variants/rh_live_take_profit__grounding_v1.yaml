@@ -1,0 +1,22 @@
+variant_id: rh_live_take_profit__grounding_v1
+base_task_id: rh_live_take_profit
+target_primitive: grounding
+description: >
+  Misleading alerts suggest TSLA is about to crash and distractor
+  notifications reference conflicting sell targets. The agent must
+  ground its action on the task instruction — limit sell at $260 for
+  all 10 shares — and ignore the noise.
+injections:
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alert:
+      symbol: TSLA
+      condition: below
+      target_price: "200"
+- layer: server
+  params:
+    action: inject_distractor_notifications
+    messages:
+    - "Sell recommendation: TSLA target $210"
+    - "TSLA volatility alert: implied move +/- 12%"

@@ -1,0 +1,29 @@
+variant_id: rh_check_buying_power__verification_v1
+base_task_id: rh_check_buying_power
+target_primitive: verification
+description: >
+  Silent fail on the first market buy order for AAPL. Returns a realistic
+  filled-order response claiming the correct number of shares were purchased
+  at the current price, but the order is never placed. Agent must check the
+  orders page and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body:
+      success: true
+      order:
+        id: "ord_fake_bp01"
+        symbol: "AAPL"
+        side: "buy"
+        order_type: "market"
+        quantity: 15
+        filled_quantity: 15
+        filled_price: "191.55"
+        status: "filled"
+        time_in_force: "gfd"
+    fail_count: 1
+    behavior:
+      mode: once

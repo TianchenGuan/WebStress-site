@@ -1,0 +1,34 @@
+variant_id: rh_compare_dividend_yields__exploration_v1
+base_task_id: rh_compare_dividend_yields
+target_primitive: exploration
+description: >
+  The stock search affordance is hidden behind a context-menu trigger, and
+  distractor notifications about dividend announcements for unrelated stocks
+  clutter the notification center, forcing the agent to explore alternative
+  navigation paths to look up KO, PEP, and PG yields.
+injections:
+- layer: client
+  params:
+    action: hide_affordance
+    selector: 'input[aria-label="Search stocks"]'
+    trigger: contextmenu
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_decoy_notifications
+    decoys:
+      - type: dividend
+        title: "T Dividend Declared"
+        message: "AT&T declared a quarterly dividend of $0.2775 per share (yield 6.8%). Ex-date Apr 8."
+      - type: dividend
+        title: "MO Dividend Increase"
+        message: "Altria Group increased its dividend to $1.02 per share (yield 8.1%). This is the 57th consecutive annual increase."
+      - type: dividend
+        title: "VZ Dividend Payment"
+        message: "Verizon paid $0.6650 per share (yield 6.5%). Next ex-date May 10."
+- layer: server
+  params:
+    action: inject_distractor_notifications
+    count: 5
+    seed: 77

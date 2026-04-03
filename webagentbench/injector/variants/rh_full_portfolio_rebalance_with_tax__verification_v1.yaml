@@ -1,0 +1,27 @@
+variant_id: rh_full_portfolio_rebalance_with_tax__verification_v1
+base_task_id: rh_full_portfolio_rebalance_with_tax
+target_primitive: verification
+description: >
+  Silent fail on the first sell order during rebalancing -- server returns
+  a fake success showing a filled sell, but the order is not persisted.
+  Agent must verify the sell executed before placing subsequent buy orders
+  that depend on the proceeds.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body:
+      success: true
+      order:
+        id: "ord_fake_rebal"
+        symbol: "AAPL"
+        side: "sell"
+        order_type: "market"
+        status: "filled"
+        filled_quantity: "50"
+        filled_price: "178.50"
+    fail_count: 1
+    behavior:
+      mode: once

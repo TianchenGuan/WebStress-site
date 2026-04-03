@@ -1,0 +1,17 @@
+variant_id: rh_sell_loser_buy_winner__verification_v1
+base_task_id: rh_sell_loser_buy_winner
+target_primitive: verification
+description: >
+  The first sell order returns fake success but is not placed. The agent must
+  verify the sell order actually exists before placing the buy order with the
+  expected proceeds.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"success": true, "order": {"id": "fake_sell", "status": "filled", "side": "sell"}}
+    fail_count: 1
+    behavior:
+      mode: once

@@ -1,0 +1,17 @@
+variant_id: rh_portfolio_transition__verification_v1
+base_task_id: rh_portfolio_transition
+target_primitive: verification
+description: >
+  The first limit sell order returns fake success but is never placed. The agent
+  must check that the order appears in the order book before proceeding to the
+  buy-side allocation with the expected proceeds.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"success": true, "order": {"id": "fake_transition", "status": "pending", "side": "sell", "order_type": "limit"}}
+    fail_count: 1
+    behavior:
+      mode: once

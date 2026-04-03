@@ -1,0 +1,20 @@
+variant_id: rh_suspicious_activity_investigation__state_tracking_v1
+base_task_id: rh_suspicious_activity_investigation
+target_primitive: state_tracking
+description: >
+  Decoy security notifications and noise orders muddy the timeline.
+  Agent must carefully track which orders fall inside the suspicious
+  session window versus the injected noise, and avoid cancelling
+  legitimate orders.
+injections:
+- layer: seed
+  params:
+    action: add_decoy_notifications
+    count: 4
+    theme: "security_alert"
+- layer: seed
+  params:
+    action: add_noise_orders
+    count: 3
+    side: "buy"
+    symbols: ["NVDA", "AMD", "PLTR"]

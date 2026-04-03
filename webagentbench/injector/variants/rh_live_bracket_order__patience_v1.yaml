@@ -1,0 +1,35 @@
+variant_id: rh_live_bracket_order__patience_v1
+base_task_id: rh_live_bracket_order
+target_primitive: patience
+description: >
+  Progressive delays on MSFT price reads and order submissions slow the
+  three-leg bracket workflow. The agent must wait for the limit buy to
+  fill before placing the stop-loss and take-profit, all while the price
+  trajectory continues moving.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/stocks/*"
+    delay_ms: 2500
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 2
+      - delay_ms: 4000
+        after_call: 6
+      - delay_ms: 2500
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/orders"
+    delay_ms: 2000
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 1
+      - delay_ms: 3000
+        after_call: 3
+      - delay_ms: 2000

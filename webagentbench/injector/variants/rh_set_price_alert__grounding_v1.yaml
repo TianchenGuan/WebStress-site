@@ -1,0 +1,25 @@
+variant_id: rh_set_price_alert__grounding_v1
+base_task_id: rh_set_price_alert
+target_primitive: grounding
+description: >
+  Misleading price alerts for GOOGL already exist at nearby thresholds,
+  and decoy notifications mention GOOGL price movements. Agent must
+  ground correctly on the exact target price and condition rather than
+  assuming an existing alert already covers the request.
+injections:
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alerts:
+      - symbol: "GOOGL"
+        condition: "below"
+        target_price: 180.00
+      - symbol: "GOOGL"
+        condition: "above"
+        target_price: 175.00
+- layer: seed
+  params:
+    action: add_decoy_notifications
+    count: 3
+    theme: "price_movement"
+    symbols: ["GOOGL"]

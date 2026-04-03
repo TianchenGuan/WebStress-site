@@ -1,0 +1,26 @@
+variant_id: rh_complex_transfer_reconciliation__verification_v1
+base_task_id: rh_complex_transfer_reconciliation
+target_primitive: verification
+description: >
+  Silent fail on the first $2,500 deposit attempt. The server returns a fake
+  pending transfer from the default bank account, but nothing is recorded.
+  Agent must verify the transfer history and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/transfers"
+    methods: ["POST"]
+    response_body:
+      success: true
+      transfer:
+        id: "xfer_fake_001"
+        direction: "deposit"
+        amount: "2500.00"
+        status: "pending"
+        bank_account_id: "bank_default"
+        initiated_at: "2026-04-02T10:15:00Z"
+        expected_date: "2026-04-05"
+    fail_count: 1
+    behavior:
+      mode: once

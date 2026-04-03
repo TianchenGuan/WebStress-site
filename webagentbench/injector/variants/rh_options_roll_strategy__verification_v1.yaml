@@ -1,0 +1,18 @@
+variant_id: rh_options_roll_strategy__verification_v1
+base_task_id: rh_options_roll_strategy
+target_primitive: verification
+description: >
+  Silent fail on the first options order — whether the buy-to-close or
+  sell-to-open leg. Server returns a fake confirmation but the order is
+  not recorded. Agent must verify the roll completed and resubmit the
+  failed leg.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/options/orders"
+    methods: ["POST"]
+    response_body: {"id": "fake_roll_001", "status": "filled", "strategy": "single", "legs": [{"option_type": "call", "side": "buy"}]}
+    fail_count: 1
+    behavior:
+      mode: once

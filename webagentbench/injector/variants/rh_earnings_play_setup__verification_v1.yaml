@@ -1,0 +1,26 @@
+variant_id: rh_earnings_play_setup__verification_v1
+base_task_id: rh_earnings_play_setup
+target_primitive: verification
+description: >
+  Silent fail on the first stop-loss order for AAPL -- server returns a fake
+  success showing a pending stop sell at 8% below current price, but the
+  order is not persisted. Agent must verify the stop-loss exists in open
+  orders and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body:
+      success: true
+      order:
+        id: "ord_fake_stop"
+        symbol: "AAPL"
+        side: "sell"
+        order_type: "stop"
+        stop_price: "160.00"
+        status: "pending"
+    fail_count: 1
+    behavior:
+      mode: once

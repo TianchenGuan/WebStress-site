@@ -1,0 +1,23 @@
+variant_id: rh_add_to_watchlist__grounding_v1
+base_task_id: rh_add_to_watchlist
+target_primitive: grounding
+description: >
+  ARIA labels on interactive elements are scrambled and seed data includes a
+  near-identical "Tech Stocks 2024" watchlist with NVDA already in it, making
+  it harder to identify the correct "Tech Stocks" watchlist to modify.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent
+- layer: seed
+  params:
+    action: add_confusing_positions
+    positions:
+      - symbol: NVDA
+        name: "NVIDIA Corp (duplicate)"
+        price: 878.35
+        quantity: 0
+        cost_basis: 0

@@ -1,0 +1,29 @@
+variant_id: rh_live_multi_stock_limits__patience_v1
+base_task_id: rh_live_multi_stock_limits
+target_primitive: patience
+description: >
+  Order status endpoint returns stale data for the first several polls,
+  showing AAPL and AMZN limit orders as still pending even after their
+  prices have crossed the limit threshold. The agent must keep polling
+  and not prematurely report fill statuses.
+injections:
+- layer: network
+  params:
+    action: stale_data
+    url_pattern: "**/api/env/robinhood/orders"
+    stale_count: 3
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/positions"
+    delay_ms: 2500
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 4
+      - delay_ms: 3500
+        after_call: 8
+      - delay_ms: 2000

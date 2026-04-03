@@ -1,0 +1,17 @@
+variant_id: rh_portfolio_rebalance__verification_v1
+base_task_id: rh_portfolio_rebalance
+target_primitive: verification
+description: >
+  Silent fail on the first equity order submission — server returns a fake
+  filled confirmation but the trade is not recorded. Agent must verify
+  positions or order history and resubmit the failed rebalance trade.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"id": "fake_rebal_001", "side": "sell", "status": "filled", "symbol": "MSFT", "quantity": 10}
+    fail_count: 1
+    behavior:
+      mode: once

@@ -1,0 +1,17 @@
+variant_id: rh_quarterly_performance_review__verification_v1
+base_task_id: rh_quarterly_performance_review
+target_primitive: verification
+description: >
+  The first alert-creation call returns fake success but the price alert is
+  never persisted. The agent must verify that alerts actually exist on the
+  best-performing position and retry if missing.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/alerts"
+    methods: ["POST"]
+    response_body: {"success": true, "alert": {"id": "fake_alert", "status": "active"}}
+    fail_count: 1
+    behavior:
+      mode: once

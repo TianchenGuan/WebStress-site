@@ -1,0 +1,17 @@
+variant_id: rh_live_watch_portfolio__state_tracking_v1
+base_task_id: rh_live_watch_portfolio
+target_primitive: state_tracking
+description: >
+  Shuffled positions and confusing extra holdings make it harder to
+  identify which position has the best total return percentage. The
+  agent must accurately track each position's performance across the
+  reshuffled portfolio to sell the correct winner.
+injections:
+- layer: server
+  params:
+    action: shuffle_positions
+- layer: seed
+  params:
+    action: add_confusing_positions
+    symbols: ["GOOG", "AMZN", "META"]
+    quantities: [1, 1, 1]

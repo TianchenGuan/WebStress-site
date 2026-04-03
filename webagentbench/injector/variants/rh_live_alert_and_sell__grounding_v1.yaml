@@ -1,0 +1,34 @@
+variant_id: rh_live_alert_and_sell__grounding_v1
+base_task_id: rh_live_alert_and_sell
+target_primitive: grounding
+description: >
+  Noise orders for TSLA and a misleading alert suggesting a buy create
+  confusion about which direction to trade. The agent must correctly
+  sell on the above-$270 trigger and not be lured into buying.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+    - symbol: TSLA
+      side: buy
+      order_type: limit
+      quantity: 3
+      limit_price: "255.00"
+      time_in_force: gtc
+      status: pending
+    - symbol: MSFT
+      side: sell
+      order_type: limit
+      quantity: 5
+      limit_price: "410.00"
+      time_in_force: day
+      status: pending
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alerts:
+    - symbol: TSLA
+      condition: below
+      target_price: 240.00
+      message: "TSLA dipping — great buying opportunity, consider adding to position"

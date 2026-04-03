@@ -1,0 +1,36 @@
+variant_id: rh_find_earnings_and_alert__state_tracking_v1
+base_task_id: rh_find_earnings_and_alert
+target_primitive: state_tracking
+description: >
+  Confusing extra positions are added (stocks that do NOT have upcoming
+  earnings but have similar tickers), and distractor notifications about
+  past earnings flood the feed. Agent must track which specific portfolio
+  stocks have earnings in the next 7 days without conflating them with
+  the noise.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_positions
+    positions:
+      - symbol: "AMD"
+        quantity: "30"
+        cost_basis: "145.00"
+      - symbol: "INTC"
+        quantity: "50"
+        cost_basis: "32.00"
+      - symbol: "NFLX"
+        quantity: "10"
+        cost_basis: "620.00"
+- layer: server
+  params:
+    action: inject_distractor_notifications
+    notifications:
+      - title: "MSFT earnings reported"
+        body: "Microsoft reported Q2 earnings last week. EPS beat by $0.12."
+        category: earnings
+      - title: "NVDA earnings preview"
+        body: "Analysts expect NVDA to report strong AI-driven revenue growth."
+        category: earnings
+      - title: "Earnings calendar update"
+        body: "12 stocks in the S&P 500 report earnings this week."
+        category: market

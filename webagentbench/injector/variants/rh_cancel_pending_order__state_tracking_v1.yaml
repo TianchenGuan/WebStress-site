@@ -1,0 +1,32 @@
+variant_id: rh_cancel_pending_order__state_tracking_v1
+base_task_id: rh_cancel_pending_order
+target_primitive: state_tracking
+description: >
+  Order timestamps are scrambled so the pending orders appear in an unexpected
+  chronological order, and additional noise orders for MSFT (filled and
+  cancelled) are injected, making it harder to identify the correct pending
+  MSFT limit order among several MSFT entries.
+injections:
+- layer: server
+  params:
+    action: scramble_order_timestamps
+    seed: 42
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+      - symbol: MSFT
+        side: buy
+        order_type: limit
+        quantity: 10
+        limit_price: 395.00
+      - symbol: MSFT
+        side: sell
+        order_type: market
+        quantity: 5
+        limit_price: null
+      - symbol: MSFT
+        side: buy
+        order_type: stop
+        quantity: 8
+        limit_price: null

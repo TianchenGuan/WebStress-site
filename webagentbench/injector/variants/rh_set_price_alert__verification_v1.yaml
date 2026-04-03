@@ -1,0 +1,17 @@
+variant_id: rh_set_price_alert__verification_v1
+base_task_id: rh_set_price_alert
+target_primitive: verification
+description: >
+  The first price alert creation call returns a fake success response
+  with a plausible alert object, but the alert is never actually saved.
+  Agent must verify the alert appears in its alerts list and retry.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/alerts"
+    methods: ["POST"]
+    response_body: {"success": true, "alert": {"id": "fake_alert_001", "symbol": "GOOGL", "condition": "above", "target_price": 180.00, "status": "active"}}
+    fail_count: 1
+    behavior:
+      mode: once

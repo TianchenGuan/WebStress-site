@@ -1,0 +1,34 @@
+variant_id: rh_live_alert_and_sell__patience_v1
+base_task_id: rh_live_alert_and_sell
+target_primitive: patience
+description: >
+  Progressive delays on TSLA price reads and position queries slow down
+  the alert monitoring loop. The agent must wait for the price to rally
+  above $270 despite sluggish data refreshes, without selling prematurely.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/stocks/*"
+    delay_ms: 2000
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 2
+      - delay_ms: 3500
+        after_call: 6
+      - delay_ms: 2500
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/positions"
+    delay_ms: 1500
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1000
+        after_call: 1
+      - delay_ms: 2500
+        after_call: 3
+      - delay_ms: 1500

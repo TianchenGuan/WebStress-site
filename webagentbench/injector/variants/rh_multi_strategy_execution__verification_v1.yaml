@@ -1,0 +1,27 @@
+variant_id: rh_multi_strategy_execution__verification_v1
+base_task_id: rh_multi_strategy_execution
+target_primitive: verification
+description: >
+  Silent fail on the first equity sell order (tax-loss harvest) and the
+  first options order (collar setup). Server returns fake confirmations
+  but neither order is recorded. Agent must verify order history and retry
+  both actions.
+injections:
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/orders"
+    methods: ["POST"]
+    response_body: {"id": "fake_sell_001", "side": "sell", "status": "filled", "symbol": "INTC"}
+    fail_count: 1
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/robinhood/options/orders"
+    methods: ["POST"]
+    response_body: {"id": "fake_collar_001", "strategy": "collar", "status": "confirmed"}
+    fail_count: 1
+    behavior:
+      mode: once

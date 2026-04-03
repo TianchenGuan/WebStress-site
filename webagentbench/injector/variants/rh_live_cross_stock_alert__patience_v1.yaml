@@ -1,0 +1,44 @@
+variant_id: rh_live_cross_stock_alert__patience_v1
+base_task_id: rh_live_cross_stock_alert
+target_primitive: patience
+description: >
+  Progressive delays on price reads for both XOM and CVX, plus transient
+  errors on alert checks, slow down the dual-alert monitoring loop.
+  The agent must wait for both alerts to trigger before executing the
+  pairs trade, despite sluggish polling.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/stocks/*"
+    delay_ms: 3000
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 2000
+        after_call: 3
+      - delay_ms: 4500
+        after_call: 8
+      - delay_ms: 3000
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: "**/api/env/robinhood/alerts"
+    error_status: 502
+    error_count: 2
+    behavior:
+      mode: once
+      message: Alert service temporarily degraded
+- layer: network
+  params:
+    action: delay
+    url_pattern: "**/api/env/robinhood/alerts"
+    delay_ms: 2000
+    behavior:
+      mode: progressive
+      stages:
+      - delay_ms: 1500
+        after_call: 2
+      - delay_ms: 3000
+        after_call: 5
+      - delay_ms: 2000
