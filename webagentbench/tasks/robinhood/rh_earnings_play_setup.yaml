@@ -67,7 +67,8 @@ eval:
       * Decimal('1.049') for a in state.price_alerts)
     desc: The target stock has a price alert close to 5% above the current price
   negative_checks:
-  - expr: not any(o.symbol == '{target.symbol}' and o.side == 'buy' for o in state.orders)
+  - expr: not any(o.symbol == '{target.symbol}' and o.side == 'buy' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The task did not prematurely double the target position
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, exploration, grounding by requiring

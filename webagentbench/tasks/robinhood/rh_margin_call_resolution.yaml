@@ -38,6 +38,6 @@ eval:
   checks:
     - expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)"
       desc: A sell order exists to cover margin shortfall
-    - expr: "any(t.transfer_type == 'deposit' and t.amount == 500 and t.status in ('completed', 'pending') for t in state.transfers)"
+    - expr: "any(t.direction == 'deposit' and t.amount == 500 and t.status in ('completed', 'pending') for t in state.transfers)"
       desc: A $500 deposit transfer exists
   negative_checks: []

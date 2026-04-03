@@ -58,7 +58,8 @@ eval:
       o in state.orders)
     desc: A take-profit limit sell near $430 was placed after the entry filled
   negative_checks:
-  - expr: not any(o.symbol != 'MSFT' for o in state.orders)
+  - expr: not any(o.symbol != 'MSFT' and not o.id.startswith('ord_decoy_') for o in
+      state.orders)
     desc: The bracket workflow did not place unrelated orders in other symbols
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, patience, verification by requiring

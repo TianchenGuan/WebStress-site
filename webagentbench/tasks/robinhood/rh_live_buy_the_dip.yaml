@@ -49,9 +49,11 @@ eval:
       o.time_in_force == 'gtc' and float(o.limit_price) <= 180.0 for o in state.orders)
     desc: The limit order used the requested $180-or-below GTC price
   negative_checks:
-  - expr: not any(o.order_type == 'market' for o in state.orders)
+  - expr: not any(o.order_type == 'market' and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
     desc: The dip-buy workflow did not use a market order
-  - expr: not any(o.side == 'buy' and o.symbol != 'AAPL' for o in state.orders)
+  - expr: not any(o.side == 'buy' and o.symbol != 'AAPL' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The dip-buy workflow did not buy a different symbol
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, verification by requiring exact completion

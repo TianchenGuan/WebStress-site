@@ -66,14 +66,14 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: all(any(o.id == order_id and o.status == 'cancelled' for o in state.orders)
-      for order_id in {target.suspicious_order_ids})
+  - expr: len({target.suspicious_order_ids}) > 0 and all(any(o.id == order_id and
+      o.status == 'cancelled' for o in state.orders) for order_id in {target.suspicious_order_ids})
     desc: All orders created during the suspicious session window were cancelled
   - expr: state.settings.two_factor_method == 'authenticator'
     desc: Two-factor authentication was enabled with authenticator
   negative_checks:
   - expr: not any(o.status == 'cancelled' and o.id not in {target.suspicious_order_ids}
-      for o in state.orders)
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The investigation did not cancel unrelated orders
 secondary_primitives: []
 primitive_thesis: Measures exploration, state_tracking, verification, planning, backtracking

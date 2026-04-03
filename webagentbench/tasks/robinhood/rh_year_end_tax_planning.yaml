@@ -62,24 +62,27 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)
+  - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: Sell orders exist for year-end harvesting
-  - expr: any(o.side == 'sell' for o in state.orders) and all(o.symbol in {target.loss_symbols}
-      for o in state.orders if o.side == 'sell')
+  - expr: any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)
+      and all(o.symbol in {target.loss_symbols} for o in state.orders if o.side ==
+      'sell' and not o.id.startswith('ord_decoy_'))
     desc: All harvest sells target seeded loss positions
   - expr: not any(o.symbol in {target.recent_buy_symbols} for o in state.orders if
-      o.side == 'sell')
+      o.side == 'sell' and not o.id.startswith('ord_decoy_'))
     desc: No harvest sell violates the wash-sale guardrail
   - expr: all(any(ri.symbol == sym and ri.status == 'active' for ri in state.recurring_investments)
-      for sym in set(o.symbol for o in state.orders if o.side == 'sell'))
+      for sym in set(o.symbol for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')))
     desc: Recurring re-entry investments were created for harvested symbols
   - expr: state.estimated_harvested_loss() >= state.total_realized_gains(gains_only=True)
     desc: The harvested losses are sufficient to offset the seeded realized gains
   negative_checks:
   - expr: not any(ri.symbol not in set(o.symbol for o in state.orders if o.side ==
-      'sell') for ri in state.recurring_investments)
+      'sell' and not o.id.startswith('ord_decoy_')) for ri in state.recurring_investments)
     desc: Re-entry recurring investments were only created for harvested symbols
-  - expr: not any(o.side == 'buy' for o in state.orders)
+  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in
+      state.orders)
     desc: Year-end harvesting did not immediately buy back the sold positions
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, backtracking, verification, patience

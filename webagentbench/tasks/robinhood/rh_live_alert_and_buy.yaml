@@ -53,7 +53,7 @@ eval:
     desc: AAPL was bought near the alert trigger price, not at the starting price
   negative_checks:
   - expr: not any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type != 'market'
-      for o in state.orders)
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The triggered buy used a market order rather than a limit or stop order
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, grounding by requiring exact completion

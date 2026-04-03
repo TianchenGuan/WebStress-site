@@ -50,7 +50,7 @@ eval:
   - expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type == 'market'
       and o.status == 'filled' and o.quantity == 5 for o in state.orders)
     desc: A filled market buy order for 10 shares of NVDA exists
-  - expr: len(state.orders) == 1
+  - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
     desc: Only the intended reversal buy order was placed
   - expr: "all(o.filled_tick is not None and o.filled_tick >= 12 for o in state.orders\
       \ if o.symbol == 'NVDA' and o.side == 'buy' and o.status == 'filled')"
@@ -59,7 +59,8 @@ eval:
       \ if o.symbol == 'NVDA' and o.side == 'buy' and o.status == 'filled')"
     desc: NVDA was bought near the trough, not at the starting price
   negative_checks:
-  - expr: not any(o.order_type == 'limit' and o.symbol == 'NVDA' for o in state.orders)
+  - expr: not any(o.order_type == 'limit' and o.symbol == 'NVDA' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: No limit orders were placed for NVDA (must watch and buy manually)
     penalty: 0.5
 secondary_primitives: []

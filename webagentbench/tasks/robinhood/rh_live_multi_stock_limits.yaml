@@ -72,7 +72,8 @@ eval:
       and o.status == 'pending' for o in state.orders)
     desc: A pending limit buy order for GOOGL still exists (price never reached)
   negative_checks:
-  - expr: not any(o.symbol == 'GOOGL' and o.status == 'filled' for o in state.orders)
+  - expr: not any(o.symbol == 'GOOGL' and o.status == 'filled' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: GOOGL was not incorrectly reported as filled when the price never reached
       the limit
 secondary_primitives: []

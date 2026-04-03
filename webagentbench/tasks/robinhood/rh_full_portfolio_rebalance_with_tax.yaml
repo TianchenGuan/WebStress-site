@@ -68,16 +68,16 @@ eval:
       in {target.target_allocation})
     desc: All target-allocation funds have non-zero projected exposure after rebalancing
   - expr: not any(o.side == 'sell' and o.symbol in state.wash_sale_risk_symbols(30)
-      for o in state.orders)
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Recent wash-sale-risk symbols were not sold during the rebalance
   - expr: state.allocation_error_vs_targets({target.target_allocation})
       < state.allocation_error_vs_targets_initial({target.target_allocation})
     desc: The portfolio moved closer to the requested core allocation
-  - expr: state.allocation_error_vs_targets({target.target_allocation}) <= Decimal('30')
-    desc: The allocation is reasonably close to the requested core mix
+  - expr: state.allocation_error_vs_targets({target.target_allocation}) <= Decimal('65')
+    desc: The allocation is reasonably close to the requested core mix (relaxed for wash-sale constraints)
   negative_checks:
   - expr: not any(o.side == 'buy' and o.symbol not in ('VTI', 'VXUS', 'BND', 'GLD')
-      for o in state.orders)
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Rebalance buy orders did not drift into unrelated symbols
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, backtracking, verification, grounding

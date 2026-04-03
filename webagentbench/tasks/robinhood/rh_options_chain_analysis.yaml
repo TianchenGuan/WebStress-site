@@ -34,15 +34,13 @@ eval:
   source: server_state
   checks:
   - expr: state.highest_open_interest_contract('TSLA', option_type='put', max_days=14)
-      is not None
-    desc: A qualifying TSLA put contract exists in the seeded chain
-  - expr: any(any(leg.underlying_symbol == 'TSLA' and leg.option_type == 'put' and
-      leg.side == 'buy' and leg.strike == state.highest_open_interest_contract('TSLA',
+      is not None and any(any(leg.underlying_symbol == 'TSLA' and leg.option_type
+      == 'put' and leg.side == 'buy' and leg.strike == state.highest_open_interest_contract('TSLA',
       option_type='put', max_days=14).strike and leg.expiration == state.highest_open_interest_contract('TSLA',
       option_type='put', max_days=14).expiration for leg in oo.legs) for oo in state.options_orders)
     desc: A buy order was placed for the exact contract with highest open interest
   negative_checks:
-  - expr: len(state.orders) == 0
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No equity trades were placed during the options task
   - expr: not any(any(leg.underlying_symbol != 'TSLA' for leg in oo.legs) for oo in
       state.options_orders)

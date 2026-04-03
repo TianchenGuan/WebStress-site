@@ -63,7 +63,8 @@ eval:
       \ if o.symbol == 'META' and o.side == 'sell' and o.status == 'filled')"
     desc: META was sold near or below the $480 alert trigger
   negative_checks:
-  - expr: not any(o.symbol == 'META' and o.side == 'buy' for o in state.orders)
+  - expr: not any(o.symbol == 'META' and o.side == 'buy' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The seeded bearish branch did not incorrectly place a bullish buy
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, state_tracking, grounding by requiring

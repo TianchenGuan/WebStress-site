@@ -61,7 +61,7 @@ eval:
     desc: If withdrawals exceeded deposits, a $3,000 deposit was made; otherwise no
       deposit was needed
   negative_checks:
-  - expr: len(state.orders) == 0
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No unintended trades were placed during the transfer audit
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, planning by requiring the

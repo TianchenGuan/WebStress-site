@@ -48,13 +48,14 @@ eval:
   - expr: any(o.symbol == 'TSLA' and o.side == 'buy' and o.order_type == 'market'
       and o.status == 'filled' and o.quantity == 5 for o in state.orders)
     desc: A filled market buy order for 5 shares of TSLA exists
-  - expr: len(state.orders) == 1
+  - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
     desc: Only the intended reversal buy order was placed
   - expr: "all(o.filled_price is not None and o.filled_price < 255 for o in state.orders\
       \ if o.symbol == 'TSLA' and o.side == 'buy' and o.status == 'filled')"
     desc: TSLA was bought during or after the dip, not at the starting price
   negative_checks:
-  - expr: not any(o.order_type == 'limit' and o.symbol == 'TSLA' for o in state.orders)
+  - expr: not any(o.order_type == 'limit' and o.symbol == 'TSLA' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: No limit orders were placed for TSLA (must watch and buy manually)
     penalty: 0.5
 secondary_primitives: []

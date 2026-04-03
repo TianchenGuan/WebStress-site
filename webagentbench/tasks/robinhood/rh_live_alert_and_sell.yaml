@@ -58,7 +58,8 @@ eval:
       \ if o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled')"
     desc: TSLA was sold near the alert trigger price, not before it rallied
   negative_checks:
-  - expr: not any(o.symbol == 'TSLA' and o.side == 'buy' for o in state.orders)
+  - expr: not any(o.symbol == 'TSLA' and o.side == 'buy' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The trigger caused a sell, not an additional buy
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, grounding by requiring exact completion

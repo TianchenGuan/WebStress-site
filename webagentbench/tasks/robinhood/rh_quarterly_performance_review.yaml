@@ -80,8 +80,8 @@ eval:
       if sym in state.owned_symbols())
     desc: All owned stocks with upcoming corporate actions were added to the watchlist
   negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.worst_symbol}' for
-      o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol != '{target.worst_symbol}' and not
+      o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Only the worst-performing position was sold
   - expr: len(state.transfers) == 0
     desc: No transfers were initiated during the cleanup

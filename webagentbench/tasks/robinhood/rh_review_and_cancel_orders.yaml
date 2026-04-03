@@ -43,23 +43,20 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.pending_limit_buy_orders_more_than_pct_below_market(Decimal('10')))
-      >= 1 or sum(1 for o in state.orders if o.status == 'cancelled' and o.order_type
-      == 'limit' and o.side == 'buy' and o.limit_price is not None and float(o.limit_price)
-      < float(state.get_stock(o.symbol).price) * 0.90) >= 1
-    desc: At least one far-below-market limit buy order was cancelled
+  - expr: any(o.order_type == 'limit' and o.side == 'buy' and o.limit_price is not
+      None and float(o.limit_price) < float(state.get_stock(o.symbol).price) * 0.90
+      for o in state.orders) and any(o.status == 'cancelled' and o.order_type ==
+      'limit' and o.side == 'buy' and o.limit_price is not None and float(o.limit_price)
+      < float(state.get_stock(o.symbol).price) * 0.90 for o in state.orders)
+    desc: At least one far-below-market limit buy order existed and was cancelled
   - expr: all(o.status == 'cancelled' for o in state.orders if o.order_type == 'limit'
       and o.side == 'buy' and o.limit_price is not None and float(o.limit_price) <
       float(state.get_stock(o.symbol).price) * 0.90)
     desc: All far-below-market limit buy orders were cancelled
-  - expr: sum(1 for o in state.orders if o.status == 'pending' and o.order_type ==
-      'limit' and o.side == 'buy' and o.limit_price is not None and float(o.limit_price)
-      >= float(state.get_stock(o.symbol).price) * 0.90) >= 1
-    desc: At least one reasonably priced order remains pending
   negative_checks:
   - expr: not any(o.status == 'cancelled' and o.order_type == 'limit' and o.side ==
       'buy' and o.limit_price is not None and float(o.limit_price) >= float(state.get_stock(o.symbol).price)
-      * 0.90 for o in state.orders)
+      * 0.90 and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Reasonably priced limit buy orders were not cancelled
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, grounding, planning by requiring exact

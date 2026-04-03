@@ -66,19 +66,17 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.tax_document_for_year() is not None
-    desc: A seeded tax document is available for review
   - expr: any(sym in state.owned_symbols() for sym in {target.discrepancy_symbols})
-    desc: At least one discrepancy symbol is still held in the portfolio
-  - expr: all(any(a.symbol == sym for a in state.price_alerts) for sym in {target.discrepancy_symbols}
+      and all(any(a.symbol == sym for a in state.price_alerts) for sym in {target.discrepancy_symbols}
       if sym in state.owned_symbols())
     desc: Every discrepancy symbol still held in the portfolio has a price alert
-  - expr: all(any(a.symbol == sym and a.target_price == Decimal({target.reported_cost_bases}[sym])
+  - expr: any(sym in state.owned_symbols() for sym in {target.discrepancy_symbols})
+      and all(any(a.symbol == sym and a.target_price == Decimal({target.reported_cost_bases}[sym])
       for a in state.price_alerts) for sym in {target.discrepancy_symbols} if sym in
       state.owned_symbols())
     desc: Each alert is set at the 1099 reported cost basis
   negative_checks:
-  - expr: len(state.orders) == 0
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No trades were placed during this task
   - expr: len(state.transfers) == 0
     desc: No transfers were initiated

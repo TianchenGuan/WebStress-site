@@ -26,7 +26,7 @@ seed:
     outputs: []
   - use: portfolio_diverse
     params:
-      total_value_target: 14800
+      total_value_target: 14600
     outputs:
     - best_symbol
     - portfolio_value
@@ -51,14 +51,14 @@ eval:
       for o in state.orders)
     desc: The seeded most profitable position was sold after the portfolio crossed
       the trigger
-  - expr: not any(o.side == 'buy' for o in state.orders)
+  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The task was completed with a sell decision rather than a new purchase
   - expr: "all(o.filled_tick is not None and o.filled_tick >= 10 for o in state.orders\
       \ if o.side == 'sell' and o.status == 'filled')"
     desc: The sell happened after the portfolio had time to rally past $15K
   negative_checks:
-  - expr: len([o for o in state.orders if o.side == 'sell' and o.status == 'filled'])
-      == 1
+  - expr: len([o for o in state.orders if o.side == 'sell' and o.status == 'filled'
+      and not o.id.startswith('ord_decoy_')]) == 1
     desc: Only the single winner-lock-in sell was executed
 secondary_primitives: []
 primitive_thesis: Measures patience, state_tracking, planning by requiring exact completion

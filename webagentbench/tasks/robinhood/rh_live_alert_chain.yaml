@@ -58,7 +58,8 @@ eval:
       \ if o.symbol == 'NVDA' and o.status == 'filled')"
     desc: NVDA action occurred near or above the $900 alert trigger
   negative_checks:
-  - expr: not any(o.symbol == 'NVDA' and o.side == 'sell' for o in state.orders)
+  - expr: not any(o.symbol == 'NVDA' and o.side == 'sell' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The seeded branch did not incorrectly sell NVDA when technology concentration
       was below 60%
 secondary_primitives: []

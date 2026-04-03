@@ -56,16 +56,17 @@ eval:
     desc: At least one sell order was placed to reduce overweight positions
   - expr: len([o for o in state.orders if o.side == 'buy']) >= 1
     desc: At least one buy order was placed to increase underweight positions
-  - expr: all(state.projected_quantity_after_orders(symbol) > Decimal('0') for symbol
-      in {target.target_allocation})
-    desc: All target symbols retain non-zero projected allocations after rebalancing
+  - expr: all(state.get_position(symbol) is not None and state.get_position(symbol).quantity
+      > Decimal('0') for symbol in {target.target_allocation})
+    desc: All target symbols retain non-zero positions after rebalancing
   - expr: state.allocation_error_vs_targets({target.target_allocation})
       < state.allocation_error_vs_targets_initial({target.target_allocation})
     desc: The portfolio moved closer to the requested target allocation
   - expr: state.allocation_error_vs_targets({target.target_allocation}) <= Decimal('15')
     desc: The allocation is within a tight total-error band of the requested mix
   negative_checks:
-  - expr: not any(o.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] for o in state.orders)
+  - expr: not any(o.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: Did not trade symbols outside the target allocation set
     penalty: 0.25
 secondary_primitives: []

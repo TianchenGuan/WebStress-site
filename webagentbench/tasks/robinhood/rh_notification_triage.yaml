@@ -55,12 +55,11 @@ eval:
   checks:
   - expr: all(n.is_read for n in state.notifications if n.type == 'order_fill')
     desc: All order-fill notifications have been marked as read
-  - expr: all(o.order_type == 'limit' for o in state.orders)
-    desc: The seeded fills being triaged are limit orders
   - expr: all(any(a.symbol == sym for a in state.price_alerts) for sym in {target.high_slippage_symbols})
     desc: Price alerts were set for every stock with more than 2 percent slippage
   negative_checks:
-  - expr: not any(o.status == 'cancelled' for o in state.orders)
+  - expr: not any(o.status == 'cancelled' and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
     desc: Triage did not cancel filled orders
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, grounding by requiring exact

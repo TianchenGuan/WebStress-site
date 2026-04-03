@@ -4,7 +4,8 @@ env_id: robinhood
 title: Reduce Technology Sector Concentration
 instruction_template: Calculate what percentage of your portfolio is in the Technology
   sector. If it exceeds 50%, sell enough of your most overweight tech stock to bring
-  Technology to at or below 50% of the portfolio, then buy SCHD with the proceeds.
+  Technology to at or below 50% of the portfolio, then buy {target.buy_symbol} with
+  the proceeds.
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 12
@@ -67,11 +68,12 @@ eval:
   - expr: state.sector_pct('Technology') <= Decimal('50.5')
     desc: Technology concentration was reduced to roughly the requested ceiling
   negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.largest_tech_symbol}'
-      for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol != '{target.largest_tech_symbol}' and
+      not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The agent did not sell a different position instead of the most overweight
       tech holding
-  - expr: not any(o.side == 'buy' and o.symbol != '{target.buy_symbol}' for o in state.orders)
+  - expr: not any(o.side == 'buy' and o.symbol != '{target.buy_symbol}' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The agent did not introduce unrelated buy orders during the rebalance
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, grounding by requiring exact

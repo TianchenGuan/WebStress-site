@@ -75,10 +75,12 @@ eval:
       \ if o.status == 'filled')"
     desc: Trades were executed after enough time for the performance gap to develop
   negative_checks:
-  - expr: not any(o.order_type == 'limit' for o in state.orders)
+  - expr: not any(o.order_type == 'limit' and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
     desc: No limit orders were placed (must watch and trade manually)
     penalty: 0.5
-  - expr: not any(o.symbol == 'AAPL' and o.side == 'sell' for o in state.orders)
+  - expr: not any(o.symbol == 'AAPL' and o.side == 'sell' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The opposite branch was not taken during the seeded AAPL-outperformance scenario
 secondary_primitives: []
 primitive_thesis: Measures patience, state_tracking, grounding, planning, verification

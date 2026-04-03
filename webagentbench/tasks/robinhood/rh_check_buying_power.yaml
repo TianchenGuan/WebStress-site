@@ -50,7 +50,8 @@ eval:
   negative_checks:
   - expr: len(state.transfers) == 0
     desc: No deposit or withdrawal actions were taken
-  - expr: not any(o.symbol != 'AAPL' for o in state.orders)
+  - expr: not any(o.symbol != 'AAPL' and not o.id.startswith('ord_decoy_') for o in
+      state.orders)
     desc: No orders were placed on stocks other than AAPL
 secondary_primitives: []
 primitive_thesis: Measures grounding by requiring the agent to look up buying power

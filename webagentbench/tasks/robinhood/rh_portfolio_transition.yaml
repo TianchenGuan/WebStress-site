@@ -5,8 +5,8 @@ title: Growth to Income Portfolio Transition
 instruction_template: 'Switch your portfolio from a growth strategy to an income strategy.
   Sell all positions with a dividend yield below 1% using limit orders at the current
   bid price. With the total proceeds, allocate: 50% equally among the top 3 highest-yielding
-  stocks from your "Income Ideas" watchlist, 30% to BND, and 20% to SCHD. Place all
-  buy orders.'
+  stocks from your "{target.watchlist_name}" watchlist, 30% to BND, and 20% to SCHD.
+  Place all buy orders.'
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 35
@@ -72,7 +72,7 @@ eval:
     desc: BND and SCHD were both included in the income transition buys
   negative_checks:
   - expr: not any(o.side == 'buy' and o.symbol not in set(state.top_yield_symbols_from_watchlist('{target.watchlist_name}',
-      3)) | set(['BND', 'SCHD']) for o in state.orders)
+      3)) | set(['BND', 'SCHD']) and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The transition did not place unrelated buy orders outside the target income basket
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, exploration, grounding, verification

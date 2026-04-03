@@ -58,9 +58,10 @@ eval:
       o.stop_price >= Decimal('798') and o.stop_price <= Decimal('812') for o in state.orders)
     desc: The stop price is approximately 8 percent below the starting price
   negative_checks:
-  - expr: not any(o.side == 'buy' for o in state.orders)
+  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Setting protection did not add buy orders
-  - expr: not any(o.side == 'sell' and o.symbol != 'NVDA' for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol != 'NVDA' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The stop-loss workflow did not place sell orders on another symbol
 secondary_primitives: []
 primitive_thesis: Measures planning, grounding, state_tracking by requiring exact

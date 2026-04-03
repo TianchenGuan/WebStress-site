@@ -62,7 +62,8 @@ eval:
     desc: A $5,000 deposit was initiated to reduce margin utilization
   negative_checks:
   - expr: not any(o.side == 'buy' and o.symbol not in [pos.underlying_symbol for pos
-      in state.expiring_options_positions(5)] for o in state.orders)
+      in state.expiring_options_positions(5)] and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: No unnecessary equity buy orders were placed
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, exploration, verification, planning by

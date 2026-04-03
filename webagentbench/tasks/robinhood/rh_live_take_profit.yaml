@@ -58,9 +58,10 @@ eval:
       \ if o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled')"
     desc: TSLA limit sell filled at or near the $260 target price
   negative_checks:
-  - expr: not any(o.side == 'buy' for o in state.orders)
+  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The take-profit workflow did not place buy orders
-  - expr: not any(o.side == 'sell' and o.symbol != 'TSLA' for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol != 'TSLA' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: The take-profit workflow did not place sell orders for another symbol
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, grounding by requiring exact completion
