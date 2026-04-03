@@ -23,10 +23,11 @@ def apply_seed_injection(state: Any, params: dict[str, Any], *, rng=None) -> Non
     """Mutate seeded state to create data-level degraded conditions.
 
     Called after normal seeding but before the session starts. The state
-    is a fully populated GmailState (or equivalent BaseEnvState).
+    is a fully populated GmailState / RobinhoodState (or equivalent BaseEnvState).
     """
     action = params.get("action", "")
 
+    # Gmail seed actions
     if action == "add_confusing_decoys":
         _add_confusing_decoys(state, params, rng=rng)
     elif action == "split_information":
@@ -41,6 +42,15 @@ def apply_seed_injection(state: Any, params: dict[str, Any], *, rng=None) -> Non
         _alias_entities(state, params, rng=rng)
     elif action == "hide_in_non_obvious_location":
         _hide_in_non_obvious_location(state, params, rng=rng)
+    # Robinhood seed actions
+    elif action == "add_decoy_notifications":
+        _rh_add_decoy_notifications(state, params, rng=rng)
+    elif action == "add_noise_orders":
+        _rh_add_noise_orders(state, params, rng=rng)
+    elif action == "add_misleading_alert":
+        _rh_add_misleading_alert(state, params, rng=rng)
+    elif action == "add_confusing_positions":
+        _rh_add_confusing_positions(state, params, rng=rng)
 
 
 def _coerce_timestamp(value: Any) -> datetime | None:
@@ -366,3 +376,208 @@ def _hide_in_non_obvious_location(state: Any, params: dict[str, Any], *, rng=Non
         for email in state.emails:
             if email.id in target_ids:
                 email.labels = [move_to_label]
+
+
+# ---------------------------------------------------------------------------
+# Robinhood seed actions
+# ---------------------------------------------------------------------------
+
+def _rh_notification_specs(params: dict[str, Any]) -> list[dict[str, Any]]:
+    specs = params.get("decoys") or params.get("notifications") or []
+    if not specs and params.get("messages"):
+        specs = [
+            {"title": "Notification", "message": message}
+            for message in params.get("messages", [])
+        ]
+    if not specs and params.get("count"):
+        symbols = params.get("symbols") or ["AAPL", "MSFT", "TSLA"]
+        theme = params.get("theme", "market")
+        count = int(params.get("count", 0))
+        specs = [
+            {
+                "type": theme,
+                "title": f"{symbols[i % len(symbols)]} update",
+                "message": f"{symbols[i % len(symbols)]} triggered a {theme} notification.",
+            }
+            for i in range(count)
+        ]
+    return [spec if isinstance(spec, dict) else {"title": "Account Update", "message": str(spec)} for spec in specs]
+
+
+def _rh_normalize_notification_type(raw_type: Any) -> str:
+    if not raw_type:
+        return "security_alert"
+    notification_type = str(raw_type)
+    if notification_type in {
+        "order_fill",
+        "price_alert",
+        "dividend",
+        "earnings",
+        "transfer_complete",
+        "security_alert",
+        "recurring_investment",
+        "tax_document",
+        "margin_call",
+        "corporate_action",
+    }:
+        return notification_type
+    return {
+        "account": "security_alert",
+        "alert": "price_alert",
+        "alerts": "price_alert",
+        "market": "price_alert",
+        "order": "order_fill",
+        "orders": "order_fill",
+        "price": "price_alert",
+        "recurring": "recurring_investment",
+        "system": "security_alert",
+        "tax": "tax_document",
+        "transfer": "transfer_complete",
+        "watchlist": "price_alert",
+        "dividend_notice": "dividend",
+        "earnings_alert": "earnings",
+        "margin": "margin_call",
+        "corporate": "corporate_action",
+    }.get(notification_type, "security_alert")
+
+
+def _rh_add_decoy_notifications(state: Any, params: dict[str, Any], *, rng=None) -> None:
+    """Add misleading notifications to stress Grounding / State Tracking."""
+    if not hasattr(state, "notifications"):
+        return
+    from webagentbench.backend.models.robinhood import Notification
+    from webagentbench.backend.models.base import utc_now
+    import random as _random
+    _rng = rng or _random.Random(42)
+
+    for decoy in _rh_notification_specs(params):
+        state.notifications.append(Notification(
+            id=f"notif_decoy_{_rng.randint(10000, 99999)}",
+            type=_rh_normalize_notification_type(decoy.get("type", decoy.get("category", "system"))),
+            title=decoy.get("title", "Notification"),
+            message=decoy.get("message", decoy.get("body", "")),
+            timestamp=utc_now(),
+            is_read=decoy.get("is_read", False),
+        ))
+
+
+def _rh_add_noise_orders(state: Any, params: dict[str, Any], *, rng=None) -> None:
+    """Add distractor pending orders to stress State Tracking."""
+    if not hasattr(state, "orders"):
+        return
+    from webagentbench.backend.models.robinhood import Order
+    from webagentbench.backend.models.base import utc_now
+    from decimal import Decimal
+    import random as _random
+    _rng = rng or _random.Random(42)
+
+    noise_orders = list(params.get("orders", []))
+    if not noise_orders and params.get("symbols"):
+        symbols = params.get("symbols", [])
+        count = int(params.get("count", len(symbols)))
+        for i in range(count):
+            symbol = symbols[i % len(symbols)]
+            stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
+            base_price = Decimal(str(getattr(stock, "price", "100.00")))
+            noise_orders.append({
+                "symbol": symbol,
+                "side": params.get("side", "buy" if i % 2 == 0 else "sell"),
+                "order_type": params.get("order_type", "limit"),
+                "quantity": params.get("quantity", (i % 4) + 1),
+                "limit_price": params.get("limit_price", str(base_price)),
+            })
+    for spec in noise_orders:
+        symbol = spec.get("symbol")
+        if not symbol:
+            continue
+        stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
+        base_price = Decimal(str(getattr(stock, "price", "100.00")))
+        raw_limit_price = spec.get("limit_price", base_price)
+        order_type = spec.get("order_type", "limit")
+        if raw_limit_price in (None, ""):
+            price = None if order_type == "market" else base_price
+        else:
+            try:
+                price = Decimal(str(raw_limit_price))
+            except (TypeError, ValueError, ArithmeticError):
+                price = None if order_type == "market" else base_price
+        status = spec.get("status", "pending")
+        state.orders.append(Order(
+            id=f"ord_decoy_{_rng.randint(10000, 99999)}",
+            symbol=symbol,
+            side=spec.get("side", "buy"),
+            order_type=order_type,
+            quantity=Decimal(str(spec.get("quantity", 1))),
+            filled_quantity=Decimal(str(spec.get("quantity", 1))) if status == "filled" else Decimal("0"),
+            limit_price=price,
+            time_in_force="gtc",
+            status=status,
+            created_at=utc_now(),
+        ))
+
+
+def _rh_add_misleading_alert(state: Any, params: dict[str, Any], *, rng=None) -> None:
+    """Add a price alert that could mislead the agent (Backtracking)."""
+    if not hasattr(state, "price_alerts"):
+        return
+    from webagentbench.backend.models.robinhood import PriceAlert
+    from webagentbench.backend.models.base import utc_now
+    from decimal import Decimal
+    import random as _random
+    _rng = rng or _random.Random(42)
+
+    alert_specs = params.get("alerts") or params.get("alert") or [params]
+    if isinstance(alert_specs, dict):
+        alert_specs = [alert_specs]
+
+    for alert_spec in alert_specs:
+        state.price_alerts.append(PriceAlert(
+            id=f"alert_decoy_{_rng.randint(10000, 99999)}",
+            symbol=alert_spec.get("symbol", "AAPL"),
+            condition=alert_spec.get("condition", "above"),
+            target_price=Decimal(str(alert_spec.get("target_price", "999.99"))),
+            status=alert_spec.get("status", "triggered"),
+            created_at=utc_now(),
+            triggered_at=utc_now() if alert_spec.get("status") == "triggered" else None,
+        ))
+
+
+def _rh_add_confusing_positions(state: Any, params: dict[str, Any], *, rng=None) -> None:
+    """Add positions in confusingly similar stocks to stress Grounding."""
+    if not hasattr(state, "positions"):
+        return
+    from webagentbench.backend.models.robinhood import Position, TaxLot
+    from webagentbench.backend.models.base import utc_now
+    from decimal import Decimal
+    import random as _random
+    _rng = rng or _random.Random(42)
+
+    positions = list(params.get("positions", []))
+    if not positions and params.get("symbols"):
+        quantities = params.get("quantities", [])
+        for i, symbol in enumerate(params.get("symbols", [])):
+            positions.append({
+                "symbol": symbol,
+                "quantity": quantities[i] if i < len(quantities) else 10,
+            })
+    for spec in positions:
+        symbol = spec.get("symbol")
+        if not symbol:
+            continue
+        stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
+        price = Decimal(str(spec.get("price", getattr(stock, "price", "100.00"))))
+        qty = Decimal(str(spec.get("quantity", 10)))
+        cost = Decimal(str(spec.get("cost_basis", str(price))))
+        state.positions.append(Position(
+            id=f"pos_decoy_{_rng.randint(10000, 99999)}",
+            symbol=symbol,
+            name=spec.get("name", getattr(stock, "name", symbol)),
+            asset_type="stock",
+            quantity=qty,
+            avg_cost_basis=cost,
+            current_price=price,
+            day_change_pct=Decimal("0"),
+            total_return=(price - cost) * qty,
+            total_return_pct=((price - cost) / cost * 100) if cost else Decimal("0"),
+            lots=[TaxLot(shares=qty, cost_per_share=cost, acquired_date=utc_now().date())],
+        ))

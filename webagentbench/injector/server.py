@@ -10,6 +10,43 @@ from datetime import timedelta
 from typing import Any
 
 
+def _rh_normalize_notification_type(raw_type: Any) -> str:
+    if not raw_type:
+        return "security_alert"
+    notification_type = str(raw_type)
+    if notification_type in {
+        "order_fill",
+        "price_alert",
+        "dividend",
+        "earnings",
+        "transfer_complete",
+        "security_alert",
+        "recurring_investment",
+        "tax_document",
+        "margin_call",
+        "corporate_action",
+    }:
+        return notification_type
+    return {
+        "account": "security_alert",
+        "alert": "price_alert",
+        "alerts": "price_alert",
+        "market": "price_alert",
+        "order": "order_fill",
+        "orders": "order_fill",
+        "price": "price_alert",
+        "recurring": "recurring_investment",
+        "system": "security_alert",
+        "tax": "tax_document",
+        "transfer": "transfer_complete",
+        "watchlist": "price_alert",
+        "dividend_notice": "dividend",
+        "earnings_alert": "earnings",
+        "margin": "margin_call",
+        "corporate": "corporate_action",
+    }.get(notification_type, "security_alert")
+
+
 def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
     """Mutate server state to create degraded conditions."""
     action = params.get("action", "")
@@ -94,6 +131,81 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
                     setattr(email, field, new_value)
                     mutated = True
                     break
+
+    # --- Robinhood server actions ---
+
+    elif action == "scramble_order_timestamps":
+        rng = random.Random(params.get("seed", 42))
+        if hasattr(state, "orders"):
+            for order in state.orders:
+                if hasattr(order, "created_at") and order.created_at:
+                    offset = rng.randint(-86400 * 3, 86400 * 3)
+                    order.created_at += timedelta(seconds=offset)
+                    mutated = True
+
+    elif action == "scramble_notification_timestamps":
+        rng = random.Random(params.get("seed", 42))
+        if hasattr(state, "notifications"):
+            for notif in state.notifications:
+                if hasattr(notif, "timestamp") and notif.timestamp:
+                    offset = rng.randint(-86400 * 5, 86400 * 5)
+                    notif.timestamp += timedelta(seconds=offset)
+                    mutated = True
+
+    elif action == "shuffle_positions":
+        rng = random.Random(params.get("seed", 42))
+        if hasattr(state, "positions"):
+            rng.shuffle(state.positions)
+            mutated = True
+
+    elif action == "hide_watchlist":
+        name = params.get("watchlist_name")
+        if name and hasattr(state, "watchlists"):
+            state.watchlists = [w for w in state.watchlists if w.name != name]
+            mutated = True
+
+    elif action == "inject_distractor_notifications":
+        if hasattr(state, "notifications"):
+            from webagentbench.backend.models.robinhood import Notification
+            from webagentbench.backend.models.base import utc_now
+            rng = random.Random(params.get("seed", 42))
+            _NOTIF_TEMPLATES = [
+                ("system", "Account Update", "Your account settings have been reviewed."),
+                ("price_alert", "Price Movement", "A stock in your watchlist moved significantly."),
+                ("order_fill", "Order Update", "An order status has changed. Check your orders."),
+                ("dividend", "Dividend Notice", "A dividend payment is being processed."),
+                ("transfer", "Transfer Update", "A transfer status has been updated."),
+            ]
+            custom_notifications = params.get("notifications") or []
+            if not custom_notifications and params.get("messages"):
+                custom_notifications = [
+                    {"title": "Notification", "message": message}
+                    for message in params.get("messages", [])
+                ]
+            if not custom_notifications:
+                count = int(params.get("count", 5))
+                custom_types = params.get("types") or []
+                for i in range(count):
+                    if custom_types:
+                        ntype = custom_types[i % len(custom_types)]
+                        title = f"{ntype.replace('_', ' ').title()} Update"
+                        msg = f"A {ntype.replace('_', ' ')} notification requires review."
+                    else:
+                        ntype, title, msg = _NOTIF_TEMPLATES[i % len(_NOTIF_TEMPLATES)]
+                    custom_notifications.append({"type": ntype, "title": title, "message": msg})
+            for spec in custom_notifications:
+                ntype = _rh_normalize_notification_type(spec.get("type", spec.get("category", "system")))
+                title = spec.get("title", "Notification")
+                msg = spec.get("message", spec.get("body", ""))
+                state.notifications.append(Notification(
+                    id=f"notif_noise_{rng.randint(10000, 99999)}",
+                    type=ntype,
+                    title=title,
+                    message=msg,
+                    timestamp=utc_now() - timedelta(hours=rng.randint(1, 72)),
+                    is_read=spec.get("is_read", rng.random() > 0.5),
+                ))
+            mutated = True
 
     if mutated and hasattr(state, "touch"):
         state.touch()

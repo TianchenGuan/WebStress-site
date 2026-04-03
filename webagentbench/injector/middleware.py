@@ -239,6 +239,18 @@ class DegradationMiddleware(BaseHTTPMiddleware):
             or _extract_session_from_cookie(request.headers.get("cookie", ""))
         )
 
+        # For POST/PUT requests, extract session_id from JSON body if not
+        # found in query params/headers. We read and cache the body so the
+        # downstream handler can still consume it.
+        if not session_id and request.method in ("POST", "PUT", "PATCH"):
+            try:
+                body_bytes = await request.body()
+                import json as _json
+                body_data = _json.loads(body_bytes)
+                session_id = body_data.get("session_id")
+            except Exception:
+                pass
+
         if not session_id or session_id not in _SESSION_NETWORK:
             return await call_next(request)
 
