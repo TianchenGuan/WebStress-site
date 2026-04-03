@@ -17,6 +17,7 @@ import { StockDetailPage } from "./pages/StockDetail";
 import { TradePage } from "./pages/Trade";
 import { OptionsChainPage } from "./pages/OptionsChain";
 import { OptionsTradePage } from "./pages/OptionsTrade";
+import { OptionsPositionsPage } from "./pages/OptionsPositions";
 import { SearchPage } from "./pages/Search";
 import { WatchlistsPage } from "./pages/Watchlists";
 import { WatchlistDetailPage } from "./pages/WatchlistDetail";
@@ -27,6 +28,7 @@ import { TransfersPage } from "./pages/Transfers";
 import { TaxCenterPage } from "./pages/TaxCenter";
 import { DividendsPage } from "./pages/Dividends";
 import { NotificationsPage } from "./pages/Notifications";
+import { AlertsPage } from "./pages/Alerts";
 import { AccountPage } from "./pages/Account";
 
 interface ManifestTask {
@@ -172,6 +174,7 @@ export function App() {
         <Route path="/stocks/:symbol/trade" element={<TradePage />} />
         <Route path="/stocks/:symbol/options" element={<OptionsChainPage />} />
         <Route path="/stocks/:symbol/options/trade" element={<OptionsTradePage />} />
+        <Route path="/options/positions" element={<OptionsPositionsPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/lists" element={<WatchlistsPage />} />
         <Route path="/lists/:id" element={<WatchlistDetailPage />} />
@@ -182,6 +185,7 @@ export function App() {
         <Route path="/tax" element={<TaxCenterPage />} />
         <Route path="/dividends" element={<DividendsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/account" element={<AccountPage />} />
       </Route>
     </Routes>

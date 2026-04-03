@@ -90,6 +90,15 @@ export function RecurringPage() {
               <option value="monthly">Monthly</option>
             </select>
           </div>
+          <div className="rh-order-form__field">
+            <label htmlFor="ri-next-date">Next execution date</label>
+            <input
+              id="ri-next-date"
+              type="date"
+              value={form.next_execution_date}
+              onChange={(e) => setForm({ ...form, next_execution_date: e.target.value })}
+            />
+          </div>
           <div className="rh-watchlists__create-actions">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button variant="primary" onClick={handleCreate}>Create</Button>

@@ -179,6 +179,8 @@ export function RobinhoodShell({ sessionId }: { sessionId: string }) {
             <nav className="rh-topbar__nav">
               <Link to={preserveQueryParams("/", location.search)} className="rh-topbar__link">Investing</Link>
               <Link to={preserveQueryParams("/orders", location.search)} className="rh-topbar__link">Orders</Link>
+              <Link to={preserveQueryParams("/options/positions", location.search)} className="rh-topbar__link">Options</Link>
+              <Link to={preserveQueryParams("/alerts", location.search)} className="rh-topbar__link">Alerts</Link>
               <Link to={preserveQueryParams("/transfers", location.search)} className="rh-topbar__link">Transfers</Link>
               <Link to={preserveQueryParams("/recurring", location.search)} className="rh-topbar__link">Recurring</Link>
               <Link to={preserveQueryParams("/history", location.search)} className="rh-topbar__link">History</Link>

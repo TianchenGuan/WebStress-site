@@ -1,8 +1,11 @@
+import { useLocation, useNavigate } from "react-router-dom";
+import { preserveQueryParams } from "@webagentbench/shared";
+
 import type { Notification } from "../types";
 
 interface NotificationItemProps {
   notification: Notification;
-  onMarkRead?: (id: string) => void;
+  onMarkRead?: (id: string) => void | Promise<void>;
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -19,6 +22,8 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 export function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const ts = new Date(notification.timestamp);
   const timeStr = ts.toLocaleDateString("en-US", {
     month: "short",
@@ -28,10 +33,30 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
   });
   const iconType = TYPE_ICONS[notification.type] ?? "bell";
 
+  const handleActivate = async () => {
+    if (!notification.is_read) {
+      await onMarkRead?.(notification.id);
+    }
+    if (!notification.action_url) {
+      return;
+    }
+    if (/^https?:\/\//.test(notification.action_url)) {
+      window.location.assign(notification.action_url);
+      return;
+    }
+    navigate(preserveQueryParams(notification.action_url, location.search));
+  };
+
   return (
     <div
       className={`rh-notification-item ${notification.is_read ? "" : "rh-notification-item--unread"}`}
-      onClick={() => !notification.is_read && onMarkRead?.(notification.id)}
+      onClick={() => { void handleActivate(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          void handleActivate();
+        }
+      }}
       role="button"
       tabIndex={0}
       aria-label={`${notification.is_read ? "" : "Unread: "}${notification.title}`}

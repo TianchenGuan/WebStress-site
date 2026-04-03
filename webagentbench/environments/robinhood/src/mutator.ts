@@ -685,7 +685,7 @@ route("PUT", "settings", (state, _params, body) => {
     ];
     for (const key of keys) {
       if (body[key] !== undefined && body[key] !== null) {
-        (state.settings as Record<string, unknown>)[key] = body[key];
+        (state.settings as unknown as Record<string, unknown>)[key] = body[key];
       }
     }
   }

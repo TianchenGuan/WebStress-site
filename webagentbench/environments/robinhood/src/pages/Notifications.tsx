@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Button } from "@webagentbench/shared";
+import { Link, useLocation } from "react-router-dom";
+import { Button, preserveQueryParams } from "@webagentbench/shared";
 
 import { useRobinhoodLayout } from "../context";
 import type { Notification } from "../types";
@@ -7,6 +8,7 @@ import { NotificationItem } from "../components/NotificationItem";
 
 export function NotificationsPage() {
   const { api, notify } = useRobinhoodLayout();
+  const location = useLocation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,11 +45,16 @@ export function NotificationsPage() {
     <div className="rh-notifications" aria-label="Notifications">
       <div className="rh-page-header">
         <h1>Notifications</h1>
-        {unreadCount > 0 && (
-          <Button variant="secondary" onClick={handleMarkAllRead} aria-label="Mark all notifications as read">
-            Mark All Read ({unreadCount})
-          </Button>
-        )}
+        <div className="rh-notifications__header-actions">
+          <Link to={preserveQueryParams("/alerts", location.search)}>
+            <Button variant="secondary" aria-label="Manage price alerts">Manage Alerts</Button>
+          </Link>
+          {unreadCount > 0 && (
+            <Button variant="secondary" onClick={handleMarkAllRead} aria-label="Mark all notifications as read">
+              Mark All Read ({unreadCount})
+            </Button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (

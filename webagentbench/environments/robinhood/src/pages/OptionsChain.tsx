@@ -32,9 +32,14 @@ export function OptionsChainPage() {
     <div className="rh-options-chain" aria-label={`${symbol} options chain`}>
       <div className="rh-options-chain__header">
         <h1>{symbol} Options</h1>
-        <Link to={preserveQueryParams(`/stocks/${symbol}/options/trade`, location.search)}>
-          <Button variant="primary" aria-label="Trade options">Trade Options</Button>
-        </Link>
+        <div className="rh-options-chain__actions">
+          <Link to={preserveQueryParams("/options/positions", location.search)}>
+            <Button variant="secondary" aria-label="View options positions">Positions</Button>
+          </Link>
+          <Link to={preserveQueryParams(`/stocks/${symbol}/options/trade`, location.search)}>
+            <Button variant="primary" aria-label="Trade options">Trade Options</Button>
+          </Link>
+        </div>
       </div>
 
       {expirations.length > 0 && (
