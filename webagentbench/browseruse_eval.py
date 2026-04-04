@@ -165,7 +165,8 @@ _TAG_TO_ROLE: dict[str, str] = {
 
 def dom_element_to_target(tag_name: str, attributes: dict, text: str = "") -> dict:
     """Convert DOM element info to a replay target ``{role, name}``."""
-    role = _TAG_TO_ROLE.get(tag_name, tag_name)
+    tag_lower = tag_name.lower()
+    role = _TAG_TO_ROLE.get(tag_lower, tag_lower)
 
     # Name priority: aria-label > placeholder > text
     name = (
