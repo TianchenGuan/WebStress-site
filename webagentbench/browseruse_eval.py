@@ -514,10 +514,14 @@ async def run_episode(
                         if node is None:
                             last_error = f"Element index {idx} not found"
                             continue
-                        page = await browser.get_current_page()
-                        if page:
-                            element = await page.get_element(node.backend_node_id)
-                            await element.click()
+                        from browser_use.browser.events import ClickElementEvent
+                        event = browser.event_bus.dispatch(ClickElementEvent(node=node))
+                        await event
+                        try:
+                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                        except Exception as click_err:
+                            last_error = f"Click failed on index {idx}: {click_err}"
+                            continue
                         await asyncio.sleep(0.5)
 
                     elif "input_text" in action:
@@ -528,10 +532,14 @@ async def run_episode(
                         if node is None:
                             last_error = f"Element index {idx} not found"
                             continue
-                        page = await browser.get_current_page()
-                        if page:
-                            element = await page.get_element(node.backend_node_id)
-                            await element.fill(text)
+                        from browser_use.browser.events import TypeTextEvent
+                        event = browser.event_bus.dispatch(TypeTextEvent(node=node, text=text))
+                        await event
+                        try:
+                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                        except Exception as fill_err:
+                            last_error = f"Fill failed on index {idx}: {fill_err}"
+                            continue
                         await asyncio.sleep(0.3)
 
                     elif "select_option" in action:
@@ -542,26 +550,31 @@ async def run_episode(
                         if node is None:
                             last_error = f"Element index {idx} not found"
                             continue
-                        page = await browser.get_current_page()
-                        if page:
-                            element = await page.get_element(node.backend_node_id)
-                            await element.select_option(option)
+                        from browser_use.browser.events import SelectDropdownOptionEvent
+                        event = browser.event_bus.dispatch(
+                            SelectDropdownOptionEvent(node=node, text=option))
+                        await event
+                        try:
+                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                        except Exception as sel_err:
+                            last_error = f"Select failed on index {idx}: {sel_err}"
+                            continue
                         await asyncio.sleep(0.3)
 
                     elif "scroll_down" in action:
                         amount = action["scroll_down"].get("amount", 300)
-                        page = await browser.get_current_page()
-                        if page:
-                            mouse = await page.mouse
-                            await mouse.scroll(delta_y=amount)
+                        from browser_use.browser.events import ScrollEvent
+                        event = browser.event_bus.dispatch(
+                            ScrollEvent(node=None, direction="down", amount=amount))
+                        await event
                         await asyncio.sleep(0.3)
 
                     elif "scroll_up" in action:
                         amount = action["scroll_up"].get("amount", 300)
-                        page = await browser.get_current_page()
-                        if page:
-                            mouse = await page.mouse
-                            await mouse.scroll(delta_y=-amount)
+                        from browser_use.browser.events import ScrollEvent
+                        event = browser.event_bus.dispatch(
+                            ScrollEvent(node=None, direction="up", amount=amount))
+                        await event
                         await asyncio.sleep(0.3)
 
                     elif "go_back" in action:
