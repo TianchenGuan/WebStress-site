@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,8 @@ def llm_complete(
     client, model: str, messages: list[dict],
     temperature: float | None = None, provider: str = "openai",
     reasoning_effort: str | None = None,
-) -> str:
+) -> tuple[str, str]:
+    """Return (content, reasoning) from the LLM."""
     if provider == "gemini":
         return _complete_gemini(client, model, messages, temperature)
     return _complete_openai(client, model, messages, temperature, reasoning_effort)
@@ -140,18 +142,15 @@ def _complete_openai(client, model, messages, temperature, reasoning_effort):
         kwargs["reasoning_effort"] = reasoning_effort
     if model.lower().startswith("qwen3"):
         kwargs["extra_body"] = {"enable_thinking": False}
-    import time as _time
     for attempt in range(5):
         try:
             response = client.chat.completions.create(**kwargs)
             msg = response.choices[0].message
-            # Capture reasoning from reasoning models (gpt-5.x, o-series)
-            _complete_openai._last_reasoning = getattr(msg, "reasoning_content", None) or ""
-            return msg.content or ""
+            reasoning = getattr(msg, "reasoning_content", None) or ""
+            return msg.content or "", reasoning
         except Exception as e:
             if "429" in str(e) and attempt < 4:
-                wait = 2 ** attempt + 1  # 2, 3, 5, 9s
-                _time.sleep(wait)
+                time.sleep(2 ** attempt + 1)
                 continue
             raise
 
@@ -177,7 +176,7 @@ def _complete_gemini(client, model, messages, temperature):
         model=model, contents=contents,
         config=types.GenerateContentConfig(**config_kwargs),
     )
-    return response.text or ""
+    return response.text or "", ""
 
 
 # =============================================================================
@@ -330,7 +329,7 @@ def trim_messages(
                 line = msg["content"].split("\n")[0][:200]
                 turns.append(f"Obs: {line}")
         try:
-            summary = llm_complete(
+            summary, _ = llm_complete(
                 client, model,
                 [{"role": "user", "content":
                     "Summarize this agent history into brief bullet points. "
@@ -418,7 +417,7 @@ class LLMAgent:
         )
 
         try:
-            response = llm_complete(
+            response, reasoning = llm_complete(
                 self.client, self.model, trimmed,
                 temperature=self.temperature,
                 provider=self.provider,
@@ -434,7 +433,7 @@ class LLMAgent:
                     model=self.model,
                     provider=self.provider,
                 )
-                response = llm_complete(
+                response, reasoning = llm_complete(
                     self.client, self.model, trimmed,
                     temperature=self.temperature,
                     provider=self.provider,
@@ -446,15 +445,14 @@ class LLMAgent:
         # Clean response — extract the action call
         action = _extract_action(response)
         self._last_raw_response = response
-        # Capture reasoning from gpt-5.x / o-series models
-        self._last_thought = getattr(_complete_openai, "_last_reasoning", "") or ""
+        self._last_thought = reasoning
         if not self._last_thought and response != action:
             # For non-reasoning models, extract thought from text before the action
-            pos = response.find(action)
-            if pos > 0:
-                self._last_thought = response[:pos].strip()
-            import re as _re
-            self._last_thought = _re.sub(r"<think>.*?</think>", "", self._last_thought, flags=_re.DOTALL).strip()
+            # Use the raw response for find() since _extract_action may normalize quotes
+            action_start = re.search(re.escape(action[:20]), response)
+            if action_start and action_start.start() > 0:
+                self._last_thought = response[:action_start.start()].strip()
+            self._last_thought = re.sub(r"<think>.*?</think>", "", self._last_thought, flags=re.DOTALL).strip()
 
         self.messages.append({"role": "assistant", "content": action})
         return action

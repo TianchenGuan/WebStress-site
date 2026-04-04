@@ -30,6 +30,10 @@ _MANIFEST = json.loads((BASE_DIR / "manifest.json").read_text())
 _DEFAULT_MAX_STEPS = 30
 _DEFAULT_TIMEOUT = 300
 
+_TRANSIENT_ERROR_CODES = ("429", "500", "502", "503", "504")
+_MAX_RETRY_ATTEMPTS = 2
+_RETRY_BACKOFF_SECONDS = 30
+
 
 # =============================================================================
 # Episode runner
@@ -380,12 +384,7 @@ def run_evaluation(
         )
 
         try:
-            _TRANSIENT_CODES = ("429", "500", "502", "503", "504")
-            _MAX_ATTEMPTS = 2
-            _RETRY_BACKOFF = 30
-
-            last_exc: Exception | None = None
-            for _attempt in range(_MAX_ATTEMPTS):
+            for _attempt in range(_MAX_RETRY_ATTEMPTS):
                 try:
                     episode = run_episode(
                         env,
@@ -395,25 +394,23 @@ def run_evaluation(
                         timeout_seconds=task_timeout,
                         verbose=verbose,
                     )
-                    last_exc = None
                     break
                 except Exception as exc:
-                    last_exc = exc
                     exc_str = str(exc)
                     is_transient = (
                         isinstance(exc, (ConnectionError, TimeoutError))
-                        or any(code in exc_str for code in _TRANSIENT_CODES)
+                        or any(code in exc_str for code in _TRANSIENT_ERROR_CODES)
                     )
-                    if not is_transient or _attempt >= _MAX_ATTEMPTS - 1:
+                    if not is_transient or _attempt >= _MAX_RETRY_ATTEMPTS - 1:
                         raise
                     logger.warning(
                         "Transient error on task %s (attempt %d/%d), retrying in %ds: %s",
-                        task_id, _attempt + 1, _MAX_ATTEMPTS, _RETRY_BACKOFF, exc,
+                        task_id, _attempt + 1, _MAX_RETRY_ATTEMPTS, _RETRY_BACKOFF_SECONDS, exc,
                     )
                     if verbose:
-                        print(f"  [RETRY] transient error, retrying in {_RETRY_BACKOFF}s: {exc}")
+                        print(f"  [RETRY] transient error, retrying in {_RETRY_BACKOFF_SECONDS}s: {exc}")
                     env.close()
-                    time.sleep(_RETRY_BACKOFF)
+                    time.sleep(_RETRY_BACKOFF_SECONDS)
                     env = make_env(
                         task_id=task_id,
                         degradation=str(deg_path) if degradation and deg_path.exists() else None,
