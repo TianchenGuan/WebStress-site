@@ -246,27 +246,30 @@ class TestStressVerification:
 
 
 class TestStressBacktracking:
-    """compose_new + backtracking: first 2 sends return 503."""
+    """compose_new + backtracking: contradictory policy email injected."""
 
-    def test_503_on_send_then_retry(self, client):
+    def test_contradictory_email_present_but_task_still_solvable(self, client):
         s = _session(client, "gmail_compose_new",
                      variant_filename="gmail_compose_new__backtracking.yaml")
         sid = s["session_id"]
 
-        payload = dict(to=["alice@company.test"], subject="Weekly Report",
-                       body="Hi Alice, please find the weekly report attached. Best regards.")
+        # Backtracking variant injects a contradictory policy email from Operations
+        inbox = _emails(client, sid).json()["items"]
+        bait = next(
+            (e for e in inbox if e["from_name"] == "Operations"
+             and "Weekly report" in e["subject"]),
+            None,
+        )
+        assert bait is not None, "Contradictory policy email should be in inbox"
 
-        r1 = _send(client, sid, **payload)
-        assert r1.status_code == 503, f"Send 1 should be 503, got {r1.status_code}"
-
-        r2 = _send(client, sid, **payload)
-        assert r2.status_code == 503, f"Send 2 should be 503, got {r2.status_code}"
-
-        r3 = _send(client, sid, **payload)
-        assert r3.status_code == 200, f"Send 3 should succeed, got {r3.status_code}"
+        # Correct solution should still pass despite the misleading email
+        r = _send(client, sid,
+                  to=["alice@company.test"], subject="Weekly Report",
+                  body="Hi Alice, please find the weekly report attached. Best regards.")
+        assert r.status_code == 200
 
         ev = _eval(client, sid, "gmail_compose_new")
-        assert ev["success"] is True, f"After retry, should pass: {ev['reasoning'][:200]}"
+        assert ev["success"] is True, f"Should pass despite contradictory email: {ev['reasoning'][:200]}"
 
     def test_filter_repair_chain_surfaces_recent_starred_wrong_answer(self, client):
         s = _session(client, "gmail_filter_repair_chain",
@@ -286,11 +289,11 @@ class TestStressBacktracking:
 
 
 class TestStressExploration:
-    """delete_spam + exploration: first 2 deletes silently fail, distractors added."""
+    """delete_spam + state_tracking: first 2 deletes silently fail, distractors added."""
 
     def test_silent_delete_then_retry(self, client):
         s = _session(client, "gmail_delete_spam",
-                     variant_filename="gmail_delete_spam__exploration.yaml")
+                     variant_filename="gmail_delete_spam__state_tracking.yaml")
         sid = s["session_id"]
         spam_id = s["resolved_targets"]["spam_email_id"]
 
@@ -314,7 +317,7 @@ class TestStressExploration:
 
     def test_distractors_injected(self, client):
         s = _session(client, "gmail_delete_spam",
-                     variant_filename="gmail_delete_spam__exploration.yaml")
+                     variant_filename="gmail_delete_spam__state_tracking.yaml")
         r = _emails(client, s["session_id"])
         assert r.status_code == 200
         emails = r.json()

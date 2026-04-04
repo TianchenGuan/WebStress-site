@@ -386,15 +386,13 @@ def list_variants() -> list[dict[str, Any]]:
     """
     from pathlib import Path
     import yaml
-    from ...injector.config import _DEFAULT_TEMPLATES
 
     variants_dir = Path(__file__).parent.parent.parent / "injector" / "variants"
     result = []
-    covered: set[tuple[str, str]] = set()  # (base_task_id, primitive)
 
-    # 1. Hand-written YAML variants
+    # Hand-written YAML variants (Gmail only)
     if variants_dir.exists():
-        for f in sorted(variants_dir.glob("*.yaml")):
+        for f in sorted(variants_dir.glob("gmail_*.yaml")):
             try:
                 data = yaml.safe_load(f.read_text())
                 btid = data.get("base_task_id", "")
@@ -407,25 +405,8 @@ def list_variants() -> list[dict[str, Any]]:
                     "description": data.get("description", ""),
                     "source": "yaml",
                 })
-                covered.add((btid, prim))
             except Exception:
                 pass
-
-    # 2. Auto-generated defaults for uncovered tasks
-    from ...tasks._registry import tasks_by_env
-    gmail_tasks = tasks_by_env().get("gmail", [])
-    for task in gmail_tasks:
-        primary = task.primary_primitives[0] if task.primary_primitives else None
-        if primary and (task.task_id, primary) not in covered and primary in _DEFAULT_TEMPLATES:
-            tmpl = _DEFAULT_TEMPLATES[primary]
-            result.append({
-                "filename": f"__auto__{task.task_id}__{primary}",
-                "variant_id": f"{task.task_id}__{primary}_auto",
-                "base_task_id": task.task_id,
-                "target_primitive": primary,
-                "description": tmpl["description"],
-                "source": "auto",
-            })
 
     return result
 

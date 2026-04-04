@@ -177,7 +177,7 @@ def test_gmail_stale_email_and_search_variants_use_paginated_items_schema() -> N
     variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
     required_page_keys = {"items", "page", "page_size", "pages", "total"}
 
-    for path in variants_dir.glob("*.yaml"):
+    for path in sorted(variants_dir.glob("gmail_*.yaml")):
         data = yaml.safe_load(path.read_text()) or {}
         for injection in data.get("injections", []):
             params = injection.get("params", {})
