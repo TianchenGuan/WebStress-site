@@ -131,14 +131,14 @@
 <body>
 
 <h1>WebAgentBench &mdash; Technical Architecture</h1>
-<p class="subtitle">Call flows, code structure, and injection mechanics for the stress-test benchmark. March 2026.</p>
+<p class="subtitle">Call flows, code structure, and injection mechanics for the stress-test benchmark. April 2026.</p>
 
 <div class="stat-row">
   <div class="stat-box"><div class="num">80</div><div class="label">Gmail Tasks</div></div>
   <div class="stat-box"><div class="num">7</div><div class="label">Primitives</div></div>
-  <div class="stat-box"><div class="num">28</div><div class="label">Degradation Variants</div></div>
+  <div class="stat-box"><div class="num">153</div><div class="label">Degradation Variants</div></div>
   <div class="stat-box"><div class="num">4</div><div class="label">Injection Layers</div></div>
-  <div class="stat-box"><div class="num">117</div><div class="label">Tests</div></div>
+  <div class="stat-box"><div class="num">1924</div><div class="label">Tests</div></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
@@ -270,11 +270,13 @@
 
   <div class="row"><span class="indent">  </span><span class="dir">injector/</span></div>
   <div class="row"><span class="indent">    </span><span class="file">config.py</span><span class="ann">DegradationConfig dataclass</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">apply.py</span><span class="ann">orchestrator — routes injections to each layer</span></div>
   <div class="row"><span class="indent">    </span><span class="file">seed.py</span><span class="ann">7 seed-layer actions</span></div>
   <div class="row"><span class="indent">    </span><span class="file">server.py</span><span class="ann">5 server-layer actions</span></div>
-  <div class="row"><span class="indent">    </span><span class="file">middleware.py</span><span class="ann">DegradationMiddleware</span></div>
-  <div class="row"><span class="indent">    </span><span class="file">client.py</span><span class="ann">legacy Playwright client-layer helpers (deprecated)</span></div>
-  <div class="row"><span class="indent">    </span><span class="dir">variants/</span><span class="ann">153 YAML degradation configs (as of 2026-03-31)</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">middleware.py</span><span class="ann">DegradationMiddleware — server-side HTTP interception (primary)</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">network.py</span><span class="ann">Playwright page.route() interception (includes transient_flash)</span></div>
+  <div class="row"><span class="indent">    </span><span class="file">client.py</span><span class="ann">legacy Playwright DOM mutations (deprecated)</span></div>
+  <div class="row"><span class="indent">    </span><span class="dir">variants/</span><span class="ann">153 YAML degradation configs</span></div>
 
   <div class="row"><span class="indent">  </span><span class="dir">tasks/</span></div>
   <div class="row"><span class="indent">    </span><span class="file">_schema.py</span><span class="ann">TaskDefinition, EvalConfig</span></div>
@@ -302,7 +304,7 @@
 
 <!-- ═══════════════════════════════════════════════════ -->
 <h2>4. Standard Evaluation Call Flow</h2>
-<p>This is the complete call chain when running <code>python -m webagentbench.agent_eval --model gpt-5.4 --tasks gmail_star_email --seed 42</code>.</p>
+<p>This is the complete call chain when running <code>python -m webagentbench.agent_eval --model gpt-4o --tasks gmail_star_email --seed 42</code>.</p>
 
 <div class="seq">
 <svg viewBox="0 0 1050 720" width="1050" height="720" xmlns="http://www.w3.org/2000/svg">
@@ -531,7 +533,7 @@
 </div>
 
 <div class="callout err">
-<strong>Key difference:</strong> The middleware returned a <strong>real HTTP 503</strong> for the star API call. The SPA showed no visible error to the agent. A patient agent would retry; gpt-5.4 did not &rarr; &Delta;=1.0.
+<strong>Key difference:</strong> The middleware returned a <strong>real HTTP 503</strong> for the star API call. The SPA showed no visible error to the agent. A patient agent would retry; gpt-4o did not &rarr; &Delta;=1.0.
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
@@ -550,8 +552,8 @@
   </div>
   <div class="layer-row l-network">
     <div class="lname" style="color:#cf222e">Network</div>
-    <div class="lacts"><code>delay</code> <code>error_then_success</code> <code>silent_fail</code> <code>stale_data</code> <code>transient_flash</code></div>
-    <div class="lfile"><span class="badge badge-red">injector/middleware.py</span></div>
+    <div class="lacts"><code>delay</code> <code>error_then_success</code> <code>silent_fail</code> <code>stale_data</code> &mdash; via <strong>middleware.py</strong> (server-side, primary) &nbsp;|&nbsp; <code>transient_flash</code> also available via <strong>network.py</strong> (Playwright page.route)</div>
+    <div class="lfile"><span class="badge badge-red">injector/middleware.py</span> <span class="badge badge-red">injector/network.py</span></div>
   </div>
   <div class="layer-row l-client">
     <div class="lname" style="color:#1a7f37">Client</div>
@@ -615,7 +617,7 @@
 <span class="kw">def</span> <span class="fn">_seeded_should_fire</span>(seed: int, call_index: int, probability: float) -> bool:
     <span class="cm">"""md5(seed:call_index) &rarr; deterministic coin flip. Same seed = same pattern."""</span>
     h = hashlib.md5(f<span class="st">"{seed}:{call_index}"</span>.encode()).hexdigest()
-    <span class="kw">return</span> (int(h[:8], 16) / 0xFFFFFFFF) &lt; probability
+    <span class="kw">return</span> (int(h[:8], 16) / 0x100000000) &lt; probability
 </pre>
 
 <h4>URL Pattern Matching</h4>
@@ -951,7 +953,7 @@ uv sync && playwright install chromium
 
 <span class="cm"># ── Standard evaluation ──</span>
 python -m webagentbench.agent_eval \
-    --model gpt-5.4 --provider openai --api-key $KEY \
+    --model gpt-4o --provider openai --api-key $KEY \
     --tasks gmail_star_email gmail_reply_simple gmail_create_label \
     --max-steps 50 --seed 42 --output results/standard.json
 
@@ -960,7 +962,7 @@ python -m webagentbench.agent_eval \
                 gmail_reply_simple__verification.yaml \
                 gmail_compose_new__backtracking.yaml; <span class="kw">do</span>
     python -m webagentbench.agent_eval \
-        --model gpt-5.4 --provider openai --api-key $KEY \
+        --model gpt-4o --provider openai --api-key $KEY \
         --degradation $variant --max-steps 50 --seed 42 \
         --output results/stress_$(echo $variant | sed 's/.yaml//').json
 <span class="kw">done</span>
@@ -978,7 +980,7 @@ python -m webagentbench.app --host 127.0.0.1 --port 8080
 </pre>
 
 <div style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--text-dim);font-size:0.82rem;">
-  WebAgentBench v3.0 &mdash; Xunjian Yin &amp; collaborators &mdash; March 2026
+  WebAgentBench v3.0 &mdash; Xunjian Yin &amp; collaborators &mdash; April 2026
 </div>
 
 </body>
