@@ -16,6 +16,7 @@ import ast
 import json
 import logging
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -56,6 +57,13 @@ def _parse_action_string(raw_action: str) -> dict[str, Any]:
     try:
         expr = ast.parse(action_text, mode="eval").body
     except SyntaxError:
+        # Fallback: regex parse for common patterns like fill("ref", "value with \"quotes\"")
+        m = re.match(r'(\w+)\s*\(\s*["\'](\d+)["\']\s*(?:,\s*["\'](.*)["\']\s*)?\)', action_text, re.DOTALL)
+        if m:
+            func, ref, value = m.group(1), m.group(2), m.group(3) or ""
+            if func in ("fill", "select_option"):
+                return {"action": func, "ref": ref, "value": value}
+            return {"action": func, "ref": ref}
         return {"action": action_text}
 
     if not isinstance(expr, ast.Call) or not isinstance(expr.func, ast.Name):
@@ -105,6 +113,41 @@ def _parse_action_string(raw_action: str) -> dict[str, Any]:
     if func_name == "noop":
         return {"action": "noop", "wait_ms": args[0] if args else 1000}
     return {"action": func_name, "args": args}
+
+
+def _extract_targets(parsed_action: dict[str, Any], obs: dict | None) -> dict[str, Any]:
+    """Extract ARIA role/name for the target element from the observation's a11y tree."""
+    if not obs or not isinstance(obs, dict):
+        return {}
+    ref = parsed_action.get("ref")
+    if ref is None:
+        return {}
+    bid = str(ref)
+    # BrowserGym's axtree_object is an AXTree; search for the BID in the flattened text
+    axtree = obs.get("axtree_object")
+    if not axtree:
+        return {"ref": bid}
+    try:
+        from browsergym.utils.obs import flatten_axtree_to_str
+        tree_text = flatten_axtree_to_str(
+            axtree, with_clickable=True, with_visible=True,
+            filter_visible_only=True, filter_with_bid_only=True,
+        )
+        # Find the line with this BID: e.g. [76] button "Search"
+        for line in tree_text.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith(f"[{bid}]"):
+                # Parse: [76] role "name"
+                m = re.match(r'\[\d+\]\s+(\w+)\s+"([^"]*)"', stripped)
+                if m:
+                    return {"ref": bid, "role": m.group(1), "name": m.group(2)}
+                m2 = re.match(r'\[\d+\]\s+(\w+)', stripped)
+                if m2:
+                    return {"ref": bid, "role": m2.group(1), "name": ""}
+                return {"ref": bid}
+    except Exception:
+        pass
+    return {"ref": bid}
 
 
 def _trajectory_status(
@@ -165,6 +208,7 @@ def run_episode(
                 print(f"    Step {step + 1}: TIMEOUT ({elapsed:.0f}s)")
             break
 
+        pre_action_obs = obs
         action = agent.act(obs)
 
         if verbose:
@@ -174,11 +218,18 @@ def run_episode(
         last_action_error = obs.get("last_action_error", "") if isinstance(obs, dict) else ""
         parsed_action = _parse_action_string(action)
 
+        # Extract thought from agent's reasoning (gpt-5.x reasoning_content or text before action)
+        thought = getattr(agent, "_last_thought", "") or ""
+
+        # Extract ARIA targets from the pre-action observation
+        targets = _extract_targets(parsed_action, pre_action_obs)
+
         trajectory.append({
             "step": step + 1,
-            "thought": "",
+            "thought": thought,
             "action": parsed_action,
             "raw_action": action,
+            "targets": targets,
             "status": _trajectory_status(parsed_action, last_action_error, terminated),
             "reward": reward,
             "elapsed_seconds": round(time.time() - start_time, 1),
@@ -329,14 +380,48 @@ def run_evaluation(
         )
 
         try:
-            episode = run_episode(
-                env,
-                agent,
-                episode_seed=seed,
-                max_steps=task_max_steps,
-                timeout_seconds=task_timeout,
-                verbose=verbose,
-            )
+            _TRANSIENT_CODES = ("429", "500", "502", "503", "504")
+            _MAX_ATTEMPTS = 2
+            _RETRY_BACKOFF = 30
+
+            last_exc: Exception | None = None
+            for _attempt in range(_MAX_ATTEMPTS):
+                try:
+                    episode = run_episode(
+                        env,
+                        agent,
+                        episode_seed=seed,
+                        max_steps=task_max_steps,
+                        timeout_seconds=task_timeout,
+                        verbose=verbose,
+                    )
+                    last_exc = None
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    exc_str = str(exc)
+                    is_transient = (
+                        isinstance(exc, (ConnectionError, TimeoutError))
+                        or any(code in exc_str for code in _TRANSIENT_CODES)
+                    )
+                    if not is_transient or _attempt >= _MAX_ATTEMPTS - 1:
+                        raise
+                    logger.warning(
+                        "Transient error on task %s (attempt %d/%d), retrying in %ds: %s",
+                        task_id, _attempt + 1, _MAX_ATTEMPTS, _RETRY_BACKOFF, exc,
+                    )
+                    if verbose:
+                        print(f"  [RETRY] transient error, retrying in {_RETRY_BACKOFF}s: {exc}")
+                    env.close()
+                    time.sleep(_RETRY_BACKOFF)
+                    env = make_env(
+                        task_id=task_id,
+                        degradation=str(deg_path) if degradation and deg_path.exists() else None,
+                        headless=headless,
+                        server_host=server_host,
+                        server_port=server_port,
+                    )
+
             evaluation = episode["evaluation"]
             score = evaluation.get("score", evaluation.get("final_score", 0.0))
             icon = "PASS" if evaluation.get("success") else "FAIL"
