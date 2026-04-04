@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, preserveQueryParams } from "@webagentbench/shared";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { IconArrowBack, IconArchive, IconDelete, IconForward, IconStar, IconLabel } from "../icons";
 import { ComposeForm } from "../components/ComposeForm";
@@ -13,6 +13,7 @@ export function ThreadPage() {
   const { api, notify, refreshMailbox, summary } = useGmailLayout();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [replyingTo, setReplyingTo] = useState<Email | null>(null);
   const [replyAllMode, setReplyAllMode] = useState(false);
@@ -32,6 +33,27 @@ export function ThreadPage() {
       await refreshMailbox();
     });
   }, [api, emailId, refreshMailbox]);
+
+  // Replay mode: auto-open reply form with pre-filled values
+  useEffect(() => {
+    const mode = searchParams.get("replayCompose");
+    const replayBody = searchParams.get("replayBody");
+    if ((mode === "reply" || mode === "replyAll") && thread && !replyingTo) {
+      const lastEmail = thread.thread[thread.thread.length - 1];
+      if (lastEmail) {
+        setReplyingTo(lastEmail);
+        setReplyAllMode(mode === "replyAll");
+      }
+    }
+    if (mode === "forward" && thread && !forwardingEmail) {
+      const lastEmail = thread.thread[thread.thread.length - 1];
+      if (lastEmail) setForwardingEmail(lastEmail);
+    }
+    // Clear reply if replay mode is removed
+    if (!mode && !replayBody) {
+      // Don't clear user-initiated replies
+    }
+  }, [searchParams, thread, replyingTo, forwardingEmail]);
 
   // Close label menu on outside click
   useEffect(() => {
@@ -262,7 +284,7 @@ export function ThreadPage() {
             aria-label="Forward this thread"
             onClick={() => {
               if (thread) {
-                setForwardingEmail(thread.email);
+                setForwardingEmail(thread.thread[thread.thread.length - 1]);
               }
             }}
           >
@@ -298,7 +320,7 @@ export function ThreadPage() {
                 )
               : [],
             subject: replyingTo.subject.startsWith("Re:") ? replyingTo.subject : `Re: ${replyingTo.subject}`,
-            body: `\n\nOn ${new Date(replyingTo.timestamp).toLocaleString()}, ${replyingTo.from_name} wrote:\n${replyingTo.body}`,
+            body: searchParams.get("replayBody") || `\n\nOn ${new Date(replyingTo.timestamp).toLocaleString()}, ${replyingTo.from_name} wrote:\n${replyingTo.body}`,
             reply_to: replyingTo.id,
             thread_id: replyingTo.thread_id,
           }}

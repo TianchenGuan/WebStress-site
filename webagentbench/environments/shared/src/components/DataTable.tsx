@@ -14,7 +14,7 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ label, columns, rows }: DataTableProps<T>) {
   return (
-    <div className="wab-card" style={{ overflow: "hidden" }}>
+    <div className="wab-card" style={{ overflowX: "auto" }}>
       <table className="wab-data-table" aria-label={label}>
         <thead>
           <tr>

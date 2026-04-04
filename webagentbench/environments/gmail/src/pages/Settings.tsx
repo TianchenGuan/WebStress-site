@@ -991,7 +991,9 @@ export function SettingsPage() {
     const created = await gmailApi.createFilter({
       name: newFilter.name,
       query,
-      from_addresses: newFilter.fromPattern.trim() ? [newFilter.fromPattern.trim()] : [],
+      from_addresses: newFilter.fromPattern.trim()
+        ? newFilter.fromPattern.split(",").map((s) => s.trim()).filter(Boolean)
+        : [],
       subject_keywords: newFilter.subjectPhrase.trim() ? [newFilter.subjectPhrase.trim()] : [],
       label_requirements: [],
       has_attachment: newFilter.hasAttachment ? true : null,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 
+import { useAdapterContext } from "../hooks/useAdapter";
 import { preserveQueryParams } from "../utils/navigation";
 
 interface EvaluationCheck {
@@ -144,6 +145,7 @@ function applyClientInjections(injections: Array<{ params?: Record<string, unkno
 }
 
 export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
+  const adapter = useAdapterContext();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState("(Loading task...)");
@@ -226,7 +228,7 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     return () => window.clearInterval(interval);
   }, [recording]);
 
-  if (agentMode) {
+  if (agentMode || adapter?.mode === "static") {
     return null;
   }
 

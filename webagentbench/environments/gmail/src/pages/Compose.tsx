@@ -1,5 +1,5 @@
 import { preserveQueryParams } from "@webagentbench/shared";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ComposeForm } from "../components/ComposeForm";
 import { useGmailLayout } from "../context";
@@ -9,7 +9,18 @@ export function ComposePage() {
   const { api, notify, refreshMailbox } = useGmailLayout();
   const navigate = useNavigate();
   const location = useLocation();
-  const initialValue = (location.state ?? {}) as Partial<ComposePayload>;
+  const [searchParams] = useSearchParams();
+
+  // In replay mode, compose fields come via query params
+  const replayTo = searchParams.get("replayTo");
+  const initialValue: Partial<ComposePayload> = replayTo != null
+    ? {
+        to: (searchParams.get("replayTo") ?? "").split(",").map(s => s.trim()).filter(Boolean),
+        cc: (searchParams.get("replayCc") ?? "").split(",").map(s => s.trim()).filter(Boolean),
+        subject: searchParams.get("replaySubject") ?? "",
+        body: searchParams.get("replayBody") ?? "",
+      } satisfies Partial<ComposePayload>
+    : (location.state ?? {}) as Partial<ComposePayload>;
 
   return (
     <main className="gmail-page" aria-label="Compose message">
