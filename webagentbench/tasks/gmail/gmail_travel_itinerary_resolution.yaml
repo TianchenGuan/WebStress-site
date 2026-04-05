@@ -57,8 +57,8 @@ eval:
   - expr: any(m.forwarded_from_id == '{target.hotel_denver_email_id}' and 'travel.assistant@ops.thornton.com'
       in m.to for m in state.sent)
     desc: Denver hotel forwarded to travel assistant
-  - expr: any(f.sender == '{target.airline_sender}' and 'Travel' in f.add_labels for
-      f in state.filters)
+  - expr: any('{target.airline_sender}' in f.from_addresses and 'Travel' in f.add_labels
+      for f in state.filters)
     desc: Filter created for airline sender with Travel label
   negative_checks:
   - expr: not any(m.forwarded_from_id == '{target.flight_original_email_id}' and 'travel.assistant@ops.thornton.com'
