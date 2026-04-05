@@ -907,7 +907,7 @@ def _print_summary(results: list[dict]) -> None:
     scores = [r["evaluation"].get("score", r["evaluation"].get("final_score", 0.0)) for r in results]
     avg = sum(scores) / total if total else 0
     print(f"\n{'=' * 60}")
-    print(f"SUMMARY: {passed}/{total} passed  |  avg score: {avg:+.3f}")
+    print(f"SUMMARY: {passed}/{total} passed  |  avg score: {avg:.3f}")
     print(f"{'=' * 60}")
 
 

@@ -184,7 +184,7 @@ echo "" | tee -a "$PROGRESS"
 
 # Generate per-worker task lists via Python (zsh/bash safe)
 python3 - "$WORKERS" "$RUNDIR" "$MODEL" "$PROVIDER" "$SEED" "$MAX_STEPS" "$TIMEOUT" "$PORT" "$REASONING" "$HARNESS" << 'SPLITEOF'
-import sys, yaml
+import sys, yaml, shlex
 from pathlib import Path
 
 workers = int(sys.argv[1])
@@ -210,17 +210,17 @@ for w in range(workers):
 set -a && source .env && set +a
 source .venv/bin/activate 2>/dev/null || true
 PYTHONUNBUFFERED=1 python -m webagentbench.agent_eval \\
-    --model {model} \\
-    --provider {provider} \\
+    --model {shlex.quote(model)} \\
+    --provider {shlex.quote(provider)} \\
     --api-key "${{OPENAI_API_KEY}}" \\
-    --tasks {' '.join(worker_tasks)} \\
-    --max-steps {max_steps} \\
-    --timeout {timeout} \\
-    --seed {seed} \\
-    --server-port {port} \\
+    --tasks {' '.join(shlex.quote(t) for t in worker_tasks)} \\
+    --max-steps {shlex.quote(str(max_steps))} \\
+    --timeout {shlex.quote(str(timeout))} \\
+    --seed {shlex.quote(str(seed))} \\
+    --server-port {shlex.quote(str(port))} \\
     {reasoning_flag} \\
     {harness_flag} \\
-    --output {rundir}/w{w}.json
+    --output {shlex.quote(f'{rundir}/w{w}.json')}
 """)
     script_path.chmod(0o755)
     print(f"W{w}: {len(worker_tasks)} tasks")
@@ -337,7 +337,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 rundir = sys.argv[1] if len(sys.argv) > 1 else "RUNDIR"
-files = sorted(glob.glob(f"{rundir}/w*.json"))
+files = sorted(glob.glob(f"{rundir}/w[0-9]*.json"))
 all_results = []
 for f in files:
     try:
