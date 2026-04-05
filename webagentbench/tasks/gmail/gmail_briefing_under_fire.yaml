@@ -90,17 +90,11 @@ eval:
 
       '
     desc: Briefing email sent to CEO with correct subject
-  - expr: '''{target.update_a}'' in [m.body for m in state.sent if ''{target.ceo_email}'' in m.to][0]
-
-      '
+  - expr: "'{target.update_a}' in next((m.body for m in state.sent if '{target.ceo_email}' in m.to), '')"
     desc: Thread A key update in briefing body
-  - expr: '''{target.update_b}'' in [m.body for m in state.sent if ''{target.ceo_email}'' in m.to][0]
-
-      '
+  - expr: "'{target.update_b}' in next((m.body for m in state.sent if '{target.ceo_email}' in m.to), '')"
     desc: Thread B key update in briefing body
-  - expr: '''{target.update_c}'' in [m.body for m in state.sent if ''{target.ceo_email}'' in m.to][0]
-
-      '
+  - expr: "'{target.update_c}' in next((m.body for m in state.sent if '{target.ceo_email}' in m.to), '')"
     desc: Thread C key update in briefing body
   - expr: state.get_email('{target.spam_email_id}').deleted
     desc: Spam email deleted

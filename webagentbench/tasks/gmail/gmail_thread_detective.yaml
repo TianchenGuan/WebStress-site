@@ -81,9 +81,9 @@ eval:
   - expr: state.sent[-1].thread_id == '{target.most_recent_thread_id}'
     desc: Reply targets the most recent scheduling thread
   negative_checks:
-  - expr: "not any(t in state.sent[-1].body.split(\"\\n\\nOn \", 1)[0] for t in {target.wrong_times})"
+  - expr: "len(state.sent) == 0 or not any(t in state.sent[-1].body.split(\"\\n\\nOn \", 1)[0] for t in {target.wrong_times})"
     desc: Reply does not mention any conflicting times
     penalty: 0.25
-  - expr: len(state.sent[-1].to) == 1
+  - expr: len(state.sent) == 0 or len(state.sent[-1].to) == 1
     desc: Reply was sent only to the sender (not Reply All)
     penalty: 0.2

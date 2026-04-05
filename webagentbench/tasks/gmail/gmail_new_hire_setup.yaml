@@ -85,6 +85,6 @@ eval:
       == '{target.welcome_id}')
     desc: Hiring manager CC'd
   negative_checks:
-  - expr: len(state.sent[-1].to) == 1
+  - expr: len(state.sent) == 0 or len(state.sent[-1].to) == 1
     desc: Reply not Reply All
     penalty: 0.2

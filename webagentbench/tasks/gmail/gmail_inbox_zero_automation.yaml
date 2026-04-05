@@ -123,8 +123,7 @@ eval:
   - expr: not any(l.name == 'Automated/Vendor' for l in state.labels)
     desc: Draft policy label names not used
     penalty: 0.15
-  - expr: not any(not state.get_email(eid).is_starred for eid in {target.non_matching_old_email_ids}
-      if not state.get_email(eid).is_starred)
+  - expr: all(not state.get_email(eid).is_starred for eid in {target.non_matching_old_email_ids})
     desc: Non-matching old emails not newly starred
     penalty: 0.1
   - expr: '''Auto/Billing'' not in state.get_email(''{target.billing_decoy_email_id}'').labels'

@@ -78,6 +78,7 @@ _DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "url_pattern": "**/api/env/gmail/emails",
                 "methods": ["POST", "PUT", "PATCH", "DELETE"],
                 "error_status": 503, "error_count": 1,
+                "error_message": "Service temporarily unavailable. The mail server is experiencing high load. Please retry your request in a few seconds.",
                 "behavior": {"mode": "once"}}},
             {"layer": "network", "params": {
                 "action": "delay",
@@ -116,12 +117,14 @@ _DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "url_pattern": "**/api/env/gmail/send",
                 "methods": ["POST"],
                 "error_status": 503, "error_count": 2,
+                "error_message": "Failed to send email. The outgoing mail queue is temporarily full. Please retry.",
                 "behavior": {"mode": "once"}}},
             {"layer": "network", "params": {
                 "action": "error_then_success",
                 "url_pattern": "**/api/env/gmail/labels",
                 "methods": ["POST"],
                 "error_status": 503, "error_count": 1,
+                "error_message": "Failed to create label. The label service is temporarily unavailable. Please retry.",
                 "behavior": {"mode": "once"}}},
         ],
     },

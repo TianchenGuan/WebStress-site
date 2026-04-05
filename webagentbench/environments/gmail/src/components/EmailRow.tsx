@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, classNames, formatDateTime, preserveQueryParams } from "@webagentbench/shared";
 
-import { IconStar, IconArchive, IconDelete } from "../icons";
+import { IconStar, IconArchive, IconDelete, IconMoveToInbox } from "../icons";
 import { LabelChip } from "./LabelChip";
 import type { Email, Label } from "../types";
 
@@ -11,10 +11,11 @@ interface EmailRowProps {
   onToggleStar: (email: Email) => void;
   onArchive: (email: Email) => void;
   onDelete: (email: Email) => void;
+  onRestore?: (email: Email) => void;
   currentLabel?: string;
 }
 
-export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete, currentLabel }: EmailRowProps) {
+export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete, onRestore, currentLabel }: EmailRowProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const normalizedEmailLabels = new Set(email.labels.map((label) => label.toLowerCase()));
@@ -72,13 +73,23 @@ export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete, cur
       </div>
 
       <div className="gmail-email-row__actions">
-        <Button
-          variant="ghost"
-          aria-label={`Archive ${email.subject}`}
-          onClick={(e: { stopPropagation: () => void }) => { e.stopPropagation(); onArchive(email); }}
-        >
-          <IconArchive />
-        </Button>
+        {onRestore && (currentLabel === "trash" || currentLabel === "archived") ? (
+          <Button
+            variant="ghost"
+            aria-label={`Move to inbox ${email.subject}`}
+            onClick={(e: { stopPropagation: () => void }) => { e.stopPropagation(); onRestore(email); }}
+          >
+            <IconMoveToInbox />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            aria-label={`Archive ${email.subject}`}
+            onClick={(e: { stopPropagation: () => void }) => { e.stopPropagation(); onArchive(email); }}
+          >
+            <IconArchive />
+          </Button>
+        )}
         <Button
           variant="ghost"
           aria-label={currentLabel === "trash" ? `Delete permanently ${email.subject}` : `Delete ${email.subject}`}

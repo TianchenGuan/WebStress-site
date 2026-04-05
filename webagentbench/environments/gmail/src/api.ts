@@ -28,6 +28,8 @@ export function createGmailApi(request: RequestFn) {
       request(`emails/${emailId}/archive`, { method: "POST" }),
     deleteEmail: (emailId: string) =>
       request(`emails/${emailId}/delete`, { method: "POST" }),
+    restoreEmail: (emailId: string) =>
+      request(`emails/${emailId}/restore`, { method: "POST" }),
     applyEmailLabel: (emailId: string, label: string, action: "add" | "remove" = "add") =>
       request(`emails/${emailId}/label`, { method: "POST", body: { label, action } }),
     forward: (emailId: string, payload: { to: string[]; cc?: string[]; bcc?: string[]; body: string }) =>

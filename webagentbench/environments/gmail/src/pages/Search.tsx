@@ -36,6 +36,7 @@ export function SearchPage() {
   const { api, notify, refreshMailbox, summary } = useGmailLayout();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
+  const searchNonce = searchParams.get("_t") ?? "";
   const [results, setResults] = useState<EmailListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const hasQuery = query.trim() !== "";
@@ -47,7 +48,7 @@ export function SearchPage() {
     }
     setIsLoading(true);
     fetchSearchSnapshot(api, query).then(setResults).finally(() => setIsLoading(false));
-  }, [api, hasQuery, query]);
+  }, [api, hasQuery, query, searchNonce]);
 
   const mutate = async (email: Email, fn: () => Promise<unknown>, toast: string) => {
     await fn();
@@ -80,7 +81,7 @@ export function SearchPage() {
       {!isLoading && hasQuery && !hasResults ? (
         <EmptyState
           title="No messages match this search"
-          description={`No results for "${query}". Try sender names, exact email addresses, or filters like is:unread and label:VIP.`}
+          description={`No results for "${query}". Try different keywords, sender names, or filters like is:unread and label:VIP.`}
         />
       ) : null}
 

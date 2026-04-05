@@ -138,6 +138,7 @@ class Email(BaseEntity):
     archived: bool = False
     deleted: bool = False
     category: str = "primary"
+    pre_delete_labels: list[str] | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -466,6 +467,7 @@ class GmailState(BaseEnvState):
             for index, email in enumerate(collection):
                 if email.id == email_id:
                     removed = collection.pop(index)
+                    removed.pre_delete_labels = list(removed.labels)
                     removed.deleted = True
                     removed.archived = False
                     removed.labels = ["trash"]
@@ -473,6 +475,20 @@ class GmailState(BaseEnvState):
                     self.touch()
                     return removed
         raise KeyError(f"Unknown email id: {email_id}")
+
+    def restore_email(self, email_id: str) -> Email:
+        """Move an email from trash back to inbox."""
+        for index, email in enumerate(self.deleted):
+            if email.id == email_id:
+                restored = self.deleted.pop(index)
+                restored.deleted = False
+                restored.archived = False
+                restored.labels = list(restored.pre_delete_labels) if restored.pre_delete_labels else ["inbox"]
+                restored.pre_delete_labels = None
+                self.emails.append(restored)
+                self.touch()
+                return restored
+        raise KeyError(f"Email not in trash: {email_id}")
 
     def send_email(
         self,

@@ -718,6 +718,22 @@ def delete_email(
     return {"email": result.model_dump(mode="json")}
 
 
+@router.post("/emails/{email_id}/restore")
+def restore_email(
+    email_id: str,
+    body: SessionScopedRequest,
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _gmail_state(session_manager, body.session_id)
+    result = _mutate(
+        session_manager, body.session_id,
+        "gmail.email.restore",
+        {"email_id": email_id},
+        lambda s: state.restore_email(email_id),
+    )
+    return {"email": _serialize_email(state, result)}
+
+
 @router.post("/emails/{email_id}/forward")
 def forward_email(
     email_id: str,

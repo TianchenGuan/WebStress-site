@@ -29,21 +29,17 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
   const [toasts, setToasts] = useState<Array<{ id: string; title: string; description?: string; onUndo?: () => void }>>([]);
 
   const notify = (title: string, description?: string, onUndo?: () => void) => {
-    const id = `${title}-${Date.now()}`;
+    const id = `${title}-${Date.now()}-${Math.random()}`;
     setToasts((current) => [...current, { id, title, description, onUndo }]);
+    // Each toast auto-dismisses after 3s independently
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((t) => t.id !== id));
+    }, 3000);
   };
 
   const dismissToast = (id: string) => {
     setToasts((current) => current.filter((t) => t.id !== id));
   };
-
-  useEffect(() => {
-    if (toasts.length === 0) return;
-    const timer = window.setTimeout(() => {
-      setToasts((current) => current.slice(1));
-    }, 2800);
-    return () => window.clearTimeout(timer);
-  }, [toasts]);
 
   // Refs to break the circular dep: refreshMailbox reads location without
   // depending on it, so its identity stays stable across route changes.
@@ -93,7 +89,8 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
   const handleSearchSubmit = useCallback(() => {
     const query = searchValue.trim();
     log("search_submit", { query, route: location.pathname, sessionId });
-    navigate(preserveQueryParams(`/search?q=${encodeURIComponent(query)}`, location.search));
+    // Include _t param so re-submitting the same query still triggers navigation
+    navigate(preserveQueryParams(`/search?q=${encodeURIComponent(query)}&_t=${Date.now()}`, location.search));
   }, [location.pathname, location.search, log, navigate, searchValue, sessionId]);
 
   const navItems = [

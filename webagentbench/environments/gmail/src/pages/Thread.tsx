@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { EmptyState, preserveQueryParams } from "@webagentbench/shared";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { IconArrowBack, IconArchive, IconDelete, IconForward, IconStar, IconLabel } from "../icons";
+import { IconArrowBack, IconArchive, IconDelete, IconForward, IconStar, IconLabel, IconMoveToInbox } from "../icons";
 import { ComposeForm } from "../components/ComposeForm";
 import { ThreadView } from "../components/ThreadView";
 import { useGmailLayout } from "../context";
@@ -22,6 +22,16 @@ export function ThreadPage() {
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const labelMenuRef = useRef<HTMLDivElement>(null);
+
+  const withErrorToast = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+    } catch (err: unknown) {
+      const detail = (err as { detail?: { error?: string } })?.detail;
+      const message = detail?.error ?? "Action failed. Please retry.";
+      notify("Error", message);
+    }
+  };
 
   useEffect(() => {
     if (!emailId) {
@@ -79,37 +89,49 @@ export function ThreadPage() {
   }
 
   const sendReply = async (payload: ComposePayload) => {
-    await api.sendMessage(payload);
-    notify("Reply sent", payload.subject);
-    setReplyingTo(null);
-    setReplyAllMode(false);
-    const response = await api.getThread(emailId);
-    setThread(response);
-    await refreshMailbox();
+    try {
+      await api.sendMessage(payload);
+      notify("Reply sent", payload.subject);
+      setReplyingTo(null);
+      setReplyAllMode(false);
+      const response = await api.getThread(emailId);
+      setThread(response);
+      await refreshMailbox();
+    } catch (err: unknown) {
+      const detail = (err as { detail?: { error?: string } })?.detail;
+      notify("Send failed", detail?.error ?? "Failed to send reply. Please retry.");
+    }
   };
 
   const sendForward = async (payload: ComposePayload) => {
     if (!forwardingEmail) return;
-    await api.forward(forwardingEmail.id, {
-      to: payload.to,
-      cc: payload.cc,
-      bcc: payload.bcc,
-      body: payload.body,
-    });
-    notify("Forwarded", forwardingEmail.subject);
-    setForwardingEmail(null);
-    const response = await api.getThread(emailId);
-    setThread(response);
-    await refreshMailbox();
+    try {
+      await api.forward(forwardingEmail.id, {
+        to: payload.to,
+        cc: payload.cc,
+        bcc: payload.bcc,
+        body: payload.body,
+      });
+      notify("Forwarded", forwardingEmail.subject);
+      setForwardingEmail(null);
+      const response = await api.getThread(emailId);
+      setThread(response);
+      await refreshMailbox();
+    } catch (err: unknown) {
+      const detail = (err as { detail?: { error?: string } })?.detail;
+      notify("Forward failed", detail?.error ?? "Failed to forward email. Please retry.");
+    }
   };
 
   const handleToggleStar = async () => {
     if (!thread) return;
-    await api.toggleStar(thread.email.id);
-    const response = await api.getThread(emailId!);
-    setThread(response);
-    notify(thread.email.is_starred ? "Star removed" : "Starred");
-    await refreshMailbox();
+    await withErrorToast(async () => {
+      await api.toggleStar(thread.email.id);
+      const response = await api.getThread(emailId!);
+      setThread(response);
+      notify(thread.email.is_starred ? "Star removed" : "Starred");
+      await refreshMailbox();
+    });
   };
 
   const handleApplyLabel = async (label: Label) => {
@@ -146,30 +168,53 @@ export function ThreadPage() {
           >
             <IconArrowBack />
           </button>
-          <button
-            type="button"
-            className="gmail-toolbar__icon-btn"
-            aria-label="Archive this thread"
-            onClick={async () => {
-              if (thread) {
-                const archivedId = thread.email.id;
-                await api.archive(archivedId);
-                notify("Conversation archived", thread.email.subject, async () => {
-                  await api.applyEmailLabel(archivedId, "inbox", "add");
+          {thread?.email.labels.includes("trash") || (thread && !thread.email.labels.includes("inbox")) ? (
+            <button
+              type="button"
+              className="gmail-toolbar__icon-btn"
+              aria-label="Move to inbox"
+              onClick={() => withErrorToast(async () => {
+                if (thread) {
+                  const isInTrash = thread.email.labels.includes("trash");
+                  if (isInTrash) {
+                    await api.restoreEmail(thread.email.id);
+                  } else {
+                    await api.applyEmailLabel(thread.email.id, "inbox", "add");
+                  }
+                  notify("Moved to inbox", thread.email.subject);
                   await refreshMailbox();
-                });
-                await refreshMailbox();
-                navigate(preserveQueryParams("/inbox?label=inbox", location.search));
-              }
-            }}
-          >
-            <IconArchive />
-          </button>
+                  navigate(preserveQueryParams("/inbox?label=inbox", location.search));
+                }
+              })}
+            >
+              <IconMoveToInbox />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="gmail-toolbar__icon-btn"
+              aria-label="Archive this thread"
+              onClick={() => withErrorToast(async () => {
+                if (thread) {
+                  const archivedId = thread.email.id;
+                  await api.archive(archivedId);
+                  notify("Conversation archived", thread.email.subject, async () => {
+                    await api.applyEmailLabel(archivedId, "inbox", "add");
+                    await refreshMailbox();
+                  });
+                  await refreshMailbox();
+                  navigate(preserveQueryParams("/inbox?label=inbox", location.search));
+                }
+              })}
+            >
+              <IconArchive />
+            </button>
+          )}
           <button
             type="button"
             className="gmail-toolbar__icon-btn"
             aria-label={thread?.email.labels.includes("trash") ? "Delete this thread permanently" : "Delete this thread"}
-            onClick={async () => {
+            onClick={() => withErrorToast(async () => {
               if (thread) {
                 const isInTrash = thread.email.labels.includes("trash");
                 await api.deleteEmail(thread.email.id);
@@ -177,7 +222,7 @@ export function ThreadPage() {
                 await refreshMailbox();
                 navigate(preserveQueryParams("/inbox?label=inbox", location.search));
               }
-            }}
+            })}
           >
             <IconDelete />
           </button>

@@ -73,6 +73,6 @@ eval:
   - expr: any(m.in_reply_to == '{target.summary_id}' for m in state.sent)
     desc: Reply is threaded
   negative_checks:
-  - expr: len(state.sent[-1].to) == 1
+  - expr: len(state.sent) == 0 or len(state.sent[-1].to) == 1
     desc: Single recipient (not Reply All)
     penalty: 0.2

@@ -24,6 +24,6 @@ eval:
   - expr: state.get_email('{target.target_email_id}').is_starred
     desc: Target email is starred
   negative_checks:
-  - expr: sum(1 for e in state.emails if e.is_starred) <= 2
-    desc: Did not star too many emails
+  - expr: all(not e.is_starred for e in state.emails if e.id != '{target.target_email_id}')
+    desc: No non-target emails were starred
     penalty: 0.2

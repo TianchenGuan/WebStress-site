@@ -28,10 +28,16 @@ export function ComposePage() {
         initialValue={initialValue}
         onCancel={() => navigate(-1)}
         onSubmit={async (payload) => {
-          await api.sendMessage(payload);
-          notify("Message sent", payload.subject);
-          await refreshMailbox();
-          navigate(preserveQueryParams("/inbox?label=sent", location.search));
+          try {
+            await api.sendMessage(payload);
+            notify("Message sent", payload.subject);
+            await refreshMailbox();
+            navigate(preserveQueryParams("/inbox?label=sent", location.search));
+          } catch (err: unknown) {
+            const detail = (err as { detail?: { error?: string } })?.detail;
+            const message = detail?.error ?? "Failed to send message. Please retry.";
+            notify("Send failed", message);
+          }
         }}
       />
     </main>

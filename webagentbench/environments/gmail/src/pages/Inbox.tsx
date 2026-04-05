@@ -101,9 +101,15 @@ export function InboxPage() {
   };
 
   const runMutation = async (email: Email, mutate: () => Promise<unknown>, title: string, onUndo?: () => void) => {
-    await mutate();
-    notify(title, email.subject, onUndo);
-    await reload();
+    try {
+      await mutate();
+      notify(title, email.subject, onUndo);
+      await reload();
+    } catch (err: unknown) {
+      const detail = (err as { detail?: { error?: string } })?.detail;
+      const message = detail?.error ?? "Action failed. Please retry.";
+      notify("Error", message);
+    }
   };
 
   // Filter by category, then paginate client-side
@@ -231,6 +237,15 @@ export function InboxPage() {
               })
             }
             onDelete={(entry) => runMutation(entry, () => api.deleteEmail(entry.id), label === "trash" ? "Permanently deleted" : "Moved thread to trash")}
+            onRestore={(entry) =>
+              runMutation(
+                entry,
+                () => label === "trash"
+                  ? api.restoreEmail(entry.id)
+                  : api.applyEmailLabel(entry.id, "inbox", "add"),
+                "Moved to inbox",
+              )
+            }
           />
         ))}
       </section>

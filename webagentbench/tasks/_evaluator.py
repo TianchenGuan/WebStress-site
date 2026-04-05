@@ -78,6 +78,7 @@ _SAFE_BUILTINS: dict[str, Any] = {
     "any": any,
     "all": all,
     "len": len,
+    "next": next,
     "str": str,
     "int": int,
     "float": float,

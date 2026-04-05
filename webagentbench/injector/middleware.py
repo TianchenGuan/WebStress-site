@@ -326,9 +326,29 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     should_error = call_num <= error_count
 
                 if should_error:
+                    error_message = params.get("error_message")
+                    retry_after = params.get("retry_after")
+                    if not error_message:
+                        error_messages = {
+                            503: "Service temporarily unavailable. The server is under heavy load. Please retry your request.",
+                            429: "Rate limit exceeded. Please wait before retrying.",
+                            500: "Internal server error. An unexpected condition was encountered. Please retry.",
+                            502: "Bad gateway. The upstream service did not respond. Please retry.",
+                        }
+                        error_message = error_messages.get(error_status, f"Request failed with status {error_status}. Please retry.")
+                    headers: dict[str, str] = {}
+                    if error_status == 429:
+                        headers["Retry-After"] = str(retry_after or 30)
+                    elif retry_after:
+                        headers["Retry-After"] = str(retry_after)
                     return JSONResponse(
                         status_code=error_status,
-                        content={"error": "Server Error", "degradation": True},
+                        content={
+                            "error": error_message,
+                            "status": error_status,
+                            "retryable": True,
+                        },
+                        headers=headers or None,
                     )
 
             elif action == "silent_fail":
