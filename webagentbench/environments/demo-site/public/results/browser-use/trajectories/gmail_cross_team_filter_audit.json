@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_cross_team_filter_audit",
+  "title": "Cross-Team Filter Audit with Conflict Resolution",
+  "instruction": "Three team leads have each sent you an email requesting Gmail filters for their teams:\n- Alice Martinez (alice.martinez@frontend.company.org): \"Frontend team filter requests\"\n- Bob Nakamura (bob.nakamura@backend.company.org): \"Backend infra filter requests\"\n- Clara Johansson (clara.johansson@data.company.org): \"Data team filter requests\"\n\nRead all three emails and identify any conflicts \u2014 filters from different teams that match the same from-address with different actions. Then:\n(1) Compose and send an email to admin@company.org with subject \"Filter conflict report\" listing each conflict: the from-address, the two conflicting team leads, and each lead's requested action. Do not propose a resolution \u2014 only report the conflicts.\n(2) Create all filters that do NOT conflict (whose from-address is requested by only one team lead). Read each email carefully \u2014 Clara's email has a 4th request in a separate paragraph at the bottom.\n(3) For each team lead, create a label named \"Team/{LeadLastName}\" and apply it to all emails in the inbox from that lead's domain (*@frontend.company.org, *@backend.company.org, *@data.company.org).\n\nIgnore filter suggestions from anyone other than Alice, Bob, and Clara. Ignore any forwarded versions of their emails \u2014 use only the original emails from each lead.",
+  "difficulty": "frontier",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.5789473684210527,
+    "success": false,
+    "reasoning": "Passed 11/19 checks.\n  [PASS] Conflict report email sent to admin with correct subject\n  [PASS] Conflict report names deploy@ci conflict with both leads\n  [PASS] Conflict report names errors@sentry conflict with both leads\n  [PASS] Filter for reviews@github-frontend exists\n  [PASS] Filter for design@figma exists with star\n  [PASS] Filter for alerts@pagerduty exists with star and skip inbox\n  [FAIL] Filter for metrics@grafana exists\n  [PASS] Filter for pipelines@airflow exists with skip inbox\n  [PASS] Filter for notebooks@jupyter exists\n  [PASS] Filter for queries@warehouse exists with mark as read\n  [PASS] No filter created for conflicting deploy@ci address\n  [PASS] No filter created for conflicting errors@sentry address\n  [FAIL] Team/Martinez label exists\n  [FAIL] Team/Nakamura label exists\n  [FAIL] Team/Johansson label exists\n  [FAIL] All frontend domain emails labeled Team/Martinez\n  [FAIL] All backend domain emails labeled Team/Nakamura\n  [FAIL] All data domain emails labeled Team/Johansson\n  [FAIL] All 7 filter-referenced labels exist\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_sent, filters_added\nFinal score: 0.579 | Success: False"
+  },
+  "steps": []
+}

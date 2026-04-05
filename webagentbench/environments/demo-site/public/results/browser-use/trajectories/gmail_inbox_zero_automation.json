@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_inbox_zero_automation",
+  "title": "Implement Inbox-Zero Automation Policy",
+  "instruction": "Read the email from ops lead Priya Sharma (priya.sharma@blueridge.dev) with subject \"Inbox Zero policy - implement now\". Follow every instruction:\n(1) Create 5 labels with specified visibility:\n    - \"Auto/Vendor\" (show in label list, hide in message list)\n    - \"Auto/CI-CD\" (show in label list, show in message list)\n    - \"Auto/Newsletters\" (hide in label list, hide in message list)\n    - \"Auto/Billing\" (show in label list, show in message list)\n    - \"Auto/Social\" (hide in label list, hide in message list)\n(2) Create 6 filters:\n    - From: *@vendors.blueridge.dev \u2192 add label \"Auto/Vendor\", skip inbox, mark as read\n    - From: ci@github.com, Subject contains: \"build\" \u2192 add label \"Auto/CI-CD\", skip inbox\n    - From: *@newsletter.blueridge.dev \u2192 add label \"Auto/Newsletters\", skip inbox, mark as read\n    - From: billing@stripe.com \u2192 add label \"Auto/Billing\", star\n    - From: billing@aws.amazon.com \u2192 add label \"Auto/Billing\", star\n    - From: *@social.blueridge.dev \u2192 add label \"Auto/Social\", skip inbox\n(3) Archive all existing emails in the inbox that match any of the 6 filter criteria above.\n(4) Star every email in the inbox received in the last 24 hours that does NOT match any of the 6 filter criteria.\nIgnore the older draft policy email \u2014 only follow the latest \"implement now\" version.",
+  "difficulty": "expert",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.8473684210526315,
+    "success": false,
+    "reasoning": "Passed 18/19 checks.\n  [PASS] Auto/Vendor label exists with correct visibility\n  [PASS] Auto/CI-CD label exists with correct visibility\n  [PASS] Auto/Newsletters label exists with correct visibility\n  [PASS] Auto/Billing label exists with correct visibility\n  [PASS] Auto/Social label exists with correct visibility\n  [PASS] Vendor filter exists with correct actions\n  [PASS] CI-CD filter exists with correct actions\n  [PASS] Newsletter filter exists with correct actions\n  [PASS] Billing Stripe filter exists with correct actions\n  [PASS] Billing AWS filter exists with correct actions\n  [PASS] Social filter exists with correct actions\n  [PASS] All filter-matching emails archived\n  [PASS] CI-CD non-matching email (release, no build) NOT archived\n  [PASS] Billing decoy email (stripe-invoices.com) NOT archived\n  [PASS] Domain decoy email (news@blueridge.dev) NOT archived\n  [PASS] All recent non-matching emails starred\n  [PASS] CI-CD release email (recent, non-matching) is starred\n  [FAIL] Billing emails starred per filter action\n  [PASS] Priya directive email NOT archived\nNegative check penalties: 1 triggered, total penalty 0.10.\n  [PENALTY -0.10] Non-matching old emails not newly starred\nCollateral mutations detected (3 dimensions): emails_modified, labels_added, filters_added\nFinal score: 0.847 | Success: False"
+  },
+  "steps": []
+}

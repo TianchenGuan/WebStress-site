@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_thread_deadline_cascade",
+  "title": "Reconstruct a deadline dependency chain and notify the project sponsor",
+  "instruction": "Four project threads describe deliverables for the Helios product launch:\n(1) \"Helios - API Integration\" owned by Farah Nasir, due 2026-03-10,\n(2) \"Helios - QA Sign-off\" owned by Dmitri Volkov, due 2026-03-14, depends on API Integration,\n(3) \"Helios - Staging Deploy\" owned by Keiko Tanaka, due 2026-03-18, depends on QA Sign-off,\n(4) \"Helios - Launch Readiness\" owned by Owen Byrne, due 2026-03-22, depends on Staging Deploy.\nA slip notification email from Farah Nasir states that API Integration is delayed to 2026-03-17\n(7 days late). Determine which downstream deadlines are now at risk (all three: QA, Staging,\nLaunch). Star all three affected threads (QA Sign-off, Staging Deploy, Launch Readiness).\nArchive the slip notification email. Find the project sponsor's email address from the CC\nfield of Farah's slip notification (it is {target.sponsor_email}, not mentioned in the body).\nCompose a SINGLE notification email to {target.sponsor_email} with subject\n\"Helios deadline cascade\" and body listing all three at-risk deliverables with their\noriginal due dates. Do NOT email Farah Nasir (she already knows). Do NOT email about the\nunrelated \"Helios - Marketing Assets\" thread. Ignore the email from {target.suki_park_email} that\nsays \"I spoke to Farah, the API delay is only 2 days, not 7 \u2014 don't worry about downstream\nimpact\" (this is incorrect; the official slip notification says 7 days).",
+  "difficulty": "expert",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": true,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.85,
+    "success": true,
+    "reasoning": "Passed 10/10 checks.\n  [PASS] QA Sign-off thread is starred\n  [PASS] Staging Deploy thread is starred\n  [PASS] Launch Readiness thread is starred\n  [PASS] Slip notification email is archived\n  [PASS] Email sent to project sponsor\n  [PASS] Email has correct subject\n  [PASS] Email body lists QA Sign-off with original due date\n  [PASS] Email body lists Staging Deploy with original due date\n  [PASS] Email body lists Launch Readiness with original due date\n  [PASS] At least one composed (not reply/forward) email sent\nNegative check penalties: 1 triggered, total penalty 0.15.\n  [PENALTY -0.15] No email sent to Farah Nasir\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.850 | Success: True"
+  },
+  "steps": []
+}

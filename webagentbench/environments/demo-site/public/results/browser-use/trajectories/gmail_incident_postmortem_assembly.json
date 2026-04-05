@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_incident_postmortem_assembly",
+  "title": "Security Incident Postmortem Assembly",
+  "instruction": "A security incident \"INC-2847\" occurred last week. Gather evidence from these 5 threads:\n(1) The initial alert from monitoring@acme-security.com with subject containing \"INC-2847\".\n(2) Investigation update from alice.sec@acme.com with subject \"INC-2847: Initial Analysis\".\n(3) Investigation update from bob.infra@acme.com with subject \"INC-2847: Infrastructure Findings\" (NOTE: this email contains a forwarded copy of Alice's initial analysis \u2014 use Bob's own text above the forwarded section for the remediation action, not the forwarded content).\n(4) Investigation update from carol.net@acme.com with subject \"INC-2847: Network Forensics - CORRECTED\" (this supersedes Alice's preliminary root cause).\n(5) Resolution confirmation from alice.sec@acme.com with subject \"INC-2847: Resolved\".\n\nCompose a new email to {target.postmortem_to} with subject \"{target.postmortem_subject}\" and body containing: (a) the incident start time from the initial alert, (b) the corrected root cause from Carol's CORRECTED network forensics email (not from Alice's initial analysis which had a preliminary and incorrect root cause), (c) the resolution time from the resolution confirmation, and (d) Bob's remediation action from his own text (not the forwarded section).\n\nStar all 5 incident anchor emails (one per thread). Do not star or act on the resolved INC-2801 email.",
+  "difficulty": "expert",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.5333333333333334,
+    "success": false,
+    "reasoning": "Passed 5/6 checks.\n  [PASS] Postmortem email sent to leadership\n  [PASS] Postmortem contains incident start time\n  [PASS] Postmortem contains corrected root cause\n  [PASS] Postmortem contains resolution time\n  [FAIL] Postmortem contains remediation action\n  [PASS] All 5 incident anchor emails starred\nNegative check penalties: 1 triggered, total penalty 0.30.\n  [PENALTY -0.30] Postmortem does not contain wrong root cause\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.533 | Success: False"
+  },
+  "steps": []
+}

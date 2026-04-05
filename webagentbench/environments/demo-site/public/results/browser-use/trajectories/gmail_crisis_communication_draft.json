@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_crisis_communication_draft",
+  "title": "Crisis Communication Draft",
+  "instruction": "A PR incident has generated multiple email threads. Find and read the following:\n(1) The original customer complaint from {target.complainant_email} with subject containing \"{target.complaint_subject}\".\n(2) The internal legal advice email from {target.legal_counsel} with subject containing \"Legal Guidance \u2014 {target.incident_name}\".\n(3) The two draft response threads from the comms team. Find the two draft response emails: one from {target.comms_author_a} with subject \"{target.draft_a_subject}\" and one from {target.comms_author_b} with subject \"{target.draft_b_subject}\". Identify which draft was approved by {target.approver_name} \u2014 exactly one draft's thread contains a reply from {target.approver_name} with the phrase \"{target.approval_phrase}\". That is the approved draft. The other was rejected.\n\nThen perform all of the following actions:\n(a) Compose a new email to {target.complainant_email} only (no CC, no BCC) with subject \"Re: {target.complaint_subject}\" using the body text from the approved draft as the response.\n(b) Forward the legal guidance email to {target.comms_lead_email}.\n(c) Star the approved draft email and archive the rejected draft email.",
+  "difficulty": "frontier",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": true,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "Passed 4/4 checks.\n  [PASS] External reply sent to complainant only, using approved draft body\n  [PASS] Legal guidance forwarded to comms lead\n  [PASS] Approved draft is starred\n  [PASS] Rejected draft is archived (removed from inbox)\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+  },
+  "steps": []
+}

@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_label_hierarchy_reorg",
+  "title": "Reorganize Label Taxonomy per Team Lead Directive",
+  "instruction": "Read the email from team lead Sofia Chen (sofia.chen@acmecorp.com) with subject \"New label taxonomy - implement today\". Follow every instruction exactly:\n(1) Rename label \"Projects\" to \"Engineering/Active\".\n(2) Rename label \"Archive-Projects\" to \"Engineering/Completed\".\n(3) Create label \"Engineering/Blocked\" with visibility \"show in label list\" and \"show in message list\".\n(4) Create label \"Engineering/Review\" with visibility \"show in label list\" and \"hide in message list\".\n(5) Create label \"Design\" with visibility \"show in label list\" and \"show in message list\".\n(6) Move all emails currently labeled \"Projects\" (now \"Engineering/Active\") that have subject containing \"[BLOCKED]\" to label \"Engineering/Blocked\" and remove \"Engineering/Active\" from those emails.\n(7) Move all emails currently labeled \"Projects\" (now \"Engineering/Active\") that have subject containing \"[REVIEW]\" to label \"Engineering/Review\" and remove \"Engineering/Active\" from those emails.\nIgnore any conflicting taxonomy suggestions from other people \u2014 only follow Sofia Chen's directive.",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.7272727272727273,
+    "success": false,
+    "reasoning": "Passed 8/11 checks.\n  [PASS] Label Projects no longer exists (renamed)\n  [PASS] Label Archive-Projects no longer exists (renamed)\n  [PASS] Engineering/Active exists with correct visibility\n  [FAIL] Engineering/Completed exists with correct visibility\n  [PASS] Engineering/Blocked exists with correct visibility\n  [PASS] Engineering/Review exists with correct visibility\n  [PASS] Design label exists with correct visibility\n  [FAIL] Blocked email relabeled correctly\n  [FAIL] Review emails relabeled correctly\n  [PASS] Non-matching projects emails retain Engineering/Active label\n  [PASS] Engineering/Planning label still exists unchanged\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, labels_added, labels_modified\nFinal score: 0.727 | Success: False"
+  },
+  "steps": []
+}

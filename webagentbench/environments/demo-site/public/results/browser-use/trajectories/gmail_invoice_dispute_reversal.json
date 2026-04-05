@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_invoice_dispute_reversal",
+  "title": "Retract Incorrect Invoice Rejection After Discovering CFO Exception",
+  "instruction": "Read the finance policy email from finance-policy@company.com titled \"Q1 Invoice Processing Rules\" which states: reject any vendor invoice exceeding $10,000 by replying \"This invoice exceeds our processing limit and is rejected.\" Three vendor invoices are in your inbox: Sterling Manufacturing (Invoice #SM-4410, $8,200), Hawthorne Supply Co (Invoice #HS-7782, $14,500), and Ridgeline Logistics (Invoice #RL-3301, $12,800). Apply the $10,000 policy to the two over-limit invoices by replying with the rejection message. Do NOT reply to Sterling (under limit). After processing all invoices, check the Updates tab for exceptions. Find the email from CFO Marcus Webb (cfo@company.com) \u2014 its subject may not look like an exception approval. Read it carefully. The CFO has approved a one-time exception for one specific vendor's invoice. Send a follow-up reply to that vendor retracting the rejection with: \"Please disregard our previous rejection. Invoice #{target.approved_invoice_number} has been approved under a one-time exception.\" Reply to the CFO confirming: \"Exception applied for {target.approved_vendor_name} invoice #{target.approved_invoice_number}.\" Star the CFO's approval email. The other over-limit vendor has no exception and must remain rejected.",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.6,
+    "success": false,
+    "reasoning": "Passed 3/5 checks.\n  [FAIL] Initial rejection sent to Hawthorne\n  [FAIL] Correction sent to Hawthorne retracting rejection\n  [PASS] Rejection sent to Ridgeline\n  [PASS] Confirmation reply sent to CFO\n  [PASS] CFO approval email starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.600 | Success: False"
+  },
+  "steps": []
+}

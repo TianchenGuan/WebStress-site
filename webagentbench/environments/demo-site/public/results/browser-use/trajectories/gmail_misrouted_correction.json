@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_misrouted_correction",
+  "title": "Correct a misrouted forward and complete remaining deliveries",
+  "instruction": "Forward these 3 emails to the specified recipients:\n- Email A (subject \"{target.email_a_subject}\") -> forward to {target.alice_email}\n- Email B (subject \"{target.email_b_subject}\") -> forward to {target.bob_email}\n- Email C (subject \"{target.email_c_subject}\") -> forward to {target.carol_email}\n\nAfter forwarding Email A, check Email A's thread \u2014 a reply from {target.hr_contact} states that {target.alice_name} is on leave until {target.return_date} and her backup is {target.dana_name} at {target.dana_email}.\n\nYou must then:\n1. Send a new email to {target.dana_email} with subject \"Forwarded on behalf of {target.alice_name} (on leave)\" explaining that you initially forwarded Email A to Alice but she is on leave, and that Dana should handle it as Alice's backup.\n2. Forward Email A again to {target.dana_email}.\n3. Continue forwarding Email B to {target.bob_email} and Email C to {target.carol_email} as originally planned.\n\nNOTE: Be careful with contact names \u2014 the correct backup is {target.dana_name} ({target.dana_email}), not anyone with a similar name.",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.4,
+    "success": false,
+    "reasoning": "Passed 2/5 checks.\n  [FAIL] Email A initially forwarded to Alice\n  [FAIL] Email A forwarded to Dana (correction)\n  [PASS] Correction email sent to Dana explaining Alice is on leave\n  [FAIL] Email B forwarded to Bob\n  [PASS] Email C forwarded to Carol\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.400 | Success: False"
+  },
+  "steps": []
+}

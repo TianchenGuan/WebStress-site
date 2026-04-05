@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_triage_with_interrupts",
+  "title": "Complete inbox triage while ignoring mid-task interrupt",
+  "instruction": "Process exactly these 10 emails according to the rubric below. Do not act on any emails not listed in the rubric.\n\nRUBRIC:\n- Emails from client domains ({target.client_domain_a}, {target.client_domain_b}): Star them and leave in inbox.\n- Emails from newsletter domains ({target.newsletter_domain_a}, {target.newsletter_domain_b}): Archive them.\n- Emails from escalation senders ({target.escalation_sender_a}, {target.escalation_sender_b}): Forward each to {target.team_lead_email}.\n\nThe 10 emails to process:\n1. From {target.email_1_sender} \u2014 \"{target.email_1_subject}\"\n2. From {target.email_2_sender} \u2014 \"{target.email_2_subject}\"\n3. From {target.email_3_sender} \u2014 \"{target.email_3_subject}\"\n4. From {target.email_4_sender} \u2014 \"{target.email_4_subject}\"\n5. From {target.email_5_sender} \u2014 \"{target.email_5_subject}\"\n6. From {target.email_6_sender} \u2014 \"{target.email_6_subject}\"\n7. From {target.email_7_sender} \u2014 \"{target.email_7_subject}\"\n8. From {target.email_8_sender} \u2014 \"{target.email_8_subject}\"\n9. From {target.email_9_sender} \u2014 \"{target.email_9_subject}\"\n10. From {target.email_10_sender} \u2014 \"{target.email_10_subject}\"\n\nAfter completing triage of all 10 emails, star the boss's email (from {target.boss_email}, subject \"{target.boss_subject}\") for later follow-up. Do NOT reply to it or forward it.",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": true,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "Passed 7/7 checks.\n  [PASS] All 4 client emails starred\n  [PASS] All client emails still in inbox\n  [PASS] All 3 newsletter emails archived\n  [PASS] Newsletter emails not deleted\n  [PASS] All 3 escalation emails forwarded to team lead\n  [PASS] Boss email starred for follow-up\n  [PASS] Boss email still in inbox\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+  },
+  "steps": []
+}

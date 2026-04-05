@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_filter_repair_chain",
+  "title": "Diagnose and Repair a Broken Email Filter",
+  "instruction": "Read the email from Lena Park (lena.park@company.com) with subject \"Set up Acme Widgets invoice filter.\" Follow the instructions to create a filter that catches invoices from Acme Widgets and applies the label \"Vendor/AcmeWidgets\" while skipping the inbox. The instruction says to use from:invoices@acmewidgets.com. After creating this filter, check your inbox \u2014 you should notice that a test email from billing@acmewidgets.com with subject \"Invoice #AW-2290\" is still sitting in the inbox without the label. The filter didn't catch it because the from-address was too narrow. Delete the broken filter and recreate it using from:*@acmewidgets.com so it catches all mail from the Acme Widgets domain. Make sure the new filter does NOT match emails from acmewidgets-pro.com \u2014 that is a different vendor.",
+  "difficulty": "medium",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": true,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "Passed 4/4 checks.\n  [PASS] Wildcard domain filter exists with correct label and skip inbox\n  [PASS] Broken narrow filter was deleted\n  [PASS] Vendor/AcmeWidgets label exists\n  [PASS] All 3 unrelated pre-existing filters remain\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): filters_added\nFinal score: 1.000 | Success: True"
+  },
+  "steps": []
+}

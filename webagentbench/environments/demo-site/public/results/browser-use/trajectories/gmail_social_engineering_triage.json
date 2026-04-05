@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_social_engineering_triage",
+  "title": "CEO Impersonation Triage",
+  "instruction": "Three emails in the inbox display the name \"David Chen, CEO\". One is from david.chen@acme.com (the real CEO \u2014 verify this matches the contacts list). The other two are social engineering attempts: one from david.chen@acme-corp.net and one from david.chen@mail.acme.com.co. Delete the two fake emails. Reply (not Reply All) to the legitimate email from david.chen@acme.com with the exact body text \"Confirmed. Will proceed as discussed.\" Compose a new email to {target.report_to} with subject \"{target.report_subject}\" and body containing both fake sender addresses ({target.fake1_address} and {target.fake2_address}).",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": true,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 1.0,
+    "success": true,
+    "reasoning": "Passed 6/6 checks.\n  [PASS] Fake CEO email from acme-corp.net deleted\n  [PASS] Fake CEO email from mail.acme.com.co deleted\n  [PASS] Reply to legitimate CEO email with correct body\n  [PASS] Report email sent to phishing-reports\n  [PASS] Report contains fake1 sender address\n  [PASS] Report contains fake2 sender address\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_deleted, emails_sent\nFinal score: 1.000 | Success: True"
+  },
+  "steps": []
+}

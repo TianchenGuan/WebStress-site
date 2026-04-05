@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_backlog_bankruptcy",
+  "title": "Process 2-week email backlog with multi-rule triage and delegation",
+  "instruction": "You are returning from 2 weeks away. Process your entire inbox according to these rules, applied in this priority order (higher priority rules take precedence):\n\nRULE 1 -- SPAM DELETION: A reference email from it-admin@company.test with subject \"Blocked Sender Domains\" lists 5 blocked domains: junkmail.test, spamfarm.test, phish-alerts.test, adnetwork.test, scam-offers.test. Delete all emails where the From-address domain matches any of these 5 domains.\n\nRULE 2 -- ESCALATION FORWARDING: A handoff email from backup@company.test with subject \"Handoff Notes -- Your Escalations\" identifies exactly 3 threads by their subject lines and assigns a delegate for each:\n- Thread \"Datacenter Migration Blockers\" -> forward to infra-lead@company.test\n- Thread \"Q2 Revenue Shortfall\" -> forward to cfo-office@company.test\n- Thread \"Customer Complaint #8842\" -> forward to support-mgr@company.test\nForward the most recent message in each of these 3 threads to the specified delegate.\n\nRULE 3 -- PERSONAL REPLIES: Reply to exactly 2 emails:\n- From: friend@personal.test, subject contains \"Welcome back\"\n- From: mentor@university.test, subject contains \"Catching up\"\nReply to each with exactly this text: \"Thanks for reaching out! I'm back in the office as of today. Let's connect this week.\"\n\nRULE 4 -- ACTION ITEMS: Star and add label 'Action Item' to all emails where:\n- You are in the TO field (not CC), AND\n- The subject contains one of these keywords: 'review', 'approve', 'sign', 'deadline' (case-insensitive match).\n\nRULE 5 -- FYI ARCHIVE: Archive all emails where you are in the CC field (not TO) and the email has not been acted on by a higher-priority rule.\n\nNote: if an email has you in both the TO and CC fields, treat it as a TO email for rule-matching purposes.\n\nRULE 6 -- FILTER CREATION: After processing, create 3 Gmail filters:\n- Filter A1: from junkmail.test -> archive and mark read.\n- Filter A2: from spamfarm.test -> archive and mark read.\n- Filter B: subject contains 'review' -> star and add label 'Action Item'.\n\nDo NOT act on the two reference emails (blocklist and handoff) or any email that does not match any rule. Leave unmatched emails in inbox as-is.",
+  "difficulty": "frontier",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.6428571428571429,
+    "success": false,
+    "reasoning": "Passed 9/14 checks.\n  [PASS] All 8 spam emails deleted\n  [FAIL] Datacenter Migration thread forwarded to infra-lead\n  [FAIL] Q2 Revenue thread forwarded to cfo-office\n  [FAIL] Customer Complaint thread forwarded to support-mgr\n  [PASS] Reply sent to friend with canned text\n  [PASS] Reply sent to mentor with canned text\n  [PASS] All 7 action-item emails starred and labeled\n  [PASS] All 15 FYI emails archived\n  [PASS] Blocklist reference email unmodified in inbox\n  [PASS] Handoff reference email unmodified in inbox\n  [PASS] All neutral emails unmodified in inbox\n  [FAIL] Filter A1 created for junkmail.test\n  [FAIL] Filter A2 created for spamfarm.test\n  [PASS] Filter B created for review keyword\nAll negative checks passed (no penalties).\nCollateral mutations detected (4 dimensions): emails_modified, emails_deleted, emails_sent, filters_added\nFinal score: 0.643 | Success: False"
+  },
+  "steps": []
+}

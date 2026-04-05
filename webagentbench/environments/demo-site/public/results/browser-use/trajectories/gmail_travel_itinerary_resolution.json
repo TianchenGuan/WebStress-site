@@ -1,0 +1,17 @@
+{
+  "task_id": "gmail_travel_itinerary_resolution",
+  "title": "Travel Itinerary Resolution",
+  "instruction": "You have two flight confirmation emails and two hotel confirmation emails for your trip to the Denver conference on March 25. One flight was rebooked \u2014 find the current flight confirmation (the one with a rebooking reference starting with \"RBK-\"). You also have two hotel bookings: one in Denver with a non-refundable cancellation deadline that has passed, and one in Boulder that is freely cancellable. The Denver hotel is the correct one for the conference. Forward the current flight confirmation and the Denver hotel confirmation \u2014 exactly those two emails, as two separate forwards \u2014 to travel.assistant@ops.test. Do not forward the superseded flight or the Boulder hotel. After forwarding, create a Gmail filter for emails from {target.airline_sender} that automatically applies the label \"Travel.\"",
+  "difficulty": "hard",
+  "model": "gpt-5.4",
+  "total_steps": 0,
+  "elapsed_seconds": 0,
+  "completed": false,
+  "start_path": "/inbox?label=inbox",
+  "evaluation": {
+    "score": 0.75,
+    "success": false,
+    "reasoning": "Passed 3/4 checks.\n  [PASS] Exactly 2 forwards sent to travel assistant\n  [PASS] Rebooked flight forwarded to travel assistant\n  [PASS] Denver hotel forwarded to travel assistant\n  [FAIL] Filter created for airline sender with Travel label (error: AttributeError: 'FilterRule' object has no attribute 'sender')\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_sent, filters_added\nFinal score: 0.750 | Success: False"
+  },
+  "steps": []
+}
