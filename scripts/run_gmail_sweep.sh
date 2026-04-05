@@ -33,6 +33,7 @@ MAX_STEPS="${MAX_STEPS:-30}"
 TIMEOUT="${TIMEOUT:-300}"
 SMOKE_ONLY="${SMOKE_ONLY:-0}"
 REASONING="${REASONING:-medium}"
+HARNESS="${HARNESS:-browsergym}"
 OUTDIR="results/webagentbench"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_TAG="${MODEL//\//_}_gmail_${TIMESTAMP}"
@@ -162,16 +163,18 @@ if [[ "$SMOKE_ONLY" == "1" ]]; then
 fi
 
 # ── Full sweep ───────────────────────────────────────────────────────
-ALL_TASKS=($(python3 -c "
+# Use Python for ALL task splitting to avoid bash/zsh array incompatibilities.
+# Generate per-worker launcher scripts that have task lists baked in.
+
+TOTAL=$(python3 -c "
 import yaml
 from pathlib import Path
+count = 0
 for f in sorted(Path('webagentbench/tasks/gmail').glob('*.yaml')):
     if f.name.startswith('_'): continue
-    data = yaml.safe_load(f.read_text())
-    print(data['task_id'])
-"))
-
-TOTAL=${#ALL_TASKS[@]}
+    count += 1
+print(count)
+")
 
 echo "" | tee -a "$PROGRESS"
 echo "═══════════════════════════════════════════════════════════" | tee -a "$PROGRESS"
@@ -179,20 +182,49 @@ echo "  FULL SWEEP: $TOTAL tasks, $WORKERS workers" | tee -a "$PROGRESS"
 echo "═══════════════════════════════════════════════════════════" | tee -a "$PROGRESS"
 echo "" | tee -a "$PROGRESS"
 
-# Split tasks round-robin across workers
-split_tasks() {
-    local worker_id=$1
-    local total_workers=$2
-    local i=0
-    local result=()
-    for task in "${ALL_TASKS[@]}"; do
-        if (( i % total_workers == worker_id )); then
-            result+=("$task")
-        fi
-        ((i++))
-    done
-    echo "${result[@]}"
-}
+# Generate per-worker task lists via Python (zsh/bash safe)
+python3 - "$WORKERS" "$RUNDIR" "$MODEL" "$PROVIDER" "$SEED" "$MAX_STEPS" "$TIMEOUT" "$PORT" "$REASONING" "$HARNESS" << 'SPLITEOF'
+import sys, yaml
+from pathlib import Path
+
+workers = int(sys.argv[1])
+rundir = sys.argv[2]
+model, provider, seed = sys.argv[3], sys.argv[4], sys.argv[5]
+max_steps, timeout, port = sys.argv[6], sys.argv[7], sys.argv[8]
+reasoning, harness = sys.argv[9], sys.argv[10]
+
+diff_order = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
+tasks = []
+for f in sorted(Path("webagentbench/tasks/gmail").glob("*.yaml")):
+    if f.name.startswith("_"): continue
+    data = yaml.safe_load(f.read_text())
+    tasks.append((diff_order.get(data.get("difficulty", "hard"), 3), data["task_id"]))
+tasks.sort()  # easy first
+
+for w in range(workers):
+    worker_tasks = [t[1] for i, t in enumerate(tasks) if i % workers == w]
+    script_path = Path(rundir) / f"run_w{w}.sh"
+    reasoning_flag = f"--reasoning-effort {reasoning}" if reasoning and reasoning != "none" else ""
+    harness_flag = f"--harness {harness}" if harness and harness != "browsergym" else ""
+    script_path.write_text(f"""#!/bin/bash
+set -a && source .env && set +a
+source .venv/bin/activate 2>/dev/null || true
+PYTHONUNBUFFERED=1 python -m webagentbench.agent_eval \\
+    --model {model} \\
+    --provider {provider} \\
+    --api-key "${{OPENAI_API_KEY}}" \\
+    --tasks {' '.join(worker_tasks)} \\
+    --max-steps {max_steps} \\
+    --timeout {timeout} \\
+    --seed {seed} \\
+    --server-port {port} \\
+    {reasoning_flag} \\
+    {harness_flag} \\
+    --output {rundir}/w{w}.json
+""")
+    script_path.chmod(0o755)
+    print(f"W{w}: {len(worker_tasks)} tasks")
+SPLITEOF
 
 # Background scoreboard updater — polls worker logs every 10s
 (
@@ -256,36 +288,21 @@ split_tasks() {
 SCOREBOARD_PID=$!
 trap "kill $CAFF_PID $SCOREBOARD_PID 2>/dev/null; ${SERVER_PID:+kill $SERVER_PID 2>/dev/null;} true" EXIT
 
-# Launch workers
+# Launch workers using generated scripts (no shell array indexing)
 PIDS=()
 for ((w=0; w<WORKERS; w++)); do
-    WORKER_TASKS=($(split_tasks $w $WORKERS))
-    WORKER_OUT="$RUNDIR/worker${w}.json"
     WORKER_LOG="$RUNDIR/worker${w}.log"
 
-    echo "Worker $w: ${#WORKER_TASKS[@]} tasks" | tee -a "$PROGRESS"
-
-    # Stagger start by 5s per worker
+    # Stagger start by 3s per worker
     if (( w > 0 )); then
-        sleep 5
+        sleep 3
     fi
 
-    PYTHONUNBUFFERED=1 python -m webagentbench.agent_eval \
-        --model "$MODEL" \
-        --provider "$PROVIDER" \
-        --api-key "$OPENAI_API_KEY" \
-        --tasks "${WORKER_TASKS[@]}" \
-        --max-steps "$MAX_STEPS" \
-        --timeout "$TIMEOUT" \
-        --seed "$SEED" \
-        --server-port "$PORT" \
-        $REASONING_FLAG \
-        --output "$WORKER_OUT" \
-        > "$WORKER_LOG" 2>&1 &
+    bash "$RUNDIR/run_w${w}.sh" > "$WORKER_LOG" 2>&1 &
 
     W_PID=$!
     PIDS+=($W_PID)
-    echo "  PID: $W_PID → $WORKER_LOG" | tee -a "$PROGRESS"
+    echo "  W$w: PID $W_PID → $WORKER_LOG" | tee -a "$PROGRESS"
 done
 
 echo "" | tee -a "$PROGRESS"
@@ -320,7 +337,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 rundir = sys.argv[1] if len(sys.argv) > 1 else "RUNDIR"
-files = sorted(glob.glob(f"{rundir}/worker*.json"))
+files = sorted(glob.glob(f"{rundir}/w*.json"))
 all_results = []
 for f in files:
     try:

@@ -374,7 +374,10 @@ async def run_episode(
         print(f"  Goal: {instruction[:120]}{'...' if len(instruction) > 120 else ''}")
 
     # ── 2. Launch browser-use browser ───────────────────────────────
-    browser = BrowserSession(headless=headless)
+    browser = BrowserSession(
+        headless=headless,
+        enable_default_extensions=False,  # skip uBlock/cookie extension downloads
+    )
     await browser.start()
 
     start_time = time.time()
