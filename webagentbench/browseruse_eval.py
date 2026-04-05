@@ -114,6 +114,9 @@ def parse_agent_output(raw: str) -> dict[str, Any]:
                 "next_goal": parsed.get("next_goal", ""),
                 "action": parsed.get("action", []),
             }
+        elif isinstance(parsed, list):
+            logger.debug("Agent returned JSON array instead of object; treating as action list")
+            return {**_EMPTY_RESULT, "action": parsed}
     except json.JSONDecodeError:
         pass
 
@@ -151,6 +154,7 @@ def action_to_trajectory_format(action: dict) -> dict:
     if "think" in action:
         return {"action": "think"}
 
+    logger.debug("Unrecognized action format: %s", json.dumps(action)[:200])
     return {"action": "unknown"}
 
 
@@ -303,7 +307,7 @@ def _http_json(url: str, *, method: str = "GET", payload: dict | None = None) ->
         body = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
-    with urllib.request.urlopen(req) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         text = resp.read().decode("utf-8")
         return json.loads(text) if text else {}
 
@@ -406,6 +410,7 @@ async def run_episode(
         llm_client = create_client(provider, base_url, api_key)
 
         last_error = ""
+        consecutive_llm_failures = 0
 
         # ── 3. Agent loop ───────────────────────────────────────────
         for step in range(max_steps):
@@ -453,10 +458,16 @@ async def run_episode(
                 )
             except Exception as exc:
                 logger.error("LLM call failed at step %d: %s", step + 1, exc)
+                consecutive_llm_failures += 1
+                if consecutive_llm_failures >= 3:
+                    logger.error("Aborting: %d consecutive LLM failures", consecutive_llm_failures)
+                    evaluation = {"score": 0.0, "success": False,
+                                  "reasoning": f"Aborted: {consecutive_llm_failures} consecutive LLM failures. Last: {exc}"}
+                    break
                 last_error = f"LLM error: {exc}"
-                messages.append({"role": "assistant", "content": ""})
                 continue
 
+            consecutive_llm_failures = 0
             messages.append({"role": "assistant", "content": content})
 
             # Parse agent output
@@ -501,7 +512,8 @@ async def run_episode(
                                 benchmark_state = json.loads(benchmark_state_str) if benchmark_state_str else {}
                             else:
                                 benchmark_state = {}
-                        except Exception:
+                        except Exception as exc:
+                            logger.warning("Failed to extract benchmark state for task %s: %s", task_id, exc)
                             benchmark_state = {}
 
                         eval_result = _http_json(
@@ -575,6 +587,11 @@ async def run_episode(
                         event = browser.event_bus.dispatch(
                             ScrollEvent(node=None, direction="down", amount=amount))
                         await event
+                        try:
+                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                        except Exception as scroll_err:
+                            last_error = f"Scroll down failed: {scroll_err}"
+                            continue
                         await asyncio.sleep(0.3)
 
                     elif "scroll_up" in action:
@@ -583,12 +600,19 @@ async def run_episode(
                         event = browser.event_bus.dispatch(
                             ScrollEvent(node=None, direction="up", amount=amount))
                         await event
+                        try:
+                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                        except Exception as scroll_err:
+                            last_error = f"Scroll up failed: {scroll_err}"
+                            continue
                         await asyncio.sleep(0.3)
 
                     elif "go_back" in action:
                         page = await browser.get_current_page()
                         if page:
                             await page.go_back()
+                        else:
+                            last_error = "go_back failed: no active page"
                         await asyncio.sleep(0.5)
 
                     else:
@@ -629,7 +653,8 @@ async def run_episode(
                     benchmark_state = json.loads(benchmark_state_str) if benchmark_state_str else {}
                 else:
                     benchmark_state = {}
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to extract benchmark state for task %s: %s", task_id, exc)
                 benchmark_state = {}
 
             try:
@@ -650,8 +675,8 @@ async def run_episode(
         # ── 5. Cleanup ──────────────────────────────────────────────
         try:
             await browser.stop()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to stop browser for task %s: %s", task_id, exc)
 
         # Destroy server session
         try:
@@ -659,8 +684,8 @@ async def run_episode(
                 f"{bench_url}/api/env/{env_id}/session/{urllib.parse.quote(session_id)}",
                 method="DELETE",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to destroy session %s: %s", session_id, exc)
 
     total_elapsed = round(time.time() - start_time, 1)
 
