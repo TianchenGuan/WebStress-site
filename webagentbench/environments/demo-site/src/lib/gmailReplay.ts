@@ -1137,6 +1137,7 @@ export function buildGmailReplayStepStates(
       case "press":
       case "focus":
       case "noop":
+      case "think":
       case "finish":
       case "report_infeasible":
         // Visual-only actions — no state mutation needed

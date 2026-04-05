@@ -210,7 +210,7 @@ export default function ResultsPage() {
             >
               <td className="py-3 pr-4 pl-3">
                 <Link
-                  href={`/results/${t.task_id}`}
+                  href={activeModel ? `/results/${t.task_id}?model=${activeModel}` : `/results/${t.task_id}`}
                   className="text-[var(--text-primary)] no-underline hover:text-[var(--accent)] transition-colors"
                 >
                   {t.title}

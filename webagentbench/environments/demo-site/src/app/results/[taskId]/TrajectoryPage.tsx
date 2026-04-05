@@ -85,12 +85,17 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copiedAll, setCopiedAll] = useState(false);
 
+  // Read model from URL search params (e.g. ?model=browser-use)
+  const modelId = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("model") ?? undefined
+    : undefined;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
     Promise.all([
-      fetchTrajectory(taskId),
+      fetchTrajectory(taskId, modelId),
       fetch(`/fixtures/gmail/${taskId}.json`)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
@@ -104,7 +109,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
     });
 
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, modelId]);
 
   const replayStates = useMemo(
     () => (
@@ -233,7 +238,7 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
             {showInstruction ? "hide task" : "show task"}
           </button>
           <div className="flex gap-3 text-[12px] text-[var(--text-tertiary)]">
-            <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">{data.model}</span>
+            <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">{data.model}{modelId ? ` (${modelId})` : ""}</span>
             <span className="bg-[var(--surface)] px-2.5 py-1 rounded-lg">
               {!sidebarOpen ? `step ${currentStep + 1}/${totalSteps}` : `${totalSteps} steps`}
             </span>

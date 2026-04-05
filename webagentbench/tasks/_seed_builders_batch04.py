@@ -122,23 +122,23 @@ def build_filter_repair_chain(ctx: SeedContext, params: dict[str, Any]) -> dict[
     unrelated_a = FilterRule(
         id=ctx.next_id("filter"),
         name="Newsletter archive",
-        query="from:@newsletters.test",
-        from_addresses=["*@newsletters.test"],
+        query="from:@newsletters.substack.com",
+        from_addresses=["*@newsletters.substack.com"],
         archive=True,
         mark_read=True,
     )
     unrelated_b = FilterRule(
         id=ctx.next_id("filter"),
         name="Team notifications star",
-        query="from:@teamnotify.test",
-        from_addresses=["*@teamnotify.test"],
+        query="from:@notify.thornton.com",
+        from_addresses=["*@notify.thornton.com"],
         star=True,
     )
     unrelated_c = FilterRule(
         id=ctx.next_id("filter"),
         name="HR updates label",
-        query="from:@hr.test",
-        from_addresses=["*@hr.test"],
+        query="from:@hr.thornton.com",
+        from_addresses=["*@hr.thornton.com"],
         add_labels=["HR"],
     )
     ctx.base["filters"].extend([unrelated_a, unrelated_b, unrelated_c])
@@ -410,23 +410,23 @@ def build_filter_conflict_resolution(ctx: SeedContext, params: dict[str, Any]) -
     unrelated_a = FilterRule(
         id=ctx.next_id("filter"),
         name="Newsletter digest",
-        query="from:@digest.test",
-        from_addresses=["*@digest.test"],
+        query="from:@digest.thornton.com",
+        from_addresses=["*@digest.thornton.com"],
         archive=True,
         mark_read=True,
     )
     unrelated_b = FilterRule(
         id=ctx.next_id("filter"),
         name="Team alerts",
-        query="from:@alerts.test",
-        from_addresses=["*@alerts.test"],
+        query="from:@alerts.thornton.com",
+        from_addresses=["*@alerts.thornton.com"],
         star=True,
     )
     unrelated_c = FilterRule(
         id=ctx.next_id("filter"),
         name="HR notices",
-        query="from:@hr.test",
-        from_addresses=["*@hr.test"],
+        query="from:@hr.thornton.com",
+        from_addresses=["*@hr.thornton.com"],
         add_labels=["HR"],
     )
 

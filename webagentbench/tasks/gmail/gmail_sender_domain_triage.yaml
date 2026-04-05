@@ -1,7 +1,7 @@
 task_id: gmail_sender_domain_triage
 env_id: gmail
 title: Triage inbox by sender-domain rules
-instruction_template: 'An ops email from operations@internal.test with subject "Inbox
+instruction_template: 'An ops email from operations@internal.thornton.com with subject "Inbox
   Processing Rules -- March 2026" in your inbox defines three domain-to-action rules.
   Read that email first, then process every inbox email that matches one of the three
   domains. Do not act on emails from any other domain. Do not modify the ops rules
@@ -10,12 +10,12 @@ instruction_template: 'An ops email from operations@internal.test with subject "
 
   The rules are:
 
-  1. Archive all emails where the From address domain is vendor-a.test.
+  1. Archive all emails where the From address domain is crestline.io.
 
-  2. Add the label ''Partner'' to all emails where the From address domain is partner-b.test.
+  2. Add the label ''Partner'' to all emails where the From address domain is harborline.co.
   Do not archive or delete them.
 
-  3. Delete all emails where the From address domain is spam-c.test.
+  3. Delete all emails where the From address domain is quicksavings.net.
 
 
   Important: Match on the actual From-address domain, not the display name or CC field.
@@ -60,15 +60,15 @@ eval:
   source: server_state
   checks:
   - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.vendor_a_ids})
-    desc: All vendor-a.test emails archived (removed from inbox)
+    desc: All crestline.io emails archived (removed from inbox)
   - expr: all(not state.get_email(eid).deleted for eid in {target.vendor_a_ids})
-    desc: Vendor-a.test emails not deleted (archived, not trashed)
+    desc: crestline.io emails not deleted (archived, not trashed)
   - expr: all('Partner' in state.get_email(eid).labels for eid in {target.partner_b_ids})
-    desc: All partner-b.test emails have Partner label
+    desc: All harborline.co emails have Partner label
   - expr: all('inbox' in state.get_email(eid).labels for eid in {target.partner_b_ids})
-    desc: Partner-b.test emails still in inbox
+    desc: harborline.co emails still in inbox
   - expr: all(state.get_email(eid).deleted for eid in {target.spam_c_ids})
-    desc: All spam-c.test emails deleted
+    desc: All quicksavings.net emails deleted
   - expr: '''inbox'' in state.get_email(''{target.ops_email_id}'').labels'
     desc: Ops rules email still in inbox
   - expr: '''Partner'' not in state.get_email(''{target.ops_email_id}'').labels'

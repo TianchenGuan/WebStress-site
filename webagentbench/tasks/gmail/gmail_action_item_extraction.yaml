@@ -61,12 +61,12 @@ eval:
 
       '
     desc: Email sent to manager with correct subject
-  - expr: "all(item in next((m.body for m in state.sent if '{target.manager_email}' in m.to), '') for item in {target.correct_action_items})"
+  - expr: "any(all(item in m.body for item in {target.correct_action_items}) for m in state.sent if '{target.manager_email}' in m.to)"
     desc: All correct action items appear in sent email body
   negative_checks:
-  - expr: "'{target.reassigned_item}' not in next((m.body for m in state.sent if '{target.manager_email}' in m.to), '')"
+  - expr: "not any('{target.reassigned_item}' in m.body for m in state.sent if '{target.manager_email}' in m.to)"
     desc: Reassigned item not included in summary
     penalty: 0.25
-  - expr: "'{target.adversarial_wrong_item}' not in next((m.body for m in state.sent if '{target.manager_email}' in m.to), '')"
+  - expr: "not any('{target.adversarial_wrong_item}' in m.body for m in state.sent if '{target.manager_email}' in m.to)"
     desc: Item from adversarial summary line (assigned to another attendee) not included
     penalty: 0.2

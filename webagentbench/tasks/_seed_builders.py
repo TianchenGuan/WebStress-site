@@ -58,7 +58,7 @@ class SeedContext:
 
         # Convenience aliases used throughout the builder set.
         self.owner_name: str = base.get("owner_name", "Avery Quinn")
-        self.owner_email: str = base.get("owner_email", "avery.quinn@webagentbench.test")
+        self.owner_email: str = base.get("owner_email", "avery.quinn@thornton.com")
 
     # -- ID generation -----------------------------------------------------
 
@@ -79,7 +79,7 @@ class SeedContext:
             ch.lower() for ch in name if ch.isalnum() or ch == " "
         ).replace(" ", ".")
         local = ".".join(part for part in local.split(".") if part) or "contact"
-        domain = domain or f"{self.fake.domain_word()}.test"
+        domain = domain or f"{self.fake.domain_word()}.com"
         return f"{local}@{domain}"
 
     @staticmethod
@@ -231,7 +231,7 @@ class SeedContext:
     def resolve_actor(
         self,
         key: str,
-        domain: str = "generic.test",
+        domain: str = "baseline.co",
         is_vip: bool = False,
         name: str | None = None,
     ) -> ResolvedActor:
@@ -611,9 +611,9 @@ def build_label_workflow_setup(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     Params
     ------
-    client_domain : str  — domain for the two client senders (default "client.test")
+    client_domain : str  — domain for the two client senders (default "meridiangroup.com")
     """
-    client_domain = params.get("client_domain", "client.test")
+    client_domain = params.get("client_domain", "meridiangroup.com")
 
     client_a_name = ctx.fake.name()
     client_b_name = ctx.fake.name()
@@ -650,7 +650,7 @@ def build_label_workflow_setup(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     # 3 emails with "review" in subject (2 legit, 1 wrong)
     review_a_name = ctx.fake.name()
-    review_a_email = ctx.email_for_name(review_a_name, domain="internal.test")
+    review_a_email = ctx.email_for_name(review_a_name, domain="internal.thornton.com")
     review_email_a = ctx.email(
         from_name=review_a_name,
         from_addr=review_a_email,
@@ -666,7 +666,7 @@ def build_label_workflow_setup(ctx: SeedContext, params: dict[str, Any]) -> dict
     )
 
     review_b_name = ctx.fake.name()
-    review_b_email = ctx.email_for_name(review_b_name, domain="internal.test")
+    review_b_email = ctx.email_for_name(review_b_name, domain="internal.thornton.com")
     review_email_b = ctx.email(
         from_name=review_b_name,
         from_addr=review_b_email,
@@ -683,7 +683,7 @@ def build_label_workflow_setup(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     # Wrong review — leisure book review, should NOT keep Needs Review
     wrong_review_name = ctx.fake.name()
-    wrong_review_email = ctx.email_for_name(wrong_review_name, domain="personal.test")
+    wrong_review_email = ctx.email_for_name(wrong_review_name, domain="gmail.com")
     wrong_review_subject = "Book review for leisure reading club"
     wrong_review_email_obj = ctx.email(
         from_name=wrong_review_name,
@@ -701,7 +701,7 @@ def build_label_workflow_setup(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     # A non-review email that should never get Needs Review label
     non_review_name = ctx.fake.name()
-    non_review_email_addr = ctx.email_for_name(non_review_name, domain="logistics.test")
+    non_review_email_addr = ctx.email_for_name(non_review_name, domain="logistics.co")
     non_review_email_obj = ctx.email(
         from_name=non_review_name,
         from_addr=non_review_email_addr,
@@ -747,16 +747,16 @@ def build_phishing_investigation(ctx: SeedContext, params: dict[str, Any]) -> di
 
     Params
     ------
-    security_team_email : str  — address to report phishing to (default "security-team@company.test")
-    phishing_domain : str      — domain for phishing senders (default "phishing-domain.test")
+    security_team_email : str  — address to report phishing to (default "security-team@thornton.com")
+    phishing_domain : str      — domain for phishing senders (default "secure-acme.net")
     """
-    security_team_email = params.get("security_team_email", "security-team@company.test")
-    phishing_domain = params.get("phishing_domain", "phishing-domain.test")
+    security_team_email = params.get("security_team_email", "security-team@thornton.com")
+    phishing_domain = params.get("phishing_domain", "secure-acme.net")
 
     # Legit A
     legit_a = ctx.email(
         from_name="IT Department",
-        from_addr="it-support@company.test",
+        from_addr="it-support@thornton.com",
         subject="Security patch ready for deployment",
         body=ctx.format_email_body(
             "The latest security patch is ready for deployment. Please review the attached documentation.",
@@ -773,7 +773,7 @@ def build_phishing_investigation(ctx: SeedContext, params: dict[str, Any]) -> di
     # Legit B
     legit_b = ctx.email(
         from_name="HR Team",
-        from_addr="hr@company.test",
+        from_addr="hr@thornton.com",
         subject="Updated benefits guide for Q2",
         body=ctx.format_email_body(
             "Please find the updated benefits guide for Q2 attached.",
@@ -848,36 +848,36 @@ def build_new_hire_setup(ctx: SeedContext, params: dict[str, Any]) -> dict[str, 
 
     Params
     ------
-    team_list_email : str           — team mailing list (default "eng-team@company.test")
-    manager_email : str             — manager address (default "manager@company.test")
-    hiring_manager_email : str      — hiring manager address (default "hiring-manager@company.test")
+    team_list_email : str           — team mailing list (default "eng-team@thornton.com")
+    manager_email : str             — manager address (default "manager@thornton.com")
+    hiring_manager_email : str      — hiring manager address (default "hiring-manager@thornton.com")
     intro_phrase : str              — phrase to include in reply
     company_name : str              — company name used in welcome bodies (default "Northwind Labs")
     team_cc : list[str]             — CC addresses on the main welcome email
     """
-    team_list_email = params.get("team_list_email", "eng-team@company.test")
-    manager_email = params.get("manager_email", "manager@company.test")
-    hiring_manager_email = params.get("hiring_manager_email", "hiring-manager@company.test")
+    team_list_email = params.get("team_list_email", "eng-team@thornton.com")
+    manager_email = params.get("manager_email", "manager@thornton.com")
+    hiring_manager_email = params.get("hiring_manager_email", "hiring-manager@thornton.com")
     intro_phrase = params.get(
         "intro_phrase",
         "Thanks for the warm welcome! Looking forward to working with the team.",
     )
     company_name = params.get("company_name", "Northwind Labs")
     team_cc = params.get("team_cc", [
-        "dev-a@company.test",
-        "dev-b@company.test",
-        "dev-c@company.test",
-        "dev-d@company.test",
-        "dev-e@company.test",
+        "dev-a@thornton.com",
+        "dev-b@thornton.com",
+        "dev-c@thornton.com",
+        "dev-d@thornton.com",
+        "dev-e@thornton.com",
     ])
 
     # 3 welcome emails from team leads
     eng_lead_name = ctx.fake.name()
-    eng_lead_email = ctx.email_for_name(eng_lead_name, domain="company.test")
+    eng_lead_email = ctx.email_for_name(eng_lead_name, domain="thornton.com")
     design_lead_name = ctx.fake.name()
-    design_lead_email = ctx.email_for_name(design_lead_name, domain="company.test")
+    design_lead_email = ctx.email_for_name(design_lead_name, domain="thornton.com")
     product_lead_name = ctx.fake.name()
-    product_lead_email = ctx.email_for_name(product_lead_name, domain="company.test")
+    product_lead_email = ctx.email_for_name(product_lead_name, domain="thornton.com")
 
     # The main welcome email (from eng lead) — CC'd to entire team
     welcome_email = ctx.email(
@@ -961,25 +961,25 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     star_keyword_a : str        — keyword in the first star-worthy email (default "board presentation")
     star_keyword_b : str        — keyword in the second star-worthy email (default "renewal deadline")
     update_topic : str          — topic for the update-tab emails (default "infrastructure migration")
-    team_digest_email : str     — forwarding target (default "team-digest@company.test")
-    vendor_domain : str         — domain for the vendor filter (default "acmevendor.test")
+    team_digest_email : str     — forwarding target (default "team-digest@thornton.com")
+    vendor_domain : str         — domain for the vendor filter (default "brightleaf.io")
     vendor_label : str          — label name for vendor filter (default "Vendor Invoices")
     new_note : str              — note to set on a contact (default "Key contact for Q2 planning.")
     """
     star_keyword_a = params.get("star_keyword_a", "board presentation")
     star_keyword_b = params.get("star_keyword_b", "renewal deadline")
     fyi_sender_name = ctx.fake.name()
-    fyi_sender_email = ctx.email_for_name(fyi_sender_name, domain="internal.test")
+    fyi_sender_email = ctx.email_for_name(fyi_sender_name, domain="internal.thornton.com")
     update_topic = params.get("update_topic", "infrastructure migration")
-    team_digest_email = params.get("team_digest_email", "team-digest@company.test")
-    vendor_domain = params.get("vendor_domain", "acmevendor.test")
+    team_digest_email = params.get("team_digest_email", "team-digest@thornton.com")
+    vendor_domain = params.get("vendor_domain", "brightleaf.io")
     vendor_label = params.get("vendor_label", "Vendor Invoices")
     new_note = params.get("new_note", "Key contact for Q2 planning.")
 
     # --- Primary tab: 2 important + 3 FYI ---
     star_a = ctx.email(
         from_name=ctx.fake.name(),
-        from_addr=ctx.email_for_name("star-a", domain="leadership.test"),
+        from_addr=ctx.email_for_name("star-a", domain="summitview.co"),
         subject="Preparation for the board presentation",
         body=ctx.format_email_body(
             "We need to finalize the board presentation materials before Thursday.",
@@ -992,7 +992,7 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     )
     star_b = ctx.email(
         from_name=ctx.fake.name(),
-        from_addr=ctx.email_for_name("star-b", domain="contracts.test"),
+        from_addr=ctx.email_for_name("star-b", domain="contracts.co"),
         subject="Upcoming renewal deadline for enterprise license",
         body=ctx.format_email_body(
             "Reminder: the enterprise license renewal deadline is next Friday.",
@@ -1026,7 +1026,7 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     for i in range(3):
         newsletter = ctx.email(
             from_name=f"Newsletter {chr(65 + i)}",
-            from_addr=f"news{i + 1}@newsletters.test",
+            from_addr=f"news{i + 1}@newsletters.substack.com",
             subject=f"Weekly digest #{i + 1}",
             body=ctx.format_email_body(
                 f"Here is your weekly digest #{i + 1}.",
@@ -1041,7 +1041,7 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     spam_subject = "Exclusive prize giveaway"
     spam_email = ctx.email(
         from_name="Prize Center",
-        from_addr="noreply@spampromo.test",
+        from_addr="noreply@megasale.net",
         subject=spam_subject,
         body=ctx.format_email_body(
             "Congratulations! You have been selected for an exclusive prize giveaway!",
@@ -1057,7 +1057,7 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     for i in range(2):
         update = ctx.email(
             from_name="DevOps Team",
-            from_addr=f"devops{i + 1}@infra.test",
+            from_addr=f"devops{i + 1}@infra.thornton.com",
             subject=f"Infrastructure migration update — phase {i + 1}",
             body=ctx.format_email_body(
                 f"Update on the infrastructure migration: phase {i + 1} is complete.",
@@ -1092,21 +1092,21 @@ def build_quarterly_closeout(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     # --- Contacts ---
     stale_a = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="stale.test"),
+        email=ctx.fake.email(domain="pinevalley.co"),
         last_contacted_at=ctx.now - timedelta(days=45),
     )
     stale_b = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="archive.test"),
+        email=ctx.fake.email(domain="millbrook.co"),
         last_contacted_at=ctx.now - timedelta(days=60),
     )
     active_contact = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="active.test"),
+        email=ctx.fake.email(domain="active.io"),
         last_contacted_at=ctx.now - timedelta(days=5),
     )
     update_contact_name = ctx.fake.name()
-    update_contact_email_addr = ctx.email_for_name(update_contact_name, domain="planning.test")
+    update_contact_email_addr = ctx.email_for_name(update_contact_name, domain="planning.co")
     update_contact = ctx.contact(
         name=update_contact_name,
         email=update_contact_email_addr,
@@ -1162,13 +1162,13 @@ def build_vacation_preparation(ctx: SeedContext, params: dict[str, Any]) -> dict
     vacation_message = "I am out of office until March 21. For urgent matters, contact my backup."
     ooo_note = "OOO until March 21"
     boss_name = ctx.fake.name()
-    boss_email = ctx.email_for_name(boss_name, domain="executive.test")
+    boss_email = ctx.email_for_name(boss_name, domain="silverpeak.co")
     backup_name = ctx.fake.name()
-    backup_email = ctx.email_for_name(backup_name, domain="ops-backup.test")
+    backup_email = ctx.email_for_name(backup_name, domain="ops-backup.com")
 
     # Pending A: vendor proposal
     pending_a_sender = ctx.fake.name()
-    pending_a_email = ctx.email_for_name(pending_a_sender, domain="vendors.test")
+    pending_a_email = ctx.email_for_name(pending_a_sender, domain="vendors.co")
     pending_a = ctx.email(
         from_name=pending_a_sender,
         from_addr=pending_a_email,
@@ -1186,9 +1186,9 @@ def build_vacation_preparation(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     # Pending B: timeline email with CC (Reply All trap)
     pending_b_sender = ctx.fake.name()
-    pending_b_email = ctx.email_for_name(pending_b_sender, domain="projectmgmt.test")
-    cc_b1 = ctx.email_for_name(ctx.fake.name(), domain="projectmgmt.test")
-    cc_b2 = ctx.email_for_name(ctx.fake.name(), domain="projectmgmt.test")
+    pending_b_email = ctx.email_for_name(pending_b_sender, domain="pm.thornton.com")
+    cc_b1 = ctx.email_for_name(ctx.fake.name(), domain="pm.thornton.com")
+    cc_b2 = ctx.email_for_name(ctx.fake.name(), domain="pm.thornton.com")
     pending_b = ctx.email(
         from_name=pending_b_sender,
         from_addr=pending_b_email,
@@ -1207,7 +1207,7 @@ def build_vacation_preparation(ctx: SeedContext, params: dict[str, Any]) -> dict
 
     # Pending C: attendance confirmation
     pending_c_sender = ctx.fake.name()
-    pending_c_email = ctx.email_for_name(pending_c_sender, domain="events.test")
+    pending_c_email = ctx.email_for_name(pending_c_sender, domain="events.io")
     pending_c = ctx.email(
         from_name=pending_c_sender,
         from_addr=pending_c_email,
@@ -1265,7 +1265,7 @@ def build_contact_audit(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
     for days in stale_days:
         contact = ctx.contact(
             name=ctx.fake.name(),
-            email=ctx.fake.email(domain="oldvendor.test"),
+            email=ctx.fake.email(domain="tannerfield.io"),
             last_contacted_at=ctx.now - timedelta(days=days),
         )
         stale_contacts.append(contact)
@@ -1273,19 +1273,19 @@ def build_contact_audit(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
     # 2 near-threshold contacts (22-28 days, should NOT be deleted)
     near_threshold_a = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="recentpartner.test"),
+        email=ctx.fake.email(domain="coastline.co"),
         last_contacted_at=ctx.now - timedelta(days=22),
     )
     near_threshold_b = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="borderline.test"),
+        email=ctx.fake.email(domain="greyzone.co"),
         last_contacted_at=ctx.now - timedelta(days=28),
     )
 
     # 1 keep contact (5 days, explicitly named in instruction)
     keep_contact = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="activeteam.test"),
+        email=ctx.fake.email(domain="activeteam.thornton.com"),
         last_contacted_at=ctx.now - timedelta(days=5),
     )
 
@@ -1295,9 +1295,9 @@ def build_contact_audit(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
 
     # 2 emails from people NOT in contacts
     new_contact_a_name = ctx.fake.name()
-    new_a_email = ctx.email_for_name(new_contact_a_name, domain="newpartner.test")
+    new_a_email = ctx.email_for_name(new_contact_a_name, domain="brighthorizon.co")
     new_contact_b_name = ctx.fake.name()
-    new_b_email = ctx.email_for_name(new_contact_b_name, domain="consultant.test")
+    new_b_email = ctx.email_for_name(new_contact_b_name, domain="consultant.co")
 
     ctx.base["emails"].extend([
         ctx.email(
@@ -1364,17 +1364,17 @@ def build_thread_archaeology(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     thread_subject = f"{ctx.initiative_name()} action items"
     thread_id = ctx.next_id("thread")
     assignee_name = ctx.fake.name()
-    assignee_email = ctx.email_for_name(assignee_name, domain="teamlead.test")
+    assignee_email = ctx.email_for_name(assignee_name, domain="teamlead.com")
     manager_name = ctx.fake.name()
-    manager_email = ctx.email_for_name(manager_name, domain="management.test")
+    manager_email = ctx.email_for_name(manager_name, domain="management.com")
     wrong_person_name = ctx.fake.name()
-    wrong_person_email = ctx.email_for_name(wrong_person_name, domain="crossteam.test")
+    wrong_person_email = ctx.email_for_name(wrong_person_name, domain="crossteam.thornton.com")
     deadline = "March 20"
 
     # Generate 5 different senders for the thread messages
     sender_names = [ctx.fake.name() for _ in range(5)]
     sender_emails = [
-        ctx.email_for_name(n, domain="projectteam.test") for n in sender_names
+        ctx.email_for_name(n, domain="projectteam.thornton.com") for n in sender_names
     ]
 
     # Message 1 (oldest): initial discussion
@@ -1507,15 +1507,15 @@ def build_filter_overhaul(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
     ------
     (none -- all names / addresses are generated internally)
     """
-    correct_domain = "billing-services.test"
-    wrong_domain = "wrong-billing.test"
+    correct_domain = "billing-services.com"
+    wrong_domain = "wrong-billing.com"
     billing_label = "Billing"
     keyword = "Security Advisory"
     keyword_label = "Security"
-    archive_domain = "marketing-blasts.test"
+    archive_domain = "marketing-blasts.com"
     forward_sender_name = ctx.fake.name()
-    forward_sender = ctx.email_for_name(forward_sender_name, domain="executive.test")
-    forward_to = "chief-of-staff@webagentbench.test"
+    forward_sender = ctx.email_for_name(forward_sender_name, domain="silverpeak.co")
+    forward_to = "chief-of-staff@thornton.com"
 
     # Pre-seed 3 existing filters
     broken_filter = FilterRule(
@@ -1529,16 +1529,16 @@ def build_filter_overhaul(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
     good_filter_a = FilterRule(
         id=ctx.next_id("filter"),
         name="Newsletter archive",
-        query="from:@newsletters.test",
-        from_addresses=["*@newsletters.test"],
+        query="from:@newsletters.substack.com",
+        from_addresses=["*@newsletters.substack.com"],
         archive=True,
         mark_read=True,
     )
     good_filter_b = FilterRule(
         id=ctx.next_id("filter"),
         name="Team notifications star",
-        query="from:@teamnotify.test",
-        from_addresses=["*@teamnotify.test"],
+        query="from:@notify.thornton.com",
+        from_addresses=["*@notify.thornton.com"],
         star=True,
     )
     ctx.base["filters"].extend([broken_filter, good_filter_a, good_filter_b])
@@ -1574,7 +1574,7 @@ def build_filter_overhaul(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
         # Security advisory email
         ctx.email(
             from_name="Security Team",
-            from_addr="security@infosec.test",
+            from_addr="security@infosec.thornton.com",
             subject=f"{keyword}: Critical vulnerability in authentication module",
             body=ctx.format_email_body(
                 "A critical vulnerability has been identified in the authentication module. "
@@ -1660,13 +1660,13 @@ def build_budget_reconciliation(ctx: SeedContext, params: dict[str, Any]) -> dic
     dept_c_name = ctx.fake.name()
     summary_author_name = ctx.fake.name()
 
-    dept_a_email = ctx.email_for_name(dept_a_name, domain="engineering.test")
-    dept_b_email = ctx.email_for_name(dept_b_name, domain="marketing.test")
-    dept_c_email = ctx.email_for_name(dept_c_name, domain="operations.test")
-    summary_author_email = ctx.email_for_name(summary_author_name, domain="finance.test")
+    dept_a_email = ctx.email_for_name(dept_a_name, domain="eng.thornton.com")
+    dept_b_email = ctx.email_for_name(dept_b_name, domain="mktg.thornton.com")
+    dept_c_email = ctx.email_for_name(dept_c_name, domain="operations.thornton.com")
+    summary_author_email = ctx.email_for_name(summary_author_name, domain="fin.thornton.com")
 
-    cfo_email = "cfo@executive.test"
-    board_cc = [cfo_email, "board-a@executive.test", "board-b@executive.test"]
+    cfo_email = "cfo@silverpeak.co"
+    board_cc = [cfo_email, "board-a@silverpeak.co", "board-b@silverpeak.co"]
 
     dept_a_dept = "Engineering"
     dept_b_dept = "Marketing"
@@ -1773,20 +1773,20 @@ def build_inbox_triage_protocol(ctx: SeedContext, params: dict[str, Any]) -> dic
     travel, and onboarding emails plus decoys for each category."""
 
     invoice_sender_name = ctx.fake.name()
-    invoice_sender_email = ctx.email_for_name(invoice_sender_name, domain="billingdesk.test")
+    invoice_sender_email = ctx.email_for_name(invoice_sender_name, domain="billing.thornton.com")
     invoice_decoy_sender_name = ctx.fake.name()
-    invoice_decoy_sender_email = ctx.email_for_name(invoice_decoy_sender_name, domain="billingdesk.test")
+    invoice_decoy_sender_email = ctx.email_for_name(invoice_decoy_sender_name, domain="billing.thornton.com")
     promo_sender_name = ctx.fake.company()
-    promo_sender_email = ctx.email_for_name(promo_sender_name, domain="promooffers.test")
+    promo_sender_email = ctx.email_for_name(promo_sender_name, domain="promooffers.com")
     security_sender_name = "Security Operations"
-    security_sender_email = "alerts@secureops.test"
+    security_sender_email = "alerts@secops.thornton.com"
     travel_sender_name = ctx.fake.name()
-    travel_sender_email = ctx.email_for_name(travel_sender_name, domain="traveldesk.test")
+    travel_sender_email = ctx.email_for_name(travel_sender_name, domain="traveldesk.thornton.com")
     travel_decoy_sender_name = ctx.fake.name()
-    travel_decoy_sender_email = ctx.email_for_name(travel_decoy_sender_name, domain="traveldesk.test")
+    travel_decoy_sender_email = ctx.email_for_name(travel_decoy_sender_name, domain="traveldesk.thornton.com")
     onboarding_sender_name = "People Operations"
-    onboarding_sender_email = "onboarding@peopleops.test"
-    escalation_email = "sec-escalations@webagentbench.test"
+    onboarding_sender_email = "onboarding@people.thornton.com"
+    escalation_email = "sec-escalations@thornton.com"
     confirmation_phrase = "I have completed the onboarding checklist."
 
     invoice_email = ctx.email(
@@ -1867,7 +1867,7 @@ def build_inbox_triage_protocol(ctx: SeedContext, params: dict[str, Any]) -> dic
         labels=["inbox"],
     )
     # CC HR team on onboarding email to create Reply All trap (IR-4)
-    hr_cc_email = "hr-team@peopleops.test"
+    hr_cc_email = "hr-team@people.thornton.com"
     onboarding_email = ctx.email(
         from_name=onboarding_sender_name,
         from_addr=onboarding_sender_email,
@@ -1971,20 +1971,20 @@ def build_inbox_triage_protocol(ctx: SeedContext, params: dict[str, Any]) -> dic
 def build_filter_architect(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Create emails and a pre-existing filter for the filter architect task."""
 
-    billing_domain = "billing-vendors.test"
+    billing_domain = "billing-vendors.com"
     billing_label = "Billing Vendors"
     payroll_keyword = "Payroll Exception"
     payroll_label = "Payroll"
     exec_sender_name = ctx.fake.name()
-    exec_sender_email = ctx.email_for_name(exec_sender_name, domain="boardoffice.test")
-    exec_forward_email = "chief-of-staff@webagentbench.test"
+    exec_sender_email = ctx.email_for_name(exec_sender_name, domain="boardoffice.com")
+    exec_forward_email = "chief-of-staff@thornton.com"
 
     # Pre-existing filter that must not be deleted (SW-3.1)
     existing_filter = FilterRule(
         id=ctx.next_id("filter"),
         name="Newsletter archive",
-        query="from:@newsletters.test",
-        from_addresses=["*@newsletters.test"],
+        query="from:@newsletters.substack.com",
+        from_addresses=["*@newsletters.substack.com"],
         archive=True,
         mark_read=True,
     )
@@ -2013,7 +2013,7 @@ def build_filter_architect(ctx: SeedContext, params: dict[str, Any]) -> dict[str
         ),
         ctx.email(
             from_name="Payroll Systems",
-            from_addr="payroll@operations.test",
+            from_addr="payroll@operations.thornton.com",
             subject=f"{payroll_keyword} for March cycle",
             body=ctx.format_email_body(
                 (
@@ -2074,34 +2074,34 @@ def build_contact_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
 
     stale_contact_a = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="stale.test"),
+        email=ctx.fake.email(domain="pinevalley.co"),
         last_contacted_at=ctx.now - timedelta(days=45),
     )
     stale_contact_b = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="archive.test"),
+        email=ctx.fake.email(domain="millbrook.co"),
         last_contacted_at=ctx.now - timedelta(days=61),
     )
     keep_contact = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="activepartner.test"),
+        email=ctx.fake.email(domain="cedarpoint.co"),
         last_contacted_at=ctx.now - timedelta(days=5),
     )
     missing_contact_name = ctx.fake.name()
-    missing_contact_legacy_email = ctx.email_for_name(missing_contact_name, domain="legacymailer.test")
-    missing_contact_email = ctx.email_for_name(missing_contact_name, domain="recentmailer.test")
+    missing_contact_legacy_email = ctx.email_for_name(missing_contact_name, domain="herald.co")
+    missing_contact_email = ctx.email_for_name(missing_contact_name, domain="recentmailer.com")
     missing_contact_subject = "March planning follow-up"
     contact_note = "Added after March planning thread."
 
     # Near-threshold decoys: 20-29 days, should NOT be deleted (SW-2.2)
     near_threshold_contact = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="nearthreshold.test"),
+        email=ctx.fake.email(domain="nearthreshold.io"),
         last_contacted_at=ctx.now - timedelta(days=25),
     )
     near_threshold_contact_b = ctx.contact(
         name=ctx.fake.name(),
-        email=ctx.fake.email(domain="borderline.test"),
+        email=ctx.fake.email(domain="greyzone.co"),
         last_contacted_at=ctx.now - timedelta(days=28),
     )
     ctx.base["contacts"].extend([
@@ -2194,7 +2194,7 @@ def build_priority_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
         ctx.contact(is_vip=True, company="Executive Office"),
     ]
     future_vip_name = ctx.fake.name()
-    future_vip_email = ctx.email_for_name(future_vip_name, domain="vipfuture.test")
+    future_vip_email = ctx.email_for_name(future_vip_name, domain="vipfuture.com")
     status_phrase = "Status update: I am actively on it."
     vip_email_ids: list[str] = []
     urgency_topics = [
@@ -2269,7 +2269,7 @@ def build_priority_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
     # Name confuser: similar name to first VIP, NOT a VIP, has unread email (SW-5.3)
     confuser_first = ctx.first_name(vip_contacts[0].name)
     confuser_name = f"{confuser_first} {ctx.fake.name().split()[-1]}"
-    confuser_email = ctx.email_for_name(confuser_name, domain="confuser.test")
+    confuser_email = ctx.email_for_name(confuser_name, domain="confuser.io")
     confuser_contact = ctx.contact(
         name=confuser_name,
         email=confuser_email,
@@ -2332,7 +2332,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Urgent A: end-of-day deadline ---
     urgent_a_name = ctx.fake.name()
-    urgent_a_email = ctx.email_for_name(urgent_a_name, domain="vertexlab.test")
+    urgent_a_email = ctx.email_for_name(urgent_a_name, domain="vertexlab.io")
     urgent_a = ctx.email(
         from_name=urgent_a_name,
         from_addr=urgent_a_email,
@@ -2349,7 +2349,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Urgent B: needs sign-off ---
     urgent_b_name = ctx.fake.name()
-    urgent_b_email = ctx.email_for_name(urgent_b_name, domain="procurement.test")
+    urgent_b_email = ctx.email_for_name(urgent_b_name, domain="procurement.co")
     urgent_b = ctx.email(
         from_name=urgent_b_name,
         from_addr=urgent_b_email,
@@ -2366,7 +2366,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- FYI decoy: looks urgent but is FYI only ---
     fyi_decoy_name = ctx.fake.name()
-    fyi_decoy_email = ctx.email_for_name(fyi_decoy_name, domain="vertexlab.test")
+    fyi_decoy_email = ctx.email_for_name(fyi_decoy_name, domain="vertexlab.io")
     fyi_decoy = ctx.email(
         from_name=fyi_decoy_name,
         from_addr=fyi_decoy_email,
@@ -2383,7 +2383,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Promo: newsletter in Promotions tab ---
     promo_name = ctx.fake.company()
-    promo_email_addr = ctx.email_for_name(promo_name, domain="newsletters.test")
+    promo_email_addr = ctx.email_for_name(promo_name, domain="newsletters.substack.com")
     promo = ctx.email(
         from_name=promo_name,
         from_addr=promo_email_addr,
@@ -2400,7 +2400,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- FYI: general update in Primary ---
     fyi_name = ctx.fake.name()
-    fyi_email_addr = ctx.email_for_name(fyi_name, domain="teamupdates.test")
+    fyi_email_addr = ctx.email_for_name(fyi_name, domain="teamupdates.com")
     fyi = ctx.email(
         from_name=fyi_name,
         from_addr=fyi_email_addr,
@@ -2417,9 +2417,9 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Forward target: loop in a colleague ---
     forward_sender_name = ctx.fake.name()
-    forward_sender_email = ctx.email_for_name(forward_sender_name, domain="partners.test")
+    forward_sender_email = ctx.email_for_name(forward_sender_name, domain="bridgeway.co")
     colleague_name = ctx.fake.name()
-    colleague_email = ctx.email_for_name(colleague_name, domain="engineering.test")
+    colleague_email = ctx.email_for_name(colleague_name, domain="eng.thornton.com")
     forward_target = ctx.email(
         from_name=forward_sender_name,
         from_addr=forward_sender_email,
@@ -2436,9 +2436,9 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Reply A: project update with CC (Reply All trap) ---
     reply_sender_name = ctx.fake.name()
-    reply_sender_email = ctx.email_for_name(reply_sender_name, domain="projectmgmt.test")
-    cc_a1 = ctx.email_for_name(ctx.fake.name(), domain="projectmgmt.test")
-    cc_a2 = ctx.email_for_name(ctx.fake.name(), domain="projectmgmt.test")
+    reply_sender_email = ctx.email_for_name(reply_sender_name, domain="pm.thornton.com")
+    cc_a1 = ctx.email_for_name(ctx.fake.name(), domain="pm.thornton.com")
+    cc_a2 = ctx.email_for_name(ctx.fake.name(), domain="pm.thornton.com")
     reply_phrase_a = "project update"
     reply_a = ctx.email(
         from_name=reply_sender_name,
@@ -2457,7 +2457,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
 
     # --- Reply B: confirmation request ---
     reply_b_sender_name = ctx.fake.name()
-    reply_b_sender_email = ctx.email_for_name(reply_b_sender_name, domain="logistics.test")
+    reply_b_sender_email = ctx.email_for_name(reply_b_sender_name, domain="logistics.co")
     reply_b = ctx.email(
         from_name=reply_b_sender_name,
         from_addr=reply_b_sender_email,
@@ -2512,7 +2512,7 @@ def build_meeting_negotiation(ctx: SeedContext, params: dict[str, Any]) -> dict[
     """
     meeting_name = ctx.initiative_name()
     organizer_name = ctx.fake.name()
-    organizer_email = ctx.email_for_name(organizer_name, domain="executive.test")
+    organizer_email = ctx.email_for_name(organizer_name, domain="silverpeak.co")
 
     all_time_slots = [
         "Monday 9:00 AM", "Monday 2:00 PM",
@@ -2526,7 +2526,7 @@ def build_meeting_negotiation(ctx: SeedContext, params: dict[str, Any]) -> dict[
 
     attendee_names: list[str] = []
     attendee_emails: list[str] = []
-    domains = ["sales.test", "marketing.test", "finance.test", "ops.test", "product.test"]
+    domains = ["sales.thornton.com", "mktg.thornton.com", "fin.thornton.com", "ops.thornton.com", "product.thornton.com"]
 
     for i in range(5):
         name = ctx.fake.name()
@@ -2561,7 +2561,7 @@ def build_meeting_negotiation(ctx: SeedContext, params: dict[str, Any]) -> dict[
     # Venue email — in Updates tab
     room_name = ctx.rng.choice(["Cascade Room", "Summit Hall", "Harbor Suite", "Cedar Boardroom"])
     venue_coordinator_name = ctx.fake.name()
-    venue_coordinator_email = ctx.email_for_name(venue_coordinator_name, domain="facilities.test")
+    venue_coordinator_email = ctx.email_for_name(venue_coordinator_name, domain="facilities.thornton.com")
 
     # Room available at the correct_time plus one other slot
     venue_other_slot = ctx.rng.choice(other_slots)
@@ -2609,10 +2609,10 @@ def build_incident_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
     manager email asking for status with leadership CC'd.
     """
     alert_system_name = "System Alerts"
-    alert_system_email = "alerts@monitoring.test"
+    alert_system_email = "alerts@monitoring.thornton.com"
     error_code = "ERR-5021"
     oncall_name = ctx.fake.name()
-    oncall_email = ctx.email_for_name(oncall_name, domain="engineering.test")
+    oncall_email = ctx.email_for_name(oncall_name, domain="eng.thornton.com")
     status_phrase = "I am actively triaging the incident."
 
     # Alert thread — 3 messages in same thread
@@ -2636,7 +2636,7 @@ def build_incident_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
 
     # Message 2: engineer mentions error code
     engineer_name = ctx.fake.name()
-    engineer_email = ctx.email_for_name(engineer_name, domain="engineering.test")
+    engineer_email = ctx.email_for_name(engineer_name, domain="eng.thornton.com")
     alert_msg_2 = ctx.email(
         from_name=engineer_name,
         from_addr=engineer_email,
@@ -2653,7 +2653,7 @@ def build_incident_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
 
     # Message 3: team member mentions on-call
     team_member_name = ctx.fake.name()
-    team_member_email = ctx.email_for_name(team_member_name, domain="engineering.test")
+    team_member_email = ctx.email_for_name(team_member_name, domain="eng.thornton.com")
     alert_msg_3 = ctx.email(
         from_name=team_member_name,
         from_addr=team_member_email,
@@ -2686,11 +2686,11 @@ def build_incident_escalation(ctx: SeedContext, params: dict[str, Any]) -> dict[
 
     # Manager thread — asking about incident status, CC'd to leadership
     manager_name = ctx.fake.name()
-    manager_email = ctx.email_for_name(manager_name, domain="leadership.test")
+    manager_email = ctx.email_for_name(manager_name, domain="summitview.co")
     leadership_cc = [
-        ctx.email_for_name(ctx.fake.name(), domain="leadership.test"),
-        ctx.email_for_name(ctx.fake.name(), domain="leadership.test"),
-        ctx.email_for_name(ctx.fake.name(), domain="leadership.test"),
+        ctx.email_for_name(ctx.fake.name(), domain="summitview.co"),
+        ctx.email_for_name(ctx.fake.name(), domain="summitview.co"),
+        ctx.email_for_name(ctx.fake.name(), domain="summitview.co"),
     ]
     manager_thread_id = ctx.next_id("thread")
     manager_msg = ctx.email(
@@ -2746,23 +2746,23 @@ def build_delegation_routing(ctx: SeedContext, params: dict[str, Any]) -> dict[s
     """
     # CFO target
     cfo_name = ctx.fake.name()
-    cfo_email = ctx.email_for_name(cfo_name, domain="finance.test")
+    cfo_email = ctx.email_for_name(cfo_name, domain="fin.thornton.com")
 
     # CTO target
     cto_name = ctx.fake.name()
-    cto_email = ctx.email_for_name(cto_name, domain="engineering.test")
+    cto_email = ctx.email_for_name(cto_name, domain="eng.thornton.com")
 
     # Support lead target
     support_lead_name = ctx.fake.name()
-    support_lead_email = ctx.email_for_name(support_lead_name, domain="support.test")
+    support_lead_email = ctx.email_for_name(support_lead_name, domain="support.thornton.com")
 
     # Manager to BCC
     manager_name = ctx.fake.name()
-    manager_email = ctx.email_for_name(manager_name, domain="leadership.test")
+    manager_email = ctx.email_for_name(manager_name, domain="summitview.co")
 
     # Budget question
     budget_sender_name = ctx.fake.name()
-    budget_sender_email = ctx.email_for_name(budget_sender_name, domain="operations.test")
+    budget_sender_email = ctx.email_for_name(budget_sender_name, domain="operations.thornton.com")
     budget_email = ctx.email(
         from_name=budget_sender_name,
         from_addr=budget_sender_email,
@@ -2779,7 +2779,7 @@ def build_delegation_routing(ctx: SeedContext, params: dict[str, Any]) -> dict[s
 
     # Technical issue
     tech_sender_name = ctx.fake.name()
-    tech_sender_email = ctx.email_for_name(tech_sender_name, domain="operations.test")
+    tech_sender_email = ctx.email_for_name(tech_sender_name, domain="operations.thornton.com")
     tech_email = ctx.email(
         from_name=tech_sender_name,
         from_addr=tech_sender_email,
@@ -2796,7 +2796,7 @@ def build_delegation_routing(ctx: SeedContext, params: dict[str, Any]) -> dict[s
 
     # Customer complaint
     complaint_sender_name = ctx.fake.name()
-    complaint_sender_email = ctx.email_for_name(complaint_sender_name, domain="customers.test")
+    complaint_sender_email = ctx.email_for_name(complaint_sender_name, domain="customers.co")
     complaint_email = ctx.email(
         from_name=complaint_sender_name,
         from_addr=complaint_sender_email,
@@ -2813,7 +2813,7 @@ def build_delegation_routing(ctx: SeedContext, params: dict[str, Any]) -> dict[s
 
     # Decoy: looks like it needs forwarding but does not
     decoy_sender_name = ctx.fake.name()
-    decoy_sender_email = ctx.email_for_name(decoy_sender_name, domain="crossteam.test")
+    decoy_sender_email = ctx.email_for_name(decoy_sender_name, domain="crossteam.thornton.com")
     decoy_email = ctx.email(
         from_name=decoy_sender_name,
         from_addr=decoy_sender_email,
@@ -2864,10 +2864,10 @@ def build_data_compilation(ctx: SeedContext, params: dict[str, Any]) -> dict[str
     to require scrolling. Decoys are draft/superseded figures.
     """
     exec_name = ctx.fake.name()
-    exec_email = ctx.email_for_name(exec_name, domain="executive.test")
+    exec_email = ctx.email_for_name(exec_name, domain="silverpeak.co")
 
     dept_names = ["Engineering", "Marketing", "Operations"]
-    dept_domains = ["engineering.test", "marketing.test", "operations.test"]
+    dept_domains = ["eng.thornton.com", "mktg.thornton.com", "operations.thornton.com"]
     numbers = ["$142,500", "$89,000", "$215,750"]
     wrong_numbers = ["$138,200", "$91,500"]
 
@@ -2943,7 +2943,7 @@ def build_data_compilation(ctx: SeedContext, params: dict[str, Any]) -> dict[str
 
     # Decoy emails with wrong numbers from similar departments
     decoy_a_name = ctx.fake.name()
-    decoy_a_email = ctx.email_for_name(decoy_a_name, domain="engineering.test")
+    decoy_a_email = ctx.email_for_name(decoy_a_name, domain="eng.thornton.com")
     ctx.base["emails"].append(
         ctx.email(
             from_name=decoy_a_name,
@@ -2963,7 +2963,7 @@ def build_data_compilation(ctx: SeedContext, params: dict[str, Any]) -> dict[str
     )
 
     decoy_b_name = ctx.fake.name()
-    decoy_b_email = ctx.email_for_name(decoy_b_name, domain="marketing.test")
+    decoy_b_email = ctx.email_for_name(decoy_b_name, domain="mktg.thornton.com")
     ctx.base["emails"].append(
         ctx.email(
             from_name=decoy_b_name,
@@ -3013,9 +3013,9 @@ def build_subscription_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict
     Updates, and 2 spam emails in Promotions. One newsletter (supply chain) is
     the "good" one to be forwarded.
     """
-    newsletter_domain_a = "weeklydigest.test"
-    newsletter_domain_b = "techinsights.test"
-    personal_email = "avery.personal@personal-mail.test"
+    newsletter_domain_a = "weeklydigest.thornton.com"
+    newsletter_domain_b = "techinsights.io"
+    personal_email = "avery.personal@outlook.com"
     good_newsletter_topic = "AI in supply chain management"
 
     # 4 newsletter emails in Promotions tab
@@ -3023,8 +3023,8 @@ def build_subscription_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict
     newsletter_senders = [
         ("Weekly Digest", f"editor@{newsletter_domain_a}", "Your weekly operations roundup"),
         ("Tech Insights", f"newsletter@{newsletter_domain_b}", "New trends in enterprise tooling"),
-        ("Market Watch", "alerts@marketwatch.test", "Industry benchmarks for Q1"),
-        ("Supply Chain Today", "news@supplychain.test", "How AI is transforming supply chain management"),
+        ("Market Watch", "alerts@mktwatch.co", "Industry benchmarks for Q1"),
+        ("Supply Chain Today", "news@supply.thornton.com", "How AI is transforming supply chain management"),
     ]
     good_newsletter_id: str | None = None
     for idx, (sender_name, sender_addr, subject) in enumerate(newsletter_senders):
@@ -3055,8 +3055,8 @@ def build_subscription_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict
     # 2 automated notification emails in Updates tab
     update_ids: list[str] = []
     update_senders = [
-        ("CI Build System", "builds@ci-pipeline.test", "Build #4821 completed successfully"),
-        ("Monitoring Alerts", "noreply@statuspage.test", "Weekly uptime report — all services green"),
+        ("CI Build System", "builds@ci.thornton.com", "Build #4821 completed successfully"),
+        ("Monitoring Alerts", "noreply@status.thornton.com", "Weekly uptime report — all services green"),
     ]
     for idx, (sender_name, sender_addr, subject) in enumerate(update_senders):
         em = ctx.email(
@@ -3078,8 +3078,8 @@ def build_subscription_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict
     # 2 spam emails with suspicious subjects
     spam_ids: list[str] = []
     spam_entries = [
-        ("Prize Center", "winner@free-prizes.test", "You've won a free laptop! Claim now!"),
-        ("Rewards Hub", "gifts@reward-center.test", "Claim your $500 gift card now — act fast!"),
+        ("Prize Center", "winner@luxurydeals.net", "You've won a free laptop! Claim now!"),
+        ("Benefits Club", "gifts@globalwins.net", "Claim your $500 gift card now — act fast!"),
     ]
     for idx, (sender_name, sender_addr, subject) in enumerate(spam_entries):
         em = ctx.email(
@@ -3120,7 +3120,7 @@ def build_star_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]
     thread_id = ctx.next_id("thread")
     em = ctx.email(
         from_name="Alice Chen",
-        from_addr="alice.chen@company.test",
+        from_addr="alice.chen@thornton.com",
         subject="Project Update — Q1 Milestones",
         body=ctx.format_email_body(
             "Hi team, here's a quick summary of where we stand on Q1 milestones.",
@@ -3132,14 +3132,14 @@ def build_star_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]
         labels=["inbox"],
     )
     ctx.base["emails"].append(em)
-    ctx.ensure_contact("Alice Chen", "alice.chen@company.test")
+    ctx.ensure_contact("Alice Chen", "alice.chen@thornton.com")
     return {"target_email_id": em.id}
 
 
 @_register("compose_new")
 def build_compose_new(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Seed baseline state for composing a new email (no special setup needed)."""
-    ctx.ensure_contact("Alice", "alice@company.test")
+    ctx.ensure_contact("Alice", "alice@thornton.com")
     return {}
 
 
@@ -3149,7 +3149,7 @@ def build_reply_simple(ctx: SeedContext, params: dict[str, Any]) -> dict[str, An
     thread_id = ctx.next_id("thread")
     em = ctx.email(
         from_name="Bob Martinez",
-        from_addr="bob.martinez@company.test",
+        from_addr="bob.martinez@thornton.com",
         subject="Meeting Tomorrow at 2pm",
         body=ctx.format_email_body(
             "Hi, just confirming our meeting tomorrow at 2pm in Conference Room B.",
@@ -3161,7 +3161,7 @@ def build_reply_simple(ctx: SeedContext, params: dict[str, Any]) -> dict[str, An
         labels=["inbox"],
     )
     ctx.base["emails"].append(em)
-    ctx.ensure_contact("Bob Martinez", "bob.martinez@company.test")
+    ctx.ensure_contact("Bob Martinez", "bob.martinez@thornton.com")
     return {"target_email_id": em.id, "target_thread_id": thread_id}
 
 
@@ -3171,7 +3171,7 @@ def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any
     thread_spam = ctx.next_id("thread")
     spam = ctx.email(
         from_name="Winner Notification",
-        from_addr="winner@spamfarm.test",
+        from_addr="winner@prizecentral.net",
         subject="YOU WON $1,000,000!!! Click NOW!!!",
         body="Congratulations! You have been selected as our lucky winner. Click the link below to claim your prize immediately!",
         timestamp=ctx.now - timedelta(hours=2),
@@ -3183,7 +3183,7 @@ def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any
     thread_normal = ctx.next_id("thread")
     normal = ctx.email(
         from_name="Team Lead",
-        from_addr="lead@company.test",
+        from_addr="lead@thornton.com",
         subject="Sprint Planning Notes",
         body=ctx.format_email_body(
             "Here are the notes from today's sprint planning session.",
@@ -3203,7 +3203,7 @@ def build_forward_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
     thread_id = ctx.next_id("thread")
     em = ctx.email(
         from_name="Carol Wang",
-        from_addr="carol.wang@vendor.test",
+        from_addr="carol.wang@bluespark.io",
         subject="Invoice #1234 — March Services",
         body=ctx.format_email_body(
             "Hi, please find attached the invoice for March consulting services.",
@@ -3216,8 +3216,8 @@ def build_forward_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
         labels=["inbox"],
     )
     ctx.base["emails"].append(em)
-    ctx.ensure_contact("Carol Wang", "carol.wang@vendor.test")
-    ctx.ensure_contact("Dave", "dave@company.test")
+    ctx.ensure_contact("Carol Wang", "carol.wang@bluespark.io")
+    ctx.ensure_contact("Dave", "dave@thornton.com")
     return {"target_email_id": em.id}
 
 
@@ -3231,11 +3231,11 @@ def build_create_label(ctx: SeedContext, params: dict[str, Any]) -> dict[str, An
 def build_mark_all_read(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Seed 5 unread emails in the inbox."""
     senders = [
-        ("Dana Lee", "dana.lee@company.test"),
-        ("Eric Zhao", "eric.zhao@company.test"),
-        ("Fiona Park", "fiona.park@company.test"),
-        ("Greg Novak", "greg.novak@company.test"),
-        ("Hannah Reeves", "hannah.reeves@company.test"),
+        ("Dana Lee", "dana.lee@thornton.com"),
+        ("Eric Zhao", "eric.zhao@thornton.com"),
+        ("Fiona Park", "fiona.park@thornton.com"),
+        ("Greg Novak", "greg.novak@thornton.com"),
+        ("Hannah Reeves", "hannah.reeves@thornton.com"),
     ]
     email_ids: list[str] = []
     for i, (name, addr) in enumerate(senders):
@@ -3269,7 +3269,7 @@ def build_update_contact(ctx: SeedContext, params: dict[str, Any]) -> dict[str, 
     """Seed a contact for Alice Chen that the agent must update."""
     c = ctx.contact(
         name="Alice Chen",
-        email="alice.chen@company.test",
+        email="alice.chen@thornton.com",
         company="Company Inc.",
         note="Engineering",
     )

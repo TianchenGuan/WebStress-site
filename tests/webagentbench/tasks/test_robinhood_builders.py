@@ -29,7 +29,7 @@ def _make_ctx(seed: int = 42) -> RobinhoodSeedContext:
     now = datetime(2025, 3, 15, 10, 0, 0, tzinfo=timezone.utc)
     base: dict = {
         "owner_name": "Alex Thompson",
-        "owner_email": "alex.thompson@webagentbench.test",
+        "owner_email": "alex.thompson@thornton.com",
         "stocks": [],
         "positions": [],
         "orders": [],

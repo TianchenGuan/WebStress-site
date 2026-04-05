@@ -386,7 +386,7 @@ class RobinhoodSeedContext:
         self.counters: dict[str, int] = {}
 
         self.owner_name: str = base.get("owner_name", "Alex Thompson")
-        self.owner_email: str = base.get("owner_email", "alex.thompson@webagentbench.test")
+        self.owner_email: str = base.get("owner_email", "alex.thompson@thornton.com")
 
     # -- ID generation -----------------------------------------------------
 
@@ -402,7 +402,7 @@ class RobinhoodSeedContext:
             ch.lower() for ch in name if ch.isalnum() or ch == " "
         ).replace(" ", ".")
         local = ".".join(part for part in local.split(".") if part) or "contact"
-        domain = domain or f"{self.fake.domain_word()}.test"
+        domain = domain or f"{self.fake.domain_word()}.com"
         return f"{local}@{domain}"
 
     @staticmethod
@@ -414,7 +414,7 @@ class RobinhoodSeedContext:
     def resolve_actor(
         self,
         key: str,
-        domain: str = "generic.test",
+        domain: str = "baseline.co",
         is_vip: bool = False,
         name: str | None = None,
     ) -> ResolvedActor:

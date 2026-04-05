@@ -10,7 +10,7 @@ instruction_template: 'You are organizing a team lunch. Your original email (sub
   can attend. Note: {target.sofia_name} initially replied "April 11 works" but sent
   a correction later in the same thread saying "Sorry, April 11 conflict came up —
   only April 4 works for me now." Collect all dietary restrictions mentioned in any
-  response. Compose a new email to team.lunch@ops.test with subject "Team Lunch Confirmed"
+  response. Compose a new email to team.lunch@ops.thornton.com with subject "Team Lunch Confirmed"
   containing the confirmed date as "Date: April 4" and a "Dietary notes:" section
   listing each person''s restriction as ''{name}: {restriction}'' on separate lines.
   After sending, star the most recent email in each of the 4 RSVP threads and archive
@@ -65,7 +65,7 @@ eval:
   checks:
   - expr: len(state.sent) >= 1
     desc: At least one email sent
-  - expr: any('team.lunch@ops.test' in m.to for m in state.sent)
+  - expr: any('team.lunch@ops.thornton.com' in m.to for m in state.sent)
     desc: Email sent to team lunch address
   - expr: any(m.subject == 'Team Lunch Confirmed' for m in state.sent)
     desc: Correct subject line

@@ -6,7 +6,7 @@ instruction_template: 'Over the past 2 weeks, Legal, Finance, and Product teams 
   if the last message referencing it from each involved party accepts it. A term is "open" if any involved party''s last message
   rejects or counters it. The 9 terms are: (1) payment schedule, (2) liability cap, (3) IP ownership, (4) termination clause,
   (5) SLA uptime guarantee, (6) data residency, (7) audit rights, (8) renewal pricing, (9) support response time. Identify
-  the 3 terms that remain open. Compose a new email to nora.zhang@ops.test with subject "Contract Status — Lattice Works"
+  the 3 terms that remain open. Compose a new email to nora.zhang@ops.thornton.com with subject "Contract Status — Lattice Works"
   containing a section "Open items:" listing exactly the 3 open terms and for each term, which department last objected and
   their stated concern. For each open item, quote the objecting department''s exact words from their most recent message.
   Create a label "Lattice Works Contract" and apply it to every email in the 6 negotiation threads. Do not apply the label
@@ -48,7 +48,7 @@ eval:
   checks:
   - expr: len(state.sent) >= 1
     desc: At least one email sent
-  - expr: any('nora.zhang@ops.test' in m.to for m in state.sent)
+  - expr: any('nora.zhang@ops.thornton.com' in m.to for m in state.sent)
     desc: Email sent to project lead
   - expr: any(m.subject == 'Contract Status — Lattice Works' for m in state.sent)
     desc: Correct subject line
@@ -93,6 +93,6 @@ eval:
   - expr: not any('audit rights' in m.body.lower() and 'open' in m.body.lower() for m in state.sent)
     desc: Audit rights not listed as open
     penalty: 0.09
-  - expr: not any(m.to and any('@latticeworks.test' in addr for addr in m.to) for m in state.sent)
+  - expr: not any(m.to and any('@latticeworks.io' in addr for addr in m.to) for m in state.sent)
     desc: No email sent to vendor
     penalty: 0.15

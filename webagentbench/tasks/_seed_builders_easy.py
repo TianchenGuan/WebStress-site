@@ -29,7 +29,7 @@ def build_star_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]
     thread = ctx.next_id("thread")
     target = ctx.email(
         from_name="Alice Chen",
-        from_addr="alice.chen@company.test",
+        from_addr="alice.chen@thornton.com",
         subject="Project Update — Q1 Milestones",
         body=ctx.format_email_body(
             "Hi team,",
@@ -55,7 +55,7 @@ def build_reply_simple(ctx: SeedContext, params: dict[str, Any]) -> dict[str, An
     thread = ctx.next_id("thread")
     target = ctx.email(
         from_name="Bob Martinez",
-        from_addr="bob.martinez@company.test",
+        from_addr="bob.martinez@thornton.com",
         subject="Meeting Tomorrow at 2pm",
         body=ctx.format_email_body(
             "Hi,",
@@ -91,7 +91,7 @@ def build_forward_email(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
     thread = ctx.next_id("thread")
     target = ctx.email(
         from_name="Carol Wang",
-        from_addr="carol.wang@vendor.test",
+        from_addr="carol.wang@bluespark.io",
         subject="Invoice #1234 — March Services",
         body=ctx.format_email_body(
             "Hi,",
@@ -116,9 +116,9 @@ def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any
     """Seed one obvious spam email among normal emails."""
     thread = ctx.next_id("thread")
     spam = ctx.email(
-        from_name="FREE PRIZES",
-        from_addr="winner@spamfarm.test",
-        subject="YOU WON $1,000,000!!! Click NOW!!!",
+        from_name="Loyalty Program",
+        from_addr="winner@prizecentral.net",
+        subject="You Won $1,000,000!!! Click NOW!!!",
         body="Congratulations! You have been selected as a winner! Click the link to claim.",
         timestamp=ctx.now - timedelta(hours=1),
         thread_id=thread,
@@ -128,7 +128,7 @@ def build_delete_spam(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any
     normal_thread = ctx.next_id("thread")
     normal = ctx.email(
         from_name="IT Support",
-        from_addr="it@company.test",
+        from_addr="it@thornton.com",
         subject="System maintenance this weekend",
         body="Planned maintenance window: Saturday 2am-6am. No action needed.",
         timestamp=ctx.now - timedelta(hours=4),
@@ -171,7 +171,7 @@ def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
         "Performance review self-assessment due",
         "Build pipeline fix deployed",
     ]
-    _filler_domains = ["team.test", "ops.test", "eng.test", "hr.test", "infra.test"]
+    _filler_domains = ["team.thornton.com", "ops.thornton.com", "eng.co", "hr.thornton.com", "infra.thornton.com"]
     for i in range(20):
         t = ctx.next_id("thread")
         sender_name = ctx.fake.name()
@@ -189,7 +189,7 @@ def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
     target_thread = ctx.next_id("thread")
     target = ctx.email(
         from_name="Finance Team",
-        from_addr="finance@company.test",
+        from_addr="finance@thornton.com",
         subject="Q4 Budget Summary — Final Numbers",
         body=ctx.format_email_body(
             "Hi all,",
@@ -217,7 +217,7 @@ def build_mark_all_read(ctx: SeedContext, params: dict[str, Any]) -> dict[str, A
         t = ctx.next_id("thread")
         email = ctx.email(
             from_name=f"Colleague {i + 1}",
-            from_addr=f"colleague{i + 1}@company.test",
+            from_addr=f"colleague{i + 1}@thornton.com",
             subject=f"FYI: Update on item {i + 1}",
             body=f"Just a quick heads-up about item {i + 1}. No action needed.",
             timestamp=ctx.now - timedelta(hours=i + 1),
@@ -241,7 +241,7 @@ def build_update_contact(ctx: SeedContext, params: dict[str, Any]) -> dict[str, 
     contact = Contact(
         id=ctx.next_id("contact"),
         name="Alice Chen",
-        email="alice.chen@company.test",
+        email="alice.chen@thornton.com",
         note="Engineering team",
     )
     ctx.base["contacts"].append(contact)

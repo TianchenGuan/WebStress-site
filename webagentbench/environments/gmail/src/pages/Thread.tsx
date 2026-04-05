@@ -362,7 +362,7 @@ export function ThreadPage() {
             to: [replyingTo.from_addr],
             cc: replyAllMode
               ? [...replyingTo.to, ...replyingTo.cc].filter(
-                  (addr) => addr !== "avery.quinn@webagentbench.test" && addr !== replyingTo.from_addr,
+                  (addr) => addr !== "avery.quinn@thornton.com" && addr !== replyingTo.from_addr,
                 )
               : [],
             subject: replyingTo.subject.startsWith("Re:") ? replyingTo.subject : `Re: ${replyingTo.subject}`,

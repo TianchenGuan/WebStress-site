@@ -152,7 +152,7 @@ class GmailSeedRunner:
             "env_id": "gmail",
             "task_id": task_id,
             "owner_name": "Avery Quinn",
-            "owner_email": "avery.quinn@webagentbench.test",
+            "owner_email": "avery.quinn@thornton.com",
             "emails": [],
             "drafts": [],
             "sent": [],
@@ -186,10 +186,10 @@ class GmailSeedRunner:
     @staticmethod
     def _add_generic_distractors(ctx: SeedContext, count: int) -> None:
         domains = [
-            "updates.test",
-            "partners.test",
-            "community.test",
-            "metrics.test",
+            "updates.thornton.com",
+            "partners.co",
+            "community.io",
+            "metrics.thornton.com",
         ]
         subjects = [
             "Agenda draft for Monday check-in",

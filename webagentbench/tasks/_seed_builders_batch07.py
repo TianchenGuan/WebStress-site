@@ -605,12 +605,12 @@ def build_annual_contact_review(ctx: SeedContext, params: dict[str, Any]) -> dic
     # Inactive non-protected contacts (3) — to be deleted
     # ---------------------------------------------------------------
     rupert_haines = ctx.contact(
-        name="Rupert Haines", email="r.haines@oldvendor.com",
+        name="Rupert Haines", email="r.haines@tannerfield.com",
         company="Old Vendor LLC",
         last_contacted_at=_aware(ctx,2025, 8, 10),
     )
     simone_arcuri = ctx.contact(
-        name="Simone Arcuri", email="s.arcuri@legacypartner.it",
+        name="Simone Arcuri", email="s.arcuri@vincenzi.it",
         company="Legacy Partner SRL",
         last_contacted_at=_aware(ctx,2025, 7, 5),
     )

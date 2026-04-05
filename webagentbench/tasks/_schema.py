@@ -21,7 +21,7 @@ import yaml
 class ActorSpec:
     """One entry in ``seed.actors``."""
     name: str | None = None
-    domain: str = "example.test"
+    domain: str = "example.com"
     is_vip: bool = False
 
 

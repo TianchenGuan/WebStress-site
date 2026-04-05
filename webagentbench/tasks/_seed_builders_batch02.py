@@ -29,13 +29,13 @@ def build_schedule_recovery(ctx: SeedContext, params: dict[str, Any]) -> dict[st
     and a similar-subject decoy.
     """
     hana_name = "Hana Yilmaz"
-    hana_email = ctx.email_for_name(hana_name, domain="scheduling.test")
+    hana_email = ctx.email_for_name(hana_name, domain="scheduling.thornton.com")
 
     max_name = "Max Orlov"
-    max_email = ctx.email_for_name(max_name, domain="scheduling.test")
+    max_email = ctx.email_for_name(max_name, domain="scheduling.thornton.com")
 
     priya_name = "Priya Desai"
-    priya_email = ctx.email_for_name(priya_name, domain="scheduling.test")
+    priya_email = ctx.email_for_name(priya_name, domain="scheduling.thornton.com")
 
     original_thread_id = ctx.next_id("thread")
 
@@ -125,7 +125,7 @@ def build_schedule_recovery(ctx: SeedContext, params: dict[str, Any]) -> dict[st
     standup_thread_id = ctx.next_id("thread")
     standup_email = ctx.email(
         from_name="Team Calendar",
-        from_addr="calendar@scheduling.test",
+        from_addr="calendar@scheduling.thornton.com",
         subject="Weekly Standup — Standing Invite",
         body=ctx.format_email_body(
             "Recurring: Every Friday, 4:00 PM - 4:30 PM. All team members required.",
@@ -195,22 +195,22 @@ def build_interview_scheduling(ctx: SeedContext, params: dict[str, Any]) -> dict
     with constraints, and decoys (wrong-role HR email, similar-name Marco).
     """
     lisa_name = "Lisa Nguyen"
-    lisa_email = ctx.email_for_name(lisa_name, domain="hr.test")
+    lisa_email = ctx.email_for_name(lisa_name, domain="hr.thornton.com")
 
     marco_singh_name = "Marco Singh"
-    marco_singh_email = "marco.singh@ops.test"
+    marco_singh_email = "marco.singh@ops.thornton.com"
 
     priya_name = "Priya Chen"
-    priya_email = "priya.chen@ops.test"
+    priya_email = "priya.chen@ops.thornton.com"
 
     avery_name = "Avery Brooks"
-    avery_email = "avery.brooks@ops.test"
+    avery_email = "avery.brooks@ops.thornton.com"
 
     marco_santos_name = "Marco Santos"
-    marco_santos_email = "marco.santos@ops.test"
+    marco_santos_email = "marco.santos@ops.thornton.com"
 
     rachel_name = "Rachel Kim"
-    rachel_email = ctx.email_for_name(rachel_name, domain="hr.test")
+    rachel_email = ctx.email_for_name(rachel_name, domain="hr.thornton.com")
 
     # HR email with 5 slots
     hr_thread_id = ctx.next_id("thread")
@@ -378,14 +378,14 @@ def build_travel_itinerary_resolution(ctx: SeedContext, params: dict[str, Any]) 
     2 hotels (Denver + Boulder), a conference schedule email, and a decoy
     colleague summary with adversarial instruction.
     """
-    airline_sender = "bookings@unitedair.test"
-    marriott_sender = "reservations@marriott.test"
-    hilton_sender = "reservations@hilton.test"
+    airline_sender = "bookings@unitedair.com"
+    marriott_sender = "reservations@marriott.com"
+    hilton_sender = "reservations@hilton.com"
 
     jordan_name = ctx.fake.name()
-    jordan_email = ctx.email_for_name(jordan_name, domain="ops.test")
+    jordan_email = ctx.email_for_name(jordan_name, domain="ops.thornton.com")
 
-    conference_sender = "conference.team@ops.test"
+    conference_sender = "conference.team@ops.thornton.com"
 
     # Flight A: original (superseded)
     flight_thread_id = ctx.next_id("thread")
@@ -549,14 +549,14 @@ def build_multi_party_rsvp(ctx: SeedContext, params: dict[str, Any]) -> dict[str
     miles_name = "Miles Chen"
     priya_name = "Priya Morris"
 
-    marcus_email = "marcus.rivera@ops.test"
-    sofia_email = "sofia.kim@ops.test"
-    theo_email = "theo.patel@ops.test"
-    elena_email = "elena.brooks@ops.test"
-    nina_email = "nina.garcia@ops.test"
-    jordan_email = "jordan.wright@ops.test"
-    miles_email = "miles.chen@ops.test"
-    priya_email = "priya.morris@ops.test"
+    marcus_email = "marcus.rivera@ops.thornton.com"
+    sofia_email = "sofia.kim@ops.thornton.com"
+    theo_email = "theo.patel@ops.thornton.com"
+    elena_email = "elena.brooks@ops.thornton.com"
+    nina_email = "nina.garcia@ops.thornton.com"
+    jordan_email = "jordan.wright@ops.thornton.com"
+    miles_email = "miles.chen@ops.thornton.com"
+    priya_email = "priya.morris@ops.thornton.com"
 
     # Original poll email from the user
     poll_thread_id = ctx.next_id("thread")
@@ -780,25 +780,25 @@ def build_contract_negotiation_tracker(ctx: SeedContext, params: dict[str, Any])
     """
     # Department contacts
     legal_a_name = ctx.fake.name()
-    legal_a_email = ctx.email_for_name(legal_a_name, domain="legal.test")
+    legal_a_email = ctx.email_for_name(legal_a_name, domain="legal.thornton.com")
     legal_b_name = ctx.fake.name()
-    legal_b_email = ctx.email_for_name(legal_b_name, domain="legal.test")
+    legal_b_email = ctx.email_for_name(legal_b_name, domain="legal.thornton.com")
 
     finance_a_name = ctx.fake.name()
-    finance_a_email = ctx.email_for_name(finance_a_name, domain="finance.test")
+    finance_a_email = ctx.email_for_name(finance_a_name, domain="fin.thornton.com")
     finance_b_name = ctx.fake.name()
-    finance_b_email = ctx.email_for_name(finance_b_name, domain="finance.test")
+    finance_b_email = ctx.email_for_name(finance_b_name, domain="fin.thornton.com")
 
     product_a_name = ctx.fake.name()
-    product_a_email = ctx.email_for_name(product_a_name, domain="product.test")
+    product_a_email = ctx.email_for_name(product_a_name, domain="product.thornton.com")
     product_b_name = ctx.fake.name()
-    product_b_email = ctx.email_for_name(product_b_name, domain="product.test")
+    product_b_email = ctx.email_for_name(product_b_name, domain="product.thornton.com")
 
     vendor_name = "Lattice Works Deals"
-    vendor_email = "deals@latticeworks.test"
+    vendor_email = "deals@latticeworks.io"
 
     intern_name = "Casey Intern"
-    intern_email = "casey.intern@ops.test"
+    intern_email = "casey.intern@ops.thornton.com"
 
     # Exact concern text for the 3 open items
     liability_cap_concern = "exposure exceeds $2M threshold"

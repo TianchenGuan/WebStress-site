@@ -1,7 +1,7 @@
 task_id: gmail_compose_new
 env_id: gmail
 title: Compose and Send a New Email
-instruction_template: Compose a new email to alice@company.test with subject "Weekly
+instruction_template: Compose a new email to alice@thornton.com with subject "Weekly
   Report" and body "Hi Alice, please find the weekly report attached. Best regards."
   Then send it.
 difficulty: easy
@@ -21,8 +21,8 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any('alice@company.test' in m.to for m in state.sent)
-    desc: Email sent to alice@company.test
+  - expr: any('alice@thornton.com' in m.to for m in state.sent)
+    desc: Email sent to alice@thornton.com
   - expr: any('Weekly Report' in m.subject for m in state.sent)
     desc: Subject is 'Weekly Report'
   - expr: any('weekly report' in m.body.lower() for m in state.sent)

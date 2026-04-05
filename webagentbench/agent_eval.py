@@ -532,7 +532,37 @@ def main():
     parser.add_argument("--server-port", type=int, default=8080)
     parser.add_argument("--output", default="results/webagentbench/results.json")
     parser.add_argument("--quiet", "-q", action="store_true")
+    parser.add_argument(
+        "--harness", choices=["browsergym", "browser-use"], default="browsergym",
+        help="Agent harness to use (default: browsergym)",
+    )
     args = parser.parse_args()
+
+    if args.harness == "browser-use":
+        import asyncio
+
+        from .browseruse_eval import run_evaluation as bu_run_evaluation
+
+        asyncio.run(bu_run_evaluation(
+            model=args.model,
+            provider=args.provider,
+            base_url=args.api_base_url,
+            api_key=args.api_key,
+            task_filter=args.tasks,
+            environments_filter=args.environments,
+            max_steps=args.max_steps,
+            timeout_per_task=args.timeout,
+            headless=args.headless,
+            verbose=not args.quiet,
+            temperature=args.temperature,
+            reasoning_effort=args.reasoning_effort,
+            server_host=args.server_host,
+            server_port=args.server_port,
+            output_path=args.output,
+            seed=args.seed,
+            degradation=args.degradation,
+        ))
+        return
 
     run_evaluation(
         model=args.model, provider=args.provider, base_url=args.api_base_url,

@@ -409,7 +409,7 @@ def test_thread_detective_ignores_quoted_conflicting_times() -> None:
         server_state=SimpleNamespace(
             sent=[
                 SimpleNamespace(
-                    to=["sofia.rivera@vertexlab.test"],
+                    to=["sofia.rivera@vertexlab.io"],
                     body=(
                         "11:00 AM works on my side, so let's confirm that.\n\n"
                         "On 3/2/2026, 3:20:00 AM, Sofia Rivera wrote:\n"
@@ -421,7 +421,7 @@ def test_thread_detective_ignores_quoted_conflicting_times() -> None:
             ]
         ),
         targets={
-            "sender_email": "sofia.rivera@vertexlab.test",
+            "sender_email": "sofia.rivera@vertexlab.io",
             "correct_time": "11:00 AM",
             "wrong_times": ["4:00 PM", "2:30 PM"],
             "most_recent_thread_id": "thread_456",

@@ -338,7 +338,7 @@ def build_thread_blame_trace(ctx: SeedContext, params: dict[str, Any]) -> dict[s
         body=ctx.format_email_body(
             "Found this old quote for reference.",
             "---------- Forwarded message ----------\n"
-            "From: Zenith Supplies <quotes@zenithsupplies.test>\n"
+            "From: Zenith Supplies <quotes@zenithsupplies.com>\n"
             "Subject: Re: Quote Request - Office Furniture\n\n"
             "Hi team, please find our updated pricing below:\n"
             "- Standing desks (model ZS-400): $4,500/unit\n"
