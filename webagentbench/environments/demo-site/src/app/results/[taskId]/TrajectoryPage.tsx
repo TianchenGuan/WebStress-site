@@ -180,7 +180,23 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
   const activeAction = activeStep?.action;
   const replayFixture = replayState?.fixture ?? fixture?.state ?? null;
 
-  const allChecks = data.evaluation?.criteria_results ?? [];
+  const allChecks = useMemo(() => {
+    const explicit = data.evaluation?.criteria_results ?? [];
+    if (explicit.length > 0) return explicit;
+    // Parse structured checks from reasoning text: "[PASS] desc" / "[FAIL] desc" / "[PENALTY -0.30] desc"
+    const reasoning = data.evaluation?.reasoning ?? "";
+    const parsed: typeof explicit = [];
+    for (const line of reasoning.split("\n")) {
+      const trimmed = line.trim();
+      const passMatch = trimmed.match(/^\[PASS]\s+(.+)/);
+      if (passMatch) { parsed.push({ desc: passMatch[1], passed: true, kind: "criterion" }); continue; }
+      const failMatch = trimmed.match(/^\[FAIL]\s+(.+)/);
+      if (failMatch) { parsed.push({ desc: failMatch[1], passed: false, kind: "criterion" }); continue; }
+      const penaltyMatch = trimmed.match(/^\[PENALTY\s*-?([\d.]+)]\s+(.+)/);
+      if (penaltyMatch) { parsed.push({ desc: penaltyMatch[2], passed: false, kind: "penalty", penalty: parseFloat(penaltyMatch[1]) }); continue; }
+    }
+    return parsed;
+  }, [data.evaluation]);
   const criteria = allChecks.filter((c) => c.kind !== "penalty");
   const penalties = allChecks.filter((c) => c.kind === "penalty");
   const failedCriteria = criteria.filter((c) => !c.passed);
@@ -374,8 +390,8 @@ export default function TrajectoryPage({ taskId }: { taskId: string }) {
                   />
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-                    {/* Reasoning summary */}
-                    {data.evaluation?.reasoning && (
+                    {/* Reasoning summary — only show raw text when no structured checks were parsed */}
+                    {data.evaluation?.reasoning && allChecks.length === 0 && (
                       <p className="text-[12px] text-[var(--text-secondary)] leading-[1.7] mb-4">
                         {data.evaluation.reasoning}
                       </p>
