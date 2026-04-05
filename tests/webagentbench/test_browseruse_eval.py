@@ -509,3 +509,85 @@ class TestBuildTrajectoryStep:
         )
         assert result["action"]["action"] == "finish"
         assert isinstance(result["targets"], dict)
+
+
+# =========================================================================
+# Additional tests from PR review (Gap fixes)
+# =========================================================================
+
+class TestReviewGaps:
+    """Tests added from PR review to close coverage gaps."""
+
+    # Gap 2: think action type
+    def test_think_action(self):
+        result = action_to_trajectory_format({"think": {}})
+        assert result == {"action": "think"}
+
+    # Gap 1: plain-text fallback branches
+    def test_plain_text_input(self):
+        result = parse_agent_output('input 35 "hello world"')
+        assert result["action"] == [{"input_text": {"index": 35, "text": "hello world"}}]
+
+    def test_plain_text_scroll_up(self):
+        result = parse_agent_output("scroll up")
+        assert result["action"] == [{"scroll_up": {"amount": 300}}]
+
+    def test_plain_text_scroll_default_down(self):
+        result = parse_agent_output("scroll down")
+        assert result["action"] == [{"scroll_down": {"amount": 300}}]
+
+    def test_plain_text_go_back(self):
+        result = parse_agent_output("go_back")
+        assert result["action"] == [{"go_back": {}}]
+
+    def test_plain_text_done(self):
+        result = parse_agent_output("done Task complete")
+        assert result["action"] == [{"done": {"text": "Task complete", "success": True}}]
+
+    # Gap 3: empty actions list
+    def test_build_step_empty_actions(self):
+        step = build_trajectory_step(
+            step_num=1, thinking="", memory="", actions=[],
+            dom_elements={}, url="http://localhost/env/gmail/inbox",
+            status="", elapsed=1.0,
+        )
+        assert step["action"] == {"action": "unknown"}
+        assert step["targets"] == {}
+
+    # Gap 4: dict-style dom_elements
+    def test_build_step_dict_dom_elements(self):
+        step = build_trajectory_step(
+            step_num=1, thinking="", memory="",
+            actions=[{"click": {"index": 5}}],
+            dom_elements={5: {"tag_name": "button", "attributes": {"aria-label": "Send"}, "text": "Send"}},
+            url="http://localhost/env/gmail/compose",
+            status="", elapsed=1.0,
+        )
+        assert step["targets"]["role"] == "button"
+        assert step["targets"]["name"] == "Send"
+
+    # Gap 8: uppercase tag name normalization
+    def test_dom_target_uppercase_tag(self):
+        result = dom_element_to_target("BUTTON", {"aria-label": "Submit"})
+        assert result["role"] == "button"
+
+    def test_dom_target_mixed_case_tag(self):
+        result = dom_element_to_target("Input", {"placeholder": "Search"})
+        assert result["role"] == "textbox"
+
+    # Gap 9: done action without text key
+    def test_done_action_no_text_key(self):
+        result = action_to_trajectory_format({"done": {"success": True}})
+        assert result == {"action": "finish", "answer": ""}
+
+    # Gap 7: mask_observations does not mutate input
+    def test_mask_observations_no_mutation(self):
+        original = [
+            {"role": "user", "content": "goal"},
+            {"role": "assistant", "content": "act"},
+            {"role": "user", "content": "obs"},
+        ]
+        import copy
+        snapshot = copy.deepcopy(original)
+        mask_observations(original, window=1)
+        assert original == snapshot
