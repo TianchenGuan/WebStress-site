@@ -4,14 +4,148 @@
   "instruction": "The finance team sent an alert email from finance-alerts@company.com titled \"PO-Invoice Discrepancy Alert - Q1 Audit\" stating that three purchase order/invoice pairs have dollar amount mismatches. Your inbox contains three purchase order emails from procurement@company.com and three invoice emails from different vendors. Each PO email has a PO number and approved amount; each invoice email references the same PO number with a billed amount. Match each PO to its invoice by PO number, calculate the exact dollar discrepancy for each pair (billed minus approved), then: (1) Compose a NEW email to cfo@company.com with subject \"Q1 PO-Invoice Reconciliation\" listing each PO number ({target.po_number_1}, {target.po_number_2}, {target.po_number_3}), its approved amount, billed amount, and discrepancy. (2) Star the three invoice emails. Do not star the PO emails. Ignore the invoice from billing@vendorD.com referencing a prior-year PO \u2014 it is not part of this Q1 audit. Also ignore any forwarded version of the finance alert with different data.",
   "difficulty": "expert",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 5,
+  "elapsed_seconds": 50.8,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 6/6 checks.\n  [PASS] Reconciliation email sent to CFO\n  [PASS] All three PO numbers in reconciliation email\n  [PASS] First discrepancy value in reconciliation\n  [PASS] Second discrepancy value in reconciliation\n  [PASS] Third discrepancy value in reconciliation\n  [PASS] All three invoice emails starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 6/6 checks.\n  [PASS] Reconciliation email sent to CFO\n  [PASS] All three PO numbers in reconciliation email\n  [PASS] First discrepancy value in reconciliation\n  [PASS] Second discrepancy value in reconciliation\n  [PASS] Third discrepancy value in reconciliation\n  [PASS] All three invoice emails starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Reconciliation email sent to CFO",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "All three PO numbers in reconciliation email",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "First discrepancy value in reconciliation",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Second discrepancy value in reconciliation",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Third discrepancy value in reconciliation",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "All three invoice emails starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "PO emails must not be starred",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Decoy prior-year invoice must not be starred",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Decoy PO number must not appear in reconciliation",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      },
+      {
+        "desc": "Reconciliation must be a new compose not a reply",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.1
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The needed amounts are visible in the inbox. First I should star the three relevant invoice emails for PO-2024-1101, PO-2024-1102, and PO-2024-1103.",
+      "action": {
+        "action": "click",
+        "ref": "58"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Invoice for PO-2024-1103"
+      },
+      "status": "",
+      "elapsed_seconds": 28.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "The three relevant invoice emails are now starred. Next I need to compose the reconciliation email to the CFO with the calculated amounts and discrepancies.",
+      "action": {
+        "action": "click",
+        "ref": "11"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 33.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 4,
+      "thought": "Compose form is open. I should fill in recipient, subject, and the reconciliation summary in the body, then send the message.",
+      "action": {
+        "action": "fill",
+        "ref": "601",
+        "value": "cfo@company.com"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 46.5,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 5,
+      "thought": "Recipient and subject are filled, and Send is enabled, so the message is ready to send.",
+      "action": {
+        "action": "click",
+        "ref": "620"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Send"
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 50.7,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    }
+  ]
 }

@@ -4,14 +4,89 @@
   "instruction": "Find the email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" and forward it to dave@company.test with the note \"Please review this invoice.\"",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 4,
+  "elapsed_seconds": 16.8,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 2/2 checks.\n  [PASS] Email forwarded to dave@company.test\n  [PASS] Forward note included\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 2/2 checks.\n  [PASS] Email forwarded to dave@company.test\n  [PASS] Forward note included\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Email forwarded to dave@company.test",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Forward note included",
+        "passed": true,
+        "kind": "criterion"
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "The target email from Carol Wang with subject \"Invoice #1234 \u2014 March Services\" is visible at the top of the inbox. I should open that thread first.",
+      "action": {
+        "action": "click",
+        "ref": "25"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Invoice #1234 \u2014 March Services"
+      },
+      "status": "",
+      "elapsed_seconds": 5.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The target email thread is open and there is a visible Forward button. I should open the forward composer.",
+      "action": {
+        "action": "click",
+        "ref": "367"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Forward this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 8.7,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 3,
+      "thought": "The forward compose form is open. I need to add the recipient and note, then send the forwarded email.",
+      "action": {
+        "action": "fill",
+        "ref": "425",
+        "value": "dave@company.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 14.0,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 4,
+      "thought": "The forward compose is gone and the page shows a forwarded state, indicating the email was successfully forwarded.",
+      "action": {
+        "action": "finish",
+        "answer": "Forwarded the email from Carol Wang with subject 'Invoice #1234 \u2014 March Services' to dave@company.test and included the note 'Please review this invoice.'"
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 16.7,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    }
+  ]
 }

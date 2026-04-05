@@ -4,14 +4,95 @@
   "instruction": "Find the email from Bob Martinez with subject \"Meeting Tomorrow at 2pm\" and reply with exactly: \"I'll be there. Thanks!\"",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 4,
+  "elapsed_seconds": 22.2,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 2/2 checks.\n  [PASS] Reply sent to Bob's email\n  [PASS] Reply contains the required message\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 2/2 checks.\n  [PASS] Reply sent to Bob's email\n  [PASS] Reply contains the required message\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Reply sent to Bob's email",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Reply contains the required message",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Only one reply sent",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "The target unread email from Bob Martinez with subject 'Meeting Tomorrow at 2pm' is visible in the inbox. I should open it.",
+      "action": {
+        "action": "click",
+        "ref": "25"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Meeting Tomorrow at 2pm"
+      },
+      "status": "",
+      "elapsed_seconds": 13.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The thread is open and shows the target message. I need to open the reply composer.",
+      "action": {
+        "action": "click",
+        "ref": "386"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Reply to Meeting Tomorrow at 2pm"
+      },
+      "status": "",
+      "elapsed_seconds": 16.3,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 3,
+      "thought": "The reply composer is open with Bob as recipient. I need to enter the exact reply text and send it.",
+      "action": {
+        "action": "fill",
+        "ref": "446",
+        "value": "I'll be there. Thanks!"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 20.1,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 4,
+      "thought": "The reply is visible in the thread and the page shows 'Reply sent', confirming completion.",
+      "action": {
+        "action": "finish",
+        "answer": "Replied to Bob Martinez with: I'll be there. Thanks!"
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 22.1,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    }
+  ]
 }

@@ -4,14 +4,113 @@
   "instruction": "Compose a new email to alice@company.test with subject \"Weekly Report\" and body \"Hi Alice, please find the weekly report attached. Best regards.\" Then send it.",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 5,
+  "elapsed_seconds": 23.1,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 3/3 checks.\n  [PASS] Email sent to alice@company.test\n  [PASS] Subject is 'Weekly Report'\n  [PASS] Body mentions weekly report\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 3/3 checks.\n  [PASS] Email sent to alice@company.test\n  [PASS] Subject is 'Weekly Report'\n  [PASS] Body mentions weekly report\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Email sent to alice@company.test",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Subject is 'Weekly Report'",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Body mentions weekly report",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Only one email sent",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The inbox is visible and no compose window is open yet. I should click Compose.",
+      "action": {
+        "action": "click",
+        "ref": "6"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 10.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Compose form is open with recipient, subject, and body fields available. I should fill them now.",
+      "action": {
+        "action": "fill",
+        "ref": "213",
+        "value": "alice@company.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 14.7,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 4,
+      "thought": "Recipient and subject are filled, and Send is enabled. The body field does not display the text in the observation, so I should enter it again to ensure correctness, then send.",
+      "action": {
+        "action": "fill",
+        "ref": "223",
+        "value": "Hi Alice, please find the weekly report attached. Best regards."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 20.9,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 5,
+      "thought": "The page shows the Sent view with a 'Message sent' confirmation and the email thread 'Weekly Report', so the task is complete.",
+      "action": {
+        "action": "finish",
+        "answer": "Sent the email to alice@company.test with subject 'Weekly Report'."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 23.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    }
+  ]
 }

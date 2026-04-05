@@ -4,14 +4,378 @@
   "instruction": "HR sent you a \"Q1 2026 Engineering Team Roster\" email listing 8 people with their names, emails, and titles. The email CCs j.morales-mgr@company.com (Javier Morales-Garcia, the outgoing team's manager) \u2014 this person is NOT on the roster and must not be added as a contact. Compare this roster against your existing contacts. Perform all of the following:\n1. Add contacts for the 3 people on the roster who do not have existing contact entries (Javier Morales <j.morales@engteam.co>, Anika Pham <a.pham@engteam.co>, Leo Fischer <l.fischer@engteam.co>). Set each new contact's note to \"Added from Q1 roster\".\n2. Delete the 2 contacts for people who appear in your contacts but are NOT on the roster and whose names appear in the roster email's \"Departures\" section (Tom Reeves and Carla Diaz).\n3. Find the separate email from \"Diana Holtz\" with subject \"Congrats Marcus!\" and update the contact for Marcus Webb to change his note to \"Promoted to Senior Engineer \u2014 Q1 2026\".\n4. Star the contact for the person listed as \"Team Lead\" on the roster (Sana Hussain).\nDo not modify any contacts not mentioned above. Do not add the CC'd manager as a contact.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 19,
+  "elapsed_seconds": 282.7,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 7/7 checks.\n  [PASS] Javier Morales added with roster note\n  [PASS] Anika Pham added with roster note\n  [PASS] Leo Fischer added with roster note\n  [PASS] Tom Reeves contact deleted\n  [PASS] Carla Diaz contact deleted\n  [PASS] Marcus Webb note updated with promotion\n  [PASS] Sana Hussain contact starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (4 dimensions): emails_modified, contacts_added, contacts_removed, contacts_modified\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 7/7 checks.\n  [PASS] Javier Morales added with roster note\n  [PASS] Anika Pham added with roster note\n  [PASS] Leo Fischer added with roster note\n  [PASS] Tom Reeves contact deleted\n  [PASS] Carla Diaz contact deleted\n  [PASS] Marcus Webb note updated with promotion\n  [PASS] Sana Hussain contact starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (4 dimensions): emails_modified, contacts_added, contacts_removed, contacts_modified\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Javier Morales added with roster note",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Anika Pham added with roster note",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Leo Fischer added with roster note",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Tom Reeves contact deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Carla Diaz contact deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Marcus Webb note updated with promotion",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Sana Hussain contact starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Decoy Carlos Diaz-Mendez preserved",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Decoy Thomas Reeve preserved",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "CC'd manager not added as contact",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      },
+      {
+        "desc": "Sana Hussain contact not deleted",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 10.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "We are still in Gmail inbox and need to locate the roster email first. I'll use the search box and run a search for the exact subject.",
+      "action": {
+        "action": "click",
+        "ref": "6"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 34.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Found the HR roster email in search results. I need to open it to read the full roster details, especially Team Lead and Departures.",
+      "action": {
+        "action": "click",
+        "ref": "588"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 2026 Engineering Team Roster"
+      },
+      "status": "",
+      "elapsed_seconds": 37.9,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 4,
+      "thought": "I have the roster details: Sana Hussain is Team Lead; departures are Tom Reeves and Carla Diaz; the CC'd manager Javier Morales-Garcia must not be added. Next I should find Diana Holtz's 'Congrats Marcus!' email before switching to contacts.",
+      "action": {
+        "action": "click",
+        "ref": "6"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 51.0,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 5,
+      "thought": "Found Diana Holtz's email. I should open it to confirm Marcus Webb's promotion note wording before editing contacts.",
+      "action": {
+        "action": "click",
+        "ref": "738"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Congrats Marcus!"
+      },
+      "status": "",
+      "elapsed_seconds": 54.2,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 6,
+      "thought": "I confirmed Diana Holtz's email says Marcus was promoted to Senior Engineer. Next I need to reach the contacts interface to update existing contacts, add the three new ones, delete the two departures, and star Sana Hussain.",
+      "action": {
+        "action": "click",
+        "ref": "20"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 80.6,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 7,
+      "thought": "We're in the combined Labels & Contacts view. Carla Diaz is visible on this page and must be deleted. I should remove her first, then continue paging through contacts to find Tom Reeves, Marcus Webb, and Sana Hussain, and later add the three missing contacts.",
+      "action": {
+        "action": "click",
+        "ref": "974"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete contact Carla Diaz"
+      },
+      "status": "",
+      "elapsed_seconds": 91.0,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 8,
+      "thought": "Carla Diaz is deleted. The contacts list is paginated alphabetically and the remaining target contacts (Marcus Webb, Sana Hussain, Tom Reeves) should be on later pages, so I'll move to the next contacts page.",
+      "action": {
+        "action": "click",
+        "ref": "1086"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Next contacts page"
+      },
+      "status": "",
+      "elapsed_seconds": 97.7,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 9,
+      "thought": "This page contains two target contacts: Marcus Webb and Sana Hussain. I'll star Sana now and open Marcus Webb for editing his note.",
+      "action": {
+        "action": "click",
+        "ref": "1067"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star contact Sana Hussain"
+      },
+      "status": "",
+      "elapsed_seconds": 105.5,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 10,
+      "thought": "Sana Hussain is now starred. Marcus Webb's edit form is open, so I should change his note to the requested promotion note and save.",
+      "action": {
+        "action": "click",
+        "ref": "871"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 112.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 11,
+      "thought": "Marcus Webb is updated and Sana Hussain is starred. Next I need to find and delete Tom Reeves, which should be on the next contacts page alphabetically.",
+      "action": {
+        "action": "click",
+        "ref": "1086"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Next contacts page"
+      },
+      "status": "",
+      "elapsed_seconds": 118.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 12,
+      "thought": "I found Tom Reeves on the last contacts page, and there's also a similar non-target Thomas Reeve contact that must not be touched. I should delete only Tom Reeves, then use the add-contact form on this page for the three missing roster members.",
+      "action": {
+        "action": "click",
+        "ref": "1038"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete contact Tom Reeves"
+      },
+      "status": "",
+      "elapsed_seconds": 128.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 13,
+      "thought": "Tom Reeves is deleted. The only remaining tasks are to add the three new EngTeam contacts. I'll start by filling the add-contact form for Javier Morales.",
+      "action": {
+        "action": "click",
+        "ref": "865"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact name"
+      },
+      "status": "",
+      "elapsed_seconds": 138.5,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 14,
+      "thought": "Javier Morales's name and email are filled. I'll complete the remaining fields and add this contact, then repeat for the other two new roster members.",
+      "action": {
+        "action": "fill",
+        "ref": "869",
+        "value": "EngTeam"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact company"
+      },
+      "status": "",
+      "elapsed_seconds": 145.9,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 15,
+      "thought": "Javier Morales has been added successfully. I still need to add Anika Pham and Leo Fischer with the same company and note.",
+      "action": {
+        "action": "fill",
+        "ref": "865",
+        "value": "Anika Pham"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact name"
+      },
+      "status": "",
+      "elapsed_seconds": 150.8,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 16,
+      "thought": "Anika Pham's name, email, and company are filled, so I should enter the required note and add her. Leo Fischer will still remain after that.",
+      "action": {
+        "action": "fill",
+        "ref": "871",
+        "value": "Added from Q1 roster"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 168.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 18,
+      "thought": "Only one task remains: add Leo Fischer as a new contact. I'll fill the first three fields now, then enter the note and save on the next step.",
+      "action": {
+        "action": "fill",
+        "ref": "865",
+        "value": "Leo Fischer"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact name"
+      },
+      "status": "",
+      "elapsed_seconds": 223.9,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 19,
+      "thought": "Leo Fischer's name, email, and company are filled. I just need to add the required note and save the final new contact.",
+      "action": {
+        "action": "fill",
+        "ref": "871",
+        "value": "Added from Q1 roster"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 241.7,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 20,
+      "thought": "All requested contact changes are complete and no extra contacts were modified.",
+      "action": {
+        "action": "finish",
+        "answer": "Completed all requested roster/contact updates: added Javier Morales, Anika Pham, and Leo Fischer with note 'Added from Q1 roster'; deleted Tom Reeves and Carla Diaz; updated Marcus Webb's note to 'Promoted to Senior Engineer \u2014 Q1 2026'; starred Sana Hussain; did not add the CC'd manager Javier Morales-Garcia."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 282.6,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    }
+  ]
 }

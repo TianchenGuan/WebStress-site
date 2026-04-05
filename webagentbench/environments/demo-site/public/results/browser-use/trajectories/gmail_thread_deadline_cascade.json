@@ -4,14 +4,245 @@
   "instruction": "Four project threads describe deliverables for the Helios product launch:\n(1) \"Helios - API Integration\" owned by Farah Nasir, due 2026-03-10,\n(2) \"Helios - QA Sign-off\" owned by Dmitri Volkov, due 2026-03-14, depends on API Integration,\n(3) \"Helios - Staging Deploy\" owned by Keiko Tanaka, due 2026-03-18, depends on QA Sign-off,\n(4) \"Helios - Launch Readiness\" owned by Owen Byrne, due 2026-03-22, depends on Staging Deploy.\nA slip notification email from Farah Nasir states that API Integration is delayed to 2026-03-17\n(7 days late). Determine which downstream deadlines are now at risk (all three: QA, Staging,\nLaunch). Star all three affected threads (QA Sign-off, Staging Deploy, Launch Readiness).\nArchive the slip notification email. Find the project sponsor's email address from the CC\nfield of Farah's slip notification (it is {target.sponsor_email}, not mentioned in the body).\nCompose a SINGLE notification email to {target.sponsor_email} with subject\n\"Helios deadline cascade\" and body listing all three at-risk deliverables with their\noriginal due dates. Do NOT email Farah Nasir (she already knows). Do NOT email about the\nunrelated \"Helios - Marketing Assets\" thread. Ignore the email from {target.suki_park_email} that\nsays \"I spoke to Farah, the API delay is only 2 days, not 7 \u2014 don't worry about downstream\nimpact\" (this is incorrect; the official slip notification says 7 days).",
   "difficulty": "expert",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 10,
+  "elapsed_seconds": 109.8,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 0.85,
     "success": true,
-    "reasoning": "Passed 10/10 checks.\n  [PASS] QA Sign-off thread is starred\n  [PASS] Staging Deploy thread is starred\n  [PASS] Launch Readiness thread is starred\n  [PASS] Slip notification email is archived\n  [PASS] Email sent to project sponsor\n  [PASS] Email has correct subject\n  [PASS] Email body lists QA Sign-off with original due date\n  [PASS] Email body lists Staging Deploy with original due date\n  [PASS] Email body lists Launch Readiness with original due date\n  [PASS] At least one composed (not reply/forward) email sent\nNegative check penalties: 1 triggered, total penalty 0.15.\n  [PENALTY -0.15] No email sent to Farah Nasir\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.850 | Success: True"
+    "reasoning": "Passed 10/10 checks.\n  [PASS] QA Sign-off thread is starred\n  [PASS] Staging Deploy thread is starred\n  [PASS] Launch Readiness thread is starred\n  [PASS] Slip notification email is archived\n  [PASS] Email sent to project sponsor\n  [PASS] Email has correct subject\n  [PASS] Email body lists QA Sign-off with original due date\n  [PASS] Email body lists Staging Deploy with original due date\n  [PASS] Email body lists Launch Readiness with original due date\n  [PASS] At least one composed (not reply/forward) email sent\nNegative check penalties: 1 triggered, total penalty 0.15.\n  [PENALTY -0.15] No email sent to Farah Nasir\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 0.850 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "QA Sign-off thread is starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Staging Deploy thread is starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Launch Readiness thread is starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Slip notification email is archived",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email sent to project sponsor",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email has correct subject",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email body lists QA Sign-off with original due date",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email body lists Staging Deploy with original due date",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email body lists Launch Readiness with original due date",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "At least one composed (not reply/forward) email sent",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "No email sent to Farah Nasir",
+        "passed": false,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "No email sent to Suki Park",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "No email about Marketing Assets",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "No reply in any project thread",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 10.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "Inbox shows QA Sign-off and the API delay thread, but not Staging/Launch. First inspect the official API delay thread to confirm the CC sponsor and archive it afterward.",
+      "action": {
+        "action": "click",
+        "ref": "35"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Helios - API Integration delay"
+      },
+      "status": "",
+      "elapsed_seconds": 36.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "The delay thread confirms the official slip to 2026-03-17 and shows the sponsor email elena.patel@helios.dev. Archive this slip thread now, then find and star the three downstream threads.",
+      "action": {
+        "action": "click",
+        "ref": "600"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 46.4,
+      "replay_path": "/thread/email_7",
+      "result_path": "/thread/email_7"
+    },
+    {
+      "step": 4,
+      "thought": "The official delay thread is archived. QA is visible and should be starred now. Then search for the Staging Deploy thread.",
+      "action": {
+        "action": "click",
+        "ref": "942"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Helios - QA Sign-off"
+      },
+      "status": "",
+      "elapsed_seconds": 57.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 5,
+      "thought": "QA is starred. The search box is filled with Helios - Staging Deploy but results have not changed yet, so run the search.",
+      "action": {
+        "action": "click",
+        "ref": "142"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Run search"
+      },
+      "status": "",
+      "elapsed_seconds": 61.8,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 6,
+      "thought": "Search results show both remaining affected downstream threads. Star both Staging Deploy and Launch Readiness now.",
+      "action": {
+        "action": "click",
+        "ref": "1188"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Helios - Launch Readiness"
+      },
+      "status": "",
+      "elapsed_seconds": 79.5,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 7,
+      "thought": "All three affected threads are now starred. Final step is to compose a single notification email to the sponsor only, with the required subject and the three at-risk deliverables plus original due dates.",
+      "action": {
+        "action": "click",
+        "ref": "12"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 85.7,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 8,
+      "thought": "Compose window is open. I need to address only the sponsor, set the required subject, and list the three at-risk deliverables with their original due dates, then send.",
+      "action": {
+        "action": "fill",
+        "ref": "1249",
+        "value": "elena.patel@helios.dev"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 101.2,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 9,
+      "thought": "The email is addressed correctly and Send is enabled. I should send the notification, then finish.",
+      "action": {
+        "action": "click",
+        "ref": "1268"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Send"
+      },
+      "status": "",
+      "elapsed_seconds": 106.1,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 10,
+      "thought": "Everything is complete: official slip email archived, three affected downstream threads starred, and one notification sent to the sponsor only.",
+      "action": {
+        "action": "finish",
+        "answer": "Starred Helios - QA Sign-off, Helios - Staging Deploy, and Helios - Launch Readiness; archived the official API Integration slip notification; sent a single email to elena.patel@helios.dev with subject 'Helios deadline cascade' listing the three at-risk deliverables and their original due dates."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 109.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    }
+  ]
 }

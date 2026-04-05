@@ -4,14 +4,68 @@
   "instruction": "Create a new label called \"Important Projects\".",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 3,
+  "elapsed_seconds": 20.1,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 1/1 checks.\n  [PASS] Label 'Important Projects' exists\nCollateral mutations detected (1 dimensions): labels_added\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 1/1 checks.\n  [PASS] Label 'Important Projects' exists\nCollateral mutations detected (1 dimensions): labels_added\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Label 'Important Projects' exists",
+        "passed": true,
+        "kind": "criterion"
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "I\u2019m on the Gmail inbox. There is a Labels navigation item that likely opens label management or creation.",
+      "action": {
+        "action": "click",
+        "ref": "14"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 13.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The Labels page has a 'New label name' input. There is no visible interactive create button in the current DOM, and the page text says to press Enter after entering a label name.",
+      "action": {
+        "action": "fill",
+        "ref": "216",
+        "value": "Important Projects\n"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "New label name"
+      },
+      "status": "",
+      "elapsed_seconds": 18.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 3,
+      "thought": "The label now appears in the existing labels list and a confirmation message says 'Label created' with 'Important Projects'.",
+      "action": {
+        "action": "finish",
+        "answer": "Created the new label 'Important Projects'."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 20.0,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    }
+  ]
 }

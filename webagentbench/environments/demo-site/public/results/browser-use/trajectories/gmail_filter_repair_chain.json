@@ -4,14 +4,276 @@
   "instruction": "Read the email from Lena Park (lena.park@company.com) with subject \"Set up Acme Widgets invoice filter.\" Follow the instructions to create a filter that catches invoices from Acme Widgets and applies the label \"Vendor/AcmeWidgets\" while skipping the inbox. The instruction says to use from:invoices@acmewidgets.com. After creating this filter, check your inbox \u2014 you should notice that a test email from billing@acmewidgets.com with subject \"Invoice #AW-2290\" is still sitting in the inbox without the label. The filter didn't catch it because the from-address was too narrow. Delete the broken filter and recreate it using from:*@acmewidgets.com so it catches all mail from the Acme Widgets domain. Make sure the new filter does NOT match emails from acmewidgets-pro.com \u2014 that is a different vendor.",
   "difficulty": "medium",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 14,
+  "elapsed_seconds": 174.9,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 4/4 checks.\n  [PASS] Wildcard domain filter exists with correct label and skip inbox\n  [PASS] Broken narrow filter was deleted\n  [PASS] Vendor/AcmeWidgets label exists\n  [PASS] All 3 unrelated pre-existing filters remain\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): filters_added\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 4/4 checks.\n  [PASS] Wildcard domain filter exists with correct label and skip inbox\n  [PASS] Broken narrow filter was deleted\n  [PASS] Vendor/AcmeWidgets label exists\n  [PASS] All 3 unrelated pre-existing filters remain\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): filters_added\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Wildcard domain filter exists with correct label and skip inbox",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Broken narrow filter was deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Vendor/AcmeWidgets label exists",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "All 3 unrelated pre-existing filters remain",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "No filter catches acmewidgets-pro.com domain",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      },
+      {
+        "desc": "No subject-based filter created per old suggestion",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Test email was not deleted",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The inbox preview already shows Lena's instructions and the key evidence: the test invoice from billing@acmewidgets.com is still in the inbox unlabeled. I should go to Gmail settings to create the initial narrow filter, then later replace it with the corrected domain-wide filter.",
+      "action": {
+        "action": "click",
+        "ref": "14"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 14.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "I'm on the Gmail settings page. To create and later repair the filter, I need the Filters and Blocked Addresses tab.",
+      "action": {
+        "action": "click",
+        "ref": "585"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 17.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 4,
+      "thought": "I'm on the Filters tab with existing filters listed. Next I should create the initial narrow Acme Widgets filter using invoices@acmewidgets.com.",
+      "action": {
+        "action": "click",
+        "ref": "1033"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 20.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 5,
+      "thought": "The create-filter dialog is open. I'll define the initial broken filter using the narrow sender criterion from:invoices@acmewidgets.com, then continue to actions.",
+      "action": {
+        "action": "fill",
+        "ref": "1057",
+        "value": "from:invoices@acmewidgets.com"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 29.0,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 6,
+      "thought": "I'm on step 2. To match the instructions, I need to apply the label Vendor/AcmeWidgets and skip the inbox, then create the filter.",
+      "action": {
+        "action": "fill",
+        "ref": "1060",
+        "value": "Vendor/AcmeWidgets"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter labels"
+      },
+      "status": "",
+      "elapsed_seconds": 39.1,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 7,
+      "thought": "The initial filter has been created, though the UI shows it as a broken narrow filter. Next I should check the inbox to confirm the Acme Widgets Billing invoice is still sitting in the inbox without the Vendor/AcmeWidgets label.",
+      "action": {
+        "action": "click",
+        "ref": "8"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 53.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 8,
+      "thought": "The inbox confirms the test email 'Invoice #AW-2290' from Acme Widgets Billing is still in the inbox and only has the inbox label, so the narrow filter failed. Now I need to delete the broken filter and recreate it using the broader domain pattern.",
+      "action": {
+        "action": "click",
+        "ref": "14"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 69.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 9,
+      "thought": "Settings reopened to the General tab. I need to return to Filters and Blocked Addresses and remove the broken Acme Widgets filter.",
+      "action": {
+        "action": "click",
+        "ref": "1640"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 93.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 11,
+      "thought": "The broken Acme Widgets filter is visible in the list. I should delete it first before recreating the corrected domain-wide version.",
+      "action": {
+        "action": "click",
+        "ref": "2084"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete filter from:from:invoices@acmewidgets.com"
+      },
+      "status": "",
+      "elapsed_seconds": 136.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 12,
+      "thought": "The broken filter is gone. Now I need to create the corrected filter using the domain-wide pattern so Gmail stores it as from:*@acmewidgets.com, then apply the same label and archive action.",
+      "action": {
+        "action": "click",
+        "ref": "2096"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 147.4,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 13,
+      "thought": "The create-filter dialog is open again. To avoid the earlier duplicated prefix issue while still matching the entire Acme Widgets domain, I'll enter *@acmewidgets.com in the From field and continue.",
+      "action": {
+        "action": "fill",
+        "ref": "2127",
+        "value": "*@acmewidgets.com"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 158.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 14,
+      "thought": "The corrected criterion is set to the Acme Widgets domain only. I just need to apply the Vendor/AcmeWidgets label, enable Skip Inbox, and create the filter. That domain pattern will not match acmewidgets-pro.com.",
+      "action": {
+        "action": "fill",
+        "ref": "2130",
+        "value": "Vendor/AcmeWidgets"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter labels"
+      },
+      "status": "",
+      "elapsed_seconds": 165.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 15,
+      "thought": "The broken filter was deleted and the corrected filter now exists with the exact match pattern from:*@acmewidgets.com, applying Vendor/AcmeWidgets and archiving mail. That pattern is scoped to the acmewidgets.com domain and does not match acmewidgets-pro.com.",
+      "action": {
+        "action": "finish",
+        "answer": "Created the corrected Gmail filter for Acme Widgets: from:*@acmewidgets.com with label Vendor/AcmeWidgets and Skip Inbox (Archive). Verified the earlier narrow filter missed the billing@acmewidgets.com invoice, deleted that broken filter, and replaced it with the domain-wide one. The new pattern is limited to acmewidgets.com and will not match acmewidgets-pro.com."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 174.8,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    }
+  ]
 }

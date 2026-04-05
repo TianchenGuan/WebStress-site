@@ -4,14 +4,411 @@
   "instruction": "Review your inbox and set up a comprehensive filter system. Browse your Primary, Promotions, and Updates tabs to identify recurring patterns. Then go to Settings > Filters. You will see three existing filters \u2014 one of them has the wrong domain (it should match {target.correct_domain} but currently matches something else). Delete the broken filter and recreate it with the correct domain, setting it to archive and label '{target.billing_label}'. Then create three additional filters: one that stars emails with '{target.keyword}' in the subject and labels them '{target.keyword_label}', one that archives emails from {target.archive_domain} and marks them read, and one that forwards emails from {target.forward_sender} to {target.forward_to}. Do not delete the two correct existing filters.",
   "difficulty": "expert",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 22,
+  "elapsed_seconds": 185.4,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 7/7 checks.\n  [PASS] Broken filter deleted\n  [PASS] Fixed filter created with correct domain\n  [PASS] Keyword filter created\n  [PASS] Archive filter created\n  [PASS] Forward filter created\n  [PASS] Good filter A preserved\n  [PASS] Good filter B preserved\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): filters_added, filters_removed\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 7/7 checks.\n  [PASS] Broken filter deleted\n  [PASS] Fixed filter created with correct domain\n  [PASS] Keyword filter created\n  [PASS] Archive filter created\n  [PASS] Forward filter created\n  [PASS] Good filter A preserved\n  [PASS] Good filter B preserved\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): filters_added, filters_removed\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Broken filter deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Fixed filter created with correct domain",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Keyword filter created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Archive filter created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Forward filter created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Good filter A preserved",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Good filter B preserved",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Broken filter not left in place",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The page is still on Primary. I need to inspect Promotions and Updates before changing filters.",
+      "action": {
+        "action": "click",
+        "ref": "22"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 20.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Promotions shows recurring marketing-related messages. I should inspect Updates too, then configure filters.",
+      "action": {
+        "action": "click",
+        "ref": "23"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Updates"
+      },
+      "status": "",
+      "elapsed_seconds": 28.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 4,
+      "thought": "I\u2019ve identified recurring patterns: billing-related messages in Updates, marketing-related messages in Promotions, and Security Advisory plus Elena Patel in Primary. Now I should go to Settings > Filters.",
+      "action": {
+        "action": "click",
+        "ref": "19"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 49.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 5,
+      "thought": "I\u2019m on Settings. I need the Filters and Blocked Addresses tab to inspect the existing filters and modify them.",
+      "action": {
+        "action": "click",
+        "ref": "1091"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 52.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 6,
+      "thought": "I can see the three existing filters. The broken one is 'Billing auto-archive' matching @wrong-billing.test. I should delete only that filter first, preserving the other two.",
+      "action": {
+        "action": "click",
+        "ref": "1514"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete filter Billing auto-archive"
+      },
+      "status": "",
+      "elapsed_seconds": 55.6,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 7,
+      "thought": "The broken filter is deleted and the two correct ones remain. Next I need to recreate the billing filter and add three more filters.",
+      "action": {
+        "action": "click",
+        "ref": "1539"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 64.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 8,
+      "thought": "The create-filter dialog is open on step 1. I\u2019ll start with the corrected billing filter using the sender domain billing-services.test.",
+      "action": {
+        "action": "fill",
+        "ref": "1567",
+        "value": "@billing-services.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 88.0,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 9,
+      "thought": "I\u2019m on billing filter actions. To match the task, I need to archive and apply label Billing; adding a clear filter name will help enable saving.",
+      "action": {
+        "action": "fill",
+        "ref": "1570",
+        "value": "Billing"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter labels"
+      },
+      "status": "",
+      "elapsed_seconds": 93.4,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 10,
+      "thought": "The corrected billing filter is fully configured and ready to save.",
+      "action": {
+        "action": "click",
+        "ref": "1582"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Save new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 97.4,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 11,
+      "thought": "The corrected billing filter is now in place and the two original correct filters remain. I still need to add the Security Advisory, marketing-blasts.test, and Elena Patel forwarding filters.",
+      "action": {
+        "action": "click",
+        "ref": "1539"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 103.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 12,
+      "thought": "For the next filter, I should match messages with 'Security Advisory' in the subject, then in step 2 set Star and label Security.",
+      "action": {
+        "action": "fill",
+        "ref": "1674",
+        "value": "Security Advisory"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter subject phrase"
+      },
+      "status": "",
+      "elapsed_seconds": 120.0,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 13,
+      "thought": "I\u2019m on the action step for the Security Advisory filter. I need to label matching mail as Security and star it; adding a name should enable saving.",
+      "action": {
+        "action": "fill",
+        "ref": "1674",
+        "value": "Security"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter labels"
+      },
+      "status": "",
+      "elapsed_seconds": 124.8,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 14,
+      "thought": "The Security Advisory filter is configured correctly and ready to save.",
+      "action": {
+        "action": "click",
+        "ref": "1686"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Save new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 130.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 15,
+      "thought": "The Security filter is saved. I now need to add the last two required filters: marketing-blasts.test and Elena Patel forwarding.",
+      "action": {
+        "action": "click",
+        "ref": "1539"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 152.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 16,
+      "thought": "For the marketing filter, I should match the sender domain marketing-blasts.test and then set actions to archive and mark as read.",
+      "action": {
+        "action": "fill",
+        "ref": "1775",
+        "value": "@marketing-blasts.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 156.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 17,
+      "thought": "I\u2019m on the action step for the marketing filter. I need to archive these emails and mark them as read; giving it a name should make the saved filter easy to verify.",
+      "action": {
+        "action": "fill",
+        "ref": "1822",
+        "value": "Marketing archive"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter name"
+      },
+      "status": "",
+      "elapsed_seconds": 163.1,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 18,
+      "thought": "The marketing filter is configured correctly and ready to save.",
+      "action": {
+        "action": "click",
+        "ref": "1790"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Save new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 169.6,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 19,
+      "thought": "The marketing filter is saved. One last required filter remains: forward mail from elena.patel@executive.test to chief-of-staff@webagentbench.test.",
+      "action": {
+        "action": "click",
+        "ref": "1539"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 173.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 20,
+      "thought": "I need the final filter to match mail from Elena Patel\u2019s exact address, then set it to forward to the chief of staff address.",
+      "action": {
+        "action": "fill",
+        "ref": "1878",
+        "value": "elena.patel@executive.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 177.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 21,
+      "thought": "I\u2019m on the final filter\u2019s action step. I need to forward matching messages to chief-of-staff@webagentbench.test, and adding a name should enable saving.",
+      "action": {
+        "action": "fill",
+        "ref": "1923",
+        "value": "chief-of-staff@webagentbench.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter forward address"
+      },
+      "status": "",
+      "elapsed_seconds": 182.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 22,
+      "thought": "All requested filters are present and the two correct original filters remain untouched.",
+      "action": {
+        "action": "finish",
+        "answer": "Reviewed Primary, Promotions, and Updates for patterns; deleted only the broken billing filter; recreated it as from:@billing-services.test with Billing label and archive; added subject:Security Advisory with Security label and star; added from:@marketing-blasts.test with archive and mark read; and added from:elena.patel@executive.test forwarding to chief-of-staff@webagentbench.test. The two correct existing filters were preserved."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 185.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    }
+  ]
 }

@@ -4,14 +4,487 @@
   "instruction": "You have 6 contacts that are missing company and role information: Omar Farouk, Ling Zhou, Beatrice Muller, Sam Okoye, Hannah Kessler, and Davi Costa. For each contact, search the inbox for their most recent email thread. If a thread from that contact exists, read the email signature to find their company and role, then update the contact's note to \"[Role] at [Company]\". If no email thread from that contact exists, do not modify that contact at all.\nYour manager Grace Lin sent an email with subject \"Priority Contacts\" listing Omar Farouk, Ling Zhou, and Sam Okoye as VIP contacts. Star the contacts for those 3 people.\nDo not fabricate any data. Do not modify contacts for which you found no email thread.",
   "difficulty": "expert",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 25,
+  "elapsed_seconds": 331.5,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 7/7 checks.\n  [PASS] Omar Farouk note enriched correctly\n  [PASS] Ling Zhou note enriched correctly\n  [PASS] Beatrice Muller note enriched correctly\n  [PASS] Sam Okoye note enriched correctly\n  [PASS] Omar Farouk starred as VIP\n  [PASS] Ling Zhou starred as VIP\n  [PASS] Sam Okoye starred as VIP\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, contacts_modified\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 7/7 checks.\n  [PASS] Omar Farouk note enriched correctly\n  [PASS] Ling Zhou note enriched correctly\n  [PASS] Beatrice Muller note enriched correctly\n  [PASS] Sam Okoye note enriched correctly\n  [PASS] Omar Farouk starred as VIP\n  [PASS] Ling Zhou starred as VIP\n  [PASS] Sam Okoye starred as VIP\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, contacts_modified\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Omar Farouk note enriched correctly",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Ling Zhou note enriched correctly",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Beatrice Muller note enriched correctly",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Sam Okoye note enriched correctly",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Omar Farouk starred as VIP",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Ling Zhou starred as VIP",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Sam Okoye starred as VIP",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Hannah Kessler contact not modified (no email thread)",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Davi Costa contact not modified (no email thread)",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Beatrice Muller not incorrectly starred",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.1
+      },
+      {
+        "desc": "Omar not enriched with forwarded colleague role",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Beatrice not enriched with outdated role",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Sam not confused with Sam Okafor decoy",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 10.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "Need search inbox for first target contact and inspect whether a thread exists.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Omar Farouk"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 36.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Search results show Omar Farouk has a thread, and the snippet contains signature info: Operations Director at Crescent Logistics. Need gather all contact details before switching to contacts.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Ling Zhou"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 43.8,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 4,
+      "thought": "Found Ling Zhou thread with signature in snippet: Lead Data Scientist at Apex Data. Continue checking remaining contacts.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Beatrice Muller"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 48.0,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 5,
+      "thought": "Found Beatrice Muller's most recent thread and signature in snippet: VP of Partnerships at RheinTech. Continue with remaining contacts.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Sam Okoye"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 53.6,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 6,
+      "thought": "Found Sam Okoye with signature in snippet: Co-founder at BrightHorizon. Need finish inbox checks for Hannah Kessler and Davi Costa.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Hannah Kessler"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 63.4,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 7,
+      "thought": "No email thread from Hannah Kessler herself appears in search results, so Hannah should not be modified. Need check Davi Costa next.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Davi Costa"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 67.6,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 8,
+      "thought": "I\u2019ve gathered email signature info for all contacts with matching threads. Next I need a way to update their contact notes and star the VIP contacts, likely via a contact card from an email thread.",
+      "action": {
+        "action": "back"
+      },
+      "targets": {},
+      "status": "ERROR: Element index 606 not found",
+      "elapsed_seconds": 100.7,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 9,
+      "thought": "The prior element index came from an older page. I should reopen a known matching thread from the current search flow and look for contact/edit controls from there.",
+      "action": {
+        "action": "fill",
+        "ref": "7",
+        "value": "Omar Farouk"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 119.3,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 10,
+      "thought": "I have Omar's info and need access to contact editing controls, likely from the thread view. Open the Omar thread.",
+      "action": {
+        "action": "click",
+        "ref": "933"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 Logistics Review"
+      },
+      "status": "",
+      "elapsed_seconds": 126.5,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 11,
+      "thought": "In the thread view, the sender avatar is interactive and may open the contact card needed to edit the contact. I'll try that.",
+      "action": {
+        "action": "click",
+        "ref": "1021"
+      },
+      "targets": {
+        "role": "span",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 145.7,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 12,
+      "thought": "The thread confirms Omar's role/company, but I still need to reach the contacts interface to edit notes and stars. The inbox UI doesn't show a direct contacts link, so I'll return and look for navigation options from the main Gmail view.",
+      "action": {
+        "action": "back"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 176.2,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 13,
+      "thought": "Browser back didn\u2019t change views, so I\u2019ll use the explicit Back to inbox button and inspect the left navigation for a Contacts link or another contact-management entry.",
+      "action": {
+        "action": "click",
+        "ref": "1004"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 189.2,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 14,
+      "thought": "I have all needed email findings, but I still need to reach contact editing. The current Gmail view doesn't show a direct Contacts link, so I'll probe the remaining navigation for a contacts entry or contact-management panel.",
+      "action": {
+        "action": "click",
+        "ref": "20"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 212.8,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 15,
+      "thought": "Found the Contacts table inside Labels & contacts. I should update only contacts with verified email threads, starting with visible Beatrice Muller, and leave Davi and Hannah unchanged.",
+      "action": {
+        "action": "click",
+        "ref": "1294"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Beatrice Muller"
+      },
+      "status": "",
+      "elapsed_seconds": 218.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 16,
+      "thought": "Beatrice's edit form is open. I'll add the verified note and save, then move on to find the other target contacts in the contacts table.",
+      "action": {
+        "action": "fill",
+        "ref": "1197",
+        "value": "VP of Partnerships at RheinTech"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 225.5,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 17,
+      "thought": "Beatrice is updated. The remaining target contacts likely appear on later contacts pages, so I should paginate through the contacts table to find Omar Farouk, Ling Zhou, and Sam Okoye, while leaving Hannah and Davi unchanged.",
+      "action": {
+        "action": "click",
+        "ref": "1412"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Next contacts page"
+      },
+      "status": "",
+      "elapsed_seconds": 230.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 18,
+      "thought": "Ling Zhou is visible on this contacts page. I should update Ling's note first, then star the contact as a VIP.",
+      "action": {
+        "action": "click",
+        "ref": "1326"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Ling Zhou"
+      },
+      "status": "",
+      "elapsed_seconds": 236.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 19,
+      "thought": "Ling's edit form is open. I'll add the verified note and save, then star Ling from the table since Ling is a VIP contact.",
+      "action": {
+        "action": "fill",
+        "ref": "1197",
+        "value": "Lead Data Scientist at Apex Data"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 245.8,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 20,
+      "thought": "Ling's note is saved. Since Ling is a VIP, I should star Ling now and continue to later contacts pages to find Omar and Sam.",
+      "action": {
+        "action": "click",
+        "ref": "1329"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star contact Ling Zhou"
+      },
+      "status": "",
+      "elapsed_seconds": 253.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 21,
+      "thought": "Now I can finish the remaining visible target contacts. First update Omar Farouk's verified note, then I'll update Sam Okoye and star both VIP contacts.",
+      "action": {
+        "action": "click",
+        "ref": "1278"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Omar Farouk"
+      },
+      "status": "",
+      "elapsed_seconds": 259.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 22,
+      "thought": "Omar's edit form is open. I'll save the verified note, then edit Sam next and afterward star both Omar and Sam.",
+      "action": {
+        "action": "fill",
+        "ref": "1197",
+        "value": "Operations Director at Crescent Logistics"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 269.6,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 23,
+      "thought": "Omar's note is saved. I still need to update Sam Okoye's note and star both Omar Farouk and Sam Okoye as VIP contacts.",
+      "action": {
+        "action": "click",
+        "ref": "1294"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Sam Okoye"
+      },
+      "status": "",
+      "elapsed_seconds": 296.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 24,
+      "thought": "Sam's edit form is open. I'll save the verified note, then star Sam and Omar to finish the VIP updates.",
+      "action": {
+        "action": "fill",
+        "ref": "1197",
+        "value": "Co-founder at BrightHorizon"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 308.9,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 25,
+      "thought": "All required notes are updated, and only the remaining VIP stars for Omar Farouk and Sam Okoye are left. I'll star both now and then finish.",
+      "action": {
+        "action": "click",
+        "ref": "1281"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star contact Omar Farouk"
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 331.4,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    }
+  ]
 }

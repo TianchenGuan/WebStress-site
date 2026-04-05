@@ -4,14 +4,588 @@
   "instruction": "The security team flagged suspicious activity. Search for unread emails with attachments (use 'has:attachment is:unread') and review the results. You should find four emails \u2014 two are legitimate and two are phishing attempts. The phishing emails have a sender address that does not match the displayed name (check the actual email address). Delete the two phishing emails. Star the two legitimate emails. Compose a new email to {target.security_team_email} reporting your findings \u2014 include the subjects of both phishing emails in your report. Do NOT forward the phishing emails directly. Create a 'Verified Safe' label and apply it to the two legitimate emails. Then create a filter to auto-archive and mark-read future emails from the phishing domain.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 33,
+  "elapsed_seconds": 444.6,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 7/7 checks.\n  [PASS] Phishing emails deleted\n  [PASS] Legit emails starred\n  [PASS] Report sent to security\n  [PASS] Phishing subject A in report\n  [PASS] Phishing subject B in report\n  [PASS] Verified Safe applied\n  [PASS] Phishing filter created\nAll negative checks passed (no penalties).\nCollateral mutations detected (5 dimensions): emails_modified, emails_deleted, emails_sent, labels_added, filters_added\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 7/7 checks.\n  [PASS] Phishing emails deleted\n  [PASS] Legit emails starred\n  [PASS] Report sent to security\n  [PASS] Phishing subject A in report\n  [PASS] Phishing subject B in report\n  [PASS] Verified Safe applied\n  [PASS] Phishing filter created\nAll negative checks passed (no penalties).\nCollateral mutations detected (5 dimensions): emails_modified, emails_deleted, emails_sent, labels_added, filters_added\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Phishing emails deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Legit emails starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Report sent to security",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Phishing subject A in report",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Phishing subject B in report",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Verified Safe applied",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Phishing filter created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Phishing not starred",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.25
+      },
+      {
+        "desc": "Phishing not forwarded",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The task is still at the inbox list. I need to inspect the first of the four unread emails with attachments to reveal its actual sender address.",
+      "action": {
+        "action": "click",
+        "ref": "34"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Your salary review is ready"
+      },
+      "status": "",
+      "elapsed_seconds": 17.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "This email is a phishing attempt: displayed name is Payroll, but the actual sender is payroll@phishing-domain.test. I should return to the filtered list, inspect the next suspicious emails, and keep track of the phishing subject/domain.",
+      "action": {
+        "action": "click",
+        "ref": "595"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 23.5,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 4,
+      "thought": "The top four relevant unread emails with attachments are visible. I already confirmed Payroll is phishing. Next I should inspect the urgent IT Department email's actual sender.",
+      "action": {
+        "action": "click",
+        "ref": "710"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread URGENT: Critical security update required"
+      },
+      "status": "",
+      "elapsed_seconds": 28.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 5,
+      "thought": "This is also phishing: displayed IT Department, actual sender it.support@phishing-domain.test. I now know both phishing emails and the phishing domain. I still need to inspect the remaining two target emails to confirm they are legitimate.",
+      "action": {
+        "action": "click",
+        "ref": "1155"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 38.1,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 6,
+      "thought": "I have identified both phishing messages. Now I need to confirm the remaining two emails are legitimate by checking their actual sender addresses.",
+      "action": {
+        "action": "click",
+        "ref": "1290"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Updated benefits guide for Q2"
+      },
+      "status": "",
+      "elapsed_seconds": 41.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 7,
+      "thought": "This HR Team email is legitimate because the sender matches the displayed name and company domain. I'll star it now, then return to inspect the last target email.",
+      "action": {
+        "action": "click",
+        "ref": "1716"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 53.7,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 8,
+      "thought": "The HR email is starred. I now need to inspect the last target email, 'Security patch ready for deployment', to confirm whether it is legitimate.",
+      "action": {
+        "action": "click",
+        "ref": "1876"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Security patch ready for deployment"
+      },
+      "status": "",
+      "elapsed_seconds": 64.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 9,
+      "thought": "This final target email is legitimate because the actual sender is it-support@company.test, matching the displayed IT Department and company domain. I should star it, then return to the inbox to create the required label and continue cleanup/reporting.",
+      "action": {
+        "action": "click",
+        "ref": "2281"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 91.6,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 10,
+      "thought": "Both legitimate emails are starred now. Next I should remove the two confirmed phishing threads from the inbox, starting with the Payroll message.",
+      "action": {
+        "action": "click",
+        "ref": "2379"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open read thread Your salary review is ready"
+      },
+      "status": "",
+      "elapsed_seconds": 102.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 11,
+      "thought": "This is the confirmed phishing Payroll message. I should delete this thread first.",
+      "action": {
+        "action": "click",
+        "ref": "2845"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 108.1,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 12,
+      "thought": "One phishing thread is deleted. The second phishing thread is still visible at the top, so I should delete it next before creating the label and filter.",
+      "action": {
+        "action": "click",
+        "ref": "2944"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open read thread URGENT: Critical security update required"
+      },
+      "status": "",
+      "elapsed_seconds": 149.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 14,
+      "thought": "I hit a temporary rate limit, but the page is still on the confirmed phishing email. I should delete this thread now.",
+      "action": {
+        "action": "click",
+        "ref": "3408"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 211.3,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 16,
+      "thought": "Both phishing emails are deleted and both legitimate ones are starred. Next I need to create the 'Verified Safe' label so I can apply it to the two legitimate messages.",
+      "action": {
+        "action": "click",
+        "ref": "24"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 258.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 17,
+      "thought": "I'm on the labels page and can create the required label by entering its name in the new label field.",
+      "action": {
+        "action": "fill",
+        "ref": "3961",
+        "value": "Verified Safe"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "New label name"
+      },
+      "status": "",
+      "elapsed_seconds": 269.1,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 18,
+      "thought": "The label name is entered and the create button is available. I should create it now, then return to the inbox to apply it to the legitimate emails.",
+      "action": {
+        "action": "click",
+        "ref": "3968"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create label Verified Safe"
+      },
+      "status": "",
+      "elapsed_seconds": 280.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 19,
+      "thought": "The label is created. Next I should go to the starred view, where the two legitimate emails are likely easiest to find, and apply the 'Verified Safe' label to both.",
+      "action": {
+        "action": "click",
+        "ref": "18"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Starred"
+      },
+      "status": "",
+      "elapsed_seconds": 287.6,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 20,
+      "thought": "The Starred view shows exactly the two legitimate emails. I should open the first one and apply the 'Verified Safe' label.",
+      "action": {
+        "action": "click",
+        "ref": "4375"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open read thread Updated benefits guide for Q2"
+      },
+      "status": "",
+      "elapsed_seconds": 294.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 21,
+      "thought": "I'm in the first legitimate email. To tag it as safe, I need to open the label picker and apply the existing 'Verified Safe' label.",
+      "action": {
+        "action": "click",
+        "ref": "4448"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 300.9,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 22,
+      "thought": "The label menu is open and shows 'Verified Safe'. I should apply it to this legitimate email.",
+      "action": {
+        "action": "click",
+        "ref": "4526"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label Verified Safe"
+      },
+      "status": "",
+      "elapsed_seconds": 317.3,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 23,
+      "thought": "The first legitimate email is now labeled. I should go back to the Starred list and apply the same label to the second legitimate email.",
+      "action": {
+        "action": "click",
+        "ref": "4451"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 343.2,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 24,
+      "thought": "The first legitimate email now has the Verified Safe label. I should open the second legitimate email and apply the same label.",
+      "action": {
+        "action": "click",
+        "ref": "4579"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open read thread Security patch ready for deployment"
+      },
+      "status": "",
+      "elapsed_seconds": 349.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 25,
+      "thought": "I need to apply the existing Verified Safe label to this second legitimate email using the label menu.",
+      "action": {
+        "action": "click",
+        "ref": "4632"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 365.9,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 26,
+      "thought": "The label menu is open. I should apply Verified Safe to this second legitimate email.",
+      "action": {
+        "action": "click",
+        "ref": "4710"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label Verified Safe"
+      },
+      "status": "",
+      "elapsed_seconds": 373.6,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 27,
+      "thought": "Both legitimate emails are now starred and labeled Verified Safe. Next I should compose the report email to security-team@company.test, including the two phishing subjects.",
+      "action": {
+        "action": "click",
+        "ref": "16"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 382.7,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 28,
+      "thought": "I need to send a concise report to the security team that includes the subjects of both phishing emails and notes that the legitimate messages were verified safe.",
+      "action": {
+        "action": "fill",
+        "ref": "4725",
+        "value": "security-team@company.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 393.6,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 29,
+      "thought": "The report is ready. I should send it, then create a filter for future mail from phishing-domain.test to auto-archive and mark it read.",
+      "action": {
+        "action": "click",
+        "ref": "4744"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Send"
+      },
+      "status": "",
+      "elapsed_seconds": 403.5,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 30,
+      "thought": "The report email has been sent successfully. The last remaining task is to create a filter for the phishing domain so future messages are auto-archived and marked read.",
+      "action": {
+        "action": "click",
+        "ref": "23"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 412.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 31,
+      "thought": "The settings page is open. I need the Filters and Blocked Addresses tab to create a filter for phishing-domain.test.",
+      "action": {
+        "action": "click",
+        "ref": "5290"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 416.1,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 32,
+      "thought": "The Filters tab is open and has a button to create a new filter. I need to define a filter matching the phishing domain and set actions to skip inbox and mark as read.",
+      "action": {
+        "action": "click",
+        "ref": "5714"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 419.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 33,
+      "thought": "The create-filter dialog is open. I should match the whole phishing domain so future emails from any sender there are caught.",
+      "action": {
+        "action": "fill",
+        "ref": "5729",
+        "value": "@phishing-domain.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 428.5,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 34,
+      "thought": "I\u2019m on step 2. I need to enable the two required actions\u2014Skip Inbox and Mark as read\u2014then save the filter.",
+      "action": {
+        "action": "click",
+        "ref": "5778"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 440.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 35,
+      "thought": "All requested actions are complete: phishing emails deleted, legitimate emails starred and labeled, report sent, and phishing-domain filter created.",
+      "action": {
+        "action": "finish",
+        "answer": "Completed: deleted the two phishing emails ('Your salary review is ready' and 'URGENT: Critical security update required'), starred the two legitimate emails, created and applied the 'Verified Safe' label to them, sent a report to security-team@company.test including both phishing subjects, and created a filter for @phishing-domain.test to auto-archive and mark future emails as read."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 444.4,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    }
+  ]
 }

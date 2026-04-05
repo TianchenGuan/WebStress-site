@@ -4,14 +4,600 @@
   "instruction": "Clean up your subscriptions. In your Promotions tab, archive the four newsletter emails. Then check your Updates tab and archive the two automated notification emails. Forward the newsletter about {target.good_newsletter_topic} to {target.personal_email} \u2014 make sure you forward the useful one, not any spam. Delete the two spam emails (the ones with suspicious subject lines promising prizes). Finally, go to Settings and create two auto-archive filters for the domains {target.newsletter_domain_a} and {target.newsletter_domain_b}.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 34,
+  "elapsed_seconds": 1083.9,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 6/6 checks.\n  [PASS] 4 promo emails archived\n  [PASS] 2 update emails archived\n  [PASS] Good newsletter forwarded to personal email\n  [PASS] Spam emails deleted\n  [PASS] Auto-archive filter A created\n  [PASS] Auto-archive filter B created\nAll negative checks passed (no penalties).\nCollateral mutations detected (4 dimensions): emails_modified, emails_deleted, emails_sent, filters_added\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 6/6 checks.\n  [PASS] 4 promo emails archived\n  [PASS] 2 update emails archived\n  [PASS] Good newsletter forwarded to personal email\n  [PASS] Spam emails deleted\n  [PASS] Auto-archive filter A created\n  [PASS] Auto-archive filter B created\nAll negative checks passed (no penalties).\nCollateral mutations detected (4 dimensions): emails_modified, emails_deleted, emails_sent, filters_added\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "4 promo emails archived",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "2 update emails archived",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Good newsletter forwarded to personal email",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Spam emails deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Auto-archive filter A created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Auto-archive filter B created",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Spam was not forwarded",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "Need to work through Promotions first to identify four newsletters, the useful AI supply chain newsletter, and the two spam prize emails.",
+      "action": {
+        "action": "click",
+        "ref": "22"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 6.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "Promotions shows exactly the needed items: 4 newsletters, 2 obvious spam prize emails, and the useful AI supply chain newsletter to forward. I should forward the useful newsletter first before archiving it.",
+      "action": {
+        "action": "click",
+        "ref": "680"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread How AI is transforming supply chain management"
+      },
+      "status": "",
+      "elapsed_seconds": 21.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "In the useful newsletter thread. Next I need to forward it to the specified personal address, then archive it and the other newsletters later.",
+      "action": {
+        "action": "click",
+        "ref": "828"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Forward this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 24.1,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 4,
+      "thought": "Forward compose is open. I only need the recipient; subject is already filled. Then I can send.",
+      "action": {
+        "action": "fill",
+        "ref": "879",
+        "value": "avery.personal@personal-mail.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 28.4,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 5,
+      "thought": "The useful newsletter has been forwarded. Now I should archive this newsletter thread, then return to Promotions to archive the remaining newsletters and delete the spam.",
+      "action": {
+        "action": "click",
+        "ref": "824"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 32.9,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 6,
+      "thought": "The forwarded AI newsletter is archived. I need to return to Promotions to archive the other three newsletters and delete the two spam emails.",
+      "action": {
+        "action": "click",
+        "ref": "946"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 40.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 7,
+      "thought": "Back in Promotions. I need to remove the remaining three newsletters and the two spam messages one by one.",
+      "action": {
+        "action": "click",
+        "ref": "1462"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Your weekly operations roundup"
+      },
+      "status": "",
+      "elapsed_seconds": 48.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 8,
+      "thought": "This is one of the newsletters that should be archived.",
+      "action": {
+        "action": "click",
+        "ref": "1639"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 52.1,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 9,
+      "thought": "Weekly Digest archived. I need to return to Promotions for the remaining two newsletters and two spam emails.",
+      "action": {
+        "action": "click",
+        "ref": "1702"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 67.6,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 10,
+      "thought": "Promotions now has Tech Insights and Market Watch plus the two spam emails. I'll archive Tech Insights next.",
+      "action": {
+        "action": "click",
+        "ref": "2218"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread New trends in enterprise tooling"
+      },
+      "status": "",
+      "elapsed_seconds": 76.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 11,
+      "thought": "Tech Insights is another newsletter to archive and one of the domains needing an auto-archive filter later.",
+      "action": {
+        "action": "click",
+        "ref": "2365"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 92.4,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 12,
+      "thought": "Tech Insights archived. Need back to Promotions for Market Watch and the two spam deletions.",
+      "action": {
+        "action": "click",
+        "ref": "2428"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 126.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 13,
+      "thought": "Only one newsletter remains in Promotions, along with the two spam emails. I'll archive Market Watch next.",
+      "action": {
+        "action": "click",
+        "ref": "2944"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Industry benchmarks for Q1"
+      },
+      "status": "",
+      "elapsed_seconds": 130.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 14,
+      "thought": "Market Watch is the fourth newsletter and should be archived.",
+      "action": {
+        "action": "click",
+        "ref": "3061"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 147.5,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 15,
+      "thought": "All four newsletters are now archived. Next I need to go back to Promotions and delete the two prize/gift-card spam emails.",
+      "action": {
+        "action": "click",
+        "ref": "3124"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 159.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 17,
+      "thought": "Need to delete the two spam emails in Promotions, one by one.",
+      "action": {
+        "action": "click",
+        "ref": "3598"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread You've won a free laptop! Claim now!"
+      },
+      "status": "",
+      "elapsed_seconds": 199.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 18,
+      "thought": "This is one of the suspicious prize spam emails, so delete it.",
+      "action": {
+        "action": "click",
+        "ref": "3728"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 204.5,
+      "replay_path": "/thread/email_7",
+      "result_path": "/thread/email_7"
+    },
+    {
+      "step": 20,
+      "thought": "Need to finish spam cleanup, then Updates, then Settings filters.",
+      "action": {
+        "action": "click",
+        "ref": "3788"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Promotions"
+      },
+      "status": "",
+      "elapsed_seconds": 244.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 21,
+      "thought": "Only the Rewards Hub spam remains in Promotions. Delete it.",
+      "action": {
+        "action": "click",
+        "ref": "4264"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Claim your $500 gift card now \u2014 act fast!"
+      },
+      "status": "",
+      "elapsed_seconds": 284.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 22,
+      "thought": "This is the second suspicious prize spam email. Delete it.",
+      "action": {
+        "action": "click",
+        "ref": "4364"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 294.7,
+      "replay_path": "/thread/email_8",
+      "result_path": "/thread/email_8"
+    },
+    {
+      "step": 25,
+      "thought": "Spam cleanup is done. Next handle Updates tab.",
+      "action": {
+        "action": "click",
+        "ref": "4427"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Updates"
+      },
+      "status": "",
+      "elapsed_seconds": 406.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 26,
+      "thought": "The two automated notifications are clearly the CI Build System and Monitoring Alerts messages. I'll archive them one by one.",
+      "action": {
+        "action": "click",
+        "ref": "4900"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Build #4821 completed successfully"
+      },
+      "status": "",
+      "elapsed_seconds": 422.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 27,
+      "thought": "This is one of the two automated notifications in Updates. Archive it.",
+      "action": {
+        "action": "click",
+        "ref": "5301"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 464.2,
+      "replay_path": "/thread/email_5",
+      "result_path": "/thread/email_5"
+    },
+    {
+      "step": 28,
+      "thought": "One automated notification remains in Updates: Monitoring Alerts. Then I need Settings for two filters.",
+      "action": {
+        "action": "click",
+        "ref": "5367"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Updates"
+      },
+      "status": "",
+      "elapsed_seconds": 477.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 36,
+      "thought": "Archive remaining automated notification, then add 2 filters in Settings.",
+      "action": {
+        "action": "click",
+        "ref": "5840"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Weekly uptime report \u2014 all services green"
+      },
+      "status": "",
+      "elapsed_seconds": 824.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 37,
+      "thought": "This is the last automated notification. After archiving it, go to Settings to create the two auto-archive filters.",
+      "action": {
+        "action": "click",
+        "ref": "6211"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 870.2,
+      "replay_path": "/thread/email_6",
+      "result_path": "/thread/email_6"
+    },
+    {
+      "step": 39,
+      "thought": "Updates cleanup is finished. Final task is creating two auto-archive filters in Settings for weeklydigest.test and techinsights.test.",
+      "action": {
+        "action": "click",
+        "ref": "19"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 933.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 41,
+      "thought": "Need the Filters and Blocked Addresses settings section to create the two auto-archive filters.",
+      "action": {
+        "action": "click",
+        "ref": "6748"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 984.0,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 42,
+      "thought": "Now I can create the first auto-archive filter, starting with weeklydigest.test.",
+      "action": {
+        "action": "click",
+        "ref": "7172"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 993.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 43,
+      "thought": "Use the sender-domain field with the whole domain format so the filter matches mail from that domain and then proceed to choose auto-archive.",
+      "action": {
+        "action": "fill",
+        "ref": "7187",
+        "value": "@weeklydigest.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 1024.6,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 44,
+      "thought": "Set the auto-archive action by checking Skip Inbox, which should enable creating the filter.",
+      "action": {
+        "action": "click",
+        "ref": "7236"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 1064.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 45,
+      "thought": "First auto-archive filter is created successfully. I need to repeat the process for techinsights.test.",
+      "action": {
+        "action": "click",
+        "ref": "7172"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 1069.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 46,
+      "thought": "Second filter uses the same pattern with the other domain.",
+      "action": {
+        "action": "fill",
+        "ref": "7289",
+        "value": "@techinsights.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 1073.2,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 47,
+      "thought": "Final step is to set Skip Inbox and save. That will complete the whole task.",
+      "action": {
+        "action": "click",
+        "ref": "7338"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": ""
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 1083.7,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    }
+  ]
 }

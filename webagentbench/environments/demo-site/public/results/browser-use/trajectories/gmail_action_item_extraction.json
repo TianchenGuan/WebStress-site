@@ -4,14 +4,233 @@
   "instruction": "Four attendees \u2014 {target.attendee_a}, {target.attendee_b}, {target.attendee_c}, and {target.attendee_d} \u2014 each sent a follow-up email after the leadership offsite with action items. Find all four emails (search for \"leadership offsite follow-up\" in the subject). Read each one and extract only the action items assigned to you ({target.user_name}). Ignore action items assigned to other people. Compose a new email to {target.manager_email} with subject \"Offsite Action Items \u2014 {target.user_name}\" listing each action item assigned to you on its own line. Note: one action item was reassigned \u2014 if a later message in any thread reassigns an item away from you, do not include it.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 12,
+  "elapsed_seconds": 149.7,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 3/3 checks.\n  [PASS] At least one email sent\n  [PASS] Email sent to manager with correct subject\n  [PASS] All correct action items appear in sent email body\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 3/3 checks.\n  [PASS] At least one email sent\n  [PASS] Email sent to manager with correct subject\n  [PASS] All correct action items appear in sent email body\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "At least one email sent",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Email sent to manager with correct subject",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "All correct action items appear in sent email body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Reassigned item not included in summary",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.25
+      },
+      {
+        "desc": "Item from adversarial summary line (assigned to another attendee) not included",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The inbox is still open and the four relevant threads are visible. I need to open each one to read full bodies and collect only Avery Quinn\u2019s action items, excluding Elena\u2019s reassigned item.",
+      "action": {
+        "action": "click",
+        "ref": "44"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Leadership Offsite Follow-up \u2014 Strategy Session Items"
+      },
+      "status": "",
+      "elapsed_seconds": 18.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Priya\u2019s email shows one item for Avery Quinn: compile customer feedback themes from the last 3 NPS surveys. Next I need Theo\u2019s email for its full Avery-assigned items.",
+      "action": {
+        "action": "click",
+        "ref": "591"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 22.2,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 4,
+      "thought": "Back in inbox. Next I should open Theo Brooks\u2019s operations-track follow-up to capture only Avery Quinn\u2019s assigned items.",
+      "action": {
+        "action": "click",
+        "ref": "803"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Leadership Offsite Follow-up \u2014 Operations Track"
+      },
+      "status": "",
+      "elapsed_seconds": 27.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 5,
+      "thought": "Theo\u2019s email has two items assigned to Avery Quinn. I now need Avery Kim\u2019s thread and Elena Patel\u2019s original plus reassignment update.",
+      "action": {
+        "action": "click",
+        "ref": "1144"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 30.2,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 6,
+      "thought": "Next I should read Avery Kim\u2019s message to capture its Avery Quinn action item, then handle Elena Patel\u2019s original and reassignment note.",
+      "action": {
+        "action": "click",
+        "ref": "1263"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Leadership Offsite Follow-up \u2014 Cross-Functional Sync"
+      },
+      "status": "",
+      "elapsed_seconds": 34.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 7,
+      "thought": "Avery Kim\u2019s thread has one Avery Quinn item. The last remaining sender is Elena Patel; I need the original action-items email plus the later reassignment reply so I exclude anything moved away from Avery Quinn.",
+      "action": {
+        "action": "click",
+        "ref": "1701"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 40.8,
+      "replay_path": "/thread/email_5",
+      "result_path": "/thread/email_5"
+    },
+    {
+      "step": 8,
+      "thought": "I need Elena Patel\u2019s original email to get the full list of Avery Quinn items, then I\u2019ll exclude the later-reassigned one mentioned in the reply thread.",
+      "action": {
+        "action": "click",
+        "ref": "1870"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Leadership Offsite Follow-up \u2014 Action Items from Day 1"
+      },
+      "status": "",
+      "elapsed_seconds": 47.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 9,
+      "thought": "Elena\u2019s thread is open but only the latest reassignment reply is expanded. I need to expand the earlier message to see the original action items, then I can keep only the item(s) still assigned to Avery Quinn.",
+      "action": {
+        "action": "click",
+        "ref": "2290"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Expand all 2 messages"
+      },
+      "status": "",
+      "elapsed_seconds": 85.3,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 10,
+      "thought": "I have all final Avery Quinn action items. Now I need to compose a new email to Sofia Patel with the specified subject and list each remaining action item on its own line.",
+      "action": {
+        "action": "click",
+        "ref": "11"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 112.2,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 11,
+      "thought": "Compose form is open. I should fill recipient, subject, and body with the final filtered list of Avery Quinn\u2019s action items, then send.",
+      "action": {
+        "action": "fill",
+        "ref": "2374",
+        "value": "sofia.patel@company.com"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 144.5,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 12,
+      "thought": "The recipient and subject are filled, and Send is enabled, so the email is ready to send.",
+      "action": {
+        "action": "click",
+        "ref": "2393"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Send"
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 149.6,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    }
+  ]
 }

@@ -4,14 +4,57 @@
   "instruction": "Find the email from Alice Chen with subject \"Project Update \u2014 Q1 Milestones\" and star it.",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 2,
+  "elapsed_seconds": 7.2,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 1/1 checks.\n  [PASS] Target email is starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_modified\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 1/1 checks.\n  [PASS] Target email is starred\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_modified\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Target email is starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Did not star too many emails",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "The target email from Alice Chen with subject 'Project Update \u2014 Q1 Milestones' is visible at the top of the inbox, and its star button is available.",
+      "action": {
+        "action": "click",
+        "ref": "26"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Project Update \u2014 Q1 Milestones"
+      },
+      "status": "",
+      "elapsed_seconds": 5.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The email is now starred, confirmed by the star button changing to 'Unstar' and the 'starred' label appearing on the thread.",
+      "action": {
+        "action": "finish",
+        "answer": "Starred the email from Alice Chen with subject 'Project Update \u2014 Q1 Milestones'."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 7.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    }
+  ]
 }

@@ -4,14 +4,162 @@
   "instruction": "Find the contact \"Alice Chen\" and update her note to \"Team lead \u2014 Project Atlas\".",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 9,
+  "elapsed_seconds": 58.3,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 1/1 checks.\n  [PASS] Alice Chen contact note updated to mention Project Atlas\nCollateral mutations detected (1 dimensions): contacts_modified\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 1/1 checks.\n  [PASS] Alice Chen contact note updated to mention Project Atlas\nCollateral mutations detected (1 dimensions): contacts_modified\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Alice Chen contact note updated to mention Project Atlas",
+        "passed": true,
+        "kind": "criterion"
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 10.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "Previous step produced no valid action, so nothing changed. I should search Gmail for Alice Chen to find a related thread/contact entry.",
+      "action": {
+        "action": "fill",
+        "ref": "3",
+        "value": "Alice Chen"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 23.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Search found no messages. The likely path is through Gmail settings or an account/contact management area reachable from here.",
+      "action": {
+        "action": "click",
+        "ref": "13"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 27.8,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 4,
+      "thought": "Settings doesn't expose contacts directly. A likely path is via Compose and recipient autocomplete/contact card for Alice Chen.",
+      "action": {
+        "action": "click",
+        "ref": "6"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 36.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 5,
+      "thought": "Compose is open. I'll type Alice Chen in recipients to see if a contact suggestion or card appears that can be opened/edited.",
+      "action": {
+        "action": "fill",
+        "ref": "654",
+        "value": "Alice Chen"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 39.3,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 6,
+      "thought": "Typing the name alone didn't reveal a usable contact and Send remains disabled, so I need another navigation path that might expose contact/address-book features.",
+      "action": {
+        "action": "click",
+        "ref": "14"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 49.6,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 7,
+      "thought": "Found the Contacts table on the Labels & contacts page, including Alice Chen with current note 'Engineering team'. I should open the edit action for Alice Chen.",
+      "action": {
+        "action": "click",
+        "ref": "829"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Alice Chen"
+      },
+      "status": "",
+      "elapsed_seconds": 52.5,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 8,
+      "thought": "Alice Chen's edit form is open with the current note filled in. I'll replace it with the requested note and save.",
+      "action": {
+        "action": "fill",
+        "ref": "748",
+        "value": "Team lead \u2014 Project Atlas"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact note"
+      },
+      "status": "",
+      "elapsed_seconds": 56.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 9,
+      "thought": "The contacts table now shows Alice Chen's note as the requested value, confirming the update succeeded.",
+      "action": {
+        "action": "finish",
+        "answer": "Updated Alice Chen's note to 'Team lead \u2014 Project Atlas'."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 58.1,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    }
+  ]
 }

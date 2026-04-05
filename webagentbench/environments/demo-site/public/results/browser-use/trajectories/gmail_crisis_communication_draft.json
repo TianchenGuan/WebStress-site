@@ -4,14 +4,271 @@
   "instruction": "A PR incident has generated multiple email threads. Find and read the following:\n(1) The original customer complaint from {target.complainant_email} with subject containing \"{target.complaint_subject}\".\n(2) The internal legal advice email from {target.legal_counsel} with subject containing \"Legal Guidance \u2014 {target.incident_name}\".\n(3) The two draft response threads from the comms team. Find the two draft response emails: one from {target.comms_author_a} with subject \"{target.draft_a_subject}\" and one from {target.comms_author_b} with subject \"{target.draft_b_subject}\". Identify which draft was approved by {target.approver_name} \u2014 exactly one draft's thread contains a reply from {target.approver_name} with the phrase \"{target.approval_phrase}\". That is the approved draft. The other was rejected.\n\nThen perform all of the following actions:\n(a) Compose a new email to {target.complainant_email} only (no CC, no BCC) with subject \"Re: {target.complaint_subject}\" using the body text from the approved draft as the response.\n(b) Forward the legal guidance email to {target.comms_lead_email}.\n(c) Star the approved draft email and archive the rejected draft email.",
   "difficulty": "frontier",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 13,
+  "elapsed_seconds": 113.7,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 4/4 checks.\n  [PASS] External reply sent to complainant only, using approved draft body\n  [PASS] Legal guidance forwarded to comms lead\n  [PASS] Approved draft is starred\n  [PASS] Rejected draft is archived (removed from inbox)\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 4/4 checks.\n  [PASS] External reply sent to complainant only, using approved draft body\n  [PASS] Legal guidance forwarded to comms lead\n  [PASS] Approved draft is starred\n  [PASS] Rejected draft is archived (removed from inbox)\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "External reply sent to complainant only, using approved draft body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Legal guidance forwarded to comms lead",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Approved draft is starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Rejected draft is archived (removed from inbox)",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Rejected draft text not used in external reply",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.35
+      },
+      {
+        "desc": "No CC or BCC on external reply to complainant",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.25
+      },
+      {
+        "desc": "General legal email not forwarded (only incident-specific guidance)",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Rejected draft not starred",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.1
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "The inbox already shows Sofia Patel approved v1 and rejected v2, but I need the exact body text from the approved draft and the legal email contents to forward. First I'll open Theo Brooks's draft v1 thread.",
+      "action": {
+        "action": "click",
+        "ref": "54"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Draft Response v1 \u2014 Project Horizon Data Delay"
+      },
+      "status": "",
+      "elapsed_seconds": 7.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The thread is open, but only Sofia's approval is visible. I need Theo Brooks's full draft body text, so I should expand his message.",
+      "action": {
+        "action": "click",
+        "ref": "649"
+      },
+      "targets": {
+        "role": "div",
+        "name": "Expand message from Theo Brooks"
+      },
+      "status": "",
+      "elapsed_seconds": 15.2,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 3,
+      "thought": "I have the approved draft body text from Theo Brooks. I'll star this approved draft thread now, then return to the inbox to read the legal guidance and original complaint, and later archive the rejected draft.",
+      "action": {
+        "action": "click",
+        "ref": "610"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 27.0,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 4,
+      "thought": "The approved draft is already starred. Next I need to read the legal guidance thread so I can forward it, and also confirm the original complaint afterward.",
+      "action": {
+        "action": "click",
+        "ref": "950"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Legal Guidance \u2014 Project Horizon Data Delay"
+      },
+      "status": "",
+      "elapsed_seconds": 37.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 5,
+      "thought": "I have the legal guidance content. While this thread is open, I'll start forwarding it to Theo Nguyen.",
+      "action": {
+        "action": "click",
+        "ref": "1250"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Forward this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 48.5,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 6,
+      "thought": "The forward composer is open. I only need to send this legal guidance to Theo Nguyen.",
+      "action": {
+        "action": "fill",
+        "ref": "1315",
+        "value": "theo.nguyen@company.com"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 53.5,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 7,
+      "thought": "The legal guidance has been forwarded successfully. Next I need to read/open the original customer complaint thread and send the approved response to Elena, then archive the rejected Avery draft.",
+      "action": {
+        "action": "click",
+        "ref": "1245"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 64.5,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 8,
+      "thought": "I can see Elena Patel's original complaint thread in the inbox. I'll open it so I can confirm/read it and then respond with the approved draft.",
+      "action": {
+        "action": "click",
+        "ref": "1603"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Unacceptable Data Delivery Delays"
+      },
+      "status": "",
+      "elapsed_seconds": 74.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 9,
+      "thought": "I have confirmed the original complaint from Elena Patel. Next I'll reply to this thread using the approved draft text so the subject stays as 'Re: Unacceptable Data Delivery Delays' and Elena is the only recipient.",
+      "action": {
+        "action": "click",
+        "ref": "1901"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Reply to Unacceptable Data Delivery Delays"
+      },
+      "status": "",
+      "elapsed_seconds": 83.1,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 10,
+      "thought": "The reply composer is ready with Elena as the only recipient and the correct subject. I'll paste the approved draft body and send it.",
+      "action": {
+        "action": "fill",
+        "ref": "1961",
+        "value": "Dear valued customer,\nWe sincerely apologize for the delays in data delivery related to Project Horizon. Our engineering team has identified the root cause \u2014 a capacity bottleneck in our processing pipeline \u2014 and has implemented a permanent fix as of this morning. We are committed to ensuring this does not recur and have added dedicated monitoring. As a gesture of goodwill, we are extending your current service tier at no additional cost for the next quarter.\nPlease do not hesitate to reach out if you have further concerns."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 92.8,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 11,
+      "thought": "The customer reply has been sent successfully. The only remaining task is to archive the rejected draft thread from Avery Kim.",
+      "action": {
+        "action": "click",
+        "ref": "1877"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 98.6,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 12,
+      "thought": "The rejected draft thread from Avery Kim is visible in the inbox. I'll open it and archive that thread.",
+      "action": {
+        "action": "click",
+        "ref": "2689"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Draft Response v2 \u2014 Project Horizon Data Delay"
+      },
+      "status": "",
+      "elapsed_seconds": 103.8,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 13,
+      "thought": "This is the rejected draft v2 thread from Avery Kim, so I can archive it now to complete the last required action.",
+      "action": {
+        "action": "click",
+        "ref": "3085"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Archive this thread"
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 113.5,
+      "replay_path": "/thread/email_5",
+      "result_path": "/thread/email_5"
+    }
+  ]
 }

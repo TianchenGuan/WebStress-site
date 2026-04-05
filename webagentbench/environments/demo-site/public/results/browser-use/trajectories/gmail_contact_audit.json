@@ -4,14 +4,384 @@
   "instruction": "Do a quarterly contact cleanup. Go to your Contacts and review each entry \u2014 delete any contacts that have not been in touch for more than 30 days (check the 'Last Contact' column). You may need to page through the list. Do not delete {target.keep_contact_name}. Then search your inbox for emails from {target.new_contact_a_name} and {target.new_contact_b_name}, and add them both as contacts using the information from their emails. Mark {target.new_contact_a_name} as a VIP.",
   "difficulty": "medium",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 21,
+  "elapsed_seconds": 624.1,
   "completed": false,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 0.3333333333333333,
     "success": false,
-    "reasoning": "Passed 2/6 checks.\n  [FAIL] First stale contact deleted\n  [FAIL] Second stale contact deleted\n  [FAIL] Third stale contact deleted\n  [FAIL] Fourth stale contact deleted\n  [PASS] Contact A added as VIP\n  [PASS] Contact B added\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, contacts_added\nFinal score: 0.333 | Success: False"
+    "reasoning": "Passed 2/6 checks.\n  [FAIL] First stale contact deleted\n  [FAIL] Second stale contact deleted\n  [FAIL] Third stale contact deleted\n  [FAIL] Fourth stale contact deleted\n  [PASS] Contact A added as VIP\n  [PASS] Contact B added\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, contacts_added\nFinal score: 0.333 | Success: False",
+    "criteria_results": [
+      {
+        "desc": "First stale contact deleted",
+        "passed": false,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Second stale contact deleted",
+        "passed": false,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Third stale contact deleted",
+        "passed": false,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Fourth stale contact deleted",
+        "passed": false,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Contact A added as VIP",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Contact B added",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Near-threshold contact A preserved",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Near-threshold contact B preserved",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.15
+      },
+      {
+        "desc": "Named keep-contact preserved",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "I\u2019m still in Gmail inbox and need to locate Contacts first. The Settings link is the best visible route to find Contacts or related navigation.",
+      "action": {
+        "action": "click",
+        "ref": "18"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 18.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "Settings itself doesn\u2019t show Contacts. I\u2019ll check other visible navigation options that might expose a Contacts area or alternate app route.",
+      "action": {
+        "action": "click",
+        "ref": "19"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 26.6,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 4,
+      "thought": "I found the Contacts table inside Labels & contacts. Contacts older than 30 days appear to be before Jun 6, 2026, so on this page I already see two outdated entries to remove. I need to inspect edit controls to delete them, then continue paging through all contacts.",
+      "action": {
+        "action": "click",
+        "ref": "1145"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Elena Patel"
+      },
+      "status": "",
+      "elapsed_seconds": 33.1,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 5,
+      "thought": "The edit form opened but only Save and Cancel are visible so far. There may be a delete button further down the page.",
+      "action": {
+        "action": "scroll",
+        "direction": "down"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 36.3,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 6,
+      "thought": "I still don\u2019t see a delete control in the edit form. I should continue reviewing all contacts first, including locating Priya Garcia, then come back if needed.",
+      "action": {
+        "action": "click",
+        "ref": "1380"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Cancel contact editing"
+      },
+      "status": "",
+      "elapsed_seconds": 48.6,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 7,
+      "thought": "I found Priya Garcia and must preserve her. On this page, Miles Chen is outdated (May 26, 2026) and should be deleted; the others are within 30 days. I should check the final contacts page to ensure there are no more outdated entries.",
+      "action": {
+        "action": "click",
+        "ref": "1247"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Next contacts page"
+      },
+      "status": "",
+      "elapsed_seconds": 59.9,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 8,
+      "thought": "I\u2019ve finished reviewing all contacts. The outdated ones are the entries dated May 8, May 18, May 26, and Jun 2. I still need to find the delete control for contacts, so I\u2019ll open one outdated entry again and inspect its edit view more carefully.",
+      "action": {
+        "action": "click",
+        "ref": "1113"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Theo Rivera"
+      },
+      "status": "",
+      "elapsed_seconds": 73.1,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 9,
+      "thought": "The edit view still shows only Save and Cancel. There may be additional controls lower on the page, so I should scroll further down before deciding on another approach.",
+      "action": {
+        "action": "scroll",
+        "direction": "down"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 80.6,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 10,
+      "thought": "I\u2019m not seeing a visible delete control in the contact editor, so I\u2019ll gather the new contact details from the emails next while keeping the outdated-contact list in memory.",
+      "action": {
+        "action": "click",
+        "ref": "1385"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Cancel contact editing"
+      },
+      "status": "ERROR: Element index 29 not found",
+      "elapsed_seconds": 108.2,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 11,
+      "thought": "The previous click failed because the inbox refreshed with new indices. I can directly open the visible Miles Patel thread from the current inbox list.",
+      "action": {
+        "action": "click",
+        "ref": "1415"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Partnership opportunity \u2014 Q2 logistics"
+      },
+      "status": "",
+      "elapsed_seconds": 119.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 12,
+      "thought": "I captured Miles Patel\u2019s contact details from the thread: miles.patel@newpartner.test and company NewPartner Logistics. Next I need Theo Garcia\u2019s details from his email.",
+      "action": {
+        "action": "click",
+        "ref": "1870"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "ERROR: Element index 1474 not found",
+      "elapsed_seconds": 132.8,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 14,
+      "thought": "I\u2019m back in the inbox with current indices. Next I should open Theo Garcia\u2019s email to capture his contact details, then return to Contacts to add both people.",
+      "action": {
+        "action": "click",
+        "ref": "2012"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Consulting engagement follow-up"
+      },
+      "status": "",
+      "elapsed_seconds": 183.4,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 15,
+      "thought": "I now have both email-derived contact details. Next I should return to Labels & contacts to add Miles Patel as a VIP contact and Theo Garcia as a regular contact, then attempt the contact deletions again from the contacts list.",
+      "action": {
+        "action": "click",
+        "ref": "19"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 203.2,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 16,
+      "thought": "I\u2019m on the contacts page with the add form visible. I should add Miles Patel first using the email details I captured and mark him as a VIP.",
+      "action": {
+        "action": "fill",
+        "ref": "2499",
+        "value": "Miles Patel"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact name"
+      },
+      "status": "",
+      "elapsed_seconds": 226.2,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 17,
+      "thought": "Miles Patel\u2019s form is filled and the Add button is enabled. I just need to mark him as VIP and save him.",
+      "action": {
+        "action": "click",
+        "ref": "2510"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Mark as VIP contact"
+      },
+      "status": "",
+      "elapsed_seconds": 237.1,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 19,
+      "thought": "Miles Patel has been added. Next I should add Theo Garcia from his email details; company wasn\u2019t stated, so I can leave that blank.",
+      "action": {
+        "action": "fill",
+        "ref": "2499",
+        "value": "Theo Garcia"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Contact name"
+      },
+      "status": "",
+      "elapsed_seconds": 318.8,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 24,
+      "thought": "Both new contacts have been added, so the remaining task is deleting outdated contacts. I need to re-open an outdated contact and inspect the edit view for a delete control.",
+      "action": {
+        "action": "click",
+        "ref": "2618"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Edit contact Elena Patel"
+      },
+      "status": "",
+      "elapsed_seconds": 504.2,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 26,
+      "thought": "The edit view still only shows Save and Cancel. A delete control may be farther down the page, so I should scroll to inspect below the visible form.",
+      "action": {
+        "action": "scroll",
+        "direction": "down"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 543.8,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 27,
+      "thought": "The first scroll didn\u2019t reveal anything new, so I should try a larger downward scroll in case the delete control is farther below the edit form.",
+      "action": {
+        "action": "scroll",
+        "direction": "down"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 572.9,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 28,
+      "thought": "I completed the inbox search and added both new contacts, including Miles Patel as VIP. However, the Contacts UI only exposes Edit/Star and an edit form with Save/Cancel\u2014no delete control is available anywhere I could access, even after paging through contacts and opening stale entries. I can\u2019t truthfully mark the cleanup as fully complete.",
+      "action": {
+        "action": "finish",
+        "answer": "Partially completed: reviewed all contacts, preserved Priya Garcia, added Miles Patel as a VIP and added Theo Garcia from inbox emails. I also identified the stale contacts that should be deleted (Elena Patel/priya.rivera@oldvendor.test, Elena Patel/sofia.brooks@oldvendor.test, Miles Chen/marcus.morris@oldvendor.test, Theo Rivera), but the available Contacts UI only exposed Edit/Star plus Save/Cancel in edit mode and provided no accessible delete control, so I could not complete the deletions."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 624.0,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    }
+  ]
 }

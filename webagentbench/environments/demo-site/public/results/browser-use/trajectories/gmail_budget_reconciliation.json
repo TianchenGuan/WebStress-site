@@ -4,14 +4,380 @@
   "instruction": "Three department heads sent you their Q1 budget numbers. {target.dept_a_name} sent the {target.dept_a_dept} figures, {target.dept_b_name} sent the {target.dept_b_dept} figures, and {target.dept_c_name} sent the {target.dept_c_dept} figures. A fourth email from {target.summary_author_name} attempts to summarize all three \u2014 but two of the numbers are wrong. Read all four emails, identify the errors, and reply to {target.summary_author_name}'s email with the two corrections. Reply only to {target.summary_author_name} (do not Reply All \u2014 the summary is CC'd to the CFO and board). Star the three department emails for reference. Create a 'Budget Verified' label and apply it to all four budget emails.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 20,
+  "elapsed_seconds": 206.8,
   "completed": false,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 0.8571428571428571,
     "success": false,
-    "reasoning": "Passed 6/7 checks.\n  [PASS] At least one email sent\n  [PASS] Replied to summary author only\n  [PASS] First correction in reply\n  [PASS] Second correction in reply\n  [PASS] Department emails starred\n  [FAIL] Budget label applied\n  [PASS] Reply is threaded\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_sent, labels_added\nFinal score: 0.857 | Success: False"
+    "reasoning": "Passed 6/7 checks.\n  [PASS] At least one email sent\n  [PASS] Replied to summary author only\n  [PASS] First correction in reply\n  [PASS] Second correction in reply\n  [PASS] Department emails starred\n  [FAIL] Budget label applied\n  [PASS] Reply is threaded\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_sent, labels_added\nFinal score: 0.857 | Success: False",
+    "criteria_results": [
+      {
+        "desc": "At least one email sent",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Replied to summary author only",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "First correction in reply",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Second correction in reply",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Department emails starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Budget label applied",
+        "passed": false,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Reply is threaded",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Single recipient (not Reply All)",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "I\u2019ve identified the correct department figures from the inbox previews. Next I\u2019ll star the three department emails, then create/apply the label and reply to Avery with the corrections.",
+      "action": {
+        "action": "click",
+        "ref": "39"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Q1 Operations budget figures"
+      },
+      "status": "",
+      "elapsed_seconds": 11.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The three department emails are starred. Next I need to create the 'Budget Verified' label and apply it to the four relevant budget emails, then open Avery\u2019s email and reply only to Avery with the two corrected figures.",
+      "action": {
+        "action": "click",
+        "ref": "15"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Labels"
+      },
+      "status": "",
+      "elapsed_seconds": 19.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "I\u2019m on the labels page with the new label input available. I should create the 'Budget Verified' label now, likely by entering the name and pressing Enter.",
+      "action": {
+        "action": "fill",
+        "ref": "602",
+        "value": "Budget Verified\n"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "New label name"
+      },
+      "status": "",
+      "elapsed_seconds": 23.5,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 4,
+      "thought": "The label is created. Next I need to return to the inbox, find the four budget emails, and apply 'Budget Verified' to them, then reply to Avery only with the two corrections.",
+      "action": {
+        "action": "click",
+        "ref": "8"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 38.8,
+      "replay_path": "/labels",
+      "result_path": "/labels"
+    },
+    {
+      "step": 5,
+      "thought": "I\u2019m back in the inbox. To apply the new label and send the correction, I should open Avery\u2019s email and use the thread actions there, then label the other three budget threads as well.",
+      "action": {
+        "action": "click",
+        "ref": "1065"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 Budget Summary \u2014 please verify"
+      },
+      "status": "",
+      "elapsed_seconds": 44.8,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 6,
+      "thought": "Avery\u2019s thread is open. I should apply the 'Budget Verified' label here, then use Reply (not Reply All) with the two corrected figures.",
+      "action": {
+        "action": "click",
+        "ref": "1486"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 54.4,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 7,
+      "thought": "The label menu is open and includes 'Budget Verified'. I\u2019ll apply it to Avery\u2019s thread, then start a reply using Reply only.",
+      "action": {
+        "action": "click",
+        "ref": "1561"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label Budget Verified"
+      },
+      "status": "",
+      "elapsed_seconds": 62.9,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 8,
+      "thought": "The reply composer is open to Avery only, which is correct. I\u2019ll send the two corrections, then return to the inbox to apply the 'Budget Verified' label to Theo, Priya, and Elena\u2019s threads.",
+      "action": {
+        "action": "fill",
+        "ref": "1602",
+        "value": "Hi Avery,\n\nTwo corrections:\n- Marketing should be $89,000.\n- Operations should be $215,750.\n\nThanks."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 68.8,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 9,
+      "thought": "The reply to Avery has been sent. I still need to apply the 'Budget Verified' label to the three starred department emails: Theo, Priya, and Elena.",
+      "action": {
+        "action": "click",
+        "ref": "1489"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 73.0,
+      "replay_path": "/thread/email_4",
+      "result_path": "/thread/email_4"
+    },
+    {
+      "step": 10,
+      "thought": "Avery is fully handled. The remaining task is to apply the 'Budget Verified' label to Theo, Priya, and Elena\u2019s department emails.",
+      "action": {
+        "action": "click",
+        "ref": "1891"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 Operations budget figures"
+      },
+      "status": "",
+      "elapsed_seconds": 112.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 11,
+      "thought": "Theo\u2019s thread is open. I should apply the 'Budget Verified' label here, then return to inbox to do the same for Priya and Elena.",
+      "action": {
+        "action": "click",
+        "ref": "2295"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 118.8,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 12,
+      "thought": "The label menu isn\u2019t open now, so my last click likely toggled it closed. I need to open it once and select 'Budget Verified'.",
+      "action": {
+        "action": "click",
+        "ref": "2295"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 122.5,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 13,
+      "thought": "The label menu is open on Theo\u2019s thread. I can now apply 'Budget Verified' here.",
+      "action": {
+        "action": "click",
+        "ref": "2376"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label Budget Verified"
+      },
+      "status": "",
+      "elapsed_seconds": 134.1,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 14,
+      "thought": "Theo is labeled. I need to return to the inbox and label Priya and Elena\u2019s budget emails with 'Budget Verified' as well.",
+      "action": {
+        "action": "click",
+        "ref": "2298"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 138.9,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 15,
+      "thought": "Theo is labeled. I still need to label Priya and Elena\u2019s budget emails with 'Budget Verified'.",
+      "action": {
+        "action": "click",
+        "ref": "2498"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 Marketing budget figures"
+      },
+      "status": "",
+      "elapsed_seconds": 143.9,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 16,
+      "thought": "Priya\u2019s thread is open. I need to apply the 'Budget Verified' label, then return to the inbox and do the same for Elena.",
+      "action": {
+        "action": "click",
+        "ref": "2881"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 148.3,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 17,
+      "thought": "The label menu is open for Priya. I can apply 'Budget Verified' now.",
+      "action": {
+        "action": "click",
+        "ref": "2948"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label Budget Verified"
+      },
+      "status": "",
+      "elapsed_seconds": 182.0,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 18,
+      "thought": "Priya is labeled. Only Elena\u2019s budget email remains to receive the 'Budget Verified' label.",
+      "action": {
+        "action": "click",
+        "ref": "2884"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 191.5,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 19,
+      "thought": "Only Elena Patel\u2019s budget email still needs the 'Budget Verified' label. I\u2019ll open it and apply the label.",
+      "action": {
+        "action": "click",
+        "ref": "3091"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 Engineering budget figures"
+      },
+      "status": "",
+      "elapsed_seconds": 201.0,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 20,
+      "thought": "Elena\u2019s thread is open. Applying the 'Budget Verified' label here will complete the task.",
+      "action": {
+        "action": "click",
+        "ref": "3453"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Apply label to this thread"
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 206.7,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    }
+  ]
 }

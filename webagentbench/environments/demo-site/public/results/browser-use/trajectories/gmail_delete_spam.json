@@ -4,14 +4,73 @@
   "instruction": "Delete the spam email from winner@spamfarm.test with subject \"YOU WON $1,000,000!!! Click NOW!!!\". Do not delete any other emails.",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 3,
+  "elapsed_seconds": 20.9,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 1/1 checks.\n  [PASS] Spam email was deleted\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_deleted\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 1/1 checks.\n  [PASS] Spam email was deleted\nAll negative checks passed (no penalties).\nCollateral mutations detected (1 dimensions): emails_deleted\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Spam email was deleted",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "No other emails were deleted besides the spam email",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.5
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "I found the email with the matching spam subject in the inbox. I should open it to confirm the sender is winner@spamfarm.test before deleting it.",
+      "action": {
+        "action": "click",
+        "ref": "24"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread YOU WON $1,000,000!!! Click NOW!!!"
+      },
+      "status": "",
+      "elapsed_seconds": 15.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The opened thread matches both the target subject and sender winner@spamfarm.test. I can safely delete this thread.",
+      "action": {
+        "action": "click",
+        "ref": "280"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Delete this thread"
+      },
+      "status": "",
+      "elapsed_seconds": 18.4,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 3,
+      "thought": "The spam thread is no longer in the inbox and a confirmation message says it was moved to trash.",
+      "action": {
+        "action": "finish",
+        "answer": "Deleted the spam email from winner@spamfarm.test with subject 'YOU WON $1,000,000!!! Click NOW!!!' and moved it to trash."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 20.7,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    }
+  ]
 }

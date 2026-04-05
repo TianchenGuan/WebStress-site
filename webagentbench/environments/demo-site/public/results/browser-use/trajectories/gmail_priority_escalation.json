@@ -4,14 +4,338 @@
   "instruction": "Find the oldest unread email from each of your VIP contacts (look for emails with the 'VIP' label). Mark each one as starred and reply with the exact phrase '{target.status_phrase}'. Then create a filter that automatically stars future mail from {target.future_vip_email}.",
   "difficulty": "hard",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 19,
+  "elapsed_seconds": 163.0,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 3/3 checks.\n  [PASS] All target VIP emails were read and starred\n  [PASS] Each VIP email received the required reply\n  [PASS] Future VIP filter automatically stars matching messages\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_sent, filters_added\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 3/3 checks.\n  [PASS] All target VIP emails were read and starred\n  [PASS] Each VIP email received the required reply\n  [PASS] Future VIP filter automatically stars matching messages\nAll negative checks passed (no penalties).\nCollateral mutations detected (3 dimensions): emails_modified, emails_sent, filters_added\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "All target VIP emails were read and starred",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Each VIP email received the required reply",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Future VIP filter automatically stars matching messages",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Status phrase was not sent on unrelated replies",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.25
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The search was not executed yet. I need to filter to unread VIP messages so I can identify each VIP contact and process the oldest unread thread for each.",
+      "action": {
+        "action": "click",
+        "ref": "4"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 27.3,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "The unread VIP contacts are Elena Patel, Avery Kim, and Priya Wright. Elena Patel has two unread messages, so I need to use the older one from Jun 25. I'll star and open Elena Patel's oldest unread thread first, then reply.",
+      "action": {
+        "action": "click",
+        "ref": "672"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Need an update on the vendor recovery timeline"
+      },
+      "status": "",
+      "elapsed_seconds": 38.2,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 4,
+      "thought": "Elena Patel's oldest unread VIP thread is already starred. I need to send the required reply text.",
+      "action": {
+        "action": "click",
+        "ref": "761"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Reply to Need an update on the vendor recovery timeline"
+      },
+      "status": "",
+      "elapsed_seconds": 50.9,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 5,
+      "thought": "The reply composer is open. I should enter the exact required phrase and send the reply.",
+      "action": {
+        "action": "fill",
+        "ref": "818",
+        "value": "Status update: I am actively on it."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 55.0,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 6,
+      "thought": "Elena Patel is done. I need to return to the unread VIP search results and process Priya Wright next, then Avery Kim.",
+      "action": {
+        "action": "back"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 62.9,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 7,
+      "thought": "The browser back did not change the page. I should use the in-page Back to inbox button to return to the search results.",
+      "action": {
+        "action": "click",
+        "ref": "736"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 71.1,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 8,
+      "thought": "Elena Patel no longer appears with the older thread because it was handled. I still need to process Priya Wright and Avery Kim. Priya Wright is older, so I'll star and open that thread first.",
+      "action": {
+        "action": "click",
+        "ref": "1000"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Need an update on the board deck edits"
+      },
+      "status": "",
+      "elapsed_seconds": 75.9,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 9,
+      "thought": "Priya Wright's thread is starred. I just need to reply with the exact required phrase.",
+      "action": {
+        "action": "click",
+        "ref": "1080"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Reply to Need an update on the board deck edits"
+      },
+      "status": "",
+      "elapsed_seconds": 78.8,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 10,
+      "thought": "The reply form is open. I should enter the exact required phrase and send it.",
+      "action": {
+        "action": "fill",
+        "ref": "1137",
+        "value": "Status update: I am actively on it."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 86.0,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 11,
+      "thought": "Priya Wright is complete. I need to return to the unread VIP search results and process Avery Kim next.",
+      "action": {
+        "action": "click",
+        "ref": "1055"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Back to inbox"
+      },
+      "status": "",
+      "elapsed_seconds": 93.8,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 12,
+      "thought": "Only Avery Kim remains among the VIP contacts with unread mail. I should star and open that thread, then reply.",
+      "action": {
+        "action": "click",
+        "ref": "1298"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Need an update on the staffing backfill status"
+      },
+      "status": "",
+      "elapsed_seconds": 101.2,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 13,
+      "thought": "Avery Kim's thread is starred. I need to reply with the exact phrase, then create the filter in settings.",
+      "action": {
+        "action": "click",
+        "ref": "1369"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Reply to Need an update on the staffing backfill status"
+      },
+      "status": "",
+      "elapsed_seconds": 104.6,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 14,
+      "thought": "The reply composer is open. I should send the exact required reply, then go to settings to create the auto-star filter.",
+      "action": {
+        "action": "fill",
+        "ref": "1426",
+        "value": "Status update: I am actively on it."
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 113.2,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 15,
+      "thought": "All VIP contacts' oldest unread emails have now been starred and replied to. The remaining task is to create a filter that automatically stars future mail from jordan.singh@vipfuture.test.",
+      "action": {
+        "action": "click",
+        "ref": "19"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Settings"
+      },
+      "status": "",
+      "elapsed_seconds": 119.3,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 16,
+      "thought": "I\u2019m in Settings. To create the auto-star rule, I need to switch to the Filters and Blocked Addresses tab.",
+      "action": {
+        "action": "click",
+        "ref": "1543"
+      },
+      "targets": {
+        "role": "button",
+        "name": ""
+      },
+      "status": "",
+      "elapsed_seconds": 124.8,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 17,
+      "thought": "The Filters tab is open and I can create the needed rule now.",
+      "action": {
+        "action": "click",
+        "ref": "1967"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Create a new filter"
+      },
+      "status": "",
+      "elapsed_seconds": 148.3,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 18,
+      "thought": "The filter dialog is open on step 1. I need to set the sender address for Jordan Singh's future mail, then continue to choose actions.",
+      "action": {
+        "action": "fill",
+        "ref": "1982",
+        "value": "jordan.singh@vipfuture.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Filter from address"
+      },
+      "status": "",
+      "elapsed_seconds": 156.8,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    },
+    {
+      "step": 19,
+      "thought": "I\u2019m on step 2 of filter creation. I need to enable the 'Star it' action, which should allow me to save the new filter.",
+      "action": {
+        "action": "click",
+        "ref": "2035"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": ""
+      },
+      "status": "FINISH",
+      "elapsed_seconds": 162.9,
+      "replay_path": "/settings",
+      "result_path": "/settings"
+    }
+  ]
 }

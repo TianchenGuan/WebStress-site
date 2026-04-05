@@ -4,14 +4,68 @@
   "instruction": "Search your inbox for the email about \"Q4 Budget Summary\" from the Finance Team and star it.",
   "difficulty": "easy",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 3,
+  "elapsed_seconds": 21.2,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 1/1 checks.\n  [PASS] Budget email is starred\nCollateral mutations detected (1 dimensions): emails_modified\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 1/1 checks.\n  [PASS] Budget email is starred\nCollateral mutations detected (1 dimensions): emails_modified\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "Budget email is starred",
+        "passed": true,
+        "kind": "criterion"
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "I'm in Gmail inbox. The target email isn't visible in the current list, so using search is the fastest way to locate 'Q4 Budget Summary' from Finance Team.",
+      "action": {
+        "action": "fill",
+        "ref": "4",
+        "value": "\"Q4 Budget Summary\" \"Finance Team\""
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 15.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The search found the target email from Finance Team. I need to star this thread.",
+      "action": {
+        "action": "click",
+        "ref": "575"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Star Q4 Budget Summary \u2014 Final Numbers"
+      },
+      "status": "",
+      "elapsed_seconds": 19.3,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 3,
+      "thought": "The star button changed to 'Unstar' and a starred label is visible, confirming the email is starred.",
+      "action": {
+        "action": "finish",
+        "answer": "Found the Finance Team email about Q4 Budget Summary and starred it."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 21.0,
+      "replay_path": "/search",
+      "result_path": "/search"
+    }
+  ]
 }

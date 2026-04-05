@@ -4,14 +4,281 @@
   "instruction": "The CFO asked you to compile Q1 numbers. Three department heads \u2014 {target.dept_a_name}, {target.dept_b_name}, and {target.dept_c_name} \u2014 each sent an email with their department's quarterly figures. Find all three emails (they may be in different inbox tabs or require scrolling). Extract the budget number from each and compose a new email to {target.exec_email} with a subject line 'Q1 Budget Summary'. List all three numbers in the body, labeled by department. CC all three department heads.",
   "difficulty": "medium",
   "model": "gpt-5.4",
-  "total_steps": 0,
-  "elapsed_seconds": 0,
+  "total_steps": 13,
+  "elapsed_seconds": 62.7,
   "completed": true,
   "start_path": "/inbox?label=inbox",
   "evaluation": {
     "score": 1.0,
     "success": true,
-    "reasoning": "Passed 10/10 checks.\n  [PASS] At least one email sent\n  [PASS] Subject is Q1 Budget Summary\n  [PASS] Sent to exec\n  [PASS] All 3 dept heads CC'd\n  [PASS] Dept A number in body\n  [PASS] Dept B number in body\n  [PASS] Dept C number in body\n  [PASS] Dept A department name in body\n  [PASS] Dept B department name in body\n  [PASS] Dept C department name in body\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True"
+    "reasoning": "Passed 10/10 checks.\n  [PASS] At least one email sent\n  [PASS] Subject is Q1 Budget Summary\n  [PASS] Sent to exec\n  [PASS] All 3 dept heads CC'd\n  [PASS] Dept A number in body\n  [PASS] Dept B number in body\n  [PASS] Dept C number in body\n  [PASS] Dept A department name in body\n  [PASS] Dept B department name in body\n  [PASS] Dept C department name in body\nAll negative checks passed (no penalties).\nCollateral mutations detected (2 dimensions): emails_modified, emails_sent\nFinal score: 1.000 | Success: True",
+    "criteria_results": [
+      {
+        "desc": "At least one email sent",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Subject is Q1 Budget Summary",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Sent to exec",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "All 3 dept heads CC'd",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept A number in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept B number in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept C number in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept A department name in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept B department name in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Dept C department name in body",
+        "passed": true,
+        "kind": "criterion"
+      },
+      {
+        "desc": "Decoy numbers not in body",
+        "passed": true,
+        "kind": "penalty",
+        "penalty": 0.2
+      }
+    ]
   },
-  "steps": []
+  "steps": [
+    {
+      "step": 1,
+      "thought": "",
+      "action": {
+        "action": "think"
+      },
+      "targets": {},
+      "status": "",
+      "elapsed_seconds": 2.1,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 2,
+      "thought": "The prior step didn\u2019t execute, so I\u2019m still in the inbox. I already have Priya Rivera\u2019s Engineering number from the visible preview. Next I should search for Theo Brooks to get his department and budget.",
+      "action": {
+        "action": "fill",
+        "ref": "6",
+        "value": "Theo Brooks"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 14.2,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    },
+    {
+      "step": 3,
+      "thought": "The Theo Brooks search result directly shows the needed info: Marketing budget is $89,000. Now I should search for Avery Kim to get the last department and number.",
+      "action": {
+        "action": "fill",
+        "ref": "6",
+        "value": "Avery Kim"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 18.1,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 4,
+      "thought": "I now have all three Q1 budget amounts and departments. Before composing, I need the actual email addresses for Priya Rivera, Theo Brooks, and Avery Kim so I can CC them reliably. I\u2019ll open Avery Kim\u2019s thread first to inspect the sender details.",
+      "action": {
+        "action": "click",
+        "ref": "621"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open read thread Q1 figures \u2014 Operations"
+      },
+      "status": "",
+      "elapsed_seconds": 24.2,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 5,
+      "thought": "Avery Kim\u2019s sender address is visible. I still need Priya Rivera\u2019s and Theo Brooks\u2019s addresses for CC before composing the summary email.",
+      "action": {
+        "action": "fill",
+        "ref": "6",
+        "value": "Theo Brooks"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 30.1,
+      "replay_path": "/thread/email_3",
+      "result_path": "/thread/email_3"
+    },
+    {
+      "step": 6,
+      "thought": "The Theo Brooks search result is available; I should open it to view his sender email address.",
+      "action": {
+        "action": "click",
+        "ref": "761"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 figures \u2014 Marketing"
+      },
+      "status": "",
+      "elapsed_seconds": 32.7,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 7,
+      "thought": "Theo Brooks\u2019s email address is visible. I only need Priya Rivera\u2019s sender email, then I can compose the summary email to Elena Patel with all three CC\u2019d.",
+      "action": {
+        "action": "fill",
+        "ref": "6",
+        "value": "Priya Rivera"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Search mail"
+      },
+      "status": "",
+      "elapsed_seconds": 36.9,
+      "replay_path": "/thread/email_2",
+      "result_path": "/thread/email_2"
+    },
+    {
+      "step": 8,
+      "thought": "Priya Rivera\u2019s search result is visible; opening it will let me capture her sender address. Then I can compose the final summary email.",
+      "action": {
+        "action": "click",
+        "ref": "876"
+      },
+      "targets": {
+        "role": "link",
+        "name": "Open unread thread Q1 figures \u2014 Engineering"
+      },
+      "status": "",
+      "elapsed_seconds": 39.8,
+      "replay_path": "/search",
+      "result_path": "/search"
+    },
+    {
+      "step": 9,
+      "thought": "I have all three budgets and all three department heads\u2019 email addresses. Next I will compose the summary email to Elena Patel, add the CC recipients, and include the labeled department numbers in the body.",
+      "action": {
+        "action": "click",
+        "ref": "12"
+      },
+      "targets": {
+        "role": "button",
+        "name": "Compose a new message"
+      },
+      "status": "",
+      "elapsed_seconds": 43.8,
+      "replay_path": "/thread/email_1",
+      "result_path": "/thread/email_1"
+    },
+    {
+      "step": 10,
+      "thought": "The compose form is open. I\u2019ll first fill the main recipient, subject, and body, then reveal the CC field and add the three department heads before sending.",
+      "action": {
+        "action": "fill",
+        "ref": "971",
+        "value": "elena.patel@executive.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 48.9,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 11,
+      "thought": "The To and Subject fields are filled, but the body text is not visibly present, so I should re-enter it and then reveal the CC field.",
+      "action": {
+        "action": "fill",
+        "ref": "981",
+        "value": "Engineering: $142,500\nMarketing: $89,000\nOperations: $215,750"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Email body"
+      },
+      "status": "",
+      "elapsed_seconds": 54.1,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 12,
+      "thought": "The CC field is now available. I\u2019ll add all three department heads, ensure the body is populated, and send the email.",
+      "action": {
+        "action": "fill",
+        "ref": "1161",
+        "value": "priya.rivera@engineering.test, theo.brooks@marketing.test, avery.kim@operations.test"
+      },
+      "targets": {
+        "role": "textbox",
+        "name": "Carbon copy recipients"
+      },
+      "status": "",
+      "elapsed_seconds": 59.8,
+      "replay_path": "/compose",
+      "result_path": "/compose"
+    },
+    {
+      "step": 13,
+      "thought": "The message has been sent successfully and appears in Sent.",
+      "action": {
+        "action": "finish",
+        "answer": "Sent Q1 Budget Summary to elena.patel@executive.test with body listing Engineering: $142,500, Marketing: $89,000, and Operations: $215,750; CC\u2019d priya.rivera@engineering.test, theo.brooks@marketing.test, and avery.kim@operations.test."
+      },
+      "targets": {},
+      "status": "FINISH",
+      "elapsed_seconds": 62.5,
+      "replay_path": "/inbox",
+      "result_path": "/inbox"
+    }
+  ]
 }
