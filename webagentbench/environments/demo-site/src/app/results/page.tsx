@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import OpenAI from "@lobehub/icons/es/OpenAI";
 import Qwen from "@lobehub/icons/es/Qwen";
 import {
@@ -103,7 +104,17 @@ function SortableHeader({ label, sortKey, currentKey, currentDir, onToggle, clas
   );
 }
 
-export default function ResultsPage() {
+export default function ResultsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="max-w-[960px] mx-auto px-12 pt-[120px]"><p className="text-sm text-[var(--text-tertiary)]">Loading results...</p></div>}>
+      <ResultsPage />
+    </Suspense>
+  );
+}
+
+function ResultsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [models, setModels] = useState<ModelIndex | null>(null);
   const [activeModel, setActiveModel] = useState("");
   const [summaries, setSummaries] = useState<Record<string, ResultSummary>>({});
@@ -111,12 +122,13 @@ export default function ResultsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Load all summaries upfront — no refetch on tab switch
   useEffect(() => {
     fetchModelIndex().then(async (idx) => {
       if (!idx) { setLoading(false); return; }
       setModels(idx);
-      setActiveModel(idx.default);
+      const urlModel = searchParams.get("model");
+      const validIds = idx.models.map((m) => m.id);
+      setActiveModel(urlModel && validIds.includes(urlModel) ? urlModel : idx.default);
       const loaded: Record<string, ResultSummary> = {};
       await Promise.all(idx.models.map(async (m) => {
         const s = await fetchSummary(m.id);
@@ -125,7 +137,12 @@ export default function ResultsPage() {
       setSummaries(loaded);
       setLoading(false);
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function selectModel(id: string) {
+    setActiveModel(id);
+    router.replace(`/results?model=${id}`, { scroll: false });
+  }
 
   const data = summaries[activeModel] ?? null;
   const providerGroups = useMemo(() => models ? groupByProvider(models.models) : [], [models]);
@@ -181,7 +198,7 @@ export default function ResultsPage() {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
               {group.models.map((m) => (
                 <ModelCard key={m.id} model={m} summary={summaries[m.id] ?? null}
-                  active={activeModel === m.id} onClick={() => setActiveModel(m.id)} />
+                  active={activeModel === m.id} onClick={() => selectModel(m.id)} />
               ))}
             </div>
           </div>
