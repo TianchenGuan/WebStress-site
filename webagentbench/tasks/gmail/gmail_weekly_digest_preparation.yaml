@@ -125,7 +125,7 @@ eval:
     desc: Filter 2 created for external domains
   negative_checks:
   - expr: '''inbox'' in state.get_email(''{target.monitoring_email_id}'').labels'
-    desc: Monitoring.test email must not be archived (not in any bucket)
+    desc: monitoring.thornton.com email must not be archived (not in any bucket)
     penalty: 0.15
   - expr: all('inbox' in state.get_email(eid).labels for eid in {target.old_email_ids})
     desc: Old engineering emails must not be archived

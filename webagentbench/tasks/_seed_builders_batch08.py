@@ -54,7 +54,7 @@ def build_sender_domain_triage(ctx: SeedContext, params: dict[str, Any]) -> dict
     all_emails.append(ops_email)
     ops_email_id = ops_email.id
 
-    # 2. Vendor-a.test emails (3) — interleaved timestamps
+    # 2. Vendor-a emails (3) — interleaved timestamps
     # Email with CC trap (CC'd from harborline.co contact)
     cc_decoy = ctx.email(
         from_name="Vendor Support",
@@ -106,7 +106,7 @@ def build_sender_domain_triage(ctx: SeedContext, params: dict[str, Any]) -> dict
     vendor_a_ids.append(vendor_a_normal.id)
     all_emails.append(vendor_a_normal)
 
-    # 3. Partner-b.test emails (3)
+    # 3. Partner-b emails (3)
     partner_subjects = [
         "Partner B: Joint roadmap review",
         "Partner B: Co-marketing draft",
@@ -124,7 +124,7 @@ def build_sender_domain_triage(ctx: SeedContext, params: dict[str, Any]) -> dict
         partner_b_ids.append(p_email.id)
         all_emails.append(p_email)
 
-    # 4. Spam-c.test emails (2)
+    # 4. Spam-c emails (2)
     spam_subjects = [
         "Exclusive deal: 80% off enterprise licenses",
         "Congratulations! You have been selected",
@@ -204,7 +204,7 @@ def build_triage_with_interrupts(ctx: SeedContext, params: dict[str, Any]) -> di
     client_domain_a = "acme-meridiangroup.com"
     client_domain_b = "globex-meridiangroup.com"
     newsletter_domain_a = "techdigest.thornton.com"
-    newsletter_domain_b = "industrywatch.test"
+    newsletter_domain_b = "industrywatch.io"
     escalation_sender_a = "ops-alert@escalations.thornton.com"
     escalation_sender_b = "sre-oncall@escalations.thornton.com"
     team_lead_email = "teamlead@thornton.com"
@@ -984,11 +984,11 @@ def build_backlog_bankruptcy(ctx: SeedContext, params: dict[str, Any]) -> dict[s
         "Vendor evaluation summary",
     ]
     fyi_domains = [
-        "teamupdates.test", "crossfunc.test", "analytics.test",
-        "success.test", "eng-all-hands.test", "product.thornton.com",
-        "mktg.thornton.com", "okrs.test", "designsystem.test",
-        "infra-status.test", "security-audit.test", "budget.test",
-        "newhires.test", "officepolicy.test", "vendoreval.test",
+        "teamupdates.com", "crossfunc.io", "analytics.io",
+        "success.co", "eng-all-hands.com", "product.thornton.com",
+        "mktg.thornton.com", "okrs.co", "designsystem.io",
+        "infra-status.com", "security-audit.com", "budget.co",
+        "newhires.com", "officepolicy.com", "vendoreval.co",
     ]
     cc_keyword_id = None
     for i, (subj, domain) in enumerate(zip(fyi_subjects, fyi_domains)):

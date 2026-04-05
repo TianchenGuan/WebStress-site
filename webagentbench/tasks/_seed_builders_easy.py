@@ -171,7 +171,7 @@ def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
         "Performance review self-assessment due",
         "Build pipeline fix deployed",
     ]
-    _filler_domains = ["team.thornton.com", "ops.thornton.com", "eng.test", "hr.thornton.com", "infra.thornton.com"]
+    _filler_domains = ["team.thornton.com", "ops.thornton.com", "eng.co", "hr.thornton.com", "infra.thornton.com"]
     for i in range(20):
         t = ctx.next_id("thread")
         sender_name = ctx.fake.name()

@@ -62,11 +62,11 @@ eval:
   - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.vendor_a_ids})
     desc: All crestline.io emails archived (removed from inbox)
   - expr: all(not state.get_email(eid).deleted for eid in {target.vendor_a_ids})
-    desc: Vendor-a.test emails not deleted (archived, not trashed)
+    desc: crestline.io emails not deleted (archived, not trashed)
   - expr: all('Partner' in state.get_email(eid).labels for eid in {target.partner_b_ids})
     desc: All harborline.co emails have Partner label
   - expr: all('inbox' in state.get_email(eid).labels for eid in {target.partner_b_ids})
-    desc: Partner-b.test emails still in inbox
+    desc: harborline.co emails still in inbox
   - expr: all(state.get_email(eid).deleted for eid in {target.spam_c_ids})
     desc: All quicksavings.net emails deleted
   - expr: '''inbox'' in state.get_email(''{target.ops_email_id}'').labels'

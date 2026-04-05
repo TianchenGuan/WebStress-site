@@ -105,7 +105,7 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
             id=f"email_{_rng.randint(10000, 99999)}",
             thread_id=f"thread_{_rng.randint(10000, 99999)}",
             from_name=decoy_spec.get("from_name", template.from_name if template else ""),
-            from_addr=decoy_spec.get("from", template.from_addr if template else "decoy@example.test"),
+            from_addr=decoy_spec.get("from", template.from_addr if template else "noreply@thornton.com"),
             to=decoy_spec.get(
                 "to",
                 [template.to[0]] if template and template.to else ["me@thornton.com"],

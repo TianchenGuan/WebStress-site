@@ -86,7 +86,7 @@ class RobinhoodSeedRunner:
             "env_id": "robinhood",
             "task_id": task_id,
             "owner_name": "Alex Thompson",
-            "owner_email": "alex.thompson@webagentbench.test",
+            "owner_email": "alex.thompson@thornton.com",
             "account_type": "individual",
             "cash_balance": Decimal("5000.00"),
             "buying_power": Decimal("5000.00"),

@@ -1171,12 +1171,12 @@ export function SettingsPage() {
             <FormField
               id="new-filter-from"
               label="From"
-              hint="Use a sender address or a whole domain like @vendor.test."
+              hint="Use a sender address or a whole domain like @vendor.com."
               inputProps={{
                 value: newFilter.fromPattern,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, fromPattern: event.target.value })),
-                placeholder: "finance@acme.com or @vendor.test",
+                placeholder: "finance@acme.com or @vendor.com",
                 "aria-label": "Filter from address",
               }}
             />

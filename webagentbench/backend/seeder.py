@@ -86,7 +86,7 @@ class FakeDataGenerator:
 
     def email(self, domain: str | None = None) -> str:
         local = f"{self.rng.choice(self._FIRST_NAMES)}.{self.rng.choice(self._LAST_NAMES)}".lower()
-        return f"{local}@{domain or f'{self.domain_word()}.test'}"
+        return f"{local}@{domain or f'{self.domain_word()}.com'}"
 
 
 # Backwards-compatible alias for existing imports.
