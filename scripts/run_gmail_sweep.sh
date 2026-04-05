@@ -126,6 +126,11 @@ if [[ -n "$REASONING" && "$REASONING" != "none" ]]; then
     REASONING_FLAG="--reasoning-effort $REASONING"
 fi
 
+HARNESS_FLAG=""
+if [[ -n "$HARNESS" && "$HARNESS" != "browsergym" ]]; then
+    HARNESS_FLAG="--harness $HARNESS"
+fi
+
 python -m webagentbench.agent_eval \
     --model "$MODEL" \
     --provider "$PROVIDER" \
@@ -136,6 +141,7 @@ python -m webagentbench.agent_eval \
     --seed "$SEED" \
     --server-port "$PORT" \
     $REASONING_FLAG \
+    $HARNESS_FLAG \
     --output "$SMOKE_OUT" \
     2>&1 | tee -a "$PROGRESS"
 
@@ -331,7 +337,7 @@ kill $SCOREBOARD_PID 2>/dev/null || true
 # ── Merge results ────────────────────────────────────────────────────
 FINAL_OUT="$RUNDIR/results.json"
 
-python3 << 'PYEOF'
+python3 - "$RUNDIR" << 'PYEOF'
 import json, glob, sys
 from datetime import datetime, timezone
 from pathlib import Path
