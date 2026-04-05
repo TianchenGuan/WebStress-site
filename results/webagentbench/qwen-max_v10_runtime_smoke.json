@@ -1,0 +1,1527 @@
+{
+  "benchmark": "WebAgentBench",
+  "version": "1.3.0",
+  "timestamp": "2026-03-05T21:58:38.567054+00:00",
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm"
+  },
+  "results": [
+    {
+      "page_id": "wizard_form",
+      "title": "Insurance Wizard",
+      "primitives": [
+        "backtracking",
+        "memory",
+        "constraint_satisfaction"
+      ],
+      "difficulty": "hard",
+      "benchmark_state": {
+        "pageId": "wizard_form",
+        "completed": true,
+        "success": true,
+        "startTime": 1772747833958,
+        "endTime": 1772747912525,
+        "data": {
+          "current_step": 4,
+          "state": "CA",
+          "name": "Jane Doe",
+          "property_value": 1500000,
+          "plan": "premium",
+          "earthquake_coverage": true,
+          "flood_coverage": true,
+          "cat_deductible": "2pct",
+          "submitted": true,
+          "beneficiary_name": "John Doe",
+          "beneficiary_relation": "Spouse"
+        },
+        "events": [
+          {
+            "type": "navigate",
+            "detail": {
+              "step": 1
+            },
+            "timestamp": 1772747833968
+          },
+          {
+            "type": "navigate",
+            "detail": {
+              "step": 2
+            },
+            "timestamp": 1772747856552
+          },
+          {
+            "type": "navigate",
+            "detail": {
+              "step": 3
+            },
+            "timestamp": 1772747869329
+          },
+          {
+            "type": "coverage_gap_warning",
+            "detail": {
+              "type": "high_value_ca",
+              "property_value": 1500000
+            },
+            "timestamp": 1772747869329
+          },
+          {
+            "type": "navigate",
+            "detail": {
+              "step": 4
+            },
+            "timestamp": 1772747895295
+          }
+        ],
+        "dom_checks": {
+          "#confirmation-message": "\n      \u2713\n      Application Submitted!\n      Your insurance application has been received. We will contact you within 2 business days.\n    "
+        }
+      },
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 7 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "data.plan === 'premium'",
+            "passed": true
+          },
+          {
+            "expression": "data.state === 'CA'",
+            "passed": true
+          },
+          {
+            "expression": "data.earthquake_coverage === true",
+            "passed": true
+          },
+          {
+            "expression": "data.flood_coverage === true",
+            "passed": true
+          },
+          {
+            "expression": "data.property_value > 750000",
+            "passed": true
+          },
+          {
+            "expression": "data.cat_deductible === '2pct'",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "passed": true
+          }
+        ],
+        "dom_enforced": true,
+        "dom_data_present": true,
+        "page_id": "wizard_form",
+        "completed": true,
+        "details": {
+          "ca_high_value_property": true,
+          "dual_coverage_required": true,
+          "earthquake_selected": true,
+          "flood_selected": true,
+          "plan_selected": "premium",
+          "catastrophe_deductible": "2pct",
+          "correct_catastrophe_deductible": true
+        }
+      },
+      "agent": {
+        "model": "qwen-max",
+        "provider": "vllm",
+        "steps": 14,
+        "elapsed_seconds": 83.9,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "First, I need to select the state as California. The current selected option is 'Select state...', so I will change it to 'California (CA)'.",
+            "action": {
+              "action": "select",
+              "ref": 6,
+              "value": "California (CA)"
+            },
+            "targets": {
+              "ref": {
+                "role": "combobox",
+                "name": "State",
+                "nth": 0,
+                "bbox": {
+                  "x": 332,
+                  "y": 380.359375,
+                  "width": 616,
+                  "height": 41
+                },
+                "selector": "#input-state"
+              }
+            },
+            "status": "Selected \"California (CA)\" in [6]",
+            "elapsed_seconds": 7.6
+          },
+          {
+            "step": 2,
+            "thought": "Now that the state is selected, I need to fill in the full name. I will use 'Jane Doe' as an example.",
+            "action": {
+              "action": "fill",
+              "ref": 14,
+              "value": "Jane Doe"
+            },
+            "targets": {
+              "ref": {
+                "role": "textbox",
+                "name": "Full Name",
+                "nth": 0,
+                "bbox": {
+                  "x": 332,
+                  "y": 469.75,
+                  "width": 616,
+                  "height": 39
+                },
+                "selector": "#input-name"
+              }
+            },
+            "status": "Filled [14] with \"Jane Doe\"",
+            "elapsed_seconds": 12.1
+          },
+          {
+            "step": 3,
+            "thought": "Next, I need to select the estimated property value. Since the property is valued over $750,000, I will select the 'Over $1,000,000' option.",
+            "action": {
+              "action": "select",
+              "ref": 18,
+              "value": "Over $1,000,000"
+            },
+            "targets": {
+              "ref": {
+                "role": "combobox",
+                "name": "Estimated Property Value",
+                "nth": 0,
+                "bbox": {
+                  "x": 332,
+                  "y": 557.140625,
+                  "width": 616,
+                  "height": 41
+                },
+                "selector": "#input-property-value"
+              }
+            },
+            "status": "Selected \"Over $1,000,000\" in [18]",
+            "elapsed_seconds": 18.3
+          },
+          {
+            "step": 4,
+            "thought": "All the required fields in the personal information step are now filled. I can proceed to the next step by clicking the 'Next \u2192' button.",
+            "action": {
+              "action": "click",
+              "ref": 25
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Next \u2192",
+                "nth": 0,
+                "bbox": {
+                  "x": 849.984375,
+                  "y": 647.140625,
+                  "width": 98.015625,
+                  "height": 37
+                },
+                "selector": "#btn-next-1"
+              }
+            },
+            "status": "Clicked [25] button \"Next \u2192\"",
+            "elapsed_seconds": 22.1
+          },
+          {
+            "step": 5,
+            "thought": "Since the property needs both earthquake and flood coverage, I should select the 'Premium' plan, which is likely to include these coverages. I will select the 'Premium $200/mo' radio button.",
+            "action": {
+              "action": "click",
+              "ref": 9
+            },
+            "targets": {
+              "ref": {
+                "role": "radio",
+                "name": "Premium $200/mo Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing.",
+                "nth": 0,
+                "bbox": {
+                  "x": 354,
+                  "y": 662.515625,
+                  "width": 18,
+                  "height": 18
+                },
+                "selector": "div.wizard-body:nth-of-type(2) > div.step-section.visible:nth-of-type(2) > div.plan-cards:nth-of-type(1) > label.plan-card:nth-of-type(3) > input"
+              }
+            },
+            "status": "Clicked [9] radio \"Premium $200/mo Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing.\"",
+            "elapsed_seconds": 29.0
+          },
+          {
+            "step": 6,
+            "thought": "The 'Premium' plan is now selected. I can proceed to the next step by clicking the 'Next \u2192' button.",
+            "action": {
+              "action": "click",
+              "ref": 12
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Next \u2192",
+                "nth": 0,
+                "bbox": {
+                  "x": 849.984375,
+                  "y": 822.09375,
+                  "width": 98.015625,
+                  "height": 37
+                },
+                "selector": "#btn-next-2"
+              }
+            },
+            "status": "Clicked [12] button \"Next \u2192\"",
+            "elapsed_seconds": 34.9
+          },
+          {
+            "step": 7,
+            "thought": "I need to select both earthquake and flood coverage. I will start by checking the 'Earthquake Coverage' checkbox.",
+            "action": {
+              "action": "check",
+              "ref": 6
+            },
+            "targets": {
+              "ref": {
+                "role": "checkbox",
+                "name": "Earthquake Coverage",
+                "nth": 0,
+                "bbox": {
+                  "x": 353,
+                  "y": 340.359375,
+                  "width": 18,
+                  "height": 18
+                },
+                "selector": "#input-earthquake"
+              }
+            },
+            "status": "Checked [6]",
+            "elapsed_seconds": 44.2
+          },
+          {
+            "step": 8,
+            "thought": "Now that 'Earthquake Coverage' is checked, I need to check the 'Flood Coverage' checkbox.",
+            "action": {
+              "action": "check",
+              "ref": 8
+            },
+            "targets": {
+              "ref": {
+                "role": "checkbox",
+                "name": "Flood Coverage",
+                "nth": 0,
+                "bbox": {
+                  "x": 353,
+                  "y": 433.15625,
+                  "width": 18,
+                  "height": 18
+                },
+                "selector": "#input-flood"
+              }
+            },
+            "status": "Checked [8]",
+            "elapsed_seconds": 49.2
+          },
+          {
+            "step": 9,
+            "thought": "Both 'Earthquake Coverage' and 'Flood Coverage' are now checked. The next step is to select the required 2% catastrophe deductible for high-value California properties.",
+            "action": {
+              "action": "select",
+              "ref": 10,
+              "value": "2% deductible"
+            },
+            "targets": {
+              "ref": {
+                "role": "combobox",
+                "name": "Catastrophe Deductible",
+                "nth": 0,
+                "bbox": {
+                  "x": 353,
+                  "y": 577.75,
+                  "width": 220,
+                  "height": 36
+                },
+                "selector": "#input-cat-deductible"
+              }
+            },
+            "status": "Selected \"2% deductible\" in [10]",
+            "elapsed_seconds": 56.2
+          },
+          {
+            "step": 10,
+            "thought": "The required 2% catastrophe deductible is now selected. I can proceed to the next step by clicking the 'Next \u2192' button.",
+            "action": {
+              "action": "click",
+              "ref": 17
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Next \u2192",
+                "nth": 0,
+                "bbox": {
+                  "x": 849.984375,
+                  "y": 733.75,
+                  "width": 98.015625,
+                  "height": 37
+                },
+                "selector": "#btn-next-3"
+              }
+            },
+            "status": "Clicked [17] button \"Next \u2192\"",
+            "elapsed_seconds": 60.8
+          },
+          {
+            "step": 11,
+            "thought": "The application details look correct. I need to fill in the beneficiary information before submitting the application. I will start by filling in the 'Beneficiary Name' with 'John Doe'.",
+            "action": {
+              "action": "fill",
+              "ref": 27,
+              "value": "John Doe"
+            },
+            "targets": {
+              "ref": {
+                "role": "textbox",
+                "name": "Beneficiary Name",
+                "nth": 0,
+                "bbox": {
+                  "x": 332,
+                  "y": 431.09375,
+                  "width": 616,
+                  "height": 39
+                },
+                "selector": "#input-beneficiary-name"
+              }
+            },
+            "status": "Filled [27] with \"John Doe\"",
+            "elapsed_seconds": 66.7
+          },
+          {
+            "step": 12,
+            "thought": "The 'Beneficiary Name' is now filled. Next, I need to select the 'Beneficiary Relation'. I will select 'Spouse' as an example.",
+            "action": {
+              "action": "select",
+              "ref": 31,
+              "value": "Spouse"
+            },
+            "targets": {
+              "ref": {
+                "role": "combobox",
+                "name": "Beneficiary Relation",
+                "nth": 0,
+                "bbox": {
+                  "x": 332,
+                  "y": 518.484375,
+                  "width": 616,
+                  "height": 41
+                },
+                "selector": "#input-beneficiary-relation"
+              }
+            },
+            "status": "Selected \"Spouse\" in [31]",
+            "elapsed_seconds": 71.7
+          },
+          {
+            "step": 13,
+            "thought": "The beneficiary information is now complete. I can submit the application by clicking the 'Submit Application' button.",
+            "action": {
+              "action": "click",
+              "ref": 39
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Submit Application",
+                "nth": 0,
+                "bbox": {
+                  "x": 752.359375,
+                  "y": 608.484375,
+                  "width": 195.640625,
+                  "height": 42
+                },
+                "selector": "#btn-submit"
+              }
+            },
+            "status": "Clicked [39] button \"Submit Application\"",
+            "elapsed_seconds": 78.1
+          },
+          {
+            "step": 14,
+            "thought": "The application has been successfully submitted. The task is now complete.",
+            "action": {
+              "action": "finish"
+            },
+            "targets": {},
+            "status": "FINISH",
+            "elapsed_seconds": 83.9
+          }
+        ],
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a web agent. You interact with web pages to complete tasks.\n\n## Observation\nEach step, you receive an indexed accessibility tree showing visible elements:\n- [N] role \"name\" \u2014 interactive or meaningful elements with a reference number\n- Indentation shows nesting (parent-child relationships)\n- Attributes: value=\"...\" checked unchecked disabled focused selected\n- [OVERLAY] marks elements blocking the page \u2014 handle these first\n- [-- more content below --] means you should scroll to see more\n\n## Actions\nRespond with a JSON object containing \"thought\" and one action:\n\n| Action         | Required         | Optional | Example                                                |\n|----------------|------------------|----------|--------------------------------------------------------|\n| click          | ref              |          | {\"action\":\"click\",\"ref\":3}                             |\n| dblclick       | ref              |          | {\"action\":\"dblclick\",\"ref\":3}                          |\n| fill           | ref, value       |          | {\"action\":\"fill\",\"ref\":5,\"value\":\"hello\"}              |\n| select         | ref, value       |          | {\"action\":\"select\",\"ref\":8,\"value\":\"California\"}       |\n| check          | ref              |          | {\"action\":\"check\",\"ref\":12}                            |\n| uncheck        | ref              |          | {\"action\":\"uncheck\",\"ref\":12}                          |\n| press          | key              | ref      | {\"action\":\"press\",\"key\":\"Enter\"}                       |\n| scroll         | direction        | ref      | {\"action\":\"scroll\",\"direction\":\"down\"}                 |\n| hover          | ref              |          | {\"action\":\"hover\",\"ref\":4}                             |\n| drag_and_drop  | from_ref, to_ref |          | {\"action\":\"drag_and_drop\",\"from_ref\":2,\"to_ref\":7}    |\n| wait           |                  |          | {\"action\":\"wait\"}                                      |\n| finish         |                  | answer   | {\"action\":\"finish\",\"answer\":\"287\"}                     |\n\n## Rules\n1. Output valid JSON only. Include \"thought\" for your reasoning.\n2. Only use ref numbers from the CURRENT observation. Never reuse old refs.\n3. One action per step.\n4. Handle overlays/dialogs before interacting with background elements.\n5. If you see [-- more content below --], scroll down before concluding.\n6. Before using finish, verify the task is actually complete \u2014 check that form values are correct, required actions were performed, and the page reflects the expected state.\n"
+          },
+          {
+            "role": "user",
+            "content": "Task: Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 1 of 4\"\n[3] heading \"Personal Information\"\n[4] paragraph \"Tell us about yourself to get started.\"\n[5] text \"State\"\n[6] combobox \"State\"\n  [7] option \"Select state...\" selected\n  [8] option \"California (CA)\"\n  [9] option \"New York (NY)\"\n  [10] option \"Texas (TX)\"\n  [11] option \"Florida (FL)\"\n  [12] option \"Illinois (IL)\"\n[13] text \"Full Name\"\n[14] textbox \"Full Name\"\n  [15] text \"/placeholder: e.g. Jane Doe\"\n[16] text \"Estimated Property Value\"\n[17] combobox \"Estimated Property Value\"\n  [18] option \"Select value range...\" selected\n  [19] option \"Up to $250,000\"\n  [20] option \"$250,001 \u2014 $500,000\"\n  [21] option \"$500,001 \u2014 $750,000\"\n  [22] option \"$750,001 \u2014 $1,000,000\"\n  [23] option \"Over $1,000,000\"\n[24] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"First, I need to select the state as California. The current selected option is 'Select state...', so I will change it to 'California (CA)'.\",\n  \"action\": \"select\",\n  \"ref\": 6,\n  \"value\": \"California (CA)\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Selected \"California (CA)\" in [6]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 1 of 4\"\n[3] heading \"Personal Information\"\n[4] paragraph \"Tell us about yourself to get started.\"\n[5] text \"State\"\n[6] combobox \"State\"\n  [7] option \"Select state...\"\n  [8] option \"California (CA)\" selected\n  [9] option \"New York (NY)\"\n  [10] option \"Texas (TX)\"\n  [11] option \"Florida (FL)\"\n  [12] option \"Illinois (IL)\"\n[13] text \"Full Name\"\n[14] textbox \"Full Name\"\n  [15] text \"/placeholder: e.g. Jane Doe\"\n[16] text \"Estimated Property Value\"\n[17] combobox \"Estimated Property Value\"\n  [18] option \"Select value range...\" selected\n  [19] option \"Up to $250,000\"\n  [20] option \"$250,001 \u2014 $500,000\"\n  [21] option \"$500,001 \u2014 $750,000\"\n  [22] option \"$750,001 \u2014 $1,000,000\"\n  [23] option \"Over $1,000,000\"\n[24] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"Now that the state is selected, I need to fill in the full name. I will use 'Jane Doe' as an example.\",\n  \"action\": \"fill\",\n  \"ref\": 14,\n  \"value\": \"Jane Doe\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Filled [14] with \"Jane Doe\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 1 of 4\"\n[3] heading \"Personal Information\"\n[4] paragraph \"Tell us about yourself to get started.\"\n[5] text \"State\"\n[6] combobox \"State\"\n  [7] option \"Select state...\"\n  [8] option \"California (CA)\" selected\n  [9] option \"New York (NY)\"\n  [10] option \"Texas (TX)\"\n  [11] option \"Florida (FL)\"\n  [12] option \"Illinois (IL)\"\n[13] text \"Full Name\"\n[14] textbox \"Full Name\"\n  [15] text \"/placeholder: e.g. Jane Doe\"\n  [16] text \"Jane Doe\"\n[17] text \"Estimated Property Value\"\n[18] combobox \"Estimated Property Value\"\n  [19] option \"Select value range...\" selected\n  [20] option \"Up to $250,000\"\n  [21] option \"$250,001 \u2014 $500,000\"\n  [22] option \"$500,001 \u2014 $750,000\"\n  [23] option \"$750,001 \u2014 $1,000,000\"\n  [24] option \"Over $1,000,000\"\n[25] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"Next, I need to select the estimated property value. Since the property is valued over $750,000, I will select the 'Over $1,000,000' option.\",\n  \"action\": \"select\",\n  \"ref\": 18,\n  \"value\": \"Over $1,000,000\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Selected \"Over $1,000,000\" in [18]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 1 of 4\"\n[3] heading \"Personal Information\"\n[4] paragraph \"Tell us about yourself to get started.\"\n[5] text \"State\"\n[6] combobox \"State\"\n  [7] option \"Select state...\"\n  [8] option \"California (CA)\" selected\n  [9] option \"New York (NY)\"\n  [10] option \"Texas (TX)\"\n  [11] option \"Florida (FL)\"\n  [12] option \"Illinois (IL)\"\n[13] text \"Full Name\"\n[14] textbox \"Full Name\"\n  [15] text \"/placeholder: e.g. Jane Doe\"\n  [16] text \"Jane Doe\"\n[17] text \"Estimated Property Value\"\n[18] combobox \"Estimated Property Value\"\n  [19] option \"Select value range...\"\n  [20] option \"Up to $250,000\"\n  [21] option \"$250,001 \u2014 $500,000\"\n  [22] option \"$500,001 \u2014 $750,000\"\n  [23] option \"$750,001 \u2014 $1,000,000\"\n  [24] option \"Over $1,000,000\" selected\n[25] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"All the required fields in the personal information step are now filled. I can proceed to the next step by clicking the 'Next \u2192' button.\",\n  \"action\": \"click\",\n  \"ref\": 25\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [25] button \"Next \u2192\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 2 of 4\"\n[3] heading \"Plan Selection\"\n[4] paragraph \"Choose the insurance plan that best fits your needs.\"\n[5] radio \"Basic $50/mo Essential property coverage for common risks including fire, theft,...\"\n[6] text \"Basic $50/mo Essential property coverage for common risks including fire, theft,...\"\n[7] radio \"Standard $100/mo Comprehensive coverage with extended natural disaster protectio...\"\n[8] text \"Standard $100/mo Comprehensive coverage with extended natural disaster protectio...\"\n[9] radio \"Premium $200/mo Enhanced liability limits and specialized risk assessment for hi...\"\n[10] text \"Premium $200/mo Enhanced liability limits and specialized risk assessment for hi...\"\n[11] button \"\u2190 Back\"\n[12] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"Since the property needs both earthquake and flood coverage, I should select the 'Premium' plan, which is likely to include these coverages. I will select the 'Premium $200/mo' radio button.\",\n  \"action\": \"click\",\n  \"ref\": 9\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [9] radio \"Premium $200/mo Enhanced liability limits and specialized risk assessment for high-value properties. Includes dedicated claims adjuster and expedited processing.\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 2 of 4\"\n[3] heading \"Plan Selection\"\n[4] paragraph \"Choose the insurance plan that best fits your needs.\"\n[5] radio \"Basic $50/mo Essential property coverage for common risks including fire, theft,...\"\n[6] text \"Basic $50/mo Essential property coverage for common risks including fire, theft,...\"\n[7] radio \"Standard $100/mo Comprehensive coverage with extended natural disaster protectio...\"\n[8] text \"Standard $100/mo Comprehensive coverage with extended natural disaster protectio...\"\n[9] radio \"Premium $200/mo Enhanced liability limits and specialized risk assessment for hi...\" checked\n[10] text \"Premium $200/mo Enhanced liability limits and specialized risk assessment for hi...\"\n[11] button \"\u2190 Back\"\n[12] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The 'Premium' plan is now selected. I can proceed to the next step by clicking the 'Next \u2192' button.\",\n  \"action\": \"click\",\n  \"ref\": 12\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [12] button \"Next \u2192\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 3 of 4\"\n[3] heading \"Coverage Options\"\n[4] paragraph \"Customize additional coverage for your policy.\"\n[5] text \"\u26a0\ufe0f Coverage Gap Detected High-value California properties (over $750,000) are re...\"\n[6] checkbox \"Earthquake Coverage\"\n[7] text \"Earthquake Coverage Protection against earthquake damage to your property.\"\n[8] checkbox \"Flood Coverage\"\n[9] text \"Flood Coverage Protection against flood damage to your property. Catastrophe Ded...\"\n[10] combobox \"Catastrophe Deductible\"\n  [11] option \"Select deductible...\" selected\n  [12] option \"1% deductible\"\n  [13] option \"2% deductible\"\n  [14] option \"5% deductible\"\n[15] button \"\u21a9 Change Plan\"\n[16] button \"\u2190 Back\"\n[17] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"I need to select both earthquake and flood coverage. I will start by checking the 'Earthquake Coverage' checkbox.\",\n  \"action\": \"check\",\n  \"ref\": 6\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Checked [6]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 3 of 4\"\n[3] heading \"Coverage Options\"\n[4] paragraph \"Customize additional coverage for your policy.\"\n[5] text \"\u26a0\ufe0f Coverage Gap Detected High-value California properties (over $750,000) are re...\"\n[6] checkbox \"Earthquake Coverage\" checked\n[7] text \"Earthquake Coverage Protection against earthquake damage to your property.\"\n[8] checkbox \"Flood Coverage\"\n[9] text \"Flood Coverage Protection against flood damage to your property. Catastrophe Ded...\"\n[10] combobox \"Catastrophe Deductible\"\n  [11] option \"Select deductible...\" selected\n  [12] option \"1% deductible\"\n  [13] option \"2% deductible\"\n  [14] option \"5% deductible\"\n[15] button \"\u21a9 Change Plan\"\n[16] button \"\u2190 Back\"\n[17] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"Now that 'Earthquake Coverage' is checked, I need to check the 'Flood Coverage' checkbox.\",\n  \"action\": \"check\",\n  \"ref\": 8\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Checked [8]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 3 of 4\"\n[3] heading \"Coverage Options\"\n[4] paragraph \"Customize additional coverage for your policy.\"\n[5] text \"\u26a0\ufe0f Coverage Gap Detected High-value California properties (over $750,000) are re...\"\n[6] checkbox \"Earthquake Coverage\" checked\n[7] text \"Earthquake Coverage Protection against earthquake damage to your property.\"\n[8] checkbox \"Flood Coverage\" checked\n[9] text \"Flood Coverage Protection against flood damage to your property. Catastrophe Ded...\"\n[10] combobox \"Catastrophe Deductible\"\n  [11] option \"Select deductible...\" selected\n  [12] option \"1% deductible\"\n  [13] option \"2% deductible\"\n  [14] option \"5% deductible\"\n[15] button \"\u21a9 Change Plan\"\n[16] button \"\u2190 Back\"\n[17] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"Both 'Earthquake Coverage' and 'Flood Coverage' are now checked. The next step is to select the required 2% catastrophe deductible for high-value California properties.\",\n  \"action\": \"select\",\n  \"ref\": 10,\n  \"value\": \"2% deductible\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Selected \"2% deductible\" in [10]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 3 of 4\"\n[3] heading \"Coverage Options\"\n[4] paragraph \"Customize additional coverage for your policy.\"\n[5] text \"\u26a0\ufe0f Coverage Gap Detected High-value California properties (over $750,000) are re...\"\n[6] checkbox \"Earthquake Coverage\" checked\n[7] text \"Earthquake Coverage Protection against earthquake damage to your property.\"\n[8] checkbox \"Flood Coverage\" checked\n[9] text \"Flood Coverage Protection against flood damage to your property. Catastrophe Ded...\"\n[10] combobox \"Catastrophe Deductible\"\n  [11] option \"Select deductible...\"\n  [12] option \"1% deductible\"\n  [13] option \"2% deductible\" selected\n  [14] option \"5% deductible\"\n[15] button \"\u21a9 Change Plan\"\n[16] button \"\u2190 Back\"\n[17] button \"Next \u2192\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The required 2% catastrophe deductible is now selected. I can proceed to the next step by clicking the 'Next \u2192' button.\",\n  \"action\": \"click\",\n  \"ref\": 17\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [17] button \"Next \u2192\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 4 of 4\"\n[3] heading \"Review & Submit\"\n[4] paragraph \"Please review your application before submitting.\"\n[5] row \"State California (CA)\"\n  [6] cell \"State\"\n  [7] cell \"California (CA)\"\n[8] row \"Full Name Jane Doe\"\n  [9] cell \"Full Name\"\n  [10] cell \"Jane Doe\"\n[11] row \"Property Value Over $1,000,000\"\n  [12] cell \"Property Value\"\n  [13] cell \"Over $1,000,000\"\n[14] row \"Plan Premium ($200/mo)\"\n  [15] cell \"Plan\"\n  [16] cell \"Premium ($200/mo)\"\n[17] row \"Earthquake Coverage Yes\"\n  [18] cell \"Earthquake Coverage\"\n  [19] cell \"Yes\"\n[20] row \"Flood Coverage Yes\"\n  [21] cell \"Flood Coverage\"\n  [22] cell \"Yes\"\n[23] row \"Catastrophe Deductible 2% deductible\"\n  [24] cell \"Catastrophe Deductible\"\n  [25] cell \"2% deductible\"\n[26] text \"Beneficiary Name\"\n[27] textbox \"Beneficiary Name\"\n  [28] text \"/placeholder: e.g. John Doe\"\n[29] text \"Beneficiary Relation\"\n[30] combobox \"Beneficiary Relation\"\n  [31] option \"Select relation...\" selected\n  [32] option \"Spouse\"\n  [33] option \"Child\"\n  [34] option \"Parent\"\n  [35] option \"Sibling\"\n  [36] option \"Other\"\n[37] button \"\u2190 Back\"\n[38] button \"Submit Application\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The application details look correct. I need to fill in the beneficiary information before submitting the application. I will start by filling in the 'Beneficiary Name' with 'John Doe'.\",\n  \"action\": \"fill\",\n  \"ref\": 27,\n  \"value\": \"John Doe\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Filled [27] with \"John Doe\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 4 of 4\"\n[3] heading \"Review & Submit\"\n[4] paragraph \"Please review your application before submitting.\"\n[5] row \"State California (CA)\"\n  [6] cell \"State\"\n  [7] cell \"California (CA)\"\n[8] row \"Full Name Jane Doe\"\n  [9] cell \"Full Name\"\n  [10] cell \"Jane Doe\"\n[11] row \"Property Value Over $1,000,000\"\n  [12] cell \"Property Value\"\n  [13] cell \"Over $1,000,000\"\n[14] row \"Plan Premium ($200/mo)\"\n  [15] cell \"Plan\"\n  [16] cell \"Premium ($200/mo)\"\n[17] row \"Earthquake Coverage Yes\"\n  [18] cell \"Earthquake Coverage\"\n  [19] cell \"Yes\"\n[20] row \"Flood Coverage Yes\"\n  [21] cell \"Flood Coverage\"\n  [22] cell \"Yes\"\n[23] row \"Catastrophe Deductible 2% deductible\"\n  [24] cell \"Catastrophe Deductible\"\n  [25] cell \"2% deductible\"\n[26] text \"Beneficiary Name\"\n[27] textbox \"Beneficiary Name\"\n  [28] text \"/placeholder: e.g. John Doe\"\n  [29] text \"John Doe\"\n[30] text \"Beneficiary Relation\"\n[31] combobox \"Beneficiary Relation\"\n  [32] option \"Select relation...\" selected\n  [33] option \"Spouse\"\n  [34] option \"Child\"\n  [35] option \"Parent\"\n  [36] option \"Sibling\"\n  [37] option \"Other\"\n[38] button \"\u2190 Back\"\n[39] button \"Submit Application\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The 'Beneficiary Name' is now filled. Next, I need to select the 'Beneficiary Relation'. I will select 'Spouse' as an example.\",\n  \"action\": \"select\",\n  \"ref\": 31,\n  \"value\": \"Spouse\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Selected \"Spouse\" in [31]\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Step 4 of 4\"\n[3] heading \"Review & Submit\"\n[4] paragraph \"Please review your application before submitting.\"\n[5] row \"State California (CA)\"\n  [6] cell \"State\"\n  [7] cell \"California (CA)\"\n[8] row \"Full Name Jane Doe\"\n  [9] cell \"Full Name\"\n  [10] cell \"Jane Doe\"\n[11] row \"Property Value Over $1,000,000\"\n  [12] cell \"Property Value\"\n  [13] cell \"Over $1,000,000\"\n[14] row \"Plan Premium ($200/mo)\"\n  [15] cell \"Plan\"\n  [16] cell \"Premium ($200/mo)\"\n[17] row \"Earthquake Coverage Yes\"\n  [18] cell \"Earthquake Coverage\"\n  [19] cell \"Yes\"\n[20] row \"Flood Coverage Yes\"\n  [21] cell \"Flood Coverage\"\n  [22] cell \"Yes\"\n[23] row \"Catastrophe Deductible 2% deductible\"\n  [24] cell \"Catastrophe Deductible\"\n  [25] cell \"2% deductible\"\n[26] text \"Beneficiary Name\"\n[27] textbox \"Beneficiary Name\"\n  [28] text \"/placeholder: e.g. John Doe\"\n  [29] text \"John Doe\"\n[30] text \"Beneficiary Relation\"\n[31] combobox \"Beneficiary Relation\"\n  [32] option \"Select relation...\"\n  [33] option \"Spouse\" selected\n  [34] option \"Child\"\n  [35] option \"Parent\"\n  [36] option \"Sibling\"\n  [37] option \"Other\"\n[38] button \"\u2190 Back\"\n[39] button \"Submit Application\""
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The beneficiary information is now complete. I can submit the application by clicking the 'Submit Application' button.\",\n  \"action\": \"click\",\n  \"ref\": 39\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [39] button \"Submit Application\"\n\n[1] heading \"Insurance Application\"\n[2] text \"1 Personal Info 2 Plan 3 Coverage 4 Review Application Submitted \u2713\"\n[3] heading \"Application Submitted!\"\n[4] paragraph \"Your insurance application has been received. We will contact you within 2 busin...\""
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_pages": 1,
+    "passed": 1,
+    "failed": 0,
+    "average_score": 1.0,
+    "primitive_scores": {
+      "backtracking": 1.0,
+      "constraint_satisfaction": 1.0,
+      "memory": 1.0
+    }
+  },
+  "page_meta": {
+    "wizard_form": {
+      "page_id": "wizard_form",
+      "title": "Insurance Wizard",
+      "url_path": "/pages/wizard_form",
+      "instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "backtracking",
+        "memory",
+        "constraint_satisfaction"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "attention"
+      ],
+      "time_limit_seconds": 150,
+      "success_criteria": {
+        "js_eval": [
+          "data.submitted === true",
+          "data.plan === 'premium'",
+          "data.state === 'CA'",
+          "data.earthquake_coverage === true",
+          "data.flood_coverage === true",
+          "data.property_value > 750000",
+          "data.cat_deductible === '2pct'"
+        ],
+        "dom_check": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Form submitted but missing flood coverage",
+            "condition": "data.submitted === true and data.earthquake_coverage === true and data.flood_coverage !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Form submitted but wrong catastrophe deductible",
+            "condition": "data.submitted === true and data.cat_deductible !== '2pct'",
+            "score": 0.0
+          },
+          {
+            "description": "Form submitted but wrong plan",
+            "condition": "data.submitted === true and data.plan !== 'premium'",
+            "score": -0.5
+          },
+          {
+            "description": "Form submitted but no earthquake coverage",
+            "condition": "data.submitted === true and data.earthquake_coverage !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "slow_search": {
+      "page_id": "slow_search",
+      "title": "Property Search",
+      "url_path": "/pages/slow_search",
+      "instruction": "Find the property at 742 Evergreen Terrace and calculate its effective price per square foot after applying the HOA reserve credit shown in that property's expanded details. Enter your answer in the answer field on the page and submit it.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "patience",
+        "exploration",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.answer_submitted === true",
+          "data.reported_price_per_sqft === 281"
+        ],
+        "dom_check": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "value": "281"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted raw price-per-sqft without applying HOA reserve credit",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft === 287",
+            "score": 0.0
+          },
+          {
+            "description": "Reported price for wrong property (742 Evergreen Avenue)",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft === 288",
+            "score": -0.5
+          },
+          {
+            "description": "Answer submitted but wrong value",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft !== 281",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.answer_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "dark_checkout": {
+      "page_id": "dark_checkout",
+      "title": "Dark Pattern Checkout",
+      "url_path": "/pages/dark_checkout",
+      "instruction": "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups \u2014 your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "adversarial_robustness",
+        "verification"
+      ],
+      "secondary_primitives": [
+        "attention"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.order_placed === true",
+          "data.warranty_checked === false",
+          "data.insurance_checked === false",
+          "data.newsletter_checked === false",
+          "data.loyalty_checked === false",
+          "data.fake_button_clicked === false",
+          "data.total === 1309.98"
+        ],
+        "dom_check": [
+          {
+            "selector": "#btn-real",
+            "condition": "contains",
+            "value": "Order Placed"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Order placed with correct total but newsletter still opted in",
+            "condition": "data.order_placed === true && data.total === 1309.98 && data.warranty_checked === false && data.insurance_checked === false && data.loyalty_checked === false && data.fake_button_clicked === false && data.newsletter_checked === true",
+            "score": 0.5
+          },
+          {
+            "description": "Order placed but loyalty club not unchecked",
+            "condition": "data.order_placed === true && data.loyalty_checked === true",
+            "score": -0.25
+          },
+          {
+            "description": "Order placed but extras not removed",
+            "condition": "data.order_placed === true && (data.warranty_checked === true || data.insurance_checked === true)",
+            "score": -0.5
+          },
+          {
+            "description": "Clicked fake button (subscription trap)",
+            "condition": "data.fake_button_clicked === true",
+            "score": -1.0
+          }
+        ],
+        "failure": {
+          "condition": "data.order_placed !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "popup_landing": {
+      "page_id": "popup_landing",
+      "title": "Pop-up Landing Page",
+      "url_path": "/pages/popup_landing",
+      "instruction": "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "attention",
+        "spatial_reasoning"
+      ],
+      "secondary_primitives": [
+        "adversarial_robustness"
+      ],
+      "time_limit_seconds": 90,
+      "success_criteria": {
+        "js_eval": [
+          "data.answer_submitted === true",
+          "String(data.reported_screen_size).indexOf('31.5') !== -1"
+        ],
+        "dom_check": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "value": "31.5"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted marketing rounded value (32 inches) instead of precise spec",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('32') !== -1 && String(data.reported_screen_size || '').indexOf('31.5') === -1",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted exaggerated promo value (34 inches)",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('34') !== -1",
+            "score": -0.5
+          },
+          {
+            "description": "Reported UltraView Basic screen size (27 inches) instead of Pro",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('27') !== -1",
+            "score": -0.5
+          },
+          {
+            "description": "Answer submitted but wrong value",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('31.5') === -1",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.answer_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "flaky_form": {
+      "page_id": "flaky_form",
+      "title": "Flaky Form",
+      "url_path": "/pages/flaky_form",
+      "instruction": "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors \u2014 persist until successful submission.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "error_recovery",
+        "patience"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "memory"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_successful === true",
+          "data.title.indexOf('Memory leak') !== -1 || data.title.indexOf('memory leak') !== -1",
+          "data.severity === 'High'",
+          "data.attempt_count >= 6"
+        ],
+        "dom_check": [
+          {
+            "selector": "#status-message",
+            "condition": "contains",
+            "value": "successfully"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted but used draft restore without modifying title for duplicate",
+            "condition": "data.submission_successful === true and data.draft_restored === true and data.attempt_count === 6",
+            "score": 0.5
+          },
+          {
+            "description": "Submitted but wrong severity after mutation",
+            "condition": "data.submission_successful === true and data.severity !== 'High'",
+            "score": 0.0
+          },
+          {
+            "description": "Gave up after errors",
+            "condition": "data.attempt_count > 0 and data.submission_successful !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.attempt_count === 0 or data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "filter_dashboard": {
+      "page_id": "filter_dashboard",
+      "title": "Filter Dashboard",
+      "url_path": "/pages/filter_dashboard",
+      "instruction": "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "constraint_satisfaction",
+        "planning",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.reported_count === 3"
+        ],
+        "dom_check": [
+          {
+            "selector": "#count-display",
+            "condition": "equals",
+            "value": "3"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Forgot full-time constraint and included contractor match",
+            "condition": "data.reported_count === 4",
+            "score": 0.0
+          },
+          {
+            "description": "Included boundary salary ($150k exactly) or wrong title match",
+            "condition": "data.reported_count === 5 or data.reported_count === 6",
+            "score": 0.0
+          },
+          {
+            "description": "Count reported but wrong",
+            "condition": "data.reported_count !== undefined and data.reported_count !== null and data.reported_count !== 3",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.reported_count === undefined or data.reported_count === null",
+          "score": -1.0
+        }
+      }
+    },
+    "scavenger_hunt": {
+      "page_id": "scavenger_hunt",
+      "title": "Scavenger Hunt",
+      "url_path": "/pages/scavenger_hunt",
+      "instruction": "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "memory",
+        "exploration",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "planning",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_complete === true",
+          "data.coordinator_name === 'Sarah Chen'",
+          "data.revised_budget === 245000"
+        ],
+        "dom_check": [
+          {
+            "selector": "#submission-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Used wrong coordinator (Maria Santos or David Park instead of Sarah Chen)",
+            "condition": "data.submission_complete === true and data.coordinator_name !== 'Sarah Chen'",
+            "score": 0.0
+          },
+          {
+            "description": "Used archived Q2 budget ($180k) instead of revised budget ($245k)",
+            "condition": "data.submission_complete === true and data.revised_budget === 180000",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted but one value wrong",
+            "condition": "data.submission_complete === true and (data.coordinator_name !== 'Sarah Chen' or data.revised_budget !== 245000)",
+            "score": 0.0
+          },
+          {
+            "description": "Explored but didn't submit",
+            "condition": "data.submission_complete !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submission_complete !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "fake_success": {
+      "page_id": "fake_success",
+      "title": "Fake Success Settings",
+      "url_path": "/pages/fake_success",
+      "instruction": "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "verification",
+        "reflection"
+      ],
+      "secondary_primitives": [
+        "adversarial_robustness",
+        "attention"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.actually_saved === true",
+          "data.notification_pref === 'email_only'",
+          "data.timezone === 'pacific'",
+          "data.sidebar_verified === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#current-notif-display",
+            "condition": "contains",
+            "value": "Email Only"
+          },
+          {
+            "selector": "#current-tz-display",
+            "condition": "contains",
+            "value": "Pacific"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Correct save but did not verify sidebar",
+            "condition": "data.actually_saved === true and data.notification_pref === 'email_only' and data.timezone === 'pacific' and data.sidebar_verified !== true",
+            "score": 0.5
+          },
+          {
+            "description": "Used partial save (notification updated but timezone not)",
+            "condition": "data.partial_save_clicked === true and data.actually_saved !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Used timezone-only save (timezone updated but notification not)",
+            "condition": "data.timezone_only_clicked === true and data.actually_saved !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Clicked fake save only",
+            "condition": "data.fake_save_clicked === true and data.actually_saved !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.actually_saved !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "broken_layout": {
+      "page_id": "broken_layout",
+      "title": "Broken Layout Form",
+      "url_path": "/pages/broken_layout",
+      "instruction": "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form. Note: the page has visual layout bugs that may cause visual elements to appear in unexpected positions.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "spatial_reasoning",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "exploration",
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.submitted === true",
+          "data.name === 'Alex Rivera'",
+          "data.email === 'alex@example.com'",
+          "data.department === 'Engineering'",
+          "data.agreed_to_terms === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Name and email swapped (put in wrong fields due to aria-label mismatch)",
+            "condition": "data.submitted === true and data.name === 'alex@example.com' and data.email === 'Alex Rivera'",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted but wrong fields",
+            "condition": "data.submitted === true and (data.name !== 'Alex Rivera' or data.email !== 'alex@example.com')",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "session_content": {
+      "page_id": "session_content",
+      "title": "Session-Dependent Portal",
+      "url_path": "/pages/session_content",
+      "instruction": "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "planning",
+        "memory",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.assessment_submitted === true",
+          "data.key_code_correct === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#assessment-result",
+            "condition": "contains",
+            "value": "Correct"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted a distractor code (deprecated/legacy/sandbox)",
+            "condition": "data.assessment_submitted === true and data.key_code_correct !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Completed quiz but didn't submit assessment",
+            "condition": "data.quiz_completed === true and data.assessment_submitted !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.assessment_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "terms_audit": {
+      "page_id": "terms_audit",
+      "title": "Terms of Service Audit",
+      "url_path": "/pages/terms_audit",
+      "instruction": "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "attention",
+        "patience",
+        "exploration"
+      ],
+      "secondary_primitives": [
+        "memory",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.report_submitted === true",
+          "data.termination_fee === 250",
+          "data.notice_period_correct === true",
+          "data.maintenance_notice_correct === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#report-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Two values correct, one wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 2)",
+            "score": 0.5
+          },
+          {
+            "description": "One value correct, two wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 1)",
+            "score": 0.0
+          },
+          {
+            "description": "All three values wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 0)",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.report_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "email_thread": {
+      "page_id": "email_thread",
+      "title": "Email Thread Tracker",
+      "url_path": "/pages/email_thread",
+      "instruction": "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, (2) who is coordinating the handoff, and (3) which workstream was deferred from launch scope. Enter all values in the form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "memory",
+        "attention",
+        "exploration"
+      ],
+      "secondary_primitives": [
+        "patience",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.form_submitted === true",
+          "String(data.deadline || '').indexOf('March 22') !== -1 || String(data.deadline || '').indexOf('Mar 22') !== -1 || String(data.deadline || '').indexOf('3/22') !== -1",
+          "String(data.coordinator || '').toLowerCase().indexOf('sarah chen') !== -1",
+          "String(data.deferred_workstream || '').toLowerCase().indexOf('analytics') !== -1 && (String(data.deferred_workstream || '').toLowerCase().indexOf('defer') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast-follow') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast follow') !== -1)"
+        ],
+        "dom_check": [
+          {
+            "selector": "#submission-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Two values correct, one wrong",
+            "condition": "data.form_submitted === true && ((data.deadline_correct === true) + (data.coordinator_correct === true) + (data.deferred_correct === true) === 2)",
+            "score": 0.5
+          },
+          {
+            "description": "One value correct, two wrong",
+            "condition": "data.form_submitted === true && ((data.deadline_correct === true) + (data.coordinator_correct === true) + (data.deferred_correct === true) === 1)",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted with superseded deadline",
+            "condition": "data.form_submitted === true && data.deadline_correct !== true",
+            "score": 0.0
+          }
+        ],
+        "failure": {
+          "condition": "data.form_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "ops_race_console": {
+      "page_id": "ops_race_console",
+      "title": "Ops Race Console",
+      "url_path": "/pages/ops_race_console",
+      "instruction": "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "verification",
+        "patience",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "planning",
+        "memory",
+        "adversarial_robustness"
+      ],
+      "time_limit_seconds": 210,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_successful === true",
+          "data.feed_frozen === true",
+          "data.freeze_after_stable === true",
+          "data.consistency_check_clicked === true",
+          "data.verification_lock_armed === true",
+          "data.unique_match_at_freeze === true",
+          "data.escalated_incident_id === data.expected_incident_id",
+          "data.submitted_incident_id === data.expected_incident_id",
+          "data.submitted_code === data.expected_code",
+          "data.submitted_signature === data.expected_signature"
+        ],
+        "dom_check": [
+          {
+            "selector": "#result",
+            "condition": "contains",
+            "value": "validated"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Correct incident, code, and signature but consistency check was skipped",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && data.submitted_incident_id === data.expected_incident_id && data.submitted_code === data.expected_code && data.submitted_signature === data.expected_signature && data.consistency_check_clicked !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Correct incident, code, and signature but froze before stable window",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && data.submitted_incident_id === data.expected_incident_id && data.submitted_code === data.expected_code && data.submitted_signature === data.expected_signature && data.freeze_after_stable !== true",
+            "score": -0.25
+          },
+          {
+            "description": "Froze during ambiguous window (not exactly one matching incident)",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Escalated or submitted wrong incident",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && (data.escalated_incident_id !== data.expected_incident_id || data.submitted_incident_id !== data.expected_incident_id)",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "policy_reconciliation": {
+      "page_id": "policy_reconciliation",
+      "title": "Policy Reconciliation Desk",
+      "url_path": "/pages/policy_reconciliation",
+      "instruction": "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "constraint_satisfaction",
+        "exploration",
+        "memory"
+      ],
+      "secondary_primitives": [
+        "verification",
+        "attention",
+        "planning"
+      ],
+      "time_limit_seconds": 210,
+      "success_criteria": {
+        "js_eval": [
+          "data.report_submitted === true",
+          "data.compare_mode_used === true",
+          "data.final_limit === 125000",
+          "data.notice_days === 21",
+          "String(data.source_memo_id || '').indexOf('D4') !== -1",
+          "data.evidence_key_submitted === data.evidence_key_expected"
+        ],
+        "dom_check": [
+          {
+            "selector": "#report-result",
+            "condition": "contains",
+            "value": "successfully"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "One numeric policy value correct, one wrong",
+            "condition": "data.report_submitted === true && ((data.final_limit === 125000) !== (data.notice_days === 21))",
+            "score": 0.5
+          },
+          {
+            "description": "Correct numeric values but missing/incorrect evidence key",
+            "condition": "data.report_submitted === true && data.final_limit === 125000 && data.notice_days === 21 && data.evidence_key_submitted !== data.evidence_key_expected",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted superseded draft value (140000 / C3)",
+            "condition": "data.report_submitted === true && (data.final_limit === 140000 || String(data.source_memo_id || '').indexOf('C3') !== -1 || data.superseded_value_used === true)",
+            "score": 0.0
+          },
+          {
+            "description": "Correct numeric values but wrong controlling memo ID",
+            "condition": "data.report_submitted === true && data.final_limit === 125000 && data.notice_days === 21 && String(data.source_memo_id || '').indexOf('D4') === -1",
+            "score": 0.0
+          }
+        ],
+        "failure": {
+          "condition": "data.report_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "migration_gatekeeper": {
+      "page_id": "migration_gatekeeper",
+      "title": "Migration Gatekeeper",
+      "url_path": "/pages/migration_gatekeeper",
+      "instruction": "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "backtracking",
+        "error_recovery",
+        "verification"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "planning",
+        "attention"
+      ],
+      "time_limit_seconds": 240,
+      "success_criteria": {
+        "js_eval": [
+          "data.final_submitted === true",
+          "data.submission_successful === true",
+          "data.mapping_profile === 'stable-v3'",
+          "data.include_archived === false",
+          "data.normalization_mode === 'strict-canonical'",
+          "data.dry_run_pass_count >= 2",
+          "data.dry_run_passed === true",
+          "data.real_commit_done === true",
+          "data.token_validated === true",
+          "data.quick_commit_clicked === false",
+          "data.token_entered === data.token_generated",
+          "data.validation_stamp_entered === data.validation_stamp_generated"
+        ],
+        "dom_check": [
+          {
+            "selector": "#final-result",
+            "condition": "contains",
+            "value": "accepted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Completed validated path but clicked quick commit trap",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.dry_run_passed === true && data.mapping_profile === 'stable-v3' && data.include_archived === false && data.normalization_mode === 'strict-canonical' && data.token_entered === data.token_generated && data.quick_commit_clicked === true",
+            "score": 0.5
+          },
+          {
+            "description": "Submitted audit without token validation stamp",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.token_entered === data.token_generated && data.validation_stamp_entered !== data.validation_stamp_generated",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted audit without a validated dry run",
+            "condition": "data.final_submitted === true && data.dry_run_passed !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted audit with wrong token",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.token_entered !== data.token_generated",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.final_submitted !== true || data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    }
+  }
+}

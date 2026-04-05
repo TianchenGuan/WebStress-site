@@ -1,0 +1,1264 @@
+{
+  "benchmark": "WebAgentBench",
+  "version": "1.3.0",
+  "timestamp": "2026-03-06T01:32:06.219986+00:00",
+  "agent": {
+    "model": "qwen-max",
+    "provider": "vllm"
+  },
+  "results": [
+    {
+      "page_id": "popup_landing",
+      "title": "Pop-up Landing Page",
+      "primitives": [
+        "attention",
+        "spatial_reasoning"
+      ],
+      "difficulty": "hard",
+      "benchmark_state": {
+        "pageId": "popup_landing",
+        "completed": true,
+        "success": true,
+        "startTime": 1772760609927,
+        "endTime": 1772760716437,
+        "data": {
+          "overlays_dismissed": [
+            "exit_intent",
+            "newsletter_modal"
+          ],
+          "answer_submitted": true,
+          "reported_screen_size": "31.5"
+        },
+        "events": [
+          {
+            "type": "newsletter_shown",
+            "detail": {},
+            "timestamp": 1772760611930
+          },
+          {
+            "type": "chat_expanded",
+            "detail": {},
+            "timestamp": 1772760614930
+          },
+          {
+            "type": "exit_intent_shown",
+            "detail": {},
+            "timestamp": 1772760617930
+          },
+          {
+            "type": "overlay_dismissed",
+            "detail": {
+              "overlay": "exit_intent"
+            },
+            "timestamp": 1772760660517
+          },
+          {
+            "type": "overlay_dismissed",
+            "detail": {
+              "overlay": "newsletter_modal"
+            },
+            "timestamp": 1772760708322
+          },
+          {
+            "type": "answer_submitted",
+            "detail": {
+              "value": "31.5",
+              "correct": true
+            },
+            "timestamp": 1772760716436
+          }
+        ],
+        "dom_checks": {
+          "#answer-display": "Submitted: 31.5"
+        }
+      },
+      "evaluation": {
+        "score": 1.0,
+        "success": true,
+        "reasoning": "All 2 success criteria passed",
+        "criteria_results": [
+          {
+            "expression": "data.answer_submitted === true",
+            "passed": true
+          },
+          {
+            "expression": "String(data.reported_screen_size).indexOf('31.5') !== -1",
+            "passed": true
+          }
+        ],
+        "dom_results": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "passed": true
+          }
+        ],
+        "dom_enforced": true,
+        "dom_data_present": true,
+        "page_id": "popup_landing",
+        "completed": true
+      },
+      "agent": {
+        "model": "qwen-max",
+        "provider": "vllm",
+        "steps": 7,
+        "elapsed_seconds": 115.7,
+        "completed": true,
+        "trajectory": [
+          {
+            "step": 1,
+            "thought": "The screen size for the UltraView Pro monitor is 31.5 inches, as specified in the technical specifications. I will fill this value into the answer field and click Submit.",
+            "action": {
+              "action": "fill",
+              "ref": 64,
+              "value": "31.5"
+            },
+            "targets": {
+              "ref": {
+                "role": "textbox",
+                "name": "e.g. 31.5\"",
+                "nth": 0,
+                "bbox": {
+                  "x": 210,
+                  "y": 1466.5,
+                  "width": 250,
+                  "height": 39
+                },
+                "selector": "#answer-input"
+              }
+            },
+            "status": "Filled [64] with \"31.5\"",
+            "elapsed_seconds": 5.9
+          },
+          {
+            "step": 2,
+            "thought": "The screen size value has been filled in correctly. Now, I need to click the 'Submit' button to complete the task.",
+            "action": {
+              "action": "click",
+              "ref": 65
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Submit",
+                "nth": 0,
+                "bbox": {
+                  "x": 472,
+                  "y": 693,
+                  "width": 95.453125,
+                  "height": 36
+                },
+                "selector": "#btn-submit"
+              }
+            },
+            "status": "ERROR: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Submit\").first\n    - locator resolved to <button id=\"btn-submit\" class=\"btn-submit\">Submit</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    14 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n",
+            "elapsed_seconds": 41.5
+          },
+          {
+            "step": 3,
+            "thought": "There is an overlay with a discount offer that is blocking the 'Submit' button. I need to handle this overlay first by clicking 'No thanks, I'll pay full price'.",
+            "action": {
+              "action": "click",
+              "ref": 82
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "No thanks, I'll pay full price",
+                "nth": 0,
+                "bbox": {
+                  "x": 568.8125,
+                  "y": 527.5,
+                  "width": 142.359375,
+                  "height": 14
+                },
+                "selector": "#exit-dismiss"
+              }
+            },
+            "status": "Clicked [82] button \"No thanks, I'll pay full price\"",
+            "elapsed_seconds": 50.1
+          },
+          {
+            "step": 4,
+            "thought": "The overlay has been dismissed, and the 'Submit' button is now accessible. I will click the 'Submit' button to complete the task.",
+            "action": {
+              "action": "click",
+              "ref": 65
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Submit",
+                "nth": 0,
+                "bbox": {
+                  "x": 472,
+                  "y": 684,
+                  "width": 95.453125,
+                  "height": 36
+                },
+                "selector": "#btn-submit"
+              }
+            },
+            "status": "ERROR: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Submit\").first\n    - locator resolved to <button id=\"btn-submit\" class=\"btn-submit\">Submit</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    58 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n",
+            "elapsed_seconds": 88.2
+          },
+          {
+            "step": 5,
+            "thought": "There is another overlay, this time for a newsletter subscription, that is blocking the 'Submit' button. I need to handle this overlay first by clicking 'No thanks'.",
+            "action": {
+              "action": "click",
+              "ref": 74
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "No thanks",
+                "nth": 0,
+                "bbox": {
+                  "x": 612.984375,
+                  "y": 505,
+                  "width": 54.03125,
+                  "height": 14
+                },
+                "selector": "#nl-dismiss"
+              }
+            },
+            "status": "Clicked [74] button \"No thanks\"",
+            "elapsed_seconds": 97.9
+          },
+          {
+            "step": 6,
+            "thought": "The newsletter overlay has been dismissed, and the 'Submit' button is now accessible. I will click the 'Submit' button to complete the task.",
+            "action": {
+              "action": "click",
+              "ref": 65
+            },
+            "targets": {
+              "ref": {
+                "role": "button",
+                "name": "Submit",
+                "nth": 0,
+                "bbox": {
+                  "x": 472,
+                  "y": 684,
+                  "width": 95.453125,
+                  "height": 36
+                },
+                "selector": "#btn-submit"
+              }
+            },
+            "status": "Clicked [65] button \"Submit\"",
+            "elapsed_seconds": 106.0
+          },
+          {
+            "step": 7,
+            "thought": "The 'Submit' button has been clicked, and the value '31.5' has been submitted. The task is now complete.",
+            "action": {
+              "action": "finish",
+              "answer": "31.5"
+            },
+            "targets": {},
+            "status": "FINISH",
+            "elapsed_seconds": 115.7
+          }
+        ],
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a web agent. You interact with web pages to complete tasks.\n\n## Observation\nEach step, you receive an indexed accessibility tree showing visible elements:\n- [N] role \"name\" \u2014 interactive or meaningful elements with a reference number\n- Indentation shows nesting (parent-child relationships)\n- Attributes: value=\"...\" checked unchecked disabled focused selected\n- [OVERLAY] marks elements blocking the page \u2014 handle these first\n- [-- more content below --] means you should scroll to see more\n\n## Actions\nRespond with a JSON object containing \"thought\" and one action:\n\n| Action         | Required         | Optional | Example                                                |\n|----------------|------------------|----------|--------------------------------------------------------|\n| click          | ref              |          | {\"action\":\"click\",\"ref\":3}                             |\n| dblclick       | ref              |          | {\"action\":\"dblclick\",\"ref\":3}                          |\n| fill           | ref, value       |          | {\"action\":\"fill\",\"ref\":5,\"value\":\"hello\"}              |\n| select         | ref, value       |          | {\"action\":\"select\",\"ref\":8,\"value\":\"California\"}       |\n| check          | ref              |          | {\"action\":\"check\",\"ref\":12}                            |\n| uncheck        | ref              |          | {\"action\":\"uncheck\",\"ref\":12}                          |\n| press          | key              | ref      | {\"action\":\"press\",\"key\":\"Enter\"}                       |\n| scroll         | direction        | ref      | {\"action\":\"scroll\",\"direction\":\"down\"}                 |\n| hover          | ref              |          | {\"action\":\"hover\",\"ref\":4}                             |\n| drag_and_drop  | from_ref, to_ref |          | {\"action\":\"drag_and_drop\",\"from_ref\":2,\"to_ref\":7}    |\n| wait           |                  |          | {\"action\":\"wait\"}                                      |\n| finish         |                  | answer   | {\"action\":\"finish\",\"answer\":\"287\"}                     |\n\n## Rules\n1. Output valid JSON only. Include \"thought\" for your reasoning.\n2. Only use ref numbers from the CURRENT observation. Never reuse old refs.\n3. One action per step.\n4. Handle overlays/dialogs before interacting with background elements.\n5. If you see [-- more content below --], scroll down before concluding.\n6. Before using finish, verify the task is actually complete \u2014 check that form values are correct, required actions were performed, and the page reflects the expected state.\n"
+          },
+          {
+            "role": "user",
+            "content": "Task: Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\ud83d\udcac\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The screen size for the UltraView Pro monitor is 31.5 inches, as specified in the technical specifications. I will fill this value into the answer field and click Submit.\",\n  \"action\": \"fill\",\n  \"ref\": 64,\n  \"value\": \"31.5\"\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Filled [64] with \"31.5\"\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\u2709\"\n[70] heading \"Don't miss our deals!\"\n[71] paragraph \"Enter your email to receive exclusive discounts and product updates.\"\n[72] textbox \"you@example.com\"\n[73] button \"Subscribe Now!\"\n[74] button \"No thanks\"\n[75] text \"\ud83d\udcac TechDirect Support\"\n[76] button \"Minimize\"\n[77] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The screen size value has been filled in correctly. Now, I need to click the 'Submit' button to complete the task.\",\n  \"action\": \"click\",\n  \"ref\": 65\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: ERROR: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Submit\").first\n    - locator resolved to <button id=\"btn-submit\" class=\"btn-submit\">Submit</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    14 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <div class=\"exit-modal\">\u2026</div> from <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> subtree intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <div id=\"exit-overlay\" class=\"exit-overlay visible\">\u2026</div> intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\u2709\"\n[70] heading \"Don't miss our deals!\"\n[71] paragraph \"Enter your email to receive exclusive discounts and product updates.\"\n[72] textbox \"you@example.com\"\n[73] button \"Subscribe Now!\"\n[74] button \"No thanks\"\n[75] text \"\ud83d\udcac TechDirect Support\"\n[76] button \"Minimize\"\n[77] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\"\n[78] heading \"Wait! Before you go...\"\n[79] paragraph \"Get 15% OFF your purchase with this exclusive discount code:\"\n[80] text \"STAY15\"\n[81] button \"Claim Discount\"\n[82] button \"No thanks, I'll pay full price\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"There is an overlay with a discount offer that is blocking the 'Submit' button. I need to handle this overlay first by clicking 'No thanks, I'll pay full price'.\",\n  \"action\": \"click\",\n  \"ref\": 82\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [82] button \"No thanks, I'll pay full price\"\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\u2709\"\n[70] heading \"Don't miss our deals!\"\n[71] paragraph \"Enter your email to receive exclusive discounts and product updates.\"\n[72] textbox \"you@example.com\"\n[73] button \"Subscribe Now!\"\n[74] button \"No thanks\"\n[75] text \"\ud83d\udcac TechDirect Support\"\n[76] button \"Minimize\"\n[77] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The overlay has been dismissed, and the 'Submit' button is now accessible. I will click the 'Submit' button to complete the task.\",\n  \"action\": \"click\",\n  \"ref\": 65\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: ERROR: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Submit\").first\n    - locator resolved to <button id=\"btn-submit\" class=\"btn-submit\">Submit</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    58 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div id=\"newsletter-overlay\" class=\"newsletter-overlay visible\">\u2026</div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\u2709\"\n[70] heading \"Don't miss our deals!\"\n[71] paragraph \"Enter your email to receive exclusive discounts and product updates.\"\n[72] textbox \"you@example.com\"\n[73] button \"Subscribe Now!\"\n[74] button \"No thanks\"\n[75] text \"\ud83d\udcac TechDirect Support\"\n[76] button \"Minimize\"\n[77] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"There is another overlay, this time for a newsletter subscription, that is blocking the 'Submit' button. I need to handle this overlay first by clicking 'No thanks'.\",\n  \"action\": \"click\",\n  \"ref\": 74\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [74] button \"No thanks\"\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[67] button \"Accept All\"\n[68] button \"Manage Preferences\"\n[69] text \"\ud83d\udcac TechDirect Support\"\n[70] button \"Minimize\"\n[71] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\"\n[-- more content below --]"
+          },
+          {
+            "role": "assistant",
+            "content": "{\n  \"thought\": \"The newsletter overlay has been dismissed, and the 'Submit' button is now accessible. I will click the 'Submit' button to complete the task.\",\n  \"action\": \"click\",\n  \"ref\": 65\n}"
+          },
+          {
+            "role": "user",
+            "content": "Result: Clicked [65] button \"Submit\"\n\n[1] text \"\ud83c\udf89 NEW 34-inch 4K UltraView Pro \u2014 Now $200 OFF! Limited time! \ud83c\udf89\"\n[2] button \"Close promo\"\n[3] text \"TechDirect\"\n[4] link \"Monitors\"\n  [5] text \"/url: \"#\"\"\n[6] link \"Laptops\"\n  [7] text \"/url: \"#\"\"\n[8] link \"Accessories\"\n  [9] text \"/url: \"#\"\"\n[10] link \"Deals\"\n  [11] text \"/url: \"#\"\"\n[12] link \"Home\"\n  [13] text \"/url: \"#\"\"\n[14] text \"/\"\n[15] link \"Monitors\"\n  [16] text \"/url: \"#\"\"\n[17] text \"/ UltraView Pro Monitor \ud83d\udda8\"\n[18] heading \"UltraView Pro Monitor\"\n[19] text \"\u2605\u2605\u2605\u2605\u2606 4.2 (1,247 reviews) $799.99 $999.99\"\n[20] paragraph \"Experience stunning visuals with the UltraView Pro Monitor. With its expansive 3...\"\n[21] heading \"Compare UltraView Models\"\n[22] row \"UltraView Basic UltraView Pro\"\n  [23] cell \"UltraView Basic\"\n  [24] cell \"UltraView Pro\"\n[25] row \"Screen Size 27\" ~32\"\"\n  [26] rowheader \"Screen Size\"\n  [27] cell \"27\"\"\n  [28] cell \"~32\"\"\n[29] row \"Resolution QHD (2560 x 1440) 4K UHD (3840 x 2160)\"\n  [30] rowheader \"Resolution\"\n  [31] cell \"QHD (2560 x 1440)\"\n  [32] cell \"4K UHD (3840 x 2160)\"\n[33] row \"Refresh Rate 75Hz 144Hz\"\n  [34] rowheader \"Refresh Rate\"\n  [35] cell \"75Hz\"\n  [36] cell \"144Hz\"\n[37] row \"Price $399.99 $799.99\"\n  [38] rowheader \"Price\"\n  [39] cell \"$399.99\"\n  [40] cell \"$799.99\"\n[41] heading \"Technical Specifications\"\n[42] row \"Screen Size 31.5\"\"\n  [43] rowheader \"Screen Size\"\n  [44] cell \"31.5\"\"\n[45] row \"Resolution 4K UHD (3840 x 2160)\"\n  [46] rowheader \"Resolution\"\n  [47] cell \"4K UHD (3840 x 2160)\"\n[48] row \"Panel Type IPS\"\n  [49] rowheader \"Panel Type\"\n  [50] cell \"IPS\"\n[51] row \"Refresh Rate 144Hz\"\n  [52] rowheader \"Refresh Rate\"\n  [53] cell \"144Hz\"\n[54] row \"Response Time 1ms\"\n  [55] rowheader \"Response Time\"\n  [56] cell \"1ms\"\n[57] row \"HDR Support HDR10\"\n  [58] rowheader \"HDR Support\"\n  [59] cell \"HDR10\"\n[60] row \"Connectivity HDMI 2.1, DisplayPort 1.4, USB-C\"\n  [61] rowheader \"Connectivity\"\n  [62] cell \"HDMI 2.1, DisplayPort 1.4, USB-C\"\n[63] heading \"What is the screen size of the UltraView Pro?\"\n[64] textbox \"e.g. 31.5\"\" value=\"31.5\"\n[65] button \"Submit\"\n[66] text \"Submitted: 31.5\"\n[67] paragraph \"This site uses cookies for a better experience. By continuing to browse, you agr...\"\n[68] button \"Accept All\"\n[69] button \"Manage Preferences\"\n[70] text \"\ud83d\udcac TechDirect Support\"\n[71] button \"Minimize\"\n[72] text \"Hi there! Looking at our popular 32\" 4K display? Great choice! I can help with a...\""
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_pages": 1,
+    "passed": 1,
+    "failed": 0,
+    "average_score": 1.0,
+    "primitive_scores": {
+      "attention": 1.0,
+      "spatial_reasoning": 1.0
+    }
+  },
+  "page_meta": {
+    "wizard_form": {
+      "page_id": "wizard_form",
+      "title": "Insurance Wizard",
+      "url_path": "/pages/wizard_form",
+      "instruction": "Complete the insurance application for a California property valued over $750,000. The property needs both earthquake and flood coverage and must use the required 2% catastrophe deductible for high-value California properties. Fill out all steps of the wizard and submit the application.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "backtracking",
+        "memory",
+        "constraint_satisfaction"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "attention"
+      ],
+      "time_limit_seconds": 150,
+      "success_criteria": {
+        "js_eval": [
+          "data.submitted === true",
+          "data.plan === 'premium'",
+          "data.state === 'CA'",
+          "data.earthquake_coverage === true",
+          "data.flood_coverage === true",
+          "data.property_value > 750000",
+          "data.cat_deductible === '2pct'"
+        ],
+        "dom_check": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Form submitted but missing flood coverage",
+            "condition": "data.submitted === true and data.earthquake_coverage === true and data.flood_coverage !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Form submitted but wrong catastrophe deductible",
+            "condition": "data.submitted === true and data.cat_deductible !== '2pct'",
+            "score": 0.0
+          },
+          {
+            "description": "Form submitted but wrong plan",
+            "condition": "data.submitted === true and data.plan !== 'premium'",
+            "score": -0.5
+          },
+          {
+            "description": "Form submitted but no earthquake coverage",
+            "condition": "data.submitted === true and data.earthquake_coverage !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "slow_search": {
+      "page_id": "slow_search",
+      "title": "Property Search",
+      "url_path": "/pages/slow_search",
+      "instruction": "Find the property at 742 Evergreen Terrace and calculate its effective price per square foot after applying the HOA reserve credit shown in that property's expanded details. Enter your answer in the answer field on the page and submit it.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "patience",
+        "exploration",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.answer_submitted === true",
+          "data.reported_price_per_sqft === 281"
+        ],
+        "dom_check": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "value": "281"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted raw price-per-sqft without applying HOA reserve credit",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft === 287",
+            "score": 0.0
+          },
+          {
+            "description": "Reported price for wrong property (742 Evergreen Avenue)",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft === 288",
+            "score": -0.5
+          },
+          {
+            "description": "Answer submitted but wrong value",
+            "condition": "data.answer_submitted === true and data.reported_price_per_sqft !== 281",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.answer_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "dark_checkout": {
+      "page_id": "dark_checkout",
+      "title": "Dark Pattern Checkout",
+      "url_path": "/pages/dark_checkout",
+      "instruction": "Purchase only the laptop ($1,299.99) with standard shipping ($9.99). Remove all pre-selected add-ons, memberships, and sign-ups \u2014 your final total should be exactly $1,309.98. Complete the purchase using the correct checkout button.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "adversarial_robustness",
+        "verification"
+      ],
+      "secondary_primitives": [
+        "attention"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.order_placed === true",
+          "data.warranty_checked === false",
+          "data.insurance_checked === false",
+          "data.newsletter_checked === false",
+          "data.loyalty_checked === false",
+          "data.fake_button_clicked === false",
+          "data.total === 1309.98"
+        ],
+        "dom_check": [
+          {
+            "selector": "#btn-real",
+            "condition": "contains",
+            "value": "Order Placed"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Order placed with correct total but newsletter still opted in",
+            "condition": "data.order_placed === true && data.total === 1309.98 && data.warranty_checked === false && data.insurance_checked === false && data.loyalty_checked === false && data.fake_button_clicked === false && data.newsletter_checked === true",
+            "score": 0.5
+          },
+          {
+            "description": "Order placed but loyalty club not unchecked",
+            "condition": "data.order_placed === true && data.loyalty_checked === true",
+            "score": -0.25
+          },
+          {
+            "description": "Order placed but extras not removed",
+            "condition": "data.order_placed === true && (data.warranty_checked === true || data.insurance_checked === true)",
+            "score": -0.5
+          },
+          {
+            "description": "Clicked fake button (subscription trap)",
+            "condition": "data.fake_button_clicked === true",
+            "score": -1.0
+          }
+        ],
+        "failure": {
+          "condition": "data.order_placed !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "popup_landing": {
+      "page_id": "popup_landing",
+      "title": "Pop-up Landing Page",
+      "url_path": "/pages/popup_landing",
+      "instruction": "Find the screen size specification for the UltraView Pro monitor. Enter the exact screen size value in the answer field on the page and click Submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "attention",
+        "spatial_reasoning"
+      ],
+      "secondary_primitives": [
+        "adversarial_robustness"
+      ],
+      "time_limit_seconds": 90,
+      "success_criteria": {
+        "js_eval": [
+          "data.answer_submitted === true",
+          "String(data.reported_screen_size).indexOf('31.5') !== -1"
+        ],
+        "dom_check": [
+          {
+            "selector": "#answer-display",
+            "condition": "contains",
+            "value": "31.5"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted marketing rounded value (32 inches) instead of precise spec",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('32') !== -1 && String(data.reported_screen_size || '').indexOf('31.5') === -1",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted exaggerated promo value (34 inches)",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('34') !== -1",
+            "score": -0.5
+          },
+          {
+            "description": "Reported UltraView Basic screen size (27 inches) instead of Pro",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('27') !== -1",
+            "score": -0.5
+          },
+          {
+            "description": "Answer submitted but wrong value",
+            "condition": "data.answer_submitted === true && String(data.reported_screen_size || '').indexOf('31.5') === -1",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.answer_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "flaky_form": {
+      "page_id": "flaky_form",
+      "title": "Flaky Form",
+      "url_path": "/pages/flaky_form",
+      "instruction": "Submit the bug report form with title 'Memory leak in auth module', severity 'High', and description 'Auth tokens not cleared on logout'. The form may encounter errors \u2014 persist until successful submission.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "error_recovery",
+        "patience"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "memory"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_successful === true",
+          "data.title.indexOf('Memory leak') !== -1 || data.title.indexOf('memory leak') !== -1",
+          "data.severity === 'High'",
+          "data.attempt_count >= 6"
+        ],
+        "dom_check": [
+          {
+            "selector": "#status-message",
+            "condition": "contains",
+            "value": "successfully"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted but used draft restore without modifying title for duplicate",
+            "condition": "data.submission_successful === true and data.draft_restored === true and data.attempt_count === 6",
+            "score": 0.5
+          },
+          {
+            "description": "Submitted but wrong severity after mutation",
+            "condition": "data.submission_successful === true and data.severity !== 'High'",
+            "score": 0.0
+          },
+          {
+            "description": "Gave up after errors",
+            "condition": "data.attempt_count > 0 and data.submission_successful !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.attempt_count === 0 or data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "filter_dashboard": {
+      "page_id": "filter_dashboard",
+      "title": "Filter Dashboard",
+      "url_path": "/pages/filter_dashboard",
+      "instruction": "Find all full-time employees with the exact title 'Senior Engineer' in the 'San Francisco' office whose salary is strictly above $150,000. Sort by name ascending and report the matching count using the report form at the bottom of the page.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "constraint_satisfaction",
+        "planning",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.reported_count === 3"
+        ],
+        "dom_check": [
+          {
+            "selector": "#count-display",
+            "condition": "equals",
+            "value": "3"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Forgot full-time constraint and included contractor match",
+            "condition": "data.reported_count === 4",
+            "score": 0.0
+          },
+          {
+            "description": "Included boundary salary ($150k exactly) or wrong title match",
+            "condition": "data.reported_count === 5 or data.reported_count === 6",
+            "score": 0.0
+          },
+          {
+            "description": "Count reported but wrong",
+            "condition": "data.reported_count !== undefined and data.reported_count !== null and data.reported_count !== 3",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.reported_count === undefined or data.reported_count === null",
+          "score": -1.0
+        }
+      }
+    },
+    "scavenger_hunt": {
+      "page_id": "scavenger_hunt",
+      "title": "Scavenger Hunt",
+      "url_path": "/pages/scavenger_hunt",
+      "instruction": "Navigate through the sections of this portal to find: (1) the current project coordinator's name, and (2) the revised total project budget (original allocation plus any approved additional funding). Enter both values in the submission form and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "memory",
+        "exploration",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "planning",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_complete === true",
+          "data.coordinator_name === 'Sarah Chen'",
+          "data.revised_budget === 245000"
+        ],
+        "dom_check": [
+          {
+            "selector": "#submission-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Used wrong coordinator (Maria Santos or David Park instead of Sarah Chen)",
+            "condition": "data.submission_complete === true and data.coordinator_name !== 'Sarah Chen'",
+            "score": 0.0
+          },
+          {
+            "description": "Used archived Q2 budget ($180k) instead of revised budget ($245k)",
+            "condition": "data.submission_complete === true and data.revised_budget === 180000",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted but one value wrong",
+            "condition": "data.submission_complete === true and (data.coordinator_name !== 'Sarah Chen' or data.revised_budget !== 245000)",
+            "score": 0.0
+          },
+          {
+            "description": "Explored but didn't submit",
+            "condition": "data.submission_complete !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submission_complete !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "fake_success": {
+      "page_id": "fake_success",
+      "title": "Fake Success Settings",
+      "url_path": "/pages/fake_success",
+      "instruction": "Change the notification preference to 'Email Only' and the timezone to 'Pacific (UTC-8)'. Save both settings and verify that the saved settings display reflects your changes.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "verification",
+        "reflection"
+      ],
+      "secondary_primitives": [
+        "adversarial_robustness",
+        "attention"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.actually_saved === true",
+          "data.notification_pref === 'email_only'",
+          "data.timezone === 'pacific'",
+          "data.sidebar_verified === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#current-notif-display",
+            "condition": "contains",
+            "value": "Email Only"
+          },
+          {
+            "selector": "#current-tz-display",
+            "condition": "contains",
+            "value": "Pacific"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Correct save but did not verify sidebar",
+            "condition": "data.actually_saved === true and data.notification_pref === 'email_only' and data.timezone === 'pacific' and data.sidebar_verified !== true",
+            "score": 0.5
+          },
+          {
+            "description": "Used partial save (notification updated but timezone not)",
+            "condition": "data.partial_save_clicked === true and data.actually_saved !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Used timezone-only save (timezone updated but notification not)",
+            "condition": "data.timezone_only_clicked === true and data.actually_saved !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Clicked fake save only",
+            "condition": "data.fake_save_clicked === true and data.actually_saved !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.actually_saved !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "broken_layout": {
+      "page_id": "broken_layout",
+      "title": "Broken Layout Form",
+      "url_path": "/pages/broken_layout",
+      "instruction": "Fill out the registration form with: Name 'Alex Rivera', Email 'alex@example.com', Department 'Engineering', and check the 'Agree to Terms' checkbox. Submit the form. Note: the page has visual layout bugs that may cause visual elements to appear in unexpected positions.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "spatial_reasoning",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "exploration",
+        "verification"
+      ],
+      "time_limit_seconds": 120,
+      "success_criteria": {
+        "js_eval": [
+          "data.submitted === true",
+          "data.name === 'Alex Rivera'",
+          "data.email === 'alex@example.com'",
+          "data.department === 'Engineering'",
+          "data.agreed_to_terms === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#confirmation-message",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Name and email swapped (put in wrong fields due to aria-label mismatch)",
+            "condition": "data.submitted === true and data.name === 'alex@example.com' and data.email === 'Alex Rivera'",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted but wrong fields",
+            "condition": "data.submitted === true and (data.name !== 'Alex Rivera' or data.email !== 'alex@example.com')",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "session_content": {
+      "page_id": "session_content",
+      "title": "Session-Dependent Portal",
+      "url_path": "/pages/session_content",
+      "instruction": "Complete the orientation: answer the skill assessment quiz based on the reading passage provided, study your assigned module, find the correct key code for your assigned module, and enter it in the final assessment form.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "planning",
+        "memory",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.assessment_submitted === true",
+          "data.key_code_correct === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#assessment-result",
+            "condition": "contains",
+            "value": "Correct"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Submitted a distractor code (deprecated/legacy/sandbox)",
+            "condition": "data.assessment_submitted === true and data.key_code_correct !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Completed quiz but didn't submit assessment",
+            "condition": "data.quiz_completed === true and data.assessment_submitted !== true",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.assessment_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "terms_audit": {
+      "page_id": "terms_audit",
+      "title": "Terms of Service Audit",
+      "url_path": "/pages/terms_audit",
+      "instruction": "Review these terms of service carefully. Find: (1) the early termination fee amount for new accounts, (2) the minimum advance notice period before the company can change pricing, and (3) the scheduled maintenance advance notice period in hours. Enter all values in the report form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "attention",
+        "patience",
+        "exploration"
+      ],
+      "secondary_primitives": [
+        "memory",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.report_submitted === true",
+          "data.termination_fee === 250",
+          "data.notice_period_correct === true",
+          "data.maintenance_notice_correct === true"
+        ],
+        "dom_check": [
+          {
+            "selector": "#report-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Two values correct, one wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 2)",
+            "score": 0.5
+          },
+          {
+            "description": "One value correct, two wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 1)",
+            "score": 0.0
+          },
+          {
+            "description": "All three values wrong",
+            "condition": "data.report_submitted === true && ((data.fee_correct === true) + (data.notice_period_correct === true) + (data.maintenance_notice_correct === true) === 0)",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.report_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "email_thread": {
+      "page_id": "email_thread",
+      "title": "Email Thread Tracker",
+      "url_path": "/pages/email_thread",
+      "instruction": "Read this email thread about the Project Aurora deadline. Find: (1) the final agreed-upon deadline date, (2) who is coordinating the handoff, and (3) which workstream was deferred from launch scope. Enter all values in the form at the bottom and submit.",
+      "difficulty": "hard",
+      "primary_primitives": [
+        "memory",
+        "attention",
+        "exploration"
+      ],
+      "secondary_primitives": [
+        "patience",
+        "verification"
+      ],
+      "time_limit_seconds": 180,
+      "success_criteria": {
+        "js_eval": [
+          "data.form_submitted === true",
+          "String(data.deadline || '').indexOf('March 22') !== -1 || String(data.deadline || '').indexOf('Mar 22') !== -1 || String(data.deadline || '').indexOf('3/22') !== -1",
+          "String(data.coordinator || '').toLowerCase().indexOf('sarah chen') !== -1",
+          "String(data.deferred_workstream || '').toLowerCase().indexOf('analytics') !== -1 && (String(data.deferred_workstream || '').toLowerCase().indexOf('defer') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast-follow') !== -1 || String(data.deferred_workstream || '').toLowerCase().indexOf('fast follow') !== -1)"
+        ],
+        "dom_check": [
+          {
+            "selector": "#submission-result",
+            "condition": "contains",
+            "value": "submitted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Two values correct, one wrong",
+            "condition": "data.form_submitted === true && ((data.deadline_correct === true) + (data.coordinator_correct === true) + (data.deferred_correct === true) === 2)",
+            "score": 0.5
+          },
+          {
+            "description": "One value correct, two wrong",
+            "condition": "data.form_submitted === true && ((data.deadline_correct === true) + (data.coordinator_correct === true) + (data.deferred_correct === true) === 1)",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted with superseded deadline",
+            "condition": "data.form_submitted === true && data.deadline_correct !== true",
+            "score": 0.0
+          }
+        ],
+        "failure": {
+          "condition": "data.form_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "ops_race_console": {
+      "page_id": "ops_race_console",
+      "title": "Ops Race Console",
+      "url_path": "/pages/ops_race_console",
+      "instruction": "In this live incident feed, escalate the single incident that matches all target constraints at freeze time: service Payments, region US-West, status Open, error rate strictly above 6.0%, and ack owner Unassigned. Wait for the stable window, run consistency check, freeze the feed, escalate that incident, then submit its incident ID, escalation code, and approval signature.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "verification",
+        "patience",
+        "attention"
+      ],
+      "secondary_primitives": [
+        "planning",
+        "memory",
+        "adversarial_robustness"
+      ],
+      "time_limit_seconds": 210,
+      "success_criteria": {
+        "js_eval": [
+          "data.submission_successful === true",
+          "data.feed_frozen === true",
+          "data.freeze_after_stable === true",
+          "data.consistency_check_clicked === true",
+          "data.verification_lock_armed === true",
+          "data.unique_match_at_freeze === true",
+          "data.escalated_incident_id === data.expected_incident_id",
+          "data.submitted_incident_id === data.expected_incident_id",
+          "data.submitted_code === data.expected_code",
+          "data.submitted_signature === data.expected_signature"
+        ],
+        "dom_check": [
+          {
+            "selector": "#result",
+            "condition": "contains",
+            "value": "validated"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Correct incident, code, and signature but consistency check was skipped",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && data.submitted_incident_id === data.expected_incident_id && data.submitted_code === data.expected_code && data.submitted_signature === data.expected_signature && data.consistency_check_clicked !== true",
+            "score": 0.0
+          },
+          {
+            "description": "Correct incident, code, and signature but froze before stable window",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && data.submitted_incident_id === data.expected_incident_id && data.submitted_code === data.expected_code && data.submitted_signature === data.expected_signature && data.freeze_after_stable !== true",
+            "score": -0.25
+          },
+          {
+            "description": "Froze during ambiguous window (not exactly one matching incident)",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Escalated or submitted wrong incident",
+            "condition": "data.feed_frozen === true && data.unique_match_at_freeze === true && (data.escalated_incident_id !== data.expected_incident_id || data.submitted_incident_id !== data.expected_incident_id)",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "policy_reconciliation": {
+      "page_id": "policy_reconciliation",
+      "title": "Policy Reconciliation Desk",
+      "url_path": "/pages/policy_reconciliation",
+      "instruction": "Reconcile enterprise vendor policy values for standard (non-red-zone) vendors after all approved 2026 amendments. Activate Compare Mode, review memo dependencies and supersession, generate the evidence key, then submit: (1) final standard approval limit, (2) final pricing notice period in days, (3) controlling memo ID for the approval limit, and (4) the generated evidence key.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "constraint_satisfaction",
+        "exploration",
+        "memory"
+      ],
+      "secondary_primitives": [
+        "verification",
+        "attention",
+        "planning"
+      ],
+      "time_limit_seconds": 210,
+      "success_criteria": {
+        "js_eval": [
+          "data.report_submitted === true",
+          "data.compare_mode_used === true",
+          "data.final_limit === 125000",
+          "data.notice_days === 21",
+          "String(data.source_memo_id || '').indexOf('D4') !== -1",
+          "data.evidence_key_submitted === data.evidence_key_expected"
+        ],
+        "dom_check": [
+          {
+            "selector": "#report-result",
+            "condition": "contains",
+            "value": "successfully"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "One numeric policy value correct, one wrong",
+            "condition": "data.report_submitted === true && ((data.final_limit === 125000) !== (data.notice_days === 21))",
+            "score": 0.5
+          },
+          {
+            "description": "Correct numeric values but missing/incorrect evidence key",
+            "condition": "data.report_submitted === true && data.final_limit === 125000 && data.notice_days === 21 && data.evidence_key_submitted !== data.evidence_key_expected",
+            "score": 0.0
+          },
+          {
+            "description": "Submitted superseded draft value (140000 / C3)",
+            "condition": "data.report_submitted === true && (data.final_limit === 140000 || String(data.source_memo_id || '').indexOf('C3') !== -1 || data.superseded_value_used === true)",
+            "score": 0.0
+          },
+          {
+            "description": "Correct numeric values but wrong controlling memo ID",
+            "condition": "data.report_submitted === true && data.final_limit === 125000 && data.notice_days === 21 && String(data.source_memo_id || '').indexOf('D4') === -1",
+            "score": 0.0
+          }
+        ],
+        "failure": {
+          "condition": "data.report_submitted !== true",
+          "score": -1.0
+        }
+      }
+    },
+    "migration_gatekeeper": {
+      "page_id": "migration_gatekeeper",
+      "title": "Migration Gatekeeper",
+      "url_path": "/pages/migration_gatekeeper",
+      "instruction": "Complete a validated migration for active customer records only. Configure mapping with profile stable-v3, exclude archived records, and use strict-canonical normalization from advanced options. Pass the two-stage dry-run confirmation, perform the real commit, validate token, and submit both audit token and validation stamp. Do not rely on quick-success paths.",
+      "difficulty": "frontier",
+      "primary_primitives": [
+        "backtracking",
+        "error_recovery",
+        "verification"
+      ],
+      "secondary_primitives": [
+        "reflection",
+        "planning",
+        "attention"
+      ],
+      "time_limit_seconds": 240,
+      "success_criteria": {
+        "js_eval": [
+          "data.final_submitted === true",
+          "data.submission_successful === true",
+          "data.mapping_profile === 'stable-v3'",
+          "data.include_archived === false",
+          "data.normalization_mode === 'strict-canonical'",
+          "data.dry_run_pass_count >= 2",
+          "data.dry_run_passed === true",
+          "data.real_commit_done === true",
+          "data.token_validated === true",
+          "data.quick_commit_clicked === false",
+          "data.token_entered === data.token_generated",
+          "data.validation_stamp_entered === data.validation_stamp_generated"
+        ],
+        "dom_check": [
+          {
+            "selector": "#final-result",
+            "condition": "contains",
+            "value": "accepted"
+          }
+        ]
+      },
+      "scoring": {
+        "full_success": {
+          "conditions": "all js_eval pass",
+          "score": 1.0
+        },
+        "partial": [
+          {
+            "description": "Completed validated path but clicked quick commit trap",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.dry_run_passed === true && data.mapping_profile === 'stable-v3' && data.include_archived === false && data.normalization_mode === 'strict-canonical' && data.token_entered === data.token_generated && data.quick_commit_clicked === true",
+            "score": 0.5
+          },
+          {
+            "description": "Submitted audit without token validation stamp",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.token_entered === data.token_generated && data.validation_stamp_entered !== data.validation_stamp_generated",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted audit without a validated dry run",
+            "condition": "data.final_submitted === true && data.dry_run_passed !== true",
+            "score": -0.5
+          },
+          {
+            "description": "Submitted audit with wrong token",
+            "condition": "data.final_submitted === true && data.real_commit_done === true && data.token_entered !== data.token_generated",
+            "score": -0.5
+          }
+        ],
+        "failure": {
+          "condition": "data.final_submitted !== true || data.submission_successful !== true",
+          "score": -1.0
+        }
+      }
+    }
+  }
+}
