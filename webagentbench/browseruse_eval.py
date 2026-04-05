@@ -148,6 +148,9 @@ def action_to_trajectory_format(action: dict) -> dict:
     if "done" in action:
         return {"action": "finish", "answer": action["done"].get("text", "")}
 
+    if "think" in action:
+        return {"action": "think"}
+
     return {"action": "unknown"}
 
 
@@ -462,15 +465,17 @@ async def run_episode(
             thinking = parsed.get("thinking", "")
             memory = parsed.get("memory", "")
 
+
             if verbose:
                 action_summary = json.dumps(actions[:1])[:80] if actions else "(no action)"
                 print(f"    Step {step + 1}: {action_summary}")
 
             if not actions:
+                # Agent produced thinking but no action — record as "think" step
                 last_error = "No actions produced"
                 trajectory.append(build_trajectory_step(
-                    step + 1, thinking, memory, [],
-                    {}, current_url, "ERROR: no action", round(elapsed, 1),
+                    step + 1, thinking, memory, [{"think": {}}],
+                    {}, current_url, "", round(elapsed, 1),
                 ))
                 continue
 
