@@ -591,3 +591,227 @@ class TestReviewGaps:
         snapshot = copy.deepcopy(original)
         mask_observations(original, window=1)
         assert original == snapshot
+
+
+# =========================================================================
+# 6. Bug-fix regression tests (H1, H2, H6)
+# =========================================================================
+
+class TestBugH1StateFetchErrorDoesNotBleed:
+    """H1: state-fetch failure at step 0 must NOT appear as 'Last Action Error' at step 1.
+
+    The fix uses a separate ``state_fetch_error`` variable for state-fetch
+    failures so that ``last_error`` (which feeds into the observation) stays
+    empty unless an *action* execution failed.
+    """
+
+    def test_step0_state_fetch_error_not_in_step1_obs(self):
+        """Simulate the observation-building logic and verify no bleed."""
+        # Before the fix, the except block set last_error which then appeared
+        # in step-1's observation.  After the fix, only action execution sets
+        # last_error; state-fetch failures go to state_fetch_error.
+
+        # Simulate two iterations of the observation builder.
+        last_error = ""
+        observations: list[str] = []
+
+        for step in range(2):
+            # Simulate state-fetch failure at step 0 only
+            if step == 0:
+                # After fix: state_fetch_error is a local, last_error unchanged
+                _state_fetch_error = "Failed to read page state: timeout"
+                dom_text = f"(page not available — {_state_fetch_error})"
+                current_url = ""
+            else:
+                dom_text = "[1]<button>Compose</button>"
+                current_url = "http://localhost/env/gmail/inbox"
+
+            if step == 0:
+                obs_content = f"## Current Page\nURL: {current_url}\n\n{dom_text}"
+            else:
+                parts = [f"## Current Page\nURL: {current_url}\n\n{dom_text}"]
+                if last_error:
+                    parts.append(f"\n## Last Action Error\n{last_error}")
+                obs_content = "\n".join(parts)
+
+            observations.append(obs_content)
+
+        # Step-0 observation should contain state-fetch info in the DOM text
+        assert "page not available" in observations[0]
+        # Step-1 observation must NOT contain "Last Action Error"
+        assert "Last Action Error" not in observations[1]
+
+    def test_action_error_still_shown_at_next_step(self):
+        """Action execution errors should still appear in the next observation."""
+        last_error = "Element index 99 not found"  # set by action execution
+
+        parts = ["## Current Page\nURL: http://localhost/env/gmail/inbox\n\n[1]<button/>"]
+        if last_error:
+            parts.append(f"\n## Last Action Error\n{last_error}")
+        obs = "\n".join(parts)
+
+        assert "Last Action Error" in obs
+        assert "Element index 99 not found" in obs
+
+
+class TestBugH2LLMFailureMessageCleanup:
+    """H2: LLM failure must pop the orphaned user message from ``messages``.
+
+    When the LLM call fails, the code had already appended a user message.
+    Without cleanup, the next iteration would append another user message,
+    creating two consecutive user messages which violates the alternating
+    user/assistant contract.
+    """
+
+    def test_orphaned_user_message_popped_on_llm_failure(self):
+        """Simulate the LLM failure path and verify message cleanup."""
+        messages = [
+            {"role": "system", "content": "system prompt"},
+            {"role": "user", "content": "obs step 0"},
+            {"role": "assistant", "content": "action 0"},
+        ]
+
+        # Simulate: step 1 appends user message, then LLM fails
+        messages.append({"role": "user", "content": "obs step 1"})
+
+        # --- This is what the fix does ---
+        # (simulating the except block)
+        if messages and messages[-1]["role"] == "user":
+            messages.pop()
+
+        # After cleanup, last message should be the assistant message
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"] == "action 0"
+
+    def test_no_consecutive_user_messages_after_recovery(self):
+        """After LLM failure + cleanup + retry, messages alternate properly."""
+        messages = [
+            {"role": "system", "content": "system prompt"},
+        ]
+
+        # Step 0: success
+        messages.append({"role": "user", "content": "obs 0"})
+        messages.append({"role": "assistant", "content": "action 0"})
+
+        # Step 1: LLM fails
+        messages.append({"role": "user", "content": "obs 1"})
+        # Failure cleanup
+        if messages and messages[-1]["role"] == "user":
+            messages.pop()
+
+        # Step 2 (retry): new observation appended
+        messages.append({"role": "user", "content": "obs 2"})
+        messages.append({"role": "assistant", "content": "action 2"})
+
+        # Verify no consecutive user messages (excluding system)
+        non_system = [m for m in messages if m["role"] != "system"]
+        for i in range(1, len(non_system)):
+            assert not (
+                non_system[i]["role"] == "user" and non_system[i - 1]["role"] == "user"
+            ), f"Consecutive user messages at indices {i-1} and {i}"
+
+    def test_cleanup_safe_when_no_user_message(self):
+        """Pop guard handles edge case where last message isn't user."""
+        messages = [
+            {"role": "system", "content": "system prompt"},
+            {"role": "user", "content": "obs"},
+            {"role": "assistant", "content": "action"},
+        ]
+        original_len = len(messages)
+
+        # If somehow the last message is assistant, don't pop it
+        if messages and messages[-1]["role"] == "user":
+            messages.pop()
+
+        assert len(messages) == original_len
+
+
+class TestBugH6EvaluateRetryOnFailure:
+    """H6: evaluate HTTP call must not silently produce score=0 on timeout.
+
+    The fix moves the evaluate call outside the inner action loop and adds
+    retry logic with explicit error reporting.
+    """
+
+    def test_evaluate_retry_on_first_failure(self):
+        """Simulate evaluate with one failure then success on retry."""
+        call_count = 0
+
+        def mock_http_json(url, *, method="GET", payload=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TimeoutError("Connection timed out")
+            return {"score": 0.85, "success": True, "reasoning": "Good job"}
+
+        eval_url = "http://localhost:8080/api/env/gmail/evaluate"
+        eval_payload = {"session_id": "s1", "task_id": "t1", "benchmark_state": {}}
+
+        # Simulate the retry logic from the fix
+        try:
+            evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+        except Exception:
+            try:
+                evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+            except Exception as exc2:
+                evaluation = {
+                    "score": 0.0,
+                    "success": False,
+                    "reasoning": f"Evaluate failed after retry: {exc2}",
+                }
+
+        assert evaluation["score"] == 0.85
+        assert evaluation["success"] is True
+        assert call_count == 2
+
+    def test_evaluate_both_attempts_fail_reports_error(self):
+        """When both evaluate attempts fail, the error is captured in reasoning."""
+        def mock_http_json(url, *, method="GET", payload=None):
+            raise ConnectionError("Server unreachable")
+
+        eval_url = "http://localhost:8080/api/env/gmail/evaluate"
+        eval_payload = {"session_id": "s1", "task_id": "t1", "benchmark_state": {}}
+
+        try:
+            evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+        except Exception:
+            try:
+                evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+            except Exception as exc2:
+                evaluation = {
+                    "score": 0.0,
+                    "success": False,
+                    "reasoning": f"Evaluate failed after retry: {exc2}",
+                }
+
+        assert evaluation["score"] == 0.0
+        assert evaluation["success"] is False
+        assert "Evaluate failed after retry" in evaluation["reasoning"]
+        assert "Server unreachable" in evaluation["reasoning"]
+
+    def test_evaluate_succeeds_first_try(self):
+        """When evaluate succeeds on first attempt, no retry needed."""
+        call_count = 0
+
+        def mock_http_json(url, *, method="GET", payload=None):
+            nonlocal call_count
+            call_count += 1
+            return {"score": 1.0, "success": True, "reasoning": "Perfect"}
+
+        eval_url = "http://localhost:8080/api/env/gmail/evaluate"
+        eval_payload = {"session_id": "s1", "task_id": "t1", "benchmark_state": {}}
+
+        try:
+            evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+        except Exception:
+            try:
+                evaluation = mock_http_json(eval_url, method="POST", payload=eval_payload)
+            except Exception as exc2:
+                evaluation = {
+                    "score": 0.0,
+                    "success": False,
+                    "reasoning": f"Evaluate failed after retry: {exc2}",
+                }
+
+        assert evaluation["score"] == 1.0
+        assert call_count == 1

@@ -429,9 +429,11 @@ async def run_episode(
                 current_url = state.url
             except Exception as exc:
                 logger.warning("Failed to get browser state at step %d: %s", step + 1, exc)
-                last_error = f"Failed to read page state: {exc}"
+                # Use a separate variable so state-fetch errors don't bleed
+                # into the next step's observation as a "last action error".
+                state_fetch_error = f"Failed to read page state: {exc}"
                 # Build a minimal observation so the agent can attempt recovery
-                dom_text = "(page not available)"
+                dom_text = f"(page not available — {state_fetch_error})"
                 selector_map = {}
                 current_url = ""
 
@@ -459,6 +461,11 @@ async def run_episode(
             except Exception as exc:
                 logger.error("LLM call failed at step %d: %s", step + 1, exc)
                 consecutive_llm_failures += 1
+                # Remove the orphaned user message so the next iteration
+                # can append a fresh observation without creating two
+                # consecutive user messages.
+                if messages and messages[-1]["role"] == "user":
+                    messages.pop()
                 if consecutive_llm_failures >= 3:
                     logger.error("Aborting: %d consecutive LLM failures", consecutive_llm_failures)
                     evaluation = {"score": 0.0, "success": False,
@@ -500,32 +507,6 @@ async def run_episode(
                         done_payload = action["done"]
                         action_status = "FINISH"
                         completed = True
-
-                        # Evaluate via server
-                        try:
-                            # Grab benchmark state from browser JS context
-                            page = await browser.get_current_page()
-                            if page:
-                                benchmark_state_str = await page.evaluate(
-                                    "() => JSON.stringify(window.__benchmarkState || {})"
-                                )
-                                benchmark_state = json.loads(benchmark_state_str) if benchmark_state_str else {}
-                            else:
-                                benchmark_state = {}
-                        except Exception as exc:
-                            logger.warning("Failed to extract benchmark state for task %s: %s", task_id, exc)
-                            benchmark_state = {}
-
-                        eval_result = _http_json(
-                            f"{bench_url}/api/env/{env_id}/evaluate",
-                            method="POST",
-                            payload={
-                                "session_id": session_id,
-                                "task_id": task_id,
-                                "benchmark_state": benchmark_state,
-                            },
-                        )
-                        evaluation = eval_result
                         break
 
                     elif "click" in action:
@@ -642,34 +623,42 @@ async def run_episode(
             if completed:
                 break
 
-        # ── 4. If agent didn't call done, evaluate anyway ───────────
-        if not completed:
-            try:
-                page = await browser.get_current_page()
-                if page:
-                    benchmark_state_str = await page.evaluate(
-                        "() => JSON.stringify(window.__benchmarkState || {})"
-                    )
-                    benchmark_state = json.loads(benchmark_state_str) if benchmark_state_str else {}
-                else:
-                    benchmark_state = {}
-            except Exception as exc:
-                logger.warning("Failed to extract benchmark state for task %s: %s", task_id, exc)
-                benchmark_state = {}
-
-            try:
-                eval_result = _http_json(
-                    f"{bench_url}/api/env/{env_id}/evaluate",
-                    method="POST",
-                    payload={
-                        "session_id": session_id,
-                        "task_id": task_id,
-                        "benchmark_state": benchmark_state,
-                    },
+        # ── 4. Evaluate ────────────────────────────────────────────
+        # Evaluate outside the action loop so that HTTP failures
+        # get proper error handling instead of being swallowed by
+        # the inner action try/except (which would leave score=0).
+        try:
+            page = await browser.get_current_page()
+            if page:
+                benchmark_state_str = await page.evaluate(
+                    "() => JSON.stringify(window.__benchmarkState || {})"
                 )
-                evaluation = eval_result
-            except Exception as exc:
-                logger.error("Post-loop evaluation failed: %s", exc)
+                benchmark_state = json.loads(benchmark_state_str) if benchmark_state_str else {}
+            else:
+                benchmark_state = {}
+        except Exception as exc:
+            logger.warning("Failed to extract benchmark state for task %s: %s", task_id, exc)
+            benchmark_state = {}
+
+        eval_payload = {
+            "session_id": session_id,
+            "task_id": task_id,
+            "benchmark_state": benchmark_state,
+        }
+        eval_url = f"{bench_url}/api/env/{env_id}/evaluate"
+        try:
+            evaluation = _http_json(eval_url, method="POST", payload=eval_payload)
+        except Exception as exc:
+            logger.error("Evaluate call failed: %s — retrying once", exc)
+            try:
+                evaluation = _http_json(eval_url, method="POST", payload=eval_payload)
+            except Exception as exc2:
+                logger.error("Evaluate retry also failed: %s", exc2)
+                evaluation = {
+                    "score": 0.0,
+                    "success": False,
+                    "reasoning": f"Evaluate failed after retry: {exc2}",
+                }
 
     finally:
         # ── 5. Cleanup ──────────────────────────────────────────────
