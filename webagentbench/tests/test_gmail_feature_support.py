@@ -137,3 +137,19 @@ def test_filters_preserve_never_spam_flag() -> None:
 
     assert created.never_spam is True
     assert state.filters[-1].never_spam is True
+
+
+def test_send_email_normalizes_display_name_recipients() -> None:
+    state = _build_state()
+
+    sent = state.send_email(
+        to=["Ravi Menon <SOFIA.BROOKS@ATLAS.DEV>"],
+        cc=["Priya Sharma <PRIYA@ATLAS.DEV>"],
+        bcc=["LEGAL@ATLAS.DEV"],
+        subject="Atlas decision",
+        body="Forwarding the final decision on Project Atlas.",
+    )
+
+    assert sent.to == ["sofia.brooks@atlas.dev"]
+    assert sent.cc == ["priya@atlas.dev"]
+    assert sent.bcc == ["legal@atlas.dev"]

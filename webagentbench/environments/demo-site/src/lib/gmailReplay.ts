@@ -106,10 +106,24 @@ function normalizeText(value: string | null | undefined) {
   return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function normalizeRecipient(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const match = trimmed.match(/<\s*([^\s<>]+@[^\s<>]+)\s*>/);
+  if (match) {
+    return match[1].toLowerCase();
+  }
+
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed;
+}
+
 function splitList(value: string) {
   return value
     .split(",")
-    .map((item) => item.trim())
+    .map((item) => normalizeRecipient(item))
     .filter(Boolean);
 }
 

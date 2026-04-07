@@ -13,10 +13,31 @@ interface ComposeFormProps {
   autoScrollIntoView?: boolean;
 }
 
-function splitAddresses(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
+export function splitAddresses(value: string) {
+  // Split on commas that are outside of quotes and angle brackets so that
+  // display-name forms like "Doe, Jane" <jane@example.com> stay intact.
+  const tokens: string[] = [];
+  let current = "";
+  let inQuote = false;
+  let inAngle = false;
+  for (const ch of value) {
+    if (ch === '"' && !inAngle) { inQuote = !inQuote; current += ch; continue; }
+    if (ch === '<' && !inQuote) { inAngle = true; current += ch; continue; }
+    if (ch === '>' && !inQuote) { inAngle = false; current += ch; continue; }
+    if (ch === ',' && !inQuote && !inAngle) { tokens.push(current); current = ""; continue; }
+    current += ch;
+  }
+  if (current) tokens.push(current);
+
+  return tokens
+    .map((item) => {
+      const trimmed = item.trim();
+      if (!trimmed) return "";
+      // Extract email from "Display Name <email>" format
+      const match = trimmed.match(/<\s*([^\s<>]+@[^\s<>]+)\s*>/);
+      if (match) return match[1].toLowerCase();
+      return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed;
+    })
     .filter(Boolean);
 }
 

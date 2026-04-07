@@ -138,4 +138,24 @@ describe("gmailMutator mailbox counts", () => {
 
     expect(response.items.map((item) => item.id)).toEqual(["email_1"]);
   });
+
+  it("normalizes display-name recipients before sending", () => {
+    const fixture = makeFixture();
+    const { response } = gmailMutator(
+      fixture,
+      "POST",
+      "send",
+      {
+        to: ["Ravi Menon <SOFIA.BROOKS@ATLAS.DEV>"],
+        cc: ["Priya Sharma <PRIYA@ATLAS.DEV>"],
+        bcc: ["LEGAL@ATLAS.DEV"],
+        subject: "Atlas decision",
+        body: "Forwarding the final decision on Project Atlas.",
+      },
+    ) as { response: { email: { to: string[]; cc: string[]; bcc?: string[] } } };
+
+    expect(response.email.to).toEqual(["sofia.brooks@atlas.dev"]);
+    expect(response.email.cc).toEqual(["priya@atlas.dev"]);
+    expect(response.email.bcc).toEqual(["legal@atlas.dev"]);
+  });
 });

@@ -3,9 +3,10 @@ from __future__ import annotations
 import fnmatch
 import shlex
 from datetime import date, datetime, time, timedelta, timezone
+from email.utils import getaddresses
 from typing import Any
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 
 from .base import BaseEntity, BaseEnvState
 
@@ -112,6 +113,33 @@ def _parse_relative_duration(value: str) -> timedelta | None:
     return None
 
 
+def _canonicalize_recipient(value: str) -> str:
+    trimmed = value.strip()
+    if "@" in trimmed:
+        return trimmed.lower()
+    return trimmed
+
+
+def _normalize_recipient_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+
+    raw_values = [values] if isinstance(values, str) else [str(value) for value in values]
+    parsed = [
+        _canonicalize_recipient(addr)
+        for _, addr in getaddresses(raw_values)
+        if addr.strip()
+    ]
+    if parsed:
+        return parsed
+
+    return [
+        _canonicalize_recipient(value)
+        for value in raw_values
+        if value.strip()
+    ]
+
+
 class Attachment(BaseEntity):
     filename: str
     content_type: str
@@ -142,6 +170,11 @@ class Email(BaseEntity):
 
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("to", "cc", "bcc", mode="before")
+    @classmethod
+    def _normalize_recipients(cls, value: Any) -> list[str]:
+        return _normalize_recipient_list(value)
+
     @property
     def snippet(self) -> str:
         return " ".join(self.body.split())[:140]
@@ -157,6 +190,11 @@ class Draft(BaseEntity):
     thread_id: str | None = None
     in_reply_to: str | None = None
     updated_at: datetime
+
+    @field_validator("to", "cc", "bcc", mode="before")
+    @classmethod
+    def _normalize_recipients(cls, value: Any) -> list[str]:
+        return _normalize_recipient_list(value)
 
 
 class Contact(BaseEntity):

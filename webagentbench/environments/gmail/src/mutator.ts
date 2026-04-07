@@ -41,6 +41,26 @@ function snippet(body: string): string {
   return body.split(/\s+/).join(" ").slice(0, 140);
 }
 
+function normalizeRecipient(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const match = trimmed.match(/<\s*([^\s<>]+@[^\s<>]+)\s*>/);
+  if (match) {
+    return match[1].toLowerCase();
+  }
+
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed;
+}
+
+function normalizeRecipients(values: string[] | undefined): string[] {
+  return (values ?? [])
+    .map((value) => normalizeRecipient(String(value)))
+    .filter(Boolean);
+}
+
 function threadSize(state: GmailFixture, threadId: string): number {
   return allMail(state).filter((e) => e.thread_id === threadId).length;
 }
@@ -366,9 +386,9 @@ route("POST", "emails/:emailId/delete", (state, params) => {
 // POST /emails/:emailId/forward
 route("POST", "emails/:emailId/forward", (state, params, body) => {
   const original = requireEmail(state, params.emailId);
-  const to = (body?.to as string[]) ?? [];
-  const cc = (body?.cc as string[]) ?? [];
-  const bcc = (body?.bcc as string[]) ?? [];
+  const to = normalizeRecipients(body?.to as string[] | undefined);
+  const cc = normalizeRecipients(body?.cc as string[] | undefined);
+  const bcc = normalizeRecipients(body?.bcc as string[] | undefined);
   const fwdBody = String(body?.body ?? "");
 
   const subject = original.subject.toLowerCase().startsWith("fwd:")
@@ -403,9 +423,9 @@ route("POST", "emails/:emailId/forward", (state, params, body) => {
 
 // POST /send
 route("POST", "send", (state, _params, body) => {
-  const to = (body?.to as string[]) ?? [];
-  const cc = (body?.cc as string[]) ?? [];
-  const bcc = (body?.bcc as string[]) ?? [];
+  const to = normalizeRecipients(body?.to as string[] | undefined);
+  const cc = normalizeRecipients(body?.cc as string[] | undefined);
+  const bcc = normalizeRecipients(body?.bcc as string[] | undefined);
   const subject = String(body?.subject ?? "");
   const emailBody = String(body?.body ?? "");
   const inReplyTo = (body?.in_reply_to as string | null) ?? null;
