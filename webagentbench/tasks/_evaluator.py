@@ -360,8 +360,16 @@ def evaluate(
     # ------------------------------------------------------------------
     # Collateral-damage detection (analytics only)
     # ------------------------------------------------------------------
-    initial_snapshot = getattr(server_state, "initial_snapshot", None)
-    collateral = _compute_collateral(initial_snapshot, server_state)
+    # Prefer the env's own compute_collateral() method (env-agnostic).
+    # Fall back to the legacy Gmail-specific _compute_collateral() for
+    # backwards compatibility.
+    initial_snapshot = getattr(server_state, "_initial_snapshot", None)
+    if initial_snapshot is not None and hasattr(server_state, "compute_collateral"):
+        collateral = server_state.compute_collateral(initial_snapshot)
+    else:
+        # Legacy path: try the old attribute name and Gmail-specific diffing.
+        initial_snapshot = initial_snapshot or getattr(server_state, "initial_snapshot", None)
+        collateral = _compute_collateral(initial_snapshot, server_state)
 
     if collateral:
         dims = list(collateral.keys())
