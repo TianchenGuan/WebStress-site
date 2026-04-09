@@ -34,19 +34,23 @@ function useIsActive(to: string): boolean {
   const toSearch = qIndex >= 0 ? to.slice(qIndex) : "";
 
   if (location.pathname !== toPath) return false;
-  if (!toSearch) return true;
 
   const toParams = new URLSearchParams(toSearch);
   const currentParams = new URLSearchParams(location.search);
+
+  // Routing-significant keys: if the current URL has one of these that `to`
+  // omits, the link should NOT be considered active.  This prevents e.g.
+  // "Home" (/feed) from matching "Popular" (/feed?sort=hot).
+  const routingKeys = ["label", "filter", "sort"];
+  for (const key of routingKeys) {
+    if (currentParams.has(key) && !toParams.has(key)) return false;
+  }
+
+  if (!toSearch) return true;
+
   // All params specified in `to` must exist in the current URL
   for (const [key, value] of toParams) {
     if (currentParams.get(key) !== value) return false;
-  }
-  // Current URL must not have routing-significant params that `to` omits,
-  // otherwise e.g. Inbox (?label=inbox) also matches Starred (?label=inbox&filter=starred)
-  const routingKeys = ["label", "filter"];
-  for (const key of routingKeys) {
-    if (currentParams.has(key) && !toParams.has(key)) return false;
   }
   return true;
 }
