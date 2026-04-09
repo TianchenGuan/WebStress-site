@@ -1,15 +1,12 @@
 task_id: gmail_label_workflow_setup
 env_id: gmail
 title: Label Workflow Setup
-instruction_template: 'Set up a label workflow for the new project. Create three labels:
-  ''Project Alpha'', ''Needs Review'', and ''Client Feedback''. Then search for emails
-  from {target.client_domain} and apply the ''Client Feedback'' label to each. Search
-  for emails with ''review'' in the subject and apply the ''Needs Review'' label to
-  each. Apply the ''Project Alpha'' label to all project-related emails — the ones
-  from {target.client_domain} and the review emails. Then go to Settings > Labels
-  and set ''Project Alpha'' to show if unread, and set ''Client Feedback'' to hidden.
-  Finally, remove the ''Needs Review'' label from the email about ''{target.wrong_review_subject}''
-  — it was mislabeled.'
+instruction_template: 'Set up a label workflow for the new project. Create three labels: ''Project Alpha'', ''Needs Review'',
+  and ''Client Feedback''. Then search for emails from {target.client_domain} and apply the ''Client Feedback'' label to each.
+  Search for emails with ''review'' in the subject and apply the ''Needs Review'' label to each. Apply the ''Project Alpha''
+  label to all project-related emails — the ones from {target.client_domain} and the review emails. Then go to Settings >
+  Labels and set ''Project Alpha'' to show if unread, and set ''Client Feedback'' to hidden. Finally, remove the ''Needs Review''
+  label from the email about ''{target.wrong_review_subject}'' — it was mislabeled.'
 difficulty: medium
 time_limit_seconds: 360
 expected_steps: 38
@@ -57,15 +54,16 @@ eval:
     desc: Review emails labeled Needs Review
   - expr: all('Project Alpha' in state.get_email(eid).labels for eid in {target.project_email_ids})
     desc: Project emails labeled Project Alpha
-  - expr: any(l.name == 'Project Alpha' and l.show_in_label_list == 'show_if_unread'
-      for l in state.labels)
+  - expr: any(l.name == 'Project Alpha' and l.show_in_label_list == 'show_if_unread' for l in state.labels)
     desc: PA visibility correct
-  - expr: any(l.name == 'Client Feedback' and l.show_in_label_list == 'hide' for l
-      in state.labels)
+  - expr: any(l.name == 'Client Feedback' and l.show_in_label_list == 'hide' for l in state.labels)
     desc: CF visibility correct
   - expr: '''Needs Review'' not in state.get_email(''{target.wrong_review_id}'').labels'
     desc: Wrong review label removed
   negative_checks:
   - expr: '''Needs Review'' not in state.get_email(''{target.correct_non_review_id}'').labels'
     desc: Non-review email not mis-labeled
+    penalty: 0.15
+  - expr: len(state.sent) == 0
+    desc: No emails sent when none required
     penalty: 0.15

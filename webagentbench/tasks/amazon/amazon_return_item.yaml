@@ -1,9 +1,10 @@
 task_id: amazon_return_item
 env_id: amazon
 title: Request a Return for a Defective Item
-instruction_template: >
-  Go to your orders, find the delivered order containing "{target.product_name}",
-  and request a return for it. Select "defective" as the reason for the return.
+instruction_template: 'Go to your orders, find the delivered order containing "{target.product_name}", and request a return
+  for it. Select "defective" as the reason for the return.
+
+  '
 difficulty: medium
 time_limit_seconds: 240
 expected_steps: 16
@@ -48,14 +49,22 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.order_id == '{target.order_id}' and 'defective' in r.reason.lower()
-      for r in state.returns)
+  - expr: 'any(r.order_id == ''{target.order_id}'' and ''defective'' in r.reason.lower() for r in state.returns)
+
+      '
     desc: A return with reason "defective" was filed for the correct order
-  - expr: "any(state.get_order(r.order_id) is not None and state.get_order(r.order_id).status in ('delivered', 'returned') for r in state.returns if r.order_id == '{target.order_id}')"
+  - expr: any(state.get_order(r.order_id) is not None and state.get_order(r.order_id).status in ('delivered', 'returned')
+      for r in state.returns if r.order_id == '{target.order_id}')
     desc: Return was filed against a delivered order
   negative_checks:
-  - expr: >
-      sum(1 for r in state.returns if r.order_id == '{target.order_id}') <= 1
+  - expr: 'sum(1 for r in state.returns if r.order_id == ''{target.order_id}'') <= 1
+
+      '
     desc: Only one return was filed for the target order
+    penalty: 0.15
+  - expr: len(state.cart_items) == 0
+    desc: Cart empty after checkout
+    penalty: 0.1
+  - expr: len(state.orders) <= 3
+    desc: No excessive orders placed
     penalty: 0.15

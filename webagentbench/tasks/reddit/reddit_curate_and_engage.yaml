@@ -91,3 +91,12 @@ eval:
   - expr: len(state.hidden_post_ids) <= 1
     desc: At most one post hidden
     penalty: 0.2
+  - expr: len(state.sent_messages) == 0
+    desc: No messages sent when none required
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
+    desc: No posts created when none required
+    penalty: 0.15
+  - expr: len(state.blocked_users) == 0
+    desc: No users blocked when none required
+    penalty: 0.15

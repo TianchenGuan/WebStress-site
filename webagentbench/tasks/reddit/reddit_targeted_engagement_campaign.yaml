@@ -85,5 +85,11 @@ eval:
   - expr: state.get_post('{target.sci_id}').vote_direction == 0
     desc: Science post not voted
     penalty: 0.15
+  - expr: len(state.sent_messages) <= 3
+    desc: No excessive messages sent
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
+    desc: No posts created when none required
+    penalty: 0.15
 env_id: reddit
 start_path: /feed

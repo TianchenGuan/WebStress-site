@@ -1,15 +1,12 @@
 task_id: gmail_budget_reconciliation
 env_id: gmail
 title: Budget Reconciliation
-instruction_template: Three department heads sent you their Q1 budget numbers. {target.dept_a_name}
-  sent the {target.dept_a_dept} figures, {target.dept_b_name} sent the {target.dept_b_dept}
-  figures, and {target.dept_c_name} sent the {target.dept_c_dept} figures. A fourth
-  email from {target.summary_author_name} attempts to summarize all three — but two
-  of the numbers are wrong. Read all four emails, identify the errors, and reply to
-  {target.summary_author_name}'s email with the two corrections. Reply only to {target.summary_author_name}
-  (do not Reply All — the summary is CC'd to the CFO and board). Star the three department
-  emails for reference. Create a 'Budget Verified' label and apply it to all four
-  budget emails.
+instruction_template: Three department heads sent you their Q1 budget numbers. {target.dept_a_name} sent the {target.dept_a_dept}
+  figures, {target.dept_b_name} sent the {target.dept_b_dept} figures, and {target.dept_c_name} sent the {target.dept_c_dept}
+  figures. A fourth email from {target.summary_author_name} attempts to summarize all three — but two of the numbers are wrong.
+  Read all four emails, identify the errors, and reply to {target.summary_author_name}'s email with the two corrections. Reply
+  only to {target.summary_author_name} (do not Reply All — the summary is CC'd to the CFO and board). Star the three department
+  emails for reference. Create a 'Budget Verified' label and apply it to all four budget emails.
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 42
@@ -60,12 +57,10 @@ eval:
   checks:
   - expr: len(state.sent) >= 1
     desc: At least one email sent
-  - expr: >
-      any(m.in_reply_to == '{target.summary_id}'
-      and m.to == ['{target.summary_author_email}']
-      and '{target.correct_value_1}' in m.body
-      and '{target.correct_value_2}' in m.body
-      for m in state.sent)
+  - expr: 'any(m.in_reply_to == ''{target.summary_id}'' and m.to == [''{target.summary_author_email}''] and ''{target.correct_value_1}''
+      in m.body and ''{target.correct_value_2}'' in m.body for m in state.sent)
+
+      '
     desc: Single threaded reply to the summary author includes both corrections
   - expr: all(state.get_email(eid).is_starred for eid in {target.dept_ids})
     desc: Department emails starred
@@ -75,3 +70,9 @@ eval:
   - expr: not any(len(m.to) > 1 for m in state.sent if m.in_reply_to == '{target.summary_id}')
     desc: Single recipient (not Reply All)
     penalty: 0.2
+  - expr: len(state.sent) <= 3
+    desc: No excessive emails sent
+    penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.15

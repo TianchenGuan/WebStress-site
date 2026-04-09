@@ -1,15 +1,12 @@
 task_id: gmail_vacation_preparation
 env_id: gmail
 title: Vacation Preparation
-instruction_template: 'Prepare for your vacation. First, go to Settings and: enable
-  the vacation responder with the message ''{target.vacation_message}'', update your
-  signature to include ''{target.ooo_note}'', and change undo send to 30 seconds.
-  Then create a filter that forwards emails from {target.boss_email} to {target.backup_email}
-  and stars them. Go back to your inbox and reply to three pending emails: reply to
-  {target.pending_a_sender} about the vendor proposal, reply to {target.pending_b_sender}
-  about the timeline (Reply only — the thread includes others), and reply to {target.pending_c_sender}
-  confirming attendance. Star the two emails you need to follow up on when you return,
-  and create a ''Return Attention'' label for them.'
+instruction_template: 'Prepare for your vacation. First, go to Settings and: enable the vacation responder with the message
+  ''{target.vacation_message}'', update your signature to include ''{target.ooo_note}'', and change undo send to 30 seconds.
+  Then create a filter that forwards emails from {target.boss_email} to {target.backup_email} and stars them. Go back to your
+  inbox and reply to three pending emails: reply to {target.pending_a_sender} about the vendor proposal, reply to {target.pending_b_sender}
+  about the timeline (Reply only — the thread includes others), and reply to {target.pending_c_sender} confirming attendance.
+  Star the two emails you need to follow up on when you return, and create a ''Return Attention'' label for them.'
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 60
@@ -59,8 +56,7 @@ eval:
     desc: Signature updated with OOO note
   - expr: state.settings.undo_send_seconds == 30
     desc: Undo send set to 30 seconds
-  - expr: any(r.forward_to == '{target.backup_email}' and r.star and '{target.boss_email}'
-      in r.from_addresses for r in state.filters)
+  - expr: any(r.forward_to == '{target.backup_email}' and r.star and '{target.boss_email}' in r.from_addresses for r in state.filters)
     desc: Boss email filter created with forward and star
   - expr: any(m.in_reply_to == '{target.pending_a_id}' for m in state.sent)
     desc: Vendor proposal replied to
@@ -75,4 +71,10 @@ eval:
   negative_checks:
   - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.pending_b_id}')
     desc: Timeline reply was not Reply All
+    penalty: 0.15
+  - expr: len(state.sent) <= 5
+    desc: No excessive emails sent
+    penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
     penalty: 0.15

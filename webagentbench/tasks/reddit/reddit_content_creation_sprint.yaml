@@ -159,10 +159,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.settings.theme == 'dark'
-    desc: Theme dark
-  - expr: state.unread_notification_count() == 0
-    desc: Notifications read
-  negative_checks: []
+  # Step 1: Post in r/Python
+  - expr: "any(p.subreddit_name == 'Python' and '{target.py_title}' in p.title and p.author_name == state.owner_username for p in state.posts)"
+    desc: Post created in r/Python with correct title
+  # Step 2: Post in r/MachineLearning
+  - expr: "any(p.subreddit_name == '{target.join}' and '{target.ml_title}' in p.title and p.author_name == state.owner_username for p in state.posts)"
+    desc: Post created in r/{target.join} with correct title
+  # Step 3: Comment on programming post
+  - expr: "any(c.post_id == '{target.prog_id}' and '{target.prog_comment}' in c.body and c.author_name == state.owner_username for c in state.comments)"
+    desc: Commented on programming post
+  # Step 4: Reply to DeepDiver
+  - expr: "any(c.post_id == '{target.prog_id}' and '{target.reply_text}' in c.body and c.author_name == state.owner_username and c.parent_id == '{target.reply_id}' for c in state.comments)"
+    desc: Replied to u/{target.reply_author}
+  # Step 5: Subscribe to r/MachineLearning
+  - expr: "any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)"
+    desc: Subscribed to r/{target.join}
+  # Step 6: Send message
+  - expr: "any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_sub}' for m in state.sent_messages)"
+    desc: Message sent to u/{target.msg_to}
+  # Step 7: Settings
+  - expr: "state.settings.theme == 'dark'"
+    desc: Theme set to dark
+  - expr: "state.settings.default_comment_sort == 'new'"
+    desc: Comment sort set to new
+  negative_checks:
+  - expr: "not any(p.vote_direction != 0 for p in state.posts if state.get_post(p.id) is not None)"
+    desc: No voting on any posts (instruction says do not vote)
+    penalty: 0.2
+  - expr: len(state.sent_messages) <= 2
+    desc: No excessive messages sent
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 3
+    desc: No excessive posts created
+    penalty: 0.15
 env_id: reddit
 start_path: /feed

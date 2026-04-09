@@ -1,13 +1,11 @@
 task_id: gmail_thread_archaeology
 env_id: gmail
 title: Thread Archaeology
-instruction_template: Find the email thread about '{target.thread_subject}' and read
-  through all the messages — the most important details are in the earlier messages,
-  not the latest one. Look for the action item assigned to a specific person and the
-  deadline mentioned. Forward the thread to that person with a note that includes
-  the deadline. CC their manager (also mentioned in the thread). Reply to the thread
-  confirming you have delegated the action item. Create a 'Pending Action' label and
-  apply it to the thread. Star it for follow-up.
+instruction_template: Find the email thread about '{target.thread_subject}' and read through all the messages — the most important
+  details are in the earlier messages, not the latest one. Look for the action item assigned to a specific person and the
+  deadline mentioned. Forward the thread to that person with a note that includes the deadline. CC their manager (also mentioned
+  in the thread). Reply to the thread confirming you have delegated the action item. Create a 'Pending Action' label and apply
+  it to the thread. Star it for follow-up.
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 48
@@ -44,11 +42,9 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.assignee_email}'
-      in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.assignee_email}' in m.to for m in state.sent)
     desc: Thread forwarded to correct assignee
-  - expr: any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.manager_email}'
-      in m.cc for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.manager_email}' in m.cc for m in state.sent)
     desc: Manager CC'd on forward
   - expr: any(m.in_reply_to == '{target.thread_email_id}' for m in state.sent)
     desc: Thread replied to with delegation confirmation
@@ -56,11 +52,15 @@ eval:
     desc: Pending Action label applied
   - expr: state.get_email('{target.thread_email_id}').is_starred
     desc: Thread email starred for follow-up
-  - expr: any('{target.deadline}' in m.body and m.forwarded_from_id == '{target.thread_email_id}'
-      for m in state.sent)
+  - expr: any('{target.deadline}' in m.body and m.forwarded_from_id == '{target.thread_email_id}' for m in state.sent)
     desc: Deadline included in forward body
   negative_checks:
-  - expr: not any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.wrong_person_email}'
-      in m.to for m in state.sent)
+  - expr: not any(m.forwarded_from_id == '{target.thread_email_id}' and '{target.wrong_person_email}' in m.to for m in state.sent)
     desc: Thread not forwarded to wrong person
     penalty: 0.2
+  - expr: len(state.sent) <= 3
+    desc: No excessive emails sent
+    penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.1

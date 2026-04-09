@@ -21,4 +21,10 @@ eval:
   checks:
   - expr: any(l.name == 'Important Projects' for l in state.labels)
     desc: Label 'Important Projects' exists
-  negative_checks: []
+  negative_checks:
+  - expr: len(state.sent) == 0
+    desc: No emails sent when none required
+    penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.15

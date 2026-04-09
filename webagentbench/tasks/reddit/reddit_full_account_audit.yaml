@@ -158,10 +158,41 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.settings.theme == 'dark'
-    desc: Theme dark
+  # Step 1: Block user
+  - expr: "'{target.block_user}' in state.blocked_users"
+    desc: Blocked u/{target.block_user}
+  # Step 3: Delete message from blocked user
+  - expr: "not any(m.id == '{target.del_id}' for m in state.messages)"
+    desc: Message from blocked user deleted
+  # Step 4: Settings
+  - expr: "state.settings.theme == 'dark'"
+    desc: Theme set to dark
+  - expr: state.settings.show_online_status == False
+    desc: Show online status disabled
+  - expr: state.settings.allow_followers == False
+    desc: Allow followers disabled
+  - expr: state.settings.show_active_communities == False
+    desc: Show active communities disabled
+  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages
+    desc: All email notifications disabled
+  # Step 6: Unsubscribed from r/memes
+  - expr: "not any(s.name == '{target.leave_sub}' and s.is_subscribed for s in state.subreddits)"
+    desc: Unsubscribed from r/{target.leave_sub}
+  # Step 7: Found, saved and upvoted post
+  - expr: "'{target.wn_id}' in state.saved_post_ids"
+    desc: Target post saved
+  # Step 8: Notifications read
   - expr: state.unread_notification_count() == 0
-    desc: Notifications read
-  negative_checks: []
+    desc: All notifications read
+  negative_checks:
+  - expr: len(state.blocked_users) <= 2
+    desc: No excessive users blocked
+    penalty: 0.15
+  - expr: len(state.sent_messages) == 0
+    desc: No messages sent when none required
+    penalty: 0.1
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
+    desc: No posts created when none required
+    penalty: 0.1
 env_id: reddit
 start_path: /feed

@@ -64,6 +64,15 @@ eval:
     desc: Subscribed ML
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
-  negative_checks: []
+  negative_checks:
+  - expr: len(state.sent_messages) <= 2
+    desc: No excessive messages sent
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
+    desc: No posts created when none required
+    penalty: 0.1
+  - expr: len(state.blocked_users) == 0
+    desc: No users blocked when none required
+    penalty: 0.1
 env_id: reddit
 start_path: /feed

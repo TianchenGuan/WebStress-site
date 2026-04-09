@@ -157,10 +157,47 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.settings.theme == 'dark'
-    desc: Theme dark
+  # Steps 1-2: All notifications and messages read
   - expr: state.unread_notification_count() == 0
-    desc: Notifications read
-  negative_checks: []
+    desc: All notifications read
+  - expr: state.unread_message_count() == 0
+    desc: All messages read
+  # Step 3: Reply to message
+  - expr: "any(m.to_user == '{target.r_from}' and '{target.r_body}' in m.body for m in state.sent_messages)"
+    desc: Replied to u/{target.r_from}
+  # Step 4: Delete spam message
+  - expr: "not any(m.id == '{target.del_id}' for m in state.messages)"
+    desc: Spam message deleted
+  # Step 5: Worldnews post upvoted, saved, and commented
+  - expr: "'{target.wn_id}' in state.saved_post_ids"
+    desc: Worldnews post saved
+  - expr: "any(c.post_id == '{target.wn_id}' and '{target.c1}' in c.body and c.author_name == state.owner_username for c in state.comments)"
+    desc: Commented on worldnews post
+  # Step 6: Programming post saved
+  - expr: "'{target.prog_id}' in state.saved_post_ids"
+    desc: Programming post saved
+  # Step 7: Subscribed to r/MachineLearning
+  - expr: "any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)"
+    desc: Subscribed to r/{target.join}
+  # Step 8: Created post in r/MachineLearning
+  - expr: "any(p.subreddit_name == '{target.join}' and '{target.pt}' in p.title and p.author_name == state.owner_username for p in state.posts)"
+    desc: Post created in r/{target.join}
+  # Step 9: Settings
+  - expr: "state.settings.theme == 'dark'"
+    desc: Theme set to dark
+  - expr: "state.settings.default_feed_sort == 'new'"
+    desc: Feed sort set to new
+  - expr: state.settings.email_messages == False
+    desc: Email for messages disabled
+  negative_checks:
+  - expr: "all(sid in state.subscriptions for sid in {target.initial_subscriptions})"
+    desc: No existing subscriptions removed (instruction says do not unsubscribe)
+    penalty: 0.2
+  - expr: len(state.sent_messages) <= 2
+    desc: No excessive messages sent
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
+    desc: No excessive posts created
+    penalty: 0.15
 env_id: reddit
 start_path: /feed

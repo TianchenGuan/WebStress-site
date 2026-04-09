@@ -60,3 +60,9 @@ eval:
   - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and c.post_id == '{target.post_id}') <= 9
     desc: No excessive comments on the post
     penalty: 0.2
+  - expr: len(state.sent_messages) <= 6
+    desc: No excessive messages sent
+    penalty: 0.15
+  - expr: len(state.blocked_users) == 0
+    desc: No users blocked when none required
+    penalty: 0.15

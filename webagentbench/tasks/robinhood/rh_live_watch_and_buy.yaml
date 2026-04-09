@@ -1,9 +1,8 @@
----
 task_id: rh_live_watch_and_buy
 env_id: robinhood
 title: Watch Price and Market Buy on Dip
-instruction_template: Watch AAPL's price on the stock detail page. When it drops below
-  $182, immediately buy 10 shares at market price. Do not use limit orders.
+instruction_template: Watch AAPL's price on the stock detail page. When it drops below $182, immediately buy 10 shares at
+  market price. Do not use limit orders.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 15
@@ -11,7 +10,7 @@ primary_primitives:
 - patience
 - grounding
 - state_tracking
-start_path: "/"
+start_path: /
 seed:
   distractors: 5
   steps:
@@ -42,20 +41,21 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'
-      and o.status == 'filled' and o.quantity == 10 for o in state.orders)
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market' and o.status == 'filled' and o.quantity
+      == 10 for o in state.orders)
     desc: A filled market buy order for 10 shares of AAPL exists
   - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
     desc: Only the intended dip-buy order was placed
-  - expr: "all(o.filled_price is not None and o.filled_price < 184 for o in state.orders\
-      \ if o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled')"
+  - expr: all(o.filled_price is not None and o.filled_price < 184 for o in state.orders if o.symbol == 'AAPL' and o.side ==
+      'buy' and o.status == 'filled')
     desc: AAPL was bought near or below the $182 target, not at the starting price
   negative_checks:
-  - expr: not any(o.order_type == 'limit' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.order_type == 'limit' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No limit orders were placed for AAPL (must watch and buy manually)
     penalty: 0.5
+  - expr: len([o for o in state.orders if o.order_type == "limit"]) == 0
+    desc: No limit orders placed (market order required)
+    penalty: 0.15
 secondary_primitives: []
-primitive_thesis: Measures patience, grounding, state_tracking by requiring exact
-  completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+primitive_thesis: Measures patience, grounding, state_tracking by requiring exact completion of the requested Robinhood workflow
+  while ignoring distractor account state.

@@ -1,17 +1,14 @@
 task_id: gmail_quarterly_closeout
 env_id: gmail
 title: Quarterly Closeout
-instruction_template: 'End-of-quarter cleanup. In your Primary tab: star the two most
-  important emails (the ones mentioning ''{target.star_keyword_a}'' and ''{target.star_keyword_b}''),
-  and archive the three old FYI emails from {target.fyi_sender_name}. In your Promotions
-  tab: archive the three newsletters and delete the spam email about ''{target.spam_subject}''.
-  In your Updates tab: forward the two update emails about ''{target.update_topic}''
-  to {target.team_digest_email}. Create two labels: ''Q1 Active'' and ''Q1 Archive''.
-  Apply ''Q1 Active'' to the two starred emails. Go to Contacts, delete the two contacts
-  that have not been in touch for more than 30 days. Update the note for {target.update_contact_name}
-  to ''{target.new_note}''. Go to Settings > Filters and create a filter that archives
-  emails from {target.vendor_domain} and labels them ''{target.vendor_label}''. Change
-  the maximum page size to 25.'
+instruction_template: 'End-of-quarter cleanup. In your Primary tab: star the two most important emails (the ones mentioning
+  ''{target.star_keyword_a}'' and ''{target.star_keyword_b}''), and archive the three old FYI emails from {target.fyi_sender_name}.
+  In your Promotions tab: archive the three newsletters and delete the spam email about ''{target.spam_subject}''. In your
+  Updates tab: forward the two update emails about ''{target.update_topic}'' to {target.team_digest_email}. Create two labels:
+  ''Q1 Active'' and ''Q1 Archive''. Apply ''Q1 Active'' to the two starred emails. Go to Contacts, delete the two contacts
+  that have not been in touch for more than 30 days. Update the note for {target.update_contact_name} to ''{target.new_note}''.
+  Go to Settings > Filters and create a filter that archives emails from {target.vendor_domain} and labels them ''{target.vendor_label}''.
+  Change the maximum page size to 25.'
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 65
@@ -90,25 +87,22 @@ eval:
     desc: Promos archived
   - expr: state.get_email('{target.spam_id}') is not None and state.get_email('{target.spam_id}').deleted
     desc: Spam deleted
-  - expr: all(any(m.forwarded_from_id == eid and '{target.team_digest_email}' in m.to
-      for m in state.sent) for eid in {target.update_ids})
+  - expr: all(any(m.forwarded_from_id == eid and '{target.team_digest_email}' in m.to for m in state.sent) for eid in {target.update_ids})
     desc: Updates forwarded
   - expr: any(l.name == 'Q1 Active' for l in state.labels)
     desc: Q1 Active label created
   - expr: any(l.name == 'Q1 Archive' for l in state.labels)
     desc: Q1 Archive label created
-  - expr: all('Q1 Active' in state.get_email(eid).labels for eid in ['{target.star_a_id}',
-      '{target.star_b_id}'])
+  - expr: all('Q1 Active' in state.get_email(eid).labels for eid in ['{target.star_a_id}', '{target.star_b_id}'])
     desc: Q1 Active applied
   - expr: all(c.id != '{target.stale_a_id}' for c in state.contacts)
     desc: Stale contact A deleted
   - expr: all(c.id != '{target.stale_b_id}' for c in state.contacts)
     desc: Stale contact B deleted
-  - expr: any(c.email == '{target.update_contact_email}' and '{target.new_note}' in
-      (c.note or '') for c in state.contacts)
+  - expr: any(c.email == '{target.update_contact_email}' and '{target.new_note}' in (c.note or '') for c in state.contacts)
     desc: Contact note updated
-  - expr: any(r.archive and '*@{target.vendor_domain}' in r.from_addresses and '{target.vendor_label}'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.archive and '*@{target.vendor_domain}' in r.from_addresses and '{target.vendor_label}' in r.add_labels for
+      r in state.filters)
     desc: Vendor filter created
   - expr: state.settings.max_page_size == 25
     desc: Page size changed
@@ -119,3 +113,6 @@ eval:
   - expr: not any(m.forwarded_from_id == '{target.spam_id}' for m in state.sent)
     desc: Spam not forwarded
     penalty: 0.2
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.1

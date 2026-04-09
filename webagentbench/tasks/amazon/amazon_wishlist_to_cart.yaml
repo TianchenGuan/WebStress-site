@@ -1,8 +1,8 @@
 task_id: amazon_wishlist_to_cart
 env_id: amazon
 title: Move Wishlist Items to Cart and Purchase
-instruction_template: Check your wishlist, add all wishlist items to your cart, and
-  complete the purchase using the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: Check your wishlist, add all wishlist items to your cart, and complete the purchase using the shipping
+  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
 difficulty: medium
 time_limit_seconds: 300
 expected_steps: 20
@@ -62,9 +62,16 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: "all(any(any(item.product_id == wid for item in order.items) for order in state.orders if not order.id.startswith('order_initial_')) for wid in ['{target.product_id}', '{target.product_id_2}'])"
+  - expr: all(any(any(item.product_id == wid for item in order.items) for order in state.orders if not order.id.startswith('order_initial_'))
+      for wid in ['{target.product_id}', '{target.product_id_2}'])
     desc: All wishlist items were purchased
   negative_checks:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one new order placed
+    penalty: 0.15
+  - expr: len(state.cart_items) == 0
+    desc: Cart empty after checkout
+    penalty: 0.1
+  - expr: len(state.returns) == 0
+    desc: No returns filed when none required
     penalty: 0.15

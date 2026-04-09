@@ -1,10 +1,11 @@
 task_id: amazon_reorder_past_item
 env_id: amazon
 title: Reorder a Product from Past Orders
-instruction_template: >
-  Go to your order history, find the order containing "{target.product_name}",
-  and reorder the same product. Complete the purchase using the shipping
-  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'Go to your order history, find the order containing "{target.product_name}", and reorder the same product.
+  Complete the purchase using the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in
+  4242.
+
+  '
 difficulty: medium
 time_limit_seconds: 260
 expected_steps: 18
@@ -58,16 +59,26 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      sum(1 for o in state.orders if not o.id.startswith('order_initial_') and any(item.product_id == '{target.product_id}'
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id}''
       for item in o.items)) >= 1
+
+      '
     desc: A new order was placed containing the target product
-  - expr: >
-      any(o.id != '{target.past_order_id}' and not o.id.startswith('order_initial_') and any(item.product_id ==
-      '{target.product_id}' for item in o.items) for o in state.orders)
+  - expr: 'any(o.id != ''{target.past_order_id}'' and not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id}''
+      for item in o.items) for o in state.orders)
+
+      '
     desc: The new order is distinct from the original past order
   negative_checks:
-  - expr: >
-      sum(1 for o in state.orders if not o.id.startswith('order_initial_') and o.id != '{target.past_order_id}') <= 1
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'') and o.id != ''{target.past_order_id}'')
+      <= 1
+
+      '
     desc: Only one new order placed
+    penalty: 0.15
+  - expr: len(state.cart_items) == 0
+    desc: Cart empty after checkout
+    penalty: 0.1
+  - expr: len(state.returns) == 0
+    desc: No returns filed when none required
     penalty: 0.15

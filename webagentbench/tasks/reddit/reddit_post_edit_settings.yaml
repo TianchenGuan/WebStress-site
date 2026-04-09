@@ -59,3 +59,9 @@ eval:
       'personalfinance') for p in state.posts)
     desc: No posts in wrong subs
     penalty: 0.2
+  - expr: len(state.sent_messages) == 0
+    desc: No messages sent when none required
+    penalty: 0.15
+  - expr: len(state.blocked_users) == 0
+    desc: No users blocked when none required
+    penalty: 0.15

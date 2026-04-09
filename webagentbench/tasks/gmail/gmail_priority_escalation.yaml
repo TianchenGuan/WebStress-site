@@ -1,9 +1,8 @@
 task_id: gmail_priority_escalation
 env_id: gmail
 title: Priority Escalation
-instruction_template: Find the oldest unread email from each of your VIP contacts
-  (look for emails with the 'VIP' label). Mark each one as starred and reply with
-  the exact phrase '{target.status_phrase}'. Then create a filter that automatically
+instruction_template: Find the oldest unread email from each of your VIP contacts (look for emails with the 'VIP' label).
+  Mark each one as starred and reply with the exact phrase '{target.status_phrase}'. Then create a filter that automatically
   stars future mail from {target.future_vip_email}.
 difficulty: hard
 time_limit_seconds: 360
@@ -33,17 +32,22 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: all(state.get_email(email_id) is not None and state.get_email(email_id).is_read
-      and state.get_email(email_id).is_starred for email_id in {target.vip_email_ids})
+  - expr: all(state.get_email(email_id) is not None and state.get_email(email_id).is_read and state.get_email(email_id).is_starred
+      for email_id in {target.vip_email_ids})
     desc: All target VIP emails were read and starred
-  - expr: len([message for message in state.sent if message.in_reply_to in {target.vip_email_ids}
-      and '{target.status_phrase}' in message.body]) == {target.vip_count}
+  - expr: len([message for message in state.sent if message.in_reply_to in {target.vip_email_ids} and '{target.status_phrase}'
+      in message.body]) == {target.vip_count}
     desc: Each VIP email received the required reply
-  - expr: any(rule.star and '{target.future_vip_email}' in rule.from_addresses for
-      rule in state.filters)
+  - expr: any(rule.star and '{target.future_vip_email}' in rule.from_addresses for rule in state.filters)
     desc: Future VIP filter automatically stars matching messages
   negative_checks:
-  - expr: not any(message.in_reply_to not in {target.vip_email_ids} and '{target.status_phrase}'
-      in message.body for message in state.sent)
+  - expr: not any(message.in_reply_to not in {target.vip_email_ids} and '{target.status_phrase}' in message.body for message
+      in state.sent)
     desc: Status phrase was not sent on unrelated replies
     penalty: 0.25
+  - expr: len(state.sent) <= 4
+    desc: No excessive emails sent
+    penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.1

@@ -1,36 +1,29 @@
 task_id: gmail_incident_postmortem_assembly
 env_id: gmail
 title: Security Incident Postmortem Assembly
-instruction_template: 'A security incident "INC-2847" occurred last week. Gather evidence
-  from these 5 threads:
+instruction_template: 'A security incident "INC-2847" occurred last week. Gather evidence from these 5 threads:
 
-  (1) The initial alert from monitoring@acme-security.com with subject containing
-  "INC-2847".
+  (1) The initial alert from monitoring@acme-security.com with subject containing "INC-2847".
 
-  (2) Investigation update from alice.sec@acme.com with subject "INC-2847: Initial
-  Analysis".
+  (2) Investigation update from alice.sec@acme.com with subject "INC-2847: Initial Analysis".
 
-  (3) Investigation update from bob.infra@acme.com with subject "INC-2847: Infrastructure
-  Findings" (NOTE: this email contains a forwarded copy of Alice''s initial analysis
-  — use Bob''s own text above the forwarded section for the remediation action, not
-  the forwarded content).
+  (3) Investigation update from bob.infra@acme.com with subject "INC-2847: Infrastructure Findings" (NOTE: this email contains
+  a forwarded copy of Alice''s initial analysis — use Bob''s own text above the forwarded section for the remediation action,
+  not the forwarded content).
 
-  (4) Investigation update from carol.net@acme.com with subject "INC-2847: Network
-  Forensics - CORRECTED" (this supersedes Alice''s preliminary root cause).
+  (4) Investigation update from carol.net@acme.com with subject "INC-2847: Network Forensics - CORRECTED" (this supersedes
+  Alice''s preliminary root cause).
 
   (5) Resolution confirmation from alice.sec@acme.com with subject "INC-2847: Resolved".
 
 
-  Compose a new email to {target.postmortem_to} with subject "{target.postmortem_subject}"
-  and body containing: (a) the incident start time from the initial alert, (b) the
-  corrected root cause from Carol''s CORRECTED network forensics email (not from Alice''s
-  initial analysis which had a preliminary and incorrect root cause), (c) the resolution
-  time from the resolution confirmation, and (d) Bob''s remediation action from his
-  own text (not the forwarded section).
+  Compose a new email to {target.postmortem_to} with subject "{target.postmortem_subject}" and body containing: (a) the incident
+  start time from the initial alert, (b) the corrected root cause from Carol''s CORRECTED network forensics email (not from
+  Alice''s initial analysis which had a preliminary and incorrect root cause), (c) the resolution time from the resolution
+  confirmation, and (d) Bob''s remediation action from his own text (not the forwarded section).
 
 
-  Star all 5 incident anchor emails (one per thread). Do not star or act on the resolved
-  INC-2801 email.'
+  Star all 5 incident anchor emails (one per thread). Do not star or act on the resolved INC-2801 email.'
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 50
@@ -74,28 +67,25 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any('{target.postmortem_to}' in m.to and '{target.postmortem_subject}' in
-      m.subject for m in state.sent)
+  - expr: any('{target.postmortem_to}' in m.to and '{target.postmortem_subject}' in m.subject for m in state.sent)
     desc: Postmortem email sent to leadership
-  - expr: any('{target.postmortem_to}' in m.to and '{target.start_time}' in m.body
-      for m in state.sent)
+  - expr: any('{target.postmortem_to}' in m.to and '{target.start_time}' in m.body for m in state.sent)
     desc: Postmortem contains incident start time
-  - expr: any('{target.postmortem_to}' in m.to and '{target.corrected_root_cause}'
-      in m.body for m in state.sent)
+  - expr: any('{target.postmortem_to}' in m.to and '{target.corrected_root_cause}' in m.body for m in state.sent)
     desc: Postmortem contains corrected root cause
-  - expr: any('{target.postmortem_to}' in m.to and '{target.resolution_time}' in m.body
-      for m in state.sent)
+  - expr: any('{target.postmortem_to}' in m.to and '{target.resolution_time}' in m.body for m in state.sent)
     desc: Postmortem contains resolution time
-  - expr: any('{target.postmortem_to}' in m.to and '{target.remediation}' in m.body
-      for m in state.sent)
+  - expr: any('{target.postmortem_to}' in m.to and '{target.remediation}' in m.body for m in state.sent)
     desc: Postmortem contains remediation action
   - expr: all(state.get_email(eid).is_starred for eid in {target.incident_email_ids})
     desc: All 5 incident anchor emails starred
   negative_checks:
-  - expr: not any('{target.postmortem_to}' in m.to and '{target.wrong_root_cause}'
-      in m.body for m in state.sent)
+  - expr: not any('{target.postmortem_to}' in m.to and '{target.wrong_root_cause}' in m.body for m in state.sent)
     desc: Postmortem does not contain wrong root cause
     penalty: 0.3
   - expr: not state.get_email('{target.decoy_email_id}').is_starred
     desc: Decoy INC-2801 email not starred
     penalty: 0.15
+  - expr: len(state.deleted) == 0
+    desc: No emails moved to trash
+    penalty: 0.1
