@@ -1,0 +1,53 @@
+task_id: booking_profile_update_suite
+env_id: booking
+title: 'Update Account Profile: Name, Phone, and Nationality'
+instruction_template: 'Go to your account settings and update your profile information.
+  Change your display name to "{target.new_name}", update your phone number to "{target.new_phone}",
+  and set your nationality to "{target.new_nationality}". Make sure all three fields
+  are saved successfully.
+
+  '
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+- planning
+- grounding
+start_path: /home
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: set_profile
+    params:
+      owner_name: Jordan Parker
+      owner_email: jordan.parker@email.com
+      owner_phone: +1-217-555-0142
+      owner_nationality: US
+    outputs:
+    - owner_name
+  targets:
+    new_name: Jordan A. Parker
+    new_phone: +1-312-555-0198
+    new_nationality: GB
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.owner_name == ''Jordan A. Parker''
+
+      '
+    desc: Account name was updated to 'Jordan A. Parker'
+  - expr: 'state.owner_phone == ''+1-312-555-0198''
+
+      '
+    desc: Phone number was updated to '+1-312-555-0198'
+  - expr: 'state.owner_nationality == ''GB''
+
+      '
+    desc: Nationality was updated to 'GB'
+  negative_checks:
+  - expr: 'state.owner_email == ''jordan.parker@email.com''
+
+      '
+    desc: Email address was not changed
+    penalty: 0.3

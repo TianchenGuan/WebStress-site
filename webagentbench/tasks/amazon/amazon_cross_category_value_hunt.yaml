@@ -1,11 +1,12 @@
 task_id: amazon_cross_category_value_hunt
 env_id: amazon
 title: Find and Buy Highest-Rated Under-$40 Items Across Categories
-instruction_template: >
-  Search for products in three categories: Electronics, Health & Beauty, and
-  Toys & Games. In each category, find the highest-rated product that costs less
-  than $40.00. Then compare the three winners by rating and purchase the top two
-  (the two with the highest ratings) in a single order.
+instruction_template: 'Search for products in three categories: {target.cat_1}, {target.cat_2},
+  and {target.cat_3}. In each category, find the highest-rated product that costs
+  less than $40.00. Then compare the three winners by rating and purchase the top
+  two (the two with the highest ratings) in a single order.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 38
@@ -110,40 +111,46 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.best_id_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best_id_1}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Top-rated product 1 purchased
-  - expr: >
-      any(any(item.product_id == '{target.best_id_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best_id_2}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Top-rated product 2 purchased
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order is confirmed
-  - expr: >
-      any(len(o.items) == 2 for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(len(o.items) == 2 for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order contains exactly two items
-  - expr: >
-      any(any(item.product_id == '{target.best_id_1}' for item in o.items)
-      and any(item.product_id == '{target.best_id_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best_id_1}'' for item in o.items)
+      and any(item.product_id == ''{target.best_id_2}'' for item in o.items) for o
+      in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Both top-rated products are in the same order
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.third_id}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.third_id}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Third-ranked product was not purchased
     penalty: 0.2
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
+  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+      1
     desc: Only one order placed
     penalty: 0.1
-  - expr: >
-      all(all(item.unit_price < 40 for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'all(all(item.unit_price < 40 for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: All purchased items are under $40
     penalty: 0.15

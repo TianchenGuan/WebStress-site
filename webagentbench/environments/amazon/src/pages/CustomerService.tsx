@@ -7,49 +7,49 @@ import { useAmazonLayout } from "../context";
 
 const HELP_TOPICS = [
   {
-    icon: "📦",
+    icon: "Orders",
     title: "Your Orders",
     desc: "Track, return, or cancel an order",
     path: "/orders",
   },
   {
-    icon: "↩️",
+    icon: "Returns",
     title: "Returns & Refunds",
     desc: "Return or exchange items, request refund",
     path: "/returns",
   },
   {
-    icon: "⚙️",
+    icon: "Settings",
     title: "Account Settings",
     desc: "Change email, password, or account info",
     path: "/account",
   },
   {
-    icon: "💳",
+    icon: "Payment",
     title: "Payment & Gift Cards",
     desc: "Add or edit payment methods, check gift card balance",
     path: "/gift-cards",
   },
   {
-    icon: "⭐",
+    icon: "Prime",
     title: "Prime Membership",
     desc: "Manage your Prime subscription",
     path: "/account",
   },
   {
-    icon: "📱",
+    icon: "Digital",
     title: "Digital Services",
     desc: "Kindle, Alexa, app issues",
     path: "/account",
   },
   {
-    icon: "🚚",
+    icon: "Shipping",
     title: "Shipping & Delivery",
     desc: "Track packages, delivery issues",
     path: "/orders",
   },
   {
-    icon: "🔧",
+    icon: "Support",
     title: "Device Support",
     desc: "Echo, Fire TV, Kindle troubleshooting",
     path: "/account",

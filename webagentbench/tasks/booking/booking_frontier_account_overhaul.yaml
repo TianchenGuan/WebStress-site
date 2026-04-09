@@ -1,0 +1,172 @@
+task_id: booking_frontier_account_overhaul
+env_id: booking
+title: "Frontier: Complete Account Overhaul with Profile, Settings, Payments, and Booking"
+instruction_template: "Perform a complete account overhaul with these exact steps:\n\
+  1. Update your profile: change display name to \"Jordan A. Parker\",\n\
+  \   phone to \"+1-312-555-0198\", and nationality to \"GB\".\n\
+  2. Update all account settings: change currency to \"EUR\",\n\
+  \   language to \"French\", enable two-factor authentication,\n\
+  \   disable deal alerts, enable newsletter, and enable SMS notifications.\n\
+  3. Update travel preferences: set preferred bed type to \"queen\",\n\
+  \   floor preference to \"high\", smoking to false,\n\
+  \   and add \"halal\" to dietary restrictions.\n\
+  4. Add two new payment methods:\n\
+  \   - A Visa ending in 3333, expiry 06/30, holder \"Jordan A. Parker\"\n\
+  \   - A Mastercard ending in 7777, expiry 09/29, holder \"Jordan A. Parker\"\n\
+  5. Remove the Mastercard ending in {target.remove_last_four}\n\
+  \   (held by \"{target.remove_holder}\").\n\
+  6. Set the new Visa (ending 3333) as your default payment method.\n\
+  7. Search for \"{target.property_name}\" in {target.city} and book its\n\
+  \   \"Deluxe Room\" for 2 guests, checking in 2026-08-01,\n\
+  \   checking out 2026-08-05, using your new default (Visa 3333).\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 48
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: The Connaught London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.4
+      review_count: 3200
+      price: 650.0
+      neighborhood: Mayfair
+      address: Carlos Place, London W1K 2AL
+      distance_km: 0.4
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+      - Butler service
+      rooms:
+      - name: Classic Room
+        price: 650.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Room
+        price: 850.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+        room_size_sqm: 40.0
+      - name: Apartment Suite
+        price: 1500.0
+        bed_type: king
+        max_occupancy: 4
+        cancel_type: free_cancellation
+    outputs:
+    - prop_id
+    - prop_name
+    - cheap_room_id
+    - cheap_room_name
+  - use: add_payment_method
+    params:
+      card_type: Mastercard
+      last_four: '5555'
+      expiry: 03/27
+      holder_name: Alex Parker
+      is_default: false
+    outputs:
+    - remove_pm_id
+    - remove_last_four
+  - use: set_profile
+    params:
+      owner_name: Jordan Parker
+      owner_phone: '+1-217-555-0142'
+      owner_nationality: US
+    outputs:
+    - original_name
+  - use: set_settings
+    params:
+      currency: USD
+      language: English
+      two_factor_enabled: false
+      deal_alerts: true
+      newsletter: false
+      sms_notifications: false
+    outputs:
+    - settings_updated
+  - use: set_preferences
+    params:
+      preferred_bed_type: double
+      floor_preference: low
+      smoking: true
+      dietary_restrictions:
+      - vegetarian
+    outputs:
+    - prefs_updated
+  targets:
+    prop_id: '{output.prop_id}'
+    property_name: '{output.prop_name}'
+    city: London
+    remove_pm_id: '{output.remove_pm_id}'
+    remove_last_four: '5555'
+    remove_holder: Alex Parker
+eval:
+  source: server_state
+  checks:
+  - expr: state.owner_name == 'Jordan A. Parker'
+    desc: Display name updated to Jordan A. Parker
+  - expr: state.owner_phone == '+1-312-555-0198'
+    desc: Phone updated
+  - expr: state.owner_nationality == 'GB'
+    desc: Nationality updated to GB
+  - expr: state.settings.currency == 'EUR' and state.settings.language == 'French'
+    desc: Currency and language updated
+  - expr: state.settings.two_factor_enabled == True and state.settings.deal_alerts == False
+    desc: 2FA enabled and deal alerts disabled
+  - expr: state.travel_preferences.preferred_bed_type == 'queen' and state.travel_preferences.floor_preference == 'high'
+    desc: Bed type and floor preference updated
+  - expr: "'halal' in state.travel_preferences.dietary_restrictions"
+    desc: Halal added to dietary restrictions
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '3333' and pm.is_default\n\
+      \  for pm in state.payment_methods)\n"
+    desc: New Visa 3333 added and set as default
+  - expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '5555'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Mastercard 5555 was removed
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-08-01' and r.check_out == '2026-08-05' and\n\
+      \  r.room_type_name == 'Deluxe Room'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Hotel booked with correct room and dates
+  negative_checks:
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '4242'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Original Visa 4242 was not removed
+    penalty: 0.3
+  - expr: state.settings.newsletter == True
+    desc: Newsletter was enabled as requested
+    penalty: 0.15
+  - expr: state.settings.sms_notifications == True
+    desc: SMS notifications were enabled as requested
+    penalty: 0.15
+  - expr: state.owner_email == 'jordan.parker@email.com'
+    desc: Email was not accidentally changed
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.prop_id}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: No reservation at wrong property
+    penalty: 0.2

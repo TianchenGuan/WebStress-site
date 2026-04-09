@@ -1,0 +1,102 @@
+task_id: booking_notification_driven_action
+env_id: booking
+title: Act on a Price Drop Notification
+instruction_template: 'Check your notifications and find the one about a price drop
+  for a property in "{target.city}". The notification should mention "{target.property_name}".
+  After reading the notification, search for this property, and save it to your existing
+  saved list called "{target.list_name}".
+
+  '
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 14
+primary_primitives:
+- planning
+- grounding
+- state_tracking
+start_path: /home
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Copenhagen Harbor Hotel
+      city: Copenhagen
+      country: Denmark
+      star_rating: 4
+      review_score: 8.9
+      review_count: 1890
+      price: 220.0
+      property_type: Hotel
+      neighborhood: Nyhavn
+      address: 10 Nyhavn, 1051 Copenhagen
+      genius_discount_pct: 10
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Bicycle rental
+      - Waterfront
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Bicycle rental
+      distance_km: 0.5
+      rooms:
+      - name: Harbor View Room
+        price: 220.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free
+        original_price: 275.0
+        view_type: harbor
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: add_notification
+    params:
+      type: price_drop
+      title: 'Price Drop Alert: Copenhagen Harbor Hotel'
+      message: Great news! Copenhagen Harbor Hotel in Copenhagen has dropped its price
+        by 20%. Harbor View Room now available from $220/night (was $275). Don't miss
+        this deal!
+      related_id: '{output.property_id}'
+    outputs:
+    - notification_id
+  - use: create_saved_list
+    params:
+      name: Nordic Getaway
+      property_ids: []
+    outputs:
+    - list_id
+    - list_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    notification_id: '{output.notification_id}'
+    list_id: '{output.list_id}'
+    list_name: '{output.list_name}'
+    city: Copenhagen
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  n.id == '{target.notification_id}' and n.read == True\n  for n\
+      \ in state.notifications\n)\n"
+    desc: The price drop notification was marked as read
+  - expr: "any(\n  sl.id == '{target.list_id}' and\n  '{target.property_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: The Copenhagen Harbor Hotel was added to the Nordic Getaway list
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ == '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: The agent did not accidentally book the property (only save it)
+    penalty: 0.3
+  - expr: "all(\n  sl.id != '{target.list_id}' or len(sl.property_ids) <= 1\n  for\
+      \ sl in state.saved_lists\n)\n"
+    desc: Only the specified property was added to the list
+    penalty: 0.15

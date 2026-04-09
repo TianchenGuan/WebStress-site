@@ -1,0 +1,135 @@
+task_id: booking_book_with_specific_payment
+env_id: booking
+title: Book a Hotel Using a Specific Non-Default Payment Method
+instruction_template: 'Search for hotels in "Milan" and find the property "{target.property_name}".
+  Book the "{target.room_name}" room for 2 nights checking in on 2026-07-10 and checking
+  out on 2026-07-12 for 2 guests. Important: Do NOT use the default Visa card. Instead,
+  use the Mastercard ending in 8888 as your payment method. Enter your name and email
+  from your account profile.
+
+  '
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 15
+primary_primitives:
+- planning
+- grounding
+- state_tracking
+start_path: /home
+seed:
+  distractors: 7
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Milano Duomo Grand
+      city: Milan
+      country: Italy
+      star_rating: 4
+      review_score: 8.8
+      review_count: 2100
+      price: 255.0
+      property_type: Hotel
+      neighborhood: Centro Storico
+      address: 3 Piazza del Duomo, 20122 Milan
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Room service
+      - Air conditioning
+      popular_facilities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      distance_km: 0.1
+      rooms:
+      - name: Superior Double
+        price: 255.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: city
+      - name: Deluxe Suite
+        price: 420.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: cathedral
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: Budget Milan Central
+      city: Milan
+      country: Italy
+      star_rating: 2
+      review_score: 7.0
+      review_count: 540
+      price: 95.0
+      property_type: Hotel
+      neighborhood: Stazione Centrale
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      distance_km: 2.5
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Navigli Boutique Residence
+      city: Milan
+      country: Italy
+      star_rating: 4
+      review_score: 8.3
+      review_count: 890
+      price: 210.0
+      property_type: Apartment
+      neighborhood: Navigli
+      genius_discount_pct: 5
+      amenities:
+      - Free WiFi
+      - Kitchen
+      - Terrace
+      distance_km: 3.0
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    room_id: '{output.cheapest_room_id}'
+    room_name: Superior Double
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-07-10'\
+      \ and\n  r.check_out == '2026-07-12' and\n  r.status == 'confirmed'\n  for r\
+      \ in state.reservations\n)\n"
+    desc: Reservation was created for the correct property and dates
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_id ==\
+      \ '{target.room_id}' and\n  r.guests == 2\n  for r in state.reservations\n \
+      \ if not r.id.startswith('res_initial_')\n)\n"
+    desc: Reservation is for the Superior Double room with 2 guests
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.payment_method_id\
+      \ == 'pm_2'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Reservation uses the Mastercard ending in 8888 (pm_2)
+  negative_checks:
+  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.payment_method_id\
+      \ == 'pm_1'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: The default Visa card was not used for this reservation
+    penalty: 0.4
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made for wrong property
+    penalty: 0.3

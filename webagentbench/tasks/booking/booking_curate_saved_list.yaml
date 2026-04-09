@@ -1,0 +1,124 @@
+task_id: booking_curate_saved_list
+env_id: booking
+title: Remove and Add Properties in a Saved List
+instruction_template: 'Go to your saved lists and open the "{target.list_name}" list.
+  Remove the property "{target.remove_property_name}" from the list. Then search for
+  hotels in "Dublin" and add the property "{target.add_property_name}" to the same
+  list.
+
+  '
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 14
+primary_primitives:
+- planning
+- grounding
+- state_tracking
+start_path: /home
+seed:
+  distractors: 7
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Berlin Mitte Loft Hotel
+      city: Berlin
+      country: Germany
+      star_rating: 3
+      review_score: 8.0
+      review_count: 920
+      price: 140.0
+      property_type: Hotel
+      neighborhood: Mitte
+      address: 55 Friedrichstrasse, 10117 Berlin
+      amenities:
+      - Free WiFi
+      - Bar
+      - Bicycle rental
+      popular_facilities:
+      - Free WiFi
+      - Bar
+      distance_km: 0.9
+      rooms:
+      - name: Loft Room
+        price: 140.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: street
+    outputs:
+    - remove_prop_id
+    - remove_prop_name
+    - remove_room_id
+    - remove_room_name
+  - use: featured_property
+    params:
+      name: Dublin Temple Bar Hotel
+      city: Dublin
+      country: Ireland
+      star_rating: 4
+      review_score: 8.4
+      review_count: 1670
+      price: 195.0
+      property_type: Hotel
+      neighborhood: Temple Bar
+      address: 18 Fleet Street, Dublin 2
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Live music
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      distance_km: 0.3
+      rooms:
+      - name: City View Double
+        price: 195.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: city
+    outputs:
+    - add_prop_id
+    - add_prop_name
+    - add_room_id
+    - add_room_name
+  - use: create_saved_list
+    params:
+      name: Summer 2026 Ideas
+      property_ids:
+      - '{output.remove_prop_id}'
+    outputs:
+    - list_id
+    - list_name
+  targets:
+    list_id: '{output.list_id}'
+    list_name: '{output.list_name}'
+    remove_property_id: '{output.remove_prop_id}'
+    remove_property_name: '{output.remove_prop_name}'
+    add_property_id: '{output.add_prop_id}'
+    add_property_name: '{output.add_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  sl.id == '{target.list_id}' and\n  '{target.remove_property_id}'\
+      \ not in sl.property_ids\n  for sl in state.saved_lists\n)\n"
+    desc: The removed property is no longer in the list
+  - expr: "any(\n  sl.id == '{target.list_id}' and\n  '{target.add_property_id}' in\
+      \ sl.property_ids\n  for sl in state.saved_lists\n)\n"
+    desc: The Dublin hotel was added to the list
+  negative_checks:
+  - expr: "all(\n  sl.id != '{target.list_id}' or len(sl.property_ids) <= 2\n  for\
+      \ sl in state.saved_lists\n)\n"
+    desc: The list was not cluttered with extra properties
+    penalty: 0.15
+  - expr: "not any(\n  e.action == 'saved_list.delete' and e.payload.get('list_id')\
+      \ == '{target.list_id}'\n  for e in state.audit_log\n)\n"
+    desc: The list was not deleted and recreated
+    penalty: 0.3

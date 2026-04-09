@@ -1,0 +1,259 @@
+task_id: booking_expert_travel_planner
+env_id: booking
+title: Multi-City Travel Planner with Saved List, Booking, and Review
+instruction_template: "Plan a world tour across three cities by completing the following\
+  \ workflow:\n\
+  1. Search for hotels in Paris and find \"{target.paris_name}\". Note its cheapest\
+  \ room price.\n\
+  2. Search for hotels in Tokyo and find \"{target.tokyo_name}\". Note its cheapest\
+  \ room price.\n\
+  3. Search for hotels in New York and find \"{target.nyc_name}\". Note its cheapest\
+  \ room price.\n\
+  4. Create a new saved list called \"World Tour\" and add all three hotels to it.\n\
+  5. Among the three hotels, book the one with the cheapest room price.\
+  \ Book its cheapest room for 2 guests checking in 2026-10-01 and checking\
+  \ out 2026-10-05 (4 nights), using the default Visa payment (ending in 4242).\n\
+  6. You also have a completed stay at \"{target.review_prop_name}\" in Paris.\
+  \ Write a review for it: overall score 8.5, title \"Charming Parisian experience\"\
+  , positive comment \"Wonderful location near the Eiffel Tower with excellent\
+  \ croissants at breakfast\", negative comment \"Elevator was quite slow during\
+  \ peak hours\", travel purpose leisure, traveled with couple.\n"
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 38
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- exploration
+- grounding
+- patience
+start_path: /home
+seed:
+  distractors: 15
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Le Marais Paris
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.7
+      review_count: 3450
+      price: 280.0
+      neighborhood: Le Marais
+      address: 15 Rue de Rivoli, 75004 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Room service
+      - Concierge
+      - Air conditioning
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Concierge
+      rooms:
+      - name: Classic Room
+        price: 280.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+      - name: Deluxe Suite
+        price: 450.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - paris_id
+    - paris_name
+    - paris_room_id
+    - paris_room_name
+  - use: featured_property
+    params:
+      name: Shinjuku Granbell Hotel
+      city: Tokyo
+      country: Japan
+      star_rating: 4
+      review_score: 8.9
+      review_count: 5670
+      price: 195.0
+      neighborhood: Shinjuku
+      address: 2-14-4 Kabukicho, Shinjuku-ku, Tokyo
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      rooms:
+      - name: Standard Double Room
+        price: 195.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Premium King Room
+        price: 310.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - tokyo_id
+    - tokyo_name
+    - tokyo_room_id
+    - tokyo_room_name
+  - use: featured_property
+    params:
+      name: The Knickerbocker New York
+      city: New York
+      country: United States
+      star_rating: 5
+      review_score: 9.0
+      review_count: 4120
+      price: 350.0
+      neighborhood: Times Square
+      address: 6 Times Square, New York, NY 10036
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+      - Spa
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Spa
+      rooms:
+      - name: Grand Room
+        price: 350.0
+        bed_type: king
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Empire Suite
+        price: 680.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - nyc_id
+    - nyc_name
+    - nyc_room_id
+    - nyc_room_name
+  - use: featured_property
+    params:
+      name: Hotel Lumiere Paris
+      city: Paris
+      country: France
+      star_rating: 3
+      review_score: 8.2
+      review_count: 1890
+      price: 165.0
+      neighborhood: Eiffel Tower
+      address: 4 Rue Cler, 75007 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Air conditioning
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - review_room_id
+    - review_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-01-10'
+      check_out: '2026-01-14'
+      price_per_night: 165.0
+      status: completed
+      guests: 2
+      booked_days_ago: 90
+    outputs:
+    - review_res_id
+    - review_conf_num
+    - review_res_prop_id
+  - use: decoy_property
+    params:
+      name: Budget Inn Tokyo
+      city: Tokyo
+      country: Japan
+      star_rating: 2
+      review_score: 6.5
+      review_count: 340
+      price: 85.0
+      amenities:
+      - Free WiFi
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    paris_id: '{output.paris_id}'
+    paris_name: '{output.paris_name}'
+    tokyo_id: '{output.tokyo_id}'
+    tokyo_name: '{output.tokyo_name}'
+    nyc_id: '{output.nyc_id}'
+    nyc_name: '{output.nyc_name}'
+    cheapest_id: '{output.tokyo_id}'
+    cheapest_name: '{output.tokyo_name}'
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.paris_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Paris hotel saved to 'World Tour' list
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.tokyo_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Tokyo hotel saved to 'World Tour' list
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.nyc_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: New York hotel saved to 'World Tour' list
+  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-10-01' and\n  r.check_out == '2026-10-05'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Cheapest hotel (Tokyo) booked with correct dates
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score\
+      \ == 8.5 and\n  rv.title == 'Charming Parisian experience'\n  for rv in state.reviews\n\
+      )\n"
+    desc: Review written for completed Paris stay with correct score and title
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'eiffel tower'\
+      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+    desc: Review positive comment mentions Eiffel Tower
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'elevator' in\
+      \ rv.negative.lower()\n  for rv in state.reviews\n)\n"
+    desc: Review negative comment mentions elevator
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ != '{target.cheapest_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made at wrong property
+    penalty: 0.3
+  - expr: "not any(\n  r.property_id == '{target.cheapest_id}' and\n  r.room_type_name\
+      \ != 'Standard Double Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Booked the cheapest room, not a more expensive one
+    penalty: 0.2
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.cheapest_id}'\n\
+      \  and rv.author_name == 'Jordan Parker') == 0\n"
+    desc: No review written for the booked hotel (only completed stays get reviews)
+    penalty: 0.15
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''World Tour'') <= 1
+
+      '
+    desc: Only one 'World Tour' list was created
+    penalty: 0.1

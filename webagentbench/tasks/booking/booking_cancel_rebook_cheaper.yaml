@@ -1,0 +1,185 @@
+task_id: booking_cancel_rebook_cheaper
+env_id: booking
+title: Cancel Expensive Reservation and Rebook Cheaper Alternative
+instruction_template: 'Review your upcoming confirmed reservations and find the most
+  expensive one (by total price). Cancel it. Then search for hotels in the same city
+  ("{target.city}") and book a cheaper alternative that costs less than ${target.cheaper_max_price}
+  per night. Book the cheapest room available at the cheaper hotel for the same dates
+  ({target.check_in} to {target.check_out}) and same number of guests ({target.guests}).
+  Use the default Visa payment method (ending in 4242).
+
+  '
+difficulty: hard
+time_limit_seconds: 420
+expected_steps: 28
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- exploration
+- backtracking
+start_path: /trips
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: The Royal Crescent Hotel
+      city: Bath
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.2
+      review_count: 1567
+      price: 380.0
+      neighborhood: City Center
+      address: 16 Royal Crescent, Bath BA1 2LS
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Room service
+      - Garden
+    outputs:
+    - expensive_prop_id
+    - expensive_prop_name
+    - expensive_room_id
+    - expensive_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.expensive_prop_id}'
+      check_in: '2026-07-01'
+      check_out: '2026-07-05'
+      price_per_night: 380.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 14
+    outputs:
+    - expensive_res_id
+    - expensive_conf_num
+    - expensive_res_prop_id
+  - use: featured_property
+    params:
+      name: Cozy Inn Manchester
+      city: Manchester
+      country: United Kingdom
+      star_rating: 3
+      review_score: 7.9
+      review_count: 890
+      price: 120.0
+      neighborhood: Northern Quarter
+    outputs:
+    - moderate_prop_id
+    - moderate_prop_name
+    - moderate_room_id
+    - moderate_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.moderate_prop_id}'
+      check_in: '2026-08-10'
+      check_out: '2026-08-13'
+      price_per_night: 120.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 7
+    outputs:
+    - moderate_res_id
+    - moderate_conf_num
+    - moderate_res_prop_id
+  - use: featured_property
+    params:
+      name: Bath Abbey Hotel
+      city: Bath
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.5
+      review_count: 2134
+      price: 195.0
+      neighborhood: City Center
+      address: 1 North Parade, Bath BA1 1LF
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - 24-hour front desk
+      rooms:
+      - name: Classic Double Room
+        price: 195.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Superior Room
+        price: 250.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - cheaper_prop_id
+    - cheaper_prop_name
+    - cheaper_room_id
+    - cheaper_room_name
+  - use: decoy_property
+    params:
+      name: The Gainsborough Bath Spa
+      city: Bath
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.0
+      review_count: 1200
+      price: 410.0
+      neighborhood: City Center
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    expensive_res_id: '{output.expensive_res_id}'
+    expensive_prop_id: '{output.expensive_prop_id}'
+    expensive_prop_name: '{output.expensive_prop_name}'
+    cheaper_prop_id: '{output.cheaper_prop_id}'
+    cheaper_prop_name: '{output.cheaper_prop_name}'
+    moderate_res_id: '{output.moderate_res_id}'
+    moderate_prop_id: '{output.moderate_prop_id}'
+    city: Bath
+    check_in: '2026-07-01'
+    check_out: '2026-07-05'
+    guests: '2'
+    cheaper_max_price: '300'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.expensive_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The most expensive reservation was cancelled
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.status ==\
+      \ 'confirmed' and\n  r.check_in == '2026-07-01' and\n  r.check_out == '2026-07-05'\n\
+      \  for r in state.reservations\n)\n"
+    desc: New reservation created at cheaper Bath hotel with correct dates
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.guests ==\
+      \ 2\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: New reservation has correct guest count
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.price_per_night\
+      \ < 300.0\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: New hotel costs less than $300 per night
+  negative_checks:
+  - expr: "not any(\n  r.id == '{target.moderate_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The cheaper Manchester reservation was not cancelled
+    penalty: 0.4
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ not in ('{target.cheaper_prop_id}',)\n  for e in state.audit_log\n)\n"
+    desc: No reservation made at a non-target property
+    penalty: 0.2
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_')\
+      \ and r.status == 'confirmed') <= 1\n"
+    desc: Only one new reservation was created
+    penalty: 0.15

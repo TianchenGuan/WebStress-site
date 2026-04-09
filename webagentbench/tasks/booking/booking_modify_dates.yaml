@@ -1,0 +1,102 @@
+task_id: booking_modify_dates
+env_id: booking
+title: Modify Reservation Check-in and Check-out Dates
+instruction_template: 'Go to your trips and find the reservation at "{target.property_name}"
+  (confirmation number {target.confirmation_number}). Modify the reservation to change
+  the check-in date from {target.old_check_in} to {target.new_check_in} and the check-out
+  date from {target.old_check_out} to {target.new_check_out}. The number of guests
+  should remain the same.
+
+  '
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+- planning
+- grounding
+- state_tracking
+start_path: /home
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Amsterdam Canal House Hotel
+      city: Amsterdam
+      country: Netherlands
+      star_rating: 4
+      review_score: 8.8
+      review_count: 1920
+      price: 245.0
+      property_type: Hotel
+      neighborhood: Jordaan
+      address: 32 Prinsengracht, 1015 Amsterdam
+      amenities:
+      - Free WiFi
+      - Bicycle rental
+      - Bar
+      - Room service
+      popular_facilities:
+      - Free WiFi
+      - Bicycle rental
+      - Bar
+      distance_km: 0.6
+      rooms:
+      - name: Canal View Double
+        price: 245.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: canal
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.property_id}'
+      room_type_id: '{output.cheapest_room_id}'
+      room_type_name: Canal View Double
+      check_in: '2026-05-20'
+      check_out: '2026-05-24'
+      price_per_night: 245.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 7
+    outputs:
+    - reservation_id
+    - confirmation_number
+    - property_id
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    reservation_id: '{output.reservation_id}'
+    confirmation_number: '{output.confirmation_number}'
+    old_check_in: '2026-05-20'
+    old_check_out: '2026-05-24'
+    new_check_in: '2026-05-25'
+    new_check_out: '2026-05-29'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-05-25'\
+      \ and\n  r.check_out == '2026-05-29' and\n  r.status == 'confirmed'\n  for r\
+      \ in state.reservations\n)\n"
+    desc: Reservation was modified to the new check-in and check-out dates
+  - expr: "any(\n  r.id == '{target.reservation_id}' and r.guests == 2\n  for r in\
+      \ state.reservations\n)\n"
+    desc: Guest count was preserved during modification
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.cancel' and e.payload.get('reservation_id')\
+      \ == '{target.reservation_id}'\n  for e in state.audit_log\n)\n"
+    desc: The reservation was not cancelled (it should be modified, not cancelled
+      and rebooked)
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'reservation.modify' and e.payload.get('reservation_id')\
+      \ != '{target.reservation_id}'\n  for e in state.audit_log\n)\n"
+    desc: No other reservation was modified
+    penalty: 0.2

@@ -85,7 +85,7 @@ function CommentNode({
           {comment.awards.length > 0 && (
             <span className="comment-node__awards">
               {comment.awards.map((a, i) => (
-                <span key={i} title={a.name}>🏅</span>
+                <span key={i} title={a.name}>[{a.name}]</span>
               ))}
             </span>
           )}
@@ -102,7 +102,7 @@ function CommentNode({
                 vertical={false}
               />
               <button className="comment-action" onClick={() => setIsReplying(!isReplying)} aria-label="Reply to comment">
-                💬 Reply
+                Reply
               </button>
               <button
                 className={`comment-action ${comment.is_saved ? "comment-action--active" : ""}`}
@@ -113,12 +113,12 @@ function CommentNode({
               </button>
               {isOwner && onEdit && (
                 <button className="comment-action" onClick={() => { setIsEditing(!isEditing); setEditText(comment.body); }} aria-label="Edit comment">
-                  ✏️ Edit
+                  Edit
                 </button>
               )}
               {isOwner && onDelete && (
                 <button className="comment-action comment-action--danger" onClick={() => onDelete(comment.id)} aria-label="Delete comment">
-                  🗑️ Delete
+                  Delete
                 </button>
               )}
             </div>

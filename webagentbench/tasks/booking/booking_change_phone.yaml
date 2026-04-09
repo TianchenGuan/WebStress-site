@@ -1,0 +1,41 @@
+task_id: booking_change_phone
+env_id: booking
+title: Update Phone Number
+instruction_template: 'Go to your account page and update your phone number to "{target.new_phone}".
+
+  '
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 4
+primary_primitives:
+- grounding
+start_path: /account
+seed:
+  distractors: 3
+  actors: {}
+  steps:
+  - use: set_profile
+    params:
+      owner_phone: +1-217-555-0142
+    outputs:
+    - owner_name
+  targets:
+    new_phone: +1-312-555-0199
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.owner_phone == ''+1-312-555-0199''
+
+      '
+    desc: Phone number was updated to the new value
+  negative_checks:
+  - expr: 'state.owner_name == ''Jordan Parker''
+
+      '
+    desc: Owner name was not accidentally changed
+    penalty: 0.2
+  - expr: 'state.owner_email == ''jordan.parker@email.com''
+
+      '
+    desc: Email was not accidentally changed
+    penalty: 0.2

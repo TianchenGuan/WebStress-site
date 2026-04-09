@@ -1,0 +1,46 @@
+task_id: booking_add_payment
+env_id: booking
+title: "Add a Discover Card"
+instruction_template: >
+  Go to settings and add a new Discover card with the last four digits "7777",
+  expiry "09/28", and holder name "Jordan Parker".
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+  - grounding
+start_path: /settings
+seed:
+  distractors: 3
+  actors: {}
+  steps: []
+  targets: {}
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(
+          pm.card_type == 'Discover' and pm.last_four == '7777'
+          for pm in state.payment_methods
+        )
+      desc: "A Discover card ending in 7777 has been added"
+    - expr: >
+        any(
+          pm.card_type == 'Discover' and pm.last_four == '7777' and pm.expiry == '09/28'
+          for pm in state.payment_methods
+        )
+      desc: "The new card has the correct expiry date"
+    - expr: >
+        any(
+          pm.card_type == 'Discover' and pm.last_four == '7777' and pm.holder_name == 'Jordan Parker'
+          for pm in state.payment_methods
+        )
+      desc: "The new card has the correct holder name"
+  negative_checks:
+    - expr: >
+        not any(
+          e.action == 'payment_method.delete'
+          for e in state.audit_log
+        )
+      desc: "No existing payment method was removed"
+      penalty: 0.2

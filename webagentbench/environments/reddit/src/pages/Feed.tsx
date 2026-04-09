@@ -95,7 +95,7 @@ export function FeedPage() {
                 className={`sort-tab ${sort === s ? "sort-tab--active" : ""}`}
                 onClick={() => setSort(s)}
               >
-                {s === "hot" ? "🔥 Hot" : s === "new" ? "🆕 New" : s === "top" ? "📈 Top" : "🚀 Rising"}
+                {s === "hot" ? "Hot" : s === "new" ? "New" : s === "top" ? "Top" : "Rising"}
               </button>
             ))}
           </div>

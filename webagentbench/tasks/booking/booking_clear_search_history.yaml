@@ -1,0 +1,30 @@
+task_id: booking_clear_search_history
+env_id: booking
+title: "Clear All Search History"
+instruction_template: >
+  Go to the home page and clear all of your search history.
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+  - grounding
+start_path: /home
+seed:
+  distractors: 3
+  actors: {}
+  steps: []
+  targets: {}
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        len(state.search_history) == 0
+      desc: "All search history has been cleared"
+  negative_checks:
+    - expr: >
+        not any(
+          e.action == 'reservation.cancel'
+          for e in state.audit_log
+        )
+      desc: "No reservation was accidentally cancelled"
+      penalty: 0.3

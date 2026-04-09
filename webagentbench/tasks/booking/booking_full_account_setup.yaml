@@ -1,0 +1,117 @@
+task_id: booking_full_account_setup
+env_id: booking
+title: Full Account Setup with Payment Methods and Booking
+instruction_template: "Complete the following account setup and booking workflow:\
+  \ 1. Add two new payment methods:\n   - A Mastercard ending in 7777, expiry 08/28,\
+  \ holder name \"Jordan Parker\"\n   - A Visa ending in 9999, expiry 11/29, holder\
+  \ name \"Jordan Parker\"\n2. Set the new Visa card (ending in 9999) as your default\
+  \ payment method. 3. Update your travel preferences: preferred bed type to \"queen\"\
+  ,\n   floor preference to \"low\", and add \"gluten-free\" to dietary restrictions.\n\
+  4. Enable two-factor authentication in your account settings. 5. Search for \"{target.property_name}\"\
+  \ in {target.city} and book the\n   \"Standard Double Room\" for 2 guests checking\
+  \ in on 2026-07-10 and\n   checking out on 2026-07-14 using your new default payment\
+  \ method\n   (the Visa ending in 9999).\n"
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 35
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- grounding
+start_path: /home
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Monteleone
+      city: New Orleans
+      country: United States
+      star_rating: 4
+      review_score: 8.8
+      review_count: 4521
+      price: 225.0
+      neighborhood: French Quarter
+      address: 214 Royal Street, New Orleans, LA 70130
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+      rooms:
+      - name: Standard Double Room
+        price: 225.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe King Room
+        price: 310.0
+        bed_type: king
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: set_preferences
+    params:
+      preferred_bed_type: king
+      floor_preference: high
+      dietary_restrictions:
+      - vegetarian
+    outputs:
+    - updated
+  - use: set_settings
+    params:
+      two_factor_enabled: false
+    outputs:
+    - updated
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    city: New Orleans
+eval:
+  source: server_state
+  checks:
+  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '7777'\n  for pm in\
+      \ state.payment_methods)\n"
+    desc: Mastercard ending in 7777 was added
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '9999'\n  for pm in state.payment_methods)\n"
+    desc: Visa ending in 9999 was added
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '9999' and pm.is_default\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Visa ending in 9999 is set as default
+  - expr: state.travel_preferences.preferred_bed_type == 'queen'
+    desc: Preferred bed type updated to queen
+  - expr: state.travel_preferences.floor_preference == 'low'
+    desc: Floor preference updated to low
+  - expr: '''gluten-free'' in state.travel_preferences.dietary_restrictions'
+    desc: Gluten-free added to dietary restrictions
+  - expr: state.settings.two_factor_enabled == True
+    desc: Two-factor authentication is enabled
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-07-10' and\n  r.check_out == '2026-07-14'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Reservation created at target property with correct dates
+  negative_checks:
+  - expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '7777'\n  and\
+      \ pm.is_default for pm in state.payment_methods)\n"
+    desc: Mastercard was not set as default (only Visa should be)
+    penalty: 0.2
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation at wrong property
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'payment_method.delete'\n  for e in state.audit_log\n\
+      )\n"
+    desc: No existing payment methods were deleted
+    penalty: 0.2

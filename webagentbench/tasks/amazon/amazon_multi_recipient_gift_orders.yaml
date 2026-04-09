@@ -1,14 +1,16 @@
 task_id: amazon_multi_recipient_gift_orders
 env_id: amazon
 title: Send Gifts to Three Recipients via Separate Orders
-instruction_template: >
-  Send gifts to three recipients in three separate orders:
-  1. Add a new address for Jamie Thompson: 321 Birch Lane, Seattle, WA 98101.
-  2. Add a new address for Taylor Kim: 890 Cedar Drive, San Francisco, CA 94102.
-  3. Search for '{target.gift_1}' and purchase it, shipping to Jamie Thompson's address.
-  4. Search for '{target.gift_2}' and purchase it, shipping to Taylor Kim's address.
-  5. Search for '{target.gift_3}' and purchase it, shipping to an existing address
-  already on your account (not Jamie's or Taylor's).
+instruction_template: 'Send gifts to three recipients in three separate orders: 1.
+  Add a new address for {target.recip_1_name}: {target.recip_1_street}, {target.recip_1_city},
+  WA {target.recip_1_zip}. 2. Add a new address for {target.recip_2_name}: {target.recip_2_street},
+  {target.recip_2_city}, CA {target.recip_2_zip}. 3. Search for ''{target.gift_1}''
+  and purchase it, shipping to {target.recip_1_name}''s address. 4. Search for ''{target.gift_2}''
+  and purchase it, shipping to {target.recip_2_name}''s address. 5. Search for ''{target.gift_3}''
+  and purchase it, shipping to an existing address already on your account (not Jamie''s
+  or Taylor''s).
+
+  '
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -117,65 +119,78 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(a.full_name == 'Jamie Thompson' and a.city == 'Seattle'
-      for a in state.addresses)
+  - expr: 'any(a.full_name == ''Jamie Thompson'' and a.city == ''Seattle'' for a in
+      state.addresses)
+
+      '
     desc: Jamie's address added
-  - expr: >
-      any(a.full_name == 'Taylor Kim' and a.city == 'San Francisco'
-      for a in state.addresses)
+  - expr: 'any(a.full_name == ''Taylor Kim'' and a.city == ''San Francisco'' for a
+      in state.addresses)
+
+      '
     desc: Taylor's address added
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >= 3
+  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
+      3
     desc: At least 3 orders placed
-  - expr: >
-      any(any(item.product_id == '{target.gift_pid_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 1 purchased
-  - expr: >
-      any(any(item.product_id == '{target.gift_pid_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 2 purchased
-  - expr: >
-      any(any(item.product_id == '{target.gift_pid_3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.gift_pid_3}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 3 purchased
-  - expr: >
-      any(o.shipping_address_id == next((a.id for a in state.addresses
-      if a.full_name == 'Jamie Thompson'), '') and any(item.product_id == '{target.gift_pid_1}'
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
+      == ''Jamie Thompson''), '''') and any(item.product_id == ''{target.gift_pid_1}''
+      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 1 shipped to Jamie
-  - expr: >
-      any(o.shipping_address_id == next((a.id for a in state.addresses
-      if a.full_name == 'Taylor Kim'), '') and any(item.product_id == '{target.gift_pid_2}'
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
+      == ''Taylor Kim''), '''') and any(item.product_id == ''{target.gift_pid_2}''
+      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 2 shipped to Taylor
-  - expr: >
-      any(o.shipping_address_id not in [next((a.id for a in state.addresses
-      if a.full_name == 'Jamie Thompson'), ''), next((a.id for a in state.addresses
-      if a.full_name == 'Taylor Kim'), '')] and any(item.product_id == '{target.gift_pid_3}'
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.shipping_address_id not in [next((a.id for a in state.addresses if
+      a.full_name == ''Jamie Thompson''), ''''), next((a.id for a in state.addresses
+      if a.full_name == ''Taylor Kim''), '''')] and any(item.product_id == ''{target.gift_pid_3}''
+      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gift 3 shipped to existing address
   - expr: len(state.cart_items) == 0
     desc: Cart empty after all orders
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 3
+  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+      3
     desc: No more than 3 orders
     penalty: 0.1
-  - expr: >
-      not any(any(item.product_id == '{target.gift_pid_1}' for item in o.items)
-      and any(item.product_id == '{target.gift_pid_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
+      and any(item.product_id == ''{target.gift_pid_2}'' for item in o.items) for
+      o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gifts 1 and 2 are in separate orders
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.gift_pid_2}' for item in o.items)
-      and any(item.product_id == '{target.gift_pid_3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
+      and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
+      o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gifts 2 and 3 are in separate orders
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.gift_pid_1}' for item in o.items)
-      and any(item.product_id == '{target.gift_pid_3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
+      and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
+      o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Gifts 1 and 3 are in separate orders
     penalty: 0.15

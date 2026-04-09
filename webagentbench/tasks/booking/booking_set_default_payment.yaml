@@ -1,0 +1,34 @@
+task_id: booking_set_default_payment
+env_id: booking
+title: "Change Default Payment to Amex"
+instruction_template: >
+  Go to settings and change the default payment method to the American Express
+  card ending in 1234.
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+  - grounding
+start_path: /settings
+seed:
+  distractors: 3
+  actors: {}
+  steps: []
+  targets: {}
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(
+          pm.id == state.settings.default_payment_id and pm.card_type == 'Amex' and pm.last_four == '1234'
+          for pm in state.payment_methods
+        )
+      desc: "Default payment is now the Amex card ending in 1234"
+  negative_checks:
+    - expr: >
+        not any(
+          e.action == 'payment_method.delete'
+          for e in state.audit_log
+        )
+      desc: "No payment method was deleted"
+      penalty: 0.3

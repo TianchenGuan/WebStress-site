@@ -1,0 +1,305 @@
+task_id: booking_frontier_cancel_and_reorganize
+env_id: booking
+title: "Frontier: Cancel 3 Reservations, Rebook 2 Cheaper, Message, and Update List"
+instruction_template: "Reorganize your upcoming trips:\n\
+  1. Cancel your reservation at \"{target.cancel1_name}\"\n\
+  \   (confirmation {target.cancel1_conf}) in {target.cancel1_city}.\n\
+  2. Cancel your reservation at \"{target.cancel2_name}\"\n\
+  \   (confirmation {target.cancel2_conf}) in {target.cancel2_city}.\n\
+  3. Cancel your reservation at \"{target.cancel3_name}\"\n\
+  \   (confirmation {target.cancel3_conf}) in {target.cancel3_city}.\n\
+  4. Rebook in {target.cancel1_city}: search for \"{target.rebook1_name}\"\n\
+  \   and book its cheapest room for 2 guests, same dates as the\n\
+  \   cancelled booking (2026-08-05 to 2026-08-09),\n\
+  \   using default Visa (ending 4242).\n\
+  5. Rebook in {target.cancel2_city}: search for \"{target.rebook2_name}\"\n\
+  \   and book its cheapest room for 2 guests, same dates as the\n\
+  \   cancelled booking (2026-08-15 to 2026-08-19),\n\
+  \   using Mastercard ending in 8888.\n\
+  6. Send a message to each of the 3 cancelled properties:\n\
+  \   - \"{target.cancel1_name}\": subject \"Cancellation\", body\n\
+  \     \"I had to cancel due to budget constraints. Thank you.\"\n\
+  \   - \"{target.cancel2_name}\": subject \"Cancellation\", body\n\
+  \     \"Plans changed, hope to visit another time.\"\n\
+  \   - \"{target.cancel3_name}\": subject \"Cancellation\", body\n\
+  \     \"Sorry for the cancellation. Will rebook when possible.\"\n\
+  7. Go to your saved list \"{target.list_name}\" and add both\n\
+  \   new rebooked properties to it. Also remove the property\n\
+  \   \"{target.remove_from_list_name}\" from the list.\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 48
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /trips
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Ritz-Carlton Milan
+      city: Milan
+      country: Italy
+      star_rating: 5
+      review_score: 9.1
+      review_count: 3200
+      price: 480.0
+      neighborhood: Centro Storico
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Room service
+    outputs:
+    - cancel1_prop_id
+    - cancel1_prop_name
+    - cancel1_room_id
+    - cancel1_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.cancel1_prop_id}'
+      check_in: '2026-08-05'
+      check_out: '2026-08-09'
+      price_per_night: 480.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 20
+    outputs:
+    - cancel1_res_id
+    - cancel1_conf
+    - cancel1_res_prop
+  - use: featured_property
+    params:
+      name: InterContinental Vienna
+      city: Vienna
+      country: Austria
+      star_rating: 5
+      review_score: 9.0
+      review_count: 4100
+      price: 390.0
+      neighborhood: Ringstrasse
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+    outputs:
+    - cancel2_prop_id
+    - cancel2_prop_name
+    - cancel2_room_id
+    - cancel2_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.cancel2_prop_id}'
+      check_in: '2026-08-15'
+      check_out: '2026-08-19'
+      price_per_night: 390.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 18
+    outputs:
+    - cancel2_res_id
+    - cancel2_conf
+    - cancel2_res_prop
+  - use: featured_property
+    params:
+      name: Four Seasons Prague
+      city: Prague
+      country: Czech Republic
+      star_rating: 5
+      review_score: 9.3
+      review_count: 2800
+      price: 350.0
+      neighborhood: Old Town
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - River view
+    outputs:
+    - cancel3_prop_id
+    - cancel3_prop_name
+    - cancel3_room_id
+    - cancel3_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.cancel3_prop_id}'
+      check_in: '2026-09-01'
+      check_out: '2026-09-05'
+      price_per_night: 350.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 15
+    outputs:
+    - cancel3_res_id
+    - cancel3_conf
+    - cancel3_res_prop
+  - use: featured_property
+    params:
+      name: Milan Budget Boutique
+      city: Milan
+      country: Italy
+      star_rating: 3
+      review_score: 8.2
+      review_count: 1500
+      price: 120.0
+      neighborhood: Navigli
+      address: Via Naviglio Grande 12, 20144 Milan
+      amenities:
+      - Free WiFi
+      - Bar
+      - Bicycle rental
+      rooms:
+      - name: Standard Double
+        price: 120.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Superior Room
+        price: 165.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - rebook1_prop_id
+    - rebook1_prop_name
+    - rebook1_room_id
+    - rebook1_room_name
+  - use: featured_property
+    params:
+      name: Vienna Central Hostel & Hotel
+      city: Vienna
+      country: Austria
+      star_rating: 3
+      review_score: 7.9
+      review_count: 2100
+      price: 95.0
+      neighborhood: Leopoldstadt
+      address: Praterstrasse 44, 1020 Vienna
+      amenities:
+      - Free WiFi
+      - Bar
+      - Laundry
+      rooms:
+      - name: Budget Double
+        price: 95.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Comfort Room
+        price: 130.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - rebook2_prop_id
+    - rebook2_prop_name
+    - rebook2_room_id
+    - rebook2_room_name
+  - use: decoy_property
+    params:
+      name: Rome Grand Palace
+      city: Rome
+      country: Italy
+      star_rating: 4
+      review_score: 8.5
+      review_count: 1900
+      price: 230.0
+    outputs:
+    - decoy_id
+    - decoy_name
+  - use: create_saved_list
+    params:
+      name: Summer 2026 Ideas
+      property_ids:
+      - '{output.cancel3_prop_id}'
+      - '{output.decoy_id}'
+    outputs:
+    - list_id
+    - list_name
+  targets:
+    cancel1_prop_id: '{output.cancel1_prop_id}'
+    cancel1_name: '{output.cancel1_prop_name}'
+    cancel1_city: Milan
+    cancel1_res_id: '{output.cancel1_res_id}'
+    cancel1_conf: '{output.cancel1_conf}'
+    cancel2_prop_id: '{output.cancel2_prop_id}'
+    cancel2_name: '{output.cancel2_prop_name}'
+    cancel2_city: Vienna
+    cancel2_res_id: '{output.cancel2_res_id}'
+    cancel2_conf: '{output.cancel2_conf}'
+    cancel3_prop_id: '{output.cancel3_prop_id}'
+    cancel3_name: '{output.cancel3_prop_name}'
+    cancel3_city: Prague
+    cancel3_res_id: '{output.cancel3_res_id}'
+    cancel3_conf: '{output.cancel3_conf}'
+    rebook1_prop_id: '{output.rebook1_prop_id}'
+    rebook1_name: '{output.rebook1_prop_name}'
+    rebook2_prop_id: '{output.rebook2_prop_id}'
+    rebook2_name: '{output.rebook2_prop_name}'
+    list_id: '{output.list_id}'
+    list_name: '{output.list_name}'
+    remove_from_list_id: '{output.cancel3_prop_id}'
+    remove_from_list_name: '{output.cancel3_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(r.id == '{target.cancel1_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations)\n"
+    desc: First reservation cancelled
+  - expr: "any(r.id == '{target.cancel2_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations)\n"
+    desc: Second reservation cancelled
+  - expr: "any(r.id == '{target.cancel3_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations)\n"
+    desc: Third reservation cancelled
+  - expr: "any(\n  r.property_id == '{target.rebook1_prop_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-08-05' and r.check_out == '2026-08-09'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Rebooked in Milan with correct dates
+  - expr: "any(\n  r.property_id == '{target.rebook2_prop_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-08-15' and r.check_out == '2026-08-19'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Rebooked in Vienna with correct dates
+  - expr: "sum(1 for m in state.messages\n\
+      \  if m.sender == 'guest' and\n\
+      \  m.property_id in ('{target.cancel1_prop_id}', '{target.cancel2_prop_id}', '{target.cancel3_prop_id}')) >= 3\n"
+    desc: Messages sent to all three cancelled properties
+  - expr: "any(sl.id == '{target.list_id}' and\n\
+      \  '{target.rebook1_prop_id}' in sl.property_ids and\n\
+      \  '{target.rebook2_prop_id}' in sl.property_ids and\n\
+      \  '{target.remove_from_list_id}' not in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Saved list updated with rebooked properties and removed cancelled one
+  negative_checks:
+  - expr: "sum(1 for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 2\n"
+    desc: Only two new reservations created (rebookings)
+    penalty: 0.2
+  - expr: "not any(\n  r.property_id == '{target.rebook1_prop_id}' and\n\
+      \  r.price_per_night > 200.0\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Milan rebook is cheaper than original
+    penalty: 0.15
+  - expr: "not any(\n  r.property_id == '{target.rebook2_prop_id}' and\n\
+      \  r.price_per_night > 200.0\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Vienna rebook is cheaper than original
+    penalty: 0.15
+  - expr: "sum(1 for m in state.messages if m.sender == 'guest'\n\
+      \  and m.property_id not in ('{target.cancel1_prop_id}', '{target.cancel2_prop_id}', '{target.cancel3_prop_id}')) == 0\n"
+    desc: No messages sent to non-cancelled properties
+    penalty: 0.15

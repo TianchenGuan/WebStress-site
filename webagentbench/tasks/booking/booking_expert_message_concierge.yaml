@@ -1,0 +1,172 @@
+task_id: booking_expert_message_concierge
+env_id: booking
+title: Message Concierge with Context-Aware Replies and Preference Updates
+instruction_template: "Manage your inbox and update preferences accordingly:\n\
+  1. Go to your messages and find all unread messages.\n\
+  2. You should find these unread messages:\n\
+  \   - From \"{target.msg_hotel_1}\": asking about your check-in time\n\
+  \   - From \"{target.msg_hotel_2}\": suggesting a room upgrade with breakfast\n\
+  \   - From \"{target.msg_hotel_3}\": confirming a spa appointment\n\
+  3. Reply to each message:\n\
+  \   - Reply to \"{target.msg_hotel_1}\": subject \"Re: Check-in Time\",\
+  \ body \"We expect to arrive around 3pm. Please have the room ready by then.\"\n\
+  \   - Reply to \"{target.msg_hotel_2}\": subject \"Re: Room Upgrade Offer\"\
+  , body \"Yes, please proceed with the upgrade including breakfast. Thank\
+  \ you for the offer.\"\n\
+  \   - Reply to \"{target.msg_hotel_3}\": subject \"Re: Spa Appointment\"\
+  , body \"Confirmed. Please also book a couples massage for 5pm if available.\"\n\
+  4. Mark all three original messages as read.\n\
+  5. Based on the room upgrade suggestion, update your travel preferences:\n\
+  \   set preferred bed type to \"king\" and add \"spa\" to your accessibility\
+  \ needs.\n"
+difficulty: expert
+time_limit_seconds: 400
+expected_steps: 28
+primary_primitives:
+- state_tracking
+- patience
+- grounding
+secondary_primitives:
+- planning
+- exploration
+start_path: /messages
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Grand Hotel Tremezzo
+      city: Lake Como
+      country: Italy
+      star_rating: 5
+      review_score: 9.4
+      review_count: 3210
+      price: 550.0
+      neighborhood: Tremezzo
+    outputs:
+    - hotel_id_1
+    - hotel_name_1
+    - room_id_1
+    - room_name_1
+  - use: featured_property
+    params:
+      name: Mandarin Oriental Munich
+      city: Munich
+      country: Germany
+      star_rating: 5
+      review_score: 9.3
+      review_count: 2890
+      price: 480.0
+      neighborhood: Altstadt
+    outputs:
+    - hotel_id_2
+    - hotel_name_2
+    - room_id_2
+    - room_name_2
+  - use: featured_property
+    params:
+      name: Aman Tokyo
+      city: Tokyo
+      country: Japan
+      star_rating: 5
+      review_score: 9.6
+      review_count: 1780
+      price: 720.0
+      neighborhood: Otemachi
+    outputs:
+    - hotel_id_3
+    - hotel_name_3
+    - room_id_3
+    - room_name_3
+  - use: send_message
+    params:
+      property_id: '{output.hotel_id_1}'
+      property_name: '{output.hotel_name_1}'
+      subject: Check-in Time Inquiry
+      body: "Dear guest, could you please let us know your expected arrival time so we can prepare your room? Best regards, Front Desk"
+      sender: property
+      read: false
+    outputs:
+    - msg_id_1
+  - use: send_message
+    params:
+      property_id: '{output.hotel_id_2}'
+      property_name: '{output.hotel_name_2}'
+      subject: Complimentary Room Upgrade Available
+      body: "Dear Mr. Parker, we are pleased to offer you a complimentary upgrade to our King Suite with breakfast included. Would you like us to proceed with this upgrade? Warm regards, Guest Relations"
+      sender: property
+      read: false
+    outputs:
+    - msg_id_2
+  - use: send_message
+    params:
+      property_id: '{output.hotel_id_3}'
+      property_name: '{output.hotel_name_3}'
+      subject: Spa Appointment Confirmation
+      body: "Dear Mr. Parker, your spa appointment has been scheduled for 3pm on your arrival day. Please let us know if you need any changes. Regards, Aman Spa"
+      sender: property
+      read: false
+    outputs:
+    - msg_id_3
+  - use: send_message
+    params:
+      property_id: '{output.hotel_id_1}'
+      property_name: '{output.hotel_name_1}'
+      subject: "Welcome to Lake Como!"
+      body: "Hello and thank you for choosing Grand Hotel Tremezzo. We look forward to your visit!"
+      sender: property
+      read: true
+    outputs:
+    - distractor_msg_id
+  - use: set_preferences
+    params:
+      preferred_bed_type: queen
+      accessibility_needs: false
+    outputs:
+    - updated
+  targets:
+    hotel_id_1: '{output.hotel_id_1}'
+    msg_hotel_1: '{output.hotel_name_1}'
+    hotel_id_2: '{output.hotel_id_2}'
+    msg_hotel_2: '{output.hotel_name_2}'
+    hotel_id_3: '{output.hotel_id_3}'
+    msg_hotel_3: '{output.hotel_name_3}'
+    msg_id_1: '{output.msg_id_1}'
+    msg_id_2: '{output.msg_id_2}'
+    msg_id_3: '{output.msg_id_3}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  m.property_id == '{target.hotel_id_1}' and\n  m.sender == 'user'\
+      \ and\n  'arrive around 3pm' in m.body.lower()\n  for m in state.messages\n)\n"
+    desc: Reply sent to first hotel about 3pm arrival
+  - expr: "any(\n  m.property_id == '{target.hotel_id_2}' and\n  m.sender == 'user'\
+      \ and\n  'proceed with the upgrade' in m.body.lower()\n  for m in state.messages\n\
+      )\n"
+    desc: Reply sent to second hotel accepting upgrade
+  - expr: "any(\n  m.property_id == '{target.hotel_id_3}' and\n  m.sender == 'user'\
+      \ and\n  'couples massage' in m.body.lower()\n  for m in state.messages\n)\n"
+    desc: Reply sent to third hotel requesting couples massage
+  - expr: "any(m.id == '{target.msg_id_1}' and m.read == True for m in state.messages)"
+    desc: First message marked as read
+  - expr: "any(m.id == '{target.msg_id_2}' and m.read == True for m in state.messages)"
+    desc: Second message marked as read
+  - expr: "any(m.id == '{target.msg_id_3}' and m.read == True for m in state.messages)"
+    desc: Third message marked as read
+  - expr: state.travel_preferences.preferred_bed_type == 'king'
+    desc: Preferred bed type updated to king
+  negative_checks:
+  - expr: "sum(1 for m in state.messages\n  if m.sender == 'user'\n  and m.property_id\
+      \ not in ('{target.hotel_id_1}', '{target.hotel_id_2}', '{target.hotel_id_3}')\n\
+      ) == 0\n"
+    desc: No messages sent to unrelated properties
+    penalty: 0.2
+  - expr: "sum(1 for m in state.messages\n  if m.sender == 'user'\n  and m.property_id\
+      \ == '{target.hotel_id_1}') <= 1\n"
+    desc: Only one reply sent to first hotel
+    penalty: 0.15
+  - expr: "sum(1 for m in state.messages\n  if m.sender == 'user'\n  and m.property_id\
+      \ == '{target.hotel_id_2}') <= 1\n"
+    desc: Only one reply sent to second hotel
+    penalty: 0.15

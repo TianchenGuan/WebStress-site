@@ -1,0 +1,154 @@
+task_id: booking_saved_list_to_booking
+env_id: booking
+title: Book a Genius-Discounted Hotel from Saved List
+instruction_template: 'Go to your saved lists and open the list named "{target.list_name}".
+  Browse the properties in that list and identify which one offers a Genius discount.
+  Book that Genius-discounted property''s cheapest available room for 2 guests checking
+  in on 2026-08-01 and checking out on 2026-08-05 (4 nights). Use the default Visa
+  payment method (ending in 4242) and enter your name and email from your profile.
+
+  '
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 20
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- exploration
+- grounding
+start_path: /home
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Harbour Bridge Hotel
+      city: Sydney
+      country: Australia
+      star_rating: 4
+      review_score: 8.6
+      review_count: 2340
+      price: 275.0
+      neighborhood: The Rocks
+      address: 88 Cumberland Street, Sydney
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Bar
+    outputs:
+    - fp1_id
+    - fp1_name
+    - fp1_room
+    - fp1_rname
+  - use: featured_property
+    params:
+      name: Darling Harbour Suites
+      city: Sydney
+      country: Australia
+      star_rating: 4
+      review_score: 8.9
+      review_count: 1876
+      price: 310.0
+      neighborhood: Darling Harbour
+      address: 25 Wheat Road, Sydney
+      genius_discount_pct: 15
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Fitness center
+      - Restaurant
+      - Bar
+      - Room service
+      rooms:
+      - name: City View Room
+        price: 310.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        view_type: city
+      - name: Harbour Suite
+        price: 450.0
+        bed_type: king
+        max_occupancy: 3
+        cancel_type: free_cancellation
+        view_type: sea
+    outputs:
+    - fp2_id
+    - fp2_name
+    - fp2_room
+    - fp2_rname
+  - use: featured_property
+    params:
+      name: Bondi Beach Resort
+      city: Sydney
+      country: Australia
+      star_rating: 3
+      review_score: 8.1
+      review_count: 3210
+      price: 185.0
+      neighborhood: Bondi
+      address: 12 Campbell Parade, Sydney
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+    outputs:
+    - fp3_id
+    - fp3_name
+    - fp3_room
+    - fp3_rname
+  - use: create_saved_list
+    params:
+      name: Sydney Summer Trip
+      property_ids:
+      - '{output.fp1_id}'
+      - '{output.fp2_id}'
+      - '{output.fp3_id}'
+    outputs:
+    - list_id
+    - list_name
+  targets:
+    list_id: '{output.list_id}'
+    list_name: '{output.list_name}'
+    genius_prop_id: '{output.fp2_id}'
+    genius_prop_name: '{output.fp2_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.genius_prop_id}' and\n  r.status == 'confirmed'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation created at the Genius-discounted property
+  - expr: "any(\n  r.property_id == '{target.genius_prop_id}' and\n  r.check_in ==\
+      \ '2026-08-01' and\n  r.check_out == '2026-08-05'\n  for r in state.reservations\n\
+      )\n"
+    desc: Reservation has correct dates
+  - expr: "any(\n  r.property_id == '{target.genius_prop_id}' and\n  r.guests == 2\
+      \ and r.nights == 4\n  for r in state.reservations\n)\n"
+    desc: Reservation has correct guest count and nights
+  - expr: "any(\n  r.property_id == '{target.genius_prop_id}' and\n  r.room_type_name\
+      \ == 'City View Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Booked the cheapest room (City View Room)
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.genius_prop_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made at a non-Genius property from the list
+    penalty: 0.4
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.2
+  - expr: "not any(\n  r.property_id == '{target.genius_prop_id}' and\n  r.room_type_name\
+      \ == 'Harbour Suite'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Did not book the more expensive Harbour Suite
+    penalty: 0.2

@@ -1,52 +1,55 @@
-# Task Plan: Reddit Environment Quality Pass
+# Task Plan: Booking Environment Audit
 
 ## Goal
-Make the local Reddit benchmark environment feel stable and production-ready by fixing repeated navigation flicker, obvious interaction bugs, and compile/runtime rough edges.
+Check whether the new `booking` environment is benchmark-ready by reviewing the implementation, verifying live browser behavior, and identifying whether it can support challenging tasks rather than only shallow CRUD flows.
 
 ## Current Phase
 Phase 4
 
 ## Phases
-### Phase 1: Discovery & Triage
-- [x] Reproduce the likely navigation issue from code inspection
-- [x] Identify the main rerender/refetch causes
-- [x] Record findings in findings.md
+### Phase 1: Discovery
+- [x] Read benchmark/task docs relevant to environment quality and task design
+- [x] Inspect the `booking` backend, frontend, seed data, and existing tasks
+- [x] Record concrete findings in `findings.md`
 - **Status:** complete
 
-### Phase 2: Implementation
-- [x] Stabilize route/navigation behavior
-- [x] Fix obvious correctness bugs and type issues
-- [x] Improve keyboard/interaction quality for pseudo-links and controls
+### Phase 2: Live Validation
+- [x] Run targeted build and backend validation for `booking`
+- [x] Exercise the environment in a browser and note broken or weak flows
+- [x] Record failures, friction points, and realism gaps
 - **Status:** complete
 
-### Phase 3: Verification
-- [x] Run targeted Reddit typecheck/build
-- [x] Confirm remaining risks and document them
+### Phase 3: Task Difficulty Assessment
+- [x] Evaluate whether current state supports multi-step, stateful, and deceptive tasks
+- [x] Propose benchmark-worthy task patterns grounded in observed behavior
+- [x] Separate true blockers from optional improvements
 - **Status:** complete
 
 ### Phase 4: Delivery
-- [x] Summarize changes with file references
-- [x] Call out residual design debt separately from fixed issues
+- [x] Summarize defects and risks with file references
+- [x] Report verification performed and residual testing gaps
+- [x] Recommend next changes needed before large-scale task authoring
 - **Status:** complete
 
 ## Key Questions
-1. Why does a single click cause multiple visible flashes?
-2. Which fixes materially improve the benchmark environment without overreaching into unrelated refactors?
-3. Does the Reddit frontend build and typecheck cleanly after the fixes?
+1. Does the `booking` environment behave reliably enough to benchmark agents?
+2. Which flows are complete, which are stubbed, and which are misleadingly partial?
+3. Can the current state support genuinely challenging tasks without task prompts papering over product gaps?
 
 ## Decisions Made
 | Decision | Rationale |
 |----------|-----------|
-| Treat the local untracked Reddit environment as the target implementation | The worktree shows Reddit is actively being added and is the direct subject of the request |
-| Prioritize route stability and interaction correctness over visual redesign | The main complaint is environment usability, not styling |
-| Keep changes scoped to Reddit unless a shared change is clearly necessary | Avoid unintended regressions in other benchmark environments |
+| Audit both code and live behavior | Benchmark quality depends on runtime behavior, not just implementation shape |
+| Treat task design as downstream of environment capability | Challenging tasks only matter if the UI/backend actually support them |
+| Preserve unrelated worktree changes | The repo already has in-flight changes outside this audit |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
-| Previous unsynced Reddit debugging context existed without planning-file updates | 1 | Ran session catchup, read current files, and resumed from the live code state |
-| Reddit frontend typecheck currently fails in `src/pages/Profile.tsx` on `unknown` values rendered as React nodes | 1 | Fixed by tightening the frontend API and page state typing |
+| Planning files still described an older Reddit task | 1 | Rewrote planning files for the current `booking` audit |
+| Fresh Booking task YAMLs were not visible to the old `--no-reload` server process | 1 | Validated task registration and session creation on a fresh server at `127.0.0.1:8091` |
 
 ## Notes
-- Do not revert unrelated worktree changes.
-- Reddit typecheck and build now pass after the scoped quality fixes.
+- User referenced `shared_doc/`, but the repo path is `share_docs/`.
+- Need to verify both seeded data richness and UI affordances before judging task difficulty.
+- The previously identified Booking benchmark-layer defects have been rechecked after follow-up fixes; the remaining red tests are outside Booking.

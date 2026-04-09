@@ -1,0 +1,89 @@
+task_id: booking_view_reservation
+env_id: booking
+title: View Earliest Upcoming Reservation
+instruction_template: >
+  Go to your trips and find the reservation with the earliest upcoming check-in
+  date. Click "View details" to navigate to its detail page. The reservation
+  should be at "{target.property_name}" checking in on {target.check_in}.
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 4
+primary_primitives:
+  - grounding
+  - state_tracking
+start_path: /trips
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+    - use: featured_property
+      params:
+        name: "Coastal Breeze Resort"
+        city: "Barcelona"
+        country: "Spain"
+        star_rating: 4
+        review_score: 8.3
+        price: 210.0
+      outputs:
+        - early_prop_id
+        - early_prop_name
+        - early_room_id
+        - early_room_name
+    - use: create_reservation
+      params:
+        property_id: "{output.early_prop_id}"
+        check_in: "2026-04-15"
+        check_out: "2026-04-18"
+        status: confirmed
+        booked_days_ago: 7
+      outputs:
+        - early_res_id
+        - early_conf
+        - early_res_prop
+    - use: featured_property
+      params:
+        name: "Mountain Peak Lodge"
+        city: "Denver"
+        country: "United States"
+        star_rating: 3
+        review_score: 7.6
+        price: 155.0
+      outputs:
+        - later_prop_id
+        - later_prop_name
+        - later_room_id
+        - later_room_name
+    - use: create_reservation
+      params:
+        property_id: "{output.later_prop_id}"
+        check_in: "2026-07-10"
+        check_out: "2026-07-14"
+        status: confirmed
+        booked_days_ago: 4
+      outputs:
+        - later_res_id
+        - later_conf
+        - later_res_prop
+  targets:
+    reservation_id: "{output.early_res_id}"
+    property_name: "{output.early_prop_name}"
+    check_in: "2026-04-15"
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(
+          e.action == 'reservation.view' and
+          e.payload.get('reservation_id') == '{target.reservation_id}'
+          for e in state.audit_log
+        )
+      desc: "The earliest upcoming reservation detail was viewed"
+  negative_checks:
+    - expr: >
+        not any(e.action == 'reservation.cancel' for e in state.audit_log)
+      desc: "No reservation was accidentally cancelled"
+      penalty: 0.3
+    - expr: >
+        not any(e.action == 'reservation.modify' for e in state.audit_log)
+      desc: "No reservation was accidentally modified"
+      penalty: 0.2

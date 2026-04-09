@@ -1,0 +1,250 @@
+task_id: booking_frontier_budget_optimizer
+env_id: booking
+title: "Frontier: Budget-Constrained Hotel Selection with Comparison and Lists"
+instruction_template: "Find the best hotel within a $1000 total budget for 5 nights:\n\
+  1. Search for hotels in Lisbon. You need to stay 5 nights\n\
+  \   (checking in 2026-09-15, checking out 2026-09-20), so the\n\
+  \   hotel must cost at most $200/night to stay within $1000.\n\
+  2. Compare these four Lisbon properties:\n\
+  \   \"{target.name_1}\", \"{target.name_2}\",\n\
+  \   \"{target.name_3}\", \"{target.name_4}\".\n\
+  3. Among those with cheapest room under $200/night, find the\n\
+  \   one with the HIGHEST review score. That is\n\
+  \   \"{target.winner_name}\" (score {target.winner_score}).\n\
+  \   Book its cheapest room for 2 guests using the default\n\
+  \   Visa (ending 4242).\n\
+  4. Save the three alternatives (all properties except the booked\n\
+  \   one) to a new list called \"Lisbon Alternatives\".\n\
+  5. Send a message to the booked property with subject\n\
+  \   \"Special requests\" and body \"I would like a quiet room\n\
+  \   on a higher floor if possible.\"\n\
+  6. Write a review for your completed stay at\n\
+  \   \"{target.review_prop_name}\" in Lisbon: score 8.0,\n\
+  \   title \"Charming Lisbon gem\", positive \"Beautiful tile work\n\
+  \   and wonderful breakfast with pasteis de nata\",\n\
+  \   negative \"Elevator was out of service for one day\",\n\
+  \   leisure, couple.\n\
+  7. Update travel preferences: set preferred currency to \"EUR\".\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 42
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: compare_properties
+    params:
+      city: Lisbon
+      country: Portugal
+      properties:
+      - name: Lisbon Boutique Suites
+        star_rating: 4
+        review_score: 8.9
+        review_count: 2100
+        price: 175.0
+        neighborhood: Chiado
+        amenities:
+        - Free WiFi
+        - Restaurant
+        - Bar
+        - Rooftop terrace
+        - Concierge
+        rooms:
+        - name: Classic Room
+          price: 175.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Deluxe Suite
+          price: 280.0
+          bed_type: king
+          max_occupancy: 3
+          cancel_type: free_cancellation
+      - name: Alfama Heritage Hotel
+        star_rating: 4
+        review_score: 9.1
+        review_count: 1800
+        price: 190.0
+        neighborhood: Alfama
+        amenities:
+        - Free WiFi
+        - Restaurant
+        - Bar
+        - Garden
+        - Historic building
+        rooms:
+        - name: Heritage Room
+          price: 190.0
+          bed_type: queen
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Premium Suite
+          price: 310.0
+          bed_type: king
+          max_occupancy: 3
+          cancel_type: free_cancellation
+      - name: Belem Tower Grand Hotel
+        star_rating: 5
+        review_score: 9.3
+        review_count: 3500
+        price: 350.0
+        neighborhood: Belem
+        amenities:
+        - Free WiFi
+        - Pool
+        - Spa
+        - Restaurant
+        - Bar
+        rooms:
+        - name: Standard Room
+          price: 350.0
+          bed_type: king
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Presidential Suite
+          price: 600.0
+          bed_type: king
+          max_occupancy: 4
+          cancel_type: free_cancellation
+      - name: Baixa Central Inn
+        star_rating: 3
+        review_score: 7.8
+        review_count: 1200
+        price: 95.0
+        neighborhood: Baixa
+        amenities:
+        - Free WiFi
+        - Bar
+        - 24-hour front desk
+        rooms:
+        - name: Economy Room
+          price: 95.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+    outputs:
+    - prop_id_1
+    - prop_name_1
+    - prop_id_2
+    - prop_name_2
+    - prop_id_3
+    - prop_name_3
+    - prop_id_4
+    - prop_name_4
+  - use: featured_property
+    params:
+      name: Lisbon Riverside Retreat
+      city: Lisbon
+      country: Portugal
+      star_rating: 3
+      review_score: 8.2
+      review_count: 900
+      price: 110.0
+      neighborhood: Santos
+      amenities:
+      - Free WiFi
+      - Bar
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - review_room_id
+    - review_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-02-05'
+      check_out: '2026-02-09'
+      price_per_night: 110.0
+      status: completed
+      guests: 2
+      booked_days_ago: 65
+    outputs:
+    - review_res_id
+    - review_conf
+    - review_res_prop
+  - use: set_preferences
+    params:
+      preferred_currency: USD
+    outputs:
+    - prefs_updated
+  targets:
+    name_1: '{output.prop_name_1}'
+    name_2: '{output.prop_name_2}'
+    name_3: '{output.prop_name_3}'
+    name_4: '{output.prop_name_4}'
+    prop_id_1: '{output.prop_id_1}'
+    prop_id_2: '{output.prop_id_2}'
+    prop_id_3: '{output.prop_id_3}'
+    prop_id_4: '{output.prop_id_4}'
+    winner_id: '{output.prop_id_2}'
+    winner_name: '{output.prop_name_2}'
+    winner_score: '9.1'
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.winner_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-09-15' and r.check_out == '2026-09-20' and\n\
+      \  r.guests == 2\n\
+      \  for r in state.reservations\n)\n"
+    desc: Best budget hotel booked with correct dates and guests
+  - expr: "any(\n  r.property_id == '{target.winner_id}' and\n\
+      \  r.price_per_night <= 200.0\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Booked room is within $200/night budget
+  - expr: "any(sl.name == 'Lisbon Alternatives' and\n\
+      \  '{target.prop_id_1}' in sl.property_ids and\n\
+      \  '{target.prop_id_3}' in sl.property_ids and\n\
+      \  '{target.prop_id_4}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Three alternative properties saved to Lisbon Alternatives list
+  - expr: "any(m.property_id == '{target.winner_id}' and m.sender == 'guest'\n\
+      \  and 'quiet room' in m.body.lower()\n\
+      \  for m in state.messages)\n"
+    desc: Message sent to booked property about quiet room
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  rv.overall_score == 8.0 and rv.title == 'Charming Lisbon gem'\n\
+      \  for rv in state.reviews)\n"
+    desc: Review written with correct score and title
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  'pasteis de nata' in rv.positive.lower()\n\
+      \  for rv in state.reviews)\n"
+    desc: Review positive mentions pasteis de nata
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  'elevator' in rv.negative.lower()\n\
+      \  for rv in state.reviews)\n"
+    desc: Review negative mentions elevator issue
+  - expr: state.travel_preferences.preferred_currency == 'EUR'
+    desc: Preferred currency updated to EUR
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n\
+      \  e.payload.get('property_id') == '{target.prop_id_3}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: Did not book the over-budget Belem Tower (350/night)
+    penalty: 0.4
+  - expr: "not any(\n  e.action == 'reservation.create' and\n\
+      \  e.payload.get('property_id') == '{target.prop_id_1}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: Did not book Lisbon Boutique Suites (lower review score than winner)
+    penalty: 0.3
+  - expr: "not any(sl.name == 'Lisbon Alternatives' and\n\
+      \  '{target.winner_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Booked property was not added to alternatives list
+    penalty: 0.15
+  - expr: "sum(1 for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 1\n"
+    desc: Only one new reservation created
+    penalty: 0.2

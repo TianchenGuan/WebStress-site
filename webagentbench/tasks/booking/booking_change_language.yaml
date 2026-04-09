@@ -1,0 +1,39 @@
+task_id: booking_change_language
+env_id: booking
+title: Change Language to French
+instruction_template: 'Go to settings and change the language preference to French,
+  then save.
+
+  '
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+- grounding
+start_path: /settings
+seed:
+  distractors: 3
+  actors: {}
+  steps:
+  - use: set_settings
+    params:
+      language: English
+    outputs:
+    - updated
+  targets: {}
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.settings.language == ''French''
+
+      '
+    desc: Language preference is now set to French
+  negative_checks:
+  - expr: 'state.settings.currency == ''USD''
+
+      '
+    desc: Currency was not accidentally changed
+    penalty: 0.1
+  - expr: state.settings.two_factor_enabled == False
+    desc: Two-factor authentication was not accidentally enabled
+    penalty: 0.1

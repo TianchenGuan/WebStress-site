@@ -67,7 +67,7 @@ export function SubmitPage() {
             className={`submit-page__type-tab ${postType === "text" ? "submit-page__type-tab--active" : ""}`}
             onClick={() => setPostType("text")}
           >
-            📝 Text
+            Text
           </button>
           <button
             role="tab"
@@ -75,7 +75,7 @@ export function SubmitPage() {
             className={`submit-page__type-tab ${postType === "link" ? "submit-page__type-tab--active" : ""}`}
             onClick={() => setPostType("link")}
           >
-            🔗 Link
+            Link
           </button>
         </div>
 

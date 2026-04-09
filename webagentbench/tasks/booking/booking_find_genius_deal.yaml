@@ -1,0 +1,130 @@
+task_id: booking_find_genius_deal
+env_id: booking
+title: Find and Book a Genius-Discounted Property in Barcelona
+instruction_template: 'Search for hotels in "Barcelona" and find the Genius-discounted
+  property named "{target.property_name}" (it should show a Genius discount). Book
+  its "{target.room_name}" room for 4 nights checking in on 2026-07-01 and checking
+  out on 2026-07-05 for 2 guests. Use the default Visa payment method (ending in 4242).
+  Enter your name and email from your account profile.
+
+  '
+difficulty: medium
+time_limit_seconds: 220
+expected_steps: 14
+primary_primitives:
+- planning
+- grounding
+start_path: /home
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Barcelona Genius Boutique
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.7
+      review_count: 1120
+      price: 195.0
+      property_type: Boutique Hotel
+      neighborhood: Eixample
+      address: 88 Passeig de Gracia, 08008 Barcelona
+      genius_discount_pct: 15
+      amenities:
+      - Free WiFi
+      - Rooftop terrace
+      - Spa
+      - Air conditioning
+      popular_facilities:
+      - Free WiFi
+      - Rooftop terrace
+      - Spa
+      distance_km: 1.5
+      rooms:
+      - name: Genius Superior Room
+        price: 195.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: 229.0
+        view_type: city
+      - name: Genius Deluxe Suite
+        price: 310.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: 365.0
+        view_type: city
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: Hotel Ramblas Classic
+      city: Barcelona
+      country: Spain
+      star_rating: 3
+      review_score: 7.9
+      review_count: 890
+      price: 155.0
+      property_type: Hotel
+      neighborhood: Barri Gotic
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Restaurant
+      distance_km: 0.5
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Sagrada Family View Hotel
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.3
+      review_count: 1650
+      price: 230.0
+      property_type: Hotel
+      neighborhood: Eixample
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Pool
+      - Gym
+      distance_km: 2.0
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    room_id: '{output.cheapest_room_id}'
+    room_name: Genius Superior Room
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-07-01'\
+      \ and\n  r.check_out == '2026-07-05' and\n  r.status == 'confirmed'\n  for r\
+      \ in state.reservations\n)\n"
+    desc: Reservation was created for the Genius property with correct dates
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_id ==\
+      \ '{target.room_id}' and\n  r.guests == 2\n  for r in state.reservations\n \
+      \ if not r.id.startswith('res_initial_')\n)\n"
+    desc: Reservation is for the Genius Superior Room with 2 guests
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.is_genius_deal\
+      \ == True\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Reservation is flagged as a Genius deal
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation was made for a non-Genius property
+    penalty: 0.3

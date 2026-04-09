@@ -1,0 +1,19 @@
+variant_id: booking_decoy_hotel_selection__grounding_v1
+base_task_id: booking_decoy_hotel_selection
+target_primitive: grounding
+description: ARIA labels are scrambled and CSS class names are randomized, making
+  it harder to distinguish UI elements by accessibility attributes.
+injections:
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label], [role="button"], .bk-score-badge, .bk-stars'
+    behavior:
+      mode: persistent
+- layer: client
+  params:
+    action: inject_visual_noise
+    mutations:
+    - selector: '.bk-card-body'
+      behavior: shuffle_child_order
+      probability: 0.3

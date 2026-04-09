@@ -6,13 +6,13 @@ import { useRedditLayout } from "../context";
 import type { Notification } from "../types";
 import { activateOnKeyDown, timeAgo } from "../utils";
 
-const NOTIF_ICONS: Record<string, string> = {
-  comment_reply: "💬",
-  post_reply: "📝",
+const NOTIF_LABELS: Record<string, string> = {
+  comment_reply: "Reply",
+  post_reply: "Post",
   mention: "@",
-  upvote_milestone: "⬆️",
-  award: "🏅",
-  message: "✉️",
+  upvote_milestone: "Upvote",
+  award: "Award",
+  message: "Message",
 };
 
 export function NotificationsPage() {
@@ -92,7 +92,7 @@ export function NotificationsPage() {
               tabIndex={0}
               aria-label={`${notif.is_read ? "" : "Unread: "}${notif.title}`}
             >
-              <span className="notification-item__icon">{NOTIF_ICONS[notif.type] ?? "🔔"}</span>
+              <span className="notification-item__icon">{NOTIF_LABELS[notif.type] ?? "Alert"}</span>
               <div className="notification-item__content">
                 <h3 className="notification-item__title">{notif.title}</h3>
                 <p className="notification-item__body">{notif.body}</p>

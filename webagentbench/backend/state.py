@@ -8,6 +8,7 @@ from typing import Any
 
 from .models.base import AuditEntry, BaseEnvState
 from .models.amazon import AmazonState
+from .models.booking import BookingState
 from .models.gmail import GmailState
 from .models.reddit import RedditState
 from .models.robinhood import RobinhoodState
@@ -17,6 +18,7 @@ from .seeders import SEEDER_REGISTRY
 
 STATE_TYPES: dict[str, type[BaseEnvState]] = {
     "amazon": AmazonState,
+    "booking": BookingState,
     "gmail": GmailState,
     "reddit": RedditState,
     "robinhood": RobinhoodState,

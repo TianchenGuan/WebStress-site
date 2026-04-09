@@ -1,0 +1,26 @@
+variant_id: booking_cancel_upcoming__grounding_v1
+base_task_id: booking_cancel_upcoming
+target_primitive: grounding
+description: Confusing decoy reservations with similar property names and dates make
+  the correct cancellation target harder to identify.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: reservation
+      property_name: "Seaside Boutique Resort"
+      status: confirmed
+      check_in: "2026-05-11"
+      check_out: "2026-05-15"
+    - type: reservation
+      property_name: "Seaside Boutique Inn"
+      status: confirmed
+      check_in: "2026-05-09"
+      check_out: "2026-05-13"
+- layer: client
+  params:
+    action: scramble_aria
+    selector: '[aria-label]'
+    behavior:
+      mode: persistent

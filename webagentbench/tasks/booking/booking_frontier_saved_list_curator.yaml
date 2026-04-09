@@ -1,0 +1,273 @@
+task_id: booking_frontier_saved_list_curator
+env_id: booking
+title: "Frontier: Create 3 Themed Saved Lists, Populate, and Book Cheapest"
+instruction_template: "Create and curate three themed saved lists, then book:\n\
+  1. Create a list called \"Beach Getaways\" and add\n\
+  \   \"{target.beach1_name}\" and \"{target.beach2_name}\" to it.\n\
+  2. Create a list called \"City Breaks\" and add\n\
+  \   \"{target.city1_name}\", \"{target.city2_name}\", and\n\
+  \   \"{target.city3_name}\" to it.\n\
+  3. Create a list called \"Mountain Retreats\" and add\n\
+  \   \"{target.mtn1_name}\" and \"{target.mtn2_name}\" to it.\n\
+  4. Across ALL three lists, find the property with the lowest\n\
+  \   cheapest-room price. (Hint: it is \"{target.cheapest_name}\"\n\
+  \   at ${target.cheapest_price}/night.) Book its cheapest room\n\
+  \   for 2 guests, checking in 2026-10-15, checking out 2026-10-19,\n\
+  \   using the default Visa (ending 4242).\n\
+  5. Send a message to the booked property with subject\n\
+  \   \"Upcoming reservation\" and body \"Looking forward to my stay.\n\
+  \   Can you arrange airport pickup?\"\n\
+  6. Write a review for your completed stay at \"{target.review_name}\":\n\
+  \   score 8.5, title \"Great mountain escape\",\n\
+  \   positive \"Breathtaking views and cozy fireplace\",\n\
+  \   no negative, leisure, couple.\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 48
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Maldives Paradise Resort
+      city: Male
+      country: Maldives
+      star_rating: 5
+      review_score: 9.5
+      review_count: 3200
+      price: 680.0
+      neighborhood: North Male Atoll
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Restaurant
+      - Beach access
+      - Diving
+    outputs:
+    - beach1_id
+    - beach1_name
+    - beach1_room_id
+    - beach1_room_name
+  - use: featured_property
+    params:
+      name: Bali Sunset Beach Hotel
+      city: Bali
+      country: Indonesia
+      star_rating: 4
+      review_score: 8.6
+      review_count: 2800
+      price: 195.0
+      neighborhood: Seminyak
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Beach access
+      - Spa
+    outputs:
+    - beach2_id
+    - beach2_name
+    - beach2_room_id
+    - beach2_room_name
+  - use: featured_property
+    params:
+      name: Amsterdam Canal Boutique
+      city: Amsterdam
+      country: Netherlands
+      star_rating: 4
+      review_score: 8.4
+      review_count: 1900
+      price: 220.0
+      neighborhood: Jordaan
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Bicycle rental
+    outputs:
+    - city1_id
+    - city1_name
+    - city1_room_id
+    - city1_room_name
+  - use: featured_property
+    params:
+      name: Prague Old Town Hotel
+      city: Prague
+      country: Czech Republic
+      star_rating: 4
+      review_score: 8.8
+      review_count: 2400
+      price: 155.0
+      neighborhood: Old Town
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Spa
+    outputs:
+    - city2_id
+    - city2_name
+    - city2_room_id
+    - city2_room_name
+  - use: featured_property
+    params:
+      name: Istanbul Grand Bazaar Hotel
+      city: Istanbul
+      country: Turkey
+      star_rating: 4
+      review_score: 8.2
+      review_count: 1700
+      price: 110.0
+      neighborhood: Sultanahmet
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Rooftop terrace
+      - Turkish bath
+    outputs:
+    - city3_id
+    - city3_name
+    - city3_room_id
+    - city3_room_name
+  - use: featured_property
+    params:
+      name: Swiss Alps Lodge
+      city: Zermatt
+      country: Switzerland
+      star_rating: 5
+      review_score: 9.1
+      review_count: 1600
+      price: 450.0
+      neighborhood: Village Center
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Ski storage
+      - Fireplace
+    outputs:
+    - mtn1_id
+    - mtn1_name
+    - mtn1_room_id
+    - mtn1_room_name
+  - use: featured_property
+    params:
+      name: Banff Mountain Lodge
+      city: Banff
+      country: Canada
+      star_rating: 4
+      review_score: 8.7
+      review_count: 2100
+      price: 280.0
+      neighborhood: Banff Centre
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Hot tub
+      - Fireplace
+      - Hiking
+    outputs:
+    - mtn2_id
+    - mtn2_name
+    - mtn2_room_id
+    - mtn2_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.mtn1_id}'
+      check_in: '2025-12-20'
+      check_out: '2025-12-26'
+      price_per_night: 450.0
+      status: completed
+      guests: 2
+      booked_days_ago: 110
+    outputs:
+    - review_res_id
+    - review_conf
+    - review_res_prop
+  targets:
+    beach1_id: '{output.beach1_id}'
+    beach1_name: '{output.beach1_name}'
+    beach2_id: '{output.beach2_id}'
+    beach2_name: '{output.beach2_name}'
+    city1_id: '{output.city1_id}'
+    city1_name: '{output.city1_name}'
+    city2_id: '{output.city2_id}'
+    city2_name: '{output.city2_name}'
+    city3_id: '{output.city3_id}'
+    city3_name: '{output.city3_name}'
+    mtn1_id: '{output.mtn1_id}'
+    mtn1_name: '{output.mtn1_name}'
+    mtn2_id: '{output.mtn2_id}'
+    mtn2_name: '{output.mtn2_name}'
+    cheapest_id: '{output.city3_id}'
+    cheapest_name: '{output.city3_name}'
+    cheapest_price: '110'
+    review_id: '{output.mtn1_id}'
+    review_name: '{output.mtn1_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(sl.name == 'Beach Getaways' and\n\
+      \  '{target.beach1_id}' in sl.property_ids and\n\
+      \  '{target.beach2_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Beach Getaways list has both beach properties
+  - expr: "any(sl.name == 'City Breaks' and\n\
+      \  '{target.city1_id}' in sl.property_ids and\n\
+      \  '{target.city2_id}' in sl.property_ids and\n\
+      \  '{target.city3_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: City Breaks list has all three city properties
+  - expr: "any(sl.name == 'Mountain Retreats' and\n\
+      \  '{target.mtn1_id}' in sl.property_ids and\n\
+      \  '{target.mtn2_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Mountain Retreats list has both mountain properties
+  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-10-15' and r.check_out == '2026-10-19'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Cheapest property booked with correct dates
+  - expr: "any(m.property_id == '{target.cheapest_id}' and m.sender == 'guest'\n\
+      \  and 'airport' in m.body.lower()\n\
+      \  for m in state.messages)\n"
+    desc: Message sent to booked property about airport pickup
+  - expr: "any(rv.property_id == '{target.review_id}' and\n\
+      \  rv.overall_score == 8.5 and rv.title == 'Great mountain escape'\n\
+      \  for rv in state.reviews)\n"
+    desc: Mountain review with correct score and title
+  - expr: "any(rv.property_id == '{target.review_id}' and\n\
+      \  'fireplace' in rv.positive.lower()\n\
+      \  for rv in state.reviews)\n"
+    desc: Review positive mentions fireplace
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n\
+      \  e.payload.get('property_id') != '{target.cheapest_id}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: No reservation at wrong property
+    penalty: 0.4
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Beach Getaways') <= 1\n"
+    desc: Only one Beach Getaways list
+    penalty: 0.1
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'City Breaks') <= 1\n"
+    desc: Only one City Breaks list
+    penalty: 0.1
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Mountain Retreats') <= 1\n"
+    desc: Only one Mountain Retreats list
+    penalty: 0.1
+  - expr: "sum(1 for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 1\n"
+    desc: Only one new reservation created
+    penalty: 0.2

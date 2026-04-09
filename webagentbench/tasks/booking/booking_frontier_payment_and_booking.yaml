@@ -1,0 +1,256 @@
+task_id: booking_frontier_payment_and_booking
+env_id: booking
+title: "Frontier: Add 3 Payment Methods, Book 3 Hotels Each with Different Card"
+instruction_template: "Manage payment methods and book across three properties:\n\
+  1. Add three new payment methods:\n\
+  \   - Visa ending in 6666, expiry 12/30, holder \"Jordan Parker\"\n\
+  \   - Mastercard ending in 4444, expiry 03/29, holder \"Jordan Parker\"\n\
+  \   - Amex ending in 2222, expiry 06/30, holder \"Jordan Parker\"\n\
+  2. Set the new Visa (ending 6666) as your default payment method.\n\
+  3. Search for \"{target.prop1_name}\" in London and book its\n\
+  \   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n\
+  \   checking out 2026-11-04, using the NEW Visa (ending 6666).\n\
+  4. Search for \"{target.prop2_name}\" in Paris and book its\n\
+  \   \"Classic Room\" for 2 guests, checking in 2026-11-06,\n\
+  \   checking out 2026-11-09, using the NEW Mastercard (ending 4444).\n\
+  5. Search for \"{target.prop3_name}\" in Rome and book its\n\
+  \   \"Comfort Room\" for 2 guests, checking in 2026-11-11,\n\
+  \   checking out 2026-11-14, using the NEW Amex (ending 2222).\n\
+  6. Remove the old Mastercard ending in {target.remove_last_four}\n\
+  \   (held by \"{target.remove_holder}\").\n\
+  7. Save all three booked properties to a new list called\n\
+  \   \"November Europe Trip\".\n\
+  8. Write a review for your completed stay at\n\
+  \   \"{target.review_prop_name}\": score 7.5,\n\
+  \   title \"Decent European stay\", positive \"Good location\n\
+  \   and clean rooms\", negative \"Slow WiFi\",\n\
+  \   business, solo.\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 50
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Chelsea Harbour Hotel
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.5
+      review_count: 2200
+      price: 260.0
+      neighborhood: Chelsea
+      address: Chelsea Harbour Drive, London SW10
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      rooms:
+      - name: Standard Room
+        price: 260.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Suite
+        price: 420.0
+        bed_type: king
+        max_occupancy: 3
+        cancel_type: free_cancellation
+    outputs:
+    - prop1_id
+    - prop1_name
+    - prop1_room_id
+    - prop1_room_name
+  - use: featured_property
+    params:
+      name: Hotel Saint-Honore Paris
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.7
+      review_count: 1900
+      price: 310.0
+      neighborhood: 1st Arrondissement
+      address: 85 Rue Saint-Honore, 75001 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Concierge
+      rooms:
+      - name: Classic Room
+        price: 310.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Superior Suite
+        price: 480.0
+        bed_type: king
+        max_occupancy: 3
+        cancel_type: free_cancellation
+    outputs:
+    - prop2_id
+    - prop2_name
+    - prop2_room_id
+    - prop2_room_name
+  - use: featured_property
+    params:
+      name: Trastevere Comfort Hotel
+      city: Rome
+      country: Italy
+      star_rating: 3
+      review_score: 8.3
+      review_count: 1600
+      price: 155.0
+      neighborhood: Trastevere
+      address: Via della Lungaretta 40, 00153 Rome
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Rooftop terrace
+      rooms:
+      - name: Comfort Room
+        price: 155.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Room
+        price: 210.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - prop3_id
+    - prop3_name
+    - prop3_room_id
+    - prop3_room_name
+  - use: add_payment_method
+    params:
+      card_type: Mastercard
+      last_four: '5555'
+      expiry: 03/27
+      holder_name: Alex Parker
+      is_default: false
+    outputs:
+    - remove_pm_id
+    - remove_last_four
+  - use: featured_property
+    params:
+      name: Brussels Art Nouveau Hotel
+      city: Brussels
+      country: Belgium
+      star_rating: 4
+      review_score: 8.1
+      review_count: 1100
+      price: 180.0
+      neighborhood: Grand Place
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - review_room_id
+    - review_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-02-10'
+      check_out: '2026-02-13'
+      price_per_night: 180.0
+      status: completed
+      guests: 1
+      booked_days_ago: 60
+    outputs:
+    - review_res_id
+    - review_conf
+    - review_res_prop
+  targets:
+    prop1_id: '{output.prop1_id}'
+    prop1_name: '{output.prop1_name}'
+    prop2_id: '{output.prop2_id}'
+    prop2_name: '{output.prop2_name}'
+    prop3_id: '{output.prop3_id}'
+    prop3_name: '{output.prop3_name}'
+    remove_pm_id: '{output.remove_pm_id}'
+    remove_last_four: '5555'
+    remove_holder: Alex Parker
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: New Visa 6666 was added
+  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '4444'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: New Mastercard 4444 was added
+  - expr: "any(pm.card_type == 'Amex' and pm.last_four == '2222'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: New Amex 2222 was added
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Visa 6666 set as default
+  - expr: "any(\n  r.property_id == '{target.prop1_id}' and\n\
+      \  r.status == 'confirmed' and r.room_type_name == 'Standard Room' and\n\
+      \  r.check_in == '2026-11-01' and r.check_out == '2026-11-04'\n\
+      \  for r in state.reservations\n)\n"
+    desc: London property booked with correct room and dates
+  - expr: "any(\n  r.property_id == '{target.prop2_id}' and\n\
+      \  r.status == 'confirmed' and r.room_type_name == 'Classic Room' and\n\
+      \  r.check_in == '2026-11-06' and r.check_out == '2026-11-09'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Paris property booked with correct room and dates
+  - expr: "any(\n  r.property_id == '{target.prop3_id}' and\n\
+      \  r.status == 'confirmed' and r.room_type_name == 'Comfort Room' and\n\
+      \  r.check_in == '2026-11-11' and r.check_out == '2026-11-14'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Rome property booked with correct room and dates
+  - expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '5555'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Old Mastercard 5555 was removed
+  - expr: "any(sl.name == 'November Europe Trip' and\n\
+      \  '{target.prop1_id}' in sl.property_ids and\n\
+      \  '{target.prop2_id}' in sl.property_ids and\n\
+      \  '{target.prop3_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: All three booked properties in November Europe Trip list
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  rv.overall_score == 7.5 and rv.title == 'Decent European stay' and\n\
+      \  'slow wifi' in rv.negative.lower()\n\
+      \  for rv in state.reviews)\n"
+    desc: Review written with correct score, title, and negative
+  negative_checks:
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '4242'\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Original Visa 4242 was not removed
+    penalty: 0.3
+  - expr: "sum(1 for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 3\n"
+    desc: Only three new reservations created
+    penalty: 0.2
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'November Europe Trip') <= 1\n"
+    desc: Only one November Europe Trip list created
+    penalty: 0.1
+  - expr: "not any(\n  e.action == 'payment_method.delete' and\n\
+      \  e.payload.get('payment_method_id') not in ('{target.remove_pm_id}',)\n\
+      \  for e in state.audit_log\n)\n"
+    desc: No wrong payment methods were deleted
+    penalty: 0.3

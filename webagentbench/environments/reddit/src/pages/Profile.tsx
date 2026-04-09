@@ -75,7 +75,7 @@ export function ProfilePage() {
             </div>
             {user.cake_day && (
               <div className="profile-stat">
-                <span className="profile-stat__value">🎂</span>
+                <span className="profile-stat__value">Cake Day</span>
                 <span className="profile-stat__label">{formatDate(user.cake_day as string)}</span>
               </div>
             )}

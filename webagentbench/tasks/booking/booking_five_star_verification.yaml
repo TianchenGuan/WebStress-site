@@ -1,0 +1,183 @@
+task_id: booking_five_star_verification
+env_id: booking
+title: Verify 5-Star Tokyo Hotel and Book Executive Suite
+instruction_template: 'Search for 5-star hotels in Tokyo. Find a hotel that has BOTH
+  a spa AND a pool in its amenities, and verify that its review score is above 9.0.
+  Once you find such a hotel, book its "Executive Suite" (not any other room type)
+  for 2 guests checking in on 2026-09-01 and checking out on 2026-09-05 (4 nights).
+  Use the default Visa payment method (ending in 4242) and enter your name and email
+  from your profile.
+
+  '
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 22
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- exploration
+- grounding
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Aman Tokyo
+      city: Tokyo
+      country: Japan
+      star_rating: 5
+      review_score: 9.4
+      review_count: 2890
+      price: 650.0
+      neighborhood: Otemachi
+      address: The Otemachi Tower, 1-5-6 Otemachi, Tokyo
+      distance_km: 0.8
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Fitness center
+      - Restaurant
+      - Bar
+      - Room service
+      - Concierge
+      - Garden
+      - Sauna
+      popular_facilities:
+      - Spa
+      - Pool
+      - Restaurant
+      - Free WiFi
+      rooms:
+      - name: Deluxe Room
+        price: 650.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+        room_size_sqm: 71.0
+      - name: Premier Room
+        price: 850.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+        room_size_sqm: 80.0
+      - name: Executive Suite
+        price: 1200.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+        room_size_sqm: 120.0
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: The Peninsula Tokyo
+      city: Tokyo
+      country: Japan
+      star_rating: 5
+      review_score: 9.2
+      review_count: 3456
+      price: 580.0
+      neighborhood: Marunouchi
+      amenities:
+      - Free WiFi
+      - Spa
+      - Fitness center
+      - Restaurant
+      - Bar
+      - Room service
+      - Concierge
+      distance_km: 0.5
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Tokyo Bay Grand Hotel
+      city: Tokyo
+      country: Japan
+      star_rating: 5
+      review_score: 8.7
+      review_count: 1890
+      price: 420.0
+      neighborhood: Odaiba
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Fitness center
+      - Restaurant
+      distance_km: 4.5
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Shinjuku Garden Hotel
+      city: Tokyo
+      country: Japan
+      star_rating: 4
+      review_score: 9.1
+      review_count: 4200
+      price: 280.0
+      neighborhood: Shinjuku
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Fitness center
+      distance_km: 1.2
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation created at the correct 5-star property
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
+      \ == 'Executive Suite'\n  for r in state.reservations\n)\n"
+    desc: Booked the Executive Suite specifically
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-09-01'\
+      \ and\n  r.check_out == '2026-09-05'\n  for r in state.reservations\n)\n"
+    desc: Correct check-in and check-out dates
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2 and\
+      \ r.nights == 4\n  for r in state.reservations\n)\n"
+    desc: Correct guest count and number of nights
+  - expr: "next(\n  (p for p in state.properties if p.id == '{target.property_id}'),\
+      \ None\n) is not None and next(p for p in state.properties if p.id == '{target.property_id}').review_score\
+      \ > 9.0\n"
+    desc: The booked property has a review score above 9.0
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation was made at a decoy property
+    penalty: 0.4
+  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
+      \ in ('Deluxe Room', 'Premier Room')\n  for r in state.reservations\n  if not\
+      \ r.id.startswith('res_initial_')\n)\n"
+    desc: Did not book a non-Executive room type
+    penalty: 0.3
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.2

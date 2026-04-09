@@ -1,0 +1,216 @@
+task_id: booking_expert_notification_workflow
+env_id: booking
+title: Notification-Driven Property Discovery with Save and Book
+instruction_template: "Follow up on your price-drop notifications:\n\
+  1. Go to your notifications and read all unread notifications.\n\
+  2. Find the notifications about price drops. You should find:\n\
+  \   - A price drop for \"{target.drop_name_1}\" in Vienna\n\
+  \   - A price drop for \"{target.drop_name_2}\" in Vienna\n\
+  \   - A price drop for \"{target.drop_name_3}\" in Vienna\n\
+  3. Look up each of these three properties and compare their current prices.\n\
+  4. Save the cheapest one (\"{target.cheapest_name}\") to a new list called\
+  \ \"Price Drop Picks\".\n\
+  5. Book the second cheapest one (\"{target.second_name}\") - book its\
+  \ cheapest room for 2 guests checking in 2026-09-15 and checking out\
+  \ 2026-09-19 (4 nights). Use the Amex card ending in 1234.\n\
+  6. Mark all price-drop notifications as read.\n"
+difficulty: expert
+time_limit_seconds: 440
+expected_steps: 35
+primary_primitives:
+- exploration
+- state_tracking
+- planning
+secondary_primitives:
+- grounding
+- verification
+start_path: /home
+seed:
+  distractors: 15
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Sacher Wien
+      city: Vienna
+      country: Austria
+      star_rating: 5
+      review_score: 9.5
+      review_count: 6780
+      price: 480.0
+      neighborhood: Innere Stadt
+      address: Philharmoniker Str. 4, 1010 Vienna
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Room service
+      - Concierge
+      - Fitness center
+      popular_facilities:
+      - Spa
+      - Restaurant
+      - Free WiFi
+      rooms:
+      - name: Superior Double Room
+        price: 480.0
+        bed_type: king
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        original_price: 560.0
+    outputs:
+    - drop_id_1
+    - drop_name_1
+    - drop_room_id_1
+    - drop_room_name_1
+  - use: featured_property
+    params:
+      name: The Guesthouse Vienna
+      city: Vienna
+      country: Austria
+      star_rating: 4
+      review_score: 9.0
+      review_count: 3450
+      price: 220.0
+      neighborhood: Innere Stadt
+      address: Fuehrichgasse 10, 1010 Vienna
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      rooms:
+      - name: Classic Room
+        price: 220.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        original_price: 275.0
+    outputs:
+    - drop_id_2
+    - drop_name_2
+    - drop_room_id_2
+    - drop_room_name_2
+  - use: featured_property
+    params:
+      name: Hotel Topazz Vienna
+      city: Vienna
+      country: Austria
+      star_rating: 4
+      review_score: 8.8
+      review_count: 1890
+      price: 310.0
+      neighborhood: Stephansplatz
+      address: Lichtensteg 3, 1010 Vienna
+      amenities:
+      - Free WiFi
+      - Bar
+      - Room service
+      - Air conditioning
+      popular_facilities:
+      - Free WiFi
+      - Bar
+      rooms:
+      - name: Topazz Room
+        price: 310.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        original_price: 380.0
+    outputs:
+    - drop_id_3
+    - drop_name_3
+    - drop_room_id_3
+    - drop_room_name_3
+  - use: add_notification
+    params:
+      type: price_drop
+      title: "Price Drop - Hotel Sacher Wien"
+      message: "Great news! Hotel Sacher Wien in Vienna has dropped its price from $560 to $480 per night. Book now before the price goes back up!"
+      read: false
+      related_id: '{output.drop_id_1}'
+    outputs:
+    - notif_id_1
+  - use: add_notification
+    params:
+      type: price_drop
+      title: "Price Drop - The Guesthouse Vienna"
+      message: "Price alert! The Guesthouse Vienna has reduced rates from $275 to $220 per night. Limited availability!"
+      read: false
+      related_id: '{output.drop_id_2}'
+    outputs:
+    - notif_id_2
+  - use: add_notification
+    params:
+      type: price_drop
+      title: "Price Drop - Hotel Topazz Vienna"
+      message: "Hotel Topazz Vienna has lowered its rate from $380 to $310 per night. This is a rare price drop!"
+      read: false
+      related_id: '{output.drop_id_3}'
+    outputs:
+    - notif_id_3
+  - use: add_notification
+    params:
+      type: deal_alert
+      title: "Summer Flash Sale - Greek Islands"
+      message: "Save up to 40% on hotels in Santorini and Mykonos this summer!"
+      read: false
+    outputs:
+    - distractor_notif_id
+  targets:
+    drop_id_1: '{output.drop_id_1}'
+    drop_name_1: '{output.drop_name_1}'
+    drop_id_2: '{output.drop_id_2}'
+    drop_name_2: '{output.drop_name_2}'
+    drop_id_3: '{output.drop_id_3}'
+    drop_name_3: '{output.drop_name_3}'
+    cheapest_id: '{output.drop_id_2}'
+    cheapest_name: '{output.drop_name_2}'
+    second_id: '{output.drop_id_3}'
+    second_name: '{output.drop_name_3}'
+    notif_id_1: '{output.notif_id_1}'
+    notif_id_2: '{output.notif_id_2}'
+    notif_id_3: '{output.notif_id_3}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  sl.name == 'Price Drop Picks' and\n  '{target.cheapest_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Cheapest property saved to 'Price Drop Picks' list
+  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-09-15' and\n  r.check_out == '2026-09-19'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Second cheapest property booked with correct dates
+  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.payment_method_id\
+      \ == 'pm_3'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Used Amex card (ending in 1234) for payment
+  - expr: "any(\n  n.id == '{target.notif_id_1}' and n.read == True\n  for n in state.notifications\n\
+      )\n"
+    desc: Hotel Sacher price-drop notification marked as read
+  - expr: "any(\n  n.id == '{target.notif_id_2}' and n.read == True\n  for n in state.notifications\n\
+      )\n"
+    desc: Guesthouse Vienna price-drop notification marked as read
+  - expr: "any(\n  n.id == '{target.notif_id_3}' and n.read == True\n  for n in state.notifications\n\
+      )\n"
+    desc: Hotel Topazz price-drop notification marked as read
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ == '{target.cheapest_id}'\n  for e in state.audit_log\n)\n"
+    desc: Did not book the cheapest property (should only be saved)
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ == '{target.drop_id_1}'\n  for e in state.audit_log\n)\n"
+    desc: Did not book the most expensive property
+    penalty: 0.25
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.15

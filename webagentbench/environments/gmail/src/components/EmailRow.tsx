@@ -67,7 +67,7 @@ export function EmailRow({ email, labels, onToggleStar, onArchive, onDelete, onR
         ))}
         {email.attachments.length > 0 ? (
           <span className="gmail-email-row__attachment-count" aria-label={`${email.attachments.length} attachments`}>
-            📎
+            Attachment
           </span>
         ) : null}
       </div>

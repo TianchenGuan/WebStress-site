@@ -1,0 +1,277 @@
+task_id: booking_frontier_notification_master
+env_id: booking
+title: "Frontier: Process All Notifications and Act on Each Type"
+instruction_template: "Process and act on all your notifications:\n\
+  1. Read the booking confirmation notification\n\
+  \   \"{target.confirm_notif_title}\". Verify the reservation at\n\
+  \   \"{target.confirm_prop_name}\" exists in your trips.\n\
+  2. Read the price drop notification \"{target.price_notif_title}\".\n\
+  \   Save the property \"{target.price_prop_name}\" to a new list\n\
+  \   called \"Price Drop Deals\".\n\
+  3. Read the deal alert notification \"{target.deal_notif_title}\".\n\
+  \   Search for \"{target.deal_prop_name}\" and book its\n\
+  \   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n\
+  \   checking out 2026-11-04, using the default Visa (ending 4242).\n\
+  4. Read the review reminder notification\n\
+  \   \"{target.review_notif_title}\". Write a review for\n\
+  \   \"{target.review_prop_name}\": score 8.0, title \"Pleasant stay\",\n\
+  \   positive \"Clean rooms and helpful staff\", no negative,\n\
+  \   leisure, couple.\n\
+  5. Send a message to \"{target.confirm_prop_name}\" with subject\n\
+  \   \"Pre-arrival question\" and body \"What time is early\n\
+  \   check-in available?\"\n\
+  6. Mark all notifications as read.\n\
+  7. Update settings: enable SMS notifications.\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 45
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Park Hyatt Sydney
+      city: Sydney
+      country: Australia
+      star_rating: 5
+      review_score: 9.2
+      review_count: 3800
+      price: 480.0
+      neighborhood: The Rocks
+      address: 7 Hickson Road, The Rocks, Sydney
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+    outputs:
+    - confirm_prop_id
+    - confirm_prop_name
+    - confirm_room_id
+    - confirm_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.confirm_prop_id}'
+      check_in: '2026-12-01'
+      check_out: '2026-12-05'
+      price_per_night: 480.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 5
+    outputs:
+    - confirm_res_id
+    - confirm_conf_num
+    - confirm_res_prop
+  - use: add_notification
+    params:
+      type: booking_confirmed
+      title: Booking Confirmed - Park Hyatt Sydney
+      message: 'Your reservation at Park Hyatt Sydney is confirmed. Confirmation: {output.confirm_conf_num}. Check-in Dec 1, Check-out Dec 5.'
+      read: false
+      related_id: '{output.confirm_res_id}'
+    outputs:
+    - confirm_notif_id
+  - use: featured_property
+    params:
+      name: Fairmont Banff Springs
+      city: Banff
+      country: Canada
+      star_rating: 5
+      review_score: 9.0
+      review_count: 5200
+      price: 420.0
+      neighborhood: Banff National Park
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Fitness center
+      - Golf
+    outputs:
+    - price_prop_id
+    - price_prop_name
+    - price_room_id
+    - price_room_name
+  - use: add_notification
+    params:
+      type: price_drop
+      title: Price Drop - Fairmont Banff Springs now 25% off
+      message: 'Great news! Fairmont Banff Springs has dropped prices by 25%. Rooms from $315/night.'
+      read: false
+      related_id: '{output.price_prop_id}'
+    outputs:
+    - price_notif_id
+  - use: featured_property
+    params:
+      name: Santorini Sunset Resort
+      city: Santorini
+      country: Greece
+      star_rating: 4
+      review_score: 8.8
+      review_count: 2100
+      price: 290.0
+      neighborhood: Oia
+      address: Oia Main Street, Santorini 84702
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Bar
+      - Sea view
+      rooms:
+      - name: Standard Room
+        price: 290.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+        view_type: sea
+      - name: Deluxe Suite
+        price: 450.0
+        bed_type: king
+        max_occupancy: 3
+        cancel_type: free_cancellation
+        view_type: sea
+    outputs:
+    - deal_prop_id
+    - deal_prop_name
+    - deal_room_id
+    - deal_room_name
+  - use: add_notification
+    params:
+      type: deal_alert
+      title: Flash Deal - Santorini from $290/night
+      message: 'Limited time offer on Santorini Sunset Resort. Book now for exclusive rates!'
+      read: false
+      related_id: '{output.deal_prop_id}'
+    outputs:
+    - deal_notif_id
+  - use: featured_property
+    params:
+      name: Hotel & Spa Napa Valley
+      city: Napa Valley
+      country: United States
+      star_rating: 4
+      review_score: 8.5
+      review_count: 1800
+      price: 310.0
+      neighborhood: Downtown Napa
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Wine tasting
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - review_room_id
+    - review_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-01-10'
+      check_out: '2026-01-13'
+      price_per_night: 310.0
+      status: completed
+      guests: 2
+      booked_days_ago: 90
+    outputs:
+    - review_res_id
+    - review_conf
+    - review_res_prop
+  - use: add_notification
+    params:
+      type: review_reminder
+      title: Share your experience at Hotel & Spa Napa Valley
+      message: 'How was your stay at Hotel & Spa Napa Valley? Write a review to help other travelers.'
+      read: false
+      related_id: '{output.review_prop_id}'
+    outputs:
+    - review_notif_id
+  - use: set_settings
+    params:
+      sms_notifications: false
+    outputs:
+    - settings_updated
+  targets:
+    confirm_prop_id: '{output.confirm_prop_id}'
+    confirm_prop_name: '{output.confirm_prop_name}'
+    confirm_res_id: '{output.confirm_res_id}'
+    confirm_notif_title: Booking Confirmed - Park Hyatt Sydney
+    price_prop_id: '{output.price_prop_id}'
+    price_prop_name: '{output.price_prop_name}'
+    price_notif_title: Price Drop - Fairmont Banff Springs now 25% off
+    deal_prop_id: '{output.deal_prop_id}'
+    deal_prop_name: '{output.deal_prop_name}'
+    deal_notif_title: Flash Deal - Santorini from $290/night
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+    review_notif_title: Share your experience at Hotel & Spa Napa Valley
+    confirm_notif_id: '{output.confirm_notif_id}'
+    price_notif_id: '{output.price_notif_id}'
+    deal_notif_id: '{output.deal_notif_id}'
+    review_notif_id: '{output.review_notif_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(n.id == '{target.confirm_notif_id}' and n.read == True\n\
+      \  for n in state.notifications)\n"
+    desc: Booking confirmation notification was read
+  - expr: "any(n.id == '{target.price_notif_id}' and n.read == True\n\
+      \  for n in state.notifications)\n"
+    desc: Price drop notification was read
+  - expr: "any(\n  sl.name == 'Price Drop Deals' and\n\
+      \  '{target.price_prop_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Price drop property saved to Price Drop Deals list
+  - expr: "any(\n  r.property_id == '{target.deal_prop_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.check_in == '2026-11-01' and r.check_out == '2026-11-04' and\n\
+      \  r.room_type_name == 'Standard Room'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Deal property booked with Standard Room and correct dates
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  rv.overall_score == 8.0 and rv.title == 'Pleasant stay'\n\
+      \  for rv in state.reviews)\n"
+    desc: Review written for Napa Valley with correct score and title
+  - expr: "any(m.property_id == '{target.confirm_prop_id}' and m.sender == 'guest'\n\
+      \  and 'early check-in' in m.body.lower()\n\
+      \  for m in state.messages)\n"
+    desc: Message sent to confirmed property about early check-in
+  - expr: state.settings.sms_notifications == True
+    desc: SMS notifications enabled
+  - expr: "all(n.read == True for n in state.notifications)\n"
+    desc: All notifications marked as read
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n\
+      \  e.payload.get('property_id') != '{target.deal_prop_id}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: No reservation at wrong property
+    penalty: 0.3
+  - expr: "not any(r.id == '{target.confirm_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations)\n"
+    desc: Existing confirmed reservation was not cancelled
+    penalty: 0.4
+  - expr: "not any(\n  r.property_id == '{target.deal_prop_id}' and\n\
+      \  r.room_type_name == 'Deluxe Suite'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Did not book the Deluxe Suite instead of Standard Room
+    penalty: 0.2
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Price Drop Deals') <= 1\n"
+    desc: Only one Price Drop Deals list created
+    penalty: 0.1

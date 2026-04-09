@@ -1,0 +1,36 @@
+task_id: booking_enable_2fa
+env_id: booking
+title: Enable Two-Factor Authentication
+instruction_template: 'Go to settings and enable two-factor authentication for your
+  account.
+
+  '
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+- grounding
+start_path: /settings
+seed:
+  distractors: 3
+  actors: {}
+  steps:
+  - use: set_settings
+    params:
+      two_factor_enabled: false
+    outputs:
+    - updated
+  targets: {}
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.settings.two_factor_enabled == True
+
+      '
+    desc: Two-factor authentication is enabled
+  negative_checks:
+  - expr: 'state.settings.email_notifications == True
+
+      '
+    desc: Email notifications setting was not accidentally changed
+    penalty: 0.1

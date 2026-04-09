@@ -59,13 +59,13 @@ eval:
   source: server_state
   checks:
   - expr: >
-      sum(1 for o in state.orders if any(item.product_id == '{target.product_id}'
-      for item in o.items)) >= 2
-    desc: Product has been ordered at least twice (original + reorder)
+      sum(1 for o in state.orders if not o.id.startswith('order_initial_') and any(item.product_id == '{target.product_id}'
+      for item in o.items)) >= 1
+    desc: A new order was placed containing the target product
   - expr: >
-      any(o.id != '{target.past_order_id}' and any(item.product_id ==
+      any(o.id != '{target.past_order_id}' and not o.id.startswith('order_initial_') and any(item.product_id ==
       '{target.product_id}' for item in o.items) for o in state.orders)
-    desc: A new order was placed for the same product
+    desc: The new order is distinct from the original past order
   negative_checks:
   - expr: >
       sum(1 for o in state.orders if not o.id.startswith('order_initial_') and o.id != '{target.past_order_id}') <= 1

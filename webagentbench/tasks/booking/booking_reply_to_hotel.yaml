@@ -1,0 +1,114 @@
+task_id: booking_reply_to_hotel
+env_id: booking
+title: Read and Reply to a Hotel Message
+instruction_template: 'Go to your messages and find the unread message from "{target.property_name}"
+  with the subject "{target.message_subject}". Read the message, then reply to the
+  property with the subject "Re: {target.message_subject}" and a body that says: "Thank
+  you for the information. I confirm that I will arrive around 3 PM and would appreciate
+  a quiet room on a higher floor if available."
+
+  '
+difficulty: medium
+time_limit_seconds: 200
+expected_steps: 10
+primary_primitives:
+- planning
+- grounding
+start_path: /home
+seed:
+  distractors: 6
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Grand Hotel Vienna
+      city: Vienna
+      country: Austria
+      star_rating: 5
+      review_score: 9.2
+      review_count: 3100
+      price: 350.0
+      property_type: Hotel
+      neighborhood: Innere Stadt
+      address: 1 Ringstrasse, 1010 Vienna
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      distance_km: 0.2
+      rooms:
+      - name: Classic Room
+        price: 350.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: city
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.property_id}'
+      room_type_id: '{output.cheapest_room_id}'
+      room_type_name: Classic Room
+      check_in: '2026-05-15'
+      check_out: '2026-05-19'
+      price_per_night: 350.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 3
+    outputs:
+    - reservation_id
+    - confirmation_number
+    - property_id
+  - use: send_message
+    params:
+      property_id: '{output.property_id}'
+      reservation_id: '{output.reservation_id}'
+      subject: Pre-arrival Information
+      body: Dear Guest, we would like to confirm your upcoming stay. Could you please
+        let us know your estimated arrival time? We also wanted to inform you that
+        our spa will be undergoing maintenance on May 16th. Please don't hesitate
+        to reach out if you have any special requests. Warm regards, Grand Hotel Vienna.
+    outputs:
+    - message_id
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    reservation_id: '{output.reservation_id}'
+    message_subject: Pre-arrival Information
+    message_id: '{output.message_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  m.id == '{target.message_id}' and m.read == True\n  for m in state.messages\n\
+      )\n"
+    desc: The incoming message was marked as read
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'Re:' in m.subject\
+      \ and\n  'Pre-arrival' in m.subject and\n  m.sender == 'guest'\n  for m in state.messages\n\
+      \  if not m.id.startswith('msg_initial_') and m.id != '{target.message_id}'\n\
+      )\n"
+    desc: A reply was sent to the property with the correct subject
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  '3 PM' in m.body\
+      \ and\n  'quiet room' in m.body.lower() and\n  'higher floor' in m.body.lower()\
+      \ and\n  m.sender == 'guest'\n  for m in state.messages\n  if not m.id.startswith('msg_initial_')\
+      \ and m.id != '{target.message_id}'\n)\n"
+    desc: Reply body contains arrival time, quiet room request, and higher floor preference
+  negative_checks:
+  - expr: 'sum(1 for m in state.messages if not m.id.startswith(''msg_initial_'')
+      and m.sender == ''guest'' and m.id != ''{target.message_id}'') <= 1
+
+      '
+    desc: Only one reply was sent
+    penalty: 0.15

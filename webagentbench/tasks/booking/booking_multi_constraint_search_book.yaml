@@ -1,0 +1,209 @@
+task_id: booking_multi_constraint_search_book
+env_id: booking
+title: Multi-Constraint Hotel Search and Deluxe Room Booking
+instruction_template: 'Search for hotels in London that meet ALL of the following
+  criteria: at least 4 stars, has a pool, under $300 per night, offers free cancellation,
+  includes breakfast, and is within 2 km of the city center. Among the results, find
+  the hotel with the highest review score. Book its "Deluxe Double Room" for 2 guests
+  checking in on 2026-06-15 and checking out on 2026-06-19 (4 nights). Use the default
+  Visa payment method (ending in 4242) and enter your name and email from your account
+  profile.
+
+  '
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 22
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- grounding
+- exploration
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: The Kensington Grand
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 9.1
+      review_count: 2876
+      price: 245.0
+      neighborhood: Kensington
+      address: 15 Cromwell Road, London SW7 4DN
+      distance_km: 1.5
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Fitness center
+      - Restaurant
+      - Bar
+      - Room service
+      - 24-hour front desk
+      - Air conditioning
+      popular_facilities:
+      - Pool
+      - Spa
+      - Free WiFi
+      - Restaurant
+      rooms:
+      - name: Standard Double Room
+        price: 245.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+      - name: Deluxe Double Room
+        price: 285.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+        room_size_sqm: 32.0
+      - name: Superior Suite
+        price: 420.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: The Langham London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.3
+      review_count: 3412
+      price: 450.0
+      neighborhood: Marylebone
+      amenities:
+      - Free WiFi
+      - Spa
+      - Fitness center
+      - Restaurant
+      distance_km: 0.8
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Canary Wharf Hotel
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.4
+      review_count: 1845
+      price: 195.0
+      neighborhood: Canary Wharf
+      amenities:
+      - Free WiFi
+      - Pool
+      - Fitness center
+      - Restaurant
+      distance_km: 5.2
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: featured_property
+    params:
+      name: Paddington Central Hotel
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.7
+      review_count: 2100
+      price: 220.0
+      neighborhood: Paddington
+      address: 22 Praed Street, London W2 1NH
+      distance_km: 1.8
+      amenities:
+      - Free WiFi
+      - Pool
+      - Fitness center
+      - Restaurant
+      - Bar
+      rooms:
+      - name: Standard Room
+        price: 220.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: non_refundable
+      - name: Deluxe Double Room
+        price: 270.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: non_refundable
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: London Budget Inn
+      city: London
+      country: United Kingdom
+      star_rating: 3
+      review_score: 7.5
+      review_count: 980
+      price: 110.0
+      neighborhood: Kings Cross
+      amenities:
+      - Free WiFi
+      - Pool
+      distance_km: 1.0
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation created for the correct property (The Kensington Grand)
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
+      \ == 'Deluxe Double Room'\n  for r in state.reservations\n)\n"
+    desc: Booked the Deluxe Double Room specifically
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-06-15'\
+      \ and\n  r.check_out == '2026-06-19'\n  for r in state.reservations\n)\n"
+    desc: Reservation has correct check-in and check-out dates
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation has correct guest count of 2
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.nights == 4\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation is for 4 nights
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation was made for a wrong property
+    penalty: 0.4
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.2
+  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
+      \ == 'Standard Double Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Did not book the Standard room instead of Deluxe
+    penalty: 0.3

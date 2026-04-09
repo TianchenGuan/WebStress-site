@@ -60,12 +60,14 @@ def _validate_builder_references(
     """
     from ._seed_builders import BUILDER_REGISTRY
     from ._seed_builders_amazon import AMAZON_BUILDER_REGISTRY
+    from ._seed_builders_booking import BOOKING_BUILDER_REGISTRY
     from ._seed_builders_reddit import REDDIT_BUILDER_REGISTRY
     from ._seed_builders_robinhood import ROBINHOOD_BUILDER_REGISTRY
 
     # Combine registries so each task validates against its own env's builders
     combined_registries: dict[str, dict] = {
         "amazon": AMAZON_BUILDER_REGISTRY,
+        "booking": BOOKING_BUILDER_REGISTRY,
         "gmail": BUILDER_REGISTRY,
         "reddit": REDDIT_BUILDER_REGISTRY,
         "robinhood": ROBINHOOD_BUILDER_REGISTRY,

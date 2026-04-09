@@ -1,0 +1,36 @@
+task_id: booking_change_bed_preference
+env_id: booking
+title: Change Preferred Bed Type to Queen
+instruction_template: 'Go to settings, change your preferred bed type to "Queen" in
+  the travel preferences section, and save.
+
+  '
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+- grounding
+start_path: /settings
+seed:
+  distractors: 3
+  actors: {}
+  steps:
+  - use: set_preferences
+    params:
+      preferred_bed_type: double
+    outputs:
+    - updated
+  targets: {}
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.travel_preferences.preferred_bed_type == ''queen''
+
+      '
+    desc: Preferred bed type is now set to queen
+  negative_checks:
+  - expr: 'state.travel_preferences.smoking == False
+
+      '
+    desc: Smoking preference was not accidentally changed
+    penalty: 0.1

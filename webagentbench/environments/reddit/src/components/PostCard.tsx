@@ -105,7 +105,7 @@ export function PostCard({
         <div className="post-card__awards">
           {post.awards.map((award, i) => (
             <span key={i} className="post-card__award" title={award.name}>
-              {award.name === "Gold" ? "🥇" : award.name === "Silver" ? "🥈" : award.name === "Wholesome" ? "🤗" : "🏅"}
+              {award.name}
               {award.count > 1 && <span>{award.count}</span>}
             </span>
           ))}
@@ -137,7 +137,7 @@ export function PostCard({
           onClick={openPost}
           aria-label={`${post.comment_count} comments`}
         >
-          💬 {post.comment_count}
+          {post.comment_count} comments
         </button>
 
         <button
@@ -153,18 +153,18 @@ export function PostCard({
           onClick={(e) => { e.stopPropagation(); onHide?.(post.id); }}
           aria-label="Hide"
         >
-          🙈 Hide
+          Hide
         </button>
 
         <button className="post-card__action-btn" aria-label="Share">
-          ↗ Share
+          Share
         </button>
 
         {ownerUsername && post.author_name === ownerUsername && onEdit && (
-          <button className="post-card__action-btn" onClick={(e) => { e.stopPropagation(); onEdit(post.id); }} aria-label="Edit">✏️ Edit</button>
+          <button className="post-card__action-btn" onClick={(e) => { e.stopPropagation(); onEdit(post.id); }} aria-label="Edit">Edit</button>
         )}
         {ownerUsername && post.author_name === ownerUsername && onDelete && (
-          <button className="post-card__action-btn post-card__action-btn--danger" onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} aria-label="Delete">🗑️ Delete</button>
+          <button className="post-card__action-btn post-card__action-btn--danger" onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} aria-label="Delete">Delete</button>
         )}
       </div>
     </article>

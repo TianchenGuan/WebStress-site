@@ -1,0 +1,65 @@
+task_id: booking_save_property
+env_id: booking
+title: Save a Property to a List
+instruction_template: 'Find the property "{target.property_name}" in {target.property_city}
+  and save it to your existing saved list named "{target.list_name}".
+
+  '
+difficulty: easy
+time_limit_seconds: 150
+expected_steps: 7
+primary_primitives:
+- grounding
+- planning
+start_path: /home
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Riverside Palace Hotel
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.2
+      price: 350.0
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_saved_list
+    params:
+      name: Dream Destinations
+    outputs:
+    - list_id
+    - list_name
+  - use: decoy_property
+    params:
+      city: London
+      count: 4
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    property_city: London
+    list_id: '{output.list_id}'
+    list_name: Dream Destinations
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  sl.id == '{target.list_id}' and '{target.property_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: The target property has been added to the saved list
+  negative_checks:
+  - expr: "not any(\n  e.action == 'saved_list.delete'\n  for e in state.audit_log\n\
+      )\n"
+    desc: No saved list was deleted
+    penalty: 0.2
+  - expr: "sum(\n  len(sl.property_ids) for sl in state.saved_lists if sl.id == '{target.list_id}'\n\
+      ) <= 1\n"
+    desc: Only the target property was added to the list
+    penalty: 0.1

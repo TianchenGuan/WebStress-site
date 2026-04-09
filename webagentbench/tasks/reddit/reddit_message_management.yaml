@@ -41,8 +41,8 @@ eval:
     desc: All messages marked as read
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam message was deleted
-  - expr: any(m.to_user == "DataWizard42" and m.subject == "Quick question about data pipelines" and "Airflow or Prefect"
-      in m.body for m in state.sent_messages)
+  - expr: any(m.to_user == "DataWizard42" and m.subject == "Quick question about data pipelines" and ("Airflow or Prefect"
+      in m.body) for m in state.sent_messages)
     desc: New message sent with correct content
   negative_checks:
   - expr: len(state.messages) >= 4

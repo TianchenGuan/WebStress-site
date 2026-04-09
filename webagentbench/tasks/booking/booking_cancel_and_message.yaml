@@ -1,0 +1,104 @@
+task_id: booking_cancel_and_message
+env_id: booking
+title: Cancel Reservation and Message the Property
+instruction_template: 'Go to your trips and cancel the reservation at "{target.property_name}"
+  (confirmation number {target.confirmation_number}), which is scheduled for check-in
+  on {target.check_in}. After cancelling, send a message to the property with the
+  subject "Cancellation - Change of Plans" and a body explaining that you had to cancel
+  due to a family emergency and you hope to rebook in the future.
+
+  '
+difficulty: medium
+time_limit_seconds: 200
+expected_steps: 12
+primary_primitives:
+- planning
+- grounding
+- state_tracking
+start_path: /home
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Costa Brava
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.6
+      review_count: 1530
+      price: 210.0
+      property_type: Hotel
+      neighborhood: Gothic Quarter
+      address: 12 La Rambla, 08002 Barcelona
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Bar
+      popular_facilities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      distance_km: 0.8
+      rooms:
+      - name: Standard Double
+        price: 210.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: street
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.property_id}'
+      room_type_id: '{output.cheapest_room_id}'
+      room_type_name: Standard Double
+      check_in: '2026-06-01'
+      check_out: '2026-06-05'
+      price_per_night: 210.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 10
+    outputs:
+    - reservation_id
+    - confirmation_number
+    - property_id
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    reservation_id: '{output.reservation_id}'
+    confirmation_number: '{output.confirmation_number}'
+    check_in: '2026-06-01'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The target reservation was cancelled
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'Cancellation' in\
+      \ m.subject and\n  m.sender == 'guest'\n  for m in state.messages\n  if not\
+      \ m.id.startswith('msg_initial_')\n)\n"
+    desc: A message about the cancellation was sent to the property
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  len(m.body) > 20\
+      \ and\n  m.sender == 'guest'\n  for m in state.messages\n  if not m.id.startswith('msg_initial_')\n\
+      )\n"
+    desc: The message has a meaningful body explaining the cancellation
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.cancel' and e.payload.get('reservation_id')\
+      \ != '{target.reservation_id}'\n  for e in state.audit_log\n)\n"
+    desc: No other reservation was cancelled by the agent
+    penalty: 0.3
+  - expr: 'sum(1 for m in state.messages if not m.id.startswith(''msg_initial_'')
+      and m.sender == ''guest'') <= 1
+
+      '
+    desc: Only one message was sent
+    penalty: 0.15

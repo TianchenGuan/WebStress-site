@@ -1,0 +1,125 @@
+task_id: booking_modify_and_message
+env_id: booking
+title: Modify Reservation Dates and Message Hotel
+instruction_template: "Find your reservation at \"{target.property_name}\" (confirmation\
+  \ number {target.confirmation_number}). Modify it as follows: 1. Change the check-in\
+  \ date to {target.new_check_in} and check-out date\n   to {target.new_check_out}.\n\
+  2. Add a special request for \"Late checkout at 2pm please\". 3. After the modification\
+  \ is saved, send a message to the hotel with the\n   subject \"Modified reservation\
+  \ - late checkout request\" and body text\n   confirming that you have updated your\
+  \ dates and requesting late checkout\n   at 2pm.\n"
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 18
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- grounding
+start_path: /trips
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Grand Hotel Vesuvio
+      city: Naples
+      country: Italy
+      star_rating: 5
+      review_score: 9.0
+      review_count: 3456
+      price: 320.0
+      neighborhood: Seafront
+      address: Via Partenope 45, 80121 Naples
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Room service
+      - Fitness center
+      - Concierge
+      - Sea view
+    outputs:
+    - fp1_id
+    - fp1_name
+    - fp1_room
+    - fp1_rname
+  - use: modify_reservation
+    params:
+      property_id: '{output.fp1_id}'
+      check_in: '2026-06-10'
+      check_out: '2026-06-14'
+      guests: 2
+      booked_days_ago: 12
+    outputs:
+    - target_res_id
+    - target_conf
+    - target_res_prop
+    - target_check_in
+    - target_check_out
+  - use: featured_property
+    params:
+      name: Rome Central Suites
+      city: Rome
+      country: Italy
+      star_rating: 4
+      review_score: 8.4
+      price: 210.0
+    outputs:
+    - fp2_id
+    - fp2_name
+    - fp2_room
+    - fp2_rname
+  - use: create_reservation
+    params:
+      property_id: '{output.fp2_id}'
+      check_in: '2026-07-05'
+      check_out: '2026-07-08'
+      status: confirmed
+      booked_days_ago: 5
+    outputs:
+    - distractor_res_id
+    - distractor_conf
+    - distractor_res_prop
+  targets:
+    property_id: '{output.fp1_id}'
+    property_name: '{output.fp1_name}'
+    reservation_id: '{output.target_res_id}'
+    confirmation_number: '{output.target_conf}'
+    new_check_in: '2026-06-12'
+    new_check_out: '2026-06-16'
+    distractor_res_id: '{output.distractor_res_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-06-12'\
+      \ and\n  r.check_out == '2026-06-16'\n  for r in state.reservations\n)\n"
+    desc: Reservation dates were updated correctly
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.status == 'modified'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation status is modified
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  'late checkout' in r.guest_info.special_requests.lower()\n\
+      \  for r in state.reservations\n)\n"
+    desc: Special request for late checkout was added
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest'\
+      \ and\n  'modified' in m.subject.lower()\n  for m in state.messages\n)\n"
+    desc: A message was sent to the hotel about the modification
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest'\
+      \ and\n  'late checkout' in m.body.lower()\n  for m in state.messages\n)\n"
+    desc: Message body mentions late checkout
+  negative_checks:
+  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status == 'modified'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The distractor reservation was not modified
+    penalty: 0.3
+  - expr: "not any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The target reservation was not cancelled instead of modified
+    penalty: 0.4
+  - expr: "sum(1 for m in state.messages\n  if m.sender == 'guest' and m.property_id\
+      \ != '{target.property_id}') == 0\n"
+    desc: No messages sent to wrong properties
+    penalty: 0.15

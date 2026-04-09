@@ -1,0 +1,130 @@
+task_id: booking_compare_and_book_cheapest
+env_id: booking
+title: "Compare Tokyo Hotels and Book the Cheapest"
+instruction_template: >
+  Compare hotels in "Tokyo" and find the cheapest option among the available
+  properties with a review score of at least 8.0. Book the cheapest qualifying
+  hotel's most affordable room for 2 nights checking in on 2026-06-10 and
+  checking out on 2026-06-12 for 1 guest. Use the default Visa payment method
+  (ending in 4242). Enter your name and email from your account profile.
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 16
+primary_primitives:
+  - planning
+  - state_tracking
+  - grounding
+start_path: /home
+seed:
+  distractors: 7
+  actors: {}
+  steps:
+    - use: compare_properties
+      params:
+        city: "Tokyo"
+        country: "Japan"
+        properties:
+          - name: "Shinjuku Park Tower Hotel"
+            star_rating: 5
+            review_score: 9.1
+            review_count: 3201
+            price: 320.00
+            neighborhood: "Shinjuku"
+            amenities:
+              - "Free WiFi"
+              - "Spa"
+              - "Pool"
+              - "Fitness center"
+            genius_discount_pct: 0
+            rooms:
+              - name: "Deluxe City View"
+                price: 320.00
+                bed_type: "king"
+                max_occupancy: 2
+                meals_included: "breakfast"
+                cancel_type: "free_cancellation"
+                original_price: null
+                view_type: "city"
+          - name: "Shibuya Crossing Inn"
+            star_rating: 3
+            review_score: 8.2
+            review_count: 1456
+            price: 145.00
+            neighborhood: "Shibuya"
+            amenities:
+              - "Free WiFi"
+              - "Laundry"
+            genius_discount_pct: 0
+            rooms:
+              - name: "Standard Twin"
+                price: 145.00
+                bed_type: "twin"
+                max_occupancy: 2
+                meals_included: "none"
+                cancel_type: "free_cancellation"
+                original_price: null
+                view_type: "street"
+          - name: "Ginza Luxury Suites"
+            star_rating: 4
+            review_score: 8.8
+            review_count: 2089
+            price: 275.00
+            neighborhood: "Ginza"
+            amenities:
+              - "Free WiFi"
+              - "Room service"
+              - "Concierge"
+              - "Spa"
+            genius_discount_pct: 10
+            rooms:
+              - name: "Classic Room"
+                price: 275.00
+                bed_type: "queen"
+                max_occupancy: 2
+                meals_included: "breakfast"
+                cancel_type: "free_cancellation"
+                original_price: 305.00
+                view_type: "garden"
+      outputs:
+        - property_id_1
+        - property_name_1
+        - property_id_2
+        - property_name_2
+        - property_id_3
+        - property_name_3
+  targets:
+    cheapest_property_id: "{output.property_id_2}"
+    cheapest_property_name: "{output.property_name_2}"
+    expensive_property_id: "{output.property_id_1}"
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(
+          r.property_id == '{target.cheapest_property_id}' and
+          r.check_in == '2026-06-10' and
+          r.check_out == '2026-06-12' and
+          r.status == 'confirmed'
+          for r in state.reservations
+        )
+      desc: "Reservation was created for the cheapest qualifying property with correct dates"
+    - expr: >
+        any(
+          r.property_id == '{target.cheapest_property_id}' and
+          r.guests == 1
+          for r in state.reservations
+          if not r.id.startswith('res_initial_')
+        )
+      desc: "Reservation has correct guest count of 1"
+  negative_checks:
+    - expr: >
+        not any(
+          e.action == 'reservation.create' and e.payload.get('property_id') != '{target.cheapest_property_id}'
+          for e in state.audit_log
+        )
+      desc: "No reservation was made for a more expensive property"
+      penalty: 0.4
+    - expr: >
+        sum(1 for r in state.reservations if not r.id.startswith('res_initial_')) <= 1
+      desc: "Only one new reservation was created"
+      penalty: 0.2

@@ -1,0 +1,176 @@
+task_id: booking_review_two_stays
+env_id: booking
+title: Write Reviews for Two Completed Stays
+instruction_template: "You have two completed stays that need reviews. Please write\
+  \ reviews for both:\n1. For \"{target.prop_name_1}\" - Write a review with an overall\
+  \ score of 9.0,\n   title \"Exceptional experience\", positive comment \"Outstanding\
+  \ service and\n   beautiful rooms\", and no negative comment. Travel purpose: leisure,\n\
+  \   traveled with: couple.\n\n2. For \"{target.prop_name_2}\" - Write a review with\
+  \ an overall score of 7.5,\n   title \"Good but could improve\", positive comment\
+  \ \"Great location and\n   friendly staff\", negative comment \"Room was smaller\
+  \ than expected and\n   noise from the street\". Travel purpose: business, traveled\
+  \ with: solo.\n"
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 20
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- grounding
+- patience
+start_path: /trips
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Negresco
+      city: Nice
+      country: France
+      star_rating: 5
+      review_score: 9.1
+      review_count: 3210
+      price: 420.0
+      neighborhood: Promenade des Anglais
+      address: 37 Promenade des Anglais, 06000 Nice
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Restaurant
+      - Bar
+      - Beach access
+    outputs:
+    - prop_id_1
+    - prop_name_1
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.prop_id_1}'
+      check_in: '2026-02-10'
+      check_out: '2026-02-14'
+      price_per_night: 420.0
+      status: completed
+      guests: 2
+      booked_days_ago: 60
+    outputs:
+    - res_id_1
+    - conf_num_1
+    - property_id
+  - use: featured_property
+    params:
+      name: Berlin Mitte Business Hotel
+      city: Berlin
+      country: Germany
+      star_rating: 4
+      review_score: 8.0
+      review_count: 1567
+      price: 175.0
+      neighborhood: Mitte
+      address: Friedrichstrasse 85, 10117 Berlin
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Business center
+      - Fitness center
+      - Bar
+    outputs:
+    - prop_id_2
+    - prop_name_2
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.prop_id_2}'
+      check_in: '2026-01-20'
+      check_out: '2026-01-23'
+      price_per_night: 175.0
+      status: completed
+      guests: 1
+      booked_days_ago: 80
+    outputs:
+    - res_id_2
+    - conf_num_2
+    - property_id
+  - use: featured_property
+    params:
+      name: Vienna Opera Hotel
+      city: Vienna
+      country: Austria
+      star_rating: 4
+      review_score: 8.7
+      price: 210.0
+    outputs:
+    - prop_id_3
+    - prop_name_3
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.prop_id_3}'
+      check_in: '2025-12-15'
+      check_out: '2025-12-18'
+      status: completed
+      booked_days_ago: 120
+    outputs:
+    - res_id_3
+    - conf_num_3
+    - property_id
+  - use: add_review
+    params:
+      property_id: '{output.prop_id_3}'
+      overall_score: 8.5
+      title: Lovely stay in Vienna
+      positive: Beautiful hotel near the opera house
+      author_name: Jordan Parker
+    outputs:
+    - existing_review_id
+  targets:
+    prop_id_1: '{output.prop_id_1}'
+    prop_name_1: '{output.prop_name_1}'
+    prop_id_2: '{output.prop_id_2}'
+    prop_name_2: '{output.prop_name_2}'
+    prop_id_3: '{output.prop_id_3}'
+    existing_review_id: '{output.existing_review_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score\
+      \ == 9.0 and\n  rv.title == 'Exceptional experience'\n  for rv in state.reviews\n\
+      )\n"
+    desc: Review for Hotel Negresco with score 9.0 and correct title
+  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  'outstanding service'\
+      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+    desc: Hotel Negresco review has correct positive comment
+  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score\
+      \ == 7.5 and\n  rv.title == 'Good but could improve'\n  for rv in state.reviews\n\
+      )\n"
+    desc: Review for Berlin hotel with score 7.5 and correct title
+  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  'great location'\
+      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+    desc: Berlin hotel review has correct positive comment
+  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  'smaller than expected'\
+      \ in rv.negative.lower()\n  for rv in state.reviews\n)\n"
+    desc: Berlin hotel review has correct negative comment
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id in ('{target.prop_id_1}',\
+      \ '{target.prop_id_2}')\n  and rv.author_name == 'Jordan Parker') >= 2\n"
+    desc: Both reviews were submitted by the account owner
+  negative_checks:
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.prop_id_3}'\n\
+      \  and rv.id != '{target.existing_review_id}') == 0\n"
+    desc: No duplicate review was written for the Vienna hotel
+    penalty: 0.2
+  - expr: "not any(\n  rv.property_id == '{target.prop_id_1}' and rv.overall_score\
+      \ != 9.0\n  for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\
+      \ and rv.id != '{target.existing_review_id}'\n)\n"
+    desc: Hotel Negresco review has exactly score 9.0
+    penalty: 0.15
+  - expr: "not any(\n  rv.property_id == '{target.prop_id_2}' and rv.overall_score\
+      \ != 7.5\n  for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\
+      \ and rv.id != '{target.existing_review_id}'\n)\n"
+    desc: Berlin hotel review has exactly score 7.5
+    penalty: 0.15

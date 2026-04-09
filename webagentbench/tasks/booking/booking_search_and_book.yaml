@@ -1,0 +1,143 @@
+task_id: booking_search_and_book
+env_id: booking
+title: Search for a Paris Hotel and Book the Deluxe Room
+instruction_template: 'Search for hotels in "Paris", find the property named "{target.property_name}",
+  and book the "{target.room_name}" room for 3 nights checking in on 2026-05-15 and
+  checking out on 2026-05-18 for 2 guests. Use the default Visa payment method (ending
+  in 4242). Enter your name and email from your account profile.
+
+  '
+difficulty: medium
+time_limit_seconds: 200
+expected_steps: 14
+primary_primitives:
+- planning
+- grounding
+start_path: /home
+seed:
+  distractors: 6
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Le Marais Grand Hotel
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.9
+      review_count: 1872
+      price: 285.0
+      property_type: Hotel
+      neighborhood: Le Marais
+      address: 47 Rue de Rivoli, 75004 Paris
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Air conditioning
+      - Fitness center
+      - Room service
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      distance_km: 1.2
+      rooms:
+      - name: Standard Double
+        price: 220.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: courtyard
+      - name: Deluxe King Room
+        price: 285.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: null
+        view_type: city
+      - name: Superior Suite
+        price: 420.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: non-refundable
+        original_price: null
+        view_type: city
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: decoy_property
+    params:
+      name: Hotel Lumiere Paris
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.4
+      review_count: 945
+      price: 260.0
+      property_type: Hotel
+      neighborhood: Saint-Germain-des-Prés
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Spa
+      distance_km: 2.1
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: decoy_property
+    params:
+      name: Paris Eiffel Comfort Inn
+      city: Paris
+      country: France
+      star_rating: 3
+      review_score: 7.8
+      review_count: 1203
+      price: 175.0
+      property_type: Hotel
+      neighborhood: 7th arrondissement
+      genius_discount_pct: 5
+      amenities:
+      - Free WiFi
+      - Restaurant
+      distance_km: 3.5
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    room_id: '{output.cheapest_room_id}'
+    room_name: Deluxe King Room
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-05-15'\
+      \ and\n  r.check_out == '2026-05-18' and\n  r.status == 'confirmed'\n  for r\
+      \ in state.reservations\n)\n"
+    desc: Reservation was created for the correct property and dates (3 nights)
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_id ==\
+      \ '{target.room_id}' and\n  r.guests == 2\n  for r in state.reservations\n)\n"
+    desc: Reservation is for the Deluxe King Room with 2 guests
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.payment_method_id\
+      \ == 'pm_1'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Reservation uses the default Visa payment method (pm_1)
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
+      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made for wrong property
+    penalty: 0.3
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')
+      and r.property_id == ''{target.property_id}'') <= 1
+
+      '
+    desc: At most one reservation was created for this property
+    penalty: 0.2

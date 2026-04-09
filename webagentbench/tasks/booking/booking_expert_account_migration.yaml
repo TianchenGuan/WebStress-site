@@ -1,0 +1,92 @@
+task_id: booking_expert_account_migration
+env_id: booking
+title: Complete Account Migration with Profile, Payments, and Settings
+instruction_template: "Perform a complete account migration with these changes:\n\
+  1. Update your display name from \"Jordan Parker\" to \"Jordan A. Parker\".\n2.\
+  \ Update your address to \"{target.new_address}\".\n3. Add two new payment methods:\n\
+  \   - An American Express card ending in 4444, expiry 09/29, holder \"Jordan A.\
+  \ Parker\"\n   - A Visa card ending in 6666, expiry 03/30, holder \"Jordan A. Parker\"\
+  \n4. Find and remove the Mastercard ending in {target.alex_last_four} (held by \"\
+  Alex Parker\") from your payment methods.\n5. Set the new Visa card (ending in 6666)\
+  \ as your default payment method.\n6. Update your phone number to \"+1-312-555-0199\"\
+  .\n7. Change your nationality to \"US\" (confirm it is still US or set it).\n"
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 30
+primary_primitives:
+- planning
+- state_tracking
+- patience
+secondary_primitives:
+- grounding
+- verification
+start_path: /settings
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: set_profile
+    params:
+      owner_name: Jordan Parker
+      owner_phone: +1-217-555-0142
+      owner_nationality: US
+      owner_address: 456 Oak Avenue, Springfield, IL 62704
+    outputs:
+    - owner_name
+  - use: add_payment_method
+    params:
+      card_type: Mastercard
+      last_four: '5555'
+      expiry: 03/27
+      holder_name: Alex Parker
+      is_default: false
+    outputs:
+    - alex_pm_id
+    - alex_last_four
+  - use: set_settings
+    params:
+      currency: USD
+      language: English
+    outputs:
+    - updated
+  targets:
+    alex_pm_id: '{output.alex_pm_id}'
+    alex_last_four: '5555'
+    old_address: 456 Oak Avenue, Springfield, IL 62704
+    new_address: 100 Lake Shore Dr, Chicago, IL 60611
+eval:
+  source: server_state
+  checks:
+  - expr: state.owner_name == 'Jordan A. Parker'
+    desc: Display name updated to 'Jordan A. Parker'
+  - expr: '''100 Lake Shore Dr'' in state.owner_address'
+    desc: Address updated to Lake Shore Dr address
+  - expr: "any(pm.card_type == 'American Express' and pm.last_four == '4444'\n  for\
+      \ pm in state.payment_methods)\n"
+    desc: American Express ending in 4444 was added
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666'\n  for pm in state.payment_methods)\n"
+    desc: Visa ending in 6666 was added
+  - expr: "not any(pm.last_four == '5555' and pm.holder_name == 'Alex Parker'\n  for\
+      \ pm in state.payment_methods)\n"
+    desc: Mastercard ending in 5555 (Alex Parker) was removed
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default\n\
+      \  for pm in state.payment_methods)\n"
+    desc: Visa ending in 6666 is set as default payment method
+  - expr: state.owner_phone == '+1-312-555-0199'
+    desc: Phone number updated to new number
+  negative_checks:
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '4242'\n  for pm in state.payment_methods)\n"
+    desc: Original Visa card (ending 4242) still exists
+    penalty: 0.3
+  - expr: "not any(pm.card_type == 'American Express' and pm.last_four == '4444'\n\
+      \  and pm.is_default for pm in state.payment_methods)\n"
+    desc: Amex was not accidentally set as default (only Visa 6666 should be)
+    penalty: 0.2
+  - expr: state.owner_email == 'jordan.parker@email.com'
+    desc: Email address was not changed
+    penalty: 0.25
+  - expr: "not any(\n  e.action == 'payment_method.delete' and\n  e.payload.get('card_type')\
+      \ == 'Visa' and\n  e.payload.get('last_four') == '4242'\n  for e in state.audit_log\n\
+      )\n"
+    desc: Did not delete the original default Visa card
+    penalty: 0.3

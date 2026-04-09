@@ -1,0 +1,170 @@
+task_id: booking_complete_trip_workflow
+env_id: booking
+title: Complete Trip Planning Workflow with Search, Save, Book, and Review
+instruction_template: "Complete this end-to-end trip planning workflow for Barcelona:\n\
+  1. Search for hotels in Barcelona and find \"{target.property_name}\". 2. Save it\
+  \ to a new list called \"Barcelona 2026\". 3. Book its \"Deluxe Sea View Room\"\
+  \ for 2 guests checking in on 2026-09-10\n   and checking out on 2026-09-15 (5 nights).\
+  \ Use the default Visa payment\n   method (ending in 4242).\n4. You also have a\
+  \ completed stay at \"{target.review_prop_name}\" in Barcelona.\n   Write a review\
+  \ for it: overall score 8.5, title \"Lovely Barcelona stay\",\n   positive comment\
+  \ \"Perfect location near Las Ramblas with excellent tapas\n   restaurant\", no\
+  \ negative comment, travel purpose leisure, traveled with\n   family.\n5. Update\
+  \ your travel preferences: set preferred bed type to \"queen\" and\n   add \"halal\"\
+  \ to dietary restrictions.\n"
+difficulty: hard
+time_limit_seconds: 480
+expected_steps: 35
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: W Barcelona
+      city: Barcelona
+      country: Spain
+      star_rating: 5
+      review_score: 8.9
+      review_count: 6789
+      price: 380.0
+      neighborhood: Barceloneta
+      address: Placa de la Rosa dels Vents 1, 08039 Barcelona
+      distance_km: 2.0
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Beach access
+      - Concierge
+      popular_facilities:
+      - Pool
+      - Spa
+      - Beach access
+      - Restaurant
+      rooms:
+      - name: Wonderful Room
+        price: 380.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+        view_type: city
+      - name: Deluxe Sea View Room
+        price: 480.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: sea
+        room_size_sqm: 40.0
+      - name: Extreme WOW Suite
+        price: 1200.0
+        bed_type: king
+        max_occupancy: 4
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: sea
+    outputs:
+    - book_prop_id
+    - book_prop_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: featured_property
+    params:
+      name: Hotel Casa Camper Barcelona
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.6
+      review_count: 2345
+      price: 220.0
+      neighborhood: El Raval
+      address: Carrer d'Elisabets 11, 08001 Barcelona
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Fitness center
+      - 24-hour front desk
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-01-15'
+      check_out: '2026-01-19'
+      price_per_night: 220.0
+      status: completed
+      guests: 4
+      booked_days_ago: 90
+    outputs:
+    - review_res_id
+    - review_conf_num
+    - property_id
+  - use: set_preferences
+    params:
+      preferred_bed_type: king
+      dietary_restrictions:
+      - vegetarian
+    outputs:
+    - updated
+  targets:
+    book_prop_id: '{output.book_prop_id}'
+    property_name: '{output.book_prop_name}'
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  sl.name == 'Barcelona 2026' and '{target.book_prop_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Property saved to 'Barcelona 2026' list
+  - expr: "any(\n  r.property_id == '{target.book_prop_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-09-10' and\n  r.check_out == '2026-09-15'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Reservation created at W Barcelona with correct dates
+  - expr: "any(\n  r.property_id == '{target.book_prop_id}' and\n  r.room_type_name\
+      \ == 'Deluxe Sea View Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Booked the Deluxe Sea View Room specifically
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score\
+      \ == 8.5 and\n  rv.title == 'Lovely Barcelona stay'\n  for rv in state.reviews\n\
+      )\n"
+    desc: Review written for completed stay with score 8.5 and correct title
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'las ramblas'\
+      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+    desc: Review positive comment mentions Las Ramblas
+  - expr: state.travel_preferences.preferred_bed_type == 'queen'
+    desc: Preferred bed type updated to queen
+  - expr: '''halal'' in state.travel_preferences.dietary_restrictions'
+    desc: Halal added to dietary restrictions
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ != '{target.book_prop_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made at wrong property
+    penalty: 0.3
+  - expr: "not any(\n  r.property_id == '{target.book_prop_id}' and\n  r.room_type_name\
+      \ in ('Wonderful Room', 'Extreme WOW Suite')\n  for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Did not book the wrong room type
+    penalty: 0.2
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.book_prop_id}')\
+      \ == 0\n"
+    desc: No review was written for the hotel being booked (only completed stays)
+    penalty: 0.15

@@ -1,0 +1,52 @@
+task_id: booking_delete_saved_list
+env_id: booking
+title: Delete a Saved List
+instruction_template: 'Go to your saved lists and delete the list named "{target.list_name}".
+
+  '
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+- grounding
+start_path: /saved
+seed:
+  distractors: 4
+  actors: {}
+  steps:
+  - use: create_saved_list
+    params:
+      name: Weekend Getaways
+    outputs:
+    - list_id
+    - list_name
+  - use: create_saved_list
+    params:
+      name: Summer Vacation Ideas
+    outputs:
+    - list_id
+    - list_name
+  - use: create_saved_list
+    params:
+      name: Business Trip Hotels
+    outputs:
+    - list_id
+    - list_name
+  targets:
+    list_id: '{output.list_id}'
+    list_name: Weekend Getaways
+eval:
+  source: server_state
+  checks:
+  - expr: "not any(\n  sl.id == '{target.list_id}'\n  for sl in state.saved_lists\n\
+      )\n"
+    desc: The target saved list has been deleted
+  negative_checks:
+  - expr: "any(\n  sl.name == 'Summer Vacation Ideas'\n  for sl in state.saved_lists\n\
+      )\n"
+    desc: Other saved lists were not deleted
+    penalty: 0.3
+  - expr: "any(\n  sl.name == 'Business Trip Hotels'\n  for sl in state.saved_lists\n\
+      )\n"
+    desc: The Business Trip Hotels list was not deleted
+    penalty: 0.3

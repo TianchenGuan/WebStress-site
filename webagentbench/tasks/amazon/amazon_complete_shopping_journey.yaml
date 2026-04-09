@@ -1,16 +1,15 @@
 task_id: amazon_complete_shopping_journey
 env_id: amazon
 title: Compare Speakers, Buy Best, Wishlist Cheapest, Review Past Order, Update Address
-instruction_template: >
-  Complete this multi-part shopping session:
-  1. Search for and compare these three speakers: '{target.best_name}',
-  '{target.cheap_name}', and '{target.mid_name}'. Purchase the one with the
-  highest rating.
-  2. Add the cheapest speaker to your wishlist for later.
-  3. Go to your order history, find your delivered order for '{target.past_name}',
-  and write a 4-star review titled '{target.review_title}'.
-  4. Add a new shipping address: Casey Jordan, 456 Elm Street, Chicago, IL 60601,
-  and set it as your default.
+instruction_template: 'Complete this multi-part shopping session: 1. Search for and
+  compare these three speakers: ''{target.best_name}'', ''{target.cheap_name}'', and
+  ''{target.mid_name}''. Purchase the one with the highest rating. 2. Add the cheapest
+  speaker to your wishlist for later. 3. Go to your order history, find your delivered
+  order for ''{target.past_name}'', and write a 4-star review titled ''{target.review_title}''.
+  4. Add a new shipping address: {target.addr_name}, {target.addr_street}, {target.addr_city},
+  IL {target.addr_zip}, and set it as your default.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 48
@@ -136,42 +135,48 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.best_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best_pid}'' for item in o.items) for
+      o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Highest-rated speaker purchased
-  - expr: "'{target.cheap_pid}' in state.wishlist"
+  - expr: '''{target.cheap_pid}'' in state.wishlist'
     desc: Cheapest speaker added to wishlist
-  - expr: >
-      any(r.product_id == '{target.past_pid}' and r.rating == 4
-      and r.title == '{target.review_title}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.past_pid}'' and r.rating == 4 and r.title
+      == ''{target.review_title}'' for r in state.reviews)
+
+      '
     desc: 4-star review for past purchase
-  - expr: >
-      any(a.full_name == 'Casey Jordan' and a.city == 'Chicago' and a.state == 'IL'
-      for a in state.addresses)
+  - expr: 'any(a.full_name == ''Casey Jordan'' and a.city == ''Chicago'' and a.state
+      == ''IL'' for a in state.addresses)
+
+      '
     desc: New address added
   - expr: any(a.full_name == 'Casey Jordan' and a.is_default for a in state.addresses)
     desc: New address set as default
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order confirmed
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.mid_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.mid_pid}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Mid-rated speaker not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.cheap_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.cheap_pid}'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheapest speaker not purchased (only wishlisted)
     penalty: 0.15
-  - expr: "'{target.best_pid}' not in state.wishlist"
+  - expr: '''{target.best_pid}'' not in state.wishlist'
     desc: Best speaker not in wishlist (it was purchased)
     penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
+  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+      1
     desc: Only one order placed
     penalty: 0.1

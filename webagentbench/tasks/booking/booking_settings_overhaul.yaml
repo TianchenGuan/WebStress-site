@@ -1,0 +1,60 @@
+task_id: booking_settings_overhaul
+env_id: booking
+title: 'Update Account Settings: Currency, Language, and Notifications'
+instruction_template: 'Go to your account settings and make the following changes:
+  (1) Change the currency to "{target.new_currency}", (2) Change the language to "{target.new_language}", (3) Disable
+  deal alerts, (4) Enable the newsletter. Make sure all four changes are saved.
+
+  '
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+- planning
+- grounding
+start_path: /home
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: set_settings
+    params:
+      currency: USD
+      language: English
+      deal_alerts: true
+      newsletter: false
+    outputs:
+    - updated
+  targets:
+    new_currency: EUR
+    new_language: French
+    deal_alerts: false
+    newsletter: true
+eval:
+  source: server_state
+  checks:
+  - expr: 'state.settings.currency == ''EUR''
+
+      '
+    desc: Currency was changed to EUR
+  - expr: 'state.settings.language == ''French''
+
+      '
+    desc: Language was changed to French
+  - expr: 'state.settings.deal_alerts == False
+
+      '
+    desc: Deal alerts were disabled
+  - expr: 'state.settings.newsletter == True
+
+      '
+    desc: Newsletter was enabled
+  negative_checks:
+  - expr: 'state.settings.email_notifications == True
+
+      '
+    desc: Email notifications were not accidentally disabled
+    penalty: 0.2
+  - expr: state.settings.two_factor_enabled == False
+    desc: Two-factor authentication was not accidentally enabled
+    penalty: 0.15

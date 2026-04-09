@@ -1,0 +1,160 @@
+task_id: booking_budget_comparison
+env_id: booking
+title: Compare Rome Hotels by Budget and Book Best Rated
+instruction_template: 'Compare hotels in Rome within the $150-$250 per night budget
+  range. Among those properties, find the one that has the best review score AND also
+  offers free cancellation on at least one room. Book that hotel''s cheapest room
+  with free cancellation for 2 guests checking in on 2026-06-20 and checking out on
+  2026-06-24 (4 nights). Use the default Visa payment method (ending in 4242) and
+  enter your name and email from your profile.
+
+  '
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 22
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- exploration
+- grounding
+start_path: /home
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: compare_properties
+    params:
+      city: Rome
+      country: Italy
+      properties:
+      - name: Hotel Palazzo Manfredi
+        star_rating: 4
+        review_score: 9.0
+        review_count: 2567
+        price: 230.0
+        neighborhood: Colosseum
+        amenities:
+        - Free WiFi
+        - Restaurant
+        - Bar
+        - Room service
+        - Concierge
+        - Air conditioning
+        rooms:
+        - name: Classic Room
+          price: 230.0
+          bed_type: queen
+          max_occupancy: 2
+          meals_included: breakfast
+          cancel_type: free_cancellation
+          view_type: city
+        - name: Deluxe Room
+          price: 310.0
+          bed_type: king
+          max_occupancy: 2
+          meals_included: breakfast
+          cancel_type: free_cancellation
+          view_type: monument
+      - name: Residenza Ruspoli Bonaparte
+        star_rating: 4
+        review_score: 9.2
+        review_count: 1890
+        price: 210.0
+        neighborhood: Trevi
+        amenities:
+        - Free WiFi
+        - Room service
+        - Air conditioning
+        - Concierge
+        rooms:
+        - name: Superior Room
+          price: 210.0
+          bed_type: queen
+          max_occupancy: 2
+          meals_included: breakfast
+          cancel_type: non_refundable
+      - name: Hotel Forum Roma
+        star_rating: 3
+        review_score: 8.2
+        review_count: 3456
+        price: 165.0
+        neighborhood: Monti
+        amenities:
+        - Free WiFi
+        - Restaurant
+        - Bar
+        - Air conditioning
+        rooms:
+        - name: Standard Room
+          price: 165.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+    outputs:
+    - property_id_1
+    - property_name_1
+    - property_id_2
+    - property_name_2
+    - property_id_3
+    - property_name_3
+  - use: decoy_property
+    params:
+      name: Hotel de Russie
+      city: Rome
+      country: Italy
+      star_rating: 5
+      review_score: 9.5
+      review_count: 4200
+      price: 480.0
+      neighborhood: Piazza del Popolo
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    target_prop_id: '{output.property_id_1}'
+    target_prop_name: '{output.property_name_1}'
+    no_cancel_prop_id: '{output.property_id_2}'
+    low_score_prop_id: '{output.property_id_3}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.status == 'confirmed'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Reservation created at the best-rated property with free cancellation
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.check_in ==\
+      \ '2026-06-20' and\n  r.check_out == '2026-06-24'\n  for r in state.reservations\n\
+      )\n"
+    desc: Reservation has correct dates
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.guests == 2\
+      \ and r.nights == 4\n  for r in state.reservations\n)\n"
+    desc: Correct guest count and nights
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.room_type_name\
+      \ == 'Classic Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Booked the cheapest free-cancellation room (Classic Room)
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.price_per_night\
+      \ >= 150.0 and r.price_per_night <= 250.0\n  for r in state.reservations\n \
+      \ if not r.id.startswith('res_initial_')\n)\n"
+    desc: Price is within the $150-$250 budget range
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ == '{target.no_cancel_prop_id}'\n  for e in state.audit_log\n)\n"
+    desc: Did not book the non-refundable property
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ == '{target.low_score_prop_id}'\n  for e in state.audit_log\n)\n"
+    desc: Did not book the lower-scored property
+    penalty: 0.2
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.15

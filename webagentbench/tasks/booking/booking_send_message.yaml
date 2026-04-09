@@ -1,0 +1,71 @@
+task_id: booking_send_message
+env_id: booking
+title: Send a Message About Check-in Time
+instruction_template: 'Go to your messages and send a new message to "{target.property_name}"
+  with the subject "Check-in time inquiry" and body "Hello, could you please let me
+  know the earliest check-in time available? Thank you."
+
+  '
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+- grounding
+start_path: /messages
+seed:
+  distractors: 4
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Downtown City Suites
+      city: Tokyo
+      country: Japan
+      star_rating: 4
+      review_score: 8.4
+      price: 175.0
+    outputs:
+    - property_id
+    - property_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.property_id}'
+      check_in: '2026-05-20'
+      check_out: '2026-05-24'
+      status: confirmed
+      booked_days_ago: 2
+    outputs:
+    - reservation_id
+    - confirmation_number
+    - property_id
+  - use: send_message
+    params:
+      property_id: '{output.property_id}'
+      subject: Booking confirmed
+      body: Thank you for your reservation. We look forward to welcoming you.
+      sender: Downtown City Suites
+      read: true
+    outputs:
+    - message_id
+  targets:
+    property_id: '{output.property_id}'
+    property_name: '{output.property_name}'
+    reservation_id: '{output.reservation_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'Check-in time inquiry'\
+      \ in m.subject and\n  m.sender != '{target.property_name}'\n  for m in state.messages\n\
+      )\n"
+    desc: A message with the correct subject was sent to the property
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'earliest check-in\
+      \ time' in m.body.lower()\n  for m in state.messages\n)\n"
+    desc: The message body asks about check-in time
+  negative_checks:
+  - expr: 'sum(1 for e in state.audit_log if e.action == ''message.send'') <= 1
+
+      '
+    desc: Only one message was sent
+    penalty: 0.2

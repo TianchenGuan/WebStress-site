@@ -196,7 +196,7 @@ export function PostPage() {
             <div className="post-detail__awards">
               {post.awards.map((a, i) => (
                 <span key={i} className="post-detail__award">
-                  {a.name === "Gold" ? "🥇" : a.name === "Silver" ? "🥈" : "🏅"} {a.name}{a.count > 1 ? ` x${a.count}` : ""}
+                  {a.name}{a.count > 1 ? ` x${a.count}` : ""}
                 </span>
               ))}
             </div>
@@ -207,11 +207,11 @@ export function PostPage() {
             <button className={`post-action ${post.is_saved ? "post-action--active" : ""}`} onClick={handleSavePost} aria-label={post.is_saved ? "Unsave" : "Save"}>
               {post.is_saved ? "★ Saved" : "☆ Save"}
             </button>
-            <button className="post-action" aria-label="Share">🔗 Share</button>
+            <button className="post-action" aria-label="Share">Share</button>
             {profile && post.author_name === profile.username && (
-              <button className="post-action post-action--danger" onClick={handleDeletePost} aria-label="Delete post">🗑️ Delete</button>
+              <button className="post-action post-action--danger" onClick={handleDeletePost} aria-label="Delete post">Delete</button>
             )}
-            {post.is_locked && <span className="post-detail__locked">🔒 Comments locked</span>}
+            {post.is_locked && <span className="post-detail__locked">Comments locked</span>}
           </div>
         </div>
       </article>

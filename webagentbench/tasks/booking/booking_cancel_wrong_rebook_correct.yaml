@@ -1,0 +1,164 @@
+task_id: booking_cancel_wrong_rebook_correct
+env_id: booking
+title: Cancel Wrong-Date Reservation and Modify Correct One
+instruction_template: "You have two confirmed reservations in {target.city}. One of\
+  \ them is for the WRONG dates and needs to be cancelled, while the other is correct\
+  \ and needs special requests added.\n1. Find your reservation at \"{target.wrong_prop_name}\"\
+  \ (checking in\n   {target.wrong_check_in}). This reservation was booked for the\
+  \ wrong dates.\n   Cancel it.\n2. Find your reservation at \"{target.correct_prop_name}\"\
+  \ (checking in\n   {target.correct_check_in}). This is the correct reservation.\
+  \ Modify it to\n   add the special request: \"Extra pillows and hypoallergenic bedding\
+  \ please.\n   Celebrating anniversary.\"\n"
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 18
+primary_primitives:
+- planning
+- state_tracking
+- verification
+secondary_primitives:
+- grounding
+start_path: /trips
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: The Connaught London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.4
+      review_count: 2890
+      price: 620.0
+      neighborhood: Mayfair
+      address: Carlos Place, London W1K 2AL
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+    outputs:
+    - wrong_prop_id
+    - wrong_prop_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.wrong_prop_id}'
+      check_in: '2026-06-01'
+      check_out: '2026-06-04'
+      price_per_night: 620.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 8
+    outputs:
+    - wrong_res_id
+    - wrong_conf_num
+    - property_id
+  - use: featured_property
+    params:
+      name: Claridge's London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.3
+      review_count: 3567
+      price: 580.0
+      neighborhood: Mayfair
+      address: Brook Street, London W1K 4HR
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+    outputs:
+    - correct_prop_id
+    - correct_prop_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.correct_prop_id}'
+      check_in: '2026-06-15'
+      check_out: '2026-06-19'
+      price_per_night: 580.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 5
+    outputs:
+    - correct_res_id
+    - correct_conf_num
+    - property_id
+  - use: featured_property
+    params:
+      name: Hotel Costes
+      city: Paris
+      country: France
+      star_rating: 5
+      review_score: 8.9
+      price: 450.0
+    outputs:
+    - distractor_prop_id
+    - distractor_prop_name
+    - cheapest_room_id
+    - cheapest_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.distractor_prop_id}'
+      check_in: '2026-07-20'
+      check_out: '2026-07-23'
+      status: confirmed
+      booked_days_ago: 14
+    outputs:
+    - distractor_res_id
+    - distractor_conf_num
+    - property_id
+  targets:
+    wrong_res_id: '{output.wrong_res_id}'
+    wrong_prop_id: '{output.wrong_prop_id}'
+    wrong_prop_name: '{output.wrong_prop_name}'
+    wrong_check_in: '2026-06-01'
+    correct_res_id: '{output.correct_res_id}'
+    correct_prop_id: '{output.correct_prop_id}'
+    correct_prop_name: '{output.correct_prop_name}'
+    correct_check_in: '2026-06-15'
+    distractor_res_id: '{output.distractor_res_id}'
+    city: London
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.wrong_res_id}' and r.status == 'cancelled'\n \
+      \ for r in state.reservations\n)\n"
+    desc: The wrong-date reservation was cancelled
+  - expr: "any(\n  r.id == '{target.correct_res_id}' and r.status == 'modified'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The correct reservation was modified
+  - expr: "any(\n  r.id == '{target.correct_res_id}' and\n  'extra pillows' in r.guest_info.special_requests.lower()\n\
+      \  for r in state.reservations\n)\n"
+    desc: Special request for extra pillows was added
+  - expr: "any(\n  r.id == '{target.correct_res_id}' and\n  'hypoallergenic' in r.guest_info.special_requests.lower()\n\
+      \  for r in state.reservations\n)\n"
+    desc: Special request mentions hypoallergenic bedding
+  - expr: "any(\n  r.id == '{target.correct_res_id}' and\n  'anniversary' in r.guest_info.special_requests.lower()\n\
+      \  for r in state.reservations\n)\n"
+    desc: Special request mentions anniversary celebration
+  negative_checks:
+  - expr: "not any(\n  r.id == '{target.correct_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The correct reservation was not cancelled
+    penalty: 0.5
+  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status in ('cancelled',\
+      \ 'modified')\n  for r in state.reservations\n)\n"
+    desc: The Paris distractor reservation was not touched
+    penalty: 0.3
+  - expr: "not any(\n  r.id == '{target.wrong_res_id}' and r.status == 'modified'\n\
+      \  for r in state.reservations\n)\n"
+    desc: The wrong reservation was cancelled, not just modified
+    penalty: 0.2

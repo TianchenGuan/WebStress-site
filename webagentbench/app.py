@@ -275,51 +275,34 @@ async def index():
         for env in current_manifest.get("environments", [])
     }
 
-    # Build environment cards
-    env_cards = ""
-    for env in current_manifest.get("environments", []):
-        available = bool(env.get("available", False))
-        task_count = len(env.get("tasks", []))
-        status_cls = "env-available" if available else "env-unavailable"
-        status_text = f"{task_count} tasks" if available else "Unavailable"
-        reason = env.get("unavailable_reason", "") if not available else (env.get("description", ""))
-        env_cards += (
-            f'<div class="env-card {status_cls}">'
-            f'<div class="env-title">{env["title"]}</div>'
-            f'<div class="env-meta"><code>{env["env_id"]}</code> &mdash; {status_text}</div>'
-            f'<div class="env-desc">{reason}</div>'
-            f'</div>\n'
-        )
-
-    # Build task options grouped by difficulty (easy → medium → hard)
-    _DIFF_ORDER = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
-    _DIFF_EMOJI = {"easy": "\u2714", "medium": "\u26a0", "hard": "\u2b50", "expert": "\U0001f525", "frontier": "\U0001f680"}  # ✔ ⚠ ⭐ 🔥 🚀
-    all_tasks: list[dict] = []
-    for env in current_manifest.get("environments", []):
-        for task in env.get("tasks", []):
-            all_tasks.append({**task, "_env_id": env["env_id"]})
-    all_tasks.sort(key=lambda t: (_DIFF_ORDER.get(t.get("difficulty", ""), 9), t.get("title", "")))
-
-    task_options = ""
-    current_group = None
-    for task in all_tasks:
-        diff = task.get("difficulty", "unknown")
-        if diff != current_group:
-            if current_group is not None:
-                task_options += "</optgroup>\n"
-            label = f"{_DIFF_EMOJI.get(diff, '')} {diff.upper()} ({sum(1 for t in all_tasks if t.get('difficulty') == diff)} tasks)"
-            task_options += f'<optgroup label="{label}">\n'
-            current_group = diff
-        tid = task["task_id"]
-        title = task.get("title", tid)
-        prims = ", ".join(task.get("primary_primitives", []))
-        steps = task.get("expected_steps", "")
-        step_hint = f" ({steps} steps)" if steps else ""
-        task_options += f'<option value="{tid}" data-env="{task["_env_id"]}">{title}{step_hint} — {prims}</option>\n'
-    if current_group is not None:
-        task_options += "</optgroup>\n"
-
     env_base_url_json = json.dumps(env_base_urls, sort_keys=True)
+
+    # Build per-env task data for the table view
+    _DIFF_ORDER = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
+    env_task_data_json = json.dumps([
+        {
+            "env_id": env["env_id"],
+            "title": env["title"],
+            "available": bool(env.get("available", False)),
+            "description": env.get("description", ""),
+            "unavailable_reason": env.get("unavailable_reason", ""),
+            "tasks": [
+                {
+                    "task_id": t["task_id"],
+                    "title": t.get("title", t["task_id"]),
+                    "difficulty": t.get("difficulty", ""),
+                    "primitives": t.get("primary_primitives", []),
+                    "steps": t.get("expected_steps", ""),
+                    "time": t.get("time_limit_seconds", ""),
+                }
+                for t in sorted(env.get("tasks", []), key=lambda x: (
+                    _DIFF_ORDER.get(x.get("difficulty", ""), 9),
+                    x.get("title", ""),
+                ))
+            ],
+        }
+        for env in current_manifest.get("environments", [])
+    ], sort_keys=False)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -327,181 +310,357 @@ async def index():
     <meta charset="UTF-8">
     <title>WebAgentBench</title>
     <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-               max-width: 860px; margin: 40px auto; padding: 0 24px; color: #1f2328; }}
-        h1 {{ font-size: 1.8rem; border-bottom: 2px solid #1f2328; padding-bottom: 8px; margin-bottom: 4px; }}
-        .subtitle {{ color: #656d76; margin-bottom: 24px; font-size: 0.92rem; }}
-        h2 {{ font-size: 1.15rem; margin-top: 28px; margin-bottom: 8px; }}
+               color: #1f2328; background: #f6f8fa; }}
 
-        .env-card {{ border: 1px solid #d0d7de; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; background: #f6f8fa; }}
-        .env-card.env-available {{ border-left: 4px solid #1a7f37; }}
-        .env-card.env-unavailable {{ border-left: 4px solid #bf8700; opacity: 0.7; }}
-        .env-title {{ font-weight: 700; font-size: 1.05rem; }}
-        .env-meta {{ font-size: 0.85rem; color: #656d76; margin-top: 2px; }}
-        .env-desc {{ font-size: 0.84rem; color: #656d76; margin-top: 4px; }}
-        code {{ background: #eff1f3; padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }}
+        .header {{ background: #24292f; color: #fff; padding: 20px 0; }}
+        .header-inner {{ max-width: 1100px; margin: 0 auto; padding: 0 24px;
+                        display: flex; justify-content: space-between; align-items: center; }}
+        .header h1 {{ font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px; }}
+        .header-stats {{ display: flex; gap: 20px; font-size: 0.82rem; color: #8b949e; }}
+        .header-stats span {{ color: #fff; font-weight: 600; }}
 
-        .launch-section {{ margin-top: 28px; border: 1px solid #d0d7de; border-radius: 8px; padding: 20px 24px; background: #fff; }}
-        label {{ display: block; font-weight: 600; font-size: 0.9rem; margin-top: 14px; margin-bottom: 4px; }}
-        select, input {{ width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid #d0d7de; border-radius: 6px; box-sizing: border-box; background: #fff; }}
-        select:focus, input:focus {{ outline: 2px solid #0969da; border-color: transparent; }}
-        .hint {{ color: #888; font-size: 0.78rem; margin-top: 2px; }}
+        .main {{ max-width: 1100px; margin: 0 auto; padding: 20px 24px; }}
 
-        .btn-row {{ display: flex; gap: 10px; margin-top: 20px; align-items: center; }}
-        .btn-launch {{ padding: 10px 28px; background: #0969da; color: #fff; border: none; border-radius: 6px;
-                       font-size: 15px; font-weight: 600; cursor: pointer; }}
-        .btn-launch:hover {{ background: #0860ca; }}
-        .mode-badge {{ display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 0.72rem;
-                       font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
+        /* ── Environment tabs ── */
+        .env-tabs {{ display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }}
+        .env-tab {{ padding: 8px 18px; border: 1px solid #d0d7de; border-radius: 20px;
+                    background: #fff; font-size: 13px; font-weight: 500; cursor: pointer;
+                    display: flex; align-items: center; gap: 8px; transition: all .15s; }}
+        .env-tab:hover {{ border-color: #24292f; color: #24292f; }}
+        .env-tab.active {{ background: #24292f; color: #fff; border-color: #24292f; }}
+        .env-tab.unavailable {{ opacity: 0.5; cursor: default; }}
+        .env-tab .count {{ font-size: 11px; padding: 1px 7px; border-radius: 10px;
+                          background: rgba(0,0,0,.08); font-weight: 600; }}
+        .env-tab.active .count {{ background: rgba(255,255,255,.25); }}
+
+        /* ── Task table ── */
+        .task-table-wrap {{ background: #fff; border: 1px solid #d0d7de; border-radius: 8px; overflow: hidden; }}
+        .task-table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+        .task-table th {{ text-align: left; padding: 10px 14px; background: #f6f8fa;
+                         font-weight: 600; font-size: 12px; color: #656d76;
+                         text-transform: uppercase; letter-spacing: 0.3px;
+                         border-bottom: 1px solid #d0d7de; position: sticky; top: 0; }}
+        .task-table td {{ padding: 8px 14px; border-bottom: 1px solid #eee; vertical-align: middle; }}
+        .task-table tr {{ cursor: pointer; transition: background .1s; }}
+        .task-table tr:hover {{ background: #f6f8fa; }}
+        .task-table tr.selected {{ background: #eef0f2; }}
+
+        .diff-badge {{ display: inline-block; padding: 2px 8px; border-radius: 10px;
+                       font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }}
+        .diff-easy {{ background: #dafbe1; color: #1a7f37; }}
+        .diff-medium {{ background: #fff8c5; color: #9a6700; }}
+        .diff-hard {{ background: #ffebe9; color: #cf222e; }}
+        .diff-expert {{ background: #f0e6ff; color: #7c3aed; }}
+        .diff-frontier {{ background: #1f2328; color: #fff; }}
+
+        .prim-tag {{ display: inline-block; padding: 1px 6px; border-radius: 3px;
+                     font-size: 11px; background: #eff1f3; color: #656d76; margin-right: 3px; }}
+
+        /* ── Sticky launch bar ── */
+        .launch-bar {{ position: sticky; top: 0; z-index: 50;
+                       background: #fff; border: 1px solid #d0d7de; border-radius: 8px;
+                       padding: 8px 14px; margin-bottom: 14px;
+                       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+                       box-shadow: 0 2px 8px rgba(0,0,0,.06); }}
+        .launch-bar__selected {{ font-weight: 600; font-size: 13px; color: #8b949e;
+                                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }}
+        .launch-bar__selected.active {{ color: #1f2328; }}
+        .launch-bar__meta {{ font-size: 11px; color: #8b949e; white-space: nowrap; }}
+        .launch-bar__sep {{ width: 1px; height: 24px; background: #d0d7de; flex-shrink: 0; }}
+        .launch-bar__select {{ padding: 5px 8px; font-size: 12px; border: 1px solid #d0d7de;
+                              border-radius: 5px; background: #fff; max-width: 180px; }}
+        .launch-bar__seed {{ padding: 5px 8px; font-size: 12px; border: 1px solid #d0d7de;
+                            border-radius: 5px; width: 70px; }}
+        .launch-bar__select:focus, .launch-bar__seed:focus {{ outline: 2px solid #24292f; border-color: transparent; }}
+        .launch-bar__status {{ font-size: 12px; color: #656d76; }}
+
+        .btn-launch {{ padding: 9px 24px; background: #24292f; color: #fff; border: none;
+                       border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+                       white-space: nowrap; }}
+        .btn-launch:hover {{ background: #1b1f23; }}
+        .btn-launch:disabled {{ background: #8b949e; cursor: wait; }}
+
+        .mode-badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px;
+                       font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }}
         .mode-standard {{ background: #dafbe1; color: #1a7f37; }}
         .mode-stress {{ background: #ffebe9; color: #cf222e; }}
-        #variant-info {{ margin-top: 8px; padding: 8px 12px; background: #fff8c5; border: 1px solid #ebd98b;
-                         border-radius: 6px; font-size: 0.84rem; display: none; }}
-        #status {{ margin-top: 12px; color: #656d76; font-size: 0.88rem; }}
+        #variant-info {{ margin-top: 6px; padding: 6px 10px; background: #fff8c5;
+                         border: 1px solid #ebd98b; border-radius: 6px; font-size: 12px; display: none; }}
+        #status {{ font-size: 13px; color: #656d76; margin-top: 8px; }}
 
-        .api-section {{ margin-top: 28px; font-size: 0.85rem; color: #656d76; }}
-        .api-section code {{ font-size: 0.82em; }}
+        /* ── Search / filter bar ── */
+        .filter-bar {{ display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }}
+        .filter-bar input {{ padding: 7px 12px; font-size: 13px; border: 1px solid #d0d7de;
+                            border-radius: 6px; width: 240px; }}
+        .filter-bar select {{ padding: 7px 10px; font-size: 13px; border: 1px solid #d0d7de; border-radius: 6px; }}
+        .task-count {{ font-size: 12px; color: #656d76; margin-left: auto; }}
+
+        .empty-state {{ padding: 40px 20px; text-align: center; color: #656d76; }}
+
+        /* ── Footer ── */
+        .footer {{ max-width: 1100px; margin: 30px auto 20px; padding: 0 24px;
+                   font-size: 12px; color: #8b949e; display: flex; gap: 16px; }}
+        .footer code {{ background: #eff1f3; padding: 1px 5px; border-radius: 3px; font-size: 11px; }}
     </style>
 </head>
 <body>
-    <h1>WebAgentBench</h1>
-    <p class="subtitle">{description}</p>
-
-    <h2>Environments</h2>
-    {env_cards}
-
-    <div class="launch-section">
-        <h2 style="margin-top:0">Launch Task <span class="mode-badge mode-standard" id="mode-badge">Standard</span></h2>
-        <p style="color:#656d76;font-size:0.88rem;margin-bottom:12px;">Pick a task, optionally add a stress-test variant, then launch. Complete the task in the SPA and click <b>Evaluate</b> in the toolbar.</p>
-
-        <label for="env-filter">Environment</label>
-        <select id="env-filter">
-            <option value="">All environments</option>
-        </select>
-
-        <label for="task">Task</label>
-        <select id="task">{task_options}</select>
-
-        <label for="variant">Degradation Variant <span style="font-weight:400;color:#888">(optional)</span></label>
-        <select id="variant">
-            <option value="">None &mdash; standard / healthy environment</option>
-        </select>
-        <div class="hint">Stress a specific cognitive primitive. Variants are filtered to the selected task.</div>
-        <div id="variant-info"></div>
-
-        <label for="seed">Seed <span style="font-weight:400;color:#888">(optional)</span></label>
-        <input id="seed" type="number" placeholder="Leave empty for deterministic default" />
-        <div class="hint">Same seed = same data every run.</div>
-
-        <div class="btn-row">
-            <button class="btn-launch" onclick="launch()">Launch</button>
-            <div id="status"></div>
+    <div class="header">
+        <div class="header-inner">
+            <h1>WebAgentBench</h1>
+            <div class="header-stats">
+                <div><span>{ENVIRONMENT_COUNT}</span> environments</div>
+                <div><span>{ENV_TASK_COUNT}</span> tasks</div>
+                <div>v{MANIFEST_VERSION}</div>
+            </div>
         </div>
     </div>
 
-    <div class="api-section">
-        <h2>API</h2>
-        <ul>
-            <li><code>GET /manifest</code> &mdash; Full benchmark manifest</li>
-            <li><code>GET /health</code> &mdash; Server health check</li>
-            <li><code>/api/env/gmail/*</code> &mdash; Gmail session, CRUD, and evaluation endpoints</li>
-            <li><code>/api/env/robinhood/*</code> &mdash; Robinhood session, CRUD, and evaluation endpoints</li>
-        </ul>
+    <div class="main">
+        <!-- Environment tabs -->
+        <div class="env-tabs" id="env-tabs"></div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+            <input type="text" id="search" placeholder="Search tasks..." />
+            <select id="diff-filter">
+                <option value="">All difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+                <option value="expert">Expert</option>
+                <option value="frontier">Frontier</option>
+            </select>
+            <select id="prim-filter">
+                <option value="">All primitives</option>
+                <option value="grounding">Grounding</option>
+                <option value="planning">Planning</option>
+                <option value="state_tracking">State Tracking</option>
+                <option value="backtracking">Backtracking</option>
+                <option value="patience">Patience</option>
+                <option value="exploration">Exploration</option>
+                <option value="verification">Verification</option>
+            </select>
+            <div class="task-count" id="task-count"></div>
+        </div>
+
+        <!-- Sticky launch bar -->
+        <div class="launch-bar" id="launch-bar">
+            <div class="launch-bar__selected" id="lp-title">Click a task to select</div>
+            <div class="launch-bar__meta" id="lp-meta"></div>
+            <div class="launch-bar__sep"></div>
+            <select id="variant" class="launch-bar__select" title="Degradation variant">
+                <option value="">No variant</option>
+            </select>
+            <span class="mode-badge mode-standard" id="mode-badge" style="font-size:10px">STD</span>
+            <div id="variant-info" style="display:none"></div>
+            <input id="seed" type="number" class="launch-bar__seed" placeholder="Seed" title="Random seed" value="42" />
+            <button class="btn-launch" id="btn-launch" onclick="launch()" disabled>Launch</button>
+            <div id="status" class="launch-bar__status"></div>
+        </div>
+
+        <!-- Task table -->
+        <div class="task-table-wrap">
+            <table class="task-table">
+                <thead>
+                    <tr>
+                        <th style="width:40%">Task</th>
+                        <th style="width:10%">Difficulty</th>
+                        <th style="width:30%">Primitives</th>
+                        <th style="width:10%">Steps</th>
+                        <th style="width:10%">Time</th>
+                    </tr>
+                </thead>
+                <tbody id="task-body"></tbody>
+            </table>
+            <div class="empty-state" id="empty-state" style="display:none">No tasks match your filters.</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div><code>GET /manifest</code> &mdash; benchmark manifest</div>
+        <div><code>GET /health</code> &mdash; health check</div>
+        <div><code>/api/env/&lt;id&gt;/*</code> &mdash; environment API</div>
     </div>
 
     <script>
+    var ENV_DATA = {env_task_data_json};
     var envBaseUrls = {env_base_url_json};
-    var taskSel = document.getElementById('task');
-    var allTaskOptions = Array.from(taskSel.querySelectorAll('option'));
+    var allVariants = [];
+    var selectedEnv = '';
+    var selectedTaskId = '';
 
-    // --- Environment filter ---
-    var envFilter = document.getElementById('env-filter');
-    Object.keys(envBaseUrls).forEach(function(eid) {{
-        var opt = document.createElement('option');
-        opt.value = eid;
-        opt.textContent = eid.charAt(0).toUpperCase() + eid.slice(1);
-        envFilter.appendChild(opt);
-    }});
-    function filterTasks() {{
-        var envId = envFilter.value;
-        allTaskOptions.forEach(function(opt) {{
-            var show = !envId || opt.dataset.env === envId;
-            opt.style.display = show ? '' : 'none';
-            opt.disabled = !show;
-        }});
-        var selected = taskSel.options[taskSel.selectedIndex];
-        if (selected && selected.disabled) {{
-            for (var i = 0; i < taskSel.options.length; i++) {{
-                if (!taskSel.options[i].disabled) {{ taskSel.selectedIndex = i; break; }}
-            }}
-        }}
-        taskSel.dispatchEvent(new Event('change'));
+    // ── Restore saved filter state from localStorage ──
+    var _stored = {{}};
+    try {{ _stored = JSON.parse(localStorage.getItem('wab_filters') || '{{}}'); }} catch(e) {{}}
+    if (_stored.env) selectedEnv = _stored.env;
+    if (_stored.diff) document.getElementById('diff-filter').value = _stored.diff;
+    if (_stored.prim) document.getElementById('prim-filter').value = _stored.prim;
+    if (_stored.search) document.getElementById('search').value = _stored.search;
+    if (_stored.seed) document.getElementById('seed').value = _stored.seed;
+
+    function saveFilters() {{
+        try {{
+            localStorage.setItem('wab_filters', JSON.stringify({{
+                env: selectedEnv,
+                diff: document.getElementById('diff-filter').value,
+                prim: document.getElementById('prim-filter').value,
+                search: document.getElementById('search').value,
+                seed: document.getElementById('seed').value,
+            }}));
+        }} catch(e) {{}}
     }}
-    envFilter.addEventListener('change', filterTasks);
 
-    // --- Fetch variants for all environments ---
-    var envIds = Object.keys(envBaseUrls);
-    Promise.all(envIds.map(function(eid) {{
-        return fetch('/api/env/' + eid + '/variants').then(function(r) {{ return r.json(); }}).catch(function() {{ return []; }});
-    }})).then(function(results) {{
-        var variants = [];
-        for (var i = 0; i < results.length; i++) variants = variants.concat(results[i]);
-        return variants;
-    }})
-        .then(function(variants) {{
-            var sel = document.getElementById('variant');
+    // ── Render env tabs ──
+    var tabsEl = document.getElementById('env-tabs');
+    // "All" tab
+    var allTab = document.createElement('div');
+    allTab.className = 'env-tab' + (selectedEnv === '' ? ' active' : '');
+    allTab.dataset.env = '';
+    var total = ENV_DATA.reduce(function(s,e){{ return s + e.tasks.length; }}, 0);
+    allTab.innerHTML = 'All <span class="count">' + total + '</span>';
+    allTab.onclick = function() {{ selectEnv(''); }};
+    tabsEl.appendChild(allTab);
 
-            function updateVariants() {{
-                var tid = taskSel.value;
-                while (sel.options.length > 1) sel.remove(1);
-                var matching = variants.filter(function(v) {{ return v.base_task_id === tid; }});
-                for (var i = 0; i < matching.length; i++) {{
-                    var v = matching[i];
-                    var opt = document.createElement('option');
-                    opt.value = v.filename;
-                    opt.textContent = '[' + v.target_primitive + '] ' + v.description.slice(0, 80);
-                    opt.dataset.desc = v.description;
-                    opt.dataset.primitive = v.target_primitive;
-                    sel.appendChild(opt);
-                }}
-            }}
+    ENV_DATA.forEach(function(env) {{
+        var tab = document.createElement('div');
+        tab.className = 'env-tab' + (env.available ? '' : ' unavailable') + (env.env_id === selectedEnv ? ' active' : '');
+        tab.dataset.env = env.env_id;
+        tab.innerHTML = env.title + ' <span class="count">' + env.tasks.length + '</span>';
+        tab.onclick = function() {{ if (env.available) selectEnv(env.env_id); }};
+        tab.title = env.available ? env.description : (env.unavailable_reason || 'Unavailable');
+        tabsEl.appendChild(tab);
+    }});
 
-            taskSel.addEventListener('change', updateVariants);
-            updateVariants();
+    function selectEnv(envId) {{
+        selectedEnv = envId;
+        document.querySelectorAll('.env-tab').forEach(function(t) {{
+            t.classList.toggle('active', t.dataset.env === envId);
+        }});
+        saveFilters();
+        renderTasks();
+    }}
 
-            sel.addEventListener('change', function() {{
-                var info = document.getElementById('variant-info');
-                var badge = document.getElementById('mode-badge');
-                var opt = sel.options[sel.selectedIndex];
-                if (sel.value) {{
-                    info.style.display = 'block';
-                    info.textContent = 'Primitive: ' + (opt.dataset.primitive || '?') + ' \u2014 ' + (opt.dataset.desc || '');
-                    badge.textContent = 'Stress Test';
-                    badge.className = 'mode-badge mode-stress';
-                }} else {{
-                    info.style.display = 'none';
-                    badge.textContent = 'Standard';
-                    badge.className = 'mode-badge mode-standard';
-                }}
+    // ── Render task rows ──
+    function renderTasks() {{
+        var body = document.getElementById('task-body');
+        var search = document.getElementById('search').value.toLowerCase();
+        var diff = document.getElementById('diff-filter').value;
+        var prim = document.getElementById('prim-filter').value;
+        body.innerHTML = '';
+        var count = 0;
+
+        ENV_DATA.forEach(function(env) {{
+            if (selectedEnv && env.env_id !== selectedEnv) return;
+            if (!env.available) return;
+
+            env.tasks.forEach(function(task) {{
+                if (diff && task.difficulty !== diff) return;
+                if (prim && task.primitives.indexOf(prim) < 0) return;
+                if (search && task.title.toLowerCase().indexOf(search) < 0 &&
+                    task.task_id.toLowerCase().indexOf(search) < 0 &&
+                    task.primitives.join(' ').toLowerCase().indexOf(search) < 0) return;
+
+                count++;
+                var tr = document.createElement('tr');
+                tr.dataset.taskId = task.task_id;
+                tr.dataset.env = env.env_id;
+                if (task.task_id === selectedTaskId) tr.className = 'selected';
+                tr.onclick = function() {{ selectTask(task.task_id, env.env_id, task); }};
+
+                var primsHtml = task.primitives.map(function(p) {{
+                    return '<span class="prim-tag">' + p + '</span>';
+                }}).join('');
+                var timeMin = task.time ? Math.round(task.time / 60) + 'm' : '';
+
+                tr.innerHTML =
+                    '<td><strong>' + task.title + '</strong>' +
+                    '<div style="font-size:11px;color:#8b949e;margin-top:1px">' + env.env_id + ' / ' + task.task_id + '</div></td>' +
+                    '<td><span class="diff-badge diff-' + task.difficulty + '">' + task.difficulty + '</span></td>' +
+                    '<td>' + primsHtml + '</td>' +
+                    '<td style="text-align:center;color:#656d76">' + (task.steps || '') + '</td>' +
+                    '<td style="text-align:center;color:#656d76">' + timeMin + '</td>';
+                body.appendChild(tr);
             }});
         }});
 
-    async function launch() {{
-        var taskId = document.getElementById('task').value;
-        var variant = document.getElementById('variant').value;
-        var seedVal = document.getElementById('seed').value;
-        var status = document.getElementById('status');
+        document.getElementById('task-count').textContent = count + ' task' + (count !== 1 ? 's' : '');
+        document.getElementById('empty-state').style.display = count === 0 ? '' : 'none';
+    }}
 
+    document.getElementById('search').addEventListener('input', function() {{ saveFilters(); renderTasks(); }});
+    document.getElementById('diff-filter').addEventListener('change', function() {{ saveFilters(); renderTasks(); }});
+    document.getElementById('prim-filter').addEventListener('change', function() {{ saveFilters(); renderTasks(); }});
+    document.getElementById('seed').addEventListener('change', saveFilters);
+
+    // ── Select task → show launch panel ──
+    function selectTask(taskId, envId, task) {{
+        selectedTaskId = taskId;
+        document.querySelectorAll('.task-table tr').forEach(function(r) {{
+            r.classList.toggle('selected', r.dataset.taskId === taskId);
+        }});
+        document.getElementById('btn-launch').disabled = false;
+        var titleEl = document.getElementById('lp-title');
+        titleEl.textContent = task.title;
+        titleEl.classList.add('active');
+        document.getElementById('lp-meta').textContent = envId + ' / ' + task.difficulty;
+
+        // Update variants
+        var sel = document.getElementById('variant');
+        while (sel.options.length > 1) sel.remove(1);
+        var matching = allVariants.filter(function(v) {{ return v.base_task_id === taskId; }});
+        matching.forEach(function(v) {{
+            var opt = document.createElement('option');
+            opt.value = v.filename;
+            opt.textContent = '[' + v.target_primitive + '] ' + v.description.slice(0, 70);
+            opt.dataset.desc = v.description;
+            opt.dataset.primitive = v.target_primitive;
+            sel.appendChild(opt);
+        }});
+        sel.value = '';
+        document.getElementById('variant-info').style.display = 'none';
+        document.getElementById('mode-badge').textContent = 'Standard';
+        document.getElementById('mode-badge').className = 'mode-badge mode-standard';
+
+    }}
+
+    // ── Variant change ──
+    document.getElementById('variant').addEventListener('change', function() {{
+        var sel = this;
+        var info = document.getElementById('variant-info');
+        var badge = document.getElementById('mode-badge');
+        var opt = sel.options[sel.selectedIndex];
+        if (sel.value) {{
+            info.style.display = 'block';
+            info.textContent = (opt.dataset.primitive || '') + ' — ' + (opt.dataset.desc || '');
+            badge.textContent = 'Stress';
+            badge.className = 'mode-badge mode-stress';
+        }} else {{
+            info.style.display = 'none';
+            badge.textContent = 'Standard';
+            badge.className = 'mode-badge mode-standard';
+        }}
+    }});
+
+    // ── Launch ──
+    async function launch() {{
+        if (!selectedTaskId) return;
+        var btn = document.getElementById('btn-launch');
+        var status = document.getElementById('status');
+        btn.disabled = true;
         status.textContent = 'Creating session...';
 
-        var payload = {{ task_id: taskId }};
+        var variant = document.getElementById('variant').value;
+        var seedVal = document.getElementById('seed').value;
+        var envId = '';
+        ENV_DATA.forEach(function(e) {{ e.tasks.forEach(function(t) {{ if (t.task_id === selectedTaskId) envId = e.env_id; }}); }});
+
+        var payload = {{ task_id: selectedTaskId }};
         if (seedVal) payload.seed = parseInt(seedVal);
         if (variant) payload.variant_filename = variant;
 
         try {{
-            var taskSelect = document.getElementById('task');
-            var selectedTask = taskSelect.options[taskSelect.selectedIndex];
-            var envId = selectedTask.dataset.env;
             var resp = await fetch('/api/env/' + envId + '/session', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
@@ -510,18 +669,30 @@ async def index():
             if (!resp.ok) {{
                 var err = await resp.json();
                 status.textContent = 'Error: ' + (err.detail || resp.statusText);
+                btn.disabled = false;
                 return;
             }}
             var data = await resp.json();
-            var sessionId = data.session_id;
-            var startPath = data.start_path || '/';
             var baseUrl = envBaseUrls[envId] || ('/env/' + envId);
-            var separator = startPath.indexOf('?') >= 0 ? '&' : '?';
-            window.location.href = baseUrl.replace(/\\/+$/, '') + startPath + separator + 'session=' + encodeURIComponent(sessionId);
+            var startPath = data.start_path || '/';
+            var sep = startPath.indexOf('?') >= 0 ? '&' : '?';
+            window.location.href = baseUrl.replace(/\\/+$/, '') + startPath + sep + 'session=' + encodeURIComponent(data.session_id);
         }} catch(e) {{
             status.textContent = 'Error: ' + e.message;
+            btn.disabled = false;
         }}
     }}
+
+    // ── Load variants ──
+    var envIds = ENV_DATA.map(function(e) {{ return e.env_id; }});
+    Promise.all(envIds.map(function(eid) {{
+        return fetch('/api/env/' + eid + '/variants').then(function(r) {{ return r.json(); }}).catch(function() {{ return []; }});
+    }})).then(function(results) {{
+        for (var i = 0; i < results.length; i++) allVariants = allVariants.concat(results[i]);
+    }});
+
+    // ── Initial render ──
+    renderTasks();
     </script>
 </body>
 </html>"""

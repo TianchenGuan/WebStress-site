@@ -1,0 +1,220 @@
+task_id: booking_expert_loyalty_optimizer
+env_id: booking
+title: Genius Loyalty Optimizer with Price Comparison and Wallet Credit
+instruction_template: "Maximize your Genius Level 2 benefits with this workflow:\n\
+  1. Search for hotels in Paris with Genius discounts. Find these three properties:\n\
+  \   - \"{target.prop_name_1}\" (Genius {target.discount_1}% off)\n\
+  \   - \"{target.prop_name_2}\" (Genius {target.discount_2}% off)\n\
+  \   - \"{target.prop_name_3}\" (Genius {target.discount_3}% off)\n\
+  2. Compare their prices and identify the one that offers the best value:\n\
+  \   the lowest price per night that ALSO includes breakfast.\n\
+  3. Book that hotel's cheapest room with breakfast included for 2 guests,\n\
+  \   checking in 2026-08-15 and checking out 2026-08-20 (5 nights).\n\
+  \   Use the Mastercard ending in 8888.\n\
+  4. Apply your wallet credit ($47.50) to the reservation.\n\
+  5. Save the booked property to a new list called \"Genius Picks\".\n\
+  6. Update your travel preferences: set preferred currency to EUR.\n"
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 32
+primary_primitives:
+- verification
+- state_tracking
+- planning
+secondary_primitives:
+- exploration
+- grounding
+start_path: /home
+seed:
+  distractors: 15
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Duc de Saint Simon
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 9.1
+      review_count: 2890
+      price: 310.0
+      genius_discount_pct: 15
+      neighborhood: Saint-Germain-des-Pres
+      address: 14 Rue de Saint Simon, 75007 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Room service
+      - Garden
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      - Garden
+      rooms:
+      - name: Classic Room
+        price: 310.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+      - name: Superior Room with Breakfast
+        price: 360.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+    outputs:
+    - prop_id_1
+    - prop_name_1
+    - room_id_1
+    - room_name_1
+  - use: featured_property
+    params:
+      name: Hotel Monge Paris
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.8
+      review_count: 1980
+      price: 245.0
+      genius_discount_pct: 10
+      neighborhood: Latin Quarter
+      address: 55 Rue Monge, 75005 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Fitness center
+      - Air conditioning
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      rooms:
+      - name: Cozy Double Room
+        price: 245.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+      - name: Breakfast Double Room
+        price: 275.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+    outputs:
+    - prop_id_2
+    - prop_name_2
+    - room_id_2
+    - room_name_2
+  - use: featured_property
+    params:
+      name: Le Petit Belloy Saint-Germain
+      city: Paris
+      country: France
+      star_rating: 3
+      review_score: 8.4
+      review_count: 1540
+      price: 190.0
+      genius_discount_pct: 20
+      neighborhood: Saint-Germain-des-Pres
+      address: 1 Rue Racine, 75006 Paris
+      amenities:
+      - Free WiFi
+      - Air conditioning
+      - 24-hour front desk
+      popular_facilities:
+      - Free WiFi
+      rooms:
+      - name: Standard Room
+        price: 190.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: none
+        cancel_type: free_cancellation
+      - name: Comfort Room with Breakfast
+        price: 220.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+    outputs:
+    - prop_id_3
+    - prop_name_3
+    - room_id_3
+    - room_name_3
+  - use: decoy_property
+    params:
+      name: Pullman Paris Tour Eiffel
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.3
+      review_count: 4560
+      price: 260.0
+      genius_discount_pct: 0
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Fitness center
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  - use: set_preferences
+    params:
+      preferred_currency: USD
+    outputs:
+    - updated
+  targets:
+    prop_id_1: '{output.prop_id_1}'
+    prop_name_1: '{output.prop_name_1}'
+    prop_id_2: '{output.prop_id_2}'
+    prop_name_2: '{output.prop_name_2}'
+    prop_id_3: '{output.prop_id_3}'
+    prop_name_3: '{output.prop_name_3}'
+    target_prop_id: '{output.prop_id_3}'
+    target_prop_name: '{output.prop_name_3}'
+    discount_1: '15'
+    discount_2: '10'
+    discount_3: '20'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-08-15' and\n  r.check_out == '2026-08-20'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Booked the best-value Genius property with correct dates
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.room_type_name\
+      \ == 'Comfort Room with Breakfast'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Booked the room with breakfast included
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.payment_method_id\
+      \ == 'pm_2'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Used Mastercard ending in 8888 for payment
+  - expr: "any(\n  sl.name == 'Genius Picks' and '{target.target_prop_id}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
+    desc: Booked property saved to 'Genius Picks' list
+  - expr: state.wallet.balance < 47.50
+    desc: Wallet credit was applied (balance reduced)
+  - expr: state.travel_preferences.preferred_currency == 'EUR'
+    desc: Preferred currency updated to EUR
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ != '{target.target_prop_id}'\n  for e in state.audit_log\n)\n"
+    desc: No reservation made at wrong property
+    penalty: 0.3
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
+      \ == '{target.prop_id_1}'\n  for e in state.audit_log\n)\n"
+    desc: Did not book the more expensive Genius property without best value
+    penalty: 0.2
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
+      <= 1
+
+      '
+    desc: Only one new reservation was created
+    penalty: 0.15

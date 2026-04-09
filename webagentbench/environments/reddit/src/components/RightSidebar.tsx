@@ -115,7 +115,7 @@ export function RedditPremiumWidget() {
   return (
     <div className="right-sidebar__widget" aria-label="Reddit Premium">
       <div className="widget-body widget-body--centered">
-        <div className="premium-icon">⭐</div>
+        <div className="premium-icon">Premium</div>
         <h4 className="premium-title">Reddit Premium</h4>
         <p className="premium-text">The best Reddit experience, with monthly Coins</p>
         <button className="premium-btn">Try Now</button>

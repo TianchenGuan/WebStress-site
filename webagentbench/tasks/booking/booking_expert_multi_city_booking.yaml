@@ -1,0 +1,231 @@
+task_id: booking_expert_multi_city_booking
+env_id: booking
+title: Multi-City Trip Booking with Different Payment Methods
+instruction_template: "Book a multi-leg international trip across 3 cities:\n\
+  1. Book \"{target.paris_name}\" in Paris:\n\
+  \   - Cheapest room, 2 guests, check-in 2026-09-01, check-out 2026-09-04\
+  \ (3 nights)\n\
+  \   - Use Visa ending in 4242 (default)\n\
+  2. Book \"{target.tokyo_name}\" in Tokyo:\n\
+  \   - Cheapest room, 2 guests, check-in 2026-09-06, check-out 2026-09-10\
+  \ (4 nights)\n\
+  \   - Use Mastercard ending in 8888\n\
+  3. Book \"{target.london_name}\" in London:\n\
+  \   - Cheapest room, 2 guests, check-in 2026-09-12, check-out 2026-09-15\
+  \ (3 nights)\n\
+  \   - Use Amex ending in 1234\n\
+  4. Create a saved list called \"Europe-Asia Trip Sep 2026\" and add all\
+  \ three hotels to it.\n\
+  5. Send a message to each hotel with subject \"Arrival Information\":\n\
+  \   - To Paris hotel: body \"Arriving from New York on a morning flight.\
+  \ Expected arrival at hotel around 2pm.\"\n\
+  \   - To Tokyo hotel: body \"Arriving from Paris on an evening flight.\
+  \ Expected arrival at hotel around 10pm. Please arrange late check-in.\"\n\
+  \   - To London hotel: body \"Arriving from Tokyo on an afternoon flight.\
+  \ Expected arrival at hotel around 6pm.\"\n"
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 40
+primary_primitives:
+- planning
+- patience
+- state_tracking
+secondary_primitives:
+- grounding
+- verification
+start_path: /home
+seed:
+  distractors: 15
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: Hotel Brighton Paris
+      city: Paris
+      country: France
+      star_rating: 4
+      review_score: 8.6
+      review_count: 3890
+      price: 240.0
+      neighborhood: Tuileries
+      address: 218 Rue de Rivoli, 75001 Paris
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Room service
+      - Concierge
+      popular_facilities:
+      - Free WiFi
+      - Restaurant
+      rooms:
+      - name: Classic Double Room
+        price: 240.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Room Tuileries View
+        price: 350.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+    outputs:
+    - paris_id
+    - paris_name
+    - paris_room_id
+    - paris_room_name
+  - use: featured_property
+    params:
+      name: Park Hotel Tokyo
+      city: Tokyo
+      country: Japan
+      star_rating: 4
+      review_score: 8.8
+      review_count: 4560
+      price: 210.0
+      neighborhood: Shiodome
+      address: 1-7-1 Higashi Shimbashi, Minato-ku, Tokyo
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Spa
+      - Fitness center
+      - 24-hour front desk
+      popular_facilities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      rooms:
+      - name: Artist Room
+        price: 210.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Gallery Room
+        price: 290.0
+        bed_type: king
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+    outputs:
+    - tokyo_id
+    - tokyo_name
+    - tokyo_room_id
+    - tokyo_room_name
+  - use: featured_property
+    params:
+      name: The Ned London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.0
+      review_count: 3210
+      price: 320.0
+      neighborhood: City of London
+      address: 27 Poultry, London EC2R 8AJ
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      popular_facilities:
+      - Spa
+      - Pool
+      - Restaurant
+      rooms:
+      - name: Cosy Room
+        price: 320.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Lutyens Suite
+        price: 580.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+    outputs:
+    - london_id
+    - london_name
+    - london_room_id
+    - london_room_name
+  - use: decoy_property
+    params:
+      name: Mercure Paris Centre Eiffel
+      city: Paris
+      country: France
+      star_rating: 3
+      review_score: 7.5
+      review_count: 4560
+      price: 155.0
+    outputs:
+    - decoy_property_id
+    - decoy_property_name
+  targets:
+    paris_id: '{output.paris_id}'
+    paris_name: '{output.paris_name}'
+    tokyo_id: '{output.tokyo_id}'
+    tokyo_name: '{output.tokyo_name}'
+    london_id: '{output.london_id}'
+    london_name: '{output.london_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.property_id == '{target.paris_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-09-01' and\n  r.check_out == '2026-09-04'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Paris hotel booked with correct dates
+  - expr: "any(\n  r.property_id == '{target.paris_id}' and\n  r.payment_method_id ==\
+      \ 'pm_1'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Paris booking used Visa ending in 4242
+  - expr: "any(\n  r.property_id == '{target.tokyo_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-09-06' and\n  r.check_out == '2026-09-10'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: Tokyo hotel booked with correct dates
+  - expr: "any(\n  r.property_id == '{target.tokyo_id}' and\n  r.payment_method_id ==\
+      \ 'pm_2'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Tokyo booking used Mastercard ending in 8888
+  - expr: "any(\n  r.property_id == '{target.london_id}' and\n  r.status == 'confirmed'\
+      \ and\n  r.check_in == '2026-09-12' and\n  r.check_out == '2026-09-15'\n  for\
+      \ r in state.reservations\n)\n"
+    desc: London hotel booked with correct dates
+  - expr: "any(\n  r.property_id == '{target.london_id}' and\n  r.payment_method_id\
+      \ == 'pm_3'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: London booking used Amex ending in 1234
+  - expr: "any(\n  sl.name == 'Europe-Asia Trip Sep 2026' and\n  '{target.paris_id}'\
+      \ in sl.property_ids and\n  '{target.tokyo_id}' in sl.property_ids and\n  '{target.london_id}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists\n)\n"
+    desc: All three hotels saved to trip list
+  - expr: "any(\n  m.property_id == '{target.tokyo_id}' and\n  m.sender == 'user' and\n\
+      \  'late check-in' in m.body.lower()\n  for m in state.messages\n)\n"
+    desc: Tokyo hotel received message about late check-in
+  negative_checks:
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      \  and r.status == 'confirmed') == 3\n"
+    desc: Exactly 3 new reservations were created
+    penalty: 0.3
+  - expr: "not any(\n  r.property_id == '{target.paris_id}' and\n  r.room_type_name\
+      \ != 'Classic Double Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Paris booking used the cheapest room
+    penalty: 0.15
+  - expr: "not any(\n  r.property_id == '{target.tokyo_id}' and\n  r.room_type_name\
+      \ != 'Artist Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: Tokyo booking used the cheapest room
+    penalty: 0.15
+  - expr: "not any(\n  r.property_id == '{target.london_id}' and\n  r.room_type_name\
+      \ != 'Cosy Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
+    desc: London booking used the cheapest room
+    penalty: 0.15

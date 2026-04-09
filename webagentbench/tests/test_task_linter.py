@@ -433,6 +433,8 @@ _VALID_EMAIL_ATTRS = {
     "timestamp", "is_read", "is_starred", "labels", "thread_id", "in_reply_to",
     "forwarded_from_id", "attachments", "archived", "deleted", "category",
     "snippet",
+    # Reddit uses is_subscribed on community/subreddit objects
+    "is_subscribed",
 }
 _VALID_CONTACT_ATTRS = {
     "id", "name", "email", "company", "note", "is_vip", "is_starred",
@@ -456,6 +458,15 @@ _VALID_SETTINGS_ATTRS = {
     "prime_member", "one_click_enabled", "email_notifications",
     "deal_alerts_email", "order_updates_email", "two_factor_enabled",
     "gift_card_balance", "currency", "default_address_id", "default_payment_id",
+    # Booking settings fields
+    "newsletter", "deal_alerts", "review_reminders", "price_alerts",
+    "sms_notifications", "language", "country",
+    # Reddit settings fields
+    "allow_followers", "auto_play_media", "compact_view",
+    "default_comment_sort", "default_feed_sort",
+    "email_comment_reply", "email_digest", "email_mentions",
+    "email_messages", "email_post_reply",
+    "show_active_communities", "show_nsfw", "show_online_status", "theme",
 }
 
 

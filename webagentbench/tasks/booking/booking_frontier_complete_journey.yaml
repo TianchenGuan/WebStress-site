@@ -1,0 +1,290 @@
+task_id: booking_frontier_complete_journey
+env_id: booking
+title: "Frontier: Complete Customer Journey - Search, Compare, Save, Book, Modify, Message, Review, Settings"
+instruction_template: "Complete the full customer journey:\n\
+  1. Search Barcelona hotels and compare these four:\n\
+  \   \"{target.name_1}\", \"{target.name_2}\",\n\
+  \   \"{target.name_3}\", \"{target.name_4}\".\n\
+  2. Save the two highest-rated properties (\"{target.name_1}\" and\n\
+  \   \"{target.name_3}\") to a new list called \"Barcelona Shortlist\".\n\
+  3. Book the highest-rated one overall: \"{target.winner_name}\".\n\
+  \   Book its \"Deluxe Room\" for 2 guests, checking in 2026-09-10,\n\
+  \   checking out 2026-09-15, using default Visa (ending 4242).\n\
+  4. Modify your existing reservation at \"{target.modify_name}\"\n\
+  \   (confirmation {target.modify_conf}): change check-in to\n\
+  \   2026-10-05 and check-out to 2026-10-09.\n\
+  5. Add special request to the modified reservation:\n\
+  \   \"Extra pillows and hypoallergenic bedding please.\"\n\
+  6. Send a message to \"{target.modify_name}\" with subject\n\
+  \   \"Updated reservation\" and body \"I have changed my dates.\n\
+  \   Please confirm room availability for the new dates.\"\n\
+  7. Write a review for your completed stay at\n\
+  \   \"{target.review_prop_name}\": score 8.5,\n\
+  \   title \"Memorable Barcelona trip\",\n\
+  \   positive \"Incredible rooftop views and walking distance\n\
+  \   to La Sagrada Familia\", negative \"Breakfast selection\n\
+  \   could be more varied\", leisure, family.\n\
+  8. Update settings: change currency to \"EUR\" and enable\n\
+  \   newsletter.\n"
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 50
+primary_primitives:
+- planning
+- state_tracking
+- verification
+- patience
+secondary_primitives:
+- exploration
+- grounding
+- backtracking
+start_path: /home
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: compare_properties
+    params:
+      city: Barcelona
+      country: Spain
+      properties:
+      - name: Casa Batllo Suites Barcelona
+        star_rating: 5
+        review_score: 9.2
+        review_count: 2800
+        price: 420.0
+        neighborhood: Eixample
+        amenities:
+        - Free WiFi
+        - Spa
+        - Restaurant
+        - Bar
+        - Rooftop pool
+        rooms:
+        - name: Standard Room
+          price: 420.0
+          bed_type: queen
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Deluxe Room
+          price: 560.0
+          bed_type: king
+          max_occupancy: 2
+          meals_included: breakfast
+          cancel_type: free_cancellation
+          view_type: city
+      - name: Gothic Quarter Budget Inn
+        star_rating: 3
+        review_score: 7.5
+        review_count: 1200
+        price: 95.0
+        neighborhood: Gothic Quarter
+        amenities:
+        - Free WiFi
+        - Bar
+        rooms:
+        - name: Standard Room
+          price: 95.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Deluxe Room
+          price: 140.0
+          bed_type: queen
+          max_occupancy: 2
+          cancel_type: free_cancellation
+      - name: Hotel Sagrada Familia Grand
+        star_rating: 4
+        review_score: 8.9
+        review_count: 3500
+        price: 310.0
+        neighborhood: Sagrada Familia
+        amenities:
+        - Free WiFi
+        - Restaurant
+        - Bar
+        - Rooftop terrace
+        - Fitness center
+        rooms:
+        - name: Classic Room
+          price: 310.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Deluxe Room
+          price: 420.0
+          bed_type: king
+          max_occupancy: 2
+          meals_included: breakfast
+          cancel_type: free_cancellation
+      - name: Barceloneta Beachfront Hotel
+        star_rating: 4
+        review_score: 8.3
+        review_count: 2100
+        price: 260.0
+        neighborhood: Barceloneta
+        amenities:
+        - Free WiFi
+        - Pool
+        - Restaurant
+        - Beach access
+        rooms:
+        - name: Sea View Room
+          price: 260.0
+          bed_type: double
+          max_occupancy: 2
+          cancel_type: free_cancellation
+        - name: Deluxe Room
+          price: 380.0
+          bed_type: king
+          max_occupancy: 2
+          cancel_type: free_cancellation
+    outputs:
+    - prop_id_1
+    - prop_name_1
+    - prop_id_2
+    - prop_name_2
+    - prop_id_3
+    - prop_name_3
+    - prop_id_4
+    - prop_name_4
+  - use: featured_property
+    params:
+      name: Grand Hotel Princesa Sofia
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.4
+      review_count: 2900
+      price: 230.0
+      neighborhood: Les Corts
+      amenities:
+      - Free WiFi
+      - Pool
+      - Restaurant
+      - Fitness center
+    outputs:
+    - modify_prop_id
+    - modify_prop_name
+    - modify_room_id
+    - modify_room_name
+  - use: modify_reservation
+    params:
+      property_id: '{output.modify_prop_id}'
+      check_in: '2026-10-01'
+      check_out: '2026-10-05'
+      guests: 2
+      booked_days_ago: 14
+    outputs:
+    - modify_res_id
+    - modify_conf
+    - modify_res_prop
+    - modify_orig_in
+    - modify_orig_out
+  - use: featured_property
+    params:
+      name: Hotel Passeig de Gracia
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.6
+      review_count: 1800
+      price: 280.0
+      neighborhood: Eixample
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Rooftop terrace
+    outputs:
+    - review_prop_id
+    - review_prop_name
+    - review_room_id
+    - review_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.review_prop_id}'
+      check_in: '2026-01-20'
+      check_out: '2026-01-25'
+      price_per_night: 280.0
+      status: completed
+      guests: 4
+      booked_days_ago: 80
+    outputs:
+    - review_res_id
+    - review_conf
+    - review_res_prop
+  - use: set_settings
+    params:
+      currency: USD
+      newsletter: false
+    outputs:
+    - settings_updated
+  targets:
+    name_1: '{output.prop_name_1}'
+    name_2: '{output.prop_name_2}'
+    name_3: '{output.prop_name_3}'
+    name_4: '{output.prop_name_4}'
+    prop_id_1: '{output.prop_id_1}'
+    prop_id_3: '{output.prop_id_3}'
+    winner_id: '{output.prop_id_1}'
+    winner_name: '{output.prop_name_1}'
+    modify_prop_id: '{output.modify_prop_id}'
+    modify_name: '{output.modify_prop_name}'
+    modify_res_id: '{output.modify_res_id}'
+    modify_conf: '{output.modify_conf}'
+    review_prop_id: '{output.review_prop_id}'
+    review_prop_name: '{output.review_prop_name}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(sl.name == 'Barcelona Shortlist' and\n\
+      \  '{target.prop_id_1}' in sl.property_ids and\n\
+      \  '{target.prop_id_3}' in sl.property_ids\n\
+      \  for sl in state.saved_lists)\n"
+    desc: Two highest-rated saved to Barcelona Shortlist
+  - expr: "any(\n  r.property_id == '{target.winner_id}' and\n\
+      \  r.status == 'confirmed' and\n\
+      \  r.room_type_name == 'Deluxe Room' and\n\
+      \  r.check_in == '2026-09-10' and r.check_out == '2026-09-15'\n\
+      \  for r in state.reservations\n)\n"
+    desc: Highest-rated property booked with Deluxe Room and correct dates
+  - expr: "any(r.id == '{target.modify_res_id}' and\n\
+      \  r.check_in == '2026-10-05' and r.check_out == '2026-10-09'\n\
+      \  for r in state.reservations)\n"
+    desc: Reservation dates modified correctly
+  - expr: "any(r.id == '{target.modify_res_id}' and\n\
+      \  'extra pillows' in r.guest_info.special_requests.lower()\n\
+      \  for r in state.reservations)\n"
+    desc: Special request added to modified reservation
+  - expr: "any(m.property_id == '{target.modify_prop_id}' and m.sender == 'guest'\n\
+      \  and 'updated' in m.subject.lower()\n\
+      \  for m in state.messages)\n"
+    desc: Message sent to modified property
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  rv.overall_score == 8.5 and rv.title == 'Memorable Barcelona trip'\n\
+      \  for rv in state.reviews)\n"
+    desc: Review written with correct score and title
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
+      \  'sagrada familia' in rv.positive.lower()\n\
+      \  for rv in state.reviews)\n"
+    desc: Review positive mentions La Sagrada Familia
+  - expr: state.settings.currency == 'EUR' and state.settings.newsletter == True
+    desc: Currency updated to EUR and newsletter enabled
+  negative_checks:
+  - expr: "not any(\n  e.action == 'reservation.create' and\n\
+      \  e.payload.get('property_id') != '{target.winner_id}'\n\
+      \  for e in state.audit_log\n)\n"
+    desc: No reservation at wrong property
+    penalty: 0.4
+  - expr: "not any(r.id == '{target.modify_res_id}' and r.status == 'cancelled'\n\
+      \  for r in state.reservations)\n"
+    desc: Modified reservation was not cancelled
+    penalty: 0.4
+  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Barcelona Shortlist') <= 1\n"
+    desc: Only one Barcelona Shortlist created
+    penalty: 0.1
+  - expr: "not any(\n  r.property_id == '{target.winner_id}' and\n\
+      \  r.room_type_name == 'Standard Room'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+    desc: Did not book Standard Room instead of Deluxe
+    penalty: 0.2

@@ -1,0 +1,15 @@
+variant_id: booking_modify_dates__backtracking_v1
+base_task_id: booking_modify_dates
+target_primitive: backtracking
+description: The first modification attempt fails silently and the reservation reverts
+  to its original dates, forcing the agent to detect the failure and retry.
+injections:
+- layer: server
+  params:
+    action: silent_revert
+    endpoints:
+    - path_pattern: "reservations/.*/modify"
+      method: PUT
+      revert_after_ms: 2000
+      revert_count: 1
+      note: First modification appears to succeed but state reverts after 2s
