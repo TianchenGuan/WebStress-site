@@ -1,0 +1,94 @@
+task_id: pp_renew_expiring_rx
+env_id: patient_portal
+title: Renew Expiring Prescriptions
+instruction_template: >-
+  Identify all prescriptions expiring within the next 30 days. For each one
+  that has 0 refills remaining, request a renewal. Do not request renewals
+  for prescriptions that still have refills available.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 18
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+start_path: /medications
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Hyperlipidemia"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "endocrinology", "billing", "admin"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 3
+        expired_count: 1
+        zero_refill_count: 1
+        expiring_soon_count: 2
+      outputs: [active_rx_ids, zero_refill_rx_id, expiring_rx_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+    zero_refill_rx_id: "{output.zero_refill_rx_id}"
+    expiring_rx_ids: "{output.expiring_rx_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(r.status == 'pending_renewal'
+            and r.id in {target.expiring_rx_ids}
+            for r in state.prescriptions)
+      desc: At least one expiring prescription had a renewal requested
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'rx_renewal'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: A renewal request message was sent
+    - expr: >-
+        all(r.status in ('active', 'pending_renewal', 'expired')
+            for r in state.prescriptions
+            if r.id in {target.active_rx_ids})
+      desc: All prescriptions retain valid statuses
+    - expr: >-
+        len([r for r in state.prescriptions
+             if r.status == 'pending_renewal'
+             and r.id in {target.expiring_rx_ids}]) >= 1
+      desc: At least one expiring Rx moved to pending_renewal
+  negative_checks:
+    - expr: >-
+        not any(r.status == 'pending_renewal'
+                and r.id in {target.active_rx_ids}
+                and r.id not in {target.expiring_rx_ids}
+                and r.refills_remaining > 0
+                for r in state.prescriptions)
+      desc: Agent did not request renewal for prescriptions with remaining refills
+      penalty: 0.20
+    - expr: >-
+        not any(r.status == 'discontinued'
+                and r.id in {target.active_rx_ids}
+                for r in state.prescriptions)
+      desc: Agent did not discontinue any active prescriptions
+      penalty: 0.25

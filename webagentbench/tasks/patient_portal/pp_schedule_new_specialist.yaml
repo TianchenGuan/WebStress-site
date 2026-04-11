@@ -1,0 +1,81 @@
+task_id: pp_schedule_new_specialist
+env_id: patient_portal
+title: Schedule with New Specialist
+instruction_template: >-
+  Find a dermatologist who is accepting new patients and schedule an in-person
+  appointment. Use your existing approved referral for dermatology.
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 10
+primary_primitives:
+  - grounding
+  - planning
+start_path: /appointments
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Eczema"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "dermatology", "orthopedics", "neurology", "billing"]
+        must_include: ["pcp", "dermatology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+        with_prior_auth: false
+      outputs: [approved_ref_ids, pending_ref_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 1
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    pending_ref_ids: "{output.pending_ref_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            and state.get_provider(a.provider_id) is not None
+            and state.get_provider(a.provider_id).specialty == 'dermatology'
+            for a in state.appointments)
+      desc: A new appointment with a dermatologist was scheduled
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            and state.get_provider(a.provider_id) is not None
+            and state.get_provider(a.provider_id).accepting_new
+            for a in state.appointments)
+      desc: The dermatologist is accepting new patients
+    - expr: >-
+        any(a.type == 'in-person'
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: The appointment is in-person as requested
+  negative_checks:
+    - expr: >-
+        not any(a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                and state.get_provider(a.provider_id) is not None
+                and state.get_provider(a.provider_id).specialty != 'dermatology'
+                for a in state.appointments)
+      desc: Agent did not schedule with a non-dermatology provider
+      penalty: 0.25

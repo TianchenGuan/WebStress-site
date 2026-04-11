@@ -1,0 +1,86 @@
+task_id: lms_module_quiz_unlock
+env_id: lms
+title: Complete Quiz in Module to Unlock Next Project
+instruction_template: >-
+  In {target.course_code}, Module 3 requires completing a quiz in Module 2
+  with a minimum score to unlock. Complete the Module 2 content items and
+  mark it done, which should unlock Module 3. Then verify Module 3 is
+  accessible and report its status to your instructor.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 16
+primary_primitives:
+  - planning
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.4
+      outputs:
+        - assignment_ids
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: mixed
+        completed_count: 1
+      outputs:
+        - module_ids
+        - next_available_module_id
+        - first_locked_module_id
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    next_available_module_id: '{output.next_available_module_id}'
+    first_locked_module_id: '{output.first_locked_module_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_module('{target.next_available_module_id}') is not None
+        and state.get_module('{target.next_available_module_id}').status == 'completed'
+      desc: Module 2 is completed
+    - expr: >-
+        all(item.completed
+            for item in state.get_module('{target.next_available_module_id}').content_items)
+      desc: All content items in Module 2 are completed
+    - expr: >-
+        state.get_module('{target.first_locked_module_id}') is None
+        or state.is_module_unlocked('{target.first_locked_module_id}')
+      desc: Module 3 is now unlocked
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a status report to instructor
+  negative_checks:
+    - expr: >-
+        not any(m.status == 'completed'
+                and m.id not in ['{target.next_available_module_id}']
+                and not all(item.completed for item in m.content_items)
+                for m in state.modules
+                if m.course_id == '{target.target_course_id}')
+      desc: No modules were force-completed without finishing content
+      penalty: 0.25
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

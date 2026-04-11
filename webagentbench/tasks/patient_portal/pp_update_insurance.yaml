@@ -1,0 +1,54 @@
+task_id: pp_update_insurance
+env_id: patient_portal
+title: Update Insurance Information
+instruction_template: >-
+  Your insurance plan has changed. Update your plan name to "Aetna PPO Silver",
+  member ID to "AET-5529103", and group number to "GRP-77412".
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /profile
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, insurance_plan_name, member_id]
+    - use: provider_directory
+      params:
+        count: 3
+        specialties: ["pcp", "cardiology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    old_plan_name: "{output.insurance_plan_name}"
+    old_member_id: "{output.member_id}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.patient.insurance_plan.plan_name == 'Aetna PPO Silver'
+      desc: Plan name was updated to Aetna PPO Silver
+    - expr: >-
+        state.patient.insurance_plan.member_id == 'AET-5529103'
+      desc: Member ID was updated correctly
+    - expr: >-
+        state.patient.insurance_plan.group_number == 'GRP-77412'
+      desc: Group number was updated correctly
+  negative_checks:
+    - expr: >-
+        state.patient.phone != ''
+      desc: Agent did not clear phone number while editing profile
+      penalty: 0.15

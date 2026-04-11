@@ -1,0 +1,92 @@
+task_id: lms_peer_review_cycle
+env_id: lms
+title: Complete Peer Review Cycle
+instruction_template: >-
+  Complete the full peer review cycle: submit all pending peer reviews with
+  rubric scores and constructive comments, then check if any of your own
+  assignments have received peer feedback. If feedback exists, send a message
+  to your instructor summarizing what you learned.
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 25
+primary_primitives:
+  - planning
+  - state_tracking
+  - patience
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.4
+      outputs:
+        - assignment_ids
+    - use: peer_review_assignments
+      params:
+        count: 3
+        statuses: ["assigned", "assigned", "in_progress"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+        - completed_review_ids
+  targets:
+    course_code: '{output.course_code}'
+    pending_review_ids: '{output.pending_review_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        all(state.get_peer_review(rid) is not None
+            and state.get_peer_review(rid).status == 'submitted'
+            for rid in state.peer_reviews
+            if state.get_peer_review(rid.id if hasattr(rid, 'id') else rid) is not None)
+        or all(pr.status == 'submitted'
+               for pr in state.peer_reviews
+               if pr.reviewer_student_id == state.student.id)
+      desc: All peer reviews assigned to student are submitted
+    - expr: >-
+        all(len(pr.rubric_scores) >= 1
+            for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id
+            and pr.status == 'submitted')
+      desc: Each submitted review has rubric scores filled in
+    - expr: >-
+        all(len(pr.comments.strip()) > 10
+            for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id
+            and pr.status == 'submitted')
+      desc: Each submitted review has a substantive comment
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a feedback summary message
+  negative_checks:
+    - expr: >-
+        not any(pr.reviewer_student_id != state.student.id
+                and pr.status == 'submitted'
+                for pr in state.peer_reviews)
+      desc: Student did not modify reviews assigned to other students
+      penalty: 0.3
+    - expr: >-
+        not any(a.submission_status != a.submission_status
+                for a in state.assignments)
+      desc: Assignment statuses were not modified during review
+      penalty: 0.15

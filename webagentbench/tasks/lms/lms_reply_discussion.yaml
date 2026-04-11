@@ -1,0 +1,75 @@
+task_id: lms_reply_discussion
+env_id: lms
+title: Reply to Three Different Classmates in Discussion
+instruction_template: >-
+  In the discussion "{target.discussion_title}" for {target.course_code},
+  reply to at least 3 different classmates' posts. Each reply should
+  meaningfully engage with the classmate's argument.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 12
+primary_primitives:
+  - patience
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: discussion_forums
+      params:
+        count: 3
+        posts_per: 5
+      outputs:
+        - discussion_ids
+        - target_discussion_id
+        - target_discussion_title
+        - target_course_code
+  targets:
+    discussion_title: '{output.target_discussion_title}'
+    course_code: '{output.target_course_code}'
+    target_discussion_id: '{output.target_discussion_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.student_reply_count('{target.target_discussion_id}') >= 3
+      desc: Student posted at least 3 replies in the target discussion
+    - expr: >-
+        len(set(
+            p.parent_post_id for p in state.discussion_posts
+            if p.discussion_id == '{target.target_discussion_id}'
+            and p.author_id == state.student.id
+            and p.parent_post_id is not None
+        )) >= 3
+      desc: Replies are to at least 3 distinct parent posts
+    - expr: >-
+        all(len(p.body.strip()) > 10
+            for p in state.discussion_posts
+            if p.discussion_id == '{target.target_discussion_id}'
+            and p.author_id == state.student.id
+            and p.parent_post_id is not None)
+      desc: Each reply has meaningful content
+  negative_checks:
+    - expr: >-
+        not any(p.author_id == state.student.id
+                and p.discussion_id != '{target.target_discussion_id}'
+                and p.parent_post_id is not None
+                for p in state.discussion_posts)
+      desc: Student did not reply in non-target discussions
+      penalty: 0.2

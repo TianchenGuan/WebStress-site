@@ -1,0 +1,90 @@
+task_id: lms_recoverable_late_assignments
+env_id: lms
+title: Identify Recoverable Late Assignments
+instruction_template: >-
+  Review all your courses and identify which late or missing assignments are
+  still worth submitting. For each recoverable assignment, check the course's
+  late policy to determine if submitting now would yield any points (i.e., not
+  past the max late days). Submit all recoverable assignments with file
+  "recovery_submission.pdf". Do NOT submit assignments that are past the
+  maximum late days allowed (they would score 0).
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 25
+primary_primitives:
+  - state_tracking
+  - verification
+  - exploration
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102", "PHYS201"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.4
+        late_count: 2
+        missing_count: 2
+      outputs:
+        - assignment_ids
+        - missing_assignment_ids
+        - late_assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+  targets:
+    missing_assignment_ids: '{output.missing_assignment_ids}'
+    late_assignment_ids: '{output.late_assignment_ids}'
+    course_codes: '{output.course_codes}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.submission_status in ('submitted', 'late')
+            and a.file_name == 'recovery_submission.pdf'
+            for a in state.assignments)
+      desc: At least one recovery submission was made
+    - expr: >-
+        len([a for a in state.assignments
+             if a.submission_status in ('submitted', 'late')
+             and a.file_name == 'recovery_submission.pdf']) >= 1
+      desc: At least one recoverable assignment was submitted with correct file
+    - expr: >-
+        all(a.submission_status in ('submitted', 'late', 'graded')
+            for a in state.assignments
+            if a.submission_status != 'not_submitted')
+      desc: All submitted assignments have valid submission statuses
+    - expr: >-
+        any(a.file_name == 'recovery_submission.pdf' for a in state.assignments)
+      desc: Correct file name used for recovery submissions
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'recovery_submission.pdf']) >= 1
+      desc: At least one file was submitted with the recovery filename
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 2
+      desc: Agent did not send excessive messages
+      penalty: 0.1

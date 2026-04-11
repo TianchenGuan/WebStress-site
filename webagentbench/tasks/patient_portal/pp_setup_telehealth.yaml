@@ -1,0 +1,71 @@
+task_id: pp_setup_telehealth
+env_id: patient_portal
+title: Convert to Telehealth
+instruction_template: >-
+  Your next upcoming in-person appointment needs to be converted to telehealth.
+  Cancel the current in-person appointment and reschedule it as a telehealth
+  visit with the same provider at the closest available time.
+difficulty: medium
+time_limit_seconds: 200
+expected_steps: 10
+primary_primitives:
+  - grounding
+  - planning
+start_path: /appointments
+
+seed:
+  distractors: 6
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "dermatology", "orthopedics", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 3
+        completed_count: 2
+      outputs: [upcoming_ids, next_appointment_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+    next_appointment_id: "{output.next_appointment_id}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.id in {target.upcoming_ids}
+            and a.status == 'cancelled'
+            for a in state.appointments)
+      desc: An original upcoming appointment was cancelled
+    - expr: >-
+        any(a.type == 'telehealth'
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: A new telehealth appointment was scheduled
+    - expr: >-
+        len([a for a in state.appointments
+             if a.type == 'telehealth'
+             and a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new telehealth appointment exists
+  negative_checks:
+    - expr: >-
+        not any(a.type == 'in-person'
+                and a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                for a in state.appointments)
+      desc: Agent did not schedule another in-person appointment
+      penalty: 0.20

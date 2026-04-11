@@ -1,0 +1,112 @@
+task_id: lms_ta_dual_role
+env_id: lms
+title: TA Dual Role Management
+instruction_template: >-
+  You are a TA for {target.ta_course_code} and a student in
+  {target.student_course_code}. Complete the following without confusing
+  your roles: (1) In your TA course, complete all pending peer reviews
+  assigned to you with full rubric scores and comments of at least 30
+  characters each. (2) In your student course, submit the assignment
+  "{target.student_assignment_title}" with file "ta_student_submission.pdf".
+  Make sure you do not submit to the wrong course.
+difficulty: expert
+time_limit_seconds: 360
+expected_steps: 25
+primary_primitives:
+  - state_tracking
+  - planning
+  - exploration
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params:
+        roles:
+          course_1: ta
+      outputs:
+        - enrollment_ids
+        - ta_course_id
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.4
+        target_assignment_status: "not_submitted"
+      outputs:
+        - assignment_ids
+        - target_assignment_id
+        - target_assignment_title
+        - target_course_id
+        - target_course_code
+        - decoy_assignment_id
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: peer_review_assignments
+      params:
+        count: 3
+        statuses: ["assigned", "assigned", "in_progress"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+  targets:
+    ta_course_code: "CS201"
+    student_course_code: '{output.target_course_code}'
+    student_assignment_title: '{output.target_assignment_title}'
+    target_assignment_id: '{output.target_assignment_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+    ta_course_id: '{output.ta_course_id}'
+    pending_review_ids: '{output.pending_review_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.id == '{target.target_assignment_id}'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Target student assignment was submitted
+    - expr: >-
+        state.get_assignment('{target.target_assignment_id}') is not None and
+        state.get_assignment('{target.target_assignment_id}').file_name == 'ta_student_submission.pdf'
+      desc: Correct file name used for student submission
+    - expr: >-
+        sum(1 for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id
+            and pr.status == 'submitted') >= 2
+      desc: At least 2 peer reviews completed as TA
+    - expr: >-
+        all(len(pr.comments) >= 30
+            for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id
+            and pr.status == 'submitted')
+      desc: All submitted reviews have comments of 30+ characters
+    - expr: >-
+        all(len(pr.rubric_scores) >= 3
+            for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id
+            and pr.status == 'submitted')
+      desc: All submitted reviews have complete rubric scores
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None or
+        state.get_assignment('{target.decoy_assignment_id}').submission_status == 'not_submitted'
+      desc: Decoy assignment in wrong course was not submitted
+      penalty: 0.3
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

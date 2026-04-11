@@ -1,0 +1,127 @@
+task_id: pp_insurance_plan_change
+env_id: patient_portal
+title: Insurance Plan Change with Rx Audit
+instruction_template: >-
+  Your insurance has changed to a new plan. Complete the full transition:
+  1) Update your insurance plan details (plan name, member ID, group number),
+  2) Review each active prescription to verify coverage under the new plan by
+  checking provider messages about formulary information,
+  3) For any non-formulary medications, message the prescribing provider to request
+  prior authorization,
+  4) If the new plan requires a preferred pharmacy, update your default pharmacy.
+  Do not discontinue any medications during this process.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 55
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "High Cholesterol"]
+        insurance_tier: basic
+      outputs: [pcp_id, pcp_name, insurance_plan_name, member_id]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "billing"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 3
+        include_mail_order: true
+      outputs: [pharmacy_ids, default_pharmacy_id, mail_order_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 5
+        expired_count: 1
+      outputs: [active_rx_ids]
+    - use: message_threads
+      params:
+        thread_count: 4
+        unread_count: 3
+        categories: ["clinical", "billing"]
+        include_billing: true
+      outputs: [thread_ids, unread_msg_ids, billing_thread_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    old_plan_name: "{output.insurance_plan_name}"
+    old_member_id: "{output.member_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+    pharmacy_ids: "{output.pharmacy_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.patient.insurance_plan.plan_name != '{target.old_plan_name}'
+        or state.patient.insurance_plan.member_id != '{target.old_member_id}'
+      desc: Insurance plan details were updated
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('formulary' in m.body.lower() or 'coverage' in m.body.lower()
+                 or 'prior auth' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent communicated about formulary or prior authorization
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category in ('clinical', 'rx_renewal')
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Messages sent through appropriate channels
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: All active prescriptions remain active
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('medication' in m.body.lower() or 'prescription' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent referenced medications in communications
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
+      desc: Agent sent at least one message
+  negative_checks:
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                for rx in state.prescriptions
+                if rx.id in {target.active_rx_ids})
+      desc: No medications were discontinued during plan change
+      penalty: 0.3
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2
+    - expr: >-
+        not any(rx.pharmacy_id not in {target.pharmacy_ids}
+                for rx in state.prescriptions
+                if rx.status == 'active'
+                and rx.id in {target.active_rx_ids})
+      desc: No prescriptions transferred to unknown pharmacies
+      penalty: 0.2

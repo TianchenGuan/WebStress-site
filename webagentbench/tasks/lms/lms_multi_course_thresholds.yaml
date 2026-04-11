@@ -1,0 +1,88 @@
+task_id: lms_multi_course_thresholds
+env_id: lms
+title: Multi-Course Grade Threshold Planning
+instruction_template: >-
+  Determine the minimum average score you need on remaining assignments to
+  achieve the following targets: a B (80%) in {target.course_code_1}, an A
+  (90%) in {target.course_code_2}, and a C (70%) in {target.course_code_3}.
+  For each course, check your current weighted grade, identify remaining
+  ungraded assignments, and compute what score you'd need on them. Send a
+  message to your advisor ({target.advisor_name}) with the results for each
+  course, noting any that are impossible to achieve.
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 25
+primary_primitives:
+  - state_tracking
+  - verification
+  - planning
+start_path: /dashboard
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params:
+        gpa: "2.90"
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.5
+        late_count: 1
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - minimum_final_score_for_b
+  targets:
+    advisor_name: '{output.advisor_name}'
+    course_code_1: "CS101"
+    course_code_2: "MATH201"
+    course_code_3: "ENG102"
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent at least one message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Message includes CS101 analysis
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Message includes MATH201 analysis
+    - expr: >-
+        any('ENG102' in m.get('body', '') for m in state.sent_messages)
+      desc: Message includes ENG102 analysis
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during analysis
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.15

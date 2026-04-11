@@ -1,0 +1,99 @@
+task_id: lms_cross_course_prerequisites
+env_id: lms
+title: Cross-Course Module Prerequisite Satisfaction
+instruction_template: >-
+  You need to complete modules across both {target.course_code_1} and
+  {target.course_code_2} to unlock upcoming content. In each course, find the
+  next available module, complete all its content items, then check if that
+  unlocks the following module. Complete all available modules in both courses
+  following the correct prerequisite order. You must complete at least 2
+  modules total across both courses.
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 28
+primary_primitives:
+  - planning
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: linear
+        completed_count: 1
+      outputs:
+        - module_ids
+        - next_available_module_id
+        - first_locked_module_id
+  targets:
+    course_code_1: "CS101"
+    course_code_2: "MATH201"
+    next_available_module_id: '{output.next_available_module_id}'
+    first_locked_module_id: '{output.first_locked_module_id}'
+    module_ids: '{output.module_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        sum(1 for m in state.modules if m.status == 'completed') >= 3
+      desc: At least 3 modules total are completed (1 initial + 2 new)
+    - expr: >-
+        any(m.id == '{target.next_available_module_id}' and m.status == 'completed'
+            for m in state.modules)
+      desc: The next available module was completed
+    - expr: >-
+        any(m.status == 'completed'
+            and all(ci.completed for ci in m.content_items)
+            for m in state.modules
+            if m.id == '{target.next_available_module_id}')
+      desc: All content items in the completed module are marked done
+    - expr: >-
+        sum(1 for m in state.modules
+            if m.status == 'completed'
+            and all(ci.completed for ci in m.content_items)) >= 3
+      desc: At least 3 modules have all content items completed
+    - expr: >-
+        any(m.id == '{target.first_locked_module_id}'
+            and m.status in ('available', 'completed')
+            for m in state.modules)
+      desc: Previously locked module is now available or completed
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: >-
+        not any(m.status == 'completed'
+                and not all(ci.completed for ci in m.content_items)
+                for m in state.modules)
+      desc: No module was marked complete with incomplete content items
+      penalty: 0.2

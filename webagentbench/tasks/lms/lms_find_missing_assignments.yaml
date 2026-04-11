@@ -1,0 +1,68 @@
+task_id: lms_find_missing_assignments
+env_id: lms
+title: Find Missing Assignments Across All Courses
+instruction_template: >-
+  Check all your courses and identify every assignment that is past due and
+  not submitted. Send a message to your advisor listing each missing assignment
+  with its course code and title.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 12
+primary_primitives:
+  - state_tracking
+  - exploration
+start_path: /
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.4
+        missing_count: 3
+      outputs:
+        - assignment_ids
+        - missing_assignment_ids
+  targets:
+    missing_assignment_ids: '{output.missing_assignment_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message about missing assignments
+    - expr: >-
+        len(state.missing_assignments()) >= 1
+      desc: There are missing assignments to find (seed validation)
+    - expr: >-
+        any(all(
+            state.get_assignment(aid).title in m.get('body', '')
+            for aid in state.missing_assignments()
+            if state.get_assignment(aid) is not None
+            ) for m in state.sent_messages
+            if m.get('body'))
+      desc: Message lists all missing assignment titles
+  negative_checks:
+    - expr: >-
+        not any(a.submission_status != 'not_submitted'
+                and a.submission_status != a.submission_status
+                for a in state.assignments)
+      desc: No submitted assignments were modified
+      penalty: 0.15

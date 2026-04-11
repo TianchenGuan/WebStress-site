@@ -1,0 +1,72 @@
+task_id: pp_respond_to_provider
+env_id: patient_portal
+title: Review and Respond to Provider Message
+instruction_template: >-
+  Your PCP sent you a message about adjusting your blood pressure medication.
+  Read the message and reply in the same thread confirming you understand
+  the change.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /messages
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "endocrinology", "billing", "admin"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: message_threads
+      params:
+        thread_count: 4
+        unread_count: 2
+        categories: ["clinical", "scheduling"]
+        include_billing: true
+      outputs: [thread_ids, unread_msg_ids, all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    all_msg_ids: "{output.all_msg_ids}"
+    thread_ids: "{output.thread_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent replied to the PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.thread_id in {target.thread_ids}
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Reply was sent in an existing thread (not a new message)
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) >= 1
+      desc: At least one new patient message exists
+  negative_checks:
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) <= 2
+      desc: Agent did not send excessive messages
+      penalty: 0.15

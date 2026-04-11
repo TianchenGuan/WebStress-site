@@ -1,0 +1,106 @@
+task_id: lms_academic_standing_optimization
+env_id: lms
+title: Academic Standing Optimization
+instruction_template: >-
+  You are enrolled in 4 courses with different grading policies. Your goal
+  is to maximize your semester GPA. For each course: (1) Check your current
+  weighted score and identify remaining assignments. (2) Determine the
+  letter grade you're on track for. (3) Identify which course has the most
+  room for improvement relative to effort (i.e., highest credit weight
+  with the most remaining high-weight assignments). Submit any easy-win
+  unsubmitted assignments with file "optimization.pdf". Then send a
+  strategy message to your advisor ({target.advisor_name}) with your
+  per-course analysis, projected letter grades, effort prioritization,
+  and expected semester GPA.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+  - state_tracking
+  - verification
+  - planning
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params:
+        gpa: "3.05"
+      outputs:
+        - student_id
+        - advisor_name
+        - gpa
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102", "PHYS201"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.5
+        missing_count: 1
+      outputs:
+        - assignment_ids
+        - missing_assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_ids: '{output.course_ids}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+    missing_assignment_ids: '{output.missing_assignment_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.file_name == 'optimization.pdf'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: At least one optimization submission was made
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a strategy message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('GPA' in m.get('body', '').upper() for m in state.sent_messages)
+      desc: Message discusses GPA
+    - expr: >-
+        any('CS101' in m.get('body', '') and 'MATH201' in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message covers multiple courses
+    - expr: >-
+        any('priorit' in m.get('body', '').lower() or 'strateg' in m.get('body', '').lower()
+            or 'optimi' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message includes strategy or prioritization discussion
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'optimization.pdf']) <= 4
+      desc: Agent did not submit excessively many optimization files
+      penalty: 0.1

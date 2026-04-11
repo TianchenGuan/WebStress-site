@@ -1,0 +1,109 @@
+task_id: pp_immunization_series
+env_id: patient_portal
+title: Immunization Series Completion
+instruction_template: >-
+  You have an incomplete Hepatitis B vaccine series. Review your immunization record
+  to determine how many doses you have received and how many remain (the series
+  requires 3 doses total). Verify the required spacing between doses (at least 1 month
+  apart). Schedule appointments for each remaining dose with the appropriate provider,
+  ensuring proper spacing between each dose.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 30
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - patience
+  - verification
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hepatitis B Risk"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "dermatology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: immunization_record
+      params:
+        completed_count: 3
+        due_count: 1
+        series_incomplete: true
+      outputs: [completed_imm_ids, due_imm_ids, incomplete_series_imm_id, due_vaccine_names]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    incomplete_series_imm_id: "{output.incomplete_series_imm_id}"
+    due_vaccine_names: "{output.due_vaccine_names}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}
+             and ('hepatitis' in a.reason.lower() or 'vaccine' in a.reason.lower()
+                  or 'immunization' in a.reason.lower())]) >= 1
+      desc: At least one vaccine dose appointment was scheduled
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: New appointments were created for remaining doses
+    - expr: >-
+        any(i.vaccine_name == 'Hepatitis B'
+            and not i.series_complete
+            for i in state.immunizations)
+      desc: Incomplete Hepatitis B series is tracked in records
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were preserved
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new appointment was scheduled
+  negative_checks:
+    - expr: >-
+        not any(a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                and 'flu' in a.reason.lower()
+                for a in state.appointments)
+      desc: Agent did not schedule wrong vaccine type
+      penalty: 0.25
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not modified or cancelled
+      penalty: 0.2

@@ -1,0 +1,107 @@
+task_id: pp_multi_provider_coord
+env_id: patient_portal
+title: Multi-Provider Medication Change
+instruction_template: >-
+  Your cardiologist recommends changing your blood pressure medication. You need to
+  coordinate this change safely: 1) Message your PCP to verify the change is safe
+  given your other conditions ({target.conditions_list}), 2) Check your insurance
+  formulary for coverage of the new medication, 3) Message the cardiologist confirming
+  you have verified with your PCP and insurance. Include the medication name in all messages.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 32
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - patience
+start_path: /messages
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Type 2 Diabetes", "Chronic Kidney Disease"]
+        allergies: ["Sulfa"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        interaction_pair: false
+      outputs: [active_rx_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 2
+        categories: ["clinical"]
+      outputs: [thread_ids, unread_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
+    conditions_list: "{output.conditions_list}"
+    active_rx_ids: "{output.active_rx_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged PCP for verification
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.cardio_provider_ids}
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged cardiologist with confirmation
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('medication' in m.body.lower() or 'blood pressure' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: PCP message references the medication change
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.cardio_provider_ids}
+            and ('confirm' in m.body.lower() or 'verified' in m.body.lower()
+                 or 'pcp' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Cardiologist confirmation references PCP verification
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 2
+      desc: Agent sent at least two messages (PCP + cardiologist)
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id not in {target.cardio_provider_ids}
+                and m.provider_id != '{target.pcp_id}'
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not message unrelated providers
+      penalty: 0.2
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Agent did not discontinue medications without authorization
+      penalty: 0.3

@@ -1,0 +1,98 @@
+task_id: pp_full_referral_chain
+env_id: patient_portal
+title: Complete Pre-Approved Referral Chain
+instruction_template: >-
+  A PCP referral for neurology has been requested and approved. Verify the
+  referral status is approved, confirm pre-authorization is in place, then
+  schedule an appointment with the neurologist.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Migraines", "Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "cardiology", "dermatology", "neurology", "orthopedics", "billing", "admin"]
+        must_include: ["pcp", "neurology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+        denied_count: 1
+        with_prior_auth: true
+      outputs: [approved_ref_ids, pending_ref_ids, denied_ref_ids, prior_auth_ref_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    pending_ref_ids: "{output.pending_ref_ids}"
+    denied_ref_ids: "{output.denied_ref_ids}"
+    prior_auth_ref_id: "{output.prior_auth_ref_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            and state.get_provider(a.provider_id) is not None
+            and state.get_provider(a.provider_id).specialty == 'neurology'
+            for a in state.appointments)
+      desc: A new appointment with a neurologist was scheduled
+    - expr: >-
+        any(r.status == 'approved'
+            and r.to_specialty == 'neurology'
+            for r in state.referrals)
+      desc: An approved neurology referral exists
+    - expr: >-
+        any(r.prior_auth_required and r.prior_auth_status == 'approved'
+            and r.id in {target.approved_ref_ids}
+            for r in state.referrals)
+        or not any(r.prior_auth_required
+                   and r.to_specialty == 'neurology'
+                   for r in state.referrals)
+      desc: Pre-authorization is approved (or not required)
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new scheduled appointment was created
+  negative_checks:
+    - expr: >-
+        not any(a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                and state.get_provider(a.provider_id) is not None
+                and state.get_provider(a.provider_id).specialty != 'neurology'
+                for a in state.appointments)
+      desc: Agent did not schedule with the wrong specialty
+      penalty: 0.25
+    - expr: >-
+        not any(r.status == 'approved'
+                and r.id in {target.denied_ref_ids}
+                for r in state.referrals)
+      desc: Agent did not somehow use a denied referral
+      penalty: 0.20

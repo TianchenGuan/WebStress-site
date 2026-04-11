@@ -1,0 +1,83 @@
+task_id: pp_preventive_screening_review
+env_id: patient_portal
+title: Identify Overdue Screenings
+instruction_template: >-
+  Review your applicable screenings list in your profile. Identify all
+  screenings where the next due date has already passed. Message your PCP
+  listing the overdue screenings so you can schedule them. Use the clinical
+  message category.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+start_path: /profile
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, applicable_screening_names]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "endocrinology", "billing", "admin"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    applicable_screening_names: "{output.applicable_screening_names}"
+    all_msg_ids: "{output.all_msg_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.category == 'clinical'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent sent a clinical message to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: At least one new message was sent
+    - expr: >-
+        len(state.patient.applicable_screenings) >= 1
+      desc: Patient still has applicable screenings data
+    - expr: >-
+        state.patient.pcp_id == '{target.pcp_id}'
+      desc: PCP assignment was not modified
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != '{target.pcp_id}'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent messaged PCP and not a different provider
+      penalty: 0.20
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category != 'clinical'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent used clinical category, not billing or other
+      penalty: 0.15

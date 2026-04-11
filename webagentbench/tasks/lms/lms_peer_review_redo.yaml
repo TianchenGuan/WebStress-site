@@ -1,0 +1,104 @@
+task_id: lms_peer_review_redo
+env_id: lms
+title: Peer Review Quality Audit and Redo
+instruction_template: >-
+  Your previously submitted peer review for the assignment in {target.course_code}
+  was returned because it was incomplete. Review the assignment rubric carefully,
+  then redo the peer review by scoring all rubric criteria (clarity, depth,
+  originality) and providing detailed comments of at least 50 characters.
+  Your previous scores are visible for comparison but you must update all of them.
+difficulty: expert
+time_limit_seconds: 360
+expected_steps: 22
+primary_primitives:
+  - verification
+  - state_tracking
+  - patience
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201"]
+      outputs:
+        - course_ids
+        - course_codes
+        - course_code
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: peer_review_assignments
+      params:
+        count: 3
+        statuses: ["in_progress", "assigned", "submitted"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+        - completed_review_ids
+  targets:
+    course_code: '{output.course_code}'
+    pending_review_ids: '{output.pending_review_ids}'
+    completed_review_ids: '{output.completed_review_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and len(pr.rubric_scores) >= 3
+            for pr in state.peer_reviews)
+      desc: At least one review is submitted with all 3 rubric scores
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and len(pr.comments) >= 50
+            for pr in state.peer_reviews)
+      desc: Submitted review has comments of at least 50 characters
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and 'clarity' in pr.rubric_scores
+            for pr in state.peer_reviews)
+      desc: Clarity criterion was scored
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and 'depth' in pr.rubric_scores
+            for pr in state.peer_reviews)
+      desc: Depth criterion was scored
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and 'originality' in pr.rubric_scores
+            for pr in state.peer_reviews)
+      desc: Originality criterion was scored
+  negative_checks:
+    - expr: >-
+        all(pr.status != 'submitted' or len(pr.rubric_scores) >= 3
+            for pr in state.peer_reviews
+            if pr.reviewer_student_id == state.student.id)
+      desc: No reviews were submitted with incomplete rubric scores
+      penalty: 0.25
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

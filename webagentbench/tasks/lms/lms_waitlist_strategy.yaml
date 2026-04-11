@@ -1,0 +1,110 @@
+task_id: lms_waitlist_strategy
+env_id: lms
+title: Waitlist Strategy Management
+instruction_template: >-
+  You are waitlisted for a preferred section of a course. Evaluate your
+  options: (1) Check your waitlist position by reviewing your enrollment
+  status for all courses. (2) Identify which course you are waitlisted for.
+  (3) Check if there is a backup course you could take instead (review
+  available courses and prerequisites). (4) Assess your current course load
+  and GPA ({target.gpa}) to determine if adding another course is
+  feasible. (5) Check the calendar for schedule conflicts with both the
+  waitlisted and backup courses. Send a decision message to your advisor
+  ({target.advisor_name}) explaining: your waitlist status, backup options,
+  schedule analysis, and your recommended action.
+difficulty: frontier
+time_limit_seconds: 420
+expected_steps: 30
+primary_primitives:
+  - planning
+  - state_tracking
+  - exploration
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params:
+        gpa: "3.10"
+      outputs:
+        - student_id
+        - advisor_name
+        - gpa
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params:
+        include_waitlisted: true
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a decision message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('waitlist' in m.get('body', '').lower() for m in state.sent_messages)
+      desc: Message discusses waitlist status
+    - expr: >-
+        any('schedule' in m.get('body', '').lower() or 'conflict' in m.get('body', '').lower()
+            or 'calendar' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses scheduling
+    - expr: >-
+        any('recommend' in m.get('body', '').lower() or 'decision' in m.get('body', '').lower()
+            or 'suggest' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message includes a recommendation
+    - expr: >-
+        any('backup' in m.get('body', '').lower() or 'alternative' in m.get('body', '').lower()
+            or 'option' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses backup options
+  negative_checks:
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
+      desc: At most one course was dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                for a in state.assignments
+                if a.submission_status == 'not_submitted')
+      desc: Agent did not submit assignments unnecessarily
+      penalty: 0.1

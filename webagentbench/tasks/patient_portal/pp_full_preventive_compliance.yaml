@@ -1,0 +1,138 @@
+task_id: pp_full_preventive_compliance
+env_id: patient_portal
+title: Full Preventive Care Compliance
+instruction_template: >-
+  Complete all overdue preventive care actions:
+  1) Review your applicable screenings list and schedule appointments for any where
+  the next_due date has passed,
+  2) Schedule appointments for all due or overdue immunizations,
+  3) Identify all prescriptions expiring within 30 days that still have refills
+  remaining and request refills; for those with zero refills, message the prescribing
+  provider to request a renewal,
+  4) Send a single consolidated care gap summary message to your PCP ({target.pcp_name})
+  listing every action you took. Do not send separate messages for each item.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 60
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, applicable_screening_names]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "dermatology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 3
+        expiring_soon_count: 3
+        zero_refill_count: 1
+      outputs: [active_rx_ids, expiring_rx_ids, zero_refill_rx_id]
+    - use: immunization_record
+      params:
+        completed_count: 2
+        due_count: 2
+        series_incomplete: true
+      outputs: [due_imm_ids, due_vaccine_names, incomplete_series_imm_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    expiring_rx_ids: "{output.expiring_rx_ids}"
+    zero_refill_rx_id: "{output.zero_refill_rx_id}"
+    due_vaccine_names: "{output.due_vaccine_names}"
+    active_rx_ids: "{output.active_rx_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+    applicable_screening_names: "{output.applicable_screening_names}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent a consolidated message to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('screening' in m.body.lower() or 'immuniz' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references screenings or immunizations
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('prescription' in m.body.lower() or 'refill' in m.body.lower()
+                 or 'renewal' in m.body.lower() or 'expir' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references prescription actions
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new screening or immunization appointment was scheduled
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Active prescriptions remain active
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('summary' in m.body.lower() or 'action' in m.body.lower()
+                 or 'completed' in m.body.lower() or 'scheduled' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message includes action summary
+  negative_checks:
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.provider_id == '{target.pcp_id}'
+             and m.id not in state._initial_snapshot.get('messages', {})]) <= 1
+      desc: Agent sent a single consolidated message not multiple separate messages
+      penalty: 0.2
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                for rx in state.prescriptions
+                if rx.id in {target.active_rx_ids})
+      desc: No prescriptions were prematurely discontinued
+      penalty: 0.3
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2

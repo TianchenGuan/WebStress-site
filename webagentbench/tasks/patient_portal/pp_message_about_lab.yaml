@@ -1,0 +1,79 @@
+task_id: pp_message_about_lab
+env_id: patient_portal
+title: Message Provider About Abnormal Lab
+instruction_template: >-
+  You have an abnormal HbA1c result. Send a message to the provider who ordered
+  it asking about next steps. Use the clinical message category.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /labs
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "endocrinology", "cardiology", "dermatology", "billing", "admin"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: lab_results_panel
+      params:
+        resulted_count: 5
+        pending_count: 1
+        abnormal_count: 1
+        trend_test: "HbA1c"
+        trend_values: ["6.1", "6.8", "7.4"]
+      outputs: [abnormal_lab_ids, pending_lab_ids, trend_lab_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids, all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    abnormal_lab_ids: "{output.abnormal_lab_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'clinical'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent sent a clinical message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and 'HbA1c' in m.body
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Message body mentions HbA1c
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) >= 1
+      desc: At least one new patient message was sent
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'billing'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent did not send a billing category message
+      penalty: 0.15

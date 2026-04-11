@@ -1,0 +1,66 @@
+task_id: lms_calculate_weighted_grade
+env_id: lms
+title: Calculate Current Weighted Grade
+instruction_template: >-
+  Navigate to the grades page for {target.course_code} and verify the overall
+  weighted grade displayed matches the syllabus weights. Send a message to
+  your instructor confirming the grade or reporting a discrepancy.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 8
+        graded_fraction: 0.6
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - dropped_grade_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message about the grade
+    - expr: >-
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Course has graded assignments (seed validation)
+    - expr: >-
+        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message contains the correct weighted score
+  negative_checks:
+    - expr: len(state.sent_messages) <= 2
+      desc: Student did not send excessive messages
+      penalty: 0.1

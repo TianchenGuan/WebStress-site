@@ -1,0 +1,93 @@
+task_id: lms_complex_grading_dispute
+env_id: lms
+title: Resolve Complex Grading Dispute
+instruction_template: >-
+  You believe two assignments were graded incorrectly in {target.course_code}:
+  the assignment "{target.disputed_title_1}" should have received full marks
+  based on the rubric, and "{target.disputed_title_2}" had a late penalty
+  applied incorrectly (you submitted within the grace period). Compute what
+  your corrected weighted score for the course would be if both issues were
+  fixed, and send a detailed message to the instructor ({target.instructor_name})
+  explaining both discrepancies with the corrected course score.
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 30
+primary_primitives:
+  - verification
+  - state_tracking
+  - exploration
+  - planning
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201"]
+      outputs:
+        - course_ids
+        - course_codes
+        - instructor_name
+        - target_course_id
+        - course_code
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.6
+        late_count: 1
+      outputs:
+        - assignment_ids
+        - late_assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    instructor_name: '{output.instructor_name}'
+    disputed_title_1: "Problem Set 1"
+    disputed_title_2: "Weekly Quiz 1"
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent at least one message
+    - expr: >-
+        any('{target.instructor_name}' in m.get('to', '') or
+            '{target.instructor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to instructor
+    - expr: >-
+        any('{target.disputed_title_1}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message mentions first disputed assignment
+    - expr: >-
+        any('{target.disputed_title_2}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message mentions second disputed assignment
+    - expr: >-
+        any('score' in m.get('body', '').lower() or 'grade' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses scores or grades
+  negative_checks:
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

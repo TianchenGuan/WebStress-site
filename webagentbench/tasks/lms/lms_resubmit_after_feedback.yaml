@@ -1,0 +1,71 @@
+task_id: lms_resubmit_after_feedback
+env_id: lms
+title: Resubmit Assignment After Reading Feedback
+instruction_template: >-
+  Find the assignment in {target.course_code} that has been flagged for
+  resubmission. Read the instructor's feedback, then resubmit the assignment
+  with an updated file named "{target.resubmit_file_name}".
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - planning
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+        resubmit_count: 1
+      outputs:
+        - assignment_ids
+        - resubmit_assignment_ids
+        - decoy_assignment_id
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    resubmit_assignment_id: '{output.resubmit_assignment_ids[0]}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+    resubmit_file_name: 'revision_v2.pdf'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_assignment('{target.resubmit_assignment_id}') is not None
+        and state.get_assignment('{target.resubmit_assignment_id}').submission_status in ('submitted', 'late')
+      desc: Resubmit-requested assignment was resubmitted
+    - expr: >-
+        state.get_assignment('{target.resubmit_assignment_id}') is not None
+        and state.get_assignment('{target.resubmit_assignment_id}').file_name == '{target.resubmit_file_name}'
+      desc: Resubmission has the correct updated file name
+    - expr: >-
+        state.get_assignment('{target.resubmit_assignment_id}') is not None
+        and state.get_assignment('{target.resubmit_assignment_id}').attempt_count >= 2
+      desc: Attempt count incremented (second attempt)
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status != 'submitted'
+      desc: Decoy assignment was not resubmitted
+      penalty: 0.25

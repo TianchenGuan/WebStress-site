@@ -1,0 +1,113 @@
+task_id: pp_lab_medication_loop
+env_id: patient_portal
+title: Lab-Medication Feedback Loop
+instruction_template: >-
+  Your latest HbA1c lab result is critically high. Find the critical HbA1c result
+  in your lab results, then message your endocrinologist (not your PCP) with:
+  1) the specific lab value and collection date,
+  2) a request for a medication dose adjustment for your diabetes medication,
+  3) a reference to the lab result. Use the clinical message category.
+  Do not attempt to adjust your own medications.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 28
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+start_path: /labs
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "endocrinology", "cardiology", "billing"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+      outputs: [active_rx_ids]
+    - use: lab_results_panel
+      params:
+        resulted_count: 4
+        abnormal_count: 1
+        critical_count: 1
+        trend_test: "HbA1c"
+        trend_values: ["6.2", "7.5", "9.1", "10.5"]
+      outputs: [critical_lab_id, trend_lab_ids, trend_test_name]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
+    critical_lab_id: "{output.critical_lab_id}"
+    trend_lab_ids: "{output.trend_lab_ids}"
+    active_rx_ids: "{output.active_rx_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.endo_provider_ids}
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged the endocrinologist
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('HbA1c' in m.body or 'A1c' in m.body or 'hemoglobin' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references the HbA1c test
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('dose' in m.body.lower() or 'adjust' in m.body.lower()
+                 or 'increase' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message requests a dose adjustment
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'clinical'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message was sent with clinical category
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Agent did not modify any prescriptions directly
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id == '{target.pcp_id}'
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not message PCP instead of endocrinologist
+      penalty: 0.25
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id not in {target.endo_provider_ids}
+                and m.provider_id != '{target.pcp_id}'
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not message unrelated providers
+      penalty: 0.2

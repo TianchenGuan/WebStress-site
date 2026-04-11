@@ -1,0 +1,103 @@
+task_id: pp_lab_trend_analysis
+env_id: patient_portal
+title: Lab Trend Analysis and Provider Message
+instruction_template: >-
+  Review your HbA1c results from the past 6 months. Your levels have been
+  trending upward. Message your endocrinologist with the specific values
+  and request a medication review. Use the clinical message category.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+start_path: /labs
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "endocrinology", "cardiology", "dermatology", "billing", "admin"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: lab_results_panel
+      params:
+        resulted_count: 5
+        pending_count: 2
+        abnormal_count: 1
+        trend_test: "HbA1c"
+        trend_values: ["6.5", "6.9", "7.4", "7.8"]
+      outputs: [resulted_lab_ids, pending_lab_ids, abnormal_lab_ids, trend_lab_ids, trend_test_name]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+    - use: prescription_cabinet
+      params:
+        active_count: 3
+      outputs: [active_rx_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+    trend_lab_ids: "{output.trend_lab_ids}"
+    trend_test_name: "{output.trend_test_name}"
+    pending_lab_ids: "{output.pending_lab_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and state.get_provider(m.provider_id) is not None
+            and state.get_provider(m.provider_id).specialty == 'endocrinology'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent sent a message to the endocrinologist
+    - expr: >-
+        any(m.from_type == 'patient'
+            and 'HbA1c' in m.body
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Message body mentions HbA1c
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'clinical'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Message was sent with clinical category
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) >= 1
+      desc: At least one new message was created
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id == '{target.pcp_id}'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent messaged the endocrinologist, not the PCP
+      penalty: 0.20
+    - expr: >-
+        not any(r.status != 'active'
+                and r.status != 'pending_renewal'
+                for r in state.prescriptions
+                if r.id in {target.active_rx_ids} if True)
+      desc: Agent did not modify prescription status without authorization
+      penalty: 0.20

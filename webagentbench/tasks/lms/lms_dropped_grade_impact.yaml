@@ -1,0 +1,77 @@
+task_id: lms_dropped_grade_impact
+env_id: lms
+title: Calculate Impact of Dropped Grade on Standing
+instruction_template: >-
+  In {target.course_code}, the syllabus allows dropping the lowest homework
+  score. Calculate your weighted grade both with and without the drop-lowest
+  policy applied. Send a message to your instructor showing both scores and
+  the difference the drop makes.
+difficulty: hard
+time_limit_seconds: 240
+expected_steps: 12
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 8
+        graded_fraction: 0.7
+      outputs:
+        - assignment_ids
+        - lowest_homework_id
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - dropped_grade_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    lowest_homework_id: '{output.lowest_homework_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message about the drop impact
+    - expr: >-
+        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
+      desc: There are grades eligible for dropping (seed validation)
+    - expr: >-
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Weighted score is computable
+    - expr: >-
+        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message contains the weighted score with drop applied
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: >-
+        not any(g.is_dropped != g.is_dropped for g in state.grades)
+      desc: Grade drop statuses were not manually altered
+      penalty: 0.2

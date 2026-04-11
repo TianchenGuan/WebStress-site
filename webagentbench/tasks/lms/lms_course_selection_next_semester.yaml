@@ -1,0 +1,122 @@
+task_id: lms_course_selection_next_semester
+env_id: lms
+title: Course Selection for Next Semester
+instruction_template: >-
+  Plan your course selection for next semester. Review your current courses
+  and grades, check which prerequisite modules you've completed, verify
+  your current GPA meets minimum requirements (need 2.5 GPA for CS301),
+  and check the calendar for potential schedule conflicts. You want to
+  take CS301 (requires CS201 completion), STAT301, and one elective.
+  Send a message to your advisor ({target.advisor_name}) with: (1) Your
+  current GPA and whether it meets the CS301 minimum. (2) Whether you've
+  completed the CS201 prerequisite. (3) Any schedule conflicts you found.
+  (4) Your recommended course list for next semester with justification.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+  - planning
+  - state_tracking
+  - verification
+  - exploration
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params:
+        gpa: "2.75"
+      outputs:
+        - student_id
+        - advisor_name
+        - gpa
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS201", "MATH201", "ENG102"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: linear
+        completed_count: 3
+      outputs:
+        - module_ids
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 2
+      outputs:
+        - announcement_ids
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+    module_ids: '{output.module_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('CS301' in m.get('body', '') for m in state.sent_messages)
+      desc: Message discusses CS301
+    - expr: >-
+        any('GPA' in m.get('body', '').upper() or '{target.gpa}' in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message references GPA
+    - expr: >-
+        any('prerequisite' in m.get('body', '').lower() or 'prereq' in m.get('body', '').lower()
+            or 'CS201' in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message discusses prerequisites
+    - expr: >-
+        any('next semester' in m.get('body', '').lower() or 'recommend' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message includes course recommendations
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No current courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.submission_status != 'not_submitted'
+                and a.file_name is not None
+                and a.file_name.startswith('ta_')
+                for a in state.assignments)
+      desc: Agent did not submit files with wrong naming convention
+      penalty: 0.1

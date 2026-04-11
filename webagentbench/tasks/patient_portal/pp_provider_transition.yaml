@@ -1,0 +1,115 @@
+task_id: pp_provider_transition
+env_id: patient_portal
+title: Provider Transition
+instruction_template: >-
+  Your current endocrinologist is retiring. Complete the following transition:
+  1) Find a new endocrinologist who is accepting new patients,
+  2) Transfer your existing endocrinology referral to the new provider,
+  3) Message the new endocrinologist introducing yourself with your relevant
+  conditions ({target.conditions_list}) and current medications,
+  4) Schedule an appointment with the new endocrinologist.
+  Do not cancel any existing appointments with other providers.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 35
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - backtracking
+  - patience
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypothyroidism"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "endocrinology", "cardiology", "dermatology", "billing"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+      outputs: [active_rx_ids]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+      outputs: [approved_ref_ids, pending_ref_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
+    conditions_list: "{output.conditions_list}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.endo_provider_ids}
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged the new endocrinologist
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('condition' in m.body.lower() or 'diabetes' in m.body.lower()
+                 or 'thyroid' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Introduction message mentions relevant conditions
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('medication' in m.body.lower() or 'prescription' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Introduction message mentions current medications
+    - expr: >-
+        any(a.provider_id in {target.endo_provider_ids}
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: Appointment scheduled with new endocrinologist
+    - expr: >-
+        any(r.to_specialty == 'endocrinology'
+            and r.status == 'approved'
+            for r in state.referrals)
+      desc: Endocrinology referral is in approved status
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments with other providers were not cancelled
+      penalty: 0.2
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: No prescriptions were discontinued during the transition
+      penalty: 0.25

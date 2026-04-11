@@ -1,0 +1,107 @@
+task_id: pp_urgent_lab_response
+env_id: patient_portal
+title: Urgent Lab Result Response
+instruction_template: >-
+  You have a critical lab result flagged for immediate attention. Find the critical
+  lab result in your records. Send an urgent message to the provider who ordered that
+  specific lab (check the "ordered_by" field), not your PCP unless they are the
+  ordering provider. Mark the message as urgent. Include the specific lab value,
+  test name, and collection date in your message. Do not attempt to adjust your own
+  medications based on the result.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 25
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+start_path: /labs
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Chronic Kidney Disease"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "endocrinology", "cardiology", "billing"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+      outputs: [active_rx_ids]
+    - use: lab_results_panel
+      params:
+        resulted_count: 4
+        abnormal_count: 1
+        critical_count: 1
+      outputs: [resulted_lab_ids, critical_lab_id, abnormal_lab_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    critical_lab_id: "{output.critical_lab_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.is_urgent
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent an urgent message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == state.get_lab('{target.critical_lab_id}').ordered_by
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message was sent to the ordering provider of the critical lab
+    - expr: >-
+        any(m.from_type == 'patient'
+            and state.get_lab('{target.critical_lab_id}').test_name in m.body
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message includes the specific test name
+    - expr: >-
+        any(m.from_type == 'patient'
+            and state.get_lab('{target.critical_lab_id}').value in m.body
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message includes the specific lab value
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Agent did not modify any medications
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != state.get_lab('{target.critical_lab_id}').ordered_by
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not message wrong provider about critical lab
+      penalty: 0.25
+    - expr: >-
+        all(rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+            for rx in state.prescriptions
+            if rx.id in state._initial_snapshot.get('prescriptions', {}))
+      desc: Agent did not attempt to adjust medications directly
+      penalty: 0.3

@@ -1,0 +1,85 @@
+task_id: lms_resubmit_flagged
+env_id: lms
+title: Submit Work for a Resubmit-Requested Assignment
+instruction_template: >-
+  Find all assignments across your courses that have been flagged for
+  resubmission (status "resubmit_requested"). Read the feedback on each,
+  then resubmit with updated files. Use the naming convention
+  "revision_v{attempt}.pdf" for each resubmission.
+difficulty: hard
+time_limit_seconds: 240
+expected_steps: 14
+primary_primitives:
+  - planning
+  - state_tracking
+  - backtracking
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+        resubmit_count: 2
+      outputs:
+        - assignment_ids
+        - resubmit_assignment_ids
+        - decoy_assignment_id
+  targets:
+    resubmit_assignment_ids: '{output.resubmit_assignment_ids}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        all(state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            for aid in [a.id for a in state.assignments
+                        if a.submission_status == 'resubmit_requested'])
+        or not any(a.submission_status == 'resubmit_requested' for a in state.assignments)
+      desc: All resubmit-requested assignments were resubmitted
+    - expr: >-
+        len([a for a in state.assignments
+             if a.submission_status == 'resubmit_requested']) == 0
+      desc: No assignments remain in resubmit_requested status
+    - expr: >-
+        all(a.attempt_count >= 2
+            for a in state.assignments
+            if a.file_name is not None
+            and 'revision' in a.file_name)
+      desc: Resubmitted assignments have incremented attempt counts
+    - expr: >-
+        all(a.file_name is not None
+            and 'revision' in a.file_name
+            for a in state.assignments
+            if a.attempt_count >= 2
+            and a.submission_status in ('submitted', 'late'))
+      desc: Resubmissions use the revision naming convention
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status != 'submitted'
+      desc: Decoy assignment was not submitted
+      penalty: 0.25
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

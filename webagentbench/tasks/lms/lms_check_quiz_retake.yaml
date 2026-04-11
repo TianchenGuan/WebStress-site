@@ -1,0 +1,80 @@
+task_id: lms_check_quiz_retake
+env_id: lms
+title: Check If Quiz Can Be Retaken
+instruction_template: >-
+  Check the quiz "{target.assignment_title}" in {target.course_code}. If you
+  have remaining attempts, retake the quiz by submitting again. If no attempts
+  remain, send a message to your instructor asking about a retake.
+difficulty: medium
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+        - target_assignment_id
+        - target_assignment_title
+        - target_course_code
+        - decoy_assignment_id
+  targets:
+    assignment_title: '{output.target_assignment_title}'
+    course_code: '{output.target_course_code}'
+    target_assignment_id: '{output.target_assignment_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        (state.get_assignment('{target.target_assignment_id}') is not None
+         and state.get_assignment('{target.target_assignment_id}').attempt_count
+             < state.get_assignment('{target.target_assignment_id}').max_attempts
+         and state.get_assignment('{target.target_assignment_id}').submission_status
+             in ('submitted', 'late'))
+        or (state.get_assignment('{target.target_assignment_id}') is not None
+            and state.get_assignment('{target.target_assignment_id}').attempt_count
+                >= state.get_assignment('{target.target_assignment_id}').max_attempts
+            and len(state.sent_messages) >= 1)
+      desc: Student either retook the quiz or messaged instructor if no attempts remain
+    - expr: >-
+        state.get_assignment('{target.target_assignment_id}') is not None
+      desc: Target assignment exists (seed validation)
+    - expr: >-
+        (state.get_assignment('{target.target_assignment_id}').attempt_count
+             < state.get_assignment('{target.target_assignment_id}').max_attempts
+         and state.get_assignment('{target.target_assignment_id}').attempt_count >= 1)
+        or len(state.sent_messages) >= 1
+      desc: Student took a concrete action based on attempt status
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status
+           == state.get_assignment('{target.decoy_assignment_id}').submission_status
+      desc: Decoy assignment was not modified
+      penalty: 0.2

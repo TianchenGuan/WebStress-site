@@ -1,0 +1,130 @@
+task_id: lms_multi_assignment_dependency
+env_id: lms
+title: Multi-Assignment Dependency Chain
+instruction_template: >-
+  Complete a sequential dependency chain in {target.course_code}: (1) First,
+  complete the next available module's content items (reading and video).
+  (2) Then submit the module's linked quiz assignment with file "quiz_answers.pdf".
+  (3) After the quiz, complete the peer review for a classmate's essay (score
+  all rubric criteria with at least 30 characters of comments). (4) Finally,
+  submit your own project assignment with file "project_final.pdf". You must
+  complete these in order -- the quiz must be submitted before the peer review,
+  and the peer review before the project.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 45
+primary_primitives:
+  - planning
+  - state_tracking
+  - patience
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201"]
+      outputs:
+        - course_ids
+        - course_codes
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.4
+        target_assignment_status: "not_submitted"
+      outputs:
+        - assignment_ids
+        - target_assignment_id
+        - target_assignment_title
+        - decoy_assignment_id
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: linear
+        completed_count: 2
+      outputs:
+        - module_ids
+        - next_available_module_id
+    - use: peer_review_assignments
+      params:
+        count: 2
+        statuses: ["assigned", "assigned"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    target_assignment_id: '{output.target_assignment_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+    next_available_module_id: '{output.next_available_module_id}'
+    pending_review_ids: '{output.pending_review_ids}'
+    module_ids: '{output.module_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.id == '{target.next_available_module_id}' and m.status == 'completed'
+            for m in state.modules)
+      desc: Module was completed
+    - expr: >-
+        any(a.file_name == 'quiz_answers.pdf'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Quiz submitted with correct file
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and len(pr.rubric_scores) >= 3
+            for pr in state.peer_reviews)
+      desc: Peer review completed with full rubric
+    - expr: >-
+        any(pr.status == 'submitted'
+            and pr.reviewer_student_id == state.student.id
+            and len(pr.comments) >= 30
+            for pr in state.peer_reviews)
+      desc: Peer review has 30+ character comments
+    - expr: >-
+        any(a.file_name == 'project_final.pdf'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Project submitted with correct file
+    - expr: >-
+        any(m.id == '{target.next_available_module_id}'
+            and all(ci.completed for ci in m.content_items)
+            for m in state.modules)
+      desc: All module content items completed
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None or
+        state.get_assignment('{target.decoy_assignment_id}').submission_status == 'not_submitted'
+      desc: Decoy assignment was not submitted
+      penalty: 0.3
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: >-
+        not any(pr.status == 'submitted'
+                and pr.reviewer_student_id == state.student.id
+                and len(pr.rubric_scores) < 3
+                for pr in state.peer_reviews)
+      desc: No incomplete peer reviews were submitted
+      penalty: 0.2

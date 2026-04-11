@@ -1,0 +1,67 @@
+task_id: lms_meet_discussion_minimums
+env_id: lms
+title: Meet Discussion Post and Reply Minimums
+instruction_template: >-
+  In the discussion "{target.discussion_title}" for {target.course_code},
+  meet the minimum participation requirements. Check the requirements first,
+  then post and reply as needed to satisfy them.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 12
+primary_primitives:
+  - patience
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: discussion_forums
+      params:
+        count: 3
+        posts_per: 4
+      outputs:
+        - discussion_ids
+        - target_discussion_id
+        - target_discussion_title
+        - target_course_code
+  targets:
+    discussion_title: '{output.target_discussion_title}'
+    course_code: '{output.target_course_code}'
+    target_discussion_id: '{output.target_discussion_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.meets_discussion_requirements('{target.target_discussion_id}')
+      desc: Student meets the discussion minimum requirements
+    - expr: >-
+        state.student_post_count('{target.target_discussion_id}') >=
+        state.get_discussion('{target.target_discussion_id}').min_posts
+      desc: Student meets the minimum post count
+    - expr: >-
+        state.student_reply_count('{target.target_discussion_id}') >=
+        state.get_discussion('{target.target_discussion_id}').min_replies
+      desc: Student meets the minimum reply count
+  negative_checks:
+    - expr: >-
+        not any(p.author_id == state.student.id
+                and p.discussion_id != '{target.target_discussion_id}'
+                for p in state.discussion_posts)
+      desc: Student did not post in non-target discussions
+      penalty: 0.2

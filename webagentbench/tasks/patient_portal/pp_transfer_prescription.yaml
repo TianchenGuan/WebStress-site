@@ -1,0 +1,74 @@
+task_id: pp_transfer_prescription
+env_id: patient_portal
+title: Transfer Prescription to Pharmacy
+instruction_template: >-
+  Transfer your Metformin prescription from its current pharmacy to the
+  Walgreens pharmacy already in your pharmacy list.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /medications
+
+seed:
+  distractors: 6
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "endocrinology", "cardiology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 3
+      outputs: [pharmacy_ids, default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        expired_count: 1
+        zero_refill_count: 0
+      outputs: [active_rx_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+    pharmacy_ids: "{output.pharmacy_ids}"
+    default_pharmacy_id: "{output.default_pharmacy_id}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(r.medication == 'Metformin 500mg'
+            and r.status == 'active'
+            for r in state.prescriptions)
+      desc: Metformin prescription still exists and is active
+    - expr: >-
+        any(r.medication == 'Metformin 500mg'
+            and state.get_pharmacy(r.pharmacy_id) is not None
+            and 'Walgreens' in state.get_pharmacy(r.pharmacy_id).name
+            for r in state.prescriptions)
+      desc: Metformin was transferred to the Walgreens pharmacy
+    - expr: >-
+        len([r for r in state.prescriptions
+             if r.medication == 'Metformin 500mg'
+             and r.status == 'active']) == 1
+      desc: There is exactly one active Metformin prescription
+  negative_checks:
+    - expr: >-
+        not any(r.medication != 'Metformin 500mg'
+                and r.status == 'active'
+                and r.pharmacy_id != '{target.default_pharmacy_id}'
+                and r.id in {target.active_rx_ids}
+                for r in state.prescriptions
+                if state.get_pharmacy(r.pharmacy_id) is not None
+                and 'Walgreens' in state.get_pharmacy(r.pharmacy_id).name)
+      desc: Agent did not transfer other prescriptions to Walgreens
+      penalty: 0.15

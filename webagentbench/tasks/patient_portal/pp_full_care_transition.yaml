@@ -1,0 +1,136 @@
+task_id: pp_full_care_transition
+env_id: patient_portal
+title: Full Care Transition
+instruction_template: >-
+  Transfer to a new PCP. Complete the full transition:
+  1) Update your PCP assignment to the new provider,
+  2) Re-establish all active prescriptions with the new PCP as the prescribing provider,
+  3) Re-route any open referrals to go through the new PCP,
+  4) Send an introduction message to the new PCP summarizing your conditions
+  ({target.conditions_list}), current medications, and any pending referrals.
+  Do not cancel any existing specialist appointments.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 50
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypertension", "Chronic Kidney Disease"]
+        allergies: ["Penicillin", "Sulfa"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "cardiology", "endocrinology", "neurology", "orthopedics", "billing"]
+        must_include: ["pcp", "cardiology", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 3
+      outputs: [pharmacy_ids, default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 5
+        expired_count: 1
+        interaction_pair: true
+      outputs: [active_rx_ids, interacting_medications]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+      outputs: [approved_ref_ids, pending_ref_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 3
+        completed_count: 3
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    old_pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    conditions_list: "{output.conditions_list}"
+    active_rx_ids: "{output.active_rx_ids}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    pending_ref_ids: "{output.pending_ref_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('condition' in m.body.lower() or 'diabetes' in m.body.lower()
+                 or 'hypertension' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Introduction message mentions patient conditions
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('medication' in m.body.lower() or 'prescription' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Introduction message mentions current medications
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('referral' in m.body.lower() or 'pending' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Introduction message mentions pending referrals
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: All active prescriptions remain active
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
+      desc: At least one message was sent to the new PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id != '{target.old_pcp_id}'
+            and m.category == 'clinical'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message was sent to a provider other than the old PCP
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing specialist appointments were not cancelled
+      penalty: 0.2
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                for rx in state.prescriptions
+                if rx.id in {target.active_rx_ids})
+      desc: No active prescriptions were discontinued during transition
+      penalty: 0.3
+    - expr: >-
+        not any(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status == 'denied'
+          for rid in {target.approved_ref_ids}
+        )
+      desc: Approved referrals were not changed to denied status
+      penalty: 0.25

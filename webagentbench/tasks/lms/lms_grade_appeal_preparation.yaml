@@ -1,0 +1,120 @@
+task_id: lms_grade_appeal_preparation
+env_id: lms
+title: Grade Appeal Preparation
+instruction_template: >-
+  Prepare a formal grade appeal for {target.course_code}. You believe your
+  grade is incorrect. Gather all the evidence: (1) Review every graded
+  assignment's score, feedback, and rubric. (2) Check if any scores seem
+  inconsistent with the rubric criteria. (3) Review your peer review
+  submissions and any feedback received. (4) Check your discussion
+  participation count against the grade awarded. (5) Compute what your
+  grade should be based on the syllabus grading policy. Compose a formal
+  appeal message to the instructor ({target.instructor_name}) with:
+  your computed grade, the posted grade, specific discrepancies found,
+  and supporting evidence from rubrics and feedback.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+  - verification
+  - state_tracking
+  - exploration
+  - planning
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS201"]
+      outputs:
+        - course_ids
+        - course_codes
+        - course_code
+        - instructor_name
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.7
+        late_count: 1
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - dropped_grade_ids
+    - use: discussion_forums
+      params:
+        count: 2
+        posts_per: 3
+      outputs:
+        - discussion_ids
+    - use: peer_review_assignments
+      params:
+        count: 2
+        statuses: ["submitted", "submitted"]
+      outputs:
+        - review_ids
+        - completed_review_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    instructor_name: '{output.instructor_name}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+    dropped_grade_ids: '{output.dropped_grade_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent an appeal message
+    - expr: >-
+        any('{target.instructor_name}' in m.get('to', '') or
+            '{target.instructor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to instructor
+    - expr: >-
+        any('appeal' in m.get('body', '').lower() or 'dispute' in m.get('body', '').lower()
+            or 'discrepan' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message is framed as an appeal
+    - expr: >-
+        any('grade' in m.get('body', '').lower() and 'score' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses both grade and score
+    - expr: >-
+        any('{target.course_code}' in m.get('body', '') for m in state.sent_messages)
+      desc: Message references the correct course
+    - expr: >-
+        any('rubric' in m.get('body', '').lower() or 'feedback' in m.get('body', '').lower()
+            or 'evidence' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message cites evidence from rubrics or feedback
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                and 'appeal' in a.file_name.lower()
+                for a in state.assignments)
+      desc: Agent did not submit files as part of appeal (message-only task)
+      penalty: 0.1

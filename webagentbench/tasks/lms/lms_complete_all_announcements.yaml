@@ -1,0 +1,59 @@
+task_id: lms_complete_all_announcements
+env_id: lms
+title: Find and Read All Unread Announcements
+instruction_template: >-
+  Find and read all unread announcements across all your courses. Mark each one
+  as read. There should be {target.unread_count} unread announcements total.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - exploration
+  - state_tracking
+start_path: /
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: announcements_feed
+      params:
+        count: 8
+        unread_count: 5
+        urgent_count: 2
+      outputs:
+        - announcement_ids
+        - unread_announcement_ids
+  targets:
+    unread_count: '5'
+    unread_announcement_ids: '{output.unread_announcement_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.unread_announcements()) == 0
+      desc: All announcements are now marked as read
+    - expr: >-
+        all(a.is_read for a in state.announcements)
+      desc: Every announcement entity has is_read == True
+    - expr: >-
+        len(state.announcements) >= 8
+      desc: All announcements still exist (none deleted)
+  negative_checks:
+    - expr: len(state.announcements) >= 8
+      desc: No announcements were deleted
+      penalty: 0.2

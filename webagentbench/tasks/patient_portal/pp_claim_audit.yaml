@@ -1,0 +1,120 @@
+task_id: pp_claim_audit
+env_id: patient_portal
+title: Insurance Claim Audit
+instruction_template: >-
+  Review all your insurance claims. Identify all denied claims that are still eligible
+  for appeal (appeal deadline has not passed). From those eligible claims, select the
+  top 3 by patient responsibility amount (highest first). File an appeal for each of
+  those 3 claims by messaging the billing department with the claim details and
+  supporting evidence from linked appointments or referrals.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 40
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - patience
+start_path: /billing
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Back Pain"]
+        insurance_tier: basic
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "orthopedics", "cardiology", "radiology", "billing"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 4
+      outputs: [upcoming_ids, completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 5
+        with_eob: true
+        near_appeal_deadline: true
+      outputs: [denied_claim_ids, appealable_claim_id, approved_claim_ids]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 0
+      outputs: [approved_ref_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["billing"]
+        include_billing: true
+      outputs: [thread_ids, billing_thread_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    billing_provider_ids: "{output.providers_by_specialty.billing}"
+    denied_claim_ids: "{output.denied_claim_ids}"
+    appealable_claim_id: "{output.appealable_claim_id}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.category == 'billing'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 3
+      desc: Agent filed at least 3 appeal messages
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.billing_provider_ids}
+            and ('appeal' in m.body.lower() or 'denied' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Appeal messages were sent to billing department
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'billing'
+            and ('claim' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Messages reference specific claims
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('evidence' in m.body.lower() or 'referral' in m.body.lower()
+                 or 'appointment' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Appeals include supporting evidence
+    - expr: >-
+        all(c.status != 'approved'
+            for c in state.claims
+            if c.id in {target.denied_claim_ids})
+      desc: Denied claims were not incorrectly changed to approved
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'clinical'
+                and ('appeal' in m.body.lower() or 'claim' in m.body.lower())
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Appeals were not sent through clinical messaging channel
+      penalty: 0.15
+    - expr: >-
+        all(c.status == state._initial_snapshot['claims'][c.id]['status']
+            for c in state.claims
+            if c.id in {target.approved_claim_ids}
+            and c.id in state._initial_snapshot.get('claims', {}))
+      desc: Approved claims were not modified
+      penalty: 0.2

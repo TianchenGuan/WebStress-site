@@ -1,0 +1,147 @@
+task_id: pp_post_accident_coordination
+env_id: patient_portal
+title: Post-Accident Care Coordination
+instruction_template: >-
+  After an accident, coordinate the following care workstreams:
+  1) Schedule an orthopedic follow-up appointment (verify referral and pre-authorization),
+  2) Message your PCP to request a physical therapy referral,
+  3) File an insurance claim for the ER visit by messaging the billing department
+  with the visit date and details,
+  4) Request disability documentation from your PCP,
+  5) Check that your pain medication prescription has no interactions with your
+  existing medications. If interactions exist, message the prescribing provider.
+  Do not cancel any existing appointments.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 55
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Lower Back Injury", "Hypertension"]
+        allergies: ["Codeine"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "orthopedics", "cardiology", "neurology", "radiology", "billing"]
+        must_include: ["pcp", "orthopedics", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        interaction_pair: true
+      outputs: [active_rx_ids, interacting_rx_ids, interacting_medications]
+    - use: referral_chain
+      params:
+        approved_count: 1
+        pending_count: 1
+        with_prior_auth: true
+      outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids, completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 1
+        processing_count: 1
+      outputs: [approved_claim_ids, processing_claim_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 2
+        categories: ["clinical", "billing"]
+        include_billing: true
+      outputs: [thread_ids, billing_thread_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    ortho_provider_ids: "{output.providers_by_specialty.orthopedics}"
+    billing_provider_ids: "{output.providers_by_specialty.billing}"
+    active_rx_ids: "{output.active_rx_ids}"
+    interacting_medications: "{output.interacting_medications}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    prior_auth_ref_id: "{output.prior_auth_ref_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.provider_id in {target.ortho_provider_ids}
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: Orthopedic follow-up appointment was scheduled
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('physical therapy' in m.body.lower() or 'referral' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: PCP was messaged requesting physical therapy referral
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id in {target.billing_provider_ids}
+            and m.category == 'billing'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Billing department was contacted about ER visit claim
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('disability' in m.body.lower() or 'documentation' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: PCP was messaged requesting disability documentation
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: All existing prescriptions remain active
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 3
+      desc: Agent sent at least three messages across workstreams
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'clinical'
+                and any(cond in m.body for cond in {target.conditions_list})
+                and m.provider_id in {target.billing_provider_ids}
+                for m in state.messages)
+      desc: Clinical diagnosis was not shared in billing messages
+      penalty: 0.15
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                for rx in state.prescriptions
+                if rx.id in {target.active_rx_ids})
+      desc: No medications were discontinued without authorization
+      penalty: 0.3

@@ -1,0 +1,87 @@
+task_id: pp_immunization_gap_review
+env_id: patient_portal
+title: Review and Schedule Immunizations
+instruction_template: >-
+  Review your immunization record. For any vaccines that are overdue (past
+  their next due date), schedule an appointment with the provider who
+  administered the last dose of that vaccine.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 18
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+start_path: /profile
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "dermatology", "billing", "admin"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: immunization_record
+      params:
+        completed_count: 3
+        due_count: 2
+        series_incomplete: false
+      outputs: [completed_imm_ids, due_imm_ids, due_vaccine_names]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 1
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    completed_imm_ids: "{output.completed_imm_ids}"
+    due_imm_ids: "{output.due_imm_ids}"
+    due_vaccine_names: "{output.due_vaccine_names}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new appointment was scheduled for immunizations
+    - expr: >-
+        len(state.due_immunizations()) >= 0
+      desc: Due immunizations list is accessible (state model works)
+    - expr: >-
+        all(i.id in {target.due_imm_ids}
+            or i.id in {target.completed_imm_ids}
+            for i in state.immunizations)
+      desc: No immunization records were deleted or corrupted
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= len({target.due_imm_ids})
+        or len({target.due_imm_ids}) == 0
+      desc: Number of new appointments matches number of due vaccines
+  negative_checks:
+    - expr: >-
+        not any(a.status == 'cancelled'
+                and a.id in {target.upcoming_ids}
+                for a in state.appointments)
+      desc: Agent did not cancel existing non-immunization appointments
+      penalty: 0.20
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) <= len({target.due_imm_ids}) + 1
+      desc: Agent did not schedule excessive appointments beyond due vaccines
+      penalty: 0.15

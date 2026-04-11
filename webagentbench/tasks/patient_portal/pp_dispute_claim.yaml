@@ -1,0 +1,92 @@
+task_id: pp_dispute_claim
+env_id: patient_portal
+title: Dispute Denied Insurance Claim
+instruction_template: >-
+  Your most recent denied insurance claim has an available EOB. Review the EOB,
+  then file an appeal for that claim before the appeal deadline passes.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+start_path: /billing
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: basic
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "orthopedics", "dermatology", "billing", "admin"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 4
+      outputs: [completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 2
+        processing_count: 1
+        with_eob: true
+        near_appeal_deadline: true
+      outputs: [approved_claim_ids, denied_claim_ids, appealable_claim_id, total_patient_responsibility]
+    - use: referral_chain
+      params:
+        approved_count: 1
+        pending_count: 0
+      outputs: [approved_ref_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+    denied_claim_ids: "{output.denied_claim_ids}"
+    appealable_claim_id: "{output.appealable_claim_id}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(c.id in {target.denied_claim_ids}
+            and c.status == 'appealed'
+            for c in state.claims)
+      desc: A denied claim was appealed
+    - expr: >-
+        any(c.id == '{target.appealable_claim_id}'
+            and c.status == 'appealed'
+            for c in state.claims)
+      desc: The specific appealable claim was the one appealed
+    - expr: >-
+        len([c for c in state.claims
+             if c.status == 'appealed']) >= 1
+      desc: At least one claim has appealed status
+    - expr: >-
+        all(c.status == 'approved'
+            for c in state.claims
+            if c.id in {target.approved_claim_ids})
+      desc: Approved claims were not modified
+  negative_checks:
+    - expr: >-
+        not any(c.id in {target.approved_claim_ids}
+                and c.status == 'appealed'
+                for c in state.claims)
+      desc: Agent did not appeal an already-approved claim
+      penalty: 0.25
+    - expr: >-
+        len([c for c in state.claims if c.status == 'appealed']) <= 2
+      desc: Agent did not file excessive appeals
+      penalty: 0.15

@@ -1,0 +1,70 @@
+task_id: lms_identify_dropped_homework
+env_id: lms
+title: Identify the Lowest Homework Grade That Will Be Dropped
+instruction_template: >-
+  In {target.course_code}, the syllabus allows dropping the lowest homework
+  score. Navigate to the grades page and identify which homework assignment
+  has the lowest score and will be dropped. Send a message to your advisor
+  with the assignment title and its score.
+difficulty: medium
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 8
+        graded_fraction: 0.6
+      outputs:
+        - assignment_ids
+        - lowest_homework_id
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - dropped_grade_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    lowest_homework_id: '{output.lowest_homework_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message about the dropped grade
+    - expr: >-
+        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
+      desc: At least one homework grade is eligible for dropping
+    - expr: >-
+        state.get_assignment('{target.lowest_homework_id}') is not None
+        and any(state.get_assignment('{target.lowest_homework_id}').title in m.get('body', '')
+                for m in state.sent_messages)
+      desc: Message mentions the correct lowest homework assignment title
+  negative_checks:
+    - expr: len(state.sent_messages) <= 2
+      desc: Student did not send excessive messages
+      penalty: 0.1

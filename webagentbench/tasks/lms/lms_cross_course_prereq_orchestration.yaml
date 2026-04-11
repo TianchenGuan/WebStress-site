@@ -1,0 +1,108 @@
+task_id: lms_cross_course_prereq_orchestration
+env_id: lms
+title: Cross-Course Prerequisite Orchestration
+instruction_template: >-
+  You need to unlock advanced modules across 3 courses by completing their
+  prerequisites in the correct order. Each course has a module chain where
+  completing one module unlocks the next. Some modules require a minimum
+  score on linked assignments. Plan and execute the optimal completion order
+  across all courses, completing all available modules and their content
+  items. You must complete at least 4 modules total across all courses.
+  After completing the modules, send a progress update to your advisor
+  ({target.advisor_name}) listing which modules you completed and which
+  are now unlocked.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 45
+primary_primitives:
+  - planning
+  - state_tracking
+  - patience
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "CS201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: module_sequence
+      params:
+        count: 5
+        chain_type: mixed
+        completed_count: 1
+      outputs:
+        - module_ids
+        - next_available_module_id
+        - first_locked_module_id
+  targets:
+    advisor_name: '{output.advisor_name}'
+    course_codes: '{output.course_codes}'
+    module_ids: '{output.module_ids}'
+    next_available_module_id: '{output.next_available_module_id}'
+    first_locked_module_id: '{output.first_locked_module_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        sum(1 for m in state.modules if m.status == 'completed') >= 5
+      desc: At least 5 modules completed (1 initial + 4 new)
+    - expr: >-
+        any(m.id == '{target.next_available_module_id}' and m.status == 'completed'
+            for m in state.modules)
+      desc: The next available module was completed
+    - expr: >-
+        any(m.id == '{target.first_locked_module_id}'
+            and m.status in ('available', 'completed')
+            for m in state.modules)
+      desc: Previously locked module is now unlocked
+    - expr: >-
+        sum(1 for m in state.modules
+            if m.status == 'completed'
+            and all(ci.completed for ci in m.content_items)) >= 5
+      desc: At least 5 modules have all content items completed
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a progress update
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+  negative_checks:
+    - expr: >-
+        not any(m.status == 'completed'
+                and not all(ci.completed for ci in m.content_items)
+                for m in state.modules)
+      desc: No modules marked complete with incomplete content items
+      penalty: 0.2
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.1

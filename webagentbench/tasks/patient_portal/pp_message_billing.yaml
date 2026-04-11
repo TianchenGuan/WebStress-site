@@ -1,0 +1,86 @@
+task_id: pp_message_billing
+env_id: patient_portal
+title: Message Billing About Charge
+instruction_template: >-
+  Send a message to the billing department about a charge on your most recent
+  insurance claim that you believe is incorrect. Use the billing message
+  category and reference the claim.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /billing
+
+seed:
+  distractors: 6
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "orthopedics", "billing", "admin"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 2
+      outputs: [completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 0
+        processing_count: 1
+        with_eob: true
+      outputs: [approved_claim_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'billing'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent sent a billing-category message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and state.get_provider(m.provider_id) is not None
+            and state.get_provider(m.provider_id).specialty == 'billing'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Message was routed to billing department provider
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) >= 1
+      desc: At least one new message was sent
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'clinical'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent did not send message with clinical category instead of billing
+      penalty: 0.20

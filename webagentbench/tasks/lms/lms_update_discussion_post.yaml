@@ -1,0 +1,73 @@
+task_id: lms_update_discussion_post
+env_id: lms
+title: Update Discussion Post Based on Instructor Feedback
+instruction_template: >-
+  Your instructor left feedback on your post in the discussion
+  "{target.discussion_title}" for {target.course_code}. Find the feedback,
+  then edit your original post to address the instructor's comment. Your
+  updated post should incorporate the suggested changes.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - state_tracking
+  - backtracking
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: discussion_forums
+      params:
+        count: 3
+        posts_per: 4
+      outputs:
+        - discussion_ids
+        - target_discussion_id
+        - target_discussion_title
+        - target_course_code
+  targets:
+    discussion_title: '{output.target_discussion_title}'
+    course_code: '{output.target_course_code}'
+    target_discussion_id: '{output.target_discussion_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(p.discussion_id == '{target.target_discussion_id}'
+            and p.author_id == state.student.id
+            and p.updated_at is not None
+            for p in state.discussion_posts)
+      desc: Student edited a post in the target discussion (updated_at set)
+    - expr: >-
+        any(p.discussion_id == '{target.target_discussion_id}'
+            and p.author_id == state.student.id
+            and len(p.body.strip()) > 20
+            for p in state.discussion_posts)
+      desc: Updated post has substantive content
+    - expr: >-
+        state.student_post_count('{target.target_discussion_id}') >= 1
+      desc: Student has at least one post in the target discussion
+  negative_checks:
+    - expr: >-
+        not any(p.author_id == state.student.id
+                and p.discussion_id != '{target.target_discussion_id}'
+                and p.updated_at is not None
+                for p in state.discussion_posts)
+      desc: Student did not edit posts in other discussions
+      penalty: 0.2

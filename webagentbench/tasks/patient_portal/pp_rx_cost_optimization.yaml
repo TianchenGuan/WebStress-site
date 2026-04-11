@@ -1,0 +1,110 @@
+task_id: pp_rx_cost_optimization
+env_id: patient_portal
+title: Prescription Cost Optimization
+instruction_template: >-
+  Find the lowest-cost option for your Atorvastatin prescription. Check your messages
+  from your provider for information about generic alternatives. Compare the pricing
+  across your linked pharmacies (including mail-order if available). Transfer the
+  prescription to whichever pharmacy offers the lowest cost. If a generic alternative
+  is mentioned, request the switch by messaging the prescribing provider.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 30
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - exploration
+  - verification
+start_path: /prescriptions
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["High Cholesterol"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 3
+        include_mail_order: true
+      outputs: [pharmacy_ids, default_pharmacy_id, mail_order_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        expired_count: 1
+      outputs: [active_rx_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 2
+        categories: ["clinical", "rx_renewal"]
+        include_rx_renewal: true
+      outputs: [thread_ids, unread_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pharmacy_ids: "{output.pharmacy_ids}"
+    default_pharmacy_id: "{output.default_pharmacy_id}"
+    mail_order_pharmacy_id: "{output.mail_order_pharmacy_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(rx.medication.lower().find('atorvastatin') >= 0
+            for rx in state.prescriptions
+            if rx.status == 'active')
+      desc: Atorvastatin prescription remains active
+    - expr: >-
+        any(rx.medication.lower().find('atorvastatin') >= 0
+            and rx.pharmacy_id != '{target.default_pharmacy_id}'
+            for rx in state.prescriptions
+            if rx.status == 'active')
+        or any(m.from_type == 'patient'
+               and ('transfer' in m.body.lower() or 'pharmacy' in m.body.lower()
+                    or 'generic' in m.body.lower())
+               and m.id not in state._initial_snapshot.get('messages', {})
+               for m in state.messages)
+      desc: Prescription was transferred or provider was contacted about alternatives
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('atorvastatin' in m.body.lower() or 'cholesterol' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent communicated about the specific medication
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('cost' in m.body.lower() or 'generic' in m.body.lower()
+                 or 'price' in m.body.lower() or 'cheaper' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent referenced cost or generic alternatives
+    - expr: >-
+        all(rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+            for rx in state.prescriptions
+            if rx.id in state._initial_snapshot.get('prescriptions', {})
+            and rx.medication.lower().find('atorvastatin') < 0)
+      desc: Non-target prescriptions were not modified
+  negative_checks:
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                and rx.medication.lower().find('atorvastatin') >= 0
+                for rx in state.prescriptions)
+      desc: Atorvastatin was not discontinued
+      penalty: 0.3
+    - expr: >-
+        not any(rx.pharmacy_id not in {target.pharmacy_ids}
+                for rx in state.prescriptions
+                if rx.status == 'active'
+                and rx.id in {target.active_rx_ids})
+      desc: Prescriptions were not transferred to unknown pharmacies
+      penalty: 0.2

@@ -1,0 +1,89 @@
+task_id: lms_discussion_marathon
+env_id: lms
+title: Discussion Board Marathon Across 4 Courses
+instruction_template: >-
+  You have outstanding discussion requirements across multiple courses.
+  For each course, check the discussion forums and meet the minimum
+  participation requirements: post at least the required number of original
+  posts AND reply to at least the required number of classmate posts. Each
+  post must be substantive (at least 20 characters). Complete all discussions
+  that are still open (due date in the future).
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 35
+primary_primitives:
+  - patience
+  - state_tracking
+  - planning
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102", "PHYS201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: discussion_forums
+      params:
+        count: 2
+        posts_per: 3
+      outputs:
+        - discussion_ids
+        - target_discussion_id
+  targets:
+    course_codes: '{output.course_codes}'
+    discussion_ids: '{output.discussion_ids}'
+    target_discussion_id: '{output.target_discussion_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        sum(1 for p in state.discussion_posts
+            if p.author_id == state.student.id
+            and p.parent_post_id is None) >= 2
+      desc: Student made at least 2 original posts across discussions
+    - expr: >-
+        sum(1 for p in state.discussion_posts
+            if p.author_id == state.student.id
+            and p.parent_post_id is not None) >= 2
+      desc: Student made at least 2 replies across discussions
+    - expr: >-
+        any(p.author_id == state.student.id
+            and len(p.body.strip()) >= 20
+            and p.parent_post_id is None
+            for p in state.discussion_posts)
+      desc: At least one original post is substantive (20+ chars)
+    - expr: >-
+        any(p.author_id == state.student.id
+            and len(p.body.strip()) >= 20
+            and p.parent_post_id is not None
+            for p in state.discussion_posts)
+      desc: At least one reply is substantive (20+ chars)
+    - expr: >-
+        len(set(p.discussion_id for p in state.discussion_posts
+                if p.author_id == state.student.id)) >= 2
+      desc: Student participated in at least 2 different discussions
+  negative_checks:
+    - expr: >-
+        all(len(p.body.strip()) >= 10
+            for p in state.discussion_posts
+            if p.author_id == state.student.id)
+      desc: No empty or near-empty posts were made
+      penalty: 0.2
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

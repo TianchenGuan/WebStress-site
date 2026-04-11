@@ -1,0 +1,109 @@
+task_id: pp_medication_conflict
+env_id: patient_portal
+title: Medication Conflict Resolution
+instruction_template: >-
+  A new prescription has been added to your medication list. Check your active
+  prescriptions for any listed drug interactions. Identify the conflicting pair,
+  then message the prescribing provider of the newer medication with the specific
+  interaction details (medication names and interaction warning). Do not discontinue
+  either medication yourself.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 30
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Atrial Fibrillation"]
+        allergies: ["Penicillin"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        interaction_pair: true
+      outputs: [active_rx_ids, interacting_rx_ids, interacting_medications]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    interacting_rx_ids: "{output.interacting_rx_ids}"
+    interacting_medications: "{output.interacting_medications}"
+    active_rx_ids: "{output.active_rx_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and '{target.interacting_medications.0}' in m.body
+            and '{target.interacting_medications.1}' in m.body
+            for m in state.messages)
+      desc: Agent sent a message mentioning both interacting medications
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == state.get_prescription('{target.interacting_rx_ids.1}').provider_id
+            for m in state.messages
+            if m.id not in state._initial_snapshot.get('messages', {}))
+      desc: Message was sent to the prescriber of the newer conflicting medication
+    - expr: >-
+        any('interaction' in m.body.lower() or 'conflict' in m.body.lower()
+            or 'interact' in m.body.lower()
+            for m in state.messages
+            if m.from_type == 'patient'
+            and m.id not in state._initial_snapshot.get('messages', {}))
+      desc: Message body references the interaction or conflict
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.interacting_rx_ids})
+      desc: Neither interacting medication was discontinued by the agent
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'clinical'
+            for m in state.messages
+            if m.id not in state._initial_snapshot.get('messages', {}))
+      desc: Message was sent with clinical category
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != state.get_prescription('{target.interacting_rx_ids.1}').provider_id
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not message the wrong provider about the interaction
+      penalty: 0.25
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Agent did not discontinue any prescriptions
+      penalty: 0.3

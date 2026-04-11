@@ -1,0 +1,127 @@
+task_id: lms_complete_account_audit
+env_id: lms
+title: Complete Account Audit
+instruction_template: >-
+  Perform a comprehensive audit of your LMS account. Verify the following
+  across all courses: (1) All submitted assignments have a recorded submission
+  status. (2) All graded assignments have scores and feedback. (3) All
+  discussion participation requirements are met or noted as incomplete.
+  (4) All peer reviews are either completed or tracked as pending. (5) All
+  modules show correct completion status. Compile an audit report message
+  to your advisor ({target.advisor_name}) listing any discrepancies,
+  incomplete items, and a summary count per course of: assignments submitted,
+  assignments graded, discussions participated in, reviews completed, and
+  modules finished.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 45
+primary_primitives:
+  - verification
+  - state_tracking
+  - patience
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+        late_count: 1
+        resubmit_count: 1
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: module_sequence
+      params:
+        count: 4
+        completed_count: 2
+      outputs:
+        - module_ids
+    - use: discussion_forums
+      params:
+        count: 2
+        posts_per: 3
+      outputs:
+        - discussion_ids
+    - use: peer_review_assignments
+      params:
+        count: 3
+        statuses: ["submitted", "in_progress", "assigned"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+        - completed_review_ids
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 1
+      outputs:
+        - announcement_ids
+  targets:
+    advisor_name: '{output.advisor_name}'
+    course_codes: '{output.course_codes}'
+    course_ids: '{output.course_ids}'
+    pending_review_ids: '{output.pending_review_ids}'
+    completed_review_ids: '{output.completed_review_ids}'
+    module_ids: '{output.module_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent an audit report
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Audit covers CS101
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Audit covers MATH201
+    - expr: >-
+        any('ENG102' in m.get('body', '') for m in state.sent_messages)
+      desc: Audit covers ENG102
+    - expr: >-
+        any('audit' in m.get('body', '').lower() or 'summary' in m.get('body', '').lower()
+            or 'report' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message is framed as an audit/report
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during audit
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                and 'audit' in a.file_name.lower()
+                for a in state.assignments)
+      desc: Agent did not submit files as part of audit (read-only task)
+      penalty: 0.1

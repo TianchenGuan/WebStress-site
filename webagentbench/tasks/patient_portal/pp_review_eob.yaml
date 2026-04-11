@@ -1,0 +1,89 @@
+task_id: pp_review_eob
+env_id: patient_portal
+title: Review EOB and Act on Balance
+instruction_template: >-
+  Review the Explanation of Benefits for your most recent approved claim. If
+  your patient responsibility exceeds $200, message the billing department
+  asking about payment plan options. Use the billing message category.
+difficulty: medium
+time_limit_seconds: 200
+expected_steps: 10
+primary_primitives:
+  - grounding
+  - planning
+start_path: /billing
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: basic
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "orthopedics", "billing", "admin"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 3
+      outputs: [completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 1
+        processing_count: 1
+        with_eob: true
+      outputs: [approved_claim_ids, denied_claim_ids, total_patient_responsibility]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+    denied_claim_ids: "{output.denied_claim_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'billing'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+        or all(c.patient_responsibility <= 200
+               for c in state.claims
+               if c.id in {target.approved_claim_ids})
+      desc: Agent messaged billing if responsibility exceeds $200 or correctly took no action
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+        or all(c.patient_responsibility <= 200
+               for c in state.claims
+               if c.id in {target.approved_claim_ids})
+      desc: Agent took appropriate action based on the threshold
+    - expr: >-
+        len(state.claims) >= 3
+      desc: All claims still exist in state (no deletions)
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'clinical'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent did not misroute billing query as clinical message
+      penalty: 0.15

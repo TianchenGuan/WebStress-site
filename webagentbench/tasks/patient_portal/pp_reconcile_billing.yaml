@@ -1,0 +1,104 @@
+task_id: pp_reconcile_billing
+env_id: patient_portal
+title: Reconcile Claims to Appointments
+instruction_template: >-
+  Match each insurance claim to its corresponding appointment. Identify any
+  completed appointments from the last 90 days that do not have a corresponding
+  claim. Message the billing department about the missing claims using the
+  billing message category.
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 20
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+start_path: /billing
+
+seed:
+  distractors: 12
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "orthopedics", "endocrinology", "billing", "admin"]
+        must_include: ["pcp", "billing"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 4
+        cancelled_count: 1
+      outputs: [upcoming_ids, completed_ids, cancelled_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 1
+        processing_count: 1
+        with_eob: true
+      outputs: [approved_claim_ids, denied_claim_ids, processing_claim_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [all_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    completed_ids: "{output.completed_ids}"
+    cancelled_ids: "{output.cancelled_ids}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+    denied_claim_ids: "{output.denied_claim_ids}"
+    processing_claim_ids: "{output.processing_claim_ids}"
+    all_msg_ids: "{output.all_msg_ids}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category == 'billing'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Agent sent a billing-category message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and state.get_provider(m.provider_id) is not None
+            and state.get_provider(m.provider_id).specialty == 'billing'
+            and m.id not in {target.all_msg_ids}
+            for m in state.messages)
+      desc: Message was routed to billing department
+    - expr: >-
+        all(c.status in ('submitted', 'processing', 'approved', 'denied', 'appealed')
+            for c in state.claims)
+      desc: All existing claims retain valid statuses
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in {target.all_msg_ids}]) >= 1
+      desc: At least one new message was sent about missing claims
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.category == 'clinical'
+                and m.id not in {target.all_msg_ids}
+                for m in state.messages)
+      desc: Agent did not misroute billing query as clinical message
+      penalty: 0.20
+    - expr: >-
+        not any(c.status == 'appealed'
+                and c.id in {target.approved_claim_ids}
+                for c in state.claims)
+      desc: Agent did not appeal approved claims while investigating
+      penalty: 0.25

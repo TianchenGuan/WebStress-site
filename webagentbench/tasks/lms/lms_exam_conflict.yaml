@@ -1,0 +1,98 @@
+task_id: lms_exam_conflict
+env_id: lms
+title: Cross-Course Exam Conflict Resolution
+instruction_template: >-
+  Check the calendar for upcoming exam dates. You suspect there may be a
+  scheduling conflict between two of your courses. Review the exam dates for
+  all your enrolled courses, identify any exams scheduled on the same day,
+  and then check each course's syllabus and announcements for any rescheduling
+  or conflict resolution policies. Send a message to the instructor of the
+  course with the later-scheduled exam ({target.instructor_name}) explaining
+  the conflict, listing both exam dates and course codes, and requesting
+  accommodation.
+difficulty: expert
+time_limit_seconds: 300
+expected_steps: 18
+primary_primitives:
+  - state_tracking
+  - exploration
+  - planning
+start_path: /calendar
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "PHYS201"]
+      outputs:
+        - course_ids
+        - course_codes
+        - instructor_name
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+        - next_exam_event_id
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 1
+      outputs:
+        - announcement_ids
+  targets:
+    instructor_name: '{output.instructor_name}'
+    course_codes: '{output.course_codes}'
+    next_exam_event_id: '{output.next_exam_event_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent at least one message
+    - expr: >-
+        any('{target.instructor_name}' in m.get('to', '') or
+            '{target.instructor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to an instructor
+    - expr: >-
+        any('exam' in m.get('body', '').lower() or 'final' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message references exams
+    - expr: >-
+        any('conflict' in m.get('body', '').lower() or 'schedule' in m.get('body', '').lower()
+            or 'reschedule' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses the scheduling conflict
+    - expr: >-
+        any('accommodat' in m.get('body', '').lower() or 'request' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message requests accommodation
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped to avoid the conflict
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.15

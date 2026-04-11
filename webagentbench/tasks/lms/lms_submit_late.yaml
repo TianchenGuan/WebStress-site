@@ -1,0 +1,80 @@
+task_id: lms_submit_late
+env_id: lms
+title: Submit Late Assignment and Calculate Actual Score
+instruction_template: >-
+  Submit the late assignment "{target.assignment_title}" for {target.course_code}.
+  Upload a file named "{target.file_name}". After submitting, send a message to
+  your instructor with the expected score after the late penalty is applied.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+        late_count: 0
+        missing_count: 2
+        target_assignment_status: "not_submitted"
+      outputs:
+        - assignment_ids
+        - target_assignment_id
+        - target_assignment_title
+        - target_course_id
+        - target_course_code
+        - decoy_assignment_id
+        - file_name
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+  targets:
+    assignment_title: '{output.target_assignment_title}'
+    course_code: '{output.target_course_code}'
+    target_assignment_id: '{output.target_assignment_id}'
+    target_course_id: '{output.target_course_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
+    file_name: '{output.file_name}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.id == '{target.target_assignment_id}'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Target assignment was submitted
+    - expr: >-
+        state.get_assignment('{target.target_assignment_id}') is not None
+        and state.get_assignment('{target.target_assignment_id}').file_name == '{target.file_name}'
+      desc: Correct file name attached to submission
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message to instructor about the penalty
+  negative_checks:
+    - expr: >-
+        state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status == 'not_submitted'
+      desc: Decoy assignment was not submitted
+      penalty: 0.3

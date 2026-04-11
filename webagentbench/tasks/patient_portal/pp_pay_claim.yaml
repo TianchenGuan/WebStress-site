@@ -1,0 +1,74 @@
+task_id: pp_pay_claim
+env_id: patient_portal
+title: Pay Outstanding Balance
+instruction_template: >-
+  Pay the outstanding balance on your most recent approved insurance claim.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /billing
+
+seed:
+  distractors: 6
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "dermatology", "billing", "admin"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 3
+      outputs: [completed_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 2
+        denied_count: 1
+        processing_count: 1
+        with_eob: true
+      outputs: [approved_claim_ids, denied_claim_ids, total_patient_responsibility]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    approved_claim_ids: "{output.approved_claim_ids}"
+    denied_claim_ids: "{output.denied_claim_ids}"
+    total_patient_responsibility: "{output.total_patient_responsibility}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(c.id in {target.approved_claim_ids}
+            and c.patient_responsibility == 0
+            for c in state.claims)
+      desc: At least one approved claim was paid (responsibility reduced to 0)
+    - expr: >-
+        any(c.status == 'approved'
+            and c.id in {target.approved_claim_ids}
+            for c in state.claims)
+      desc: The paid claim retains approved status
+    - expr: >-
+        len([c for c in state.claims
+             if c.id in {target.approved_claim_ids}
+             and c.patient_responsibility == 0]) >= 1
+      desc: Payment was applied to an approved claim
+  negative_checks:
+    - expr: >-
+        not any(c.status == 'appealed'
+                and c.id in {target.denied_claim_ids}
+                for c in state.claims)
+      desc: Agent did not appeal a denied claim instead of paying
+      penalty: 0.20

@@ -1,0 +1,110 @@
+task_id: pp_multi_referral_chain
+env_id: patient_portal
+title: Multi-Referral Chain Management
+instruction_template: >-
+  Manage a referral chain: your PCP referred you to a cardiologist, and the cardiologist
+  will then refer you to a cardiac surgeon. Complete the following in order:
+  1) Verify the cardiology referral is approved and pre-authorization is in place,
+  2) Schedule the cardiologist appointment,
+  3) After the cardiologist visit is scheduled, verify the cardiac surgery referral
+  and pre-authorization,
+  4) Schedule the cardiac surgeon appointment after the cardiologist appointment date.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 40
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Coronary Artery Disease"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "cardiology", "orthopedics", "neurology", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+        with_prior_auth: true
+      outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    prior_auth_ref_id: "{output.prior_auth_ref_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        (state.get_referral('{target.approved_ref_ids.0}') is not None
+         and state.get_referral('{target.approved_ref_ids.0}').status == 'approved')
+      desc: First referral (cardiology) is verified as approved
+    - expr: >-
+        any(a.provider_id in {target.cardio_provider_ids}
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: Cardiologist appointment was scheduled
+    - expr: >-
+        (state.get_referral('{target.prior_auth_ref_id}') is not None
+         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
+      desc: Second referral pre-authorization is verified
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 2
+      desc: At least two new appointments were scheduled
+    - expr: >-
+        all(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status == 'approved'
+          for rid in {target.approved_ref_ids}
+        )
+      desc: All approved referrals remain in approved status
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2
+    - expr: >-
+        not any(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status == 'denied'
+          for rid in {target.approved_ref_ids}
+        )
+      desc: No approved referrals were changed to denied
+      penalty: 0.3

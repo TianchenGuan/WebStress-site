@@ -1,0 +1,92 @@
+task_id: lms_gpa_impact_analysis
+env_id: lms
+title: GPA Impact Analysis Across Courses
+instruction_template: >-
+  Analyze how your final grades in each of your current courses would affect
+  your cumulative GPA. For each course, determine your current weighted score,
+  the letter grade that corresponds to, and what your cumulative GPA would be
+  if that were your final grade. Send a summary message to your advisor
+  ({target.advisor_name}) listing each course code, current weighted score,
+  projected letter grade, and resulting cumulative GPA.
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 25
+primary_primitives:
+  - state_tracking
+  - verification
+  - planning
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params:
+        gpa: "3.15"
+      outputs:
+        - student_id
+        - student_name
+        - gpa
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.6
+        late_count: 1
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_ids: '{output.course_ids}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent at least one message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Message mentions CS101
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Message mentions MATH201
+    - expr: >-
+        any('ENG102' in m.get('body', '') for m in state.sent_messages)
+      desc: Message mentions ENG102
+    - expr: >-
+        any('GPA' in m.get('body', '').upper() or 'gpa' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses GPA
+  negative_checks:
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during analysis
+      penalty: 0.3

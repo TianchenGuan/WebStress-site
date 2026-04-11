@@ -1,0 +1,117 @@
+task_id: pp_care_gap_analysis
+env_id: patient_portal
+title: Care Gap Analysis
+instruction_template: >-
+  Cross-reference your conditions, medications, and lab results to identify care gaps.
+  Check for: 1) conditions without a recent specialist visit (within 6 months),
+  2) medications that require lab monitoring but have no recent labs (e.g., Warfarin
+  needs INR, Metformin needs kidney function), 3) abnormal lab results without
+  follow-up messages or appointments. Compile all findings into a single message to
+  your PCP ({target.pcp_name}).
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 35
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - exploration
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypertension", "Atrial Fibrillation"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "neurology", "billing"]
+        must_include: ["pcp", "endocrinology", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        interaction_pair: true
+      outputs: [active_rx_ids, interacting_medications]
+    - use: lab_results_panel
+      params:
+        resulted_count: 4
+        abnormal_count: 2
+        pending_count: 1
+      outputs: [resulted_lab_ids, abnormal_lab_ids, pending_lab_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 3
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    conditions_list: "{output.conditions_list}"
+    active_rx_ids: "{output.active_rx_ids}"
+    abnormal_lab_ids: "{output.abnormal_lab_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent a message to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('gap' in m.body.lower() or 'missing' in m.body.lower()
+                 or 'overdue' in m.body.lower() or 'no recent' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message identifies care gaps
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('specialist' in m.body.lower() or 'visit' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references specialist visit gaps
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('lab' in m.body.lower() or 'monitor' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references lab monitoring gaps
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('abnormal' in m.body.lower() or 'follow-up' in m.body.lower()
+                 or 'followup' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references abnormal lab follow-up gaps
+  negative_checks:
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.provider_id == '{target.pcp_id}'
+             and m.id not in state._initial_snapshot.get('messages', {})]) <= 1
+      desc: Agent sent a single consolidated message not multiple messages
+      penalty: 0.2
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Agent did not modify any prescriptions
+      penalty: 0.25

@@ -1,0 +1,79 @@
+task_id: pp_find_telehealth_cardiologist
+env_id: patient_portal
+title: Find and Schedule Telehealth Cardiologist
+instruction_template: >-
+  Find the next available telehealth appointment with a cardiologist and
+  schedule it. Use your existing approved referral for cardiology.
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 10
+primary_primitives:
+  - grounding
+  - planning
+start_path: /appointments
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Heart palpitations"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "dermatology", "endocrinology", "orthopedics", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+        with_prior_auth: false
+      outputs: [approved_ref_ids, pending_ref_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 1
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    providers_by_specialty: "{output.providers_by_specialty}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.type == 'telehealth'
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: A new telehealth appointment was scheduled
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            and state.get_provider(a.provider_id) is not None
+            and state.get_provider(a.provider_id).specialty == 'cardiology'
+            for a in state.appointments)
+      desc: The new appointment is with a cardiologist
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.type == 'telehealth'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new telehealth appointment exists
+  negative_checks:
+    - expr: >-
+        not any(a.type == 'in-person'
+                and a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                for a in state.appointments)
+      desc: Agent did not schedule an in-person appointment instead of telehealth
+      penalty: 0.20

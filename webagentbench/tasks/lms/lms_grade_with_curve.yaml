@@ -1,0 +1,89 @@
+task_id: lms_grade_with_curve
+env_id: lms
+title: Grade Calculation with Instructor Curve
+instruction_template: >-
+  Your instructor for {target.course_code} announced a 5-point curve on the
+  midterm exam. Find your midterm exam score, add the 5-point curve, then
+  recalculate your overall weighted score for the course with the curved
+  midterm. Send a message to the instructor ({target.instructor_name})
+  confirming your original midterm score, the curved score, and your
+  recalculated overall weighted grade.
+difficulty: expert
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_codes
+        - course_code
+        - instructor_name
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.6
+      outputs:
+        - assignment_ids
+        - exam_assignment_id
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    instructor_name: '{output.instructor_name}'
+    exam_assignment_id: '{output.exam_assignment_id}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent at least one message
+    - expr: >-
+        any('{target.instructor_name}' in m.get('to', '') or
+            '{target.instructor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to instructor
+    - expr: >-
+        any('curve' in m.get('body', '').lower() or 'curved' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message mentions the curve
+    - expr: >-
+        any('midterm' in m.get('body', '').lower() or 'exam' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message references the midterm exam
+    - expr: >-
+        any('weighted' in m.get('body', '').lower() or 'overall' in m.get('body', '').lower()
+            or 'grade' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message includes recalculated grade
+  negative_checks:
+    - expr: len(state.sent_messages) <= 2
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

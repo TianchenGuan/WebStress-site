@@ -1,0 +1,72 @@
+task_id: lms_study_around_exams
+env_id: lms
+title: Review Exam Dates and Plan Study Schedule
+instruction_template: >-
+  Check the calendar and find all upcoming exam dates across your courses.
+  Send a message to your advisor listing each exam with its course code,
+  date, and your current grade in that course so you can plan your study
+  schedule.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 8
+primary_primitives:
+  - state_tracking
+  - planning
+start_path: /calendar
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+        - next_exam_event_id
+  targets:
+    next_exam_event_id: '{output.next_exam_event_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a study planning message to advisor
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+        or any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Message mentions at least one course code
+    - expr: >-
+        any('exam' in m.get('body', '').lower() or 'final' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message mentions exams or finals
+  negative_checks:
+    - expr: len(state.sent_messages) <= 3
+      desc: Student did not send excessive messages
+      penalty: 0.1

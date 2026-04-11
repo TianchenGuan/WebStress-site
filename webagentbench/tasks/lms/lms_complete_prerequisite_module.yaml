@@ -1,0 +1,75 @@
+task_id: lms_complete_prerequisite_module
+env_id: lms
+title: Complete Prerequisite Module to Unlock Next
+instruction_template: >-
+  In {target.course_code}, complete module "{target.module_title}" so that the
+  next module in the sequence becomes unlocked. Make sure all content items in
+  the module are completed before marking it done.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - planning
+  - state_tracking
+start_path: /courses
+
+seed:
+  distractors: 0
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: linear
+        completed_count: 1
+      outputs:
+        - module_ids
+        - next_available_module_id
+        - first_locked_module_id
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+    next_available_module_id: '{output.next_available_module_id}'
+    first_locked_module_id: '{output.first_locked_module_id}'
+    module_title: 'Module 2'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_module('{target.next_available_module_id}') is not None
+        and state.get_module('{target.next_available_module_id}').status == 'completed'
+      desc: Target module is marked completed
+    - expr: >-
+        all(item.completed
+            for item in state.get_module('{target.next_available_module_id}').content_items)
+      desc: All content items in the module are completed
+    - expr: >-
+        state.get_module('{target.first_locked_module_id}') is not None
+        and state.is_module_unlocked('{target.first_locked_module_id}')
+      desc: The next module in the chain is now unlocked
+  negative_checks:
+    - expr: >-
+        not any(m.status == 'completed'
+                and m.id not in ['{target.next_available_module_id}']
+                and m.position > 0
+                for m in state.modules
+                if m.course_id == '{target.target_course_id}'
+                and m.id != '{target.next_available_module_id}')
+      desc: No other locked modules were force-completed
+      penalty: 0.25

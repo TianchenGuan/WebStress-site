@@ -1,0 +1,91 @@
+task_id: lms_academic_probation_recovery
+env_id: lms
+title: Academic Probation Recovery Plan
+instruction_template: >-
+  You are currently on academic probation with a GPA of {target.gpa}. You
+  need to raise your GPA above 2.0 by end of semester. Review all your
+  courses, determine the minimum letter grade needed in each to bring your
+  cumulative GPA above 2.0, and identify which courses are most critical
+  (highest credit weight). Send a recovery plan to your advisor
+  ({target.advisor_name}) listing: each course code, credits, current
+  weighted score, target letter grade needed, and whether achieving it is
+  feasible based on remaining assignments.
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 25
+primary_primitives:
+  - state_tracking
+  - verification
+  - planning
+start_path: /dashboard
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params:
+        gpa: "1.85"
+        enrollment_status: "probation"
+      outputs:
+        - student_id
+        - advisor_name
+        - gpa
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.5
+        late_count: 1
+        missing_count: 1
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a recovery plan message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('2.0' in m.get('body', '') or 'probation' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message references GPA threshold or probation status
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Plan includes CS101
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Plan includes MATH201
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped (would reduce credit hours)
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 3
+      desc: Agent did not send excessive messages
+      penalty: 0.15

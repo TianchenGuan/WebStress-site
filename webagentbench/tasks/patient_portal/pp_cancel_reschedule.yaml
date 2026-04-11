@@ -1,0 +1,69 @@
+task_id: pp_cancel_reschedule
+env_id: patient_portal
+title: Reschedule Avoiding Conflict
+instruction_template: >-
+  Cancel your dermatology appointment and reschedule it to a date that does not
+  conflict with any of your other existing appointments.
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 10
+primary_primitives:
+  - grounding
+  - planning
+start_path: /appointments
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Eczema"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 5
+        specialties: ["pcp", "cardiology", "dermatology", "orthopedics", "billing"]
+        must_include: ["pcp", "dermatology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 3
+        completed_count: 2
+        include_specialist: true
+        conflict_pair: false
+      outputs: [upcoming_ids, specialist_apt_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+    specialist_apt_id: "{output.specialist_apt_id}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.status == 'cancelled'
+            and a.id in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: The original dermatology appointment was cancelled
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: A new appointment was scheduled as a replacement
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one new scheduled appointment exists
+  negative_checks:
+    - expr: >-
+        not any(a.status == 'cancelled'
+                and a.id not in {target.upcoming_ids}
+                for a in state.appointments)
+      desc: Agent did not cancel any newly created appointments
+      penalty: 0.15

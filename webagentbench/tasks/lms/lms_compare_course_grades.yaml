@@ -1,0 +1,66 @@
+task_id: lms_compare_course_grades
+env_id: lms
+title: Compare Grades Across Two Courses
+instruction_template: >-
+  Compare your current weighted grades between {target.course_code_a} and
+  {target.course_code_b}. Send a message to your advisor identifying which
+  course has the lower grade and by how many percentage points.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101", "MATH201"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 8
+        graded_fraction: 0.6
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+  targets:
+    course_code_a: 'CS101'
+    course_code_b: 'MATH201'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message to advisor
+    - expr: >-
+        state.get_course_by_code('CS101') is not None
+        and state.weighted_score_for_course(state.get_course_by_code('CS101').id) is not None
+      desc: CS101 has graded assignments for comparison
+    - expr: >-
+        state.get_course_by_code('MATH201') is not None
+        and state.weighted_score_for_course(state.get_course_by_code('MATH201').id) is not None
+      desc: MATH201 has graded assignments for comparison
+  negative_checks:
+    - expr: len(state.sent_messages) <= 2
+      desc: Student did not send excessive messages
+      penalty: 0.1

@@ -1,0 +1,84 @@
+task_id: lms_drop_lowest_letter_change
+env_id: lms
+title: Determine If Dropping Lowest Quiz Changes Letter Grade
+instruction_template: >-
+  In {target.course_code}, the syllabus allows dropping the lowest quiz score.
+  Determine whether applying the drop-lowest policy changes your letter grade
+  (A >= 90, B >= 80, C >= 70, D >= 60). Compute your weighted grade both with
+  and without the drop, and send a message to your advisor stating whether
+  the letter grade changes and what the two scores are.
+difficulty: hard
+time_limit_seconds: 240
+expected_steps: 12
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 3
+        must_include: ["CS101"]
+      outputs:
+        - course_ids
+        - course_code
+        - target_course_id
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 8
+        graded_fraction: 0.7
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - dropped_grade_ids
+  targets:
+    course_code: '{output.course_code}'
+    target_course_id: '{output.target_course_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a message to advisor
+    - expr: >-
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Weighted score is computable
+    - expr: >-
+        state.category_score('{target.target_course_id}', 'quizzes') is not None
+        or state.category_score('{target.target_course_id}', 'homework') is not None
+      desc: At least one droppable category has scores
+    - expr: >-
+        any('grade' in m.get('body', '').lower()
+            or 'letter' in m.get('body', '').lower()
+            or any(letter in m.get('body', '')
+                   for letter in ['A', 'B', 'C', 'D', 'F'])
+            for m in state.sent_messages)
+      desc: Message discusses letter grades
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during analysis
+      penalty: 0.3
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.score is None
+                for a in state.assignments
+                if a.course_id == '{target.target_course_id}')
+      desc: No new submissions were created during analysis
+      penalty: 0.2

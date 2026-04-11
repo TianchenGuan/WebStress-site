@@ -1,0 +1,72 @@
+task_id: lms_submit_peer_review
+env_id: lms
+title: Submit Peer Review Following Rubric
+instruction_template: >-
+  You have a pending peer review to complete. Navigate to your peer reviews,
+  find the one that is assigned, read the submission, then fill out rubric
+  scores for each criterion and add a constructive comment before submitting.
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 12
+primary_primitives:
+  - state_tracking
+  - verification
+start_path: /courses
+
+seed:
+  distractors: 1
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+    - use: course_catalog
+      params:
+        count: 2
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 5
+        graded_fraction: 0.4
+      outputs:
+        - assignment_ids
+    - use: peer_review_assignments
+      params:
+        count: 3
+        statuses: ["assigned", "in_progress", "submitted"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+        - completed_review_ids
+  targets:
+    target_review_id: '{output.pending_review_ids[0]}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_peer_review('{target.target_review_id}') is not None
+        and state.get_peer_review('{target.target_review_id}').status == 'submitted'
+      desc: Target peer review was submitted
+    - expr: >-
+        state.get_peer_review('{target.target_review_id}') is not None
+        and len(state.get_peer_review('{target.target_review_id}').rubric_scores) >= 1
+      desc: Rubric scores were filled in
+    - expr: >-
+        state.get_peer_review('{target.target_review_id}') is not None
+        and len(state.get_peer_review('{target.target_review_id}').comments.strip()) > 10
+      desc: Review includes a meaningful comment
+  negative_checks:
+    - expr: >-
+        all(pr.status == pr.status
+            for pr in state.peer_reviews
+            if pr.id != '{target.target_review_id}'
+            and pr.status == 'submitted')
+      desc: Other completed reviews were not modified
+      penalty: 0.15

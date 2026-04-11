@@ -1,0 +1,112 @@
+task_id: pp_post_hospitalization
+env_id: patient_portal
+title: Post-Hospitalization Follow-Up
+instruction_template: >-
+  You were recently discharged from the hospital. Complete the following post-discharge tasks:
+  1) Schedule a PCP follow-up appointment within 7 days from today,
+  2) Review the discharge summary message in your inbox and compare the medication list
+  against your current active prescriptions to identify any discrepancies,
+  3) If the discharge summary mentions any specialist referrals, message your PCP to
+  request those referrals.
+difficulty: expert
+time_limit_seconds: 480
+expected_steps: 35
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - backtracking
+  - patience
+start_path: /
+
+seed:
+  distractors: 8
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "orthopedics", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        expired_count: 1
+      outputs: [active_rx_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 3
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 2
+        categories: ["clinical"]
+      outputs: [thread_ids, unread_msg_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    active_rx_ids: "{output.active_rx_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.provider_id == '{target.pcp_id}'
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: PCP follow-up appointment was scheduled
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('discharge' in m.body.lower() or 'medication' in m.body.lower()
+                 or 'discrepan' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged PCP about discharge medication discrepancies or referrals
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('referral' in m.body.lower() or 'specialist' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent requested specialist referrals from PCP
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: Active prescriptions were not modified without authorization
+    - expr: >-
+        len([m for m in state.messages
+             if m.from_type == 'patient'
+             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
+      desc: Agent sent at least one message to PCP
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != '{target.pcp_id}'
+                and m.category == 'clinical'
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not send clinical messages to non-PCP providers
+      penalty: 0.2
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2

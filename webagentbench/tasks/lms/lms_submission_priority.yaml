@@ -1,0 +1,77 @@
+task_id: lms_submission_priority
+env_id: lms
+title: Plan Submission Order by Deadline Urgency
+instruction_template: >-
+  You have multiple assignments due soon across your courses. Review all
+  upcoming deadlines within the next 7 days, rank them by urgency (nearest
+  deadline first), and send a message to your advisor with a prioritized
+  submission plan listing each assignment, its course, and due date.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 15
+primary_primitives:
+  - planning
+  - state_tracking
+start_path: /
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102"]
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.3
+        missing_count: 0
+      outputs:
+        - assignment_ids
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+  targets: {}
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Student sent a prioritization plan message
+    - expr: >-
+        len(state.upcoming_deadlines(7)) >= 1
+      desc: Upcoming deadlines exist within 7 days (seed validation)
+    - expr: >-
+        any(any(a.title in m.get('body', '')
+                for a in state.upcoming_deadlines(7))
+            for m in state.sent_messages
+            if m.get('body'))
+      desc: Message mentions at least one upcoming assignment title
+    - expr: >-
+        any('CS101' in m.get('body', '')
+            or 'MATH201' in m.get('body', '')
+            or 'ENG102' in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message references course codes
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during planning
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 3
+      desc: Student did not send excessive messages
+      penalty: 0.1
