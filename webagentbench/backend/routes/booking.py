@@ -329,8 +329,6 @@ async def create_session(
 
     resp: dict[str, Any] = {
         "session_id": session_id,
-        "task_id": task_id,
-        "seed": actual_seed,
         "start_path": task.start_path or "/",
         "title": task.title,
         "instruction": instruction,
@@ -1207,7 +1205,6 @@ async def apply_wallet_credit(
 @router.post("/evaluate")
 async def evaluate(
     body: EvaluateRequest,
-    request: Request,
     sm: SessionManager = Depends(get_session_manager),
 ):
     session_id = body.session_id

@@ -393,7 +393,6 @@ def list_variants() -> list[dict[str, Any]]:
 @router.post("/evaluate")
 def evaluate_session(
     body: EvaluateRequest,
-    request: Request,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     try:

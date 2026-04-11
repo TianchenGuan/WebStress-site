@@ -284,8 +284,6 @@ def create_session(body: SessionCreateRequest, request: Request = None, session_
     )
     resp: dict[str, Any] = {
         "session_id": session_id,
-        "task_id": body.task_id,
-        "seed": actual_seed,
         "start_path": task.start_path or "/",
         "title": task.title,
         "instruction": instruction,
@@ -346,7 +344,6 @@ def destroy_session(session_id: str, session_manager: SessionManager = Depends(g
 @router.post("/evaluate")
 def evaluate_session(
     body: EvaluateRequest,
-    request: Request,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     try:

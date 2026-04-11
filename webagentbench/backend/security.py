@@ -82,7 +82,7 @@ def build_public_session_summary(
 ) -> dict[str, Any]:
     public = {
         key: summary[key]
-        for key in ("session_id", "env_id", "created_at", "updated_at", "audit_entries", "degradation")
+        for key in ("session_id", "env_id", "created_at", "updated_at", "audit_entries")
         if key in summary
     }
     public["title"] = title
