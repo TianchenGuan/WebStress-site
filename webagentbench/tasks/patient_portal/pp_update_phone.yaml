@@ -1,0 +1,52 @@
+task_id: pp_update_phone
+env_id: patient_portal
+title: Update Phone Number
+instruction_template: "Update your phone number to {target.new_phone}."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 4
+primary_primitives:
+  - grounding
+start_path: /profile
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id]
+    - use: provider_directory
+      params:
+        count: 3
+        specialties: ["pcp"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+  targets:
+    new_phone: "(555) 867-5309"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "state.patient.phone == '(555) 867-5309'"
+      desc: Phone number was updated to the target value
+    - expr: >-
+        state.patient.phone != state._initial_snapshot.get('patient', {}).get('phone', '')
+        if state._initial_snapshot else True
+      desc: Phone number was changed from initial value
+  negative_checks:
+    - expr: >-
+        state.patient.email == state._initial_snapshot.get('patient', {}).get('email', state.patient.email)
+        if state._initial_snapshot else True
+      desc: Email was not modified
+      penalty: 0.2
+    - expr: >-
+        state.patient.emergency_contact.phone == state._initial_snapshot.get('patient', {}).get('emergency_contact', {}).get('phone', state.patient.emergency_contact.phone)
+        if state._initial_snapshot else True
+      desc: Emergency contact phone was not modified
+      penalty: 0.2

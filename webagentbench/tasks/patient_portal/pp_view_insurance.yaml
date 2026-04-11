@@ -1,0 +1,48 @@
+task_id: pp_view_insurance
+env_id: patient_portal
+title: View Insurance Card Details
+instruction_template: "Find your insurance member ID and group number and report them."
+difficulty: easy
+time_limit_seconds: 90
+expected_steps: 3
+primary_primitives:
+  - grounding
+start_path: /profile
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, member_id, insurance_plan_name]
+    - use: provider_directory
+      params:
+        count: 3
+        specialties: ["pcp"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+  targets:
+    member_id: "{output.member_id}"
+    plan_name: "{output.insurance_plan_name}"
+
+eval:
+  source: benchmark_state
+  checks:
+    - expr: >-
+        '{target.member_id}' in str(state.get('agent_output', ''))
+      desc: Agent reported the correct member ID
+    - expr: >-
+        state.get('completed', False)
+      desc: Agent indicated task completion
+  negative_checks:
+    - expr: >-
+        len([a for a in state.get('appointments_created', [])]) == 0
+        if 'appointments_created' in state else True
+      desc: Agent did not create any appointments for an information-only task
+      penalty: 0.15

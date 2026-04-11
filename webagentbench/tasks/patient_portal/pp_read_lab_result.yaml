@@ -1,0 +1,56 @@
+task_id: pp_read_lab_result
+env_id: patient_portal
+title: Check Lab Result and Message PCP
+instruction_template: "Check your recent LDL Cholesterol lab result. If the value is above 130 mg/dL, send a message to your PCP mentioning the specific value. If it is 130 or below, no action is needed."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+  - grounding
+  - verification
+start_path: /labs
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["High Cholesterol"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: lab_results_panel
+      params:
+        resulted_count: 3
+        abnormal_count: 1
+        trend_test: "Lipid Panel"
+      outputs: [resulted_lab_ids, abnormal_lab_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient' and m.provider_id == '{target.pcp_id}'
+            and 'LDL' in m.body
+            for m in state.messages)
+      desc: Agent messaged PCP if and only if LDL was above threshold
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != '{target.pcp_id}'
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Agent did not send messages to non-PCP providers
+      penalty: 0.2

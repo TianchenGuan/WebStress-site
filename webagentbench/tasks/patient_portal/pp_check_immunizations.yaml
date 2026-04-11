@@ -1,0 +1,59 @@
+task_id: pp_check_immunizations
+env_id: patient_portal
+title: Check Immunizations and Schedule
+instruction_template: "Check which vaccinations are due and schedule an appointment for the first one that is due."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+  - grounding
+  - planning
+start_path: /profile
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: []
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 1
+      outputs: [upcoming_ids]
+    - use: immunization_record
+      params:
+        completed_count: 3
+        due_count: 1
+      outputs: [due_vaccine_names]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: A new appointment was scheduled
+  negative_checks:
+    - expr: >-
+        sum(1 for a in state.appointments
+            if a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}) <= 1
+      desc: Agent did not schedule more than one new appointment
+      penalty: 0.2

@@ -1,0 +1,50 @@
+task_id: pp_update_default_pharmacy
+env_id: patient_portal
+title: Update Default Pharmacy
+instruction_template: "Change your default pharmacy to {target.pharmacy_name}."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 4
+primary_primitives:
+  - grounding
+start_path: /profile
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id]
+    - use: provider_directory
+      params:
+        count: 3
+        specialties: ["pcp", "cardiology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 3
+      outputs: [pharmacy_ids, default_pharmacy_id]
+  targets:
+    target_pharmacy_id: "{output.pharmacy_ids.1}"
+    pharmacy_name: "Walgreens #09832"
+    original_default_id: "{output.default_pharmacy_id}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_pharmacy('{target.target_pharmacy_id}') is not None
+        and state.get_pharmacy('{target.target_pharmacy_id}').is_default
+      desc: Target pharmacy is now the default
+    - expr: >-
+        state.get_pharmacy('{target.original_default_id}') is None
+        or not state.get_pharmacy('{target.original_default_id}').is_default
+      desc: Previous default pharmacy is no longer default
+  negative_checks:
+    - expr: >-
+        sum(1 for p in state.pharmacies if p.is_default) == 1
+      desc: Exactly one pharmacy is set as default
+      penalty: 0.3

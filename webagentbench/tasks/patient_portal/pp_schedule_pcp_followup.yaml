@@ -1,0 +1,55 @@
+task_id: pp_schedule_pcp_followup
+env_id: patient_portal
+title: Schedule PCP Follow-Up
+instruction_template: "Schedule a follow-up appointment with your primary care physician for the next available in-person slot."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 5
+primary_primitives:
+  - grounding
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "dermatology", "billing"]
+        must_include: ["pcp"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 1
+      outputs: [upcoming_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(a.provider_id == '{target.pcp_id}' and a.status == 'scheduled'
+            and a.type == 'in-person'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: A new in-person appointment with the PCP exists
+  negative_checks:
+    - expr: >-
+        not any(a.provider_id != '{target.pcp_id}' and a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                for a in state.appointments)
+      desc: Agent did not schedule with a non-PCP provider
+      penalty: 0.25

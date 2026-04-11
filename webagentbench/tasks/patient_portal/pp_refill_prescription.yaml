@@ -1,0 +1,56 @@
+task_id: pp_refill_prescription
+env_id: patient_portal
+title: Refill a Specific Prescription
+instruction_template: "Request a refill for your {target.medication_name} prescription."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 4
+primary_primitives:
+  - grounding
+start_path: /medications
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "High Cholesterol"]
+        insurance_tier: standard
+      outputs: [pcp_id]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 3
+        zero_refill_count: 1
+      outputs: [active_rx_ids, zero_refill_rx_id]
+  targets:
+    target_rx_id: "{output.active_rx_ids.0}"
+    medication_name: "Lisinopril"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_prescription('{target.target_rx_id}') is not None
+        and state.get_prescription('{target.target_rx_id}').refills_remaining
+        < state._initial_snapshot['prescriptions']['{target.target_rx_id}']['refills_remaining']
+      desc: Refill count decremented for the target prescription
+  negative_checks:
+    - expr: >-
+        not any(
+          r.id != '{target.target_rx_id}'
+          and r.id in state._initial_snapshot.get('prescriptions', {})
+          and r.refills_remaining < state._initial_snapshot['prescriptions'][r.id]['refills_remaining']
+          for r in state.prescriptions
+        )
+      desc: Agent did not refill other prescriptions
+      penalty: 0.2

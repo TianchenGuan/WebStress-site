@@ -1,0 +1,59 @@
+task_id: pp_cancel_appointment
+env_id: patient_portal
+title: Cancel an Upcoming Appointment
+instruction_template: "Cancel your upcoming appointment with {target.provider_name} on {target.apt_date}."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 4
+primary_primitives:
+  - grounding
+start_path: /
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology", "dermatology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 1
+      outputs: [upcoming_ids, pcp_apt_id]
+  targets:
+    target_apt_id: "{output.upcoming_ids.0}"
+    provider_name: "{output.pcp_name}"
+    apt_date: "the scheduled date"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        state.get_appointment('{target.target_apt_id}') is not None
+        and state.get_appointment('{target.target_apt_id}').status == 'cancelled'
+      desc: Target appointment is cancelled
+    - expr: >-
+        state.get_appointment('{target.target_apt_id}') is not None
+      desc: Appointment record still exists (not deleted)
+  negative_checks:
+    - expr: >-
+        all(
+          a.status == state._initial_snapshot['appointments'][a.id]['status']
+          for a in state.appointments
+          if a.id != '{target.target_apt_id}'
+          and a.id in state._initial_snapshot.get('appointments', {})
+        )
+      desc: Non-target appointments were not modified
+      penalty: 0.25

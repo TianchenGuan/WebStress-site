@@ -1,0 +1,50 @@
+task_id: pp_mark_all_read
+env_id: patient_portal
+title: Mark All Unread Messages as Read
+instruction_template: "Mark all unread messages in your patient portal as read."
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 6
+primary_primitives:
+  - patience
+  - state_tracking
+start_path: /messages
+
+seed:
+  distractors: 5
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension"]
+        insurance_tier: standard
+      outputs: [pcp_id]
+    - use: provider_directory
+      params:
+        count: 4
+        specialties: ["pcp", "cardiology"]
+        must_include: ["pcp"]
+      outputs: [provider_ids]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: message_threads
+      params:
+        unread_count: 4
+        read_count: 2
+        categories: ["clinical", "billing", "scheduling"]
+      outputs: [unread_msg_ids, thread_ids]
+  targets:
+    unread_count: "{output.unread_msg_ids.__len__}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: "len(state.unread_messages()) == 0"
+      desc: All messages are marked as read
+    - expr: "len(state.messages) > 0"
+      desc: Messages still exist (not deleted)
+  negative_checks:
+    - expr: "len(state.sent_messages()) == 0"
+      desc: No messages were sent when none required
+      penalty: 0.15
