@@ -478,7 +478,6 @@ def evaluate(
         if passed:
             passed_count += 1
         check_results.append({
-            "expr": expr,
             "desc": desc,
             "passed": passed,
             "error": error,
@@ -504,7 +503,6 @@ def evaluate(
         if not passed and error is None:
             penalty_total += penalty
         neg_results.append({
-            "expr": expr,
             "desc": desc,
             "passed": passed,
             "error": error,
