@@ -23,6 +23,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from .runner import controller_headers
+
 
 # ── 1. mask_observations ──────────────────────────────────────────────
 
@@ -337,13 +339,19 @@ Respond with valid JSON:
 
 # ── 7. HTTP helper ──────────────────────────────────────────────────
 
-def _http_json(url: str, *, method: str = "GET", payload: dict | None = None) -> dict:
+def _http_json(
+    url: str,
+    *,
+    method: str = "GET",
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict:
     body = None
-    headers = {}
+    request_headers = dict(headers or {})
     if payload is not None:
         body = json.dumps(payload).encode("utf-8")
-        headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        request_headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=body, headers=request_headers, method=method)
     with urllib.request.urlopen(req, timeout=30) as resp:
         text = resp.read().decode("utf-8")
         return json.loads(text) if text else {}
@@ -405,14 +413,7 @@ async def run_episode(
     session_id = created["session_id"]
     start_path = created.get("start_path", task_def.start_path or "/")
 
-    from .task_rendering import render_template
-    instruction = (
-        created.get("instruction")
-        or render_template(
-            task_def.instruction_template or task_def.instruction or "",
-            created.get("resolved_targets", {}),
-        )
-    )
+    instruction = created["instruction"]
 
     if verbose:
         print(f"  Goal: {instruction[:120]}{'...' if len(instruction) > 120 else ''}")
@@ -705,11 +706,21 @@ async def run_episode(
         }
         eval_url = f"{bench_url}/api/env/{env_id}/evaluate"
         try:
-            evaluation = _http_json(eval_url, method="POST", payload=eval_payload)
+            evaluation = _http_json(
+                eval_url,
+                method="POST",
+                payload=eval_payload,
+                headers=controller_headers(),
+            )
         except Exception as exc:
             logger.error("Evaluate call failed: %s — retrying once", exc)
             try:
-                evaluation = _http_json(eval_url, method="POST", payload=eval_payload)
+                evaluation = _http_json(
+                    eval_url,
+                    method="POST",
+                    payload=eval_payload,
+                    headers=controller_headers(),
+                )
             except Exception as exc2:
                 logger.error("Evaluate retry also failed: %s", exc2)
                 evaluation = {

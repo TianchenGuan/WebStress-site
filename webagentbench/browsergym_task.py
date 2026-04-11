@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,19 +21,27 @@ from typing import Any, Tuple
 import playwright.sync_api
 from browsergym.core.task import AbstractBrowserTask
 
+from .runner import controller_headers
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 8080
 
 
-def _http_json(url: str, *, method: str = "GET", payload: dict | None = None) -> dict:
+def _http_json(
+    url: str,
+    *,
+    method: str = "GET",
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict:
     body = None
-    headers = {}
+    request_headers = dict(headers or {})
     if payload is not None:
         body = json.dumps(payload).encode("utf-8")
-        headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        request_headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=body, headers=request_headers, method=method)
     with urllib.request.urlopen(req) as resp:
         text = resp.read().decode("utf-8")
         return json.loads(text) if text else {}
@@ -105,10 +114,16 @@ class WebAgentBenchTask(AbstractBrowserTask):
                 self._degradation_config = DegradationConfig.from_yaml(deg_path)
 
     def _ensure_server(self) -> None:
-        from .runner import start_server, wait_for_server
+        from .runner import ensure_controller_secret, start_server, wait_for_server
         if wait_for_server(self.server_host, self.server_port, timeout=2):
+            if not os.environ.get("WEBAGENTBENCH_CONTROLLER_SECRET"):
+                raise RuntimeError(
+                    "A WebAgentBench server is already running, but WEBAGENTBENCH_CONTROLLER_SECRET "
+                    "is not set in this process. Export the same secret or use a free port."
+                )
             _assert_server_matches_local_manifest(self._bench_url, self.server_host, self.server_port)
             return
+        ensure_controller_secret()
         self._server_proc = start_server(self.server_host, self.server_port)
         if not wait_for_server(self.server_host, self.server_port):
             raise RuntimeError("WebAgentBench server failed to start")
@@ -161,13 +176,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         )
         self._session_id = created["session_id"]
         start_path = created.get("start_path", task_def.start_path or "/")
-        resolved_targets = created.get("resolved_targets", {})
-
-        from .task_rendering import render_template
-        self._instruction = (
-            created.get("instruction")
-            or render_template(task_def.instruction_template or task_def.instruction or "", resolved_targets)
-        )
+        self._instruction = created["instruction"]
 
         # Navigate to the Gmail SPA
         base_url = f"/env/{self._env_id}"
@@ -243,6 +252,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
                         "task_id": self.task_id,
                         "benchmark_state": benchmark_state,
                     },
+                    headers=controller_headers(),
                 )
                 reward = float(result.get("score", result.get("final_score", 0.0)))
                 return reward, True, "", {"evaluation": result}

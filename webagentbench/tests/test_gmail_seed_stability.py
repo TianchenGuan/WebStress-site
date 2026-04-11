@@ -68,8 +68,9 @@ def test_thread_version_conflict_instruction_uses_fixed_actor_names_without_leak
         session_manager=session_manager,
     )
 
-    assert payload["resolved_targets"]["chen_wei_name"] == "Chen Wei"
-    assert payload["resolved_targets"]["dana_okafor_name"] == "Dana Okafor"
+    state = session_manager.get(payload["session_id"])
+    assert state.resolved_targets["chen_wei_name"] == "Chen Wei"
+    assert state.resolved_targets["dana_okafor_name"] == "Dana Okafor"
     assert "Chen Wei" in payload["instruction"]
     assert "Dana Okafor" in payload["instruction"]
     assert "4.2.1" not in payload["instruction"]
@@ -101,7 +102,8 @@ def test_thread_blame_trace_uses_fixed_mariela_voss_identity() -> None:
 
     assert "Mariela Voss" in payload["instruction"]
     assert "<mariela.voss@procure.co>" in payload["instruction"]
-    assert payload["resolved_targets"]["mariela_voss_email"] == "mariela.voss@procure.co"
+    state = session_manager.get(payload["session_id"])
+    assert state.resolved_targets["mariela_voss_email"] == "mariela.voss@procure.co"
 
 
 _GMAIL_TASK_IDS = [t.task_id for t in env_tasks("gmail")]
@@ -129,13 +131,13 @@ def test_session_create_returns_rendered_task_data(task_id: str) -> None:
         session_manager=session_manager,
     )
 
+    state = session_manager.get(payload["session_id"])
     task = get_task(task_id)
     expected_instruction = render_template(
-        task.instruction_template or task.instruction or "", payload["resolved_targets"]
+        task.instruction_template or task.instruction or "", state.resolved_targets
     )
 
-    # Tasks without template variables may have empty resolved_targets
-    assert isinstance(payload["resolved_targets"], dict)
+    assert "resolved_targets" not in payload, "resolved_targets must not leak to session response"
     assert "{target." not in payload["instruction"]
     assert payload["instruction"] == expected_instruction
     assert payload["title"] == task.title
