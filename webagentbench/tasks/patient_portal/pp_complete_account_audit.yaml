@@ -1,0 +1,151 @@
+task_id: pp_complete_account_audit
+env_id: patient_portal
+title: Complete Account Audit
+instruction_template: >-
+  Audit your entire patient portal account for completeness and accuracy:
+  1) Verify your demographics (phone, email) are current,
+  2) Verify insurance information (plan name, member ID, group number) is correct,
+  3) Check all linked pharmacies are valid and a default is set,
+  4) Verify your provider list matches your active care team,
+  5) Check immunization records are up to date (no overdue vaccines),
+  6) Identify any orphaned referrals (referrals with no linked appointment) or
+  orphaned claims (claims with no linked appointment).
+  Report all discrepancies to admin/patient services via a message.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 60
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "Type 2 Diabetes"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, insurance_plan_name, member_id]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "cardiology", "endocrinology", "dermatology", "admin", "billing"]
+        must_include: ["pcp", "admin"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 3
+        include_mail_order: true
+      outputs: [pharmacy_ids, default_pharmacy_id, mail_order_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 4
+        expired_count: 2
+      outputs: [active_rx_ids]
+    - use: immunization_record
+      params:
+        completed_count: 4
+        due_count: 1
+      outputs: [due_imm_ids, due_vaccine_names]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+      outputs: [approved_ref_ids, pending_ref_ids]
+    - use: insurance_claims
+      params:
+        approved_count: 3
+        denied_count: 1
+        with_eob: true
+      outputs: [approved_claim_ids, denied_claim_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 3
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    admin_provider_ids: "{output.providers_by_specialty.admin}"
+    insurance_plan_name: "{output.insurance_plan_name}"
+    pharmacy_ids: "{output.pharmacy_ids}"
+    due_vaccine_names: "{output.due_vaccine_names}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent an audit report message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('demographic' in m.body.lower() or 'phone' in m.body.lower()
+                 or 'email' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Audit report covers demographics verification
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('insurance' in m.body.lower() or 'plan' in m.body.lower()
+                 or 'member' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Audit report covers insurance verification
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('pharmacy' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Audit report covers pharmacy verification
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('immuniz' in m.body.lower() or 'vaccin' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Audit report covers immunization status
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('referral' in m.body.lower() or 'claim' in m.body.lower()
+                 or 'orphan' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Audit report identifies orphaned referrals or claims
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled during audit
+      penalty: 0.2
+    - expr: >-
+        all(rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+            for rx in state.prescriptions
+            if rx.id in state._initial_snapshot.get('prescriptions', {}))
+      desc: No prescriptions were modified during audit
+      penalty: 0.2
+    - expr: >-
+        not any(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status != state._initial_snapshot['referrals'][rid]['status']
+          for rid in {target.approved_ref_ids}
+          if rid in state._initial_snapshot.get('referrals', {})
+        )
+      desc: Referral statuses were not changed during audit
+      penalty: 0.2

@@ -1,0 +1,108 @@
+task_id: lms_final_exam_prep_plan
+env_id: lms
+title: Final Exam Preparation Plan
+instruction_template: >-
+  Create a comprehensive final exam preparation plan. For each of your
+  courses: (1) Find the final exam date from the calendar. (2) Check the
+  exam weight in the syllabus grading policy. (3) Determine your current
+  weighted score before the final. (4) Compute the minimum final exam
+  score needed to achieve a B (80%) in the course. (5) Prioritize study
+  effort by grade impact (courses where the final has the highest weight
+  and you need the most improvement should get the most study time). Send
+  a study plan to your advisor ({target.advisor_name}) with: each course
+  code, final exam date, exam weight percentage, current grade, required
+  exam score for a B, and your recommended study priority ranking.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+  - state_tracking
+  - planning
+  - verification
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params: {}
+      outputs:
+        - student_id
+        - advisor_name
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102", "PHYS201"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.6
+      outputs:
+        - assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+        - minimum_final_score_for_b
+    - use: calendar_events
+      params:
+        include_recurring: false
+      outputs:
+        - event_ids
+        - next_exam_event_id
+  targets:
+    advisor_name: '{output.advisor_name}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+    minimum_final_score_for_b: '{output.minimum_final_score_for_b}'
+    next_exam_event_id: '{output.next_exam_event_id}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a study plan
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Plan covers CS101
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Plan covers MATH201
+    - expr: >-
+        any('final' in m.get('body', '').lower() and 'exam' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message discusses final exams
+    - expr: >-
+        any('priorit' in m.get('body', '').lower() or 'study' in m.get('body', '').lower()
+            or 'plan' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message includes study prioritization
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                and 'exam' in (a.file_name or '').lower()
+                for a in state.assignments)
+      desc: Agent did not submit files for exam prep (analysis-only task)
+      penalty: 0.1

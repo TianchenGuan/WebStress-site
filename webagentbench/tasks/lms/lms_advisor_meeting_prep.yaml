@@ -1,0 +1,133 @@
+task_id: lms_advisor_meeting_prep
+env_id: lms
+title: Academic Advisor Meeting Preparation
+instruction_template: >-
+  Prepare for an upcoming meeting with your academic advisor
+  ({target.advisor_name}). Compile a comprehensive briefing document
+  covering: (1) Your current GPA ({target.gpa}) and enrollment status.
+  (2) Per-course breakdown: course code, credits, current weighted score,
+  projected letter grade, and any concerns. (3) Outstanding items: missing
+  assignments, incomplete discussions, pending peer reviews. (4) Module
+  progress: which modules are completed vs locked across courses. (5)
+  Questions about prerequisites for courses you want to take next semester.
+  Send this briefing as a message to your advisor.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+  - state_tracking
+  - verification
+  - planning
+start_path: /dashboard
+
+seed:
+  distractors: 2
+  steps:
+    - use: student_profile
+      params:
+        gpa: "2.95"
+      outputs:
+        - student_id
+        - advisor_name
+        - gpa
+    - use: course_catalog
+      params:
+        count: 4
+        must_include: ["CS101", "MATH201", "ENG102", "PHYS201"]
+        vary_late_policies: true
+      outputs:
+        - course_ids
+        - course_codes
+    - use: enrollment_set
+      params: {}
+      outputs:
+        - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 7
+        graded_fraction: 0.5
+        late_count: 1
+        missing_count: 1
+      outputs:
+        - assignment_ids
+        - missing_assignment_ids
+    - use: grade_book
+      params: {}
+      outputs:
+        - grade_ids
+        - current_weighted_scores
+    - use: module_sequence
+      params:
+        count: 4
+        chain_type: linear
+        completed_count: 2
+      outputs:
+        - module_ids
+    - use: discussion_forums
+      params:
+        count: 2
+        posts_per: 3
+      outputs:
+        - discussion_ids
+    - use: peer_review_assignments
+      params:
+        count: 2
+        statuses: ["assigned", "submitted"]
+      outputs:
+        - review_ids
+        - pending_review_ids
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 2
+      outputs:
+        - announcement_ids
+  targets:
+    advisor_name: '{output.advisor_name}'
+    gpa: '{output.gpa}'
+    course_ids: '{output.course_ids}'
+    course_codes: '{output.course_codes}'
+    current_weighted_scores: '{output.current_weighted_scores}'
+    missing_assignment_ids: '{output.missing_assignment_ids}'
+    pending_review_ids: '{output.pending_review_ids}'
+    module_ids: '{output.module_ids}'
+
+eval:
+  source: server_state
+  checks:
+    - expr: len(state.sent_messages) >= 1
+      desc: Agent sent a briefing message
+    - expr: >-
+        any('{target.advisor_name}' in m.get('to', '') or
+            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Message addressed to advisor
+    - expr: >-
+        any('GPA' in m.get('body', '').upper() or '{target.gpa}' in m.get('body', '')
+            for m in state.sent_messages)
+      desc: Message includes GPA information
+    - expr: >-
+        any('CS101' in m.get('body', '') for m in state.sent_messages)
+      desc: Briefing covers CS101
+    - expr: >-
+        any('MATH201' in m.get('body', '') for m in state.sent_messages)
+      desc: Briefing covers MATH201
+    - expr: >-
+        any('module' in m.get('body', '').lower() or 'progress' in m.get('body', '').lower()
+            for m in state.sent_messages)
+      desc: Briefing discusses module progress
+  negative_checks:
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during prep
+      penalty: 0.3
+    - expr: len(state.sent_messages) <= 4
+      desc: Agent did not send excessive messages
+      penalty: 0.15
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                and 'meeting' in (a.file_name or '').lower()
+                for a in state.assignments)
+      desc: Agent did not submit assignment files for meeting prep
+      penalty: 0.1

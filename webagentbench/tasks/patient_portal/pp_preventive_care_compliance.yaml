@@ -1,0 +1,137 @@
+task_id: pp_preventive_care_compliance
+env_id: patient_portal
+title: Preventive Care Compliance Plan
+instruction_template: >-
+  Review your applicable screenings list and complete all that are overdue (next_due
+  date has passed). For each overdue screening:
+  1) Check if a referral is needed (specialist screenings require referrals),
+  2) Verify pre-authorization is in place if required,
+  3) Schedule pre-screening labs if the screening requires them,
+  4) Schedule the screening appointment.
+  Group same-provider visits on the same day when possible to minimize visits.
+  Do not schedule screenings that are not yet due.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 55
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Hypertension", "High Cholesterol"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, applicable_screening_names]
+    - use: provider_directory
+      params:
+        count: 7
+        specialties: ["pcp", "cardiology", "radiology", "dermatology", "endocrinology", "billing"]
+        must_include: ["pcp", "cardiology", "radiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: referral_chain
+      params:
+        approved_count: 2
+        pending_count: 1
+        with_prior_auth: true
+      outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
+    - use: lab_results_panel
+      params:
+        resulted_count: 3
+        pending_count: 1
+      outputs: [resulted_lab_ids, pending_lab_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids]
+    - use: message_threads
+      params:
+        thread_count: 2
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    applicable_screening_names: "{output.applicable_screening_names}"
+    approved_ref_ids: "{output.approved_ref_ids}"
+    prior_auth_ref_id: "{output.prior_auth_ref_id}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 1
+      desc: At least one screening appointment was scheduled
+    - expr: >-
+        all(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status == 'approved'
+          for rid in {target.approved_ref_ids}
+        )
+      desc: Referrals for specialist screenings remain approved
+    - expr: >-
+        (state.get_referral('{target.prior_auth_ref_id}') is not None
+         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
+      desc: Pre-authorization is verified for required screenings
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: New appointments were created
+    - expr: >-
+        any(a.provider_id == '{target.pcp_id}'
+            and a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+        or any(a.status == 'scheduled'
+               and a.id not in {target.upcoming_ids}
+               for a in state.appointments)
+      desc: Screening appointments were scheduled with appropriate providers
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were preserved
+  negative_checks:
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.2
+    - expr: >-
+        not any(
+          state.get_referral(rid) is not None
+          and state.get_referral(rid).status == 'denied'
+          for rid in {target.approved_ref_ids}
+        )
+      desc: Approved referrals were not changed to denied
+      penalty: 0.25
+    - expr: >-
+        not any(a.status == 'scheduled'
+                and a.id not in {target.upcoming_ids}
+                and a.pre_auth_status == 'pending'
+                for a in state.appointments)
+      desc: No appointments were scheduled with pending pre-authorization
+      penalty: 0.3
