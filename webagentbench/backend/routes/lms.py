@@ -347,7 +347,6 @@ def delete_session(
 @router.post("/evaluate")
 def evaluate_session(
     body: EvaluateRequest,
-    request: Request,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     try:
@@ -373,6 +372,31 @@ def evaluate_session(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/variants")
+def list_variants() -> list[dict[str, Any]]:
+    """List available degradation variants for the LMS environment."""
+    from pathlib import Path
+    import yaml as _yaml
+
+    variants_dir = Path(__file__).parent.parent.parent / "injector" / "variants"
+    result: list[dict[str, Any]] = []
+    if variants_dir.exists():
+        for f in sorted(variants_dir.glob("lms_*.yaml")):
+            try:
+                data = _yaml.safe_load(f.read_text())
+                result.append({
+                    "filename": f.name,
+                    "variant_id": data.get("variant_id", ""),
+                    "base_task_id": data.get("base_task_id", ""),
+                    "target_primitive": data.get("target_primitive", ""),
+                    "description": data.get("description", ""),
+                    "source": "yaml",
+                })
+            except Exception:
+                pass
+    return result
 
 
 @router.post("/trajectory")
@@ -1136,6 +1160,15 @@ def get_calendar(
 # ---------------------------------------------------------------------------
 # Messages
 # ---------------------------------------------------------------------------
+
+@router.get("/messages")
+def list_messages(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _lms_state(session_manager, session_id)
+    return {"items": list(state.sent_messages)}
+
 
 @router.post("/messages/send")
 def send_message(

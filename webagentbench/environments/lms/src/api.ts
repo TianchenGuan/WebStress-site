@@ -155,6 +155,8 @@ export function createLmsApi(request: RequestFn) {
       }).then((r) => r.items),
 
     /* Messages */
+    listMessages: () =>
+      request<{ items: Array<Record<string, string>> }>("messages").then((r) => r.items),
     sendMessage: (to: string, subject: string, body: string) =>
       request<{ message: Record<string, string>; sent: boolean }>("messages/send", {
         method: "POST",

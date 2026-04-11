@@ -18,6 +18,7 @@ import { AssignmentPage } from "./pages/Assignment";
 import { DiscussionPage } from "./pages/Discussion";
 import { GradesPage } from "./pages/Grades";
 import { CalendarPage } from "./pages/Calendar";
+import { MessagesPage } from "./pages/Messages";
 
 interface ManifestTask {
   task_id: string;
@@ -163,6 +164,7 @@ export function App() {
         <Route path="/courses/:id/discussions/:did" element={<DiscussionPage />} />
         <Route path="/courses/:id/grades" element={<GradesPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
       </Route>
     </Routes>
   );

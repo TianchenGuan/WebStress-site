@@ -86,6 +86,9 @@ export function LmsShell({ sessionId }: { sessionId: string }) {
             <Link to={preserveQueryParams("/calendar", location.search)} className="lms-topbar__link" aria-label="Calendar">
               Calendar
             </Link>
+            <Link to={preserveQueryParams("/messages", location.search)} className="lms-topbar__link" aria-label="Messages">
+              Messages
+            </Link>
           </nav>
           {student && (
             <div className="lms-topbar__user" aria-label="Current user">

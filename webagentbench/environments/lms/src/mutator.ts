@@ -467,6 +467,17 @@ route("GET", "calendar", (state, _params, _body, query) => {
 /*  Messages                                                          */
 /* ------------------------------------------------------------------ */
 
+route("GET", "messages", (state) => {
+  return {
+    state,
+    response: {
+      items: [...state.sent_messages].sort(
+        (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime(),
+      ),
+    },
+  };
+});
+
 route("POST", "messages/send", (state, _params, body) => {
   const message = {
     to: String(body?.to ?? ""),
