@@ -1,16 +1,12 @@
 task_id: lms_end_of_semester_verification
 env_id: lms
-title: End-of-Semester Grade Verification
+title: End-of-Semester Grade Verification with Resubmission
 instruction_template: >-
-  It's the end of the semester. For each of your courses, independently
-  compute your expected final weighted grade using the syllabus grading
-  policy (accounting for category weights, drop-lowest policies, and any
-  late penalties). Compare your computed grade against the weighted score
-  displayed on the grades page. If there's a discrepancy of more than 1
-  point in any course, send a message to that course's instructor noting
-  the mismatch with your computed value. Finally, send a summary to your
-  advisor ({target.advisor_name}) with each course code, your computed
-  grade, and whether it matched.
+  For each course, independently compute your expected final weighted grade.
+  Compare against the displayed score. For any course with a discrepancy of
+  more than 1 point, resubmit the most recently graded assignment in that
+  course with file "grade_audit.pdf". Mark all announcements as read across
+  all courses to confirm your review.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -27,7 +23,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 4
@@ -47,53 +42,69 @@ seed:
         late_count: 1
       outputs:
         - assignment_ids
+        - discrepant_course_ids
+        - discrepant_resubmit_assignment_ids
+        - non_discrepant_course_ids
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - dropped_grade_ids
         - current_weighted_scores
+    - use: announcements_feed
+      params:
+        count: 6
+        unread_count: 3
+      outputs:
+        - announcement_ids
+        - unread_announcement_ids
   targets:
-    advisor_name: '{output.advisor_name}'
-    course_ids: '{output.course_ids}'
+    discrepant_course_ids: '{output.discrepant_course_ids}'
+    discrepant_resubmit_assignment_ids: '{output.discrepant_resubmit_assignment_ids}'
+    non_discrepant_course_ids: '{output.non_discrepant_course_ids}'
     course_codes: '{output.course_codes}'
-    current_weighted_scores: '{output.current_weighted_scores}'
-    dropped_grade_ids: '{output.dropped_grade_ids}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Summary message addressed to advisor
+        all(
+            state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            and state.get_assignment(aid).file_name == 'grade_audit.pdf'
+            for aid in '{target.discrepant_resubmit_assignment_ids}'.split(',')
+            if aid.strip()
+        )
+      desc: Most recently graded assignments in discrepant courses were resubmitted
+    - expr: all(a.is_read for a in state.announcements)
+      desc: All announcements are marked as read
+    - expr: len(state.unread_announcements()) == 0
+      desc: No unread announcements remain
     - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Summary covers CS101
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: At least 3 enrollments remain active
     - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Summary covers MATH201
+        len(state.announcements) >= 1
+      desc: Announcements exist for review (seed validation)
     - expr: >-
-        any('ENG102' in m.get('body', '') for m in state.sent_messages)
-      desc: Summary covers ENG102
-    - expr: >-
-        any('verif' in m.get('body', '').lower() or 'match' in m.get('body', '').lower()
-            or 'discrep' in m.get('body', '').lower() or 'comput' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses verification or computation
+        len('{target.discrepant_resubmit_assignment_ids}'.split(',')) >= 1
+      desc: At least one discrepant assignment identified (seed validation)
   negative_checks:
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name == 'grade_audit.pdf'
+                and a.course_id in
+                    [cid.strip() for cid in '{target.non_discrepant_course_ids}'.split(',')]
+                for a in state.assignments)
+      desc: No grade_audit.pdf was submitted for non-discrepant courses
+      penalty: 0.25
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during verification
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 6
-      desc: Agent did not send excessive messages
-      penalty: 0.15
     - expr: >-
-        not any(a.submission_status != a.submission_status
-                for a in state.assignments)
-      desc: No assignment statuses were inadvertently changed
-      penalty: 0.1
+        len([a for a in state.assignments
+             if a.file_name == 'grade_audit.pdf'
+             and a.submission_status in ('submitted', 'late')]) <= len('{target.discrepant_resubmit_assignment_ids}'.split(','))
+      desc: No more grade_audit.pdf submissions than discrepant courses
+      penalty: 0.15

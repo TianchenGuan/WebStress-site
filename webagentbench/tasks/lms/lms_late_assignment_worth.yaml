@@ -1,11 +1,12 @@
 task_id: lms_late_assignment_worth
 env_id: lms
-title: Identify Late Assignments Still Worth Submitting
+title: Submit Only Worth-It Late Assignments
 instruction_template: >-
-  Review all your missing assignments across all courses. For each one,
-  calculate whether submitting it late would still yield a positive score
-  after the late penalty. Send a message to your advisor listing which
-  assignments are still worth submitting and which are not.
+  Review all missing assignments across all courses. For each one, check the
+  course's late policy. Submit all assignments where the late penalty would
+  still leave a positive score (not past max late days) with file
+  "late_submit.pdf". Do NOT submit assignments that are past the maximum late
+  days allowed.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 15
@@ -22,7 +23,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -31,8 +31,6 @@ seed:
       outputs:
         - course_ids
         - course_codes
-        - strictest_late_policy_course_id
-        - most_lenient_late_policy_course_id
     - use: enrollment_set
       params: {}
       outputs:
@@ -45,45 +43,51 @@ seed:
       outputs:
         - assignment_ids
         - missing_assignment_ids
+        - worth_submitting_ids
+        - not_worth_ids
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
   targets:
+    worth_submitting_ids: '{output.worth_submitting_ids}'
+    not_worth_ids: '{output.not_worth_ids}'
     missing_assignment_ids: '{output.missing_assignment_ids}'
-    strictest_course_id: '{output.strictest_late_policy_course_id}'
-    most_lenient_course_id: '{output.most_lenient_late_policy_course_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a triage message to advisor
     - expr: >-
-        len(state.missing_assignments()) >= 1
-      desc: Missing assignments exist for analysis
+        len('{target.worth_submitting_ids}'.split(',')) >= 1
+      desc: Worth-submitting assignments exist (seed validation)
     - expr: >-
-        any('worth' in m.get('body', '').lower()
-            or 'submit' in m.get('body', '').lower()
-            or 'penalty' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses submission worthiness or penalties
+        all(
+            state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            and state.get_assignment(aid).file_name == 'late_submit.pdf'
+            for aid in '{target.worth_submitting_ids}'.split(',')
+            if aid.strip()
+        )
+      desc: All worth-submitting assignments were submitted with correct file
     - expr: >-
-        any(any(state.get_assignment(a.id).title in m.get('body', '')
-                for a in state.missing_assignments()
-                if state.get_assignment(a.id) is not None)
-            for m in state.sent_messages
-            if m.get('body'))
-      desc: Message mentions at least one missing assignment by title
+        len([a for a in state.assignments
+             if a.file_name == 'late_submit.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 1
+      desc: At least one late submission was made
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
   negative_checks:
+    - expr: >-
+        not any(
+            state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            for aid in '{target.not_worth_ids}'.split(',')
+            if aid.strip()
+        )
+      desc: No past-max-late-days assignments were submitted
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during analysis
-      penalty: 0.3
-    - expr: >-
-        not any(a.submission_status == 'submitted'
-                and a.id not in [mid for mid in state.missing_assignments()]
-                for a in state.assignments
-                if a.submission_status == 'not_submitted')
-      desc: No irrelevant assignments were submitted
       penalty: 0.2

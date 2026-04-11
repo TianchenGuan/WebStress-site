@@ -7,10 +7,8 @@ instruction_template: >-
   file "recovery.pdf" (skip those past max late days). (2) Compute the
   minimum scores needed on remaining assignments to pass each course with
   a C (70%). (3) If a course is mathematically impossible to pass, drop it
-  if the drop deadline hasn't passed. (4) Compute what your GPA would be
-  after these changes. Send a comprehensive recovery plan to your advisor
-  ({target.advisor_name}) covering all courses, submitted assignments,
-  drop decisions, and projected GPA.
+  if the drop deadline hasn't passed. Then send a brief recovery plan
+  message to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
@@ -75,26 +73,26 @@ eval:
             and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: At least one recovery submission was made
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'recovery.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 1
+      desc: Recovery file submitted successfully
+    - expr: >-
+        all(a.submission_status in ('submitted', 'late', 'graded')
+            for a in state.assignments
+            if a.file_name == 'recovery.pdf')
+      desc: All recovery submissions have valid statuses
+    - expr: >-
+        len([e for e in state.enrollments
+             if e.status == 'enrolled']) >= 3
+      desc: At least 3 courses remain enrolled (did not over-drop)
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a recovery plan message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('GPA' in m.get('body', '').upper() for m in state.sent_messages)
-      desc: Message discusses GPA impact
-    - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan covers CS101
-    - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan covers MATH201
-    - expr: >-
-        any('recovery' in m.get('body', '').lower() or 'plan' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message is framed as a recovery plan
   negative_checks:
     - expr: >-
         sum(1 for e in state.enrollments if e.status == 'dropped') <= 2

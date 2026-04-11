@@ -1,11 +1,11 @@
 task_id: lms_study_around_exams
 env_id: lms
-title: Review Exam Dates and Plan Study Schedule
+title: Mark Announcements Read for Courses With Upcoming Exams
 instruction_template: >-
-  Check the calendar and find all upcoming exam dates across your courses.
-  Send a message to your advisor listing each exam with its course code,
-  date, and your current grade in that course so you can plan your study
-  schedule.
+  Check the calendar for all upcoming exam dates. Mark all course
+  announcements as read for courses that have an exam in the next 14 days,
+  so you do not miss any last-minute exam updates. Do NOT mark announcements
+  as read for courses without an upcoming exam in the next 14 days.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -21,7 +21,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -49,24 +48,46 @@ seed:
         include_recurring: false
       outputs:
         - event_ids
-        - next_exam_event_id
+        - courses_with_upcoming_exams
+        - courses_without_upcoming_exams
+    - use: announcements_feed
+      params:
+        count: 6
+        unread_count: 4
+      outputs:
+        - announcement_ids
+        - unread_announcement_ids
   targets:
-    next_exam_event_id: '{output.next_exam_event_id}'
+    courses_with_upcoming_exams: '{output.courses_with_upcoming_exams}'
+    courses_without_upcoming_exams: '{output.courses_without_upcoming_exams}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a study planning message to advisor
     - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-        or any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Message mentions at least one course code
+        len('{target.courses_with_upcoming_exams}'.split(',')) >= 1
+      desc: At least one course has an upcoming exam (seed validation)
     - expr: >-
-        any('exam' in m.get('body', '').lower() or 'final' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message mentions exams or finals
+        all(
+            all(a.is_read for a in state.announcements
+                if a.course_id == cid)
+            for cid in '{target.courses_with_upcoming_exams}'.split(',')
+            if cid.strip()
+        )
+      desc: All announcements for courses with upcoming exams are marked as read
+    - expr: >-
+        len(state.announcements) >= 1
+      desc: Announcements exist for review (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 3
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        not all(
+            all(a.is_read for a in state.announcements if a.course_id == cid)
+            for cid in '{target.courses_without_upcoming_exams}'.split(',')
+            if cid.strip()
+        )
+      desc: Not all announcements in non-exam courses were marked read (should be left unread)
+      penalty: 0.25
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.2

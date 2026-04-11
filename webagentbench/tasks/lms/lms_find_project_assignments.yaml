@@ -1,12 +1,11 @@
 task_id: lms_find_project_assignments
 env_id: lms
-title: Find All Project-Weighted Assignments and Check Grade Impact
+title: Find and Submit All Unsubmitted Project Assignments
 instruction_template: >-
-  Find all assignments categorized under "project" across your courses.
-  For each one, note its score (if graded), points possible, and which
-  course it belongs to. Calculate the project category's contribution to
-  each course's overall grade and send a message to your advisor with a
-  summary of your project performance.
+  Find all assignments categorized under "project" across your courses. For
+  any unsubmitted project assignment, submit it with file
+  "project_submission.pdf". Then mark all announcements as read to confirm
+  you have reviewed your standing.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 12
@@ -22,7 +21,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -40,44 +38,53 @@ seed:
         graded_fraction: 0.6
       outputs:
         - assignment_ids
+        - unsubmitted_project_ids
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - current_weighted_scores
-  targets: {}
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 2
+      outputs:
+        - announcement_ids
+        - unread_announcement_ids
+  targets:
+    unsubmitted_project_ids: '{output.unsubmitted_project_ids}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a project performance summary
     - expr: >-
-        any('project' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message mentions projects
+        all(
+            state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            and state.get_assignment(aid).file_name == 'project_submission.pdf'
+            for aid in '{target.unsubmitted_project_ids}'.split(',')
+            if aid.strip()
+        )
+      desc: All unsubmitted project assignments were submitted with correct file
     - expr: >-
-        any('CS101' in m.get('body', '') or 'MATH201' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message references at least one course code
+        len([a for a in state.assignments
+             if a.file_name == 'project_submission.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 1
+      desc: At least one project submission was made
+    - expr: all(a.is_read for a in state.announcements)
+      desc: All announcements are marked as read
     - expr: >-
-        (any(any(str(g.score) in m.get('body', '')
-                for g in state.grades
-                if g.weight_category == 'project' and g.score is not None)
-            for m in state.sent_messages
-            if m.get('body'))
-        or not any(g.weight_category == 'project' and g.score is not None
-                   for g in state.grades))
-      desc: Message contains project scores or no project grades exist
+        len('{target.unsubmitted_project_ids}'.split(',')) >= 1
+      desc: At least one unsubmitted project exists (seed validation)
   negative_checks:
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name == 'project_submission.pdf'
+                and a.weight_category != 'project'
+                for a in state.assignments)
+      desc: No non-project assignments were submitted with the project file name
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during analysis
-      penalty: 0.3
-    - expr: >-
-        not any(a.submission_status in ('submitted', 'late')
-                and a.score is None
-                and a.weight_category != 'project'
-                for a in state.assignments)
-      desc: No non-project assignments were submitted during analysis
       penalty: 0.2

@@ -8,10 +8,8 @@ instruction_template: >-
   letter grade you're on track for. (3) Identify which course has the most
   room for improvement relative to effort (i.e., highest credit weight
   with the most remaining high-weight assignments). Submit any easy-win
-  unsubmitted assignments with file "optimization.pdf". Then send a
-  strategy message to your advisor ({target.advisor_name}) with your
-  per-course analysis, projected letter grades, effort prioritization,
-  and expected semester GPA.
+  unsubmitted assignments with file "optimization.pdf". Then send a brief
+  strategy message to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -72,25 +70,26 @@ eval:
             and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: At least one optimization submission was made
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'optimization.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 1
+      desc: Optimization file was submitted successfully
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (none dropped)
+    - expr: >-
+        all(a.submission_status in ('submitted', 'late', 'graded')
+            for a in state.assignments
+            if a.file_name == 'optimization.pdf')
+      desc: All optimization submissions have valid statuses
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a strategy message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('GPA' in m.get('body', '').upper() for m in state.sent_messages)
-      desc: Message discusses GPA
-    - expr: >-
-        any('CS101' in m.get('body', '') and 'MATH201' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message covers multiple courses
-    - expr: >-
-        any('priorit' in m.get('body', '').lower() or 'strateg' in m.get('body', '').lower()
-            or 'optimi' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes strategy or prioritization discussion
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

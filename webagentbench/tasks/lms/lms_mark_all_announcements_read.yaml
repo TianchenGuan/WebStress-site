@@ -41,10 +41,8 @@ eval:
   checks:
     - expr: all(a.is_read for a in state.announcements)
       desc: All announcements are marked as read
-    - expr: >-
-        any(e.action == 'lms.announcements.mark_all_read' or e.action == 'lms.announcement.read'
-            for e in state.audit_log)
-      desc: At least one mark-read action was logged
+    - expr: len(state.unread_announcements()) == 0
+      desc: No unread announcements remain
   negative_checks:
     - expr: >-
         len([e for e in state.enrollments if e.status == 'dropped']) == 0

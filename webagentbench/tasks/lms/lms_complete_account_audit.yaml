@@ -2,16 +2,14 @@ task_id: lms_complete_account_audit
 env_id: lms
 title: Complete Account Audit
 instruction_template: >-
-  Perform a comprehensive audit of your LMS account. Verify the following
-  across all courses: (1) All submitted assignments have a recorded submission
-  status. (2) All graded assignments have scores and feedback. (3) All
-  discussion participation requirements are met or noted as incomplete.
-  (4) All peer reviews are either completed or tracked as pending. (5) All
-  modules show correct completion status. Compile an audit report message
-  to your advisor ({target.advisor_name}) listing any discrepancies,
-  incomplete items, and a summary count per course of: assignments submitted,
-  assignments graded, discussions participated in, reviews completed, and
-  modules finished.
+  Perform a comprehensive audit of your LMS account. First, mark all unread
+  announcements as read. Then verify the following across all courses:
+  (1) All submitted assignments have a recorded submission status. (2) All
+  graded assignments have scores and feedback. (3) All discussion
+  participation requirements are met or noted as incomplete. (4) All peer
+  reviews are either completed or tracked as pending. (5) All modules show
+  correct completion status. Then send a brief audit summary to your advisor
+  ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
@@ -89,27 +87,30 @@ seed:
 eval:
   source: server_state
   checks:
+    - expr: >-
+        all(a.is_read for a in state.announcements)
+      desc: All announcements marked as read
+    - expr: >-
+        len([a for a in state.announcements if a.is_read]) ==
+        len(state.announcements)
+      desc: Every single announcement has been read
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (none dropped during audit)
+    - expr: >-
+        len([pr for pr in state.peer_reviews
+             if pr.reviewer_student_id == state.student.id]) >= 1
+      desc: Student has peer review records present
+    - expr: >-
+        len(state.modules) >= 1
+      desc: Module records exist and were accessible during audit
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent an audit report
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Audit covers CS101
-    - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Audit covers MATH201
-    - expr: >-
-        any('ENG102' in m.get('body', '') for m in state.sent_messages)
-      desc: Audit covers ENG102
-    - expr: >-
-        any('audit' in m.get('body', '').lower() or 'summary' in m.get('body', '').lower()
-            or 'report' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message is framed as an audit/report
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
@@ -121,7 +122,7 @@ eval:
     - expr: >-
         not any(a.submission_status in ('submitted', 'late')
                 and a.file_name is not None
-                and 'audit' in a.file_name.lower()
+                and 'audit' in (a.file_name or '').lower()
                 for a in state.assignments)
-      desc: Agent did not submit files as part of audit (read-only task)
+      desc: Agent did not submit files as part of audit
       penalty: 0.1

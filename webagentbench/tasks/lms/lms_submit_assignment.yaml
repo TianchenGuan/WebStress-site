@@ -54,7 +54,9 @@ eval:
         any(a.id == '{target.target_assignment_id}' and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: Target assignment is submitted
-    - expr: state.get_assignment('{target.target_assignment_id}').file_name == '{target.file_name}'
+    - expr: >-
+        state.get_assignment('{target.target_assignment_id}') is not None
+        and state.get_assignment('{target.target_assignment_id}').file_name == '{target.file_name}'
       desc: Correct file name attached
   negative_checks:
     - expr: >-

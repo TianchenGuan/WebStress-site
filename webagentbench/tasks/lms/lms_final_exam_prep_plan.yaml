@@ -1,17 +1,13 @@
 task_id: lms_final_exam_prep_plan
 env_id: lms
-title: Final Exam Preparation Plan
+title: Final Exam Prep — Drop Impossible Courses, Submit for Achievable Ones
 instruction_template: >-
-  Create a comprehensive final exam preparation plan. For each of your
-  courses: (1) Find the final exam date from the calendar. (2) Check the
-  exam weight in the syllabus grading policy. (3) Determine your current
-  weighted score before the final. (4) Compute the minimum final exam
-  score needed to achieve a B (80%) in the course. (5) Prioritize study
-  effort by grade impact (courses where the final has the highest weight
-  and you need the most improvement should get the most study time). Send
-  a study plan to your advisor ({target.advisor_name}) with: each course
-  code, final exam date, exam weight percentage, current grade, required
-  exam score for a B, and your recommended study priority ranking.
+  For each course: find the final exam date, check the exam weight, determine
+  your current grade, and compute the minimum final score needed for a B
+  (80%). For any course where achieving a B requires more than 95% on the
+  final (nearly impossible), drop that course. For the remaining courses,
+  submit "exam_prep.pdf" for the final exam assignment to reserve your study
+  slot.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -28,7 +24,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 4
@@ -47,62 +42,81 @@ seed:
         graded_fraction: 0.6
       outputs:
         - assignment_ids
+        - impossible_b_course_ids
+        - final_exam_assignment_ids
+        - achievable_course_ids
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - current_weighted_scores
-        - minimum_final_score_for_b
     - use: calendar_events
       params:
         include_recurring: false
       outputs:
         - event_ids
-        - next_exam_event_id
   targets:
-    advisor_name: '{output.advisor_name}'
+    impossible_b_course_ids: '{output.impossible_b_course_ids}'
+    final_exam_assignment_ids: '{output.final_exam_assignment_ids}'
+    achievable_course_ids: '{output.achievable_course_ids}'
     course_codes: '{output.course_codes}'
-    current_weighted_scores: '{output.current_weighted_scores}'
-    minimum_final_score_for_b: '{output.minimum_final_score_for_b}'
-    next_exam_event_id: '{output.next_exam_event_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent a study plan
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        all(
+            state.get_enrollment_for_course(cid) is not None
+            and state.get_enrollment_for_course(cid).status == 'dropped'
+            for cid in '{target.impossible_b_course_ids}'.split(',')
+            if cid.strip()
+        )
+      desc: All impossible-B courses were dropped
     - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan covers CS101
+        all(
+            state.get_assignment(aid) is not None
+            and state.get_assignment(aid).submission_status in ('submitted', 'late')
+            and state.get_assignment(aid).file_name == 'exam_prep.pdf'
+            for aid in '{target.final_exam_assignment_ids}'.split(',')
+            if aid.strip()
+        )
+      desc: Final exam assignments submitted for achievable courses
     - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan covers MATH201
+        all(
+            state.get_enrollment_for_course(cid) is not None
+            and state.get_enrollment_for_course(cid).status == 'enrolled'
+            for cid in '{target.achievable_course_ids}'.split(',')
+            if cid.strip()
+        )
+      desc: Achievable courses were NOT dropped
     - expr: >-
-        any('final' in m.get('body', '').lower() and 'exam' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses final exams
+        len('{target.impossible_b_course_ids}'.split(',')) >= 1
+      desc: At least one impossible-B course exists (seed validation)
     - expr: >-
-        any('priorit' in m.get('body', '').lower() or 'study' in m.get('body', '').lower()
-            or 'plan' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes study prioritization
+        len('{target.achievable_course_ids}'.split(',')) >= 1
+      desc: At least one achievable course exists (seed validation)
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 2
+      desc: At least 2 courses remain enrolled
   negative_checks:
     - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped
+        not any(e.status == 'dropped'
+                and e.course_id in
+                    [cid.strip() for cid in '{target.achievable_course_ids}'.split(',')]
+                for e in state.enrollments)
+      desc: No achievable course was dropped
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 4
-      desc: Agent did not send excessive messages
-      penalty: 0.15
     - expr: >-
         not any(a.submission_status in ('submitted', 'late')
-                and a.file_name is not None
-                and 'exam' in (a.file_name or '').lower()
+                and a.file_name == 'exam_prep.pdf'
+                and a.course_id in
+                    [cid.strip() for cid in '{target.impossible_b_course_ids}'.split(',')]
                 for a in state.assignments)
-      desc: Agent did not submit files for exam prep (analysis-only task)
-      penalty: 0.1
+      desc: No exam_prep.pdf was submitted for impossible-B courses
+      penalty: 0.25
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'exam_prep.pdf'
+             and a.submission_status in ('submitted', 'late')]) <= len('{target.final_exam_assignment_ids}'.split(','))
+      desc: No more exam_prep submissions than achievable courses
+      penalty: 0.15

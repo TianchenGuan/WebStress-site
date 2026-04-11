@@ -2,9 +2,13 @@ task_id: lms_calculate_weighted_grade
 env_id: lms
 title: Calculate Current Weighted Grade
 instruction_template: >-
-  Navigate to the grades page for {target.course_code} and verify the overall
-  weighted grade displayed matches the syllabus weights. Send a message to
-  your instructor confirming the grade or reporting a discrepancy.
+  Navigate to the grades page for {target.course_code}. Verify the overall
+  weighted grade displayed matches what you compute from the syllabus weights
+  and individual assignment scores. If you find a discrepancy of more than
+  1 point from the displayed score, resubmit the most recently graded
+  assignment with file 'grade_dispute.pdf'. If the grade is correct (within
+  1 point), mark the course's latest announcement as read to confirm you've
+  reviewed your standing.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -44,23 +48,50 @@ seed:
         - grade_ids
         - current_weighted_scores
         - dropped_grade_ids
+        - has_discrepancy
+        - most_recent_graded_id
+        - latest_announcement_id
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    has_discrepancy: '{output.has_discrepancy}'
+    most_recent_graded_id: '{output.most_recent_graded_id}'
+    latest_announcement_id: '{output.latest_announcement_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message about the grade
+    - expr: >-
+        (('{target.has_discrepancy}' == 'true'
+         and state.get_assignment('{target.most_recent_graded_id}') is not None
+         and state.get_assignment('{target.most_recent_graded_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.most_recent_graded_id}').file_name == 'grade_dispute.pdf')
+        or ('{target.has_discrepancy}' == 'false'
+            and state.get_announcement('{target.latest_announcement_id}') is not None
+            and state.get_announcement('{target.latest_announcement_id}').is_read == True))
+      desc: >-
+        Correct conditional action taken: resubmit with grade_dispute.pdf if
+        discrepancy exists, or mark latest announcement as read if no discrepancy
     - expr: >-
         state.weighted_score_for_course('{target.target_course_id}') is not None
       desc: Course has graded assignments (seed validation)
     - expr: >-
-        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message contains the correct weighted score
+        state.get_assignment('{target.most_recent_graded_id}') is not None
+      desc: Target assignment exists (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        '{target.has_discrepancy}' != 'true'
+        or state.get_announcement('{target.latest_announcement_id}') is None
+        or state.get_announcement('{target.latest_announcement_id}').is_read != True
+      desc: Did not mark announcement as read when discrepancy exists (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        '{target.has_discrepancy}' != 'false'
+        or state.get_assignment('{target.most_recent_graded_id}') is None
+        or state.get_assignment('{target.most_recent_graded_id}').file_name != 'grade_dispute.pdf'
+      desc: Did not resubmit when no discrepancy exists (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped during verification
+      penalty: 0.3

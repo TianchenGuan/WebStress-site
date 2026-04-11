@@ -6,10 +6,9 @@ instruction_template: >-
   Scenario A: you score 100% on the final exam but 0% on the remaining project.
   Scenario B: you score 85% on both the final exam and the remaining project.
   Scenario C: you score 70% on the final exam and 100% on the remaining project.
-  For each scenario, compute the resulting weighted course grade and
-  corresponding letter grade. Send a message to your advisor ({target.advisor_name})
-  summarizing all three scenarios with the final grades and recommending
-  which outcome is most realistic.
+  After computing all three, submit the highest-impact ungraded assignment
+  (the one in the grading category with the highest syllabus weight) with
+  file 'priority_submission.pdf'.
 difficulty: expert
 time_limit_seconds: 360
 expected_steps: 20
@@ -51,40 +50,43 @@ seed:
       outputs:
         - grade_ids
         - current_weighted_scores
+        - highest_weight_ungraded_id
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
-    advisor_name: '{output.advisor_name}'
-    current_weighted_scores: '{output.current_weighted_scores}'
+    highest_weight_ungraded_id: '{output.highest_weight_ungraded_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        state.get_assignment('{target.highest_weight_ungraded_id}') is not None
+        and state.get_assignment('{target.highest_weight_ungraded_id}').submission_status == 'submitted'
+        and state.get_assignment('{target.highest_weight_ungraded_id}').file_name == 'priority_submission.pdf'
+      desc: Highest-weight ungraded assignment submitted with priority_submission.pdf
     - expr: >-
-        any('scenario' in m.get('body', '').lower() or 'Scenario' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message references scenarios
+        state.get_assignment('{target.highest_weight_ungraded_id}') is not None
+        and state.get_assignment('{target.highest_weight_ungraded_id}').course_id == '{target.target_course_id}'
+      desc: Submitted assignment belongs to the target course (seed validation)
     - expr: >-
-        any('100' in m.get('body', '') for m in state.sent_messages)
-      desc: Message includes 100% score reference
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Course has graded assignments for what-if computation (seed validation)
     - expr: >-
-        any('recommend' in m.get('body', '').lower() or 'realistic' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes a recommendation
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
     - expr: >-
-        any('{target.course_code}' in m.get('body', '') for m in state.sent_messages)
-      desc: Message references the target course
+        state.get_assignment('{target.highest_weight_ungraded_id}') is not None
+      desc: Target highest-weight ungraded assignment exists (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+    - expr: >-
+        not any(
+          a.submission_status == 'submitted'
+          and a.file_name == 'priority_submission.pdf'
+          and a.id != '{target.highest_weight_ungraded_id}'
+          for a in state.assignments
+        )
+      desc: No other assignment was submitted with priority_submission.pdf
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped

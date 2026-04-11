@@ -1,16 +1,14 @@
 task_id: lms_course_selection_next_semester
 env_id: lms
-title: Course Selection for Next Semester
+title: Course Selection — Enroll If Eligible
 instruction_template: >-
-  Plan your course selection for next semester. Review your current courses
-  and grades, check which prerequisite modules you've completed, verify
-  your current GPA meets minimum requirements (need 2.5 GPA for CS301),
-  and check the calendar for potential schedule conflicts. You want to
-  take CS301 (requires CS201 completion), STAT301, and one elective.
-  Send a message to your advisor ({target.advisor_name}) with: (1) Your
-  current GPA and whether it meets the CS301 minimum. (2) Whether you've
-  completed the CS201 prerequisite. (3) Any schedule conflicts you found.
-  (4) Your recommended course list for next semester with justification.
+  Plan course selection for next semester. Check whether your GPA ({target.gpa})
+  meets the 2.5 minimum for advanced courses, and verify you have completed
+  at least 3 modules in your current courses (prerequisite progress). If your
+  GPA is 2.5 or above AND you have 3+ completed modules, submit
+  "course_plan.pdf" for your next unsubmitted assignment. If either condition
+  is not met, mark all announcements as read to confirm you have reviewed
+  the requirements.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -48,6 +46,7 @@ seed:
         graded_fraction: 0.5
       outputs:
         - assignment_ids
+        - course_plan_assignment_id
     - use: grade_book
       params: {}
       outputs:
@@ -71,52 +70,55 @@ seed:
         unread_count: 2
       outputs:
         - announcement_ids
+        - unread_announcement_ids
   targets:
-    advisor_name: '{output.advisor_name}'
     gpa: '{output.gpa}'
-    course_codes: '{output.course_codes}'
-    current_weighted_scores: '{output.current_weighted_scores}'
-    module_ids: '{output.module_ids}'
+    course_plan_assignment_id: '{output.course_plan_assignment_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent a message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        (float('{target.gpa}') >= 2.5
+        and sum(1 for m in state.modules if m.status == 'completed') >= 3
+        and state.get_assignment('{target.course_plan_assignment_id}') is not None
+        and state.get_assignment('{target.course_plan_assignment_id}').submission_status in ('submitted', 'late')
+        and state.get_assignment('{target.course_plan_assignment_id}').file_name == 'course_plan.pdf')
+        or (
+        (float('{target.gpa}') < 2.5
+         or sum(1 for m in state.modules if m.status == 'completed') < 3)
+        and all(a.is_read for a in state.announcements))
+      desc: Submitted course_plan.pdf IFF eligible, OR all announcements read IFF not eligible
     - expr: >-
-        any('CS301' in m.get('body', '') for m in state.sent_messages)
-      desc: Message discusses CS301
+        state.get_assignment('{target.course_plan_assignment_id}') is not None
+      desc: Target assignment exists (seed validation)
     - expr: >-
-        any('GPA' in m.get('body', '').upper() or '{target.gpa}' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message references GPA
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: At least 3 courses remain enrolled
     - expr: >-
-        any('prerequisite' in m.get('body', '').lower() or 'prereq' in m.get('body', '').lower()
-            or 'CS201' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message discusses prerequisites
+        len(state.announcements) >= 1
+      desc: Announcements exist (seed validation)
     - expr: >-
-        any('next semester' in m.get('body', '').lower() or 'recommend' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes course recommendations
+        sum(1 for m in state.modules if m.status == 'completed') >= 1
+      desc: At least some modules completed (seed validation)
+    - expr: >-
+        len(state.assignments) >= 4
+      desc: Sufficient assignments exist (seed validation)
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
-      desc: No current courses were dropped
+      desc: No courses were dropped
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 4
-      desc: Agent did not send excessive messages
+    - expr: >-
+        (len([a for a in state.assignments
+             if a.file_name == 'course_plan.pdf'
+             and a.submission_status in ('submitted', 'late')]) <= 1)
+      desc: At most one course_plan.pdf was submitted
       penalty: 0.15
     - expr: >-
-        not any(a.submission_status in ('submitted', 'late')
-                and a.submission_status != 'not_submitted'
-                and a.file_name is not None
-                and a.file_name.startswith('ta_')
-                for a in state.assignments)
-      desc: Agent did not submit files with wrong naming convention
+        (len([a for a in state.assignments
+             if a.submission_status in ('submitted', 'late')
+             and a.file_name is not None
+             and a.file_name != 'course_plan.pdf']) == 0)
+      desc: No extraneous files were submitted
       penalty: 0.1

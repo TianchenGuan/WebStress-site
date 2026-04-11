@@ -2,10 +2,12 @@ task_id: lms_dropped_grade_impact
 env_id: lms
 title: Calculate Impact of Dropped Grade on Standing
 instruction_template: >-
-  In {target.course_code}, the syllabus allows dropping the lowest homework
-  score. Calculate your weighted grade both with and without the drop-lowest
-  policy applied. Send a message to your instructor showing both scores and
-  the difference the drop makes.
+  In {target.course_code}, calculate the difference between your weighted
+  grade with and without the drop-lowest policy. If the drop makes more
+  than a 3-point difference, resubmit the dropped assignment (the lowest
+  homework) with file 'improvement.pdf' to try to improve it further. If
+  the drop makes a 3-point difference or less, mark the course's latest
+  announcement as read.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 12
@@ -46,32 +48,52 @@ seed:
         - grade_ids
         - current_weighted_scores
         - dropped_grade_ids
+        - drop_impact_above_3
+        - latest_announcement_id
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
-    lowest_homework_id: '{output.lowest_homework_id}'
+    lowest_hw_id: '{output.lowest_homework_id}'
+    drop_impact_above_3: '{output.drop_impact_above_3}'
+    latest_announcement_id: '{output.latest_announcement_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message about the drop impact
+    - expr: >-
+        (('{target.drop_impact_above_3}' == 'true'
+         and state.get_assignment('{target.lowest_hw_id}') is not None
+         and state.get_assignment('{target.lowest_hw_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.lowest_hw_id}').file_name == 'improvement.pdf')
+        or ('{target.drop_impact_above_3}' == 'false'
+            and state.get_announcement('{target.latest_announcement_id}') is not None
+            and state.get_announcement('{target.latest_announcement_id}').is_read == True))
+      desc: >-
+        Resubmit lowest homework with improvement.pdf if drop impact > 3 points,
+        or mark latest announcement as read if impact <= 3 points
     - expr: >-
         len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
       desc: There are grades eligible for dropping (seed validation)
     - expr: >-
         state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Weighted score is computable
+      desc: Weighted score is computable (seed validation)
     - expr: >-
-        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message contains the weighted score with drop applied
+        state.get_assignment('{target.lowest_hw_id}') is not None
+      desc: Lowest homework assignment exists (seed validation)
   negative_checks:
+    - expr: >-
+        '{target.drop_impact_above_3}' != 'true'
+        or state.get_announcement('{target.latest_announcement_id}') is None
+        or state.get_announcement('{target.latest_announcement_id}').is_read != True
+      desc: Did not mark announcement as read when drop impact > 3 (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        '{target.drop_impact_above_3}' != 'false'
+        or state.get_assignment('{target.lowest_hw_id}') is None
+        or state.get_assignment('{target.lowest_hw_id}').file_name != 'improvement.pdf'
+      desc: Did not resubmit when drop impact <= 3 (wrong branch)
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped
       penalty: 0.3
-    - expr: >-
-        not any(g.is_dropped != g.is_dropped for g in state.grades)
-      desc: Grade drop statuses were not manually altered
-      penalty: 0.2

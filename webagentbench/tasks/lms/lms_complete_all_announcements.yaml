@@ -54,6 +54,7 @@ eval:
         len(state.announcements) >= 8
       desc: All announcements still exist (none deleted)
   negative_checks:
-    - expr: len(state.announcements) >= 8
-      desc: No announcements were deleted
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped while marking announcements
       penalty: 0.2

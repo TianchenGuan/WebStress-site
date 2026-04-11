@@ -2,11 +2,13 @@ task_id: lms_grading_discrepancy
 env_id: lms
 title: Resolve Grading Discrepancy
 instruction_template: >-
-  Review your grades in {target.course_code} and check whether the displayed
-  weighted score matches what you calculate from the individual assignment
-  scores, category weights, and drop-lowest policies. If there is a
-  discrepancy, send a message to your instructor explaining the issue with
-  the correct computed score.
+  Review your grades in {target.course_code}. Independently compute your
+  weighted score from individual assignment scores, category weights, and
+  drop-lowest policies. If you find a discrepancy of more than 1 point
+  between your computation and the displayed score, resubmit the most
+  impactful graded assignment (the one in the highest-weighted category)
+  with file 'grade_verification.pdf'. If there is no discrepancy (within
+  1 point), mark the course's latest announcement as read.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 18
@@ -42,45 +44,59 @@ seed:
         late_count: 2
       outputs:
         - assignment_ids
+        - most_impactful_graded_id
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - current_weighted_scores
         - dropped_grade_ids
+        - has_discrepancy
+        - latest_announcement_id
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    has_discrepancy: '{output.has_discrepancy}'
+    most_impactful_graded_id: '{output.most_impactful_graded_id}'
+    latest_announcement_id: '{output.latest_announcement_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message to instructor about grades
+    - expr: >-
+        (('{target.has_discrepancy}' == 'true'
+         and state.get_assignment('{target.most_impactful_graded_id}') is not None
+         and state.get_assignment('{target.most_impactful_graded_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.most_impactful_graded_id}').file_name == 'grade_verification.pdf')
+        or ('{target.has_discrepancy}' == 'false'
+            and state.get_announcement('{target.latest_announcement_id}') is not None
+            and state.get_announcement('{target.latest_announcement_id}').is_read == True))
+      desc: >-
+        Resubmit most impactful assignment with grade_verification.pdf if
+        discrepancy exists, or mark latest announcement read if no discrepancy
     - expr: >-
         state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments for verification
+      desc: Course has graded assignments for verification (seed validation)
     - expr: >-
-        (any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
-            for m in state.sent_messages)
-        or any('discrepancy' in m.get('body', '').lower()
-               or 'correct' in m.get('body', '').lower()
-               or 'matches' in m.get('body', '').lower()
-               for m in state.sent_messages))
-      desc: Message addresses the grade computation with a score or finding
+        state.get_assignment('{target.most_impactful_graded_id}') is not None
+      desc: Target impactful assignment exists (seed validation)
     - expr: >-
-        any('{target.course_code}' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message references the correct course code
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during investigation
   negative_checks:
+    - expr: >-
+        '{target.has_discrepancy}' != 'true'
+        or state.get_announcement('{target.latest_announcement_id}') is None
+        or state.get_announcement('{target.latest_announcement_id}').is_read != True
+      desc: Did not mark announcement read when discrepancy exists (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        '{target.has_discrepancy}' != 'false'
+        or state.get_assignment('{target.most_impactful_graded_id}') is None
+        or state.get_assignment('{target.most_impactful_graded_id}').file_name != 'grade_verification.pdf'
+      desc: Did not resubmit when no discrepancy exists (wrong branch)
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during investigation
       penalty: 0.3
-    - expr: >-
-        not any(a.submission_status in ('submitted', 'late')
-                and a.score is None
-                for a in state.assignments
-                if a.course_id == '{target.target_course_id}')
-      desc: No ungraded submissions were created during investigation
-      penalty: 0.2

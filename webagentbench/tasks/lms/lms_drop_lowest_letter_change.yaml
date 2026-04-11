@@ -2,11 +2,13 @@ task_id: lms_drop_lowest_letter_change
 env_id: lms
 title: Determine If Dropping Lowest Quiz Changes Letter Grade
 instruction_template: >-
-  In {target.course_code}, the syllabus allows dropping the lowest quiz score.
-  Determine whether applying the drop-lowest policy changes your letter grade
-  (A >= 90, B >= 80, C >= 70, D >= 60). Compute your weighted grade both with
-  and without the drop, and send a message to your advisor stating whether
-  the letter grade changes and what the two scores are.
+  In {target.course_code}, determine whether applying the drop-lowest policy
+  changes your letter grade (A >= 90, B >= 80, C >= 70, D >= 60, F < 60).
+  Compute your weighted grade both with and without the drop. If dropping
+  the lowest changes your letter grade to a higher one, submit
+  'letter_grade_report.pdf' for the lowest-scoring homework (the one that
+  would be dropped). If dropping the lowest does NOT change your letter
+  grade, no action is needed.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 12
@@ -41,44 +43,51 @@ seed:
         graded_fraction: 0.7
       outputs:
         - assignment_ids
+        - lowest_hw_id
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - current_weighted_scores
         - dropped_grade_ids
+        - drop_changes_letter
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    drop_changes_letter: '{output.drop_changes_letter}'
+    lowest_hw_id: '{output.lowest_hw_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message to advisor
+    - expr: >-
+        (('{target.drop_changes_letter}' == 'true'
+         and state.get_assignment('{target.lowest_hw_id}') is not None
+         and state.get_assignment('{target.lowest_hw_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.lowest_hw_id}').file_name == 'letter_grade_report.pdf')
+        or ('{target.drop_changes_letter}' == 'false'
+            and (state.get_assignment('{target.lowest_hw_id}') is None
+                 or state.get_assignment('{target.lowest_hw_id}').file_name != 'letter_grade_report.pdf')))
+      desc: >-
+        Submit letter_grade_report.pdf for lowest homework if drop changes
+        letter grade, or no submission if it does not
     - expr: >-
         state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Weighted score is computable
+      desc: Weighted score is computable (seed validation)
     - expr: >-
-        state.category_score('{target.target_course_id}', 'quizzes') is not None
-        or state.category_score('{target.target_course_id}', 'homework') is not None
-      desc: At least one droppable category has scores
+        state.get_assignment('{target.lowest_hw_id}') is not None
+      desc: Lowest homework assignment exists (seed validation)
     - expr: >-
-        any('grade' in m.get('body', '').lower()
-            or 'letter' in m.get('body', '').lower()
-            or any(letter in m.get('body', '')
-                   for letter in ['A', 'B', 'C', 'D', 'F'])
-            for m in state.sent_messages)
-      desc: Message discusses letter grades
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
   negative_checks:
+    - expr: >-
+        '{target.drop_changes_letter}' != 'false'
+        or state.get_assignment('{target.lowest_hw_id}') is None
+        or state.get_assignment('{target.lowest_hw_id}').file_name != 'letter_grade_report.pdf'
+      desc: Did not submit when drop does not change letter grade (wrong branch)
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during analysis
       penalty: 0.3
-    - expr: >-
-        not any(a.submission_status in ('submitted', 'late')
-                and a.score is None
-                for a in state.assignments
-                if a.course_id == '{target.target_course_id}')
-      desc: No new submissions were created during analysis
-      penalty: 0.2

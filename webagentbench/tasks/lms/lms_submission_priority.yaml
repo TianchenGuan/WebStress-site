@@ -1,11 +1,12 @@
 task_id: lms_submission_priority
 env_id: lms
-title: Plan Submission Order by Deadline Urgency
+title: Submit Assignments in Priority Order
 instruction_template: >-
-  You have multiple assignments due soon across your courses. Review all
-  upcoming deadlines within the next 7 days, rank them by urgency (nearest
-  deadline first), and send a message to your advisor with a prioritized
-  submission plan listing each assignment, its course, and due date.
+  You have multiple assignments due within the next 7 days across different
+  courses. Submit them in priority order: highest-weight category first, then
+  earliest deadline as tiebreaker. Submit each with file "priority_{n}.pdf"
+  where n is the submission order (1, 2, 3, etc.). Submit at least the top 2
+  priority assignments.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 15
@@ -21,7 +22,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 4
@@ -40,38 +40,52 @@ seed:
         missing_count: 0
       outputs:
         - assignment_ids
+        - priority_order_ids
     - use: calendar_events
       params:
         include_recurring: false
       outputs:
         - event_ids
-  targets: {}
+  targets:
+    priority_order_ids: '{output.priority_order_ids}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a prioritization plan message
     - expr: >-
-        len(state.upcoming_deadlines(7)) >= 1
-      desc: Upcoming deadlines exist within 7 days (seed validation)
+        len('{target.priority_order_ids}'.split(',')) >= 2
+      desc: At least 2 priority assignments exist (seed validation)
     - expr: >-
-        any(any(a.title in m.get('body', '')
-                for a in state.upcoming_deadlines(7))
-            for m in state.sent_messages
-            if m.get('body'))
-      desc: Message mentions at least one upcoming assignment title
+        (state.get_assignment('{target.priority_order_ids}'.split(',')[0].strip()) is not None
+         and state.get_assignment('{target.priority_order_ids}'.split(',')[0].strip()).submission_status
+             in ('submitted', 'late')
+         and state.get_assignment('{target.priority_order_ids}'.split(',')[0].strip()).file_name
+             == 'priority_1.pdf')
+      desc: Highest-priority assignment submitted with priority_1.pdf
     - expr: >-
-        any('CS101' in m.get('body', '')
-            or 'MATH201' in m.get('body', '')
-            or 'ENG102' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message references course codes
+        (state.get_assignment('{target.priority_order_ids}'.split(',')[1].strip()) is not None
+         and state.get_assignment('{target.priority_order_ids}'.split(',')[1].strip()).submission_status
+             in ('submitted', 'late')
+         and state.get_assignment('{target.priority_order_ids}'.split(',')[1].strip()).file_name
+             == 'priority_2.pdf')
+      desc: Second-priority assignment submitted with priority_2.pdf
+    - expr: >-
+        len([a for a in state.assignments
+             if a.submission_status in ('submitted', 'late')
+             and a.file_name is not None
+             and a.file_name.startswith('priority_')]) >= 2
+      desc: At least 2 priority submissions were made
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during planning
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name is not None
+                and a.file_name.startswith('priority_')
+                and a.id not in [pid.strip()
+                                 for pid in '{target.priority_order_ids}'.split(',')]
+                for a in state.assignments)
+      desc: No non-priority assignments were submitted with priority file names
+      penalty: 0.2

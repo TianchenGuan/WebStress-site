@@ -43,14 +43,19 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        state.get_announcement('{target.urgent_announcement_id}').is_read == True
+        state.get_announcement('{target.urgent_announcement_id}') is not None
+        and state.get_announcement('{target.urgent_announcement_id}').is_read == True
       desc: Urgent announcement is marked as read
     - expr: >-
-        state.get_announcement('{target.urgent_announcement_id}').priority == 'urgent'
+        state.get_announcement('{target.urgent_announcement_id}') is not None
+        and state.get_announcement('{target.urgent_announcement_id}').priority == 'urgent'
       desc: The marked announcement was indeed the urgent one
   negative_checks:
     - expr: >-
-        sum(1 for a in state.announcements if a.is_read and a.priority != 'urgent') <=
-        sum(1 for a in state.announcements if a.priority != 'urgent' and a.id not in []) + 1
-      desc: Non-urgent unread announcements were not excessively marked as read
+        (sum(1 for a in state.announcements
+             if a.is_read and a.priority != 'urgent')
+         <= (len(state.announcements) - len(state.unread_announcements()) -
+             sum(1 for a in state.announcements
+                 if a.is_read and a.priority == 'urgent')) + 1)
+      desc: At most 1 non-urgent announcement was newly marked as read
       penalty: 0.15

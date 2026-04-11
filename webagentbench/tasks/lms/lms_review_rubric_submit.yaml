@@ -4,8 +4,7 @@ title: Review Assignment Rubric Before Submitting
 instruction_template: >-
   Before submitting "{target.assignment_title}" for {target.course_code},
   review the rubric criteria for the assignment. Then submit your work with
-  the file "{target.file_name}". After submitting, send a message to your
-  instructor confirming you reviewed the rubric and listing the criteria.
+  the file "{target.file_name}".
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -63,8 +62,10 @@ eval:
         state.get_assignment('{target.target_assignment_id}') is not None
         and state.get_assignment('{target.target_assignment_id}').file_name == '{target.file_name}'
       desc: Correct file name attached
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent confirmation message about rubric review
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
   negative_checks:
     - expr: >-
         state.get_assignment('{target.decoy_assignment_id}') is None

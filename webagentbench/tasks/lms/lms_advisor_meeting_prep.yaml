@@ -3,14 +3,9 @@ env_id: lms
 title: Academic Advisor Meeting Preparation
 instruction_template: >-
   Prepare for an upcoming meeting with your academic advisor
-  ({target.advisor_name}). Compile a comprehensive briefing document
-  covering: (1) Your current GPA ({target.gpa}) and enrollment status.
-  (2) Per-course breakdown: course code, credits, current weighted score,
-  projected letter grade, and any concerns. (3) Outstanding items: missing
-  assignments, incomplete discussions, pending peer reviews. (4) Module
-  progress: which modules are completed vs locked across courses. (5)
-  Questions about prerequisites for courses you want to take next semester.
-  Send this briefing as a message to your advisor.
+  ({target.advisor_name}). First, mark all unread announcements as read and
+  complete the next available module content items in each course. Then
+  send a brief meeting prep message to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -95,27 +90,27 @@ seed:
 eval:
   source: server_state
   checks:
+    - expr: >-
+        all(a.is_read for a in state.announcements)
+      desc: All announcements marked as read
+    - expr: >-
+        sum(1 for m in state.modules if m.status == 'completed') >= 3
+      desc: At least 3 modules completed (2 initial + 1 new)
+    - expr: >-
+        any(m.status == 'completed'
+            and all(ci.completed for ci in m.content_items)
+            for m in state.modules)
+      desc: At least one module fully completed with all content items
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (none dropped)
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a briefing message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('GPA' in m.get('body', '').upper() or '{target.gpa}' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message includes GPA information
-    - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Briefing covers CS101
-    - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Briefing covers MATH201
-    - expr: >-
-        any('module' in m.get('body', '').lower() or 'progress' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Briefing discusses module progress
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

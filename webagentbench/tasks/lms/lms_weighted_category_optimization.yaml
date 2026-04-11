@@ -1,16 +1,11 @@
 task_id: lms_weighted_category_optimization
 env_id: lms
-title: Weighted Category Optimization with Drop-Lowest
+title: Submit Assignment in Worst High-Weight Category
 instruction_template: >-
-  In {target.course_code}, the homework category is worth 30% with a
-  drop-lowest-2 policy. You have completed multiple homeworks already.
-  There is one more homework you could submit late. Determine whether
-  submitting it late (with the applicable late penalty) would help or hurt
-  your homework category average after the drop recalculation. Check the
-  late policy, compute your current homework average (after drops), then
-  compute what the average would be with the late submission included and
-  drops recalculated. Send a message to your advisor ({target.advisor_name})
-  with your analysis and decision.
+  Across your courses, find the grading category where you are performing
+  worst relative to its weight (lowest category score in the highest-weight
+  category). Submit the next unsubmitted assignment in that category with
+  file "category_boost.pdf".
 difficulty: expert
 time_limit_seconds: 360
 expected_steps: 18
@@ -27,7 +22,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -48,49 +42,52 @@ seed:
         missing_count: 1
       outputs:
         - assignment_ids
-        - lowest_homework_id
-        - missing_assignment_ids
+        - worst_category_assignment_id
+        - decoy_assignment_id
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
-        - dropped_grade_ids
         - current_weighted_scores
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
-    advisor_name: '{output.advisor_name}'
-    lowest_homework_id: '{output.lowest_homework_id}'
-    dropped_grade_ids: '{output.dropped_grade_ids}'
-    current_weighted_scores: '{output.current_weighted_scores}'
+    worst_category_assignment_id: '{output.worst_category_assignment_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        (state.get_assignment('{target.worst_category_assignment_id}') is not None
+        and state.get_assignment('{target.worst_category_assignment_id}').submission_status in ('submitted', 'late'))
+      desc: Correct assignment in worst high-weight category was submitted
     - expr: >-
-        any('drop' in m.get('body', '').lower() or 'lowest' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses drop-lowest policy
+        (state.get_assignment('{target.worst_category_assignment_id}') is not None
+        and state.get_assignment('{target.worst_category_assignment_id}').file_name == 'category_boost.pdf')
+      desc: Correct file name used for category boost submission
     - expr: >-
-        any('homework' in m.get('body', '').lower() or 'category' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references the homework category
+        state.get_assignment('{target.worst_category_assignment_id}') is not None
+      desc: Target worst-category assignment exists (seed validation)
     - expr: >-
-        any('late' in m.get('body', '').lower() or 'penalty' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses late penalty impact
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Course has graded assignments for analysis (seed validation)
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
   negative_checks:
+    - expr: >-
+        (state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status != 'submitted')
+      desc: Decoy assignment was not submitted
+      penalty: 0.25
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'category_boost.pdf'
+             and a.submission_status in ('submitted', 'late')]) <= 1
+      desc: Only one assignment was submitted with category_boost.pdf
       penalty: 0.15

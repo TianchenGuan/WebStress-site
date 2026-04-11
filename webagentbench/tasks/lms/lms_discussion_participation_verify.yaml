@@ -5,8 +5,7 @@ instruction_template: >-
   In {target.course_code}, check whether your discussion participation meets
   the requirements for each discussion forum. For each discussion, verify
   your post count and reply count against the minimums. If any discussion
-  is below requirements, complete the missing posts/replies. Send a summary
-  to your instructor listing each discussion and its participation status.
+  is below requirements, complete the missing posts/replies.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 10
@@ -56,20 +55,22 @@ eval:
             for did in [d.id for d in state.discussions
                         if d.course_id == '{target.target_course_id}'])
       desc: All discussions in the course meet minimum requirements
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a summary message to instructor
-    - expr: >-
-        any('discussion' in m.get('body', '').lower()
-            or 'post' in m.get('body', '').lower()
-            or 'participation' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses participation status
     - expr: >-
         any(p.author_id == state.student.id
             for p in state.discussion_posts
             if p.discussion_id in [d.id for d in state.discussions
                                    if d.course_id == '{target.target_course_id}'])
       desc: Student created posts in course discussions
+    - expr: >-
+        len([p for p in state.discussion_posts
+             if p.author_id == state.student.id
+             and p.discussion_id in [d.id for d in state.discussions
+                                     if d.course_id == '{target.target_course_id}']]) >= 1
+      desc: At least one new post was made in the target course
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
   negative_checks:
     - expr: >-
         not any(p.author_id == state.student.id

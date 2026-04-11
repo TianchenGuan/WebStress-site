@@ -1,13 +1,13 @@
 task_id: lms_gpa_impact_analysis
 env_id: lms
-title: GPA Impact Analysis Across Courses
+title: GPA Impact Analysis — Submit or Acknowledge
 instruction_template: >-
-  Analyze how your final grades in each of your current courses would affect
-  your cumulative GPA. For each course, determine your current weighted score,
-  the letter grade that corresponds to, and what your cumulative GPA would be
-  if that were your final grade. Send a summary message to your advisor
-  ({target.advisor_name}) listing each course code, current weighted score,
-  projected letter grade, and resulting cumulative GPA.
+  Analyze how your final grades would affect your cumulative GPA. For each
+  course, determine your projected letter grade from the current weighted
+  score. If any course's projected grade would lower your cumulative GPA
+  below {target.gpa}, submit "improvement_plan.pdf" for the highest-impact
+  unsubmitted assignment in that course. If all courses maintain or improve
+  GPA, mark all announcements as read to confirm your review.
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 25
@@ -47,46 +47,71 @@ seed:
         late_count: 1
       outputs:
         - assignment_ids
+        - gpa_risk_course_ids
+        - improvement_assignment_ids
+        - no_risk_flag
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
         - current_weighted_scores
+    - use: announcements_feed
+      params:
+        count: 4
+        unread_count: 2
+      outputs:
+        - announcement_ids
+        - unread_announcement_ids
   targets:
-    advisor_name: '{output.advisor_name}'
     gpa: '{output.gpa}'
-    course_ids: '{output.course_ids}'
-    course_codes: '{output.course_codes}'
-    current_weighted_scores: '{output.current_weighted_scores}'
+    gpa_risk_course_ids: '{output.gpa_risk_course_ids}'
+    improvement_assignment_ids: '{output.improvement_assignment_ids}'
+    no_risk_flag: '{output.no_risk_flag}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        (('{target.no_risk_flag}' == 'true'
+         and all(a.is_read for a in state.announcements))
+        or ('{target.no_risk_flag}' != 'true'
+            and all(
+                state.get_assignment(aid) is not None
+                and state.get_assignment(aid).submission_status in ('submitted', 'late')
+                and state.get_assignment(aid).file_name == 'improvement_plan.pdf'
+                for aid in '{target.improvement_assignment_ids}'.split(',')
+                if aid.strip()
+            )))
+      desc: >-
+        Either all announcements read (no risk) or improvement assignments
+        submitted (risk detected)
     - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Message mentions CS101
+        (('{target.no_risk_flag}' == 'true'
+         and len(state.unread_announcements()) == 0)
+        or ('{target.no_risk_flag}' != 'true'
+            and len([a for a in state.assignments
+                     if a.file_name == 'improvement_plan.pdf'
+                     and a.submission_status in ('submitted', 'late')]) >= 1))
+      desc: Correct action taken based on GPA risk analysis
     - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Message mentions MATH201
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
     - expr: >-
-        any('ENG102' in m.get('body', '') for m in state.sent_messages)
-      desc: Message mentions ENG102
+        len(state.announcements) >= 1
+      desc: Announcements exist for review (seed validation)
     - expr: >-
-        any('GPA' in m.get('body', '').upper() or 'gpa' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses GPA
+        len('{target.improvement_assignment_ids}'.split(',')) >= 1
+      desc: At least one improvement assignment identified (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during analysis
       penalty: 0.3
+    - expr: >-
+        not any(a.submission_status in ('submitted', 'late')
+                and a.file_name == 'improvement_plan.pdf'
+                and a.course_id not in
+                    [cid.strip() for cid in '{target.gpa_risk_course_ids}'.split(',')]
+                for a in state.assignments)
+      desc: No improvement submissions in non-risk courses
+      penalty: 0.25

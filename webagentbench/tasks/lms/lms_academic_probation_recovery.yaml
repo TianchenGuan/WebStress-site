@@ -6,10 +6,9 @@ instruction_template: >-
   need to raise your GPA above 2.0 by end of semester. Review all your
   courses, determine the minimum letter grade needed in each to bring your
   cumulative GPA above 2.0, and identify which courses are most critical
-  (highest credit weight). Send a recovery plan to your advisor
-  ({target.advisor_name}) listing: each course code, credits, current
-  weighted score, target letter grade needed, and whether achieving it is
-  feasible based on remaining assignments.
+  (highest credit weight). Submit your most critical missing assignment with
+  file "recovery_priority.pdf". Then send a brief recovery plan message to
+  your advisor ({target.advisor_name}).
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 25
@@ -64,23 +63,28 @@ seed:
 eval:
   source: server_state
   checks:
+    - expr: >-
+        any(a.file_name == 'recovery_priority.pdf'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Agent submitted recovery_priority.pdf for a missing assignment
+    - expr: >-
+        any(a.file_name == 'recovery_priority.pdf'
+            and a.submission_status in ('submitted', 'late')
+            and a.points_possible is not None
+            and a.points_possible > 0
+            for a in state.assignments)
+      desc: Submitted recovery file is for an assignment with grade weight
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (none dropped or withdrawn)
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a recovery plan message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('2.0' in m.get('body', '') or 'probation' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references GPA threshold or probation status
-    - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan includes CS101
-    - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Plan includes MATH201
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
@@ -89,3 +93,8 @@ eval:
     - expr: len(state.sent_messages) <= 3
       desc: Agent did not send excessive messages
       penalty: 0.15
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'recovery_priority.pdf']) <= 2
+      desc: Agent did not submit excessively many recovery files
+      penalty: 0.1

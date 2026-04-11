@@ -2,13 +2,12 @@ task_id: lms_multi_course_thresholds
 env_id: lms
 title: Multi-Course Grade Threshold Planning
 instruction_template: >-
-  Determine the minimum average score you need on remaining assignments to
-  achieve the following targets: a B (80%) in {target.course_code_1}, an A
-  (90%) in {target.course_code_2}, and a C (70%) in {target.course_code_3}.
-  For each course, check your current weighted grade, identify remaining
-  ungraded assignments, and compute what score you'd need on them. Send a
-  message to your advisor ({target.advisor_name}) with the results for each
-  course, noting any that are impossible to achieve.
+  Determine the minimum average score needed on remaining assignments to
+  achieve: B (80%) in {target.course_code_1}, A (90%) in
+  {target.course_code_2}, C (70%) in {target.course_code_3}. For any course
+  where the target is impossible (requires more than 100% on remaining
+  assignments), drop that course. For each achievable course, submit
+  'priority_plan.pdf' for the next unsubmitted assignment.
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 25
@@ -52,37 +51,60 @@ seed:
         - grade_ids
         - current_weighted_scores
         - minimum_final_score_for_b
+        - impossible_course_ids
+        - achievable_course_ids
+        - next_unsubmitted_ids
   targets:
-    advisor_name: '{output.advisor_name}'
     course_code_1: "CS101"
     course_code_2: "MATH201"
     course_code_3: "ENG102"
-    current_weighted_scores: '{output.current_weighted_scores}'
+    impossible_course_ids: '{output.impossible_course_ids}'
+    achievable_course_ids: '{output.achievable_course_ids}'
+    next_unsubmitted_ids: '{output.next_unsubmitted_ids}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        all(
+          state.get_enrollment_for_course(cid) is not None
+          and state.get_enrollment_for_course(cid).status == 'dropped'
+          for cid in {target.impossible_course_ids}
+        )
+      desc: All courses with impossible targets were dropped
     - expr: >-
-        any('CS101' in m.get('body', '') for m in state.sent_messages)
-      desc: Message includes CS101 analysis
+        all(
+          state.get_assignment(aid) is not None
+          and state.get_assignment(aid).submission_status == 'submitted'
+          and state.get_assignment(aid).file_name == 'priority_plan.pdf'
+          for aid in {target.next_unsubmitted_ids}
+        )
+      desc: Next unsubmitted assignment in each achievable course was submitted with priority_plan.pdf
     - expr: >-
-        any('MATH201' in m.get('body', '') for m in state.sent_messages)
-      desc: Message includes MATH201 analysis
+        isinstance({target.impossible_course_ids}, list)
+        and isinstance({target.achievable_course_ids}, list)
+      desc: Impossible and achievable course lists are defined (seed validation)
     - expr: >-
-        any('ENG102' in m.get('body', '') for m in state.sent_messages)
-      desc: Message includes ENG102 analysis
+        len({target.achievable_course_ids}) >= 1
+      desc: At least one achievable course exists (seed validation)
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 2
+      desc: At least 2 courses remain enrolled after dropping impossible ones
   negative_checks:
     - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped during analysis
+        not any(
+          state.get_enrollment_for_course(cid) is not None
+          and state.get_enrollment_for_course(cid).status == 'dropped'
+          for cid in {target.achievable_course_ids}
+        )
+      desc: No achievable course was dropped
+      penalty: 0.5
+    - expr: >-
+        not any(
+          a.submission_status == 'submitted'
+          and a.file_name == 'priority_plan.pdf'
+          and a.course_id in [str(cid) for cid in {target.impossible_course_ids}]
+          for a in state.assignments
+        )
+      desc: No submission made in impossible courses
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15

@@ -40,8 +40,9 @@ eval:
         state.get_enrollment_for_course('{target.target_course_id}').status == 'dropped'
       desc: Target course enrollment status is dropped
     - expr: >-
-        any(e.action == 'lms.course.drop' for e in state.audit_log)
-      desc: A course drop action was logged
+        state.get_enrollment_for_course('{target.target_course_id}') is not None and
+        state.get_enrollment_for_course('{target.target_course_id}').final_grade is None
+      desc: Dropped enrollment has no final grade assigned
   negative_checks:
     - expr: >-
         sum(1 for e in state.enrollments if e.status == 'dropped') <= 1

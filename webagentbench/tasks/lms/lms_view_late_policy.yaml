@@ -1,15 +1,17 @@
 task_id: lms_view_late_policy
 env_id: lms
-title: View Course Late Policy
+title: Check Late Policy and Conditionally Submit
 instruction_template: >-
-  Navigate to the syllabus for {target.course_code} and report the late policy
-  details to your advisor by sending a message. Include the penalty per day
-  and maximum late days in your message.
+  Check the syllabus late policy for {target.course_code}. If the policy
+  allows more than 3 late days, submit your overdue assignment
+  "{target.overdue_assignment_title}" with file "late_submit.pdf". If 3 or
+  fewer late days are allowed, do not submit.
 difficulty: easy
 time_limit_seconds: 120
 expected_steps: 5
 primary_primitives:
   - grounding
+  - verification
 start_path: /courses
 
 seed:
@@ -19,7 +21,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -32,21 +33,47 @@ seed:
       params: {}
       outputs:
         - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 4
+        missing_count: 1
+      outputs:
+        - assignment_ids
+        - overdue_assignment_id
+        - overdue_assignment_title
+        - allows_late_submit
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    overdue_assignment_id: '{output.overdue_assignment_id}'
+    overdue_assignment_title: '{output.overdue_assignment_title}'
+    allows_late_submit: '{output.allows_late_submit}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent at least one message
     - expr: >-
-        any(str(state.get_course('{target.target_course_id}').syllabus.late_policy.penalty_per_day) in m.get('body', '')
-            and str(state.get_course('{target.target_course_id}').syllabus.late_policy.max_late_days) in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message body contains penalty per day and max late days
+        (('{target.allows_late_submit}' == 'true'
+         and state.get_assignment('{target.overdue_assignment_id}') is not None
+         and state.get_assignment('{target.overdue_assignment_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.overdue_assignment_id}').file_name == 'late_submit.pdf')
+        or ('{target.allows_late_submit}' != 'true'
+            and (state.get_assignment('{target.overdue_assignment_id}') is None
+                 or state.get_assignment('{target.overdue_assignment_id}').submission_status == 'not_submitted')))
+      desc: >-
+        Assignment submitted IFF max_late_days > 3, not submitted otherwise
+    - expr: >-
+        state.get_assignment('{target.overdue_assignment_id}') is not None
+      desc: Overdue assignment exists (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        ('{target.allows_late_submit}' != 'true'
+         or len([a for a in state.assignments
+                 if a.file_name == 'late_submit.pdf'
+                 and a.submission_status in ('submitted', 'late')]) <= 1)
+      desc: At most one assignment was submitted with late_submit.pdf
+      penalty: 0.2
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.2

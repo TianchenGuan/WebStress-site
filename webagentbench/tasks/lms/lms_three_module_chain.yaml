@@ -64,9 +64,10 @@ eval:
             if m.status == 'completed')
       desc: All completed modules have all content items done
     - expr: >-
-        len([m for m in state.modules_for_course('{target.target_course_id}')
-             if m.status == 'completed']) >= 4
-      desc: Three new modules were completed beyond the initial one
+        sum(1 for m in state.modules_for_course('{target.target_course_id}')
+            if m.status == 'completed'
+            and all(ci.completed for ci in m.content_items)) >= 4
+      desc: At least 4 modules completed with all content items done
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

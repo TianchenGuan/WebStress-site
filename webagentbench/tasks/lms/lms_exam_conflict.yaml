@@ -1,15 +1,10 @@
 task_id: lms_exam_conflict
 env_id: lms
-title: Cross-Course Exam Conflict Resolution
+title: Resolve Exam Scheduling Conflict by Dropping Lower-Grade Course
 instruction_template: >-
-  Check the calendar for upcoming exam dates. You suspect there may be a
-  scheduling conflict between two of your courses. Review the exam dates for
-  all your enrolled courses, identify any exams scheduled on the same day,
-  and then check each course's syllabus and announcements for any rescheduling
-  or conflict resolution policies. Send a message to the instructor of the
-  course with the later-scheduled exam ({target.instructor_name}) explaining
-  the conflict, listing both exam dates and course codes, and requesting
-  accommodation.
+  Check the calendar for upcoming exam dates. Find any two exams scheduled on
+  the same day. Once you identify the conflict, drop the course with the lower
+  weighted grade to resolve the scheduling conflict.
 difficulty: expert
 time_limit_seconds: 300
 expected_steps: 18
@@ -33,7 +28,6 @@ seed:
       outputs:
         - course_ids
         - course_codes
-        - instructor_name
     - use: enrollment_set
       params: {}
       outputs:
@@ -48,12 +42,16 @@ seed:
       params: {}
       outputs:
         - grade_ids
+        - current_weighted_scores
     - use: calendar_events
       params:
         include_recurring: false
+        force_exam_conflict: true
       outputs:
         - event_ids
-        - next_exam_event_id
+        - conflicting_course_ids
+        - lower_grade_conflict_course_id
+        - higher_grade_conflict_course_id
     - use: announcements_feed
       params:
         count: 4
@@ -61,38 +59,39 @@ seed:
       outputs:
         - announcement_ids
   targets:
-    instructor_name: '{output.instructor_name}'
-    course_codes: '{output.course_codes}'
-    next_exam_event_id: '{output.next_exam_event_id}'
+    lower_grade_conflict_course_id: '{output.lower_grade_conflict_course_id}'
+    higher_grade_conflict_course_id: '{output.higher_grade_conflict_course_id}'
+    conflicting_course_ids: '{output.conflicting_course_ids}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.instructor_name}' in m.get('to', '') or
-            '{target.instructor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to an instructor
+        (state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}') is not None
+        and state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}').status == 'dropped')
+      desc: The lower-grade conflicting course was dropped
     - expr: >-
-        any('exam' in m.get('body', '').lower() or 'final' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references exams
+        (state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}') is not None
+        and state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}').status == 'enrolled')
+      desc: The higher-grade conflicting course was NOT dropped
     - expr: >-
-        any('conflict' in m.get('body', '').lower() or 'schedule' in m.get('body', '').lower()
-            or 'reschedule' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses the scheduling conflict
+        state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}') is not None
+      desc: Lower-grade conflict course enrollment exists (seed validation)
     - expr: >-
-        any('accommodat' in m.get('body', '').lower() or 'request' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message requests accommodation
+        state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}') is not None
+      desc: Higher-grade conflict course enrollment exists (seed validation)
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: At least 3 courses remain enrolled after resolving conflict
   negative_checks:
     - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped to avoid the conflict
+        sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
+      desc: Only one course was dropped (not multiple)
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+    - expr: >-
+        not any(e.status == 'dropped'
+                and e.course_id not in
+                    [cid.strip() for cid in '{target.conflicting_course_ids}'.split(',')]
+                for e in state.enrollments)
+      desc: No non-conflicting course was dropped
+      penalty: 0.3

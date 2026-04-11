@@ -3,8 +3,7 @@ env_id: lms
 title: Submit Late Assignment and Calculate Actual Score
 instruction_template: >-
   Submit the late assignment "{target.assignment_title}" for {target.course_code}.
-  Upload a file named "{target.file_name}". After submitting, send a message to
-  your instructor with the expected score after the late penalty is applied.
+  Upload a file named "{target.file_name}".
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 10
@@ -70,8 +69,10 @@ eval:
         state.get_assignment('{target.target_assignment_id}') is not None
         and state.get_assignment('{target.target_assignment_id}').file_name == '{target.file_name}'
       desc: Correct file name attached to submission
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message to instructor about the penalty
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
   negative_checks:
     - expr: >-
         state.get_assignment('{target.decoy_assignment_id}') is None

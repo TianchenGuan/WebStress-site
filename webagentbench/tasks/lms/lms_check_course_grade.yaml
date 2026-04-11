@@ -2,8 +2,9 @@ task_id: lms_check_course_grade
 env_id: lms
 title: Check Overall Course Grade
 instruction_template: >-
-  Navigate to the grades page for {target.course_code} and report your overall
-  weighted grade to your advisor by sending a message.
+  Navigate to the grades page for {target.course_code}. If your weighted grade
+  is below 80%, submit the next unsubmitted homework assignment with file
+  'catch_up.pdf'. If your weighted grade is 80% or above, no action is needed.
 difficulty: easy
 time_limit_seconds: 120
 expected_steps: 5
@@ -41,21 +42,39 @@ seed:
       outputs:
         - grade_ids
         - current_weighted_scores
+        - grade_below_80
+        - unsubmitted_hw_id
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    grade_below_80: '{output.grade_below_80}'
+    unsubmitted_hw_id: '{output.unsubmitted_hw_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent at least one message
     - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is None or
-        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message body contains the weighted grade (within rounding)
+        (('{target.grade_below_80}' == 'true'
+         and state.get_assignment('{target.unsubmitted_hw_id}') is not None
+         and state.get_assignment('{target.unsubmitted_hw_id}').submission_status == 'submitted'
+         and state.get_assignment('{target.unsubmitted_hw_id}').file_name == 'catch_up.pdf')
+        or ('{target.grade_below_80}' == 'false'
+            and (state.get_assignment('{target.unsubmitted_hw_id}') is None
+                 or state.get_assignment('{target.unsubmitted_hw_id}').submission_status != 'submitted')))
+      desc: >-
+        Submit catch_up.pdf for next unsubmitted homework if grade < 80%,
+        or no submission if grade >= 80%
+    - expr: >-
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Course has graded assignments (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        '{target.grade_below_80}' != 'false'
+        or state.get_assignment('{target.unsubmitted_hw_id}') is None
+        or state.get_assignment('{target.unsubmitted_hw_id}').file_name != 'catch_up.pdf'
+      desc: Did not submit when grade was 80% or above (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

@@ -3,9 +3,9 @@ env_id: lms
 title: Identify the Lowest Homework Grade That Will Be Dropped
 instruction_template: >-
   In {target.course_code}, the syllabus allows dropping the lowest homework
-  score. Navigate to the grades page and identify which homework assignment
-  has the lowest score and will be dropped. Send a message to your advisor
-  with the assignment title and its score.
+  score. Find which homework assignment has the lowest score and will be
+  dropped. Resubmit that assignment with file 'redo_lowest.pdf' to try to
+  improve it.
 difficulty: medium
 time_limit_seconds: 120
 expected_steps: 6
@@ -54,17 +54,29 @@ seed:
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message about the dropped grade
-    - expr: >-
-        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
-      desc: At least one homework grade is eligible for dropping
     - expr: >-
         state.get_assignment('{target.lowest_homework_id}') is not None
-        and any(state.get_assignment('{target.lowest_homework_id}').title in m.get('body', '')
-                for m in state.sent_messages)
-      desc: Message mentions the correct lowest homework assignment title
+        and state.get_assignment('{target.lowest_homework_id}').submission_status in ('submitted', 'late')
+        and state.get_assignment('{target.lowest_homework_id}').file_name == 'redo_lowest.pdf'
+      desc: Lowest homework assignment was resubmitted with redo_lowest.pdf
+    - expr: >-
+        state.get_assignment('{target.lowest_homework_id}') is not None
+        and state.get_assignment('{target.lowest_homework_id}').attempt_count >= 2
+      desc: Attempt count incremented (resubmission)
+    - expr: >-
+        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
+      desc: At least one homework grade is eligible for dropping (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        not any(
+          a.submission_status in ('submitted', 'late')
+          and a.file_name == 'redo_lowest.pdf'
+          and a.id != '{target.lowest_homework_id}'
+          for a in state.assignments
+        )
+      desc: No other assignment was resubmitted with redo_lowest.pdf (wrong assignment)
+      penalty: 0.5
+    - expr: >-
+        all(e.status != 'dropped' for e in state.enrollments)
+      desc: No courses were dropped
+      penalty: 0.3

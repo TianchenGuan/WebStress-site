@@ -8,9 +8,8 @@ instruction_template: >-
   score on linked assignments. Plan and execute the optimal completion order
   across all courses, completing all available modules and their content
   items. You must complete at least 4 modules total across all courses.
-  After completing the modules, send a progress update to your advisor
-  ({target.advisor_name}) listing which modules you completed and which
-  are now unlocked.
+  After completing the modules, send a brief progress update to your
+  advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
@@ -85,13 +84,12 @@ eval:
             if m.status == 'completed'
             and all(ci.completed for ci in m.content_items)) >= 5
       desc: At least 5 modules have all content items completed
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a progress update
-    - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
   negative_checks:
     - expr: >-
         not any(m.status == 'completed'

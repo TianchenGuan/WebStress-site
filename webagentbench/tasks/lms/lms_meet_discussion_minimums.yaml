@@ -51,11 +51,13 @@ eval:
         state.meets_discussion_requirements('{target.target_discussion_id}')
       desc: Student meets the discussion minimum requirements
     - expr: >-
-        state.student_post_count('{target.target_discussion_id}') >=
+        state.get_discussion('{target.target_discussion_id}') is not None
+        and state.student_post_count('{target.target_discussion_id}') >=
         state.get_discussion('{target.target_discussion_id}').min_posts
       desc: Student meets the minimum post count
     - expr: >-
-        state.student_reply_count('{target.target_discussion_id}') >=
+        state.get_discussion('{target.target_discussion_id}') is not None
+        and state.student_reply_count('{target.target_discussion_id}') >=
         state.get_discussion('{target.target_discussion_id}').min_replies
       desc: Student meets the minimum reply count
   negative_checks:

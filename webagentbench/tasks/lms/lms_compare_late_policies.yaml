@@ -2,10 +2,11 @@ task_id: lms_compare_late_policies
 env_id: lms
 title: Compare Syllabus Late Policies Across Courses
 instruction_template: >-
-  Compare the late submission policies across all your courses. For each
-  course, note the penalty per day, maximum late days, and grace period.
-  Send a message to your advisor identifying which course is strictest,
-  which is most lenient, and recommending a strategy for late submissions.
+  Compare late submission policies across all your courses. Find which course
+  has the most lenient policy (lowest penalty per day). Then find any missing
+  (unsubmitted) assignment in that course and submit it with file
+  'late_recovery.pdf'. Do NOT submit late work in courses with stricter
+  policies.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 12
@@ -36,40 +37,47 @@ seed:
       params: {}
       outputs:
         - enrollment_ids
+    - use: assignment_battery
+      params:
+        per_course_count: 6
+        graded_fraction: 0.5
+      outputs:
+        - assignment_ids
+        - missing_assignment_in_lenient_course_id
   targets:
-    strictest_course_id: '{output.strictest_late_policy_course_id}'
     most_lenient_course_id: '{output.most_lenient_late_policy_course_id}'
+    strictest_course_id: '{output.strictest_late_policy_course_id}'
+    missing_assignment_id: '{output.missing_assignment_in_lenient_course_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a policy comparison message
     - expr: >-
-        any('penalty' in m.get('body', '').lower()
-            or 'late' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses late penalties
+        state.get_assignment('{target.missing_assignment_id}') is not None
+        and state.get_assignment('{target.missing_assignment_id}').submission_status == 'submitted'
+        and state.get_assignment('{target.missing_assignment_id}').file_name == 'late_recovery.pdf'
+      desc: Missing assignment in the most lenient course was submitted with late_recovery.pdf
     - expr: >-
-        any('strict' in m.get('body', '').lower()
-            or 'lenient' in m.get('body', '').lower()
-            or 'highest' in m.get('body', '').lower()
-            or 'lowest' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message identifies strictest or most lenient policy
+        state.get_assignment('{target.missing_assignment_id}') is not None
+        and state.get_assignment('{target.missing_assignment_id}').course_id == '{target.most_lenient_course_id}'
+      desc: Submitted assignment belongs to the most lenient course (seed validation)
     - expr: >-
-        ((state.get_course('{target.strictest_course_id}') is not None
-         and any(state.get_course('{target.strictest_course_id}').course_code in m.get('body', '')
-                 for m in state.sent_messages))
-        or (state.get_course('{target.most_lenient_course_id}') is not None
-            and any(state.get_course('{target.most_lenient_course_id}').course_code in m.get('body', '')
-                    for m in state.sent_messages)))
-      desc: Message references the strictest or most lenient course by code
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active (seed validation)
+    - expr: >-
+        state.get_assignment('{target.missing_assignment_id}') is not None
+      desc: Target missing assignment exists (seed validation)
   negative_checks:
+    - expr: >-
+        not any(
+          a.submission_status == 'submitted'
+          and a.file_name == 'late_recovery.pdf'
+          and a.course_id != '{target.most_lenient_course_id}'
+          for a in state.assignments
+        )
+      desc: No late_recovery.pdf submitted in a course with a stricter policy
+      penalty: 0.5
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped during comparison
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Student did not send excessive messages
-      penalty: 0.1

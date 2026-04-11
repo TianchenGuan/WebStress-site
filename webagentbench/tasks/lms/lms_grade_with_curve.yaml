@@ -3,11 +3,12 @@ env_id: lms
 title: Grade Calculation with Instructor Curve
 instruction_template: >-
   Your instructor for {target.course_code} announced a 5-point curve on the
-  midterm exam. Find your midterm exam score, add the 5-point curve, then
-  recalculate your overall weighted score for the course with the curved
-  midterm. Send a message to the instructor ({target.instructor_name})
-  confirming your original midterm score, the curved score, and your
-  recalculated overall weighted grade.
+  midterm. Find your midterm score, add the 5-point curve, and determine if
+  the curved score changes your overall letter grade for the course (A >= 90,
+  B >= 80, C >= 70, D >= 60, F < 60). If the curve raises your letter grade,
+  mark all announcements for that course as read to acknowledge. If it does
+  NOT change your letter grade, submit 'curve_appeal.pdf' for the midterm
+  assignment to request a larger curve.
 difficulty: expert
 time_limit_seconds: 300
 expected_steps: 15
@@ -49,40 +50,65 @@ seed:
       outputs:
         - grade_ids
         - current_weighted_scores
+        - curve_changes_letter
+    - use: announcements_feed
+      params: {}
+      outputs:
+        - announcement_ids
+        - course_announcement_ids
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
     instructor_name: '{output.instructor_name}'
     exam_assignment_id: '{output.exam_assignment_id}'
-    current_weighted_scores: '{output.current_weighted_scores}'
+    curve_changes_letter: '{output.curve_changes_letter}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.instructor_name}' in m.get('to', '') or
-            '{target.instructor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to instructor
+        (('{target.curve_changes_letter}' == 'true'
+         and all(
+           a.is_read == True
+           for a in state.announcements
+           if a.course_id == '{target.target_course_id}'
+         ))
+        or ('{target.curve_changes_letter}' == 'false'
+            and state.get_assignment('{target.exam_assignment_id}') is not None
+            and state.get_assignment('{target.exam_assignment_id}').submission_status in ('submitted', 'late')
+            and state.get_assignment('{target.exam_assignment_id}').file_name == 'curve_appeal.pdf'))
+      desc: >-
+        Mark course announcements read if curve raises letter grade, or submit
+        curve_appeal.pdf for midterm if curve does not change letter grade
     - expr: >-
-        any('curve' in m.get('body', '').lower() or 'curved' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message mentions the curve
+        state.get_assignment('{target.exam_assignment_id}') is not None
+        and state.get_assignment('{target.exam_assignment_id}').score is not None
+      desc: Exam assignment exists and is graded (seed validation)
     - expr: >-
-        any('midterm' in m.get('body', '').lower() or 'exam' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references the midterm exam
+        state.weighted_score_for_course('{target.target_course_id}') is not None
+      desc: Course has graded assignments for computation (seed validation)
     - expr: >-
-        any('weighted' in m.get('body', '').lower() or 'overall' in m.get('body', '').lower()
-            or 'grade' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes recalculated grade
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: All enrollments remain active during analysis
+    - expr: >-
+        state.get_assignment('{target.exam_assignment_id}') is not None
+      desc: Target exam assignment exists (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+    - expr: >-
+        '{target.curve_changes_letter}' != 'true'
+        or state.get_assignment('{target.exam_assignment_id}') is None
+        or state.get_assignment('{target.exam_assignment_id}').file_name != 'curve_appeal.pdf'
+      desc: Did not submit curve appeal when curve already raises letter grade (wrong branch)
+      penalty: 0.3
+    - expr: >-
+        '{target.curve_changes_letter}' != 'false'
+        or not all(
+          a.is_read == True
+          for a in state.announcements
+          if a.course_id == '{target.target_course_id}'
+        )
+      desc: Did not mark announcements read when curve does not change letter grade (wrong branch)
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped

@@ -1,14 +1,16 @@
 task_id: lms_view_assignment_feedback
 env_id: lms
-title: View Assignment Feedback
+title: View Feedback and Resubmit Assignment
 instruction_template: >-
-  Find the graded assignment "{target.assignment_title}" in {target.course_code}
-  and report the instructor's feedback to your advisor via a message.
-difficulty: easy
+  Find any assignment in {target.course_code} that has instructor feedback.
+  Read the feedback, then resubmit that assignment with an updated file
+  "revised_after_feedback.pdf".
+difficulty: medium
 time_limit_seconds: 120
 expected_steps: 6
 primary_primitives:
   - grounding
+  - state_tracking
 start_path: /courses
 
 seed:
@@ -18,7 +20,6 @@ seed:
       params: {}
       outputs:
         - student_id
-        - advisor_name
     - use: course_catalog
       params:
         count: 3
@@ -37,26 +38,42 @@ seed:
         - target_assignment_id
         - target_assignment_title
         - target_course_code
+        - feedback_assignment_id
+        - decoy_assignment_id
     - use: grade_book
       params: {}
       outputs:
         - grade_ids
   targets:
-    assignment_title: '{output.target_assignment_title}'
     course_code: '{output.target_course_code}'
-    target_assignment_id: '{output.target_assignment_id}'
+    feedback_assignment_id: '{output.feedback_assignment_id}'
+    decoy_assignment_id: '{output.decoy_assignment_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent at least one message
     - expr: >-
-        state.get_assignment('{target.target_assignment_id}').feedback is not None and
-        any(state.get_assignment('{target.target_assignment_id}').feedback in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message body contains the feedback text
+        (state.get_assignment('{target.feedback_assignment_id}') is not None
+        and state.get_assignment('{target.feedback_assignment_id}').submission_status in ('submitted', 'late'))
+      desc: The assignment with feedback was resubmitted
+    - expr: >-
+        (state.get_assignment('{target.feedback_assignment_id}') is not None
+        and state.get_assignment('{target.feedback_assignment_id}').file_name == 'revised_after_feedback.pdf')
+      desc: Correct file name used for resubmission
+    - expr: >-
+        state.get_assignment('{target.feedback_assignment_id}') is not None
+        and state.get_assignment('{target.feedback_assignment_id}').feedback is not None
+      desc: The resubmitted assignment is the one with feedback (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        (state.get_assignment('{target.decoy_assignment_id}') is None
+        or state.get_assignment('{target.decoy_assignment_id}').submission_status not in ('submitted', 'late')
+        or state.get_assignment('{target.decoy_assignment_id}').file_name != 'revised_after_feedback.pdf')
+      desc: Decoy assignment was not resubmitted with the feedback file
+      penalty: 0.25
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'revised_after_feedback.pdf'
+             and a.submission_status in ('submitted', 'late')]) <= 1
+      desc: Only one assignment was resubmitted with the feedback revision file
+      penalty: 0.2

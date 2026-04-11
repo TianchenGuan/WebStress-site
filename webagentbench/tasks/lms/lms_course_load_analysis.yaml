@@ -2,13 +2,13 @@ task_id: lms_course_load_analysis
 env_id: lms
 title: Course Load Analysis for Adding a Fifth Course
 instruction_template: >-
-  You're considering adding a 5th course to your schedule. Analyze your
-  current course load: for each of your {target.num_courses} enrolled courses,
-  check your current weighted score, count remaining ungraded assignments,
-  and note upcoming deadlines. Then determine if your current GPA of
-  {target.gpa} would be at risk (drop below 3.0) if you added another
-  3-credit course and performed average (C/70%) in it. Send your analysis
-  and recommendation to your advisor ({target.advisor_name}).
+  You're considering adding a 5th course. Analyze your current load: check
+  weighted scores, count remaining assignments, and determine if your GPA
+  ({target.gpa}) would drop below 3.0 with a C (70%) in a new 3-credit
+  course. If adding the course would keep your GPA above 3.0, mark all
+  unread announcements as read to confirm you've reviewed your standing.
+  If it would drop below 3.0, do NOT mark announcements — instead drop
+  your lowest-performing current course.
 difficulty: expert
 time_limit_seconds: 360
 expected_steps: 20
@@ -50,46 +50,60 @@ seed:
       outputs:
         - grade_ids
         - current_weighted_scores
+        - can_add_course
+        - lowest_performing_course_id
     - use: calendar_events
       params:
         include_recurring: false
       outputs:
         - event_ids
+    - use: announcements_feed
+      params: {}
+      outputs:
+        - announcement_ids
   targets:
-    advisor_name: '{output.advisor_name}'
     gpa: '{output.gpa}'
     num_courses: "4"
-    course_codes: '{output.course_codes}'
-    current_weighted_scores: '{output.current_weighted_scores}'
+    can_add_course: '{output.can_add_course}'
+    lowest_performing_course_id: '{output.lowest_performing_course_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        (('{target.can_add_course}' == 'true'
+         and all(a.is_read == True for a in state.announcements))
+        or ('{target.can_add_course}' == 'false'
+            and state.get_enrollment_for_course('{target.lowest_performing_course_id}') is not None
+            and state.get_enrollment_for_course('{target.lowest_performing_course_id}').status == 'dropped'))
+      desc: >-
+        Mark all announcements read if GPA stays above 3.0, or drop lowest
+        course if GPA would drop below 3.0
     - expr: >-
-        any('GPA' in m.get('body', '').upper() or 'gpa' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses GPA impact
+        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
+      desc: At least 3 courses remain enrolled
     - expr: >-
-        any('3.0' in m.get('body', '') or 'three' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references the 3.0 GPA threshold
+        state.get_enrollment_for_course('{target.lowest_performing_course_id}') is not None
+      desc: Lowest-performing course enrollment exists (seed validation)
     - expr: >-
-        any('recommend' in m.get('body', '').lower() or 'advise' in m.get('body', '').lower()
-            or 'should' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes a recommendation
+        state.weighted_score_for_course('{target.lowest_performing_course_id}') is not None
+      desc: Lowest-performing course has graded assignments (seed validation)
+    - expr: >-
+        len(state.announcements) >= 1
+      desc: Announcements exist for review (seed validation)
   negative_checks:
     - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped during analysis
+        '{target.can_add_course}' != 'true'
+        or all(e.status != 'dropped' for e in state.enrollments)
+      desc: Did not drop a course when GPA would stay above 3.0 (wrong branch)
+      penalty: 0.5
+    - expr: >-
+        '{target.can_add_course}' != 'false'
+        or not all(a.is_read == True for a in state.announcements)
+      desc: Did not mark all announcements read when GPA would drop below 3.0 (wrong branch)
       penalty: 0.3
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+    - expr: >-
+        '{target.can_add_course}' != 'false'
+        or sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
+      desc: Only one course was dropped (not multiple)
+      penalty: 0.3

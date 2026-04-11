@@ -2,9 +2,8 @@ task_id: lms_compare_course_grades
 env_id: lms
 title: Compare Grades Across Two Courses
 instruction_template: >-
-  Compare your current weighted grades between {target.course_code_a} and
-  {target.course_code_b}. Send a message to your advisor identifying which
-  course has the lower grade and by how many percentage points.
+  Compare your weighted grades between {target.course_code_a} and
+  {target.course_code_b}. Drop the course with the lower weighted grade.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 10
@@ -43,24 +42,40 @@ seed:
       outputs:
         - grade_ids
         - current_weighted_scores
+        - lower_grade_course_id
   targets:
     course_code_a: 'CS101'
     course_code_b: 'MATH201'
+    lower_grade_course_id: '{output.lower_grade_course_id}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message to advisor
+    - expr: >-
+        state.get_enrollment_for_course('{target.lower_grade_course_id}') is not None
+        and state.get_enrollment_for_course('{target.lower_grade_course_id}').status == 'dropped'
+      desc: The course with the lower weighted grade was dropped
     - expr: >-
         state.get_course_by_code('CS101') is not None
         and state.weighted_score_for_course(state.get_course_by_code('CS101').id) is not None
-      desc: CS101 has graded assignments for comparison
+      desc: CS101 has graded assignments for comparison (seed validation)
     - expr: >-
         state.get_course_by_code('MATH201') is not None
         and state.weighted_score_for_course(state.get_course_by_code('MATH201').id) is not None
-      desc: MATH201 has graded assignments for comparison
+      desc: MATH201 has graded assignments for comparison (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 2
-      desc: Student did not send excessive messages
-      penalty: 0.1
+    - expr: >-
+        sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
+      desc: Only one course was dropped (not both)
+      penalty: 0.5
+    - expr: >-
+        (state.get_course_by_code('CS101') is None
+         or state.get_course_by_code('MATH201') is None
+         or (state.weighted_score_for_course(state.get_course_by_code('CS101').id)
+             < state.weighted_score_for_course(state.get_course_by_code('MATH201').id)
+             and state.get_enrollment_for_course(state.get_course_by_code('MATH201').id).status != 'dropped')
+         or (state.weighted_score_for_course(state.get_course_by_code('MATH201').id)
+             <= state.weighted_score_for_course(state.get_course_by_code('CS101').id)
+             and state.get_enrollment_for_course(state.get_course_by_code('CS101').id).status != 'dropped'))
+      desc: The higher-grade course was not dropped (wrong course)
+      penalty: 0.5

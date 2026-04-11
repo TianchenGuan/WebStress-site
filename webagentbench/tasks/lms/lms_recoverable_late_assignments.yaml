@@ -74,8 +74,9 @@ eval:
             if a.submission_status != 'not_submitted')
       desc: All submitted assignments have valid submission statuses
     - expr: >-
-        any(a.file_name == 'recovery_submission.pdf' for a in state.assignments)
-      desc: Correct file name used for recovery submissions
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (none dropped)
     - expr: >-
         len([a for a in state.assignments
              if a.file_name == 'recovery_submission.pdf']) >= 1

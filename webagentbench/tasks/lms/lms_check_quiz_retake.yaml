@@ -1,10 +1,11 @@
 task_id: lms_check_quiz_retake
 env_id: lms
-title: Check If Quiz Can Be Retaken
+title: Check Quiz Retake Eligibility and Act
 instruction_template: >-
   Check the quiz "{target.assignment_title}" in {target.course_code}. If you
-  have remaining attempts, retake the quiz by submitting again. If no attempts
-  remain, send a message to your instructor asking about a retake.
+  have remaining attempts, retake it by resubmitting with file
+  "quiz_retake.pdf". If no attempts remain, post in the course discussion
+  forum asking about a retake opportunity.
 difficulty: medium
 time_limit_seconds: 120
 expected_steps: 6
@@ -41,40 +42,58 @@ seed:
         - target_assignment_id
         - target_assignment_title
         - target_course_code
+        - has_remaining_attempts
         - decoy_assignment_id
+    - use: discussion_forums
+      params:
+        count: 2
+        posts_per: 2
+      outputs:
+        - discussion_ids
+        - target_discussion_id
   targets:
     assignment_title: '{output.target_assignment_title}'
     course_code: '{output.target_course_code}'
     target_assignment_id: '{output.target_assignment_id}'
+    has_remaining_attempts: '{output.has_remaining_attempts}'
+    target_discussion_id: '{output.target_discussion_id}'
     decoy_assignment_id: '{output.decoy_assignment_id}'
+    target_course_id: '{output.target_course_id}'
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        ((state.get_assignment('{target.target_assignment_id}') is not None
-         and state.get_assignment('{target.target_assignment_id}').attempt_count
-             < state.get_assignment('{target.target_assignment_id}').max_attempts
-         and state.get_assignment('{target.target_assignment_id}').submission_status
-             in ('submitted', 'late'))
-        or (state.get_assignment('{target.target_assignment_id}') is not None
-            and state.get_assignment('{target.target_assignment_id}').attempt_count
-                >= state.get_assignment('{target.target_assignment_id}').max_attempts
-            and len(state.sent_messages) >= 1))
-      desc: Student either retook the quiz or messaged instructor if no attempts remain
+        (('{target.has_remaining_attempts}' == 'true'
+         and state.get_assignment('{target.target_assignment_id}') is not None
+         and state.get_assignment('{target.target_assignment_id}').submission_status in ('submitted', 'late')
+         and state.get_assignment('{target.target_assignment_id}').file_name == 'quiz_retake.pdf')
+        or ('{target.has_remaining_attempts}' != 'true'
+            and any(p.discussion_id == '{target.target_discussion_id}'
+                    and p.author_id == state.student.id
+                    and len(p.body.strip()) > 10
+                    for p in state.discussion_posts)))
+      desc: >-
+        Quiz resubmitted IFF attempts remain, OR discussion post created IFF
+        no attempts remain
     - expr: >-
         state.get_assignment('{target.target_assignment_id}') is not None
-      desc: Target assignment exists (seed validation)
+      desc: Target quiz assignment exists (seed validation)
     - expr: >-
-        ((state.get_assignment('{target.target_assignment_id}').attempt_count
-             < state.get_assignment('{target.target_assignment_id}').max_attempts
-         and state.get_assignment('{target.target_assignment_id}').attempt_count >= 1)
-        or len(state.sent_messages) >= 1)
-      desc: Student took a concrete action based on attempt status
+        state.get_assignment('{target.target_assignment_id}') is not None
+        and state.get_assignment('{target.target_assignment_id}').course_id == '{target.target_course_id}'
+      desc: Target quiz belongs to the correct course (seed validation)
   negative_checks:
     - expr: >-
         (state.get_assignment('{target.decoy_assignment_id}') is None
-        or state.get_assignment('{target.decoy_assignment_id}').submission_status
-           == state.get_assignment('{target.decoy_assignment_id}').submission_status)
-      desc: Decoy assignment was not modified
+         or state.get_assignment('{target.decoy_assignment_id}').submission_status
+            in ('not_submitted', 'graded', 'resubmit_requested'))
+      desc: Decoy assignment was not submitted or retaken
       penalty: 0.2
+    - expr: >-
+        ('{target.has_remaining_attempts}' == 'true'
+         or not any(a.submission_status in ('submitted', 'late')
+                    and a.file_name == 'quiz_retake.pdf'
+                    for a in state.assignments))
+      desc: No quiz_retake.pdf was submitted when no attempts remain
+      penalty: 0.25

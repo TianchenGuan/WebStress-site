@@ -3,9 +3,11 @@ env_id: lms
 title: Calculate Minimum Final Exam Score for a B
 instruction_template: >-
   Calculate the minimum score you need on the final exam in {target.course_code}
-  to achieve an overall grade of B (80% or above). Account for the syllabus
-  grading weights and any dropped homework scores. Send a message to your
-  advisor with the required minimum score.
+  to achieve an overall grade of B (80% or above). Account for syllabus
+  weights and any dropped homework scores. If the required score is above
+  100 (impossible to achieve a B), drop the course. If the required score
+  is achievable (100 or below), submit 'study_plan.pdf' for the final exam
+  assignment.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 15
@@ -42,6 +44,7 @@ seed:
         late_count: 1
       outputs:
         - assignment_ids
+        - final_exam_assignment_id
     - use: grade_book
       params: {}
       outputs:
@@ -49,38 +52,46 @@ seed:
         - current_weighted_scores
         - dropped_grade_ids
         - minimum_final_score_for_b
+        - min_score_achievable
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
-    minimum_final_score_for_b: '{output.minimum_final_score_for_b}'
+    final_exam_assignment_id: '{output.final_exam_assignment_id}'
+    min_score_achievable: '{output.min_score_achievable}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Student sent a message to advisor
+    - expr: >-
+        (('{target.min_score_achievable}' == 'true'
+         and state.get_assignment('{target.final_exam_assignment_id}') is not None
+         and state.get_assignment('{target.final_exam_assignment_id}').submission_status == 'submitted'
+         and state.get_assignment('{target.final_exam_assignment_id}').file_name == 'study_plan.pdf')
+        or ('{target.min_score_achievable}' == 'false'
+            and state.get_enrollment_for_course('{target.target_course_id}') is not None
+            and state.get_enrollment_for_course('{target.target_course_id}').status == 'dropped'))
+      desc: >-
+        Submit study_plan.pdf for final exam if B is achievable, or drop the
+        course if required score exceeds 100
     - expr: >-
         state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments for computation
+      desc: Course has graded assignments for computation (seed validation)
     - expr: >-
-        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 0
-      desc: Drop-lowest policy is accounted for (seed validation)
+        state.get_assignment('{target.final_exam_assignment_id}') is not None
+      desc: Final exam assignment exists (seed validation)
     - expr: >-
-        (any('{target.minimum_final_score_for_b}' in m.get('body', '')
-            or (abs(float(m.get('body', '0').split()[-1]) -
-                    float('{target.minimum_final_score_for_b}')) < 2.0
-                if m.get('body', '').split()[-1].replace('.','').isdigit()
-                else False)
-            for m in state.sent_messages)
-        or '{target.minimum_final_score_for_b}' == '')
-      desc: Message contains the correct minimum score (within tolerance)
+        state.get_enrollment_for_course('{target.target_course_id}') is not None
+      desc: Target course enrollment exists (seed validation)
   negative_checks:
     - expr: >-
-        not any(a.submission_status != a.submission_status
-                for a in state.assignments)
-      desc: No assignment statuses were modified
-      penalty: 0.2
+        '{target.min_score_achievable}' != 'true'
+        or state.get_enrollment_for_course('{target.target_course_id}') is None
+        or state.get_enrollment_for_course('{target.target_course_id}').status != 'dropped'
+      desc: Did not drop course when B is achievable (wrong branch)
+      penalty: 0.5
     - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped during analysis
+        '{target.min_score_achievable}' != 'false'
+        or state.get_assignment('{target.final_exam_assignment_id}') is None
+        or state.get_assignment('{target.final_exam_assignment_id}').file_name != 'study_plan.pdf'
+      desc: Did not submit study plan when B is impossible (wrong branch)
       penalty: 0.3

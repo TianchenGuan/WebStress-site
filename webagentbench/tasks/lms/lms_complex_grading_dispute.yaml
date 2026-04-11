@@ -2,13 +2,12 @@ task_id: lms_complex_grading_dispute
 env_id: lms
 title: Resolve Complex Grading Dispute
 instruction_template: >-
-  You believe two assignments were graded incorrectly in {target.course_code}:
-  the assignment "{target.disputed_title_1}" should have received full marks
+  You believe two assignments were graded incorrectly in {target.course_code}.
+  The assignment "{target.disputed_title_1}" should have received full marks
   based on the rubric, and "{target.disputed_title_2}" had a late penalty
-  applied incorrectly (you submitted within the grace period). Compute what
-  your corrected weighted score for the course would be if both issues were
-  fixed, and send a detailed message to the instructor ({target.instructor_name})
-  explaining both discrepancies with the corrected course score.
+  applied incorrectly (you submitted within the grace period). Resubmit both
+  assignments: "{target.disputed_title_1}" with file 'rubric_evidence.pdf'
+  and "{target.disputed_title_2}" with file 'grace_period_proof.pdf'.
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 30
@@ -48,6 +47,8 @@ seed:
       outputs:
         - assignment_ids
         - late_assignment_ids
+        - disputed_assignment_id_1
+        - disputed_assignment_id_2
     - use: grade_book
       params: {}
       outputs:
@@ -59,34 +60,43 @@ seed:
     instructor_name: '{output.instructor_name}'
     disputed_title_1: "Problem Set 1"
     disputed_title_2: "Weekly Quiz 1"
-    current_weighted_scores: '{output.current_weighted_scores}'
+    disputed_assignment_id_1: '{output.disputed_assignment_id_1}'
+    disputed_assignment_id_2: '{output.disputed_assignment_id_2}'
 
 eval:
   source: server_state
   checks:
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent at least one message
     - expr: >-
-        any('{target.instructor_name}' in m.get('to', '') or
-            '{target.instructor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to instructor
+        state.get_assignment('{target.disputed_assignment_id_1}') is not None
+        and state.get_assignment('{target.disputed_assignment_id_1}').submission_status in ('submitted', 'late')
+        and state.get_assignment('{target.disputed_assignment_id_1}').file_name == 'rubric_evidence.pdf'
+      desc: First disputed assignment resubmitted with rubric_evidence.pdf
     - expr: >-
-        any('{target.disputed_title_1}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message mentions first disputed assignment
+        state.get_assignment('{target.disputed_assignment_id_2}') is not None
+        and state.get_assignment('{target.disputed_assignment_id_2}').submission_status in ('submitted', 'late')
+        and state.get_assignment('{target.disputed_assignment_id_2}').file_name == 'grace_period_proof.pdf'
+      desc: Second disputed assignment resubmitted with grace_period_proof.pdf
     - expr: >-
-        any('{target.disputed_title_2}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message mentions second disputed assignment
+        state.get_assignment('{target.disputed_assignment_id_1}') is not None
+        and state.get_assignment('{target.disputed_assignment_id_1}').attempt_count >= 2
+      desc: First disputed assignment attempt count incremented
     - expr: >-
-        any('score' in m.get('body', '').lower() or 'grade' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message discusses scores or grades
+        state.get_assignment('{target.disputed_assignment_id_2}') is not None
+        and state.get_assignment('{target.disputed_assignment_id_2}').attempt_count >= 2
+      desc: Second disputed assignment attempt count incremented
+    - expr: >-
+        state.get_assignment('{target.disputed_assignment_id_1}').course_id == '{target.target_course_id}'
+      desc: First disputed assignment belongs to the target course (seed validation)
   negative_checks:
-    - expr: len(state.sent_messages) <= 3
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+    - expr: >-
+        not any(
+          a.submission_status in ('submitted', 'late')
+          and a.file_name in ('rubric_evidence.pdf', 'grace_period_proof.pdf')
+          and a.id not in ('{target.disputed_assignment_id_1}', '{target.disputed_assignment_id_2}')
+          for a in state.assignments
+        )
+      desc: No other assignments were resubmitted with dispute files
+      penalty: 0.3
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped

@@ -64,9 +64,8 @@ eval:
       desc: Review includes a meaningful comment
   negative_checks:
     - expr: >-
-        all(pr.status == pr.status
-            for pr in state.peer_reviews
-            if pr.id != '{target.target_review_id}'
-            and pr.status == 'submitted')
-      desc: Other completed reviews were not modified
+        not any(pr.reviewer_student_id != state.student.id
+                and pr.status == 'submitted'
+                for pr in state.peer_reviews)
+      desc: Reviews assigned to other students were not modified
       penalty: 0.15

@@ -10,9 +10,8 @@ instruction_template: >-
   (4) Identify courses where achieving the needed grade is most/least
   feasible based on remaining assignment weight and current standing.
   Submit any easy unsubmitted assignments with file "scholarship_save.pdf"
-  to secure points. Send a detailed maintenance plan to your advisor
-  ({target.advisor_name}) with per-course targets, feasibility assessment,
-  and overall scholarship risk level.
+  to secure points. Send a brief maintenance plan to your advisor
+  ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -73,26 +72,26 @@ eval:
             and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: At least one scholarship-saving submission made
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'scholarship_save.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 1
+      desc: Scholarship file submitted successfully
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active (dropping would lose credit hours)
+    - expr: >-
+        all(a.submission_status in ('submitted', 'late', 'graded')
+            for a in state.assignments
+            if a.file_name == 'scholarship_save.pdf')
+      desc: All scholarship submissions have valid statuses
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a maintenance plan
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('3.5' in m.get('body', '') or 'scholarship' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message references 3.5 GPA threshold or scholarship
-    - expr: >-
-        any('CS101' in m.get('body', '') and 'MATH201' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Message covers multiple courses
-    - expr: >-
-        any('feasib' in m.get('body', '').lower() or 'risk' in m.get('body', '').lower()
-            or 'achiev' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message includes feasibility assessment
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

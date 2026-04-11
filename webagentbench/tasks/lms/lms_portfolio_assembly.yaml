@@ -7,11 +7,9 @@ instruction_template: >-
   80% of points possible). (2) Verify the grades are correct by checking
   against rubric criteria. (3) Note any assignments with positive instructor
   feedback. (4) Check your discussion posts for thoughtful contributions
-  that could be included. After reviewing all courses, send a portfolio
-  summary message to your advisor ({target.advisor_name}) listing: each
-  selected work (assignment title, course, score, percentage), why it was
-  selected, and a brief reflection on your growth across the semester.
-  Include at least 3 works from at least 2 different courses.
+  that could be included. Submit a portfolio compilation file named
+  "portfolio.pdf" to any unsubmitted assignment. Then send a brief
+  portfolio summary to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
@@ -73,31 +71,33 @@ seed:
 eval:
   source: server_state
   checks:
+    - expr: >-
+        any(a.file_name == 'portfolio.pdf'
+            and a.submission_status in ('submitted', 'late')
+            for a in state.assignments)
+      desc: Agent submitted portfolio.pdf file
+    - expr: >-
+        len([a for a in state.assignments
+             if a.score is not None
+             and a.points_possible > 0
+             and float(a.score) / float(a.points_possible) >= 0.8]) >= 3
+      desc: At least 3 graded assignments score above 80% (portfolio candidates exist)
+    - expr: >-
+        len(set(a.course_id for a in state.assignments
+                if a.score is not None
+                and a.points_possible > 0
+                and float(a.score) / float(a.points_possible) >= 0.8)) >= 2
+      desc: High-scoring assignments span at least 2 courses
+    - expr: >-
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a portfolio summary
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
+        any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        any('portfolio' in m.get('body', '').lower() or 'selected' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message is framed as a portfolio
-    - expr: >-
-        any('CS101' in m.get('body', '') or 'MATH201' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Portfolio references at least one course
-    - expr: >-
-        any('score' in m.get('body', '').lower() or 'grade' in m.get('body', '').lower()
-            or '%' in m.get('body', '')
-            for m in state.sent_messages)
-      desc: Portfolio includes score or grade information
-    - expr: >-
-        any('reflect' in m.get('body', '').lower() or 'growth' in m.get('body', '').lower()
-            or 'learn' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Portfolio includes reflection on learning
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
@@ -107,9 +107,7 @@ eval:
       desc: Agent did not send excessive messages
       penalty: 0.15
     - expr: >-
-        not any(a.submission_status in ('submitted', 'late')
-                and a.file_name is not None
-                and 'portfolio' in (a.file_name or '').lower()
-                for a in state.assignments)
-      desc: Agent did not submit files as assignments for portfolio
+        len([a for a in state.assignments
+             if a.file_name == 'portfolio.pdf']) <= 2
+      desc: Agent did not submit excessively many portfolio files
       penalty: 0.1

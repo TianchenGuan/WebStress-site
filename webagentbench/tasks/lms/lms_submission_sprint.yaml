@@ -6,8 +6,7 @@ instruction_template: >-
   across your courses. Review all not-submitted assignments, prioritize them
   by grade impact (considering points possible, category weight, and any late
   penalties), and submit the top 3 highest-impact assignments first with file
-  "sprint_submission.pdf". After submitting, send a message to your advisor
-  ({target.advisor_name}) explaining which assignments you prioritized and why.
+  "sprint_submission.pdf".
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 30
@@ -68,17 +67,20 @@ eval:
             and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: At least one sprint submission has valid status
-    - expr: len(state.sent_messages) >= 1
-      desc: Agent sent a summary message
     - expr: >-
-        any('{target.advisor_name}' in m.get('to', '') or
-            '{target.advisor_name}'.lower() in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message addressed to advisor
+        all(a.submission_status in ('submitted', 'late', 'graded')
+            for a in state.assignments
+            if a.file_name == 'sprint_submission.pdf')
+      desc: All sprint submissions have valid statuses
     - expr: >-
-        any('priorit' in m.get('body', '').lower() or 'impact' in m.get('body', '').lower()
-            for m in state.sent_messages)
-      desc: Message explains prioritization rationale
+        all(e.status == 'enrolled'
+            for e in state.enrollments)
+      desc: All enrollments remain active
+    - expr: >-
+        len([a for a in state.assignments
+             if a.file_name == 'sprint_submission.pdf'
+             and a.submission_status in ('submitted', 'late')]) >= 3
+      desc: At least 3 sprint submissions were accepted
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)
