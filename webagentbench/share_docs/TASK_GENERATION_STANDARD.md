@@ -124,6 +124,106 @@ Seed requirements:
 - Seed decoys along realistic failure modes: similar names, stale objects, superseded revisions, forwarded copies, partial matches, same-title variants, and policy exceptions.
 - If the task depends on a comparison rule, seed at least one plausible decoy that would fool a shallow heuristic.
 
+## State Verifiability Requirement
+
+**Every task's primary evaluation MUST be based on verifiable state changes.**
+No exceptions. A task is not benchmark-ready if its correctness can only be
+judged by reading free-form text the agent produced.
+
+### The principle
+
+The agent interacts with a web UI. The UI exposes actions that mutate server
+state (submit forms, click buttons, select options). The eval checks that
+server state. This chain — UI action → state mutation → eval check — is the
+only reliable evaluation path.
+
+Checking the *content* of text the agent composed (message bodies, discussion
+posts, free-form fields) is unreliable because:
+
+- Keyword checks pass on garbage that contains the right words.
+- Exact-value substring checks fail on display rounding, alternative
+  formatting, or paraphrases.
+- An agent can copy API response values into text without performing the
+  cognitive work the task is supposed to test.
+
+### What counts as a state change
+
+These are verifiable and acceptable as primary eval evidence:
+
+- Assignment submission status changed (`submission_status`, `file_name`)
+- Course enrollment status changed (`status == 'dropped'` / `'enrolled'`)
+- Module or content item completion status changed
+- Discussion post or reply created (with `author_id`, `discussion_id`)
+- Peer review submitted (with `rubric_scores`, `comments`)
+- Announcement marked as read (`is_read`)
+- Appointment created, cancelled, or rescheduled
+- Prescription refilled, transferred, or renewed
+- Message sent to correct provider (structural: `provider_id`, `from_type`)
+- Profile field updated (phone, email, insurance)
+- Filter, label, or setting created or changed
+
+### What does NOT count as primary eval
+
+- Keyword presence in message body (`'recommend' in m.body.lower()`)
+- Substring matching of computed values in free text
+- Checking that "a message was sent" without verifying the resulting state
+- Any check where the agent could pass by writing a single sentence
+  containing the right keywords
+
+### The conditional-action pattern
+
+When a task involves computation or analysis (compute a grade, determine
+eligibility, compare policies), convert it to a conditional action:
+
+```
+Instruction: "Compute X. If X meets condition, do action A. Otherwise, do action B."
+Eval: Check which action was taken. The correct action proves the correct computation.
+```
+
+Example:
+```yaml
+instruction_template: >-
+  Calculate the minimum final exam score needed to achieve a B (80%) in
+  {target.course_code}. If the required score is above 100 (impossible),
+  drop the course. Otherwise, submit "study_plan.pdf" for the final exam
+  assignment.
+
+eval:
+  checks:
+    - expr: >-
+        ('{target.min_score_achievable}' == 'true'
+         and state.get_assignment('{target.final_exam_id}').file_name == 'study_plan.pdf')
+        or ('{target.min_score_achievable}' == 'false'
+            and state.get_enrollment_for_course('{target.course_id}').status == 'dropped')
+```
+
+The seed builder captures `min_score_achievable` at seed time. The eval
+verifies the agent took the correct branch. No message content is checked.
+
+### Messages as secondary verification
+
+Messages MAY appear in tasks and evals, but only under these constraints:
+
+1. The primary eval MUST be a state change (see above).
+2. Message checks may verify structural properties: correct recipient
+   (`provider_id`, `to` field), message existence (`len(...) >= 1`), or
+   exact values that come from `{target.*}` (not keywords).
+3. Message body keyword checks (`'recommend' in body.lower()`) are
+   NEVER acceptable in primary eval.
+4. Message checks in negative eval (e.g., "did not send to wrong provider")
+   are acceptable at standard penalty levels.
+
+### Frontend action coverage
+
+Every state-changing action referenced in any task eval MUST be accessible
+through the environment's frontend UI. If the frontend has no page or
+control for an action, the task is impossible for a web agent.
+
+Before adding a task, verify:
+- The action endpoint exists in the backend routes.
+- The frontend has a page, button, or form that triggers that endpoint.
+- The action is discoverable by an agent navigating the UI.
+
 ## Evaluation And Grading Standard
 
 Grading should answer one question: did the final environment state prove the
@@ -188,12 +288,32 @@ A task is not robustly graded unless the checker covers all of these when releva
 - cardinality constraints were respected
 - free-form output was judged in a format-tolerant way
 
+### Minimum check counts by difficulty
+
+| Difficulty | Min positive | Min negative | Coverage scope |
+|------------|-------------|-------------|----------------|
+| Easy       | 2           | 1           | Right item, right action, wrong item excluded |
+| Medium     | 3           | 1           | + no collateral |
+| Hard       | 4           | 2           | + cardinality |
+| Expert     | 5           | 2           | All five dimensions, per sub-goal |
+| Frontier   | 6           | 3           | All five per sub-goal, cross-goal isolation |
+
+Multi-part tasks ("do A, then B, then C") need coverage for each part,
+not just final state. A frontier task with 4 sub-goals needs roughly
+4 × 2 = 8 checks minimum.
+
 ### Anti-patterns
 
 - Passing a task because some similar object was touched, without proving that the correct original object was acted on
 - Requiring a long exact paragraph when multiple paraphrases would be correct
 - Grading only the happy path while ignoring realistic decoys seeded into the mailbox
 - Using one giant brittle check instead of several smaller auditable checks
+- Checking keyword presence in composed text as the primary success criterion
+- Using `any(KEYWORD in m.body.lower() for m in messages)` as a positive check
+- Tautological checks that compare a value to itself (`a.x != a.x` is always False)
+- Referencing state model fields or methods that do not exist (causes runtime crash)
+- Self-referential guards (`a.id not in []` is always True, provides no protection)
+- Using `all()` over a collection the agent could empty without a length guard
 
 ## Variants
 
