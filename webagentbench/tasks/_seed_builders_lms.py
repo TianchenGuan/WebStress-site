@@ -1003,6 +1003,7 @@ def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dic
 
     discussion_ids: list[str] = []
     target_discussion_id: str | None = None
+    target_discussion_title: str = ""
 
     for d in range(count):
         disc_id = ctx.next_id("discussion")
@@ -1010,11 +1011,12 @@ def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dic
 
         prompt = ctx.rng.choice(_DISCUSSION_PROMPTS)
         due_offset = ctx.rng.randint(3, 14)
+        disc_title = f"Discussion {d + 1}: {ctx.rng.choice(_TOPICS)}"
 
         discussion = Discussion(
             id=disc_id,
             course_id=course_id,
-            title=f"Discussion {d + 1}: {ctx.rng.choice(_TOPICS)}",
+            title=disc_title,
             prompt=prompt,
             due_at=ctx.now + timedelta(days=due_offset),
             min_posts=1,
@@ -1026,6 +1028,7 @@ def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dic
 
         if d == 0:
             target_discussion_id = disc_id
+            target_discussion_title = disc_title
 
         # Generate classmate posts
         for p in range(posts_per):
@@ -1055,9 +1058,19 @@ def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dic
                 )
                 ctx.base["discussion_posts"].append(reply.model_dump())
 
+    # Look up course code for the target discussion
+    target_course_code = ""
+    if course_id:
+        for c in ctx.base.get("courses", []):
+            if c["id"] == course_id:
+                target_course_code = c["course_code"]
+                break
+
     return {
         "discussion_ids": discussion_ids,
         "target_discussion_id": target_discussion_id or "",
+        "target_discussion_title": target_discussion_title,
+        "target_course_code": target_course_code,
     }
 
 
