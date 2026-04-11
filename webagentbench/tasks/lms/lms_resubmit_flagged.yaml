@@ -50,11 +50,11 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        all(state.get_assignment(aid) is not None
+        (all(state.get_assignment(aid) is not None
             and state.get_assignment(aid).submission_status in ('submitted', 'late')
             for aid in [a.id for a in state.assignments
                         if a.submission_status == 'resubmit_requested'])
-        or not any(a.submission_status == 'resubmit_requested' for a in state.assignments)
+        or not any(a.submission_status == 'resubmit_requested' for a in state.assignments))
       desc: All resubmit-requested assignments were resubmitted
     - expr: >-
         len([a for a in state.assignments

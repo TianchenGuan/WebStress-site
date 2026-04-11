@@ -59,12 +59,12 @@ eval:
              and a.status == 'scheduled']) >= 1
       desc: At least one conflicting appointment remains scheduled
     - expr: >-
-        any(a.status == 'scheduled'
+        (any(a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             for a in state.appointments)
         or any(a.id in {target.conflict_apt_ids}
                and a.status == 'scheduled'
-               for a in state.appointments)
+               for a in state.appointments))
       desc: A rescheduled appointment or the kept appointment exists
     - expr: >-
         len([a for a in state.appointments

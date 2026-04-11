@@ -2,15 +2,20 @@ task_id: pp_specialist_roundrobin
 env_id: patient_portal
 title: Specialist Round-Robin
 instruction_template: >-
-  Your cardiologist ordered an echocardiogram. The results are in your lab records
-  and show an abnormal finding. Complete the following reactive chain:
-  1) Find the abnormal echocardiogram result in your lab results,
-  2) Message your cardiologist about the finding, citing the specific test value,
-  3) The cardiologist's reply (in your messages) refers you to a cardiac surgeon
-  — read that message,
-  4) Verify the cardiac surgery referral is in place and pre-authorization is approved,
-  5) Schedule a surgical consultation appointment.
-  Do not schedule without the referral and pre-auth being confirmed.
+  Your cardiologist has recommended an echocardiogram. Complete the following
+  sequential chain:
+  1) Schedule the echocardiogram appointment with the cardiology department,
+  2) Review the echocardiogram results in your lab results — look for any
+  abnormal findings,
+  3) If the result is abnormal, message your cardiologist with the specific
+  finding and test value,
+  4) The cardiologist's reply (already in your messages) refers you to a
+  cardiac surgeon — read that referral message,
+  5) Check that the cardiac surgery referral exists and that pre-authorization
+  is approved,
+  6) Once confirmed, schedule a consultation with the cardiac surgeon.
+  Do not schedule the surgical consultation without the referral and pre-auth
+  being confirmed.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
@@ -57,7 +62,7 @@ seed:
         approved_count: 1
         pending_count: 1
         with_prior_auth: true
-      outputs: [approved_ref_ids, prior_auth_ref_id]
+      outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
     - use: appointment_history
       params:
         upcoming_count: 2
@@ -74,6 +79,7 @@ seed:
     cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
     abnormal_lab_ids: "{output.abnormal_lab_ids}"
     approved_ref_ids: "{output.approved_ref_ids}"
+    pending_ref_ids: "{output.pending_ref_ids}"
     prior_auth_ref_id: "{output.prior_auth_ref_id}"
     upcoming_ids: "{output.upcoming_ids}"
     active_rx_ids: "{output.active_rx_ids}"
@@ -81,6 +87,13 @@ seed:
 eval:
   source: server_state
   checks:
+    # Sub-goal 1: schedule the echocardiogram
+    - expr: >-
+        any(a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            for a in state.appointments)
+      desc: At least one new appointment was scheduled
+    # Sub-goal 3: message cardiologist about abnormal finding
     - expr: >-
         any(m.from_type == 'patient'
             and m.provider_id in {target.cardio_provider_ids}
@@ -90,35 +103,32 @@ eval:
     - expr: >-
         any(m.from_type == 'patient'
             and ('abnormal' in m.body.lower() or 'finding' in m.body.lower()
-                 or 'result' in m.body.lower())
+                 or 'result' in m.body.lower() or 'echo' in m.body.lower())
             and m.id not in state._initial_snapshot.get('messages', {})
             for m in state.messages)
-      desc: Message references the abnormal finding
+      desc: Message references the abnormal finding or echocardiogram
+    # Sub-goal 5: pre-auth verification
     - expr: >-
         (state.get_referral('{target.prior_auth_ref_id}') is not None
          and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
       desc: Cardiac surgery pre-authorization is verified as approved
+    # Sub-goal 6: surgical consultation scheduled
     - expr: >-
-        any(a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Surgical consultation appointment was scheduled
+        len([a for a in state.appointments
+             if a.status == 'scheduled'
+             and a.id not in {target.upcoming_ids}]) >= 2
+      desc: At least two new appointments were scheduled (echo + surgical consult)
+    # Preservation checks
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
             if rx.id in {target.active_rx_ids})
       desc: Existing prescriptions were not modified
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
-      desc: Agent sent at least one message
   negative_checks:
     - expr: >-
         not any(a.status == 'scheduled'
                 and a.id not in {target.upcoming_ids}
-                and a.pre_auth_status != 'approved'
-                and a.pre_auth_status != 'not_required'
+                and a.pre_auth_status not in ('approved', 'not_required')
                 for a in state.appointments)
       desc: No appointments were scheduled without approved pre-authorization
       penalty: 0.3
@@ -136,5 +146,5 @@ eval:
                 and ('surgery' in m.body.lower() or 'surgeon' in m.body.lower())
                 and m.id not in state._initial_snapshot.get('messages', {})
                 for m in state.messages)
-      desc: Agent did not route surgical consultation request to PCP instead of specialist
+      desc: Surgical consultation request was not sent to PCP instead of specialist
       penalty: 0.2

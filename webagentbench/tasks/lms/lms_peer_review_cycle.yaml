@@ -56,13 +56,13 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        all(state.get_peer_review(rid) is not None
+        (all(state.get_peer_review(rid) is not None
             and state.get_peer_review(rid).status == 'submitted'
             for rid in state.peer_reviews
             if state.get_peer_review(rid.id if hasattr(rid, 'id') else rid) is not None)
         or all(pr.status == 'submitted'
                for pr in state.peer_reviews
-               if pr.reviewer_student_id == state.student.id)
+               if pr.reviewer_student_id == state.student.id))
       desc: All peer reviews assigned to student are submitted
     - expr: >-
         all(len(pr.rubric_scores) >= 1

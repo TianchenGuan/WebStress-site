@@ -68,12 +68,12 @@ eval:
             for r in state.referrals)
       desc: An approved dermatology referral exists
     - expr: >-
-        any(r.id == '{target.prior_auth_ref_id}'
+        (any(r.id == '{target.prior_auth_ref_id}'
             and r.prior_auth_status == 'approved'
             for r in state.referrals)
         or not any(r.prior_auth_required
                    and r.to_specialty == 'dermatology'
-                   for r in state.referrals)
+                   for r in state.referrals))
       desc: Pre-authorization is approved or was not required
     - expr: >-
         len([a for a in state.appointments

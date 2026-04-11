@@ -58,12 +58,12 @@ eval:
             for m in state.sent_messages)
       desc: Message identifies strictest or most lenient policy
     - expr: >-
-        (state.get_course('{target.strictest_course_id}') is not None
+        ((state.get_course('{target.strictest_course_id}') is not None
          and any(state.get_course('{target.strictest_course_id}').course_code in m.get('body', '')
                  for m in state.sent_messages))
         or (state.get_course('{target.most_lenient_course_id}') is not None
             and any(state.get_course('{target.most_lenient_course_id}').course_code in m.get('body', '')
-                    for m in state.sent_messages))
+                    for m in state.sent_messages)))
       desc: Message references the strictest or most lenient course by code
   negative_checks:
     - expr: >-

@@ -66,13 +66,13 @@ eval:
         len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 0
       desc: Drop-lowest policy is accounted for (seed validation)
     - expr: >-
-        any('{target.minimum_final_score_for_b}' in m.get('body', '')
+        (any('{target.minimum_final_score_for_b}' in m.get('body', '')
             or (abs(float(m.get('body', '0').split()[-1]) -
                     float('{target.minimum_final_score_for_b}')) < 2.0
                 if m.get('body', '').split()[-1].replace('.','').isdigit()
                 else False)
             for m in state.sent_messages)
-        or '{target.minimum_final_score_for_b}' == ''
+        or '{target.minimum_final_score_for_b}' == '')
       desc: Message contains the correct minimum score (within tolerance)
   negative_checks:
     - expr: >-

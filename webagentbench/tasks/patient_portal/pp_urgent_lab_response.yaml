@@ -63,10 +63,10 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.is_urgent
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
+        any(msg.from_type == 'patient'
+            and msg.is_urgent
+            and msg.id not in state._initial_snapshot.get('messages', {})
+            for msg in state.messages)
       desc: Agent sent an urgent message
     - expr: >-
         any(m.from_type == 'patient'

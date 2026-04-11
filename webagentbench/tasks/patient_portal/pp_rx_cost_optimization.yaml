@@ -5,7 +5,7 @@ instruction_template: >-
   Find the lowest-cost option for your Atorvastatin prescription. Check your messages
   from your provider for information about generic alternatives. Compare the pricing
   across your linked pharmacies (including mail-order if available). Transfer the
-  prescription to whichever pharmacy offers the lowest cost. If a generic alternative
+  prescription to the pharmacy that offers the lowest cost. If a generic alternative
   is mentioned, request the switch by messaging the prescribing provider.
 difficulty: expert
 time_limit_seconds: 480
@@ -65,7 +65,7 @@ eval:
             if rx.status == 'active')
       desc: Atorvastatin prescription remains active
     - expr: >-
-        any(rx.medication.lower().find('atorvastatin') >= 0
+        (any(rx.medication.lower().find('atorvastatin') >= 0
             and rx.pharmacy_id != '{target.default_pharmacy_id}'
             for rx in state.prescriptions
             if rx.status == 'active')
@@ -73,7 +73,7 @@ eval:
                and ('transfer' in m.body.lower() or 'pharmacy' in m.body.lower()
                     or 'generic' in m.body.lower())
                and m.id not in state._initial_snapshot.get('messages', {})
-               for m in state.messages)
+               for m in state.messages))
       desc: Prescription was transferred or provider was contacted about alternatives
     - expr: >-
         any(m.from_type == 'patient'

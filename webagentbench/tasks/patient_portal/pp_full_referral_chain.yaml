@@ -69,12 +69,12 @@ eval:
             for r in state.referrals)
       desc: An approved neurology referral exists
     - expr: >-
-        any(r.prior_auth_required and r.prior_auth_status == 'approved'
+        (any(r.prior_auth_required and r.prior_auth_status == 'approved'
             and r.id in {target.approved_ref_ids}
             for r in state.referrals)
         or not any(r.prior_auth_required
                    and r.to_specialty == 'neurology'
-                   for r in state.referrals)
+                   for r in state.referrals))
       desc: Pre-authorization is approved (or not required)
     - expr: >-
         len([a for a in state.appointments

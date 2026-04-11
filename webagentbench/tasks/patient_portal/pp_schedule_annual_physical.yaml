@@ -63,14 +63,14 @@ eval:
             for a in state.appointments)
       desc: A new in-person PCP appointment (physical) was scheduled
     - expr: >-
-        any(a.status == 'scheduled'
+        (any(a.status == 'scheduled'
             and a.type == 'in-person'
             and a.id not in {target.upcoming_ids}
             and 'lab' in a.reason.lower()
             for a in state.appointments)
         or len([a for a in state.appointments
                 if a.status == 'scheduled'
-                and a.id not in {target.upcoming_ids}]) >= 2
+                and a.id not in {target.upcoming_ids}]) >= 2)
       desc: A lab work appointment was scheduled
     - expr: >-
         all(a.type == 'in-person'

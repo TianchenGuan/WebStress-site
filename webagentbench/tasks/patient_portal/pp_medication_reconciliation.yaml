@@ -1,0 +1,146 @@
+task_id: pp_medication_reconciliation
+env_id: patient_portal
+title: Post-Hospitalization Medication Reconciliation
+instruction_template: >-
+  After a hospitalization, reconcile your medication list. A discharge summary
+  message from your most recent provider is in your inbox and contains the
+  discharge medication list. Complete the following:
+  1) Read the discharge summary message to find the discharge medication list,
+  2) Compare each discharge medication against your current active prescriptions,
+  3) For any medications that differ (added, removed, or changed in dosage),
+  message your PCP ({target.pcp_name}) with the discrepancy details,
+  4) For any active prescriptions NOT on the discharge list, request
+  discontinuation by sending a renewal message to your PCP noting
+  the medication should be discontinued.
+  Do not directly discontinue prescriptions yourself — only request changes
+  via messages to your PCP.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 50
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - backtracking
+  - patience
+  - exploration
+start_path: /messages
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Type 2 Diabetes", "Hypertension", "Heart Failure"]
+        allergies: ["Penicillin"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "neurology", "billing"]
+        must_include: ["pcp", "cardiology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 5
+        expired_count: 1
+      outputs: [active_rx_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 1
+        completed_count: 3
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 4
+        unread_count: 2
+        categories: ["clinical"]
+        include_rx_renewal: true
+      outputs: [thread_ids, unread_msg_ids, rx_renewal_thread_id]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    active_rx_ids: "{output.active_rx_ids}"
+    conditions_list: "{output.conditions_list}"
+    upcoming_ids: "{output.upcoming_ids}"
+
+eval:
+  source: server_state
+  checks:
+    # Sub-goal 3: discrepancy message to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent messaged PCP with reconciliation findings
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('reconcil' in m.body.lower() or 'discrepan' in m.body.lower()
+                 or 'discharge' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references reconciliation or discharge list
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('medication' in m.body.lower() or 'prescription' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references specific medications
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('added' in m.body.lower() or 'removed' in m.body.lower()
+                 or 'changed' in m.body.lower() or 'dosage' in m.body.lower()
+                 or 'differ' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message identifies specific types of discrepancies
+    # Sub-goal 4: discontinuation request via renewal message
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and ('discontinu' in m.body.lower() or 'stop' in m.body.lower()
+                 or 'no longer' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent discontinuation request to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.category in ('clinical', 'rx_renewal')
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Messages were sent through appropriate channel
+    # Cross-entity reasoning: read the discharge message
+    - expr: >-
+        any(m.is_read and m.from_type == 'provider'
+            for m in state.messages
+            if m.id in state._initial_snapshot.get('messages', {}))
+      desc: Provider messages were read (discharge summary reviewed)
+  negative_checks:
+    - expr: >-
+        not any(rx.status == 'discontinued'
+                for rx in state.prescriptions
+                if rx.id in {target.active_rx_ids})
+      desc: Agent did not directly discontinue prescriptions (must request via message)
+      penalty: 0.3
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != '{target.pcp_id}'
+                and m.category == 'clinical'
+                and ('reconcil' in m.body.lower() or 'discrepan' in m.body.lower())
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Reconciliation was not sent to non-PCP providers
+      penalty: 0.2
+    - expr: >-
+        all(rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+            for rx in state.prescriptions
+            if rx.id in state._initial_snapshot.get('prescriptions', {}))
+      desc: No prescription statuses were directly changed by the agent
+      penalty: 0.25

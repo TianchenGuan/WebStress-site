@@ -67,10 +67,10 @@ eval:
             for i in state.immunizations)
       desc: No immunization records were deleted or corrupted
     - expr: >-
-        len([a for a in state.appointments
+        (len([a for a in state.appointments
              if a.status == 'scheduled'
              and a.id not in {target.upcoming_ids}]) >= len({target.due_imm_ids})
-        or len({target.due_imm_ids}) == 0
+        or len({target.due_imm_ids}) == 0)
       desc: Number of new appointments matches number of due vaccines
   negative_checks:
     - expr: >-

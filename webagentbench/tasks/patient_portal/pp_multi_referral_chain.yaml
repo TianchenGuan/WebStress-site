@@ -66,8 +66,8 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        (state.get_referral('{target.approved_ref_ids.0}') is not None
-         and state.get_referral('{target.approved_ref_ids.0}').status == 'approved')
+        (state.get_referral({target.approved_ref_ids}[0]) is not None
+         and state.get_referral({target.approved_ref_ids}[0]).status == 'approved')
       desc: First referral (cardiology) is verified as approved
     - expr: >-
         any(a.provider_id in {target.cardio_provider_ids}

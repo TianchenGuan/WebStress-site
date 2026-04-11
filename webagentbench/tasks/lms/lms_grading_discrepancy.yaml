@@ -61,12 +61,12 @@ eval:
         state.weighted_score_for_course('{target.target_course_id}') is not None
       desc: Course has graded assignments for verification
     - expr: >-
-        any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
+        (any(str(state.weighted_score_for_course('{target.target_course_id}')) in m.get('body', '')
             for m in state.sent_messages)
         or any('discrepancy' in m.get('body', '').lower()
                or 'correct' in m.get('body', '').lower()
                or 'matches' in m.get('body', '').lower()
-               for m in state.sent_messages)
+               for m in state.sent_messages))
       desc: Message addresses the grade computation with a score or finding
     - expr: >-
         any('{target.course_code}' in m.get('body', '')

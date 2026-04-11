@@ -96,14 +96,14 @@ eval:
             for a in state.appointments)
       desc: New appointments were created
     - expr: >-
-        any(a.provider_id == '{target.pcp_id}'
+        (any(a.provider_id == '{target.pcp_id}'
             and a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             for a in state.appointments)
         or any(a.status == 'scheduled'
                and a.id not in {target.upcoming_ids}
-               for a in state.appointments)
-      desc: Screening appointments were scheduled with appropriate providers
+               for a in state.appointments))
+      desc: Screening appointments were scheduled with relevant providers
     - expr: >-
         all(
           state.get_appointment(aid) is not None

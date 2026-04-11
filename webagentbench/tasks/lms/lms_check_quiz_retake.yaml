@@ -52,7 +52,7 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        (state.get_assignment('{target.target_assignment_id}') is not None
+        ((state.get_assignment('{target.target_assignment_id}') is not None
          and state.get_assignment('{target.target_assignment_id}').attempt_count
              < state.get_assignment('{target.target_assignment_id}').max_attempts
          and state.get_assignment('{target.target_assignment_id}').submission_status
@@ -60,21 +60,21 @@ eval:
         or (state.get_assignment('{target.target_assignment_id}') is not None
             and state.get_assignment('{target.target_assignment_id}').attempt_count
                 >= state.get_assignment('{target.target_assignment_id}').max_attempts
-            and len(state.sent_messages) >= 1)
+            and len(state.sent_messages) >= 1))
       desc: Student either retook the quiz or messaged instructor if no attempts remain
     - expr: >-
         state.get_assignment('{target.target_assignment_id}') is not None
       desc: Target assignment exists (seed validation)
     - expr: >-
-        (state.get_assignment('{target.target_assignment_id}').attempt_count
+        ((state.get_assignment('{target.target_assignment_id}').attempt_count
              < state.get_assignment('{target.target_assignment_id}').max_attempts
          and state.get_assignment('{target.target_assignment_id}').attempt_count >= 1)
-        or len(state.sent_messages) >= 1
+        or len(state.sent_messages) >= 1)
       desc: Student took a concrete action based on attempt status
   negative_checks:
     - expr: >-
-        state.get_assignment('{target.decoy_assignment_id}') is None
+        (state.get_assignment('{target.decoy_assignment_id}') is None
         or state.get_assignment('{target.decoy_assignment_id}').submission_status
-           == state.get_assignment('{target.decoy_assignment_id}').submission_status
+           == state.get_assignment('{target.decoy_assignment_id}').submission_status)
       desc: Decoy assignment was not modified
       penalty: 0.2

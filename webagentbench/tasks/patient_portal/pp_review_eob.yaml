@@ -60,22 +60,22 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
+        (any(m.from_type == 'patient'
             and m.category == 'billing'
             and m.id not in {target.all_msg_ids}
             for m in state.messages)
         or all(c.patient_responsibility <= 200
                for c in state.claims
-               if c.id in {target.approved_claim_ids})
+               if c.id in {target.approved_claim_ids}))
       desc: Agent messaged billing if responsibility exceeds $200 or correctly took no action
     - expr: >-
-        any(m.from_type == 'patient'
+        (any(m.from_type == 'patient'
             and m.id not in {target.all_msg_ids}
             for m in state.messages)
         or all(c.patient_responsibility <= 200
                for c in state.claims
-               if c.id in {target.approved_claim_ids})
-      desc: Agent took appropriate action based on the threshold
+               if c.id in {target.approved_claim_ids}))
+      desc: Agent took action based on the $200 threshold
     - expr: >-
         len(state.claims) >= 3
       desc: All claims still exist in state (no deletions)

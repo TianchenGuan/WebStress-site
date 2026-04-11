@@ -65,13 +65,13 @@ eval:
   checks:
     - expr: >-
         any(m.from_type == 'patient'
-            and '{target.interacting_medications.0}' in m.body
-            and '{target.interacting_medications.1}' in m.body
+            and {target.interacting_medications}[0] in m.body
+            and {target.interacting_medications}[1] in m.body
             for m in state.messages)
       desc: Agent sent a message mentioning both interacting medications
     - expr: >-
         any(m.from_type == 'patient'
-            and m.provider_id == state.get_prescription('{target.interacting_rx_ids.1}').provider_id
+            and m.provider_id == state.get_prescription({target.interacting_rx_ids}[1]).provider_id
             for m in state.messages
             if m.id not in state._initial_snapshot.get('messages', {}))
       desc: Message was sent to the prescriber of the newer conflicting medication
@@ -96,7 +96,7 @@ eval:
   negative_checks:
     - expr: >-
         not any(m.from_type == 'patient'
-                and m.provider_id != state.get_prescription('{target.interacting_rx_ids.1}').provider_id
+                and m.provider_id != state.get_prescription({target.interacting_rx_ids}[1]).provider_id
                 and m.id not in state._initial_snapshot.get('messages', {})
                 for m in state.messages)
       desc: Agent did not message the wrong provider about the interaction

@@ -109,12 +109,12 @@ eval:
             if rx.id in {target.active_rx_ids})
       desc: All condition-related medications remain active
     - expr: >-
-        any(m.from_type == 'patient'
+        (any(m.from_type == 'patient'
             and m.provider_id == '{target.pcp_id}'
             and ('interaction' in m.body.lower() or 'conflict' in m.body.lower())
             and m.id not in state._initial_snapshot.get('messages', {})
             for m in state.messages)
-        or len({target.interacting_rx_ids}) == 0
+        or len({target.interacting_rx_ids}) == 0)
       desc: PCP was notified about interactions or no interactions exist
     - expr: >-
         all(

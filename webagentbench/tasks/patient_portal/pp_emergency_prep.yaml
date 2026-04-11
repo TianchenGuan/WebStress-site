@@ -1,0 +1,149 @@
+task_id: pp_emergency_prep
+env_id: patient_portal
+title: Emergency Action Plan Review
+instruction_template: >-
+  Review your emergency action plan and ensure everything is current:
+  1) Verify your emergency contacts are on file — check the name, phone number,
+  and relationship,
+  2) Confirm your allergy list is complete (your known allergies are:
+  {target.allergies_list}),
+  3) Update your medication wallet card by messaging your PCP ({target.pcp_name})
+  with a summary of your current active medications including names, dosages,
+  and frequencies,
+  4) Verify your insurance card details (plan name: {target.insurance_plan_name},
+  member ID: {target.member_id}) are accessible in your profile.
+  Do not modify your emergency contact, allergies, or insurance — only verify
+  and send the medication summary message.
+difficulty: frontier
+time_limit_seconds: 540
+expected_steps: 40
+primary_primitives:
+  - grounding
+  - planning
+  - state_tracking
+  - verification
+  - patience
+  - exploration
+start_path: /
+
+seed:
+  distractors: 10
+  steps:
+    - use: patient_profile
+      params:
+        conditions: ["Asthma", "Type 2 Diabetes", "Hypertension"]
+        allergies: ["Penicillin", "Sulfa", "Shellfish"]
+        insurance_tier: standard
+      outputs: [pcp_id, pcp_name, conditions_list, insurance_plan_name, member_id]
+    - use: provider_directory
+      params:
+        count: 6
+        specialties: ["pcp", "cardiology", "endocrinology", "dermatology", "billing"]
+        must_include: ["pcp", "endocrinology"]
+      outputs: [provider_ids, providers_by_specialty]
+    - use: pharmacy_list
+      params:
+        count: 2
+      outputs: [pharmacy_ids, default_pharmacy_id]
+    - use: prescription_cabinet
+      params:
+        active_count: 5
+        expired_count: 2
+      outputs: [active_rx_ids]
+    - use: appointment_history
+      params:
+        upcoming_count: 2
+        completed_count: 2
+      outputs: [upcoming_ids, completed_ids]
+    - use: message_threads
+      params:
+        thread_count: 3
+        unread_count: 1
+        categories: ["clinical"]
+      outputs: [thread_ids, all_msg_ids]
+    - use: lab_results_panel
+      params:
+        resulted_count: 2
+        abnormal_count: 0
+      outputs: [resulted_lab_ids]
+  targets:
+    pcp_id: "{output.pcp_id}"
+    pcp_name: "{output.pcp_name}"
+    allergies_list: "{output.conditions_list}"
+    insurance_plan_name: "{output.insurance_plan_name}"
+    member_id: "{output.member_id}"
+    active_rx_ids: "{output.active_rx_ids}"
+    upcoming_ids: "{output.upcoming_ids}"
+    initial_msg_ids: "{output.all_msg_ids}"
+
+eval:
+  source: server_state
+  checks:
+    # Sub-goal 3: medication wallet card message sent to PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and m.provider_id == '{target.pcp_id}'
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Agent sent a message to the PCP
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('medication' in m.body.lower() or 'wallet card' in m.body.lower()
+                 or 'prescription' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message references medications or wallet card
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('dosage' in m.body.lower() or 'mg' in m.body.lower()
+                 or 'mcg' in m.body.lower() or 'dose' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message includes dosage information
+    - expr: >-
+        any(m.from_type == 'patient'
+            and ('daily' in m.body.lower() or 'twice' in m.body.lower()
+                 or 'frequency' in m.body.lower() or 'times' in m.body.lower())
+            and m.id not in state._initial_snapshot.get('messages', {})
+            for m in state.messages)
+      desc: Message includes frequency information
+    # Sub-goal 1-2: verification of profile data (interaction evidence)
+    - expr: >-
+        state.patient.emergency_contact is not None
+        and state.patient.emergency_contact.name != ''
+      desc: Emergency contact information is present on profile
+    - expr: >-
+        len(state.patient.allergies) >= 3
+      desc: Allergy list has at least 3 entries (complete)
+    # Preservation: active prescriptions unchanged
+    - expr: >-
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: All active prescriptions remain active and unmodified
+  negative_checks:
+    - expr: >-
+        not any(m.from_type == 'patient'
+                and m.provider_id != '{target.pcp_id}'
+                and ('medication' in m.body.lower() or 'wallet' in m.body.lower())
+                and m.id not in state._initial_snapshot.get('messages', {})
+                for m in state.messages)
+      desc: Medication summary was not sent to a non-PCP provider
+      penalty: 0.2
+    - expr: >-
+        state.patient.emergency_contact.name
+        == state._initial_snapshot['patient']['emergency_contact']['name']
+      desc: Emergency contact was not modified (task is verify-only)
+      penalty: 0.25
+    - expr: >-
+        state.patient.allergies == state._initial_snapshot['patient']['allergies']
+      desc: Allergy list was not modified (task is verify-only)
+      penalty: 0.25
+    - expr: >-
+        all(
+          state.get_appointment(aid) is not None
+          and state.get_appointment(aid).status != 'cancelled'
+          for aid in {target.upcoming_ids}
+        )
+      desc: Existing appointments were not cancelled
+      penalty: 0.15
