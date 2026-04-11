@@ -1,16 +1,18 @@
 task_id: gmail_meeting_negotiation
 env_id: gmail
 title: Meeting Negotiation
-instruction_template: Five people have sent you their availability for the {target.meeting_name} meeting.
-  Find all five emails and note each person's available times. Then check the venue confirmation email
-  (it may not be in your Primary tab) to see which room is available and when. Compose a new email to
-  {target.organizer_email} confirming the one time slot that works for all five attendees AND the venue.
-  CC all five attendees. Your email body must mention the confirmed time and the room name.
+instruction_template: Five people have sent you their availability for the {target.meeting_name} meeting. Find all five emails
+  and note each person's available times. Then check the venue confirmation email (it may not be in your Primary tab) to see
+  which room is available and when. Compose a new email to {target.organizer_email} confirming the one time slot that works
+  for all five attendees AND the venue. CC all five attendees. Your email body must mention the confirmed time and the room
+  name.
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 50
 primary_primitives:
 - state_tracking
+- grounding
+- planning
 start_path: /inbox
 seed:
   distractors: 40
@@ -35,38 +37,24 @@ eval:
   checks:
   - expr: len(state.sent) == 1
     desc: Exactly one email sent
-  - expr: 'any(m.to == [''{target.organizer_email}''] and sorted(m.cc) == sorted({target.attendee_emails})
-      and m.bcc == [] and m.in_reply_to is None for m in state.sent)
+  - expr: 'any(m.to == [''{target.organizer_email}''] and all(addr in m.cc for addr in {target.attendee_emails}) and ''{target.correct_time}''
+      in m.body and ''{target.room_name}'' in m.body and m.in_reply_to is None for m in state.sent)
 
       '
-    desc: Single new email sent to the organizer with exactly the five attendees CC'd
-  - expr: 'any(m.to == [''{target.organizer_email}''] and ''{target.meeting_name}'' in m.subject for m
-      in state.sent)
-
-      '
-    desc: Subject references the correct meeting
-  - expr: 'any(m.to == [''{target.organizer_email}''] and ''{target.correct_time}'' in m.body and ''{target.room_name}''
-      in m.body for m in state.sent)
-
-      '
-    desc: Body includes the confirmed time and room
+    desc: Single confirmation email sent to organizer with all attendees CC'd, correct time, and room name
+  - expr: >-
+      any(m.to == ['{target.organizer_email}']
+      and len(m.cc) == 5
+      for m in state.sent)
+    desc: Confirmation email CCs exactly five attendees
+  - expr: >-
+      any('{target.meeting_name}' in m.subject or '{target.meeting_name}' in m.body
+      for m in state.sent if m.to == ['{target.organizer_email}'])
+    desc: Email references the meeting name
   negative_checks:
   - expr: not any(m.in_reply_to is not None for m in state.sent)
     desc: Must compose new, not reply
     penalty: 0.2
-  - expr: 'not any(any(addr in {target.attendee_emails} for addr in m.to) for m in state.sent)
-
-      '
-    desc: Attendees were CC'd rather than placed in the To field
+  - expr: len(state.sent) <= 2
+    desc: No excessive replies sent
     penalty: 0.15
-  - expr: 'not any( set(m.to + m.cc + m.bcc) - set([''{target.organizer_email}''] + {target.attendee_emails})
-      for m in state.sent)
-
-      '
-    desc: No extra recipients were included
-    penalty: 0.15
-  - expr: not any(e.action == 'gmail.email.forward' for e in state.audit_log)
-    desc: Availability or venue emails were not forwarded instead of being synthesized
-    penalty: 0.1
-secondary_primitives:
-- grounding

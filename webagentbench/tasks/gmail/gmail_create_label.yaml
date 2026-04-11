@@ -21,6 +21,8 @@ eval:
   checks:
   - expr: any(l.name == 'Important Projects' for l in state.labels)
     desc: Label 'Important Projects' exists
+  - expr: sum(1 for l in state.labels if l.name == 'Important Projects') == 1
+    desc: Exactly one label with that name was created (no duplicates)
   negative_checks:
   - expr: len(state.sent) == 0
     desc: No emails sent when none required

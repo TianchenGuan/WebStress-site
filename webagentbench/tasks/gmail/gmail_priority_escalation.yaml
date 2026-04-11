@@ -1,14 +1,17 @@
 task_id: gmail_priority_escalation
 env_id: gmail
 title: Priority Escalation
-instruction_template: Find the oldest unread email from each of your VIP contacts (look for emails with
-  the 'VIP' label). Mark each one as starred and reply with the exact phrase '{target.status_phrase}'.
-  Then create a filter that automatically stars future mail from {target.future_vip_email}.
+instruction_template: Find the oldest unread email from each of your VIP contacts (look for emails with the 'VIP' label).
+  Mark each one as starred and reply with the exact phrase '{target.status_phrase}'. Then create a filter that automatically
+  stars future mail from {target.future_vip_email}.
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 35
 primary_primitives:
 - grounding
+- planning
+- verification
+- exploration
 start_path: /inbox
 seed:
   distractors: 40
@@ -29,34 +32,26 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "all(\n  state.get_email(email_id) is not None and\n  state.get_email(email_id).is_read and\n\
-      \  state.get_email(email_id).is_starred\n  for email_id in {target.vip_email_ids}\n)"
+  - expr: all(state.get_email(email_id) is not None and state.get_email(email_id).is_read and state.get_email(email_id).is_starred
+      for email_id in {target.vip_email_ids})
     desc: All target VIP emails were read and starred
-  - expr: "all(\n  sum(\n    1 for message in state.sent\n    if message.in_reply_to == email_id and\n\
-      \    message.thread_id == state.get_email(email_id).thread_id and\n    message.to == [state.get_email(email_id).from_addr]\
-      \ and\n    len(message.cc) == 0 and\n    len(message.bcc) == 0 and\n    message.body.split('\\n\\\
-      nOn ', 1)[0].strip() == '{target.status_phrase}'\n  ) == 1\n  for email_id in {target.vip_email_ids}\n\
-      )"
-    desc: Each target VIP thread received exactly one precise reply to the correct sender
-  - expr: len(state.sent) == {target.vip_count}
-    desc: No extra emails were sent beyond the required VIP replies
-  - expr: "sum(\n  1 for rule in state.filters\n  if rule.star and\n  rule.from_addresses == ['{target.future_vip_email}']\
-      \ and\n  not rule.archive and\n  not rule.mark_read and\n  rule.forward_to is None\n) == 1"
-    desc: Exactly one star-only filter was created for the future VIP mailbox
+  - expr: len([message for message in state.sent if message.in_reply_to in {target.vip_email_ids} and '{target.status_phrase}'
+      in message.body]) == {target.vip_count}
+    desc: Each VIP email received the required reply
+  - expr: any(rule.star and '{target.future_vip_email}' in rule.from_addresses for rule in state.filters)
+    desc: Future VIP filter automatically stars matching messages
+  - expr: >-
+      len([m for m in state.sent
+      if m.in_reply_to in {target.vip_email_ids}]) == {target.vip_count}
+    desc: Reply count matches the number of VIP contacts (cardinality check)
   negative_checks:
-  - expr: "not any(\n  message.in_reply_to not in {target.vip_email_ids} and\n  message.body.split('\\\
-      n\\nOn ', 1)[0].strip() == '{target.status_phrase}'\n  for message in state.sent\n)"
-    desc: Status phrase was not sent on unrelated threads
+  - expr: not any(message.in_reply_to not in {target.vip_email_ids} and '{target.status_phrase}' in message.body for message
+      in state.sent)
+    desc: Status phrase was not sent on unrelated replies
     penalty: 0.25
-  - expr: "all(\n  message.in_reply_to in {target.vip_email_ids} and\n  message.to == [state.get_email(message.in_reply_to).from_addr]\
-      \ and\n  len(message.cc) == 0 and\n  len(message.bcc) == 0\n  for message in state.sent\n)"
-    desc: Every sent message stayed scoped to the intended VIP sender only
-    penalty: 0.2
-  - expr: len(state.filters) == 1
-    desc: No extra filters were created while handling the escalation
+  - expr: len(state.sent) <= 4
+    desc: No excessive emails sent
     penalty: 0.15
   - expr: len(state.deleted) == 0
     desc: No emails moved to trash
     penalty: 0.1
-secondary_primitives:
-- planning

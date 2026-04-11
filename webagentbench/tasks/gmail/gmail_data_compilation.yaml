@@ -58,6 +58,11 @@ eval:
 
       '
     desc: Single summary email sent to exec with all CCs, department names, and numbers
+  - expr: >-
+      any('Q1 Budget Summary' in m.subject
+      and len(m.cc) == 3
+      for m in state.sent if m.to == ['{target.exec_email}'])
+    desc: Summary email CCs exactly three department heads
   negative_checks:
   - expr: 'not any(''Q1 Budget Summary'' in m.subject and m.to == [''{target.exec_email}''] and any(n in m.body for n in {target.wrong_numbers})
       for m in state.sent)

@@ -86,6 +86,10 @@ eval:
     desc: Approved draft is starred
   - expr: '''inbox'' not in state.get_email(''{target.rejected_draft_id}'').labels'
     desc: Rejected draft is archived (removed from inbox)
+  - expr: len(state.sent) >= 2
+    desc: At least two emails sent (reply to complainant and forward to comms lead)
+  - expr: state.get_email('{target.legal_id}').is_read
+    desc: Legal guidance email was read before forwarding
   negative_checks:
   - expr: 'not any(''{target.rejected_snippet}'' in m.body and ''{target.complainant_email}'' in m.to
       for m in state.sent)

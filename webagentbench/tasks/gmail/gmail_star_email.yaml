@@ -23,6 +23,10 @@ eval:
   checks:
   - expr: state.get_email('{target.target_email_id}').is_starred
     desc: Target email is starred
+  - expr: >-
+      'Project Update' in state.get_email('{target.target_email_id}').subject
+      and 'Q1 Milestones' in state.get_email('{target.target_email_id}').subject
+    desc: Starred email matches the requested subject (identity check)
   negative_checks:
   - expr: all(not e.is_starred for e in state.emails if e.id != '{target.target_email_id}')
     desc: No non-target emails were starred

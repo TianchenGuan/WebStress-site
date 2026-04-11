@@ -21,6 +21,8 @@ eval:
   checks:
   - expr: state.settings.undo_send_seconds == 30
     desc: Undo send delay is 30 seconds
+  - expr: state.settings.undo_send_seconds != 5
+    desc: Undo send delay changed from default value
   negative_checks:
   - expr: len(state.sent) == 0
     desc: No emails sent when none required

@@ -25,6 +25,11 @@ eval:
   checks:
   - expr: any(c.name == 'Alice Chen' and 'Project Atlas' in (c.note or '') for c in state.contacts)
     desc: Alice Chen contact note updated to mention Project Atlas
+  - expr: >-
+      any(c.name == 'Alice Chen'
+      and 'Team lead' in (c.note or '')
+      for c in state.contacts)
+    desc: Contact note includes the role designation 'Team lead'
   negative_checks:
   - expr: len(state.sent) == 0
     desc: No emails sent when none required

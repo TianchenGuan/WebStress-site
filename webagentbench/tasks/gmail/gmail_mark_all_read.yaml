@@ -24,6 +24,8 @@ eval:
   checks:
   - expr: all(e.is_read for e in state.list_emails('inbox'))
     desc: All inbox emails are marked as read
+  - expr: sum(1 for e in state.list_emails('inbox') if not e.is_read) == 0
+    desc: Zero unread emails remain in inbox
   negative_checks:
   - expr: len(state.sent) == 0
     desc: No emails sent when none required

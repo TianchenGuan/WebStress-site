@@ -23,6 +23,9 @@ eval:
   checks:
   - expr: state.get_email('{target.target_email_id}').is_starred
     desc: Budget email is starred
+  - expr: >-
+      'Q4 Budget Summary' in state.get_email('{target.target_email_id}').subject
+    desc: Starred email has the correct subject (identity check)
   negative_checks:
   - expr: sum(1 for e in state.emails if e.is_starred) <= 2
     desc: No more than expected emails starred

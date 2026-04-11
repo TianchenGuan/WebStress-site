@@ -78,6 +78,8 @@ eval:
 
       '
     desc: Reply contains the correct non-conflicting time in authored text
+  - expr: state.get_email('{target.calendar_email_id}').is_read
+    desc: Calendar conflict email was read to identify conflicts
   negative_checks:
   - expr: not any(any(t in m.body.split('\n\nOn ', 1)[0] for t in {target.wrong_times}) for m in state.sent
       if m.thread_id == '{target.most_recent_thread_id}')

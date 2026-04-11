@@ -25,6 +25,11 @@ eval:
   checks:
   - expr: any(e.id == '{target.spam_email_id}' for e in state.deleted)
     desc: Spam email was deleted
+  - expr: >-
+      not any(e.id == '{target.spam_email_id}'
+      and 'inbox' in e.labels
+      for e in state.emails)
+    desc: Spam email no longer appears in inbox
   negative_checks:
   - expr: all(e.id == '{target.spam_email_id}' for e in state.deleted)
     desc: No other emails were deleted besides the spam email
