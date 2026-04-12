@@ -1,7 +1,7 @@
 task_id: pp_read_lab_result
 env_id: patient_portal
 title: Check Lab Result and Message PCP
-instruction_template: "Check your recent LDL Cholesterol lab result. If the value is above 130 mg/dL, send a message to your PCP mentioning the specific value. If it is 130 or below, no action is needed."
+instruction_template: "Check your recent LDL Cholesterol lab result. If the value is above 130 mg/dL, send a message to your PCP mentioning the specific value. If it is 130 or below, mark the lab result as reviewed."
 difficulty: easy
 time_limit_seconds: 120
 expected_steps: 6
@@ -60,11 +60,24 @@ eval:
                 and m.provider_id == '{target.pcp_id}'
                 and m.id not in state._initial_snapshot.get('messages', {})
                 and next(
+                  (lab.value for lab in state.lab_results
+                  if lab.test_name == 'LDL Cholesterol' and float(lab.value) > 130),
+                  None,
+                ) is not None
+                and next(
                   lab.value for lab in state.lab_results
                   if lab.test_name == 'LDL Cholesterol' and float(lab.value) > 130
                 ) in m.body
                 for m in state.messages))
       desc: If LDL was high, message body contains the specific lab value
+    - expr: >-
+        (any(lab.test_name == 'LDL Cholesterol'
+             and float(lab.value) > 130
+             for lab in state.lab_results)
+         or any(lab.test_name == 'LDL Cholesterol'
+                and lab.status == 'reviewed'
+                for lab in state.lab_results))
+      desc: If LDL was normal, the lab result was marked as reviewed
   negative_checks:
     - expr: >-
         not any(m.from_type == 'patient'

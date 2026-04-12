@@ -67,25 +67,27 @@ eval:
   checks:
     - expr: >-
         all(
-          state.get_enrollment_for_course(cid) is not None
-          and state.get_enrollment_for_course(cid).status == 'dropped'
-          for cid in {target.impossible_course_ids}
+          state.get_enrollment_for_course(cid.strip()) is not None
+          and state.get_enrollment_for_course(cid.strip()).status == 'dropped'
+          for cid in '{target.impossible_course_ids}'.split(',')
+          if cid.strip()
         )
       desc: All courses with impossible targets were dropped
     - expr: >-
         all(
-          state.get_assignment(aid) is not None
-          and state.get_assignment(aid).submission_status == 'submitted'
-          and state.get_assignment(aid).file_name == 'priority_plan.pdf'
-          for aid in {target.next_unsubmitted_ids}
+          state.get_assignment(aid.strip()) is not None
+          and state.get_assignment(aid.strip()).submission_status == 'submitted'
+          and state.get_assignment(aid.strip()).file_name == 'priority_plan.pdf'
+          for aid in '{target.next_unsubmitted_ids}'.split(',')
+          if aid.strip()
         )
       desc: Next unsubmitted assignment in each achievable course was submitted with priority_plan.pdf
     - expr: >-
-        isinstance({target.impossible_course_ids}, list)
-        and isinstance({target.achievable_course_ids}, list)
+        len('{target.impossible_course_ids}') >= 1
+        or len('{target.achievable_course_ids}') >= 1
       desc: Impossible and achievable course lists are defined (seed validation)
     - expr: >-
-        len({target.achievable_course_ids}) >= 1
+        len([c for c in '{target.achievable_course_ids}'.split(',') if c.strip()]) >= 1
       desc: At least one achievable course exists (seed validation)
     - expr: >-
         sum(1 for e in state.enrollments if e.status == 'enrolled') >= 2
@@ -93,9 +95,10 @@ eval:
   negative_checks:
     - expr: >-
         not any(
-          state.get_enrollment_for_course(cid) is not None
-          and state.get_enrollment_for_course(cid).status == 'dropped'
-          for cid in {target.achievable_course_ids}
+          state.get_enrollment_for_course(cid.strip()) is not None
+          and state.get_enrollment_for_course(cid.strip()).status == 'dropped'
+          for cid in '{target.achievable_course_ids}'.split(',')
+          if cid.strip()
         )
       desc: No achievable course was dropped
       penalty: 0.5
@@ -103,7 +106,7 @@ eval:
         not any(
           a.submission_status == 'submitted'
           and a.file_name == 'priority_plan.pdf'
-          and a.course_id in [str(cid) for cid in {target.impossible_course_ids}]
+          and a.course_id in [cid.strip() for cid in '{target.impossible_course_ids}'.split(',')]
           for a in state.assignments
         )
       desc: No submission made in impossible courses

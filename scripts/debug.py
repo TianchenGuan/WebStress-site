@@ -107,7 +107,60 @@ ROBINHOOD = EnvConfig(
     ],
 )
 
-ENVS = {"gmail": GMAIL, "robinhood": ROBINHOOD, "rh": ROBINHOOD}
+LMS = EnvConfig(
+    name="lms",
+    api_prefix="/api/env/lms",
+    frontend_base="/env/lms",
+    task_dir="webagentbench/tasks/lms",
+    variant_glob="lms_*.yaml",
+    task_prefix="lms_",
+    session_file="scripts/.lms_session.json",
+    state_sections=[
+        ("Profile",       "profile"),
+        ("Courses",       "courses"),
+        ("Enrollments",   "enrollments"),
+        ("Assignments",   "courses/{cid}/assignments"),
+        ("Modules",       "courses/{cid}/modules"),
+        ("Announcements", "announcements"),
+        ("Calendar",      "calendar"),
+        ("Messages",      "messages"),
+    ],
+    display_keys=[
+        "id", "course_code", "title", "name", "status", "submission_status",
+        "score", "file_name", "is_read", "priority", "type", "due_at",
+        "weight_category", "position", "to", "subject",
+    ],
+)
+
+PATIENT_PORTAL = EnvConfig(
+    name="patient_portal",
+    api_prefix="/api/env/patient_portal",
+    frontend_base="/env/patient_portal",
+    task_dir="webagentbench/tasks/patient_portal",
+    variant_glob="pp_*.yaml",
+    task_prefix="pp_",
+    session_file="scripts/.pp_session.json",
+    state_sections=[
+        ("Profile",        "profile"),
+        ("Providers",      "providers"),
+        ("Appointments",   "appointments"),
+        ("Messages",       "messages"),
+        ("Medications",    "medications"),
+        ("Labs",           "labs"),
+        ("Referrals",      "referrals"),
+        ("Claims",         "claims"),
+        ("Immunizations",  "immunizations"),
+        ("Pharmacies",     "pharmacies"),
+    ],
+    display_keys=[
+        "id", "name", "specialty", "status", "medication", "test_name",
+        "value", "flag", "subject", "category", "from_type", "provider_id",
+        "is_read", "vaccine_name", "amount", "type", "reason",
+    ],
+)
+
+ENVS = {"gmail": GMAIL, "robinhood": ROBINHOOD, "rh": ROBINHOOD,
+        "lms": LMS, "patient_portal": PATIENT_PORTAL, "pp": PATIENT_PORTAL}
 
 # Set by --session / -s CLI flag or DEBUG_SESSION_FILE env var.
 # When set, ALL commands use this file instead of the env-default.
@@ -117,7 +170,7 @@ _SESSION_OVERRIDE: str | None = os.environ.get("DEBUG_SESSION_FILE")
 def _detect_env(task_id: str | None) -> EnvConfig:
     """Auto-detect environment from task_id prefix."""
     if task_id:
-        for cfg in (GMAIL, ROBINHOOD):
+        for cfg in (GMAIL, ROBINHOOD, LMS, PATIENT_PORTAL):
             if task_id.startswith(cfg.task_prefix):
                 return cfg
     return GMAIL  # default
@@ -159,7 +212,7 @@ def _load_any() -> tuple[dict, EnvConfig]:
 
     # No override — find the most recently modified session file
     candidates = []
-    for cfg in (GMAIL, ROBINHOOD):
+    for cfg in (GMAIL, ROBINHOOD, LMS, PATIENT_PORTAL):
         sf = Path(cfg.session_file)
         if sf.exists():
             candidates.append((sf.stat().st_mtime, sf, cfg))
@@ -453,7 +506,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False, env_
         envs_to_test = list({_detect_env(tid) for tid in task_ids})
     else:
         # Auto-discover: test all envs that have task directories
-        envs_to_test = [cfg for cfg in (GMAIL, ROBINHOOD) if Path(cfg.task_dir).is_dir()]
+        envs_to_test = [cfg for cfg in (GMAIL, ROBINHOOD, LMS, PATIENT_PORTAL) if Path(cfg.task_dir).is_dir()]
 
     jobs: list[tuple[dict, EnvConfig]] = []
 
@@ -530,7 +583,8 @@ def main():
     global _SESSION_OVERRIDE
 
     p = argparse.ArgumentParser(description="WebAgentBench task debugger")
-    p.add_argument("--env", choices=["gmail", "robinhood", "rh"], help="Force environment (auto-detected from task_id if omitted)")
+    p.add_argument("--env", choices=["gmail", "robinhood", "rh", "lms", "patient_portal", "pp"],
+                   help="Force environment (auto-detected from task_id if omitted)")
     p.add_argument("-s", "--session", help="Session file path (isolates parallel agents)")
     sub = p.add_subparsers(dest="cmd")
 

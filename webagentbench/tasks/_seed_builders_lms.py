@@ -634,6 +634,290 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         if decoy_candidates:
             decoy_assignment_id = ctx.rng.choice(decoy_candidates)["id"]
 
+    # ── score_below_70: whether target assignment score < 70% of points ──
+    score_below_70 = "false"
+    if target_assignment_id:
+        tgt = next((a for a in all_assignments if a["id"] == target_assignment_id), None)
+        if tgt and tgt.get("score") is not None and tgt.get("points_possible"):
+            pct = Decimal(str(tgt["score"])) / Decimal(str(tgt["points_possible"]))
+            score_below_70 = "true" if pct < Decimal("0.70") else "false"
+
+    # ── feedback_assignment_id: first assignment with non-null feedback ──
+    feedback_assignment_id = ""
+    for a in all_assignments:
+        if a.get("feedback"):
+            feedback_assignment_id = a["id"]
+            break
+
+    # ── course_plan_assignment_id: first unsubmitted assignment ──
+    course_plan_assignment_id = ""
+    for a in all_assignments:
+        if a["submission_status"] == "not_submitted":
+            course_plan_assignment_id = a["id"]
+            break
+
+    # ── unsubmitted_hw_id: first unsubmitted homework assignment ──
+    unsubmitted_hw_id = ""
+    for a in all_assignments:
+        if a["submission_status"] == "not_submitted" and a["type"] == "homework":
+            unsubmitted_hw_id = a["id"]
+            break
+
+    # ── disputed_assignment_id_1, disputed_assignment_id_2 ──
+    graded_in_target = [
+        a for a in all_assignments
+        if a.get("score") is not None
+        and a["submission_status"] in ("graded", "late", "resubmit_requested")
+        and a["course_id"] == target_course_id
+    ]
+    if len(graded_in_target) < 2:
+        # Fallback to any graded assignments
+        graded_in_target = [
+            a for a in all_assignments
+            if a.get("score") is not None
+            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+        ]
+    disputed_assignment_id_1 = graded_in_target[0]["id"] if len(graded_in_target) >= 1 else ""
+    disputed_assignment_id_2 = graded_in_target[1]["id"] if len(graded_in_target) >= 2 else ""
+
+    # ── overdue_assignment_id / overdue_assignment_title ──
+    overdue_assignment_id = ""
+    overdue_assignment_title = ""
+    for a in all_assignments:
+        if a["submission_status"] == "not_submitted":
+            due_at_raw = a["due_at"]
+            due_dt = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else due_at_raw
+            if due_dt < ctx.now:
+                overdue_assignment_id = a["id"]
+                overdue_assignment_title = a["title"]
+                break
+
+    # ── has_remaining_attempts: whether target quiz has remaining attempts ──
+    has_remaining_attempts = "false"
+    if target_assignment_id:
+        tgt = next((a for a in all_assignments if a["id"] == target_assignment_id), None)
+        if tgt and tgt.get("attempt_count", 0) < tgt.get("max_attempts", 1):
+            has_remaining_attempts = "true"
+
+    # ── unsubmitted_project_ids ──
+    unsubmitted_project_ids_list = [
+        a["id"] for a in all_assignments
+        if a["type"] == "project" and a["submission_status"] == "not_submitted"
+    ]
+
+    # ── next_deadline_assignment_id: earliest upcoming due_at ──
+    next_deadline_assignment_id = ""
+    next_deadline_dt: datetime | None = None
+    for a in all_assignments:
+        if a["submission_status"] == "not_submitted":
+            due_at_raw = a["due_at"]
+            due_dt = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else due_at_raw
+            if due_dt > ctx.now:
+                if next_deadline_dt is None or due_dt < next_deadline_dt:
+                    next_deadline_dt = due_dt
+                    next_deadline_assignment_id = a["id"]
+
+    # ── allows_late_submit: whether target course allows > 3 late days ──
+    allows_late_submit = "false"
+    if target_course_id:
+        for c in courses:
+            if c["id"] == target_course_id:
+                max_late = c["syllabus"]["late_policy"]["max_late_days"]
+                allows_late_submit = "true" if max_late > 3 else "false"
+                break
+
+    # ── missing_assignment_in_lenient_course_id ──
+    most_lenient_id = ctx.outputs.get("most_lenient_late_policy_course_id", "")
+    if not most_lenient_id:
+        # Compute from courses
+        best_penalty = None
+        for c in courses:
+            lp = c["syllabus"]["late_policy"]
+            pen = Decimal(str(lp["penalty_per_day"]))
+            if best_penalty is None or pen < best_penalty:
+                best_penalty = pen
+                most_lenient_id = c["id"]
+    missing_assignment_in_lenient_course_id = ""
+    for a in all_assignments:
+        if a["submission_status"] == "not_submitted" and a["course_id"] == most_lenient_id:
+            missing_assignment_in_lenient_course_id = a["id"]
+            break
+
+    # ── recoverable / unrecoverable assignment IDs ──
+    # Recoverable = missing + not past max_late_days; unrecoverable = past max_late_days
+    recoverable_ids: list[str] = []
+    unrecoverable_ids: list[str] = []
+    for a in all_assignments:
+        if a["submission_status"] != "not_submitted":
+            continue
+        due_at_raw = a["due_at"]
+        due_dt = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else due_at_raw
+        if due_dt >= ctx.now:
+            continue  # Not overdue
+        days_late = (ctx.now - due_dt).days
+        # Find course late policy
+        max_late = 0
+        for c in courses:
+            if c["id"] == a["course_id"]:
+                max_late = c["syllabus"]["late_policy"]["max_late_days"]
+                break
+        if days_late <= max_late:
+            recoverable_ids.append(a["id"])
+        else:
+            unrecoverable_ids.append(a["id"])
+
+    # ── most_disputed_assignment_ids: 2 graded assignments with lowest score/max ratio ──
+    graded_all = [
+        a for a in all_assignments
+        if a.get("score") is not None
+        and a["submission_status"] in ("graded", "late", "resubmit_requested")
+        and a["course_id"] == target_course_id
+    ]
+    if len(graded_all) < 2:
+        graded_all = [
+            a for a in all_assignments
+            if a.get("score") is not None
+            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+        ]
+    graded_sorted_by_ratio = sorted(
+        graded_all,
+        key=lambda a: Decimal(str(a["score"])) / Decimal(str(a["points_possible"]))
+        if Decimal(str(a["points_possible"])) != 0 else Decimal("0"),
+    )
+    most_disputed_ids = [a["id"] for a in graded_sorted_by_ratio[:2]]
+
+    # ── priority_order_ids: unsubmitted assignments ordered by weight then deadline ──
+    unsubmitted_future = [
+        a for a in all_assignments
+        if a["submission_status"] == "not_submitted"
+    ]
+    # Build weight lookup from courses
+    weight_lookup: dict[str, dict[str, Decimal]] = {}
+    for c in courses:
+        gp = c["syllabus"]["grading_policy"]
+        w: dict[str, Decimal] = {}
+        for cat_name, cat_raw in gp.items():
+            w[cat_name] = Decimal(str(cat_raw["weight"] if isinstance(cat_raw, dict) else cat_raw.weight))
+        weight_lookup[c["id"]] = w
+
+    def _priority_key(a: dict) -> tuple:
+        cw = weight_lookup.get(a["course_id"], {})
+        w = cw.get(a["weight_category"], Decimal("0"))
+        due_raw = a["due_at"]
+        due_dt = datetime.fromisoformat(due_raw) if isinstance(due_raw, str) else due_raw
+        return (-w, due_dt)
+
+    priority_sorted = sorted(unsubmitted_future, key=_priority_key)
+    priority_order_ids = [a["id"] for a in priority_sorted]
+
+    # ── GPA risk analysis (needs grade_book data if available, otherwise best-effort) ──
+    # These are computed here for tasks that request them from assignment_battery.
+    # grade_book will also compute them with full grade data.
+    current_scores = ctx.outputs.get("current_weighted_scores", {})
+    student_gpa = Decimal(str(ctx.base.get("student", {}).get("gpa", "3.0")))
+
+    # GPA letter grade mapping
+    def _letter_gpa(score: Decimal) -> Decimal:
+        if score >= 93: return Decimal("4.0")
+        if score >= 90: return Decimal("3.7")
+        if score >= 87: return Decimal("3.3")
+        if score >= 83: return Decimal("3.0")
+        if score >= 80: return Decimal("2.7")
+        if score >= 77: return Decimal("2.3")
+        if score >= 73: return Decimal("2.0")
+        if score >= 70: return Decimal("1.7")
+        if score >= 67: return Decimal("1.3")
+        if score >= 63: return Decimal("1.0")
+        if score >= 60: return Decimal("0.7")
+        return Decimal("0.0")
+
+    gpa_risk_ids: list[str] = []
+    improvement_ids: list[str] = []
+    for c in courses:
+        cid = c["id"]
+        sc_str = current_scores.get(cid)
+        if not sc_str:
+            continue
+        sc = Decimal(str(sc_str))
+        projected_gpa_pt = _letter_gpa(sc)
+        if projected_gpa_pt < student_gpa:
+            gpa_risk_ids.append(cid)
+            # Find unsubmitted assignment in this course
+            for a in all_assignments:
+                if a["course_id"] == cid and a["submission_status"] == "not_submitted":
+                    improvement_ids.append(a["id"])
+                    break
+    no_risk_flag = "true" if not gpa_risk_ids else "false"
+
+    # ── Discrepancy analysis (best-effort without grade_book) ──
+    # These are also computed in grade_book with full data.
+    discrepant_cids: list[str] = []
+    non_discrepant_cids: list[str] = []
+    discrepant_resubmit_ids: list[str] = []
+
+    # ── impossible/achievable course analysis ──
+    impossible_cids: list[str] = []
+    achievable_cids: list[str] = []
+    impossible_b_cids: list[str] = []
+    final_exam_asgn_ids: list[str] = []
+    next_unsubmitted: list[str] = []
+
+    for c in courses:
+        cid = c["id"]
+        gp = c["syllabus"]["grading_policy"]
+
+        # Collect graded + ungraded for this course
+        course_assignments = [a for a in all_assignments if a["course_id"] == cid]
+        remaining_in_course = [a for a in course_assignments if a["score"] is None]
+        graded_in_course = [a for a in course_assignments if a["score"] is not None]
+
+        # Find final exam assignment for this course
+        final_a = next(
+            (a for a in course_assignments if a["type"] == "exam" and "final" in a["weight_category"].lower()),
+            None,
+        )
+        if final_a:
+            final_exam_asgn_ids.append(final_a["id"])
+
+        # Next unsubmitted
+        next_unsub = next(
+            (a for a in course_assignments if a["submission_status"] == "not_submitted"),
+            None,
+        )
+        if next_unsub:
+            next_unsubmitted.append(next_unsub["id"])
+
+        # Solve for minimum score needed for B (80%)
+        target_pct = Decimal("80")
+        total_weight = Decimal("0")
+        fixed_part = Decimal("0")
+        x_coeff = Decimal("0")
+
+        for cat_name, cat_raw in gp.items():
+            weight = Decimal(str(cat_raw["weight"] if isinstance(cat_raw, dict) else cat_raw.weight))
+            cat_graded = [a for a in graded_in_course if a["weight_category"] == cat_name and a["score"] is not None]
+            cat_remaining = [a for a in remaining_in_course if a["weight_category"] == cat_name]
+            n = len(cat_graded) + len(cat_remaining)
+            if n == 0:
+                continue
+            score_sum = Decimal("0")
+            for a in cat_graded:
+                score_sum += (Decimal(str(a["score"])) / Decimal(str(a["points_possible"]))) * Decimal("100")
+            total_weight += weight
+            denom = Decimal(str(n))
+            fixed_part += weight * score_sum / denom
+            x_coeff += weight * Decimal(str(len(cat_remaining))) / denom
+
+        if total_weight > 0 and x_coeff > 0:
+            needed = (target_pct * total_weight - fixed_part) / x_coeff
+            if needed > Decimal("100"):
+                impossible_cids.append(cid)
+                impossible_b_cids.append(cid)
+            else:
+                achievable_cids.append(cid)
+        else:
+            achievable_cids.append(cid)
+
     return {
         "assignment_ids": all_assignment_ids,
         "missing_assignment_ids": missing_ids,
@@ -647,6 +931,41 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         "target_course_code": target_course_code,
         "decoy_assignment_id": decoy_assignment_id or "",
         "file_name": file_name,
+        # ── New outputs ──
+        "score_below_70": score_below_70,
+        "feedback_assignment_id": feedback_assignment_id,
+        "course_plan_assignment_id": course_plan_assignment_id,
+        "unsubmitted_hw_id": unsubmitted_hw_id,
+        "disputed_assignment_id_1": disputed_assignment_id_1,
+        "disputed_assignment_id_2": disputed_assignment_id_2,
+        "overdue_assignment_id": overdue_assignment_id,
+        "overdue_assignment_title": overdue_assignment_title,
+        "has_remaining_attempts": has_remaining_attempts,
+        "unsubmitted_project_ids": ",".join(unsubmitted_project_ids_list),
+        "next_deadline_assignment_id": next_deadline_assignment_id,
+        "allows_late_submit": allows_late_submit,
+        "missing_assignment_in_lenient_course_id": missing_assignment_in_lenient_course_id,
+        "recoverable_assignment_ids": ",".join(recoverable_ids),
+        "unrecoverable_assignment_ids": ",".join(unrecoverable_ids),
+        "worth_submitting_ids": ",".join(recoverable_ids),
+        "not_worth_ids": ",".join(unrecoverable_ids),
+        "most_disputed_assignment_ids": ",".join(most_disputed_ids),
+        "priority_order_ids": ",".join(priority_order_ids),
+        "gpa_risk_course_ids": ",".join(gpa_risk_ids),
+        "improvement_assignment_ids": ",".join(improvement_ids),
+        "no_risk_flag": no_risk_flag,
+        "discrepant_course_ids": ",".join(discrepant_cids),
+        "discrepant_resubmit_assignment_ids": ",".join(discrepant_resubmit_ids),
+        "non_discrepant_course_ids": ",".join(non_discrepant_cids),
+        "impossible_course_ids": ",".join(impossible_cids),
+        "achievable_course_ids": ",".join(achievable_cids),
+        "impossible_b_course_ids": ",".join(impossible_b_cids),
+        "final_exam_assignment_ids": ",".join(final_exam_asgn_ids),
+        "final_exam_assignment_id": final_exam_asgn_ids[0] if final_exam_asgn_ids else (exam_assignment_id or ""),
+        "next_unsubmitted_ids": ",".join(next_unsubmitted),
+        "lowest_hw_id": lowest_homework_id or "",
+        "most_impactful_graded_id": most_disputed_ids[0] if most_disputed_ids else "",
+        "worst_category_assignment_id": "",
     }
 
 
@@ -857,11 +1176,482 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 minimum_final_score_for_b = "0.00"
             break  # Use first course with remaining assignments
 
+    # ── Helper: compute weighted score for a course (with/without drops) ──
+    def _weighted_score(course_id: str, *, include_dropped: bool = False) -> Decimal:
+        c = next((c for c in courses if c["id"] == course_id), None)
+        if not c:
+            return Decimal("0")
+        gp = c["syllabus"]["grading_policy"]
+        gw = Decimal("0")
+        ws = Decimal("0")
+        for cn, cp in gp.items():
+            w = Decimal(str(cp["weight"] if isinstance(cp, dict) else cp.weight))
+            cg = [
+                g for g in ctx.base["grades"]
+                if g["course_id"] == course_id and g["weight_category"] == cn
+                and g["score"] is not None
+                and (include_dropped or not g["is_dropped"])
+            ]
+            if not cg:
+                continue
+            t = Decimal("0")
+            for g in cg:
+                eff = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
+                t += (eff / Decimal(str(g["points_possible"]))) * Decimal("100")
+            avg = t / Decimal(str(len(cg)))
+            gw += w
+            ws += avg * w
+        if gw > 0:
+            return (ws / gw).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal("0")
+
+    def _letter(score: Decimal) -> str:
+        if score >= 93: return "A"
+        if score >= 90: return "A-"
+        if score >= 87: return "B+"
+        if score >= 83: return "B"
+        if score >= 80: return "B-"
+        if score >= 77: return "C+"
+        if score >= 73: return "C"
+        if score >= 70: return "C-"
+        if score >= 67: return "D+"
+        if score >= 63: return "D"
+        if score >= 60: return "D-"
+        return "F"
+
+    def _letter_gpa(score: Decimal) -> Decimal:
+        if score >= 93: return Decimal("4.0")
+        if score >= 90: return Decimal("3.7")
+        if score >= 87: return Decimal("3.3")
+        if score >= 83: return Decimal("3.0")
+        if score >= 80: return Decimal("2.7")
+        if score >= 77: return Decimal("2.3")
+        if score >= 73: return Decimal("2.0")
+        if score >= 70: return Decimal("1.7")
+        if score >= 67: return Decimal("1.3")
+        if score >= 63: return Decimal("1.0")
+        if score >= 60: return Decimal("0.7")
+        return Decimal("0.0")
+
+    # ── has_discrepancy: displayed vs computed > 1pt ──
+    # We compare current_weighted_scores (computed with drops) vs without drops
+    has_discrepancy = "false"
+    for c in courses:
+        cid = c["id"]
+        with_drops = current_weighted_scores.get(cid)
+        if with_drops is None:
+            continue
+        without_drops = _weighted_score(cid, include_dropped=True)
+        if abs(Decimal(with_drops) - without_drops) > Decimal("1"):
+            has_discrepancy = "true"
+            break
+
+    # ── most_recent_graded_id: grade with the most recent assignment due_at ──
+    most_recent_graded_id = ""
+    most_recent_dt: datetime | None = None
+    for g in ctx.base["grades"]:
+        if g["score"] is None:
+            continue
+        # Find assignment due_at
+        a = next((a for a in assignments if a["id"] == g["assignment_id"]), None)
+        if not a:
+            continue
+        due_raw = a["due_at"]
+        due_dt = datetime.fromisoformat(due_raw) if isinstance(due_raw, str) else due_raw
+        if most_recent_dt is None or due_dt > most_recent_dt:
+            most_recent_dt = due_dt
+            most_recent_graded_id = g["assignment_id"]
+
+    # ── most_impactful_graded_id: graded assignment in highest-weight category ──
+    most_impactful_graded_id = ""
+    best_impact_weight = Decimal("-1")
+    for g in ctx.base["grades"]:
+        if g["score"] is None or g["is_dropped"]:
+            continue
+        a = next((a for a in assignments if a["id"] == g["assignment_id"]), None)
+        if not a:
+            continue
+        c = next((c for c in courses if c["id"] == g["course_id"]), None)
+        if not c:
+            continue
+        gp = c["syllabus"]["grading_policy"]
+        cat_raw = gp.get(g["weight_category"])
+        if not cat_raw:
+            continue
+        w = Decimal(str(cat_raw["weight"] if isinstance(cat_raw, dict) else cat_raw.weight))
+        if w > best_impact_weight:
+            best_impact_weight = w
+            most_impactful_graded_id = g["assignment_id"]
+
+    # ── drop_changes_letter: whether applying drop-lowest changes letter grade ──
+    # Compare letter grade of first course with and without drops
+    drop_changes_letter = "false"
+    target_cid = ctx.outputs.get("target_course_id", "")
+    if not target_cid and courses:
+        target_cid = courses[0]["id"]
+    if target_cid:
+        score_with = current_weighted_scores.get(target_cid)
+        score_without = _weighted_score(target_cid, include_dropped=True)
+        if score_with is not None:
+            if _letter(Decimal(score_with)) != _letter(score_without):
+                drop_changes_letter = "true"
+
+    # ── drop_impact_above_3: whether drop impact > 3 points ──
+    drop_impact_above_3 = "false"
+    if target_cid:
+        score_with = current_weighted_scores.get(target_cid)
+        score_without = _weighted_score(target_cid, include_dropped=True)
+        if score_with is not None:
+            if abs(Decimal(score_with) - score_without) > Decimal("3"):
+                drop_impact_above_3 = "true"
+
+    # ── curve_changes_letter: whether +5pts on midterm changes letter grade ──
+    curve_changes_letter = "false"
+    if target_cid:
+        # Find midterm grade and temporarily boost by 5
+        midterm_grades = [
+            g for g in ctx.base["grades"]
+            if g["course_id"] == target_cid
+            and g["weight_category"] in ("midterm",)
+            and g["score"] is not None
+            and not g["is_dropped"]
+        ]
+        if midterm_grades:
+            original_letter = _letter(Decimal(current_weighted_scores.get(target_cid, "0")))
+            # Temporarily add 5 to midterm score
+            mg = midterm_grades[0]
+            orig_score = Decimal(str(mg["score"]))
+            mg["score"] = str(min(orig_score + Decimal("5"), Decimal(str(mg["points_possible"]))))
+            curved_score = _weighted_score(target_cid)
+            mg["score"] = str(orig_score)  # Restore
+            if _letter(curved_score) != original_letter:
+                curve_changes_letter = "true"
+
+    # ── min_score_achievable: whether minimum final score for B <= 100 ──
+    min_score_achievable = "true" if minimum_final_score_for_b and minimum_final_score_for_b != "" else "false"
+
+    # ── final_exam_assignment_id: ID of a final exam assignment (single) ──
+    final_exam_assignment_id = ""
+    for a in assignments:
+        if a["type"] == "exam" and a["weight_category"] == "final":
+            final_exam_assignment_id = a["id"]
+            break
+    if not final_exam_assignment_id:
+        # Fallback: any exam
+        for a in assignments:
+            if a["type"] == "exam":
+                final_exam_assignment_id = a["id"]
+                break
+
+    # ── final_exam_assignment_ids: per-course final exam assignment IDs ──
+    final_exam_assignment_ids_list: list[str] = []
+    for c in courses:
+        cid = c["id"]
+        fa = next(
+            (a for a in assignments if a["course_id"] == cid and a["type"] == "exam" and a["weight_category"] == "final"),
+            None,
+        )
+        if not fa:
+            fa = next((a for a in assignments if a["course_id"] == cid and a["type"] == "exam"), None)
+        if fa:
+            final_exam_assignment_ids_list.append(fa["id"])
+
+    # ── lower_grade_course_id: course with lower weighted score ──
+    lower_grade_course_id = ""
+    if len(courses) >= 2:
+        scored = [(cid, Decimal(s)) for cid, s in current_weighted_scores.items()]
+        if scored:
+            scored.sort(key=lambda x: x[1])
+            lower_grade_course_id = scored[0][0]
+
+    # ── lowest_hw_id: alias for lowest_homework_id ──
+    lowest_hw_id = ctx.outputs.get("lowest_homework_id", "")
+
+    # ── grade_below_80: whether weighted score < 80 ──
+    grade_below_80 = "false"
+    if target_cid:
+        sc_str = current_weighted_scores.get(target_cid)
+        if sc_str and Decimal(sc_str) < Decimal("80"):
+            grade_below_80 = "true"
+
+    # ── highest_weight_ungraded_id ──
+    highest_weight_ungraded_id = ""
+    best_hw_weight = Decimal("-1")
+    for a in assignments:
+        if a["score"] is not None or a["course_id"] != target_cid:
+            continue
+        c = next((c for c in courses if c["id"] == a["course_id"]), None)
+        if not c:
+            continue
+        gp = c["syllabus"]["grading_policy"]
+        cat_raw = gp.get(a["weight_category"])
+        if not cat_raw:
+            continue
+        w = Decimal(str(cat_raw["weight"] if isinstance(cat_raw, dict) else cat_raw.weight))
+        if w > best_hw_weight:
+            best_hw_weight = w
+            highest_weight_ungraded_id = a["id"]
+
+    # ── worst_category_assignment_id ──
+    worst_category_assignment_id = ""
+    if target_cid:
+        c = next((c for c in courses if c["id"] == target_cid), None)
+        if c:
+            gp = c["syllabus"]["grading_policy"]
+            # Find worst-performing category (lowest avg) with high weight
+            worst_score = None
+            worst_cat = None
+            for cn, cp in gp.items():
+                w = Decimal(str(cp["weight"] if isinstance(cp, dict) else cp.weight))
+                if w < Decimal("0.10"):
+                    continue  # skip low-weight
+                cg = [
+                    g for g in ctx.base["grades"]
+                    if g["course_id"] == target_cid and g["weight_category"] == cn
+                    and g["score"] is not None and not g["is_dropped"]
+                ]
+                if not cg:
+                    continue
+                avg = sum(Decimal(str(g["score"])) / Decimal(str(g["points_possible"])) for g in cg) / len(cg)
+                if worst_score is None or avg < worst_score:
+                    worst_score = avg
+                    worst_cat = cn
+            if worst_cat:
+                unsub = next(
+                    (a for a in assignments
+                     if a["course_id"] == target_cid and a["weight_category"] == worst_cat
+                     and a["submission_status"] == "not_submitted"),
+                    None,
+                )
+                if unsub:
+                    worst_category_assignment_id = unsub["id"]
+
+    # ── impossible/achievable course IDs (computed with grade data) ──
+    impossible_course_ids: list[str] = []
+    achievable_course_ids: list[str] = []
+    impossible_b_course_ids: list[str] = []
+    next_unsubmitted_ids: list[str] = []
+
+    for c in courses:
+        cid = c["id"]
+        gp = c["syllabus"]["grading_policy"]
+        rem = [a for a in assignments if a["course_id"] == cid and a["score"] is None]
+        if not rem:
+            achievable_course_ids.append(cid)
+            continue
+
+        t_pct = Decimal("80")
+        tw = Decimal("0")
+        fp = Decimal("0")
+        xc = Decimal("0")
+        for cn, cp in gp.items():
+            w = Decimal(str(cp["weight"] if isinstance(cp, dict) else cp.weight))
+            ag = [g for g in ctx.base["grades"]
+                  if g["course_id"] == cid and g["weight_category"] == cn
+                  and g["score"] is not None and not g["is_dropped"]]
+            rc = [r for r in rem if r["weight_category"] == cn]
+            n = len(ag) + len(rc)
+            if n == 0:
+                continue
+            ss = Decimal("0")
+            for g in ag:
+                eff = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
+                ss += (eff / Decimal(str(g["points_possible"]))) * Decimal("100")
+            tw += w
+            dn = Decimal(str(n))
+            fp += w * ss / dn
+            xc += w * Decimal(str(len(rc))) / dn
+
+        if tw > 0 and xc > 0:
+            need = (t_pct * tw - fp) / xc
+            if need > Decimal("100"):
+                impossible_course_ids.append(cid)
+                impossible_b_course_ids.append(cid)
+            else:
+                achievable_course_ids.append(cid)
+        else:
+            achievable_course_ids.append(cid)
+
+        # Next unsubmitted in this course
+        nu = next((a for a in assignments if a["course_id"] == cid and a["submission_status"] == "not_submitted"), None)
+        if nu:
+            next_unsubmitted_ids.append(nu["id"])
+
+    # ── priority_order_ids (with grade data) ──
+    unsubmitted_all = [a for a in assignments if a["submission_status"] == "not_submitted"]
+    wl: dict[str, dict[str, Decimal]] = {}
+    for c in courses:
+        gp = c["syllabus"]["grading_policy"]
+        wd: dict[str, Decimal] = {}
+        for cn, cp in gp.items():
+            wd[cn] = Decimal(str(cp["weight"] if isinstance(cp, dict) else cp.weight))
+        wl[c["id"]] = wd
+
+    def _prio(a: dict) -> tuple:
+        cw = wl.get(a["course_id"], {})
+        w = cw.get(a["weight_category"], Decimal("0"))
+        dr = a["due_at"]
+        dd = datetime.fromisoformat(dr) if isinstance(dr, str) else dr
+        return (-w, dd)
+
+    priority_sorted = sorted(unsubmitted_all, key=_prio)
+    priority_order_ids = [a["id"] for a in priority_sorted]
+
+    # ── lowest_performing_course_id ──
+    lowest_performing_course_id = ""
+    lowest_score_val: Decimal | None = None
+    for cid, sc_str in current_weighted_scores.items():
+        sc = Decimal(sc_str)
+        if lowest_score_val is None or sc < lowest_score_val:
+            lowest_score_val = sc
+            lowest_performing_course_id = cid
+
+    # ── can_add_course: GPA stays above 3.0 with C in new 3-credit course ──
+    student_gpa = Decimal(str(ctx.base.get("student", {}).get("gpa", "3.0")))
+    total_credits = sum(c.get("credits", 3) for c in courses)
+    current_quality_pts = student_gpa * Decimal(str(total_credits))
+    # A C = 2.0 quality points per credit; new course = 3 credits
+    new_quality_pts = current_quality_pts + Decimal("2.0") * Decimal("3")
+    new_total_credits = total_credits + 3
+    new_gpa = (new_quality_pts / Decimal(str(new_total_credits))).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP,
+    )
+    can_add_course = "true" if new_gpa >= Decimal("3.0") else "false"
+
+    # ── GPA risk analysis ──
+    gpa_risk_course_ids: list[str] = []
+    improvement_assignment_ids: list[str] = []
+    for c in courses:
+        cid = c["id"]
+        sc_str = current_weighted_scores.get(cid)
+        if not sc_str:
+            continue
+        sc = Decimal(sc_str)
+        projected = _letter_gpa(sc)
+        if projected < student_gpa:
+            gpa_risk_course_ids.append(cid)
+            unsub = next(
+                (a for a in assignments if a["course_id"] == cid and a["submission_status"] == "not_submitted"),
+                None,
+            )
+            if unsub:
+                improvement_assignment_ids.append(unsub["id"])
+    no_risk_flag = "true" if not gpa_risk_course_ids else "false"
+
+    # ── most_disputed_assignment_ids ──
+    gb_target_cid = target_cid
+    graded_for_dispute = [
+        g for g in ctx.base["grades"]
+        if g["course_id"] == gb_target_cid and g["score"] is not None
+    ]
+    if len(graded_for_dispute) < 2:
+        graded_for_dispute = [g for g in ctx.base["grades"] if g["score"] is not None]
+    graded_for_dispute.sort(
+        key=lambda g: Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))
+        if Decimal(str(g["points_possible"])) != 0 else Decimal("0"),
+    )
+    most_disputed_assignment_ids = [g["assignment_id"] for g in graded_for_dispute[:2]]
+
+    # ── discrepancy analysis (with full grade data) ──
+    discrepant_course_ids: list[str] = []
+    non_discrepant_course_ids: list[str] = []
+    discrepant_resubmit_assignment_ids: list[str] = []
+    for c in courses:
+        cid = c["id"]
+        sc_with = current_weighted_scores.get(cid)
+        if sc_with is None:
+            non_discrepant_course_ids.append(cid)
+            continue
+        sc_without = _weighted_score(cid, include_dropped=True)
+        if abs(Decimal(sc_with) - sc_without) > Decimal("1"):
+            discrepant_course_ids.append(cid)
+            # Find most recently graded assignment in this course
+            course_grades = [
+                g for g in ctx.base["grades"]
+                if g["course_id"] == cid and g["score"] is not None
+            ]
+            if course_grades:
+                best_g = None
+                best_dt: datetime | None = None
+                for g in course_grades:
+                    a = next((a for a in assignments if a["id"] == g["assignment_id"]), None)
+                    if a:
+                        dr = a["due_at"]
+                        dd = datetime.fromisoformat(dr) if isinstance(dr, str) else dr
+                        if best_dt is None or dd > best_dt:
+                            best_dt = dd
+                            best_g = g
+                if best_g:
+                    discrepant_resubmit_assignment_ids.append(best_g["assignment_id"])
+        else:
+            non_discrepant_course_ids.append(cid)
+
+    # ── score_below_70 (forwarded: whether target assignment score < 70%) ──
+    _gb_score_below_70 = "false"
+    tgt_id = ctx.outputs.get("target_assignment_id", "")
+    if tgt_id:
+        tgt_a = next((a for a in assignments if a["id"] == tgt_id), None)
+        if tgt_a and tgt_a.get("score") is not None and tgt_a.get("points_possible"):
+            pct = Decimal(str(tgt_a["score"])) / Decimal(str(tgt_a["points_possible"]))
+            _gb_score_below_70 = "true" if pct < Decimal("0.70") else "false"
+
+    # ── unsubmitted_hw_id (forwarded) ──
+    _gb_unsubmitted_hw_id = ""
+    for a in assignments:
+        if a["submission_status"] == "not_submitted" and a["type"] == "homework":
+            _gb_unsubmitted_hw_id = a["id"]
+            break
+
+    # ── latest_announcement_id (from announcements if available) ──
+    latest_announcement_id = ""
+    announcements_list = ctx.base.get("announcements", [])
+    if announcements_list:
+        sorted_ann = sorted(
+            announcements_list,
+            key=lambda a: a["posted_at"] if isinstance(a["posted_at"], str)
+            else a["posted_at"].isoformat(),
+            reverse=True,
+        )
+        latest_announcement_id = sorted_ann[0]["id"]
+
     return {
         "grade_ids": grade_ids,
         "dropped_grade_ids": dropped_grade_ids,
         "current_weighted_scores": current_weighted_scores,
         "minimum_final_score_for_b": minimum_final_score_for_b or "",
+        # ── New outputs ──
+        "has_discrepancy": has_discrepancy,
+        "most_recent_graded_id": most_recent_graded_id,
+        "most_impactful_graded_id": most_impactful_graded_id,
+        "drop_changes_letter": drop_changes_letter,
+        "drop_impact_above_3": drop_impact_above_3,
+        "curve_changes_letter": curve_changes_letter,
+        "min_score_achievable": min_score_achievable,
+        "final_exam_assignment_id": final_exam_assignment_id,
+        "final_exam_assignment_ids": ",".join(final_exam_assignment_ids_list),
+        "lower_grade_course_id": lower_grade_course_id,
+        "lowest_hw_id": lowest_hw_id,
+        "grade_below_80": grade_below_80,
+        "highest_weight_ungraded_id": highest_weight_ungraded_id,
+        "worst_category_assignment_id": worst_category_assignment_id,
+        "impossible_course_ids": ",".join(impossible_course_ids),
+        "achievable_course_ids": ",".join(achievable_course_ids),
+        "impossible_b_course_ids": ",".join(impossible_b_course_ids),
+        "gpa_risk_course_ids": ",".join(gpa_risk_course_ids),
+        "improvement_assignment_ids": ",".join(improvement_assignment_ids),
+        "no_risk_flag": no_risk_flag,
+        "most_disputed_assignment_ids": ",".join(most_disputed_assignment_ids),
+        "discrepant_course_ids": ",".join(discrepant_course_ids),
+        "discrepant_resubmit_assignment_ids": ",".join(discrepant_resubmit_assignment_ids),
+        "non_discrepant_course_ids": ",".join(non_discrepant_course_ids),
+        "next_unsubmitted_ids": ",".join(next_unsubmitted_ids),
+        "priority_order_ids": ",".join(priority_order_ids),
+        "lowest_performing_course_id": lowest_performing_course_id,
+        "can_add_course": can_add_course,
+        "latest_announcement_id": latest_announcement_id,
+        # ── Forwarded from earlier builders ──
+        "score_below_70": _gb_score_below_70,
+        "unsubmitted_hw_id": _gb_unsubmitted_hw_id,
     }
 
 
@@ -1128,10 +1918,34 @@ def _build_announcements_feed(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         if is_urgent and urgent_announcement_id is None:
             urgent_announcement_id = ann_id
 
+    # ── latest_announcement_id: most recent by posted_at ──
+    latest_announcement_id = ""
+    all_announcements = ctx.base.get("announcements", [])
+    if all_announcements:
+        sorted_ann = sorted(
+            all_announcements,
+            key=lambda a: a["posted_at"] if isinstance(a["posted_at"], str)
+            else a["posted_at"].isoformat(),
+            reverse=True,
+        )
+        latest_announcement_id = sorted_ann[0]["id"]
+
+    # ── course_announcement_ids: mapping of course_id -> announcement IDs ──
+    course_ann_map: dict[str, list[str]] = {}
+    for ann in all_announcements:
+        cid = ann["course_id"]
+        course_ann_map.setdefault(cid, []).append(ann["id"])
+    # Flatten as comma-separated
+    course_announcement_ids = ",".join(
+        f"{cid}:{','.join(aids)}" for cid, aids in course_ann_map.items()
+    )
+
     return {
         "announcement_ids": announcement_ids,
         "unread_announcement_ids": unread_ids,
         "urgent_announcement_id": urgent_announcement_id or "",
+        "latest_announcement_id": latest_announcement_id,
+        "course_announcement_ids": course_announcement_ids,
     }
 
 
@@ -1147,9 +1961,12 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
     ------
     include_recurring : bool -- expand weekly recurrences (default True)
     weeks : int              -- how many weeks of recurrences (default 4)
+    near_exam_courses : int  -- how many courses get exams within 14 days (default 0)
+    force_exam_conflict : bool -- force two courses to share an exam day (default False)
     """
     include_recurring = params.get("include_recurring", True)
     weeks = params.get("weeks", 4)
+    near_exam_courses = params.get("near_exam_courses", 0)
 
     courses = ctx.base.get("courses", [])
     if "calendar_events" not in ctx.base:
@@ -1249,6 +2066,18 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
             if next_exam_id is None and exam_dt > ctx.now:
                 next_exam_id = event_id
 
+    # Move some exams to within 14 days if near_exam_courses > 0
+    if near_exam_courses > 0:
+        moved = 0
+        for ev in ctx.base["calendar_events"]:
+            if ev["event_type"] != "exam" or moved >= near_exam_courses:
+                continue
+            near_dt = ctx.now + timedelta(days=ctx.rng.randint(3, 13))
+            near_dt = near_dt.replace(hour=9, minute=0, second=0)
+            ev["start_datetime"] = near_dt.isoformat() if isinstance(ev["start_datetime"], str) else near_dt
+            ev["end_datetime"] = (near_dt + timedelta(hours=3)).isoformat() if isinstance(ev["end_datetime"], str) else near_dt + timedelta(hours=3)
+            moved += 1
+
     # Add deadline events from assignments due in the future
     assignments = ctx.base.get("assignments", [])
     for a in assignments:
@@ -1268,10 +2097,83 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
             if next_deadline_id is None:
                 next_deadline_id = event_id
 
+    # ── courses_with/without_upcoming_exams (next 14 days) ──
+    cutoff = ctx.now + timedelta(days=14)
+    courses_with_exams: list[str] = []
+    all_course_ids = [c["id"] for c in courses]
+    for ev in ctx.base["calendar_events"]:
+        if ev["event_type"] != "exam":
+            continue
+        start_raw = ev["start_datetime"]
+        start_dt = datetime.fromisoformat(start_raw) if isinstance(start_raw, str) else start_raw
+        if ctx.now < start_dt <= cutoff:
+            if ev["course_id"] not in courses_with_exams:
+                courses_with_exams.append(ev["course_id"])
+    courses_without_exams = [cid for cid in all_course_ids if cid not in courses_with_exams]
+
+    # ── conflicting_course_ids: courses with exams on the same day ──
+    # Group exam events by date
+    exam_by_date: dict[str, list[str]] = {}
+    for ev in ctx.base["calendar_events"]:
+        if ev["event_type"] != "exam":
+            continue
+        start_raw = ev["start_datetime"]
+        start_dt = datetime.fromisoformat(start_raw) if isinstance(start_raw, str) else start_raw
+        day_key = start_dt.strftime("%Y-%m-%d")
+        exam_by_date.setdefault(day_key, [])
+        if ev["course_id"] not in exam_by_date[day_key]:
+            exam_by_date[day_key].append(ev["course_id"])
+
+    conflicting_cids: list[str] = []
+    for day_key, cids in exam_by_date.items():
+        if len(cids) >= 2:
+            for cid in cids:
+                if cid not in conflicting_cids:
+                    conflicting_cids.append(cid)
+
+    # ── force_exam_conflict: if requested, ensure at least 2 courses share an exam day ──
+    force_conflict = params.get("force_exam_conflict", False)
+    if force_conflict and len(conflicting_cids) < 2 and len(courses) >= 2:
+        # Move second course's exam to same date as first course's exam
+        first_exam = None
+        for ev in ctx.base["calendar_events"]:
+            if ev["event_type"] == "exam" and ev["course_id"] == courses[0]["id"]:
+                first_exam = ev
+                break
+        if first_exam:
+            first_start = datetime.fromisoformat(first_exam["start_datetime"]) if isinstance(first_exam["start_datetime"], str) else first_exam["start_datetime"]
+            for ev in ctx.base["calendar_events"]:
+                if ev["event_type"] == "exam" and ev["course_id"] == courses[1]["id"]:
+                    # Move to same date but different time
+                    new_start = first_start.replace(hour=first_start.hour + 4)
+                    ev["start_datetime"] = new_start.isoformat() if isinstance(ev["start_datetime"], str) else new_start
+                    ev["end_datetime"] = (new_start + timedelta(hours=3)).isoformat() if isinstance(ev["end_datetime"], str) else new_start + timedelta(hours=3)
+                    break
+            conflicting_cids = [courses[0]["id"], courses[1]["id"]]
+
+    # ── lower/higher grade conflict course IDs ──
+    lower_grade_conflict_course_id = ""
+    higher_grade_conflict_course_id = ""
+    if len(conflicting_cids) >= 2:
+        current_scores = ctx.outputs.get("current_weighted_scores", {})
+        scored_conflicts = []
+        for cid in conflicting_cids:
+            sc = current_scores.get(cid, "50")
+            scored_conflicts.append((cid, Decimal(str(sc))))
+        scored_conflicts.sort(key=lambda x: x[1])
+        lower_grade_conflict_course_id = scored_conflicts[0][0]
+        higher_grade_conflict_course_id = scored_conflicts[-1][0]
+
     return {
         "event_ids": event_ids,
         "next_exam_event_id": next_exam_id or "",
         "next_deadline_event_id": next_deadline_id or "",
+        # ── New outputs ──
+        "courses_with_upcoming_exams": ",".join(courses_with_exams),
+        "courses_without_upcoming_exams": ",".join(courses_without_exams),
+        "conflicting_course_ids": ",".join(conflicting_cids),
+        "lower_grade_conflict_course_id": lower_grade_conflict_course_id,
+        "higher_grade_conflict_course_id": higher_grade_conflict_course_id,
     }
 
 

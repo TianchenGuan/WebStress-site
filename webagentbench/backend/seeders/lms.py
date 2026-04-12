@@ -131,7 +131,10 @@ class LMSSeedRunner:
 
     @staticmethod
     def _raw_lookup(kind: str, path: str, ctx: LMSSeedContext) -> Any:
-        """Return the raw (possibly non-string) referenced value."""
+        """Return the raw (possibly non-string) referenced value.
+
+        Supports ``[N]`` indexing on list values, e.g. ``pending_review_ids[0]``.
+        """
         if kind == "actor":
             parts = path.split(".", 1)
             actor = ctx.actors[parts[0]]
@@ -142,7 +145,19 @@ class LMSSeedRunner:
         parts = path.split(".")
         obj: Any = ctx.outputs
         for part in parts:
-            obj = obj[part] if isinstance(obj, dict) else getattr(obj, part)
+            # Handle [N] indexing: e.g. "pending_review_ids[0]"
+            if "[" in part and part.endswith("]"):
+                key, idx_str = part.rstrip("]").split("[", 1)
+                obj = obj[key] if isinstance(obj, dict) else getattr(obj, key)
+                idx = int(idx_str)
+                if isinstance(obj, list):
+                    obj = obj[idx]
+                elif isinstance(obj, str) and "," in obj:
+                    obj = obj.split(",")[idx].strip()
+                else:
+                    obj = obj  # single value, index 0 is identity
+            else:
+                obj = obj[part] if isinstance(obj, dict) else getattr(obj, part)
         return obj
 
     @classmethod
@@ -151,5 +166,12 @@ class LMSSeedRunner:
     ) -> dict[str, Any]:
         resolved: dict[str, Any] = {}
         for key, tmpl in templates.items():
-            resolved[key] = cls._resolve_value(tmpl, ctx)
+            val = cls._resolve_value(tmpl, ctx)
+            # Coerce list/dict to comma-separated strings so eval checks
+            # can use '{target.xxx}'.split(',') uniformly.
+            if isinstance(val, list):
+                val = ",".join(str(v) for v in val)
+            elif isinstance(val, dict):
+                val = ",".join(f"{k}:{v}" for k, v in val.items())
+            resolved[key] = val
         return resolved

@@ -98,92 +98,86 @@ eval:
         ]) == 1
       desc: Exactly one PCP follow-up appointment was scheduled
     - expr: >-
-        [
-          a.id
-          for a in sorted(
-            [
-              a for a in state.appointments
-              if a.status == 'scheduled'
-              and a.id not in {target.upcoming_ids}
-            ],
-            key=lambda a: a.booked_at,
-          )
-        ] == [
-          next(
-            a.id for a in state.appointments
+        (
+          lambda lab_id=next(
+            (a.id for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
-            and any(word in a.reason.lower() for word in ('lab', 'blood'))
+            and any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
           ),
-          next(
-            a.id for a in state.appointments
-          if a.status == 'scheduled'
-          and a.id not in {target.upcoming_ids}
-          and state.get_provider(a.provider_id) is not None
-          and a.provider_id in {target.cardio_provider_ids}
-          and not any(word in a.reason.lower() for word in ('lab', 'blood'))
+          cardio_id=next(
+            (a.id for a in state.appointments
+            if a.status == 'scheduled'
+            and a.id not in {target.upcoming_ids}
+            and state.get_provider(a.provider_id) is not None
+            and a.provider_id in {target.cardio_provider_ids}
+            and not any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
           ),
-          next(
-            a.id for a in state.appointments
+          pcp_id=next(
+            (a.id for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.provider_id == '{target.pcp_id}'
-            and not any(word in a.reason.lower() for word in ('lab', 'blood'))
-          ),
-        ]
+            and not any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
+          ):
+          lab_id is not None and cardio_id is not None and pcp_id is not None
+          and [
+            a.id
+            for a in sorted(
+              [a for a in state.appointments
+               if a.status == 'scheduled' and a.id not in {target.upcoming_ids}],
+              key=lambda a: a.booked_at,
+            )
+          ] == [lab_id, cardio_id, pcp_id]
+        )()
       desc: The appointments were created in the required booking order
     - expr: >-
         (
-          next(
-            a.datetime for a in state.appointments
+          lambda lab_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
-            and any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-          and next(
-            a.datetime for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and state.get_provider(a.provider_id) is not None
-            and a.provider_id in {target.cardio_provider_ids}
-            and not any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-        )
-        and (
-          next(
-            a.datetime for a in state.appointments
+            and any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
+          ),
+          cardio_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and state.get_provider(a.provider_id) is not None
             and a.provider_id in {target.cardio_provider_ids}
-            and not any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-          - next(
-            a.datetime for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-        ).days >= 5
+            and not any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
+          ):
+          lab_dt is not None and cardio_dt is not None
+          and (cardio_dt - lab_dt).days >= 5
+        )()
       desc: The cardiology visit was at least 5 days after the labs
     - expr: >-
         (
-          next(
-            a.datetime for a in state.appointments
+          lambda pcp_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.provider_id == '{target.pcp_id}'
-            and not any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-          - next(
-            a.datetime for a in state.appointments
+            and not any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
+          ),
+          cardio_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and state.get_provider(a.provider_id) is not None
             and a.provider_id in {target.cardio_provider_ids}
-            and not any(word in a.reason.lower() for word in ('lab', 'blood'))
-          )
-        ).days >= 3
+            and not any(word in a.reason.lower() for word in ('lab', 'blood'))),
+            None,
+          ):
+          pcp_dt is not None and cardio_dt is not None
+          and (pcp_dt - cardio_dt).days >= 3
+        )()
       desc: The PCP follow-up was at least 3 days after the cardiology visit
     - expr: >-
         all(

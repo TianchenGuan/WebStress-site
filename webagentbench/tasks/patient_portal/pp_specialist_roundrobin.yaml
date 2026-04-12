@@ -144,57 +144,63 @@ eval:
         ]) == 2
       desc: The two new appointments were created in a single ordered sequence
     - expr: >-
-        [
-          a.id
-          for a in sorted(
-            [
-              a for a in state.appointments
-              if a.status == 'scheduled'
-              and a.id not in {target.upcoming_ids}
-            ],
-            key=lambda a: a.booked_at,
-          )
-        ] == [
-          next(
-            a.id for a in state.appointments
+        (
+          lambda echo_id=next(
+            (a.id for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.provider_id in {target.cardio_provider_ids}
-            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())
+            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())),
+            None,
           ),
-          next(
-            a.id for a in state.appointments
+          consult_id=next(
+            (a.id for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.linked_referral_id == '{target.prior_auth_ref_id}'
-            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))
-          ),
-        ]
+            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))),
+            None,
+          ):
+          echo_id is not None and consult_id is not None
+          and [
+            a.id
+            for a in sorted(
+              [a for a in state.appointments
+               if a.status == 'scheduled' and a.id not in {target.upcoming_ids}],
+              key=lambda a: a.booked_at,
+            )
+          ] == [echo_id, consult_id]
+        )()
       desc: The echocardiogram was booked before the surgical consultation
     - expr: >-
         (
-          next(
-            a.booked_at for a in state.appointments
+          lambda echo_t=next(
+            (a.booked_at for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.provider_id in {target.cardio_provider_ids}
-            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())
-          )
-          < next(
-            m.timestamp for m in state.messages
+            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())),
+            None,
+          ),
+          msg_t=next(
+            (m.timestamp for m in state.messages
             if m.from_type == 'patient'
             and m.provider_id in {target.cardio_provider_ids}
             and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-          )
-          < next(
-            a.booked_at for a in state.appointments
+            and m.id not in state._initial_snapshot.get('messages', {})),
+            None,
+          ),
+          consult_t=next(
+            (a.booked_at for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             and a.linked_referral_id == '{target.prior_auth_ref_id}'
-            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))
-          )
-        )
+            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))),
+            None,
+          ):
+          echo_t is not None and msg_t is not None and consult_t is not None
+          and echo_t < msg_t < consult_t
+        )()
       desc: The message was sent after the echo appointment and before the surgical consultation
   negative_checks:
     - expr: >-

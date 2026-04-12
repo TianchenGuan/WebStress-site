@@ -77,19 +77,23 @@ eval:
       desc: All new appointments are in-person
     - expr: >-
         (
-          next(
-            a.datetime for a in state.appointments
+          lambda pcp_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.provider_id == '{target.pcp_id}'
-            and a.id not in {target.upcoming_ids}
-          )
-          - next(
-            a.datetime for a in state.appointments
+            and a.id not in {target.upcoming_ids}),
+            None,
+          ),
+          lab_dt=next(
+            (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
-            and any(word in a.reason.lower() for word in ('lab', 'blood', 'pre-visit'))
-          )
-        ).days >= 3
+            and any(word in a.reason.lower() for word in ('lab', 'blood', 'pre-visit'))),
+            None,
+          ):
+          pcp_dt is not None and lab_dt is not None
+          and (pcp_dt - lab_dt).days >= 3
+        )()
       desc: Lab work is scheduled at least 3 days before the physical
   negative_checks:
     - expr: >-

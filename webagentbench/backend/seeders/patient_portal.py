@@ -142,7 +142,12 @@ class PatientPortalSeedRunner:
         parts = path.split(".")
         obj: Any = ctx.outputs
         for part in parts:
-            obj = obj[part] if isinstance(obj, dict) else getattr(obj, part)
+            if isinstance(obj, dict):
+                obj = obj[part]
+            elif isinstance(obj, list) and part.isdigit():
+                obj = obj[int(part)]
+            else:
+                obj = getattr(obj, part)
         return obj
 
     @classmethod
