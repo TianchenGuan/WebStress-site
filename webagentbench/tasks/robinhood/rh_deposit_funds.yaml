@@ -34,3 +34,9 @@ eval:
     - expr: "not any(t.direction == 'withdrawal' for t in state.transfers)"
       desc: No withdrawals were initiated
       penalty: 0.15
+    - expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
+      desc: Exactly one deposit was initiated
+      penalty: 0.5
+    - expr: "sum(t.amount for t in state.transfers if t.direction == 'deposit') == 500"
+      desc: Total deposited amount is exactly $500
+      penalty: 0.5

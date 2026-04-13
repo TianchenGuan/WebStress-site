@@ -47,4 +47,10 @@ eval:
                 and not o.id.startswith('ord_decoy_')
                 for o in state.orders)
       desc: No non-MSFT orders were cancelled
-      penalty: 0.25
+      penalty: 0.5
+    - expr: >-
+        sum(1 for o in state.orders
+            if o.status == 'cancelled'
+            and not o.id.startswith('ord_decoy_')) == 1
+      desc: Exactly one order was cancelled
+      penalty: 0.3
