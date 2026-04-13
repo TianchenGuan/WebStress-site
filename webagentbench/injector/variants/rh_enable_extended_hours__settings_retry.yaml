@@ -1,0 +1,17 @@
+variant_id: rh_enable_extended_hours__settings_retry
+base_task_id: rh_enable_extended_hours
+target_primitive: verification
+description: The first settings update fails transiently. The agent must confirm extended-hours trading
+  is actually enabled.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/robinhood/settings'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 503
+    error_message: Temporary Robinhood write failure. Retry the action.
+    behavior:
+      mode: once

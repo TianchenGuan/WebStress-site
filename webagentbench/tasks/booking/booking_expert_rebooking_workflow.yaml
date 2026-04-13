@@ -1,36 +1,33 @@
 task_id: booking_expert_rebooking_workflow
 env_id: booking
 title: Cancel and Rebook with Better Hotel in Same City
-instruction_template: "You are unhappy with your current reservation and want to find\
-  \ a better alternative:\n\
-  1. Find your confirmed reservation at \"{target.original_name}\" in\
-  \ {target.city} (checking in {target.check_in}, checking out {target.check_out},\
-  \ {target.guests} guests). Cancel it.\n\
-  2. Search for hotels in {target.city} and find a replacement with a\
-  \ better review score than {target.original_score}. You should find\
-  \ \"{target.replacement_name}\" which has a higher review score.\n\
-  3. Book \"{target.replacement_name}\" for the same dates ({target.check_in}\
-  \ to {target.check_out}) and same number of guests ({target.guests}). Book\
-  \ its cheapest room. Use the Mastercard ending in 8888.\n\
-  4. Send a message to the original hotel \"{target.original_name}\" with\
-  \ subject \"Feedback on Cancellation\" and body \"I found a hotel with\
-  \ better reviews for my dates. I may consider rebooking in the future\
-  \ if improvements are made.\"\n\
-  5. Update your travel preferences: set smoking to \"non-smoking\" and\
-  \ preferred bed type to \"queen\".\n\
-  6. Save \"{target.replacement_name}\" to a new list called \"Upgraded\
-  \ Picks\".\n"
+instruction_template: 'You are unhappy with your current reservation and want to find a better alternative:
+
+  1. Find your confirmed reservation at "{target.original_name}" in {target.city} (checking in {target.check_in},
+  checking out {target.check_out}, {target.guests} guests). Cancel it.
+
+  2. Search for hotels in {target.city} and find a replacement with a better review score than {target.original_score}.
+  You should find "{target.replacement_name}" which has a higher review score.
+
+  3. Book "{target.replacement_name}" for the same dates ({target.check_in} to {target.check_out}) and
+  same number of guests ({target.guests}). Book its cheapest room. Use the Mastercard ending in 8888.
+
+  4. Send a message to the original hotel "{target.original_name}" with subject "Feedback on Cancellation"
+  and body "I found a hotel with better reviews for my dates. I may consider rebooking in the future if
+  improvements are made."
+
+  5. Update your travel preferences: set smoking to "non-smoking" and preferred bed type to "queen".
+
+  6. Save "{target.replacement_name}" to a new list called "Upgraded Picks".
+
+  '
 difficulty: expert
 time_limit_seconds: 440
 expected_steps: 32
 primary_primitives:
 - backtracking
-- verification
-- state_tracking
 secondary_primitives:
-- exploration
-- grounding
-- planning
+- verification
 start_path: /trips
 seed:
   distractors: 12
@@ -169,40 +166,42 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.id == '{target.original_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
-    desc: Original reservation at Ibis Milan cancelled
-  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-06-15' and\n  r.check_out == '2026-06-20'\n  for\
-      \ r in state.reservations\n)\n"
-    desc: Replacement booked at Palazzo Parigi with same dates
-  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.payment_method_id\
-      \ == 'pm_2'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+  - expr: "any(\n  r.id == '{target.original_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
       )\n"
+    desc: Original reservation at Ibis Milan cancelled
+  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-06-15' and\n  r.check_out == '2026-06-20'\n  for r in state.reservations\n)\n"
+    desc: Replacement booked at Palazzo Parigi with same dates
+  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.payment_method_id == 'pm_2'\n \
+      \ for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Used Mastercard ending in 8888
-  - expr: "any(\n  m.property_id == '{target.original_id}' and\n  m.sender == 'user'\
-      \ and\n  'better reviews' in m.body.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.original_id}' and\n  m.sender == 'user' and\n  'better reviews'\
+      \ in m.body.lower()\n  for m in state.messages\n)\n"
     desc: Feedback message sent to original hotel
   - expr: state.travel_preferences.smoking == 'non-smoking'
     desc: Smoking preference updated to non-smoking
   - expr: state.travel_preferences.preferred_bed_type == 'queen'
     desc: Preferred bed type updated to queen
-  - expr: "any(\n  sl.name == 'Upgraded Picks' and\n  '{target.replacement_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Upgraded Picks' and\n  '{target.replacement_id}' in sl.property_ids\n \
+      \ for sl in state.saved_lists\n)\n"
     desc: Replacement hotel saved to 'Upgraded Picks' list
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.original_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.original_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not rebook at the same original hotel
     penalty: 0.3
-  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.room_type_name\
-      \ == 'Deluxe Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.replacement_id}' and\n  r.room_type_name == 'Deluxe Room'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the cheapest room at replacement hotel
     penalty: 0.2
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.15
+  - expr: not any(e.action.startswith('account.') for e in state.audit_log)
+    desc: No off-task account changes were made
+    penalty: 0.1
+  - expr: not any(e.action == 'settings.update' for e in state.audit_log)
+    desc: No off-task settings changes were made
+    penalty: 0.1

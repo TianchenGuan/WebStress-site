@@ -1,0 +1,17 @@
+variant_id: amazon_recover_cancelled_order__order_cancel_retry_v2
+base_task_id: amazon_recover_cancelled_order
+target_primitive: backtracking
+description: The first cancel request fails transiently. The agent must verify the order status actually
+  changed and retry if it did not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/orders/*/cancel'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

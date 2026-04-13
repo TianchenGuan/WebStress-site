@@ -1,25 +1,19 @@
 task_id: gmail_incident_escalation
 env_id: gmail
 title: Incident Escalation
-instruction_template: A production incident has been reported. Find the alert email
-  (check all inbox tabs) and read the full thread to understand the issue. The error
-  code is in one of the earlier messages, and the on-call engineer's email is mentioned
-  in another. Forward the alert to the on-call engineer, including the error code
-  in your note. Then reply to the separate thread from {target.manager_name} confirming
-  you are handling the incident (Reply only — the thread includes leadership). Star
-  all emails related to the incident. Create a 'P0 Incident' label and apply it to
-  all incident-related emails. Finally, go to Settings and create a filter that stars
-  and labels future emails from the alerting system address with 'CRITICAL' in the
-  subject.
+instruction_template: "A production incident has been reported. Find the alert email (check all inbox\
+  \ tabs) and read the full thread to understand the issue. The error code is in one of the earlier messages,\
+  \ and the on-call engineer's email is mentioned in another. Forward the alert to the on-call engineer,\
+  \ including the error code in your note. Then reply to the separate thread from {target.manager_name}\
+  \ confirming you are handling the incident (Reply only \u2014 the thread includes leadership). Star\
+  \ all emails related to the incident. Create a 'P0 Incident' label and apply it to all incident-related\
+  \ emails. Finally, go to Settings and create a filter that stars and labels future emails from the alerting\
+  \ system address with 'CRITICAL' in the subject."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 55
 primary_primitives:
 - state_tracking
-- grounding
-- planning
-- exploration
-- verification
 start_path: /inbox
 seed:
   distractors: 40
@@ -50,8 +44,8 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(m.forwarded_from_id == '{target.alert_id}' and '{target.oncall_email}'
-      in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.alert_id}' and '{target.oncall_email}' in m.to for m in
+      state.sent)
     desc: Alert forwarded to on-call
   - expr: any(m.in_reply_to == '{target.manager_email_id}' for m in state.sent)
     desc: Manager thread replied
@@ -59,11 +53,11 @@ eval:
     desc: All incident emails starred
   - expr: all('P0 Incident' in state.get_email(eid).labels for eid in {target.incident_ids})
     desc: P0 label applied
-  - expr: any(r.star and '{target.alert_system_email}' in r.from_addresses and 'CRITICAL'
-      in r.subject_keywords and 'P0 Incident' in r.add_labels for r in state.filters)
+  - expr: any(r.star and '{target.alert_system_email}' in r.from_addresses and 'CRITICAL' in r.subject_keywords
+      and 'P0 Incident' in r.add_labels for r in state.filters)
     desc: Alert filter stars and labels P0 Incident
-  - expr: any('{target.error_code}' in m.body and m.forwarded_from_id == '{target.alert_id}'
-      for m in state.sent)
+  - expr: any('{target.error_code}' in m.body and m.forwarded_from_id == '{target.alert_id}' for m in
+      state.sent)
     desc: Error code included in forward
   negative_checks:
   - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.manager_email_id}')
@@ -72,3 +66,13 @@ eval:
   - expr: not any(m.forwarded_from_id == '{target.resolved_alert_id}' for m in state.sent)
     desc: Resolved alert not forwarded
     penalty: 0.15
+  - expr: all( m.to == ['{target.oncall_email}'] and len(m.cc) == 0 and len(m.bcc) == 0 for m in state.sent
+      if m.forwarded_from_id == '{target.alert_id}')
+    desc: Alert forward went only to the on-call engineer
+    penalty: 0.15
+  - expr: not any( '{target.alert_system_email}' in r.from_addresses and 'CRITICAL' not in r.subject_keywords
+      for r in state.filters)
+    desc: Future alert filter was not broadened beyond CRITICAL incidents
+    penalty: 0.15
+secondary_primitives:
+- grounding

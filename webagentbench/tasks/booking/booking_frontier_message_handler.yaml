@@ -1,38 +1,26 @@
 task_id: booking_frontier_message_handler
 env_id: booking
-title: "Frontier: Read, Reply, Send Messages and Book Property"
-instruction_template: "Handle all messages and complete a booking:\n\
-  1. Read the unread message from \"{target.msg1_prop_name}\" about\n\
-  \   \"{target.msg1_subject}\". Reply with subject \"Re: {target.msg1_subject}\"\n\
-  \   and body \"Thank you for the information. I will arrive around 3pm.\"\n\
-  2. Read the unread message from \"{target.msg2_prop_name}\" about\n\
-  \   \"{target.msg2_subject}\". Reply with subject \"Re: {target.msg2_subject}\"\n\
-  \   and body \"Noted, thanks. Please also confirm late checkout availability.\"\n\
-  3. Read the unread message from \"{target.msg3_prop_name}\" about\n\
-  \   \"{target.msg3_subject}\". Reply with subject \"Re: {target.msg3_subject}\"\n\
-  \   and body \"I appreciate the offer. I will consider upgrading.\"\n\
-  4. Send a NEW message to \"{target.book_prop_name}\" with subject\n\
-  \   \"Early check-in request\" and body \"I have a flight arriving\n\
-  \   at 8am. Is early check-in at 10am possible?\"\n\
-  5. Book \"{target.book_prop_name}\" - \"Deluxe Room\" for 2 guests,\n\
-  \   checking in 2026-11-10, checking out 2026-11-14, using\n\
-  \   the default Visa (ending 4242).\n\
-  6. After booking, send another message to \"{target.book_prop_name}\"\n\
-  \   with subject \"Booking confirmed\" and body \"Just booked my stay.\n\
-  \   Looking forward to it!\"\n\
-  7. Create a saved list \"Messaged Hotels\" and add all four hotel\n\
-  \   properties to it.\n"
+title: 'Frontier: Read, Reply, Send Messages and Book Property'
+instruction_template: "Handle all messages and complete a booking:\n1. Read the unread message from \"\
+  {target.msg1_prop_name}\" about\n   \"{target.msg1_subject}\". Reply with subject \"Re: {target.msg1_subject}\"\
+  \n   and body \"Thank you for the information. I will arrive around 3pm.\"\n2. Read the unread message\
+  \ from \"{target.msg2_prop_name}\" about\n   \"{target.msg2_subject}\". Reply with subject \"Re: {target.msg2_subject}\"\
+  \n   and body \"Noted, thanks. Please also confirm late checkout availability.\"\n3. Read the unread\
+  \ message from \"{target.msg3_prop_name}\" about\n   \"{target.msg3_subject}\". Reply with subject \"\
+  Re: {target.msg3_subject}\"\n   and body \"I appreciate the offer. I will consider upgrading.\"\n4.\
+  \ Send a NEW message to \"{target.book_prop_name}\" with subject\n   \"Early check-in request\" and\
+  \ body \"I have a flight arriving\n   at 8am. Is early check-in at 10am possible?\"\n5. Book \"{target.book_prop_name}\"\
+  \ - \"Deluxe Room\" for 2 guests,\n   checking in 2026-11-10, checking out 2026-11-14, using\n   the\
+  \ default Visa (ending 4242).\n6. After booking, send another message to \"{target.book_prop_name}\"\
+  \n   with subject \"Booking confirmed\" and body \"Just booked my stay.\n   Looking forward to it!\"\
+  \n7. Create a saved list \"Messaged Hotels\" and add all four hotel\n   properties to it.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
+- state_tracking
 start_path: /messages
 seed:
   distractors: 10
@@ -65,7 +53,7 @@ seed:
       property_id: '{output.msg1_prop_id}'
       property_name: Hotel Ritz Madrid
       subject: Check-in details
-      body: 'Welcome! Your check-in time is from 3pm. We have prepared a welcome package for you.'
+      body: Welcome! Your check-in time is from 3pm. We have prepared a welcome package for you.
       sender: property
       read: false
     outputs:
@@ -95,7 +83,7 @@ seed:
       property_id: '{output.msg2_prop_id}'
       property_name: Florence Palazzo Hotel
       subject: Room confirmation
-      body: 'Your Deluxe Room with view of the Duomo is ready. Breakfast is served 7-10am.'
+      body: Your Deluxe Room with view of the Duomo is ready. Breakfast is served 7-10am.
       sender: property
       read: false
     outputs:
@@ -126,7 +114,8 @@ seed:
       property_id: '{output.msg3_prop_id}'
       property_name: Bangkok Riverside Hotel
       subject: Upgrade offer
-      body: 'We have a special upgrade offer for your stay - upgrade to our River View Suite for only $50 more per night.'
+      body: We have a special upgrade offer for your stay - upgrade to our River View Suite for only $50
+        more per night.
       sender: property
       read: false
     outputs:
@@ -191,54 +180,45 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(m.property_id == '{target.msg1_prop_id}' and m.sender == 'guest'\n\
-      \  and 'arrive around 3pm' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.msg1_prop_id}' and m.sender == 'guest'\n  and 'arrive around\
+      \ 3pm' in m.body.lower()\n  for m in state.messages)\n"
     desc: Reply sent to Madrid hotel about arrival time
-  - expr: "any(m.property_id == '{target.msg2_prop_id}' and m.sender == 'guest'\n\
-      \  and 'late checkout' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.msg2_prop_id}' and m.sender == 'guest'\n  and 'late checkout'\
+      \ in m.body.lower()\n  for m in state.messages)\n"
     desc: Reply sent to Florence hotel about late checkout
-  - expr: "any(m.property_id == '{target.msg3_prop_id}' and m.sender == 'guest'\n\
-      \  and 'upgrading' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.msg3_prop_id}' and m.sender == 'guest'\n  and 'upgrading' in\
+      \ m.body.lower()\n  for m in state.messages)\n"
     desc: Reply sent to Bangkok hotel about upgrade
-  - expr: "any(m.property_id == '{target.book_prop_id}' and m.sender == 'guest'\n\
-      \  and 'early check-in' in m.subject.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.book_prop_id}' and m.sender == 'guest'\n  and 'early check-in'\
+      \ in m.subject.lower()\n  for m in state.messages)\n"
     desc: Message sent to Dubai hotel about early check-in
-  - expr: "any(\n  r.property_id == '{target.book_prop_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Deluxe Room' and\n\
-      \  r.check_in == '2026-11-10' and r.check_out == '2026-11-14'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.book_prop_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Deluxe Room' and\n  r.check_in == '2026-11-10' and r.check_out == '2026-11-14'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Dubai hotel booked with Deluxe Room and correct dates
-  - expr: "any(m.property_id == '{target.book_prop_id}' and m.sender == 'guest'\n\
-      \  and 'booking confirmed' in m.subject.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.book_prop_id}' and m.sender == 'guest'\n  and 'booking confirmed'\
+      \ in m.subject.lower()\n  for m in state.messages)\n"
     desc: Confirmation message sent after booking
-  - expr: "any(sl.name == 'Messaged Hotels' and\n\
-      \  '{target.msg1_prop_id}' in sl.property_ids and\n\
-      \  '{target.msg2_prop_id}' in sl.property_ids and\n\
-      \  '{target.msg3_prop_id}' in sl.property_ids and\n\
-      \  '{target.book_prop_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'Messaged Hotels' and\n  '{target.msg1_prop_id}' in sl.property_ids and\n  '{target.msg2_prop_id}'\
+      \ in sl.property_ids and\n  '{target.msg3_prop_id}' in sl.property_ids and\n  '{target.book_prop_id}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists)\n"
     desc: Messaged Hotels list contains all four properties
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') != '{target.book_prop_id}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.book_prop_id}'\n\
       \  for e in state.audit_log\n)\n"
     desc: No reservation at wrong property
     penalty: 0.3
-  - expr: "not any(\n  r.property_id == '{target.book_prop_id}' and\n\
-      \  r.room_type_name in ('Standard Room', 'Royal Suite')\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "not any(\n  r.property_id == '{target.book_prop_id}' and\n  r.room_type_name in ('Standard\
+      \ Room', 'Royal Suite')\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
     desc: Did not book wrong room type at Dubai hotel
     penalty: 0.2
-  - expr: "sum(1 for m in state.messages if m.sender == 'guest'\n\
-      \  and m.property_id not in ('{target.msg1_prop_id}', '{target.msg2_prop_id}', '{target.msg3_prop_id}', '{target.book_prop_id}')) == 0\n"
+  - expr: "sum(1 for m in state.messages if m.sender == 'guest'\n  and m.property_id not in ('{target.msg1_prop_id}',\
+      \ '{target.msg2_prop_id}', '{target.msg3_prop_id}', '{target.book_prop_id}')) == 0\n"
     desc: No messages sent to wrong properties
     penalty: 0.15
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Messaged Hotels') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Messaged Hotels'') <= 1
+
+      '
     desc: Only one Messaged Hotels list created
     penalty: 0.1

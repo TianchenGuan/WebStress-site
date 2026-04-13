@@ -1,20 +1,18 @@
 task_id: amazon_return_and_rebuy
 env_id: amazon
 title: Return an Item and Buy a Replacement
-instruction_template: >
-  You have a past order containing "{target.return_product}". Initiate a return
-  for that item with the reason "wrong_item". Then find and purchase a
-  replacement product "{target.replacement_name}" from the same category
-  ({target.category}). Complete checkout for the replacement using the shipping
-  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'You have a past order containing "{target.return_product}". Initiate a return for
+  that item with the reason "wrong_item". Then find and purchase a replacement product "{target.replacement_name}"
+  from the same category ({target.category}). Complete checkout for the replacement using the shipping
+  address for {target.shipping_name} at {target.shipping_street} and the {target.payment_type} card ending
+  in {target.payment_last_four}.
+
+  '
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 30
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- backtracking
 start_path: /
 seed:
   distractors: 16
@@ -79,25 +77,60 @@ seed:
     replacement_id: '{output.product_id_replacement}'
     original_order_id: '{output.order_id}'
     category: Electronics
+    shipping_name: Jordan Parker
+    shipping_street: 742 Evergreen Terrace
+    payment_type: Visa
+    payment_last_four: '4242'
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.order_id == '{target.original_order_id}' and r.reason == 'wrong_item'
-      for r in state.returns)
-    desc: Return was initiated for the original order with reason wrong_item
-  - expr: >
-      any(r.product_id == '{target.return_product_id}' for r in state.returns)
-    desc: The correct product was returned
-  - expr: >
-      any(any(item.product_id == '{target.replacement_id}' for item in order.items)
-      for order in state.orders if order.id != '{target.original_order_id}' and not order.id.startswith('order_initial_'))
-    desc: Replacement product was purchased in a new order
+  - expr: 'any(r.order_id == ''{target.original_order_id}'' and r.product_id == ''{target.return_product_id}''
+      and r.reason == ''wrong_item'' and not r.id.startswith(''return_initial_'') for r in state.returns)
+
+      '
+    desc: A new return was initiated for the correct product with reason wrong_item
+  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+      and len(order.items) == 1 and order.items[0].product_id == ''{target.replacement_id}'' for order
+      in state.orders)
+
+      '
+    desc: Replacement product was purchased in exactly one-item new order
+  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+      and order.items[0].product_id == ''{target.replacement_id}'' and any(a.id == order.shipping_address_id
+      and a.full_name == ''{target.shipping_name}'' and a.street_address == ''{target.shipping_street}''
+      for a in state.addresses) for order in state.orders if len(order.items) == 1)
+
+      '
+    desc: Replacement order uses the required shipping address
+  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+      and order.items[0].product_id == ''{target.replacement_id}'' and any(pm.id == order.payment_method_id
+      and pm.card_type == ''{target.payment_type}'' and pm.last_four == ''{target.payment_last_four}''
+      for pm in state.payment_methods) for order in state.orders if len(order.items) == 1)
+
+      '
+    desc: Replacement order uses the required Visa ending in 4242
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: >
-      sum(1 for r in state.returns if r.order_id == '{target.original_order_id}') <= 1
-    desc: Only one return initiated for the original order
+  - expr: 'sum(1 for r in state.returns if r.order_id == ''{target.original_order_id}'' and not r.id.startswith(''return_initial_''))
+      == 1
+
+      '
+    desc: Only one new return was initiated for the original order
     penalty: 0.15
+  - expr: 'sum(1 for order in state.orders if order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_''))
+      == 1
+
+      '
+    desc: Only one new purchase order was placed
+    penalty: 0.15
+  - expr: 'not any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+      and any(item.product_id == ''{target.return_product_id}'' for item in order.items) for order in
+      state.orders)
+
+      '
+    desc: The returned item was not purchased again by mistake
+    penalty: 0.15
+secondary_primitives:
+- state_tracking

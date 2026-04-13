@@ -207,15 +207,39 @@ async def apply_network_injection(page: Any, params: dict[str, Any]) -> None:
     elif action == "error_then_success":
         # Patience: transient errors that resolve on retry.
         error_status = params.get("error_status", 500)
+        methods_raw = params.get("methods")
+        methods = (
+            {str(method).upper() for method in methods_raw}
+            if isinstance(methods_raw, list) and methods_raw
+            else None
+        )
+        error_body = params.get("error_body")
+        error_message = params.get("error_message", "Server Error")
+
+        async def _fulfill_error(route: Any) -> None:
+            if isinstance(error_body, (dict, list)):
+                await route.fulfill(
+                    status=error_status,
+                    content_type="application/json",
+                    body=json.dumps(error_body),
+                )
+                return
+            await route.fulfill(
+                status=error_status,
+                body=str(error_body if error_body is not None else error_message),
+            )
 
         if mode == "intermittent":
             probability = behavior.get("probability", 0.2)
             call_counter = {"n": 0}
 
             async def intermittent_error_handler(route):
+                if methods is not None and route.request.method.upper() not in methods:
+                    await route.continue_()
+                    return
                 call_counter["n"] += 1
                 if _seeded_should_fire(behavior_seed, call_counter["n"], probability):
-                    await route.fulfill(status=error_status, body="Server Error")
+                    await _fulfill_error(route)
                 else:
                     await route.continue_()
 
@@ -225,9 +249,12 @@ async def apply_network_injection(page: Any, params: dict[str, Any]) -> None:
             call_counter = {"n": 0}
 
             async def error_handler(route):
+                if methods is not None and route.request.method.upper() not in methods:
+                    await route.continue_()
+                    return
                 call_counter["n"] += 1
                 if call_counter["n"] <= error_count:
-                    await route.fulfill(status=error_status, body="Server Error")
+                    await _fulfill_error(route)
                 else:
                     await route.continue_()
 

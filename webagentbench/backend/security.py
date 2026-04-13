@@ -35,6 +35,28 @@ def require_controller_access(request: Request) -> None:
         )
 
 
+def require_evaluation_access(
+    request: Request,
+    *,
+    requested_task_id: str | None,
+    bound_task_id: str,
+) -> None:
+    """Allow browser-side evaluation of the session's bound task.
+
+    Human-play toolbars do not have access to the controller secret, so they
+    must be able to evaluate the task already bound to the session. Explicit
+    task overrides remain controller-only.
+    """
+    if has_controller_access(request):
+        return
+    if requested_task_id is None or requested_task_id == bound_task_id:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Controller access required for cross-task evaluation",
+    )
+
+
 def build_public_session_response(
     *,
     session_id: str,

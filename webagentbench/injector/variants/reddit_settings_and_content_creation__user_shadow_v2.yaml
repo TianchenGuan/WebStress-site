@@ -1,0 +1,20 @@
+variant_id: reddit_settings_and_content_creation__user_shadow_v2
+base_task_id: reddit_settings_and_content_creation
+target_primitive: grounding
+description: Profiles, messages, and notifications include usernames that differ by punctuation or one
+  extra token. The agent must verify the exact user before replying, messaging, or blocking.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: message
+      from_user: NeuralNexus-team
+      subject: Community message
+      body: This is a lookalike message thread from a similarly named account.
+      is_read: false
+    - type: notification
+      title: u/NeuralNexus_team replied
+      body: A near-match username generated a lookalike notification. Verify the exact user before acting.
+      from_user: NeuralNexus_team
+      is_read: false

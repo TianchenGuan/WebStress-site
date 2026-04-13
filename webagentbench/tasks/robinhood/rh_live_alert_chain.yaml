@@ -1,20 +1,15 @@
----
 task_id: rh_live_alert_chain
 env_id: robinhood
 title: Alert-Triggered Portfolio Rebalance
-instruction_template: Set a price alert for NVDA above $900. When the alert triggers,
-  check your portfolio's Technology sector concentration. If Technology exceeds 60%
-  of your portfolio, sell enough NVDA to bring it to 50%. Otherwise, buy 5 more shares.
+instruction_template: Set a price alert for NVDA above $900. When the alert triggers, check your portfolio's
+  Technology sector concentration. If Technology exceeds 60% of your portfolio, sell enough NVDA to bring
+  it to 50%. Otherwise, buy 5 more shares.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 20
 primary_primitives:
 - planning
-- patience
-- state_tracking
-- grounding
-- verification
-start_path: "/"
+start_path: /
 seed:
   distractors: 10
   steps:
@@ -48,52 +43,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      any(a.symbol == 'NVDA' and a.condition == 'above'
-      and a.status == 'triggered'
-      and not a.id.startswith('alert_decoy_')
+  - expr: any(a.symbol == 'NVDA' and a.condition == 'above' and a.status == 'triggered' and not a.id.startswith('alert_decoy_')
       for a in state.price_alerts)
     desc: A price alert for NVDA above $900 was triggered
-  - expr: >-
-      any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity == 5
-      and o.status == 'filled'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity == 5 and o.status == 'filled' and
+      not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The seeded below-60%-tech branch bought 5 more NVDA shares after the alert
-  - expr: >-
-      len([o for o in state.orders
-      if o.symbol == 'NVDA' and o.status == 'filled'
-      and not o.id.startswith('ord_decoy_')]) >= 1
-      and all(o.filled_price is not None and o.filled_price > 898
-      for o in state.orders
-      if o.symbol == 'NVDA' and o.status == 'filled'
-      and not o.id.startswith('ord_decoy_'))
+  - expr: len([o for o in state.orders if o.symbol == 'NVDA' and o.status == 'filled' and not o.id.startswith('ord_decoy_')])
+      >= 1 and all(o.filled_price is not None and o.filled_price > 898 for o in state.orders if o.symbol
+      == 'NVDA' and o.status == 'filled' and not o.id.startswith('ord_decoy_'))
     desc: NVDA action occurred near or above the $900 alert trigger
-  - expr: >-
-      any(a.symbol == 'NVDA' and a.condition == 'above'
-      and a.target_price >= 895 and a.target_price <= 905
-      and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
+  - expr: any(a.symbol == 'NVDA' and a.condition == 'above' and a.target_price >= 895 and a.target_price
+      <= 905 and not a.id.startswith('alert_decoy_') for a in state.price_alerts)
     desc: The NVDA price alert was set near the $900 target
-  - expr: >-
-      len([o for o in state.orders
-      if o.symbol == 'NVDA' and o.side == 'buy'
-      and not o.id.startswith('ord_decoy_')]) == 1
+  - expr: len([o for o in state.orders if o.symbol == 'NVDA' and o.side == 'buy' and not o.id.startswith('ord_decoy_')])
+      == 1
     desc: Exactly one NVDA buy order was placed
   negative_checks:
-  - expr: >-
-      not any(o.symbol == 'NVDA' and o.side == 'sell'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.symbol == 'NVDA' and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o
+      in state.orders)
     desc: The seeded branch did not incorrectly sell NVDA when technology concentration was below 60%
     penalty: 0.25
-  - expr: >-
-      not any(o.symbol != 'NVDA'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.symbol != 'NVDA' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No orders were placed for symbols other than NVDA
     penalty: 0.25
-secondary_primitives: []
-primitive_thesis: Measures planning, patience, state_tracking, grounding, verification
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create') == 1
+    desc: Live alert chain created exactly one NVDA price alert
+    penalty: 0.15
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
+      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
+    desc: Live alert chain did not mutate transfers, watchlists, or recurring plans
+    penalty: 0.1
+secondary_primitives:
+- patience
+primitive_thesis: Measures planning, patience, state_tracking, grounding, verification by requiring exact
+  completion of the requested Robinhood workflow while ignoring distractor account state.

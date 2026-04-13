@@ -1,33 +1,24 @@
 task_id: booking_expert_deal_hunter
 env_id: booking
 title: Find Best Deal, Compare Alternatives, and Conditional Booking
-instruction_template: "Hunt for the best deal in Amsterdam:\n\
-  1. Search for hotels in Amsterdam and find the property with the largest\
-  \ Genius discount percentage. Among the options you should find:\n\
-  \   - \"{target.prop_name_1}\" ({target.discount_1}% Genius discount)\n\
-  \   - \"{target.prop_name_2}\" ({target.discount_2}% Genius discount)\n\
-  \   - \"{target.prop_name_3}\" ({target.discount_3}% Genius discount)\n\
-  2. The property with the largest discount is \"{target.deal_name}\".\
-  \ Compare it with the other two properties in detail (review scores,\
-  \ amenities, prices).\n\
-  3. Book \"{target.deal_name}\" ONLY if it has BOTH free cancellation AND\
-  \ breakfast included on at least one room. Book that specific room for\
-  \ 2 guests checking in 2026-07-20 and checking out 2026-07-25 (5 nights).\
-  \ Use the default Visa (ending in 4242).\n\
-  4. Save all three compared properties to a new list called \"Amsterdam Deals\".\n\
-  5. Write a message to the booked property with subject \"Pre-arrival inquiry\"\
-  \ and body \"Could you arrange an early check-in around 11am? We are\
-  \ arriving on an early flight.\"\n"
+instruction_template: "Hunt for the best deal in Amsterdam:\n1. Search for hotels in Amsterdam and find\
+  \ the property with the largest Genius discount percentage. Among the options you should find:\n   -\
+  \ \"{target.prop_name_1}\" ({target.discount_1}% Genius discount)\n   - \"{target.prop_name_2}\" ({target.discount_2}%\
+  \ Genius discount)\n   - \"{target.prop_name_3}\" ({target.discount_3}% Genius discount)\n2. The property\
+  \ with the largest discount is \"{target.deal_name}\". Compare it with the other two properties in detail\
+  \ (review scores, amenities, prices).\n3. Book \"{target.deal_name}\" ONLY if it has BOTH free cancellation\
+  \ AND breakfast included on at least one room. Book that specific room for 2 guests checking in 2026-07-20\
+  \ and checking out 2026-07-25 (5 nights). Use the default Visa (ending in 4242).\n4. Save all three\
+  \ compared properties to a new list called \"Amsterdam Deals\".\n5. Write a message to the booked property\
+  \ with subject \"Pre-arrival inquiry\" and body \"Could you arrange an early check-in around 11am? We\
+  \ are arriving on an early flight.\"\n"
 difficulty: expert
 time_limit_seconds: 440
 expected_steps: 33
 primary_primitives:
 - verification
-- exploration
-- grounding
 secondary_primitives:
-- planning
-- state_tracking
+- exploration
 start_path: /home
 seed:
   distractors: 15
@@ -183,42 +174,37 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-07-20' and\n  r.check_out == '2026-07-25'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-07-20' and\n  r.check_out == '2026-07-25'\n  for r in state.reservations\n)\n"
     desc: Booked the property with largest discount and correct dates
-  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.room_type_name == 'Deluxe\
-      \ King with Breakfast'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.room_type_name == 'Deluxe King with Breakfast'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the room with both breakfast and free cancellation
-  - expr: "any(\n  sl.name == 'Amsterdam Deals' and\n  '{target.prop_id_1}' in sl.property_ids\
-      \ and\n  '{target.prop_id_2}' in sl.property_ids and\n  '{target.prop_id_3}'\
-      \ in sl.property_ids\n  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Amsterdam Deals' and\n  '{target.prop_id_1}' in sl.property_ids and\n \
+      \ '{target.prop_id_2}' in sl.property_ids and\n  '{target.prop_id_3}' in sl.property_ids\n  for\
+      \ sl in state.saved_lists\n)\n"
     desc: All three properties saved to 'Amsterdam Deals' list
-  - expr: "any(\n  m.property_id == '{target.deal_id}' and\n  'pre-arrival' in m.subject.lower()\
-      \ and\n  'early check-in' in m.body.lower()\n  for m in state.messages\n  if m.sender\
-      \ == 'user'\n)\n"
+  - expr: "any(\n  m.property_id == '{target.deal_id}' and\n  'pre-arrival' in m.subject.lower() and\n\
+      \  'early check-in' in m.body.lower()\n  for m in state.messages\n  if m.sender == 'user'\n)\n"
     desc: Pre-arrival message sent to booked property
-  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.guests == 2\n  for r\
-      \ in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.deal_id}' and\n  r.guests == 2\n  for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_')\n)\n"
     desc: Reservation has correct guest count
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_1}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_1}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the property with non-refundable breakfast room
     penalty: 0.3
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_2}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_2}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the property without breakfast
     penalty: 0.2
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.15
-  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Amsterdam Deals'') <=
-      1
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Amsterdam Deals'') <= 1
 
       '
     desc: Only one 'Amsterdam Deals' list was created

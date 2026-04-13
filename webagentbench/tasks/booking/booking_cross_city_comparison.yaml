@@ -1,13 +1,12 @@
 task_id: booking_cross_city_comparison
 env_id: booking
 title: Compare Best Hotels in Paris vs Barcelona and Book Winner
-instruction_template: 'Compare the best-rated hotel in Paris against the best-rated
-  hotel in Barcelona. The Paris candidate is "{target.paris_name}" and the Barcelona
-  candidate is "{target.barcelona_name}". Check both properties'' review scores and
-  book the one with the overall higher review score. Book its best room (the most
-  expensive room type available) for 2 guests checking in on 2026-08-15 and checking
-  out on 2026-08-20 (5 nights). Use the default Visa payment method (ending in 4242)
-  and enter your name and email from your profile.
+instruction_template: 'Compare the best-rated hotel in Paris against the best-rated hotel in Barcelona.
+  The Paris candidate is "{target.paris_name}" and the Barcelona candidate is "{target.barcelona_name}".
+  Check both properties'' review scores and book the one with the overall higher review score. Book its
+  best room (the most expensive room type available) for 2 guests checking in on 2026-08-15 and checking
+  out on 2026-08-20 (5 nights). Use the default Visa payment method (ending in 4242) and enter your name
+  and email from your profile.
 
   '
 difficulty: hard
@@ -15,11 +14,8 @@ time_limit_seconds: 420
 expected_steps: 25
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- exploration
-- grounding
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -167,33 +163,36 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.status == 'confirmed'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.status == 'confirmed'\n  for r\
+      \ in state.reservations\n)\n"
     desc: Reservation created at Barcelona hotel (higher rated)
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.room_type_name\
-      \ == 'Penthouse Suite'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.room_type_name == 'Penthouse Suite'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the best (most expensive) room - Penthouse Suite
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.check_in ==\
-      \ '2026-08-15' and\n  r.check_out == '2026-08-20'\n  for r in state.reservations\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.check_in == '2026-08-15' and\n\
+      \  r.check_out == '2026-08-20'\n  for r in state.reservations\n)\n"
     desc: Reservation has correct dates
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.guests == 2\
-      \ and r.nights == 5\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.guests == 2 and r.nights == 5\n\
+      \  for r in state.reservations\n)\n"
     desc: Correct guest count and number of nights
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.paris_prop_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.paris_prop_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the Paris hotel (lower rated)
     penalty: 0.4
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.room_type_name\
-      \ in ('Deluxe Room', 'Premium Suite')\n  for r in state.reservations\n  if not\
-      \ r.id.startswith('res_initial_')\n)\n"
+  - expr: "not any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.room_type_name in ('Deluxe\
+      \ Room', 'Premium Suite')\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
     desc: Did not book a cheaper room instead of the best room
     penalty: 0.3
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action.startswith('saved_list.') for e in state.audit_log)
+    desc: No off-task saved-list mutations were made
+    penalty: 0.1

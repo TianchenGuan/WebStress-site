@@ -1,31 +1,25 @@
 task_id: booking_expert_complete_account_review
 env_id: booking
 title: Complete Account Review with Profile, Settings, Payment, Booking, and Review
-instruction_template: "Perform a comprehensive account review and updates:\n1. Update\
-  \ your profile:\n   - Phone number to \"+1-415-555-0234\"\n   - Address to \"500\
-  \ Market Street, {target.city}, CA 94105\"\n   - Nationality to \"US\" (confirm)\n\
-  2. Update your account settings:\n   - Currency to \"EUR\"\n   - Enable newsletter\n\
-  \   - Disable deal alerts\n3. Update travel preferences:\n   - Preferred bed type\
-  \ to \"queen\"\n   - Floor preference to \"high\"\n   - Add \"vegan\" to dietary\
-  \ restrictions\n4. Add a new payment method: Mastercard ending in 2222, expiry 05/30,\
-  \ holder \"Jordan Parker\".\n5. Search for \"{target.property_name}\" in {target.city}\
-  \ and book its \"Deluxe Room\" for 2 guests checking in 2026-10-20 and checking\
-  \ out 2026-10-24 (4 nights). Use the new Mastercard (ending in 2222).\n6. You have\
-  \ a completed stay at \"{target.review_name}\" in {target.review_city}. Write a\
-  \ review: score 9.0, title \"Outstanding hospitality\", positive \"The staff went\
-  \ above and beyond with personalized service and the rooftop bar had stunning city\
-  \ views\", negative \"Parking was limited and expensive\", leisure, couple.\n"
+instruction_template: "Perform a comprehensive account review and updates:\n1. Update your profile:\n\
+  \   - Phone number to \"+1-415-555-0234\"\n   - Address to \"500 Market Street, {target.city}, CA 94105\"\
+  \n   - Nationality to \"US\" (confirm)\n2. Update your account settings:\n   - Currency to \"EUR\"\n\
+  \   - Enable newsletter\n   - Disable deal alerts\n3. Update travel preferences:\n   - Preferred bed\
+  \ type to \"queen\"\n   - Floor preference to \"high\"\n   - Add \"vegan\" to dietary restrictions\n\
+  4. Add a new payment method: Mastercard ending in 2222, expiry 05/30, holder \"Jordan Parker\".\n5.\
+  \ Search for \"{target.property_name}\" in {target.city} and book its \"Deluxe Room\" for 2 guests checking\
+  \ in 2026-10-20 and checking out 2026-10-24 (4 nights). Use the new Mastercard (ending in 2222).\n6.\
+  \ You have a completed stay at \"{target.review_name}\" in {target.review_city}. Write a review: score\
+  \ 9.0, title \"Outstanding hospitality\", positive \"The staff went above and beyond with personalized\
+  \ service and the rooftop bar had stunning city views\", negative \"Parking was limited and expensive\"\
+  , leisure, couple.\n"
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - planning
-- patience
-- state_tracking
 secondary_primitives:
-- verification
-- grounding
-- exploration
+- patience
 start_path: /home
 seed:
   distractors: 15
@@ -162,32 +156,26 @@ eval:
     desc: Floor preference set to high
   - expr: '''vegan'' in state.travel_preferences.dietary_restrictions'
     desc: Vegan added to dietary restrictions
-  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '2222'\n  for pm in\
-      \ state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '2222'\n  for pm in state.payment_methods)\n"
     desc: New Mastercard ending in 2222 added
-  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-10-20' and\n  r.check_out == '2026-10-24'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-10-20' and\n  r.check_out == '2026-10-24'\n  for r in state.reservations\n)\n"
     desc: Hotel booked with correct dates
-  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name ==\
-      \ 'Deluxe Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name == 'Deluxe Room'\n  for\
+      \ r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Deluxe Room specifically booked
-  - expr: "any(\n  rv.property_id == '{target.review_id}' and\n  rv.overall_score\
-      \ == 9.0 and\n  rv.title == 'Outstanding hospitality'\n  for rv in state.reviews\n\
-      )\n"
+  - expr: "any(\n  rv.property_id == '{target.review_id}' and\n  rv.overall_score == 9.0 and\n  rv.title\
+      \ == 'Outstanding hospitality'\n  for rv in state.reviews\n)\n"
     desc: Review written with correct score and title
   negative_checks:
   - expr: state.owner_email == 'jordan.parker@email.com'
     desc: Email was not changed
     penalty: 0.25
-  - expr: "not any(\n  e.action == 'payment_method.delete'\n  for e in state.audit_log\n\
-      )\n"
+  - expr: "not any(\n  e.action == 'payment_method.delete'\n  for e in state.audit_log\n)\n"
     desc: No existing payment methods were deleted
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name\
-      \ in ('Classic Room', 'Imperial Suite')\n  for r in state.reservations\n  if\
-      \ not r.id.startswith('res_initial_')\n)\n"
+  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name in ('Classic Room',\
+      \ 'Imperial Suite')\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the wrong room type
     penalty: 0.2
   - expr: '''vegetarian'' not in state.travel_preferences.dietary_restrictions'

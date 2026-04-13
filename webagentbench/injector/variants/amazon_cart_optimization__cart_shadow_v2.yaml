@@ -1,0 +1,21 @@
+variant_id: amazon_cart_optimization__cart_shadow_v2
+base_task_id: amazon_cart_optimization
+target_primitive: state_tracking
+description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
+  and purchase the exact target products instead of the shadow items.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Target Product Plus
+      brand: Brand
+      category: Electronics
+      price: 53.49
+      rating: 4.6
+      description: A closely named upsell variant that should stay out of the final cart.
+    - type: cart_item
+      product_name: Target Product Plus
+      quantity: 1
+      unit_price: 53.49

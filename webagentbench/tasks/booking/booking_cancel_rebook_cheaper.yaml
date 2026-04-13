@@ -1,12 +1,11 @@
 task_id: booking_cancel_rebook_cheaper
 env_id: booking
 title: Cancel Expensive Reservation and Rebook Cheaper Alternative
-instruction_template: 'Review your upcoming confirmed reservations and find the most
-  expensive one (by total price). Cancel it. Then search for hotels in the same city
-  ("{target.city}") and book a cheaper alternative that costs less than ${target.cheaper_max_price}
-  per night. Book the cheapest room available at the cheaper hotel for the same dates
-  ({target.check_in} to {target.check_out}) and same number of guests ({target.guests}).
-  Use the default Visa payment method (ending in 4242).
+instruction_template: 'Review your upcoming confirmed reservations and find the most expensive one (by
+  total price). Cancel it. Then search for hotels in the same city ("{target.city}") and book a cheaper
+  alternative that costs less than ${target.cheaper_max_price} per night. Book the cheapest room available
+  at the cheaper hotel for the same dates ({target.check_in} to {target.check_out}) and same number of
+  guests ({target.guests}). Use the default Visa payment method (ending in 4242).
 
   '
 difficulty: hard
@@ -14,11 +13,8 @@ time_limit_seconds: 420
 expected_steps: 28
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- exploration
-- backtracking
+- state_tracking
 start_path: /trips
 seed:
   distractors: 10
@@ -155,31 +151,34 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.id == '{target.expensive_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.id == '{target.expensive_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: The most expensive reservation was cancelled
-  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.status ==\
-      \ 'confirmed' and\n  r.check_in == '2026-07-01' and\n  r.check_out == '2026-07-05'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-07-01' and\n  r.check_out == '2026-07-05'\n  for r in state.reservations\n)\n"
     desc: New reservation created at cheaper Bath hotel with correct dates
-  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.guests ==\
-      \ 2\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.guests == 2\n  for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_')\n)\n"
     desc: New reservation has correct guest count
-  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.price_per_night\
-      \ < 300.0\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.cheaper_prop_id}' and\n  r.price_per_night < 300.0\n  for\
+      \ r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: New hotel costs less than $300 per night
   negative_checks:
-  - expr: "not any(\n  r.id == '{target.moderate_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.moderate_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: The cheaper Manchester reservation was not cancelled
     penalty: 0.4
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ not in ('{target.cheaper_prop_id}',)\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') not in ('{target.cheaper_prop_id}',)\n\
+      \  for e in state.audit_log\n)\n"
     desc: No reservation made at a non-target property
     penalty: 0.2
-  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_')\
-      \ and r.status == 'confirmed') <= 1\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 1\n"
     desc: Only one new reservation was created
     penalty: 0.15
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action.startswith('saved_list.') for e in state.audit_log)
+    desc: No off-task saved-list mutations were made
+    penalty: 0.1

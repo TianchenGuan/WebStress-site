@@ -1,32 +1,32 @@
 task_id: booking_expert_review_marathon
 env_id: booking
 title: Review Marathon for Three Completed Stays with Varied Feedback
-instruction_template: "You have three completed stays that need reviews. Write a unique\
-  \ review for each with the specific details below:\n\n\
-  1. \"{target.prop_name_1}\" in Rome - Overall score: 9.5, title: \"Absolutely\
-  \ magnificent\", positive: \"Stunning rooftop terrace with views of the\
-  \ Colosseum and impeccable room service\", negative: (none), travel purpose:\
-  \ leisure, traveled with: couple.\n\n\
-  2. \"{target.prop_name_2}\" in Berlin - Overall score: 7.0, title: \"Decent\
-  \ but disappointing\", positive: \"Convenient location near public transport\
-  \ and helpful concierge\", negative: \"Bathroom was outdated and breakfast\
-  \ buffet had limited options\", travel purpose: business, traveled with:\
-  \ solo.\n\n\
-  3. \"{target.prop_name_3}\" in Barcelona - Overall score: 8.0, title: \"Solid\
-  \ choice for families\", positive: \"Kids loved the pool area and the staff\
-  \ were very accommodating with children\", negative: \"Restaurant was\
-  \ overpriced for the quality offered\", travel purpose: leisure, traveled\
-  \ with: family.\n"
+instruction_template: 'You have three completed stays that need reviews. Write a unique review for each
+  with the specific details below:
+
+
+  1. "{target.prop_name_1}" in Rome - Overall score: 9.5, title: "Absolutely magnificent", positive: "Stunning
+  rooftop terrace with views of the Colosseum and impeccable room service", negative: (none), travel purpose:
+  leisure, traveled with: couple.
+
+
+  2. "{target.prop_name_2}" in Berlin - Overall score: 7.0, title: "Decent but disappointing", positive:
+  "Convenient location near public transport and helpful concierge", negative: "Bathroom was outdated
+  and breakfast buffet had limited options", travel purpose: business, traveled with: solo.
+
+
+  3. "{target.prop_name_3}" in Barcelona - Overall score: 8.0, title: "Solid choice for families", positive:
+  "Kids loved the pool area and the staff were very accommodating with children", negative: "Restaurant
+  was overpriced for the quality offered", travel purpose: leisure, traveled with: family.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 30
 primary_primitives:
 - patience
-- state_tracking
-- verification
 secondary_primitives:
-- grounding
-- planning
+- state_tracking
 start_path: /trips
 seed:
   distractors: 12
@@ -191,23 +191,20 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score ==\
-      \ 9.5 and\n  rv.title == 'Absolutely magnificent'\n  for rv in state.reviews\n\
-      )\n"
+  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score == 9.5 and\n  rv.title\
+      \ == 'Absolutely magnificent'\n  for rv in state.reviews\n)\n"
     desc: Rome review written with score 9.5 and correct title
-  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  'rooftop terrace'\
-      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.prop_id_1}' and\n  'rooftop terrace' in rv.positive.lower()\n\
+      \  for rv in state.reviews\n)\n"
     desc: Rome review positive mentions rooftop terrace
-  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score ==\
-      \ 7.0 and\n  rv.title == 'Decent but disappointing'\n  for rv in state.reviews\n\
-      )\n"
+  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score == 7.0 and\n  rv.title\
+      \ == 'Decent but disappointing'\n  for rv in state.reviews\n)\n"
     desc: Berlin review written with score 7.0 and correct title
-  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  'bathroom was outdated'\
-      \ in rv.negative.lower()\n  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.prop_id_2}' and\n  'bathroom was outdated' in rv.negative.lower()\n\
+      \  for rv in state.reviews\n)\n"
     desc: Berlin review negative comment mentions outdated bathroom
-  - expr: "any(\n  rv.property_id == '{target.prop_id_3}' and\n  rv.overall_score ==\
-      \ 8.0 and\n  rv.title == 'Solid choice for families'\n  for rv in state.reviews\n\
-      )\n"
+  - expr: "any(\n  rv.property_id == '{target.prop_id_3}' and\n  rv.overall_score == 8.0 and\n  rv.title\
+      \ == 'Solid choice for families'\n  for rv in state.reviews\n)\n"
     desc: Barcelona review written with score 8.0 and correct title
   - expr: "any(\n  rv.property_id == '{target.prop_id_3}' and\n  'pool area' in rv.positive.lower()\n\
       \  for rv in state.reviews\n)\n"
@@ -216,22 +213,20 @@ eval:
       \  for rv in state.reviews\n)\n"
     desc: Barcelona review negative mentions overpriced restaurant
   negative_checks:
-  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.distractor_prop_id}'\n\
-      \  and rv.id != '{target.existing_review_id}') == 0\n"
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.distractor_prop_id}'\n  and\
+      \ rv.id != '{target.existing_review_id}') == 0\n"
     desc: No duplicate review written for the already-reviewed property
     penalty: 0.2
-  - expr: "not any(\n  rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score\
-      \ != 9.5\n  for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\n\
-      )\n"
+  - expr: "not any(\n  rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score != 9.5\n  for rv\
+      \ in state.reviews\n  if rv.author_name == 'Jordan Parker'\n)\n"
     desc: Rome review has exactly score 9.5 (not a different score)
     penalty: 0.15
-  - expr: "not any(\n  rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score\
-      \ != 7.0\n  for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\n\
-      )\n"
+  - expr: "not any(\n  rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score != 7.0\n  for rv\
+      \ in state.reviews\n  if rv.author_name == 'Jordan Parker'\n)\n"
     desc: Berlin review has exactly score 7.0 (not a different score)
     penalty: 0.15
-  - expr: "sum(1 for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\n\
-      \  and rv.id != '{target.existing_review_id}'\n  and rv.property_id not in ('{target.prop_id_1}',\
-      \ '{target.prop_id_2}', '{target.prop_id_3}')) == 0\n"
+  - expr: "sum(1 for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\n  and rv.id != '{target.existing_review_id}'\n\
+      \  and rv.property_id not in ('{target.prop_id_1}', '{target.prop_id_2}', '{target.prop_id_3}'))\
+      \ == 0\n"
     desc: No reviews written for unrelated properties
     penalty: 0.15

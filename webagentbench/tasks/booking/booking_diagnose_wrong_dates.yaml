@@ -1,0 +1,151 @@
+task_id: booking_diagnose_wrong_dates
+env_id: booking
+title: Diagnose and Fix Wrong Check-In Date on Reservation
+instruction_template: "You just realized one of your upcoming hotel reservations has the wrong check-in\
+  \ date \u2014 it should be {target.correct_check_in} instead of what's currently booked. Find the incorrect\
+  \ reservation, cancel it, and rebook the same hotel (\"{target.hotel_name}\") with the correct dates.\
+  \ Keep the same room type and guest count."
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 22
+primary_primitives:
+- planning
+secondary_primitives:
+- state_tracking
+start_path: /trips
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: featured_property
+    params:
+      name: The Savoy London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.4
+      review_count: 6200
+      price: 550.0
+      neighborhood: Strand
+      address: Strand, London WC2R 0EZ
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Bar
+      - Room service
+      - Fitness center
+      - Concierge
+    outputs:
+    - target_prop_id
+    - target_prop_name
+    - target_room_id
+    - target_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.target_prop_id}'
+      check_in: '2026-07-10'
+      check_out: '2026-07-14'
+      price_per_night: 550.0
+      status: confirmed
+      guests: 2
+      booked_days_ago: 5
+    outputs:
+    - wrong_res_id
+    - wrong_conf_num
+    - wrong_res_prop_id
+  - use: decoy_property
+    params:
+      name: Strand Palace Hotel
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.2
+      review_count: 4500
+      price: 195.0
+      neighborhood: Strand
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      distance_km: 0.2
+    outputs:
+    - decoy_prop_id
+    - decoy_prop_name
+  - use: featured_property
+    params:
+      name: Hotel Grande Bretagne Athens
+      city: Athens
+      country: Greece
+      star_rating: 5
+      review_score: 9.1
+      price: 420.0
+    outputs:
+    - other_prop_id
+    - other_prop_name
+    - other_room_id
+    - other_room_name
+  - use: create_reservation
+    params:
+      property_id: '{output.other_prop_id}'
+      check_in: '2026-08-01'
+      check_out: '2026-08-05'
+      status: confirmed
+      guests: 2
+      booked_days_ago: 12
+    outputs:
+    - other_res_id
+    - other_conf_num
+    - other_res_prop_id
+  targets:
+    wrong_res_id: '{output.wrong_res_id}'
+    target_prop_id: '{output.target_prop_id}'
+    hotel_name: '{output.target_prop_name}'
+    target_room_id: '{output.target_room_id}'
+    target_room_name: '{output.target_room_name}'
+    correct_check_in: '2026-07-15'
+    correct_check_out: '2026-07-19'
+    guest_count: 2
+    other_res_id: '{output.other_res_id}'
+    decoy_prop_id: '{output.decoy_prop_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: "any(\n  r.id == '{target.wrong_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )"
+    desc: The original reservation with wrong dates was cancelled
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.check_in == '2026-07-15' and\n\
+      \  r.check_out == '2026-07-19' and\n  r.status == 'confirmed'\n  for r in state.reservations\n)"
+    desc: New reservation created at the same hotel with correct check-in date
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.check_in == '{target.correct_check_in}'\
+      \ and\n  r.check_out == '{target.correct_check_out}' and\n  r.room_type_id == '{target.target_room_id}'\
+      \ and\n  r.room_type_name == '{target.target_room_name}'\n  for r in state.reservations\n)"
+    desc: Replacement reservation keeps the same room type
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.check_in == '{target.correct_check_in}'\
+      \ and\n  r.check_out == '{target.correct_check_out}' and\n  r.guests == {target.guest_count}\n \
+      \ for r in state.reservations\n)"
+    desc: New reservation preserves the same guest count
+  negative_checks:
+  - expr: "not any(\n  r.id == '{target.other_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )"
+    desc: The other unrelated reservation was not cancelled
+    penalty: 0.4
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.decoy_prop_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No reservation was made at the decoy hotel instead
+    penalty: 0.3
+  - expr: "not any(\n  r.property_id == '{target.target_prop_id}' and\n  r.check_in == '2026-07-10' and\n\
+      \  r.status == 'confirmed'\n  for r in state.reservations\n)"
+    desc: The original wrong dates are no longer active
+    penalty: 0.2
+  - expr: "sum(1 for e in state.audit_log\n  if e.action == 'reservation.create') <= 1"
+    desc: Only one new reservation was created during the fix
+    penalty: 0.15
+  - expr: "not any(\n  r.property_id == '{target.target_prop_id}' and\n  r.status == 'confirmed' and\n\
+      \  r.check_in == '{target.correct_check_in}' and\n  r.check_out == '{target.correct_check_out}'\
+      \ and\n  (r.room_type_id != '{target.target_room_id}' or r.guests != {target.guest_count})\n  for\
+      \ r in state.reservations\n)"
+    desc: Replacement was not rebooked with the wrong room type or guest count
+    penalty: 0.2

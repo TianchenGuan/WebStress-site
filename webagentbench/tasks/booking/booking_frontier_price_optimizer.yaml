@@ -1,36 +1,24 @@
 task_id: booking_frontier_price_optimizer
 env_id: booking
-title: "Frontier: London Hotel Price Optimization with Genius, Amenities, and Wallet"
-instruction_template: "Find the perfect London hotel with these exact steps:\n\
-  1. Search London hotels and compare these five properties:\n\
-  \   \"{target.name_1}\", \"{target.name_2}\", \"{target.name_3}\",\n\
-  \   \"{target.name_4}\", and \"{target.name_5}\".\n\
-  2. Find the ONE property that has ALL of the following:\n\
-  \   Genius discount, free cancellation, breakfast included,\n\
-  \   a pool, AND costs under $350 per night for its cheapest room.\n\
-  \   (Only one property meets all five criteria.)\n\
-  3. Book that property's \"Executive Suite\" for 2 guests,\n\
-  \   checking in 2026-10-01, checking out 2026-10-05 (4 nights),\n\
-  \   using the default Visa (ending 4242).\n\
-  4. Save all 5 compared properties to a new list called\n\
-  \   \"London Comparison October\".\n\
-  5. Write a review for your completed stay at \"{target.review_prop_name}\"\n\
-  \   in London: score 9.5, title \"Absolutely perfect\",\n\
-  \   positive \"Every detail was flawless, from the concierge to\n\
-  \   the breakfast\", no negative, leisure, couple.\n\
-  6. Update your travel preferences: set preferred currency to \"GBP\".\n"
+title: 'Frontier: London Hotel Price Optimization with Genius, Amenities, and Wallet'
+instruction_template: "Find the perfect London hotel with these exact steps:\n1. Search London hotels\
+  \ and compare these five properties:\n   \"{target.name_1}\", \"{target.name_2}\", \"{target.name_3}\"\
+  ,\n   \"{target.name_4}\", and \"{target.name_5}\".\n2. Find the ONE property that has ALL of the following:\n\
+  \   Genius discount, free cancellation, breakfast included,\n   a pool, AND costs under $350 per night\
+  \ for its cheapest room.\n   (Only one property meets all five criteria.)\n3. Book that property's \"\
+  Executive Suite\" for 2 guests,\n   checking in 2026-10-01, checking out 2026-10-05 (4 nights),\n  \
+  \ using the default Visa (ending 4242).\n4. Save all 5 compared properties to a new list called\n  \
+  \ \"London Comparison October\".\n5. Write a review for your completed stay at \"{target.review_prop_name}\"\
+  \n   in London: score 9.5, title \"Absolutely perfect\",\n   positive \"Every detail was flawless, from\
+  \ the concierge to\n   the breakfast\", no negative, leisure, couple.\n6. Update your travel preferences:\
+  \ set preferred currency to \"GBP\".\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -216,52 +204,45 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Executive Suite' and\n\
-      \  r.check_in == '2026-10-01' and r.check_out == '2026-10-05'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Executive Suite' and\n  r.check_in == '2026-10-01' and r.check_out == '2026-10-05'\n  for\
+      \ r in state.reservations\n)\n"
     desc: Booked Bloomsbury Garden Hotel Executive Suite with correct dates
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and r.guests == 2\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and r.guests == 2\n  for r in state.reservations\n\
+      \  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booking has correct guest count
-  - expr: "any(\n  sl.name == 'London Comparison October' and\n\
-      \  '{target.prop_id_1}' in sl.property_ids and\n\
-      \  '{target.prop_id_2}' in sl.property_ids and\n\
-      \  '{target.prop_id_3}' in sl.property_ids and\n\
-      \  '{target.prop_id_4}' in sl.property_ids and\n\
-      \  '{target.prop_id_5}' in sl.property_ids\n\
+  - expr: "any(\n  sl.name == 'London Comparison October' and\n  '{target.prop_id_1}' in sl.property_ids\
+      \ and\n  '{target.prop_id_2}' in sl.property_ids and\n  '{target.prop_id_3}' in sl.property_ids\
+      \ and\n  '{target.prop_id_4}' in sl.property_ids and\n  '{target.prop_id_5}' in sl.property_ids\n\
       \  for sl in state.saved_lists\n)\n"
     desc: All 5 properties saved to London Comparison October list
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  rv.overall_score == 9.5 and rv.title == 'Absolutely perfect'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 9.5 and rv.title\
+      \ == 'Absolutely perfect'\n  for rv in state.reviews)\n"
     desc: Review written with correct score and title
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  'concierge' in rv.positive.lower()\n\
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  'concierge' in rv.positive.lower()\n\
       \  for rv in state.reviews)\n"
     desc: Review positive mentions concierge
   - expr: state.travel_preferences.preferred_currency == 'GBP'
     desc: Preferred currency updated to GBP
-  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n\
-      \  r.payment_method_id in [pm.id for pm in state.payment_methods if pm.last_four == '4242']\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.payment_method_id in [pm.id for\
+      \ pm in state.payment_methods if pm.last_four == '4242']\n  for r in state.reservations\n  if not\
+      \ r.id.startswith('res_initial_')\n)\n"
     desc: Booking used Visa ending 4242
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') != '{target.winner_prop_id}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.winner_prop_id}'\n\
       \  for e in state.audit_log\n)\n"
     desc: No reservation at wrong property
     penalty: 0.4
-  - expr: "not any(\n  r.property_id == '{target.winner_prop_id}' and\n\
-      \  r.room_type_name == 'Garden Room'\n\
+  - expr: "not any(\n  r.property_id == '{target.winner_prop_id}' and\n  r.room_type_name == 'Garden Room'\n\
       \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the cheaper Garden Room instead of Suite
     penalty: 0.3
-  - expr: "sum(1 for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 1\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 1\n"
     desc: Only one new reservation was created
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'London Comparison October') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''London Comparison October'') <= 1
+
+      '
     desc: Only one comparison list was created
     penalty: 0.1

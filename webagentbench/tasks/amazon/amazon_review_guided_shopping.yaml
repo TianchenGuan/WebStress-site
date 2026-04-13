@@ -1,26 +1,21 @@
 task_id: amazon_review_guided_shopping
 env_id: amazon
 title: Buy Top-Rated Products and Wishlist Low-Rated Ones Based on Reviews
-instruction_template: >
-  Browse these four products and read their reviews: 'Smart Home Speaker Mini',
-  'Aromatherapy Diffuser Set', 'Budget Phone Charger', and 'Plastic Desk Organizer'.
-  Based on the reviews and ratings, identify the two products with the best reviews
-  (highest average rating). Purchase those two products in a single order.
-  After purchasing, write a 5-star review titled '{target.review_title_1}' for
-  'Smart Home Speaker Mini' and a 4-star review titled '{target.review_title_2}'
-  for 'Aromatherapy Diffuser Set'. Add the two lower-rated products to your
-  wishlist for future consideration.
+instruction_template: 'Browse these four products and read their reviews: ''Smart Home Speaker Mini'',
+  ''Aromatherapy Diffuser Set'', ''Budget Phone Charger'', and ''Plastic Desk Organizer''. Based on the
+  reviews and ratings, identify the two products with the best reviews (highest average rating). Purchase
+  those two products in a single order. After purchasing, write a 5-star review titled ''{target.review_title_1}''
+  for ''Smart Home Speaker Mini'' and a 4-star review titled ''{target.review_title_2}'' for ''Aromatherapy
+  Diffuser Set''. Add the two lower-rated products to your wishlist for future consideration.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 48
 primary_primitives:
 - grounding
+secondary_primitives:
 - state_tracking
-- planning
-- verification
-- exploration
-- patience
-secondary_primitives: []
 start_path: /
 seed:
   distractors: 20
@@ -115,52 +110,59 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.best1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Best product 1 purchased
-  - expr: >
-      any(any(item.product_id == '{target.best2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best2}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Best product 2 purchased
-  - expr: >
-      any(r.product_id == '{target.best1}' and r.rating == 5
-      and r.title == '{target.review_title_1}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.best1}'' and r.rating == 5 and r.title == ''{target.review_title_1}''
+      for r in state.reviews)
+
+      '
     desc: 5-star review for best product 1
-  - expr: >
-      any(r.product_id == '{target.best2}' and r.rating == 4
-      and r.title == '{target.review_title_2}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.best2}'' and r.rating == 4 and r.title == ''{target.review_title_2}''
+      for r in state.reviews)
+
+      '
     desc: 4-star review for best product 2
-  - expr: "'{target.low1}' in state.wishlist"
+  - expr: '''{target.low1}'' in state.wishlist'
     desc: Low-rated product 1 added to wishlist
-  - expr: "'{target.low2}' in state.wishlist"
+  - expr: '''{target.low2}'' in state.wishlist'
     desc: Low-rated product 2 added to wishlist
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      any(any(item.product_id == '{target.best1}' for item in o.items)
-      and any(item.product_id == '{target.best2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) and any(item.product_id
+      == ''{target.best2}'' for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Both best products in same order
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.low1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.low1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Low-rated product 1 not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.low2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.low2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Low-rated product 2 not purchased
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one order placed
     penalty: 0.1
-  - expr: >
-      not any(r.product_id == '{target.low1}' for r in state.reviews
-      if r.title in ['{target.review_title_1}', '{target.review_title_2}'])
+  - expr: 'not any(r.product_id == ''{target.low1}'' for r in state.reviews if r.title in [''{target.review_title_1}'',
+      ''{target.review_title_2}''])
+
+      '
     desc: No reviews written for low-rated products
     penalty: 0.1
-  - expr: "'{target.best1}' not in state.wishlist and '{target.best2}' not in state.wishlist"
+  - expr: '''{target.best1}'' not in state.wishlist and ''{target.best2}'' not in state.wishlist'
     desc: Best products not left on wishlist (they should be purchased)
     penalty: 0.1

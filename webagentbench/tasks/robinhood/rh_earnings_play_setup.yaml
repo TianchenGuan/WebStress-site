@@ -1,19 +1,14 @@
----
 task_id: rh_earnings_play_setup
 env_id: robinhood
 title: Earnings Protection Setup for {target.symbol}
-instruction_template: '{target.symbol} reports earnings tomorrow after market close.
-  Set up protection: place a stop-loss order at 8% below current price and set a price
-  alert at 5% above current price.'
+instruction_template: '{target.symbol} reports earnings tomorrow after market close. Set up protection:
+  place a stop-loss order at 8% below current price and set a price alert at 5% above current price.'
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 18
 primary_primitives:
 - planning
-- state_tracking
-- exploration
-- grounding
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -55,51 +50,40 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      any(o.symbol == '{target.symbol}' and o.order_type == 'stop' and o.side == 'sell'
-      and o.status in ('filled', 'pending')
-      and o.stop_price <= state.get_stock('{target.symbol}').price * Decimal('0.921')
-      and o.stop_price >= state.get_stock('{target.symbol}').price * Decimal('0.919')
-      and not o.id.startswith('ord_decoy_')
+  - expr: any(o.symbol == '{target.symbol}' and o.order_type == 'stop' and o.side == 'sell' and o.status
+      in ('filled', 'pending') and o.stop_price <= state.get_stock('{target.symbol}').price * Decimal('0.921')
+      and o.stop_price >= state.get_stock('{target.symbol}').price * Decimal('0.919') and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: The target stock has a stop-loss sell order close to 8% below the current price
-  - expr: >-
-      any(a.symbol == '{target.symbol}' and a.condition == 'above'
-      and a.target_price <= state.get_stock('{target.symbol}').price * Decimal('1.051')
-      and a.target_price >= state.get_stock('{target.symbol}').price * Decimal('1.049')
-      and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
+  - expr: any(a.symbol == '{target.symbol}' and a.condition == 'above' and a.target_price <= state.get_stock('{target.symbol}').price
+      * Decimal('1.051') and a.target_price >= state.get_stock('{target.symbol}').price * Decimal('1.049')
+      and not a.id.startswith('alert_decoy_') for a in state.price_alerts)
     desc: The target stock has a price alert close to 5% above the current price
-  - expr: >-
-      len([o for o in state.orders
-      if o.symbol == '{target.symbol}' and o.order_type == 'stop' and o.side == 'sell'
-      and not o.id.startswith('ord_decoy_')]) == 1
+  - expr: len([o for o in state.orders if o.symbol == '{target.symbol}' and o.order_type == 'stop' and
+      o.side == 'sell' and not o.id.startswith('ord_decoy_')]) == 1
     desc: Exactly one stop-loss order was placed for the target symbol
-  - expr: >-
-      len([a for a in state.price_alerts
-      if a.symbol == '{target.symbol}' and a.condition == 'above'
+  - expr: len([a for a in state.price_alerts if a.symbol == '{target.symbol}' and a.condition == 'above'
       and not a.id.startswith('alert_decoy_')]) == 1
     desc: Exactly one price alert was set for the target symbol
-  - expr: >-
-      any(o.symbol == '{target.symbol}' and o.order_type == 'stop' and o.side == 'sell'
-      and o.quantity is not None and o.quantity > 0
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == '{target.symbol}' and o.order_type == 'stop' and o.side == 'sell' and o.quantity
+      is not None and o.quantity > 0 and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The stop-loss order has a valid non-zero quantity
   negative_checks:
-  - expr: >-
-      not any(o.symbol == '{target.symbol}' and o.side == 'buy'
-      and not o.id.startswith('ord_decoy_')
+  - expr: not any(o.symbol == '{target.symbol}' and o.side == 'buy' and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: The task did not prematurely double the target position
     penalty: 0.25
-  - expr: >-
-      not any(o.symbol != '{target.symbol}'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.symbol != '{target.symbol}' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No orders were placed for unrelated symbols
     penalty: 0.25
-secondary_primitives: []
-primitive_thesis: Measures planning, state_tracking, exploration, grounding by requiring
-  exact completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create') == 1
+    desc: Protection setup created exactly one price alert
+    penalty: 0.15
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
+      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
+    desc: Earnings setup did not mutate transfers, watchlists, or recurring plans
+    penalty: 0.1
+secondary_primitives:
+- state_tracking
+primitive_thesis: Measures planning, state_tracking, exploration, grounding by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

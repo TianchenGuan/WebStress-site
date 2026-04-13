@@ -1,0 +1,19 @@
+variant_id: amazon_account_overhaul_and_shop__address_retry_v2
+base_task_id: amazon_account_overhaul_and_shop
+target_primitive: backtracking
+description: The first address write fails transiently. The agent must verify the exact address exists
+  before trusting the write.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/addresses**'
+    methods:
+    - POST
+    - PUT
+    - DELETE
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

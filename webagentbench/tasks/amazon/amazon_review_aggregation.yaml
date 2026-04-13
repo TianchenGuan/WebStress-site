@@ -1,21 +1,18 @@
 task_id: amazon_review_aggregation
 env_id: amazon
 title: Write Reviews for 3 Products
-instruction_template: >
-  Write reviews for three different products. For "{target.product1_name}",
-  give a 5-star rating with the title "Absolutely perfect". For
-  "{target.product2_name}", give a 3-star rating with the title
-  "Decent but has flaws". For "{target.product3_name}", give a 4-star rating
-  with the title "Great value purchase". Each review body should be at least
-  one sentence describing your experience.
+instruction_template: 'Write reviews for three different products. For "{target.product1_name}", give
+  a 5-star rating with the title "{target.product1_title}". For "{target.product2_name}", give a 3-star
+  rating with the title "{target.product2_title}". For "{target.product3_name}", give a 4-star rating
+  with the title "{target.product3_title}". Each review body should be at least one sentence describing
+  your experience.
+
+  '
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 30
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- patience
 start_path: /
 seed:
   distractors: 15
@@ -81,31 +78,64 @@ seed:
   targets:
     product1_name: Premium Bluetooth Speaker
     product1_id: '{output.product_id}'
+    product1_title: Absolutely perfect
     product2_name: Ceramic Plant Pot Set
     product2_id: '{output.product_id_2}'
+    product2_title: Decent but has flaws
     product3_name: Running Shoes Ultra Lite
     product3_id: '{output.product_id_3}'
+    product3_title: Great value purchase
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.product_id == '{target.product1_id}' and r.rating == 5
-      and 'Absolutely perfect' in r.title for r in state.reviews)
-    desc: 5-star review with correct title for Product 1
-  - expr: >
-      any(r.product_id == '{target.product2_id}' and r.rating == 3
-      and 'Decent but has flaws' in r.title for r in state.reviews)
-    desc: 3-star review with correct title for Product 2
-  - expr: >
-      any(r.product_id == '{target.product3_id}' and r.rating == 4
-      and 'Great value purchase' in r.title for r in state.reviews)
-    desc: 4-star review with correct title for Product 3
+  - expr: 'any(r.product_id == ''{target.product1_id}'' and r.rating == 5 and r.title == ''{target.product1_title}''
+      and r.author_name == state.owner_name and not r.id.startswith(''review_initial_'') for r in state.reviews)
+
+      '
+    desc: Exact 5-star review with correct title written for Product 1
+  - expr: 'any(r.product_id == ''{target.product2_id}'' and r.rating == 3 and r.title == ''{target.product2_title}''
+      and r.author_name == state.owner_name and not r.id.startswith(''review_initial_'') for r in state.reviews)
+
+      '
+    desc: Exact 3-star review with correct title written for Product 2
+  - expr: 'any(r.product_id == ''{target.product3_id}'' and r.rating == 4 and r.title == ''{target.product3_title}''
+      and r.author_name == state.owner_name and not r.id.startswith(''review_initial_'') for r in state.reviews)
+
+      '
+    desc: Exact 4-star review with correct title written for Product 3
+  - expr: 'all(sum(1 for r in state.reviews if r.author_name == state.owner_name and not r.id.startswith(''review_initial_'')
+      and r.product_id == pid) == 1 for pid in [''{target.product1_id}'', ''{target.product2_id}'', ''{target.product3_id}''])
+
+      '
+    desc: Exactly one new user review was written for each target product
+  - expr: 'all(len(r.body.strip()) >= 20 and any(ch in r.body for ch in ''.!?'') for r in state.reviews
+      if r.author_name == state.owner_name and not r.id.startswith(''review_initial_'') and r.product_id
+      in [''{target.product1_id}'', ''{target.product2_id}'', ''{target.product3_id}''])
+
+      '
+    desc: Every newly written target review has a meaningful body with at least one sentence
   negative_checks:
-  - expr: >
-      sum(1 for r in state.reviews if r.author_name == state.owner_name) <= 3
-    desc: No more than 3 reviews written by the user
+  - expr: 'sum(1 for r in state.reviews if r.author_name == state.owner_name and not r.id.startswith(''review_initial_''))
+      == 3
+
+      '
+    desc: Exactly three new reviews were written by the user
     penalty: 0.2
-  - expr: >
-      all(len(r.body) > 10 for r in state.reviews if r.author_name == state.owner_name)
-    desc: All review bodies have meaningful content
+  - expr: 'not any(r.author_name == state.owner_name and not r.id.startswith(''review_initial_'') and
+      r.product_id not in [''{target.product1_id}'', ''{target.product2_id}'', ''{target.product3_id}'']
+      for r in state.reviews)
+
+      '
+    desc: No new reviews were written for non-target products
+    penalty: 0.15
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.review.add') == 3
+    desc: Review task performed exactly three review submissions
     penalty: 0.1
+  - expr: not any(e.action == 'amazon.checkout' for e in state.audit_log)
+    desc: Review-writing task did not place any orders
+    penalty: 0.15
+  - expr: not any(e.action == 'amazon.return.create' for e in state.audit_log)
+    desc: Review-writing task did not create returns or other order-side effects
+    penalty: 0.1
+secondary_primitives:
+- grounding

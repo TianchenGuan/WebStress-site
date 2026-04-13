@@ -1,0 +1,29 @@
+variant_id: reddit_upvote_post__post_twin
+base_task_id: reddit_upvote_post
+target_primitive: grounding
+description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
+  engage with the exact target thread rather than the similar twin.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: post
+      subreddit: technology
+      title: Interesting discussion thread [Update]
+      author: lookalike_helper
+      score: 245
+      comments: 41
+      body: Near-duplicate discussion thread with overlapping keywords.
+    - type: subreddit
+      name: technology_
+      display_name: r/technology_
+      description: Lookalike subreddit with a nearly identical name.
+      subscribers: 82000
+    - type: post
+      subreddit: technology_
+      title: Interesting discussion thread
+      author: crosspost_helper
+      score: 188
+      comments: 23
+      body: Same title posted in a different, similarly named subreddit.

@@ -25,9 +25,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- exploration
 start_path: /feed
 seed:
   distractors: 8
@@ -74,8 +71,8 @@ seed:
     wn_id: '{output.wn_id}'
     pf_title: '{output.pf_title}'
     pf_id: '{output.pf_id}'
-    pf_comment: This is exactly why every financial advisor recommends 3-6 months of expenses in an easily accessible account.
-      Glad it worked out for your family.
+    pf_comment: This is exactly why every financial advisor recommends 3-6 months of expenses in an easily
+      accessible account. Glad it worked out for your family.
     gm_title: '{output.gm_title}'
     gm_id: '{output.gm_id}'
     join_sub: MachineLearning
@@ -85,9 +82,9 @@ eval:
   checks:
   - expr: state.get_post('{target.wn_id}').vote_direction == 1
     desc: Worldnews post upvoted
-  - expr: any(c.post_id == '{target.pf_id}' and "3-6 months" in c.body and c.author_name == state.owner_username for c in
-      state.comments)
-    desc: Comment on PF post
+  - expr: any(c.post_id == '{target.pf_id}' and c.body == '{target.pf_comment}' and c.author_name == state.owner_username
+      for c in state.comments)
+    desc: Exact comment on PF post
   - expr: '''{target.gm_id}'' in state.saved_post_ids'
     desc: Gaming post saved
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
@@ -101,3 +98,13 @@ eval:
   - expr: state.get_post('{target.gm_id}').vote_direction == 0
     desc: Gaming post not voted on
     penalty: 0.15
+  - expr: not any( e.action == 'reddit.comment.create' and e.payload.get('post_id') != '{target.pf_id}'
+      for e in state.audit_log)
+    desc: Commenting stayed on the intended personalfinance post only
+    penalty: 0.15
+  - expr: not any( e.action == 'reddit.post.save' and e.payload.get('post_id') != '{target.gm_id}' for
+      e in state.audit_log)
+    desc: Only the gaming post was newly saved
+    penalty: 0.15
+secondary_primitives:
+- grounding

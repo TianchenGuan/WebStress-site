@@ -1,0 +1,20 @@
+variant_id: reddit_inbox_triage_and_engage__user_impersonation
+base_task_id: reddit_inbox_triage_and_engage
+target_primitive: grounding
+description: Messages and user cards include usernames that differ from the real target by a single character.
+  The agent must verify the exact user before blocking, replying, or messaging.
+injections:
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: NeuralNexus
+      alias_name: NeuralNexus_
+      message_subject: Community message
+      message_body: Following up from a lookalike account. Please verify the exact username before acting.
+    - type: user
+      original_name: NeuralNexus
+      alias_name: NeuralNexus.mod
+      message_subject: 'Re: Community message'
+      message_body: One more message from a similarly named account.

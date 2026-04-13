@@ -1,24 +1,20 @@
 task_id: amazon_full_order_lifecycle
 env_id: amazon
 title: Complete Order Lifecycle with Cancel, Return, and Review
-instruction_template: >
-  Complete this multi-step shopping workflow:
-  1. Search for '{target.cancel_name}' and purchase it.
-  2. Immediately cancel that order.
-  3. Search for '{target.keep_name}' and '{target.return_name}', add both to your cart, and purchase them together in one order.
-  4. Return '{target.return_name}' from that order with reason 'not_as_described'.
-  5. Write a 5-star review for '{target.keep_name}' with the title '{target.review_title}'.
+instruction_template: 'Complete this multi-step shopping workflow: 1. Search for ''{target.cancel_name}''
+  and purchase it. 2. Immediately cancel that order. 3. Search for ''{target.keep_name}'' and ''{target.return_name}'',
+  add both to your cart, and purchase them together in one order. 4. Return ''{target.return_name}'' from
+  that order with reason ''not_as_described''. 5. Write a 5-star review for ''{target.keep_name}'' with
+  the title ''{target.review_title}''.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 52
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- backtracking
-- patience
 secondary_primitives:
-- exploration
+- state_tracking
 start_path: /
 seed:
   distractors: 18
@@ -109,28 +105,31 @@ eval:
   checks:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >= 2
     desc: At least 2 orders placed
-  - expr: >
-      any(o.status == 'cancelled' and any(item.product_id == '{target.cancel_pid}'
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''cancelled'' and any(item.product_id == ''{target.cancel_pid}'' for item in
+      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: First order was cancelled
-  - expr: >
-      any(any(item.product_id == '{target.keep_pid}' for item in o.items)
-      and any(item.product_id == '{target.return_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_') and o.status != 'cancelled')
+  - expr: 'any(any(item.product_id == ''{target.keep_pid}'' for item in o.items) and any(item.product_id
+      == ''{target.return_pid}'' for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_'')
+      and o.status != ''cancelled'')
+
+      '
     desc: Second order contains both keep and return products
-  - expr: >
-      any(r.product_id == '{target.return_pid}' and r.reason == 'not_as_described'
-      for r in state.returns)
+  - expr: 'any(r.product_id == ''{target.return_pid}'' and r.reason == ''not_as_described'' for r in state.returns)
+
+      '
     desc: Return filed with correct reason
-  - expr: >
-      any(r.product_id == '{target.keep_pid}' and r.rating == 5
-      and r.title == '{target.review_title}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.keep_pid}'' and r.rating == 5 and r.title == ''{target.review_title}''
+      for r in state.reviews)
+
+      '
     desc: 5-star review for kept product
   - expr: len(state.cart_items) == 0
     desc: Cart empty after all transactions
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: At least one order is confirmed (not cancelled)
   - expr: any(r.product_id == '{target.return_pid}' for r in state.returns)
     desc: A return was filed
@@ -141,9 +140,9 @@ eval:
   - expr: not any(r.product_id == '{target.cancel_pid}' for r in state.returns)
     desc: Cancelled product was not returned (it was cancelled, not returned)
     penalty: 0.15
-  - expr: >
-      not any(r.product_id == '{target.cancel_pid}' and r.rating == 5
-      for r in state.reviews)
+  - expr: 'not any(r.product_id == ''{target.cancel_pid}'' and r.rating == 5 for r in state.reviews)
+
+      '
     desc: No review for cancelled product
     penalty: 0.1
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 3

@@ -1,17 +1,14 @@
----
 task_id: rh_live_stop_loss_execution
 env_id: robinhood
 title: Stop-Loss Order Execution
-instruction_template: You own 5 shares of NVDA. Set a stop-loss order at 8% below
-  the current price to protect against a downturn.
+instruction_template: You own 5 shares of NVDA. Set a stop-loss order at 8% below the current price to
+  protect against a downturn.
 difficulty: hard
 time_limit_seconds: 250
 expected_steps: 10
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-start_path: "/"
+start_path: /
 seed:
   distractors: 5
   steps:
@@ -48,38 +45,34 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      any(o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop'
-      and o.status in ('pending', 'filled') and o.quantity == 5
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop' and o.status in ('pending',
+      'filled') and o.quantity == 5 and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: A stop-loss sell order exists for the full 5-share NVDA position
-  - expr: >-
-      any(o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop'
-      and o.stop_price >= Decimal('798') and o.stop_price <= Decimal('812')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop' and o.stop_price >= Decimal('798')
+      and o.stop_price <= Decimal('812') and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The stop price is approximately 8 percent below the starting price
-  - expr: >-
-      len([o for o in state.orders
-      if o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop'
-      and not o.id.startswith('ord_decoy_')]) == 1
+  - expr: len([o for o in state.orders if o.symbol == 'NVDA' and o.side == 'sell' and o.order_type ==
+      'stop' and not o.id.startswith('ord_decoy_')]) == 1
     desc: Exactly one stop-loss order was placed
-  - expr: >-
-      any(o.symbol == 'NVDA' and o.order_type == 'stop'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-      and not any(o.symbol == 'NVDA' and o.order_type == 'stop_limit'
-      and not o.id.startswith('ord_decoy_')
+  - expr: any(o.symbol == 'NVDA' and o.order_type == 'stop' and not o.id.startswith('ord_decoy_') for
+      o in state.orders) and not any(o.symbol == 'NVDA' and o.order_type == 'stop_limit' and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: The order is a stop order, not a stop-limit order
   negative_checks:
   - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Setting protection did not add buy orders
-  - expr: not any(o.side == 'sell' and o.symbol != 'NVDA' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol != 'NVDA' and not o.id.startswith('ord_decoy_') for o
+      in state.orders)
     desc: The stop-loss workflow did not place sell orders on another symbol
-secondary_primitives: []
-primitive_thesis: Measures planning, grounding, state_tracking by requiring exact
-  completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') == 1
+    desc: Stop-loss workflow placed exactly one protective order
+    penalty: 0.15
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create' or
+      e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
+      for e in state.audit_log)
+    desc: Stop-loss workflow did not mutate unrelated account surfaces
+    penalty: 0.1
+secondary_primitives:
+- grounding
+primitive_thesis: Measures planning, grounding, state_tracking by requiring exact completion of the requested
+  Robinhood workflow while ignoring distractor account state.

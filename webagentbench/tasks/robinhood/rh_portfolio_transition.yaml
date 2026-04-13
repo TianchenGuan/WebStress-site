@@ -1,22 +1,16 @@
----
 task_id: rh_portfolio_transition
 env_id: robinhood
 title: Growth to Income Portfolio Transition
-instruction_template: 'Switch your portfolio from a growth strategy to an income strategy.
-  Sell all positions with a dividend yield below 1% using limit orders at the current
-  bid price. With the total proceeds, allocate: 50% equally among the top 3 highest-yielding
-  stocks from your "{target.watchlist_name}" watchlist, 30% to BND, and 20% to SCHD.
-  Place all buy orders.'
+instruction_template: 'Switch your portfolio from a growth strategy to an income strategy. Sell all positions
+  with a dividend yield below 1% using limit orders at the current bid price. With the total proceeds,
+  allocate: 50% equally among the top 3 highest-yielding stocks from your "{target.watchlist_name}" watchlist,
+  30% to BND, and 20% to SCHD. Place all buy orders.'
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 35
 primary_primitives:
 - planning
-- state_tracking
-- exploration
-- grounding
-- verification
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -60,56 +54,43 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      all(any(o.side == 'sell' and o.symbol == sym and o.order_type == 'limit'
-      and o.limit_price == state.get_stock(sym).bid
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders) for sym
-      in state.positions_below_dividend_yield(Decimal('1')))
+  - expr: all(any(o.side == 'sell' and o.symbol == sym and o.order_type == 'limit' and o.limit_price ==
+      state.get_stock(sym).bid and not o.id.startswith('ord_decoy_') for o in state.orders) for sym in
+      state.positions_below_dividend_yield(Decimal('1')))
     desc: Every low-yield position was sold using a limit order at the current bid
-  - expr: >-
-      all(any(o.side == 'buy' and o.symbol == sym
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders) for sym
-      in state.top_yield_symbols_from_watchlist('{target.watchlist_name}', 3))
+  - expr: all(any(o.side == 'buy' and o.symbol == sym and not o.id.startswith('ord_decoy_') for o in state.orders)
+      for sym in state.top_yield_symbols_from_watchlist('{target.watchlist_name}', 3))
     desc: The top three highest-yielding watchlist stocks each received a buy order
-  - expr: >-
-      any(o.side == 'buy' and o.symbol == 'BND' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-      and any(o.side == 'buy' and o.symbol == 'SCHD' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.side == 'buy' and o.symbol == 'BND' and not o.id.startswith('ord_decoy_') for o in state.orders)
+      and any(o.side == 'buy' and o.symbol == 'SCHD' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: BND and SCHD were both included in the income transition buys
-  - expr: >-
-      len([o for o in state.orders if o.side == 'sell' and o.order_type == 'limit'
-      and not o.id.startswith('ord_decoy_')]) >= 1
-      and all(o.order_type == 'limit' for o in state.orders
-      if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
+  - expr: len([o for o in state.orders if o.side == 'sell' and o.order_type == 'limit' and not o.id.startswith('ord_decoy_')])
+      >= 1 and all(o.order_type == 'limit' for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
     desc: All sell orders used limit order type as instructed
-  - expr: >-
-      len([o for o in state.orders if o.side == 'buy'
-      and not o.id.startswith('ord_decoy_')]) >= 5
+  - expr: len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) >= 5
     desc: At least 5 buy orders were placed (3 watchlist + BND + SCHD)
-  - expr: >-
-      not any(o.side == 'sell' and o.symbol not in state.positions_below_dividend_yield(Decimal('1'))
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol not in state.positions_below_dividend_yield(Decimal('1'))
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: Only low-yield positions were sold during the transition
   negative_checks:
-  - expr: >-
-      not any(o.side == 'buy' and o.symbol not in set(state.top_yield_symbols_from_watchlist('{target.watchlist_name}',
+  - expr: not any(o.side == 'buy' and o.symbol not in set(state.top_yield_symbols_from_watchlist('{target.watchlist_name}',
       3)) | set(['BND', 'SCHD']) and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The transition did not place unrelated buy orders outside the target income basket
     penalty: 0.25
-  - expr: >-
-      not any(o.side == 'sell' and o.order_type != 'limit'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.order_type != 'limit' and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
     desc: No sell orders used market orders instead of limit orders as instructed
     penalty: 0.15
   - expr: len(state.transfers) == 0
     desc: No transfers were initiated during the portfolio transition
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures planning, state_tracking, exploration, grounding, verification
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
+    desc: No off-task transfers were initiated
+    penalty: 0.1
+  - expr: not any(e.action.startswith('robinhood.recurring.') for e in state.audit_log)
+    desc: No off-task recurring-investment changes were made
+    penalty: 0.1
+secondary_primitives:
+- state_tracking
+primitive_thesis: Measures planning, state_tracking, exploration, grounding, verification by requiring
+  exact completion of the requested Robinhood workflow while ignoring distractor account state.

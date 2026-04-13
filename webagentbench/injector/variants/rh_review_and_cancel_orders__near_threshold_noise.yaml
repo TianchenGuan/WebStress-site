@@ -1,0 +1,25 @@
+variant_id: rh_review_and_cancel_orders__near_threshold_noise
+base_task_id: rh_review_and_cancel_orders
+target_primitive: state_tracking
+description: Additional pending limit buys sit close to market price but do not cross the cancellation
+  threshold. The agent must cancel only truly far-below-market orders.
+injections:
+- layer: seed
+  params:
+    action: add_noise_orders
+    orders:
+    - symbol: AAPL
+      side: buy
+      order_type: limit
+      quantity: 3
+      status: pending
+    - symbol: MSFT
+      side: buy
+      order_type: limit
+      quantity: 2
+      status: pending
+    - symbol: NVDA
+      side: buy
+      order_type: limit
+      quantity: 1
+      status: pending

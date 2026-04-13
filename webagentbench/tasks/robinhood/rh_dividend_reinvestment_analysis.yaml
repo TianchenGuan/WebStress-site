@@ -1,77 +1,76 @@
 task_id: rh_dividend_reinvestment_analysis
 env_id: robinhood
 title: Dividend Yield Analysis and Recurring Investment
-instruction_template: "Calculate the yield-on-cost for each stock in your portfolio (annual dividends divided by your cost basis). For any stock with yield-on-cost below 1%, disable dividend reinvestment. Set up a recurring weekly $50 investment in the stock with the highest yield-on-cost."
+instruction_template: Calculate the yield-on-cost for each stock in your portfolio (annual dividends divided
+  by your cost basis). For any stock with yield-on-cost below 1%, disable dividend reinvestment. Set up
+  a recurring weekly $50 investment in the stock with the highest yield-on-cost.
 difficulty: expert
 time_limit_seconds: 400
 expected_steps: 22
 primary_primitives:
-  - state_tracking
-  - planning
-  - exploration
-  - verification
+- state_tracking
 start_path: /
-
 seed:
   distractors: 20
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["KO", "JNJ", "PG", "T", "AAPL", "MSFT"]
-      outputs: []
-    - use: portfolio_diverse
-      params:
-        position_count: 6
-      outputs: []
-    - use: dividend_schedule
-      params:
-        quarters: 4
-      outputs:
-      - low_yield_symbols
-      - best_yield_symbol
-    - use: linked_banks
-      params: {}
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - KO
+      - JNJ
+      - PG
+      - T
+      - AAPL
+      - MSFT
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      position_count: 6
+    outputs: []
+  - use: dividend_schedule
+    params:
+      quarters: 4
+    outputs:
+    - low_yield_symbols
+    - best_yield_symbol
+  - use: linked_banks
+    params: {}
+    outputs: []
   targets:
-    low_yield_symbols: "{output.low_yield_symbols}"
-    best_yield_symbol: "{output.best_yield_symbol}"
-
+    low_yield_symbols: '{output.low_yield_symbols}'
+    best_yield_symbol: '{output.best_yield_symbol}'
 eval:
   source: server_state
   checks:
-    - expr: >-
-        any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active'
-        for r in state.recurring_investments)
-      desc: A weekly $50 recurring investment exists
-    - expr: >-
-        any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active'
-        and r.symbol == '{target.best_yield_symbol}'
-        for r in state.recurring_investments)
-      desc: The recurring investment targets the highest yield-on-cost stock
-    - expr: >-
-        len({target.low_yield_symbols}) == 0
-        or all(any(d.symbol == sym and d.reinvest_enabled == False
-        for d in state.dividend_settings)
-        for sym in {target.low_yield_symbols})
-      desc: Dividend reinvestment is disabled for all stocks with yield-on-cost below 1%
-    - expr: >-
-        len([r for r in state.recurring_investments
-        if r.frequency == 'weekly' and r.amount == 50
-        and r.status == 'active']) == 1
-      desc: Exactly one weekly $50 recurring investment was set up
-    - expr: >-
-        all(any(d.symbol == sym and d.reinvest_enabled == False
-        for d in state.dividend_settings)
-        for sym in {target.low_yield_symbols})
-        or len({target.low_yield_symbols}) == 0
-      desc: No low-yield stock still has dividend reinvestment enabled
+  - expr: any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active' for r in state.recurring_investments)
+    desc: A weekly $50 recurring investment exists
+  - expr: any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active' and r.symbol == '{target.best_yield_symbol}'
+      for r in state.recurring_investments)
+    desc: The recurring investment targets the highest yield-on-cost stock
+  - expr: len({target.low_yield_symbols}) == 0 or state.settings.reinvest_dividends == False
+    desc: Dividend reinvestment is disabled for all stocks with yield-on-cost below 1%
+  - expr: len([r for r in state.recurring_investments if r.frequency == 'weekly' and r.amount == 50 and
+      r.status == 'active']) == 1
+    desc: Exactly one weekly $50 recurring investment was set up
+  - expr: len({target.low_yield_symbols}) == 0 or state.settings.reinvest_dividends == False
+    desc: No low-yield stock still has dividend reinvestment enabled
   negative_checks:
-    - expr: >-
-        not any(o.side == 'sell' and not o.id.startswith('ord_decoy_')
-        for o in state.orders)
-      desc: No sell orders were placed during this analysis task
-      penalty: 0.15
-    - expr: len(state.transfers) == 0
-      desc: No transfers were initiated
-      penalty: 0.15
+  - expr: not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)
+    desc: No sell orders were placed during this analysis task
+    penalty: 0.15
+  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
+    desc: No transfers were initiated
+    penalty: 0.15
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
+    desc: Dividend reinvestment analysis did not place any equity orders at all
+    penalty: 0.15
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.recurring.create') == 1
+    desc: Analysis created only the single required recurring investment
+    penalty: 0.1
+  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action == 'robinhood.alert.create'
+      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
+    desc: Analysis did not mutate watchlists or price alerts
+    penalty: 0.1
+secondary_primitives:
+- planning

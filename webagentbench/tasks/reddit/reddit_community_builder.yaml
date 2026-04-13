@@ -6,7 +6,8 @@ instruction_template: '1. Subscribe to r/{target.j1}, r/{target.j2}, r/{target.j
 
   3. In r/{target.comment_sub} find "{target.ct}". Upvote and comment: "{target.cc}"
 
-  4. Send messages to u/NeuralNexus, u/ByteRunner, u/DataWizard42 all with subject "{target.ms}" body: "{target.mb}"
+  4. Send messages to u/NeuralNexus, u/ByteRunner, u/DataWizard42 all with subject "{target.ms}" body:
+  "{target.mb}"
 
   5. Mark all notifications read.
 
@@ -19,11 +20,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- exploration
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -133,7 +129,8 @@ seed:
     pt: Practical guide to deploying ML models with FastAPI and Docker
     pb: Step-by-step walkthrough from local development to production Kubernetes deployment.
     py_title: Async Python patterns that actually improve performance
-    py_body: Not all async code is faster. Here are the patterns where async Python genuinely helps and where it hurts.
+    py_body: Not all async code is faster. Here are the patterns where async Python genuinely helps and
+      where it hurts.
     ml_title: 'Fine-tuning LLMs on domain-specific data: lessons from healthcare NLP'
     ml_body: We fine-tuned several models on clinical notes. Here is what worked and what did not.
     p1_title: Practical guide to deploying ML models with FastAPI and Docker
@@ -151,42 +148,53 @@ seed:
 eval:
   source: server_state
   checks:
-  # Step 1: Subscribed to new subreddits
-  - expr: "any(s.name == '{target.j1}' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == '{target.j1}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.j1}
-  - expr: "any(s.name == '{target.j2}' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == '{target.j2}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.j2}
-  - expr: "any(s.name == '{target.j3}' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == '{target.j3}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.j3}
-  # Step 2: Created post in r/MachineLearning
-  - expr: "any(p.subreddit_name == '{target.j1}' and p.title == '{target.p1_title}' and p.author_name == state.owner_username for p in state.posts)"
+  - expr: any(p.subreddit_name == '{target.j1}' and p.title == '{target.p1_title}' and p.author_name ==
+      state.owner_username for p in state.posts)
     desc: Post created in r/{target.j1} with correct title
-  # Step 3: Upvoted and commented on programming post
-  - expr: "any(c.post_id == '{target.prog_id}' and '{target.cc}' in c.body and c.author_name == state.owner_username for c in state.comments)"
+  - expr: state.get_post('{target.prog_id}').vote_direction == 1
+    desc: Programming post upvoted
+  - expr: any(c.post_id == '{target.prog_id}' and '{target.cc}' in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: Commented on programming post
-  # Step 4: Sent messages to three users
-  - expr: "any(m.to_user == 'NeuralNexus' and m.subject == '{target.ms}' for m in state.sent_messages)"
+  - expr: any(m.to_user == 'NeuralNexus' and m.subject == '{target.ms}' and m.body == '{target.mb}' for
+      m in state.sent_messages)
     desc: Message sent to u/NeuralNexus
-  - expr: "any(m.to_user == 'ByteRunner' and m.subject == '{target.ms}' for m in state.sent_messages)"
+  - expr: any(m.to_user == 'ByteRunner' and m.subject == '{target.ms}' and m.body == '{target.mb}' for
+      m in state.sent_messages)
     desc: Message sent to u/ByteRunner
-  - expr: "any(m.to_user == 'DataWizard42' and m.subject == '{target.ms}' for m in state.sent_messages)"
+  - expr: any(m.to_user == 'DataWizard42' and m.subject == '{target.ms}' and m.body == '{target.mb}' for
+      m in state.sent_messages)
     desc: Message sent to u/DataWizard42
-  # Step 5: Notifications read
   - expr: state.unread_notification_count() == 0
     desc: All notifications read
-  # Step 6: Settings updated
-  - expr: "state.settings.theme == 'dark'"
+  - expr: state.settings.theme == 'dark'
     desc: Theme set to dark
-  - expr: "state.settings.default_comment_sort == 'new'"
+  - expr: state.settings.default_comment_sort == 'new'
     desc: Comment sort set to new
   - expr: state.settings.show_active_communities == False
     desc: Show active communities disabled
   negative_checks:
-  - expr: "all(sid in state.subscriptions for sid in {target.initial_subscriptions})"
+  - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subscriptions preserved
     penalty: 0.2
   - expr: len(state.sent_messages) <= 4
     desc: No excessive messages sent
     penalty: 0.15
+  - expr: not any( e.action == 'reddit.post.create' and e.payload.get('subreddit') != '{target.j1}' for
+      e in state.audit_log)
+    desc: No extra posts were created outside the intended community post
+    penalty: 0.15
+  - expr: not any( e.action == 'reddit.message.send' and e.payload.get('to_user') not in ['NeuralNexus',
+      'ByteRunner', 'DataWizard42'] for e in state.audit_log)
+    desc: Outreach messages were sent only to the three intended users
+    penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

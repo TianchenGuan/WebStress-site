@@ -1,0 +1,27 @@
+variant_id: reddit_community_engagement__subreddit_collision
+base_task_id: reddit_community_engagement
+target_primitive: grounding
+description: A twin subreddit with a nearly identical name appears beside the real community, including
+  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: subreddit
+      name: AskReddit_
+      display_name: r/AskReddit_
+      description: Lookalike community with nearly identical branding.
+      subscribers: 185000
+    - type: subreddit
+      name: AskReddithub
+      display_name: r/AskReddithub
+      description: Companion community that often appears next to the real one in search.
+      subscribers: 74000
+    - type: post
+      subreddit: AskReddit_
+      title: Interesting discussion thread
+      author: shadow_mod
+      score: 144
+      comments: 21
+      body: Same headline posted into the wrong, lookalike subreddit.

@@ -1,21 +1,19 @@
 task_id: amazon_delivered_review_chain
 env_id: amazon
 title: Review Delivered Products and Reorder a Favorite
-instruction_template: >
-  Review your delivered orders. For '{target.product_1}', write a 5-star review
-  with the title '{target.review_title_1}'. For '{target.product_2}', write a
-  3-star review with the title '{target.review_title_2}'. Then find
-  '{target.product_reorder}' and place a new order for it.
+instruction_template: 'Review your delivered orders. For ''{target.product_1}'', write a 5-star review
+  with the title ''{target.review_title_1}''. For ''{target.product_2}'', write a 3-star review with the
+  title ''{target.review_title_2}''. Then find ''{target.product_reorder}'' and place a new order for
+  it.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 40
 primary_primitives:
 - exploration
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- planning
+- state_tracking
 start_path: /orders
 seed:
   distractors: 18
@@ -117,42 +115,55 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.product_id == '{target.review_pid_1}' and r.rating == 5
-      and r.title == '{target.review_title_1}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.review_pid_1}'' and r.rating == 5 and r.title == ''{target.review_title_1}''
+      for r in state.reviews)
+
+      '
     desc: 5-star review with correct title for product 1
-  - expr: >
-      any(r.product_id == '{target.review_pid_2}' and r.rating == 3
-      and r.title == '{target.review_title_2}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.review_pid_2}'' and r.rating == 3 and r.title == ''{target.review_title_2}''
+      for r in state.reviews)
+
+      '
     desc: 3-star review with correct title for product 2
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: >
-      any(any(item.product_id == '{target.product_id_reorder}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.product_id_reorder}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Reorder product is in the new order
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: New order is confirmed
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      sum(1 for r in state.reviews if r.product_id == '{target.review_pid_1}') >= 1
+  - expr: 'sum(1 for r in state.reviews if r.product_id == ''{target.review_pid_1}'') >= 1
+
+      '
     desc: At least one review exists for product 1
   negative_checks:
-  - expr: >
-      not any(r.product_id == '{target.review_pid_1}' and r.rating != 5
-      for r in state.reviews if r.title == '{target.review_title_1}')
+  - expr: 'not any(r.product_id == ''{target.review_pid_1}'' and r.rating != 5 for r in state.reviews
+      if r.title == ''{target.review_title_1}'')
+
+      '
     desc: Review for product 1 has correct rating
     penalty: 0.15
-  - expr: >
-      not any(r.product_id == '{target.review_pid_2}' and r.rating != 3
-      for r in state.reviews if r.title == '{target.review_title_2}')
+  - expr: 'not any(r.product_id == ''{target.review_pid_2}'' and r.rating != 3 for r in state.reviews
+      if r.title == ''{target.review_title_2}'')
+
+      '
     desc: Review for product 2 has correct rating
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.review_pid_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.review_pid_1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Product 1 was not reordered (only reviewed)
+    penalty: 0.1
+  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
+    desc: No off-task returns were opened or updated
+    penalty: 0.1
+  - expr: not any(e.action.startswith('amazon.wishlist.') for e in state.audit_log)
+    desc: No off-task wishlist mutations were made
     penalty: 0.1

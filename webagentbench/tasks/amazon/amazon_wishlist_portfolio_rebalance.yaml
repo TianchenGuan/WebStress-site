@@ -1,26 +1,20 @@
 task_id: amazon_wishlist_portfolio_rebalance
 env_id: amazon
 title: Curate Wishlist by Category and Purchase Budget Items
-instruction_template: >
-  Build and curate a wishlist, then purchase the best value items:
-  1. Search for and add these 6 products to your wishlist: '{target.name_e_cheap}',
-  '{target.name_e_exp}', '{target.name_h_cheap}', '{target.name_h_exp}',
-  '{target.name_s_cheap}', '{target.name_s_exp}'.
-  2. Review your wishlist. Within each category (Electronics, Home & Kitchen,
-  Sports & Outdoors), identify the more expensive product and remove it from
-  the wishlist.
-  3. Move the remaining 3 wishlist items to your cart and complete checkout.
+instruction_template: 'Build and curate a wishlist, then purchase the best value items: 1. Search for
+  and add these 6 products to your wishlist: ''{target.name_e_cheap}'', ''{target.name_e_exp}'', ''{target.name_h_cheap}'',
+  ''{target.name_h_exp}'', ''{target.name_s_cheap}'', ''{target.name_s_exp}''. 2. Review your wishlist.
+  Within each category (Electronics, Home & Kitchen, Sports & Outdoors), identify the more expensive product
+  and remove it from the wishlist. 3. Move the remaining 3 wishlist items to your cart and complete checkout.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 50
 primary_primitives:
 - state_tracking
+secondary_primitives:
 - planning
-- grounding
-- verification
-- patience
-- exploration
-secondary_primitives: []
 start_path: /
 seed:
   distractors: 20
@@ -179,44 +173,50 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.e_cheap}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.e_cheap}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheap Electronics item purchased
-  - expr: >
-      any(any(item.product_id == '{target.h_cheap}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.h_cheap}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheap Home & Kitchen item purchased
-  - expr: >
-      any(any(item.product_id == '{target.s_cheap}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.s_cheap}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheap Sports item purchased
-  - expr: "'{target.e_exp}' not in state.wishlist"
+  - expr: '''{target.e_exp}'' not in state.wishlist'
     desc: Expensive Electronics removed from wishlist
-  - expr: "'{target.h_exp}' not in state.wishlist"
+  - expr: '''{target.h_exp}'' not in state.wishlist'
     desc: Expensive Home item removed from wishlist
-  - expr: "'{target.s_exp}' not in state.wishlist"
+  - expr: '''{target.s_exp}'' not in state.wishlist'
     desc: Expensive Sports item removed from wishlist
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order confirmed
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.e_exp}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.e_exp}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive Electronics not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.h_exp}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.h_exp}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive Home not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.s_exp}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.s_exp}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive Sports not purchased
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1

@@ -1,55 +1,25 @@
 task_id: gmail_triage_with_interrupts
 env_id: gmail
 title: Complete inbox triage while ignoring mid-task interrupt
-instruction_template: 'Process exactly these 10 emails according to the rubric below.
-  Do not act on any emails not listed in the rubric.
-
-
-  RUBRIC:
-
-  - Emails from client domains ({target.client_domain_a}, {target.client_domain_b}):
-  Star them and leave in inbox.
-
-  - Emails from newsletter domains ({target.newsletter_domain_a}, {target.newsletter_domain_b}):
-  Archive them.
-
-  - Emails from escalation senders ({target.escalation_sender_a}, {target.escalation_sender_b}):
-  Forward each to {target.team_lead_email}.
-
-
-  The 10 emails to process:
-
-  1. From {target.email_1_sender} — "{target.email_1_subject}"
-
-  2. From {target.email_2_sender} — "{target.email_2_subject}"
-
-  3. From {target.email_3_sender} — "{target.email_3_subject}"
-
-  4. From {target.email_4_sender} — "{target.email_4_subject}"
-
-  5. From {target.email_5_sender} — "{target.email_5_subject}"
-
-  6. From {target.email_6_sender} — "{target.email_6_subject}"
-
-  7. From {target.email_7_sender} — "{target.email_7_subject}"
-
-  8. From {target.email_8_sender} — "{target.email_8_subject}"
-
-  9. From {target.email_9_sender} — "{target.email_9_subject}"
-
-  10. From {target.email_10_sender} — "{target.email_10_subject}"
-
-
-  After completing triage of all 10 emails, star the boss''s email (from {target.boss_email},
-  subject "{target.boss_subject}") for later follow-up. Do NOT reply to it or forward
-  it.'
+instruction_template: "Process exactly these 10 emails according to the rubric below. Do not act on any\
+  \ emails not listed in the rubric.\n\nRUBRIC:\n- Emails from client domains ({target.client_domain_a},\
+  \ {target.client_domain_b}): Star them and leave in inbox.\n- Emails from newsletter domains ({target.newsletter_domain_a},\
+  \ {target.newsletter_domain_b}): Archive them.\n- Emails from escalation senders ({target.escalation_sender_a},\
+  \ {target.escalation_sender_b}): Forward each to {target.team_lead_email}.\n\nThe 10 emails to process:\n\
+  1. From {target.email_1_sender} \u2014 \"{target.email_1_subject}\"\n2. From {target.email_2_sender}\
+  \ \u2014 \"{target.email_2_subject}\"\n3. From {target.email_3_sender} \u2014 \"{target.email_3_subject}\"\
+  \n4. From {target.email_4_sender} \u2014 \"{target.email_4_subject}\"\n5. From {target.email_5_sender}\
+  \ \u2014 \"{target.email_5_subject}\"\n6. From {target.email_6_sender} \u2014 \"{target.email_6_subject}\"\
+  \n7. From {target.email_7_sender} \u2014 \"{target.email_7_subject}\"\n8. From {target.email_8_sender}\
+  \ \u2014 \"{target.email_8_subject}\"\n9. From {target.email_9_sender} \u2014 \"{target.email_9_subject}\"\
+  \n10. From {target.email_10_sender} \u2014 \"{target.email_10_subject}\"\n\nAfter completing triage\
+  \ of all 10 emails, star the boss's email (from {target.boss_email}, subject \"{target.boss_subject}\"\
+  ) for later follow-up. Do NOT reply to it or forward it."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 35
 primary_primitives:
 - grounding
-- planning
-- patience
 start_path: /inbox
 seed:
   distractors: 40
@@ -140,8 +110,8 @@ eval:
     desc: All 3 newsletter emails archived
   - expr: all(not state.get_email(eid).deleted for eid in {target.newsletter_ids})
     desc: Newsletter emails not deleted
-  - expr: all(any(m.forwarded_from_id == eid and '{target.team_lead_email}' in m.to
-      for m in state.sent) for eid in {target.escalation_ids})
+  - expr: all(any(m.forwarded_from_id == eid and '{target.team_lead_email}' in m.to for m in state.sent)
+      for eid in {target.escalation_ids})
     desc: All 3 escalation emails forwarded to team lead
   - expr: state.get_email('{target.boss_email_id}').is_starred
     desc: Boss email starred for follow-up
@@ -157,11 +127,12 @@ eval:
   - expr: not state.get_email('{target.urgent_newsletter_id}').is_starred
     desc: URGENT newsletter must not be starred (must be archived)
     penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.urgent_newsletter_id}' for m in
-      state.sent)
+  - expr: not any(m.forwarded_from_id == '{target.urgent_newsletter_id}' for m in state.sent)
     desc: URGENT newsletter must not be forwarded
     penalty: 0.15
-  - expr: all('inbox' in state.get_email(eid).labels and not state.get_email(eid).is_starred
-      for eid in {target.other_ids})
+  - expr: all('inbox' in state.get_email(eid).labels and not state.get_email(eid).is_starred for eid in
+      {target.other_ids})
     desc: Non-rubric emails must remain untouched
     penalty: 0.15
+secondary_primitives:
+- planning

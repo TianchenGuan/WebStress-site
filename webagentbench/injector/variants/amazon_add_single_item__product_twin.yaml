@@ -1,0 +1,24 @@
+variant_id: amazon_add_single_item__product_twin
+base_task_id: amazon_add_single_item
+target_primitive: grounding
+description: Renewed and plus listings with nearly identical names sit beside the target item. The agent
+  must match the exact product before acting.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Classic Leather Wallet Plus
+      brand: TimberCraft Direct
+      category: Electronics
+      price: 40.24
+      rating: 4.3
+      description: Lookalike listing with slightly different packaging and model copy.
+    - type: product
+      name: Classic Leather Wallet (Renewed)
+      brand: TimberCraft Outlet
+      category: Electronics
+      price: 28.69
+      rating: 4.0
+      description: Refurbished lookalike listing that is not the exact requested item.

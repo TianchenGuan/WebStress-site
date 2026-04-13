@@ -17,7 +17,11 @@ from ..models.booking import (
     ReservationGuest, CancellationPolicy, ReviewBreakdown,
     SearchHistoryEntry,
 )
-from ..security import build_public_session_summary, has_controller_access, require_controller_access
+from ..security import (
+    build_public_session_summary,
+    has_controller_access,
+    require_evaluation_access,
+)
 from ..state import SessionManager
 from ...task_rendering import render_template
 
@@ -1206,9 +1210,13 @@ async def evaluate(
     request: Request,
     sm: SessionManager = Depends(get_session_manager),
 ):
-    require_controller_access(request)
     session_id = body.session_id
     state = _booking_state(sm, session_id)
+    require_evaluation_access(
+        request,
+        requested_task_id=body.task_id,
+        bound_task_id=state.task_id,
+    )
 
     if body.benchmark_state is not None:
         sm.set_benchmark_state(session_id, body.benchmark_state)

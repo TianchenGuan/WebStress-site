@@ -1,40 +1,26 @@
 task_id: booking_frontier_grand_tour
 env_id: booking
-title: "Frontier: Plan a 3-City Grand Tour Across NYC, Paris, and Tokyo"
-instruction_template: "Plan a grand tour across three cities with these exact steps:\n\
-  1. Search for hotels in New York City and find \"{target.nyc_name}\".\n\
-  \   Save it to a new list called \"Grand Tour 2026\".\n\
-  2. Search for hotels in Paris and find \"{target.paris_name}\".\n\
-  \   Save it to the same \"Grand Tour 2026\" list.\n\
-  3. Search for hotels in Tokyo and find \"{target.tokyo_name}\".\n\
-  \   Save it to the same \"Grand Tour 2026\" list.\n\
-  4. Book {target.nyc_name}: \"Deluxe King Room\" for 2 guests,\n\
-  \   checking in 2026-09-01, checking out 2026-09-04 (3 nights),\n\
-  \   using the default Visa (ending 4242).\n\
-  5. Book {target.paris_name}: \"Superior Suite\" for 2 guests,\n\
-  \   checking in 2026-09-05, checking out 2026-09-09 (4 nights),\n\
-  \   using the Mastercard ending in 8888.\n\
-  6. Book {target.tokyo_name}: \"Premium Room\" for 2 guests,\n\
-  \   checking in 2026-09-10, checking out 2026-09-13 (3 nights),\n\
-  \   using the Amex ending in 1234.\n\
-  7. You have a completed stay at \"{target.review_prop_name}\" in London.\n\
-  \   Write a review: overall score 9.0, title \"Wonderful London stay\",\n\
-  \   positive \"Stunning views of the Thames and impeccable service\",\n\
-  \   no negative, travel purpose leisure, traveled with couple.\n\
-  8. Update your travel preferences: set preferred currency to \"EUR\"\n\
-  \   and preferred bed type to \"king\".\n"
+title: 'Frontier: Plan a 3-City Grand Tour Across NYC, Paris, and Tokyo'
+instruction_template: "Plan a grand tour across three cities with these exact steps:\n1. Search for hotels\
+  \ in New York City and find \"{target.nyc_name}\".\n   Save it to a new list called \"Grand Tour 2026\"\
+  .\n2. Search for hotels in Paris and find \"{target.paris_name}\".\n   Save it to the same \"Grand Tour\
+  \ 2026\" list.\n3. Search for hotels in Tokyo and find \"{target.tokyo_name}\".\n   Save it to the same\
+  \ \"Grand Tour 2026\" list.\n4. Book {target.nyc_name}: \"Deluxe King Room\" for 2 guests,\n   checking\
+  \ in 2026-09-01, checking out 2026-09-04 (3 nights),\n   using the default Visa (ending 4242).\n5. Book\
+  \ {target.paris_name}: \"Superior Suite\" for 2 guests,\n   checking in 2026-09-05, checking out 2026-09-09\
+  \ (4 nights),\n   using the Mastercard ending in 8888.\n6. Book {target.tokyo_name}: \"Premium Room\"\
+  \ for 2 guests,\n   checking in 2026-09-10, checking out 2026-09-13 (3 nights),\n   using the Amex ending\
+  \ in 1234.\n7. You have a completed stay at \"{target.review_prop_name}\" in London.\n   Write a review:\
+  \ overall score 9.0, title \"Wonderful London stay\",\n   positive \"Stunning views of the Thames and\
+  \ impeccable service\",\n   no negative, travel purpose leisure, traveled with couple.\n8. Update your\
+  \ travel preferences: set preferred currency to \"EUR\"\n   and preferred bed type to \"king\".\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 15
@@ -223,32 +209,27 @@ eval:
   source: server_state
   checks:
   - expr: "any(\n  sl.name == 'Grand Tour 2026' and\n  '{target.nyc_prop_id}' in sl.property_ids and\n\
-      \  '{target.paris_prop_id}' in sl.property_ids and\n\
-      \  '{target.tokyo_prop_id}' in sl.property_ids\n\
+      \  '{target.paris_prop_id}' in sl.property_ids and\n  '{target.tokyo_prop_id}' in sl.property_ids\n\
       \  for sl in state.saved_lists\n)\n"
     desc: All three properties saved to 'Grand Tour 2026' list
-  - expr: "any(\n  r.property_id == '{target.nyc_prop_id}' and\n  r.status == 'confirmed' and\n\
-      \  r.check_in == '2026-09-01' and r.check_out == '2026-09-04' and\n\
-      \  r.room_type_name == 'Deluxe King Room'\n\
+  - expr: "any(\n  r.property_id == '{target.nyc_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-09-01' and r.check_out == '2026-09-04' and\n  r.room_type_name == 'Deluxe King Room'\n\
       \  for r in state.reservations\n)\n"
     desc: NYC hotel booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.paris_prop_id}' and\n  r.status == 'confirmed' and\n\
-      \  r.check_in == '2026-09-05' and r.check_out == '2026-09-09' and\n\
-      \  r.room_type_name == 'Superior Suite'\n\
+  - expr: "any(\n  r.property_id == '{target.paris_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-09-05' and r.check_out == '2026-09-09' and\n  r.room_type_name == 'Superior Suite'\n\
       \  for r in state.reservations\n)\n"
     desc: Paris hotel booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.tokyo_prop_id}' and\n  r.status == 'confirmed' and\n\
-      \  r.check_in == '2026-09-10' and r.check_out == '2026-09-13' and\n\
-      \  r.room_type_name == 'Premium Room'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.tokyo_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-09-10' and r.check_out == '2026-09-13' and\n  r.room_type_name == 'Premium Room'\n  for\
+      \ r in state.reservations\n)\n"
     desc: Tokyo hotel booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.paris_prop_id}' and\n  r.payment_method_id in\n\
-      \  [pm.id for pm in state.payment_methods if pm.last_four == '8888']\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.paris_prop_id}' and\n  r.payment_method_id in\n  [pm.id for\
+      \ pm in state.payment_methods if pm.last_four == '8888']\n  for r in state.reservations\n  if not\
+      \ r.id.startswith('res_initial_')\n)\n"
     desc: Paris booking used Mastercard ending 8888
-  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 9.0 and\n\
-      \  rv.title == 'Wonderful London stay'\n\
-      \  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 9.0 and\n  rv.title\
+      \ == 'Wonderful London stay'\n  for rv in state.reviews\n)\n"
     desc: Review written for London stay with score 9.0 and correct title
   - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'thames' in rv.positive.lower()\n\
       \  for rv in state.reviews\n)\n"
@@ -258,18 +239,21 @@ eval:
   - expr: state.travel_preferences.preferred_bed_type == 'king'
     desc: Preferred bed type updated to king
   negative_checks:
-  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 3\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 3\n"
     desc: Exactly three new reservations were created (no extras)
     penalty: 0.2
   - expr: "not any(\n  rv.property_id in ('{target.nyc_prop_id}', '{target.paris_prop_id}', '{target.tokyo_prop_id}')\n\
       \  for rv in state.reviews\n  if rv.author_name == 'Jordan Parker'\n)\n"
     desc: No reviews written for hotels being booked (only completed stays)
     penalty: 0.15
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Grand Tour 2026') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Grand Tour 2026'') <= 1
+
+      '
     desc: Only one Grand Tour 2026 list was created
     penalty: 0.1
-  - expr: "not any(\n  r.property_id == '{target.nyc_prop_id}' and\n  r.room_type_name != 'Deluxe King Room'\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "not any(\n  r.property_id == '{target.nyc_prop_id}' and\n  r.room_type_name != 'Deluxe King\
+      \ Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the wrong room at NYC hotel
     penalty: 0.2
   - expr: "not any(\n  r.property_id == '{target.tokyo_prop_id}' and\n  r.room_type_name != 'Premium Room'\n\

@@ -1,0 +1,30 @@
+variant_id: reddit_comment_chain_analysis__comment_retry_v2
+base_task_id: reddit_comment_chain_analysis
+target_primitive: backtracking
+description: The first comment or reply write fails transiently. The agent must verify the thread state
+  changed and retry if needed.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/posts/*/comments'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/comments/*'
+    methods:
+    - POST
+    - PUT
+    - DELETE
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

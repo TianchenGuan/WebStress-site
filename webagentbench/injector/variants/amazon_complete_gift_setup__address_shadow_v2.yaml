@@ -1,0 +1,27 @@
+variant_id: amazon_complete_gift_setup__address_shadow_v2
+base_task_id: amazon_complete_gift_setup
+target_primitive: grounding
+description: Addresses and cards include near-matches for the requested destination. The agent must still
+  ship to the exact target address while avoiding the stale twin records.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: address
+      full_name: '{target.recipient_name}'
+      street_address: '{target.street} Apt 2'
+      city: '{target.city}'
+      state: '{target.state_code}'
+      zip_code: '{target.zip}'
+    - type: address
+      full_name: '{target.recipient_name}'
+      street_address: '{target.street} Suite B'
+      city: '{target.city}'
+      state: '{target.state_code}'
+      zip_code: '{target.zip}'
+    - type: payment_method
+      card_type: Visa
+      last_four: '4243'
+      expiry: 11/29
+      holder_name: '{target.recipient_name}'

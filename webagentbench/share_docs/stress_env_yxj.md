@@ -168,7 +168,7 @@ env.close()
 
 # Convenience wrapper with degradation support
 from webagentbench.browsergym_env import make_env
-env = make_env("gmail_board_briefing_prep", degradation="gmail_board_briefing__grounding.yaml")
+env = make_env("gmail_board_briefing_prep", degradation="gmail_board_briefing_prep__label_trap.yaml")
 ```
 
 This means:
@@ -376,7 +376,7 @@ python -m webagentbench.agent_eval \
 ```bash
 python -m webagentbench.agent_eval \
     --model gpt-4o --provider openai \
-    --degradation injector/variants/gmail_board_briefing__grounding.yaml \
+    --degradation injector/variants/gmail_board_briefing_prep__label_trap.yaml \
     --output results/degraded_grounding.json
 ```
 

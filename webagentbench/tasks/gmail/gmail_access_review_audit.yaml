@@ -1,26 +1,21 @@
 task_id: gmail_access_review_audit
 env_id: gmail
 title: Departed Employee Access Audit
-instruction_template: 'IT sent an email from it-admin@acme.com with subject "Quarterly
-  Access Review: Project Athena" listing 6 accounts with access to Project Athena.
-  HR sent an email from hr-ops@acme.com with subject "Personnel Changes - Q3" listing
-  departed employees and role changes. Cross-reference the IT list against the HR
-  email and the contacts list to identify which of the 6 accounts belong to departed
-  employees. Compose a new email to {target.compose_to} with subject "{target.compose_subject}"
-  and body listing exactly the usernames of departed employees who still have Project
-  Athena access. Do not request removal for employees who changed roles but did not
-  depart. Star both the IT email and the HR email. Archive both emails after starring
-  them.'
+instruction_template: 'IT sent an email from it-admin@acme.com with subject "Quarterly Access Review:
+  Project Athena" listing 6 accounts with access to Project Athena. HR sent an email from hr-ops@acme.com
+  with subject "Personnel Changes - Q3" listing departed employees and role changes. Cross-reference the
+  IT list against the HR email and the contacts list to identify which of the 6 accounts belong to departed
+  employees. Compose a new email to {target.compose_to} with subject "{target.compose_subject}" and body
+  listing exactly the usernames of departed employees who still have Project Athena access. Do not request
+  removal for employees who changed roles but did not depart. Star both the IT email and the HR email.
+  Archive both emails after starring them.'
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - state_tracking
-- verification
-- exploration
-- grounding
 secondary_primitives:
-- planning
+- verification
 start_path: /inbox
 seed:
   distractors: 40
@@ -47,8 +42,7 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any('{target.compose_to}' in m.to and '{target.compose_subject}' in m.subject
-      for m in state.sent)
+  - expr: any('{target.compose_to}' in m.to and '{target.compose_subject}' in m.subject for m in state.sent)
     desc: Access removal email sent to IT admin
   - expr: any('{target.compose_to}' in m.to and 'rbrown' in m.body for m in state.sent)
     desc: Removal email includes rbrown

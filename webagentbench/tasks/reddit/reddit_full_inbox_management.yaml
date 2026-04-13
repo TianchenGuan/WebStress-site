@@ -21,10 +21,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -60,9 +56,11 @@ seed:
     - del_sub
     - del_from
   targets:
+    reply1_id: '{output.r1_id}'
     reply1_from: '{output.r1_from}'
     reply1_sub: '{output.r1_sub}'
     reply1_body: Sounds great! I will bring my 50mm lens. What time?
+    reply2_id: '{output.r2_id}'
     reply2_from: '{output.r2_from}'
     reply2_sub: '{output.r2_sub}'
     reply2_body: Happy to review it. Send me the PDF and I will have comments by Wednesday.
@@ -70,31 +68,47 @@ seed:
     delete_id: '{output.del_id}'
     new_to: ByteRunner
     new_subject: Weekend coding session
-    new_body: Want to pair program on the database migration library this weekend? I have some ideas for the retry logic.
+    new_body: Want to pair program on the database migration library this weekend? I have some ideas for
+      the retry logic.
 eval:
   source: server_state
   checks:
-  - expr: any(m.to_user == '{target.new_to}' for m in state.sent_messages)
-    desc: New message sent
-  - expr: any(m.to_user == '{target.reply1_from}' for m in state.sent_messages)
-    desc: Reply 1 sent
-  - expr: any(m.to_user == '{target.reply2_from}' for m in state.sent_messages)
-    desc: Reply 2 sent
-  - expr: not any(m.id == '{target.delete_id}' for m in state.messages)
-    desc: Spam deleted
-  - expr: state.settings.theme == 'dark'
-    desc: Theme dark
   - expr: state.unread_notification_count() == 0
     desc: Notifications cleared
+  - expr: state.unread_message_count() == 0
+    desc: Messages cleared
+  - expr: 'any(m.to_user == ''{target.reply1_from}'' and m.subject == ''Re: {target.reply1_sub}'' and
+      m.body == ''{target.reply1_body}'' for m in state.sent_messages)'
+    desc: Reply 1 sent with the exact required subject and body
+  - expr: 'any(m.to_user == ''{target.reply2_from}'' and m.subject == ''Re: {target.reply2_sub}'' and
+      m.body == ''{target.reply2_body}'' for m in state.sent_messages)'
+    desc: Reply 2 sent with the exact required subject and body
+  - expr: not any(m.id == '{target.delete_id}' for m in state.messages)
+    desc: Spam deleted
+  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}' and m.body == '{target.new_body}'
+      for m in state.sent_messages)
+    desc: New message sent with exact subject and body
+  - expr: state.settings.theme == 'dark'
+    desc: Theme dark
+  - expr: not state.settings.email_messages and not state.settings.email_mentions
+    desc: Message and mention emails disabled
   negative_checks:
-  - expr: len(state.sent_messages) <= 14
-    desc: No excessive messages sent
+  - expr: state.get_message('{target.reply1_id}') is not None
+    desc: First target message was not deleted
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
-    desc: No posts created when none required
+  - expr: state.get_message('{target.reply2_id}') is not None
+    desc: Second target message was not deleted
+    penalty: 0.15
+  - expr: len(state.sent_messages) <= 5
+    desc: No extra messages sent beyond the two replies and one new message
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 3
+    desc: No posts created when none were required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- state_tracking

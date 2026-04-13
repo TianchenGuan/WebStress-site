@@ -1,17 +1,16 @@
 task_id: amazon_compare_and_buy_cheapest
 env_id: amazon
 title: Compare Products and Buy the Cheapest Option
-instruction_template: >
-  Search for "{target.search_query}" products, compare the available options, and
-  purchase the cheapest one that has a rating of at least 4.0 stars. Use the
-  shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'Search for "{target.search_query}" products, compare the available options, and
+  purchase the cheapest one that has a rating of at least 4.0 stars. Use the shipping address for {target.shipping_name}
+  at {target.shipping_street} and the {target.payment_type} card ending in {target.payment_last_four}.
+
+  '
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 30
 primary_primitives:
 - planning
-- state_tracking
-- verification
 start_path: /
 seed:
   distractors: 10
@@ -39,26 +38,50 @@ seed:
     search_query: bluetooth speaker
     cheapest_product_id: '{output.product_id}'
     cheapest_product_name: '{output.product_name}'
+    shipping_name: Jordan Parker
+    shipping_street: 742 Evergreen Terrace
+    payment_type: Visa
+    payment_last_four: '4242'
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: A new order was placed
-  - expr: >
-      any(any(item.product_id == '{target.cheapest_product_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
-    desc: Purchased the cheapest eligible product
-  - expr: any(order.status == 'confirmed' and any(item.product_id == '{target.cheapest_product_id}' for item in order.items) for order in state.orders if not order.id.startswith('order_initial_'))
-    desc: Order containing the target product is confirmed
+  - expr: "sum(\n  1 for order in state.orders\n  if not order.id.startswith('order_initial_')\n  and\
+      \ order.status == 'confirmed'\n  and len(order.items) == 1\n  and order.items[0].product_id == '{target.cheapest_product_id}'\n\
+      \  and order.items[0].quantity == 1\n) == 1\n"
+    desc: Exactly one confirmed order was placed for the cheapest eligible speaker
+  - expr: "any(\n  not order.id.startswith('order_initial_')\n  and order.status == 'confirmed'\n  and\
+      \ any(\n    addr.id == order.shipping_address_id\n    and addr.full_name == '{target.shipping_name}'\n\
+      \    and addr.street_address == '{target.shipping_street}'\n    for addr in state.addresses\n  )\n\
+      \  for order in state.orders\n)\n"
+    desc: Order uses the required shipping address
+  - expr: "any(\n  not order.id.startswith('order_initial_')\n  and order.status == 'confirmed'\n  and\
+      \ any(\n    pm.id == order.payment_method_id\n    and pm.card_type == '{target.payment_type}'\n\
+      \    and pm.last_four == '{target.payment_last_four}'\n    for pm in state.payment_methods\n  )\n\
+      \  for order in state.orders\n)\n"
+    desc: Order uses the required Visa card ending in 4242
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
-    desc: Only one new order placed
-    penalty: 0.2
-  - expr: >
-      all(any(item.product_id == '{target.cheapest_product_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
-    desc: Did not buy a more expensive product instead of the cheapest
+  - expr: 'sum(1 for order in state.orders if not order.id.startswith(''order_initial_'')) == 1
+
+      '
+    desc: Only one new order was created
+    penalty: 0.25
+  - expr: "all(\n  len(order.items) == 1\n  and order.items[0].product_id == '{target.cheapest_product_id}'\n\
+      \  and order.items[0].quantity == 1\n  for order in state.orders\n  if not order.id.startswith('order_initial_')\n\
+      )\n"
+    desc: No extra items or non-target products were purchased
     penalty: 0.3
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
+    desc: Cheapest-option purchase used a single checkout flow
+    penalty: 0.1
+  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n    'amazon.address.remove',\n\
+      \    'amazon.payment.add',\n    'amazon.payment.remove'\n  ]\n  for e in state.audit_log)"
+    desc: Cheapest-option purchase reused existing address and payment details
+    penalty: 0.1
+  - expr: "not any(\n  e.action in ['amazon.return.create', 'amazon.review.add']\n  for e in state.audit_log)"
+    desc: Cheapest-option purchase did not create unrelated returns or reviews
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

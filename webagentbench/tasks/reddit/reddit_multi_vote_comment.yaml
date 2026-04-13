@@ -19,8 +19,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- grounding
-- state_tracking
 start_path: /feed
 seed:
   distractors: 8
@@ -63,7 +61,8 @@ seed:
     movie_id: '{output.movie_id}'
     til_title: '{output.til_title}'
     til_id: '{output.til_id}'
-    til_comment: The honey badger truly does not care. They have incredibly thick skin that most predators cannot penetrate.
+    til_comment: The honey badger truly does not care. They have incredibly thick skin that most predators
+      cannot penetrate.
 eval:
   source: server_state
   checks:
@@ -71,14 +70,14 @@ eval:
     desc: Gaming post upvoted
   - expr: state.get_post('{target.movie_id}').vote_direction == -1
     desc: Movie post downvoted
-  - expr: any(c.post_id == '{target.til_id}' and "thick skin" in c.body and c.author_name == state.owner_username for c in
-      state.comments)
+  - expr: any(c.post_id == '{target.til_id}' and "thick skin" in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: TIL comment posted
   - expr: '''{target.til_id}'' in state.saved_post_ids'
     desc: TIL post saved
   negative_checks:
-  - expr: sum(1 for p in state.posts if p.vote_direction != 0 and p.id not in ('{target.game_id}', '{target.movie_id}')) ==
-      0
+  - expr: sum(1 for p in state.posts if p.vote_direction != 0 and p.id not in ('{target.game_id}', '{target.movie_id}'))
+      == 0
     desc: No other posts voted on
     penalty: 0.2
   - expr: len(state.sent_messages) == 0
@@ -90,3 +89,5 @@ eval:
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
+secondary_primitives:
+- grounding

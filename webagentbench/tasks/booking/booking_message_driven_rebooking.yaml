@@ -1,14 +1,12 @@
 task_id: booking_message_driven_rebooking
 env_id: booking
 title: Read Hotel Message and Modify Reservation Dates
-instruction_template: 'Check your messages inbox for the latest unread message from
-  a hotel about a check-in issue. The message from "{target.property_name}" explains
-  that due to renovations, your original check-in date is unavailable and suggests
-  you move your stay to start on {target.new_check_in} instead (keeping the same number
-  of nights). Find the referenced reservation and modify its dates accordingly: change
-  check-in to {target.new_check_in} and check-out to {target.new_check_out}. Then
-  reply to the hotel with a message confirming you accept the date change, using subject
-  "Re: Check-in date change confirmation".
+instruction_template: 'Check your messages inbox for the latest unread message from a hotel about a check-in
+  issue. The message from "{target.property_name}" explains that due to renovations, your original check-in
+  date is unavailable and suggests you move your stay to start on {target.new_check_in} instead (keeping
+  the same number of nights). Find the referenced reservation and modify its dates accordingly: change
+  check-in to {target.new_check_in} and check-out to {target.new_check_out}. Then reply to the hotel with
+  a message confirming you accept the date change, using subject "Re: Check-in date change confirmation".
 
   '
 difficulty: hard
@@ -16,11 +14,8 @@ time_limit_seconds: 360
 expected_steps: 18
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- grounding
-- exploration
+- state_tracking
 start_path: /home
 seed:
   distractors: 10
@@ -69,12 +64,11 @@ seed:
       property_name: Gritti Palace Venice
       reservation_id: '{output.reservation_id}'
       subject: 'Important: Check-in date change required'
-      body: Dear Jordan Parker, due to essential renovations in our lobby area, we
-        are unable to accommodate check-ins on July 10th. We kindly request that you
-        move your reservation to check in on July 12th instead, with checkout on July
-        16th. The same room and rate will be honored. We sincerely apologize for any
-        inconvenience. Please confirm this change at your earliest convenience. Kind
-        regards, Gritti Palace Venice.
+      body: Dear Jordan Parker, due to essential renovations in our lobby area, we are unable to accommodate
+        check-ins on July 10th. We kindly request that you move your reservation to check in on July 12th
+        instead, with checkout on July 16th. The same room and rate will be honored. We sincerely apologize
+        for any inconvenience. Please confirm this change at your earliest convenience. Kind regards,
+        Gritti Palace Venice.
       sender: property
       read: false
     outputs:
@@ -84,8 +78,8 @@ seed:
       property_id: '{output.property_id}'
       property_name: Gritti Palace Venice
       subject: Special offer for returning guests
-      body: Dear valued guest, as a returning visitor we would like to offer you a
-        complimentary upgrade on your next stay.
+      body: Dear valued guest, as a returning visitor we would like to offer you a complimentary upgrade
+        on your next stay.
       sender: property
       read: true
     outputs:
@@ -126,31 +120,36 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-07-12'\
-      \ and\n  r.check_out == '2026-07-16'\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-07-12' and\n  r.check_out\
+      \ == '2026-07-16'\n  for r in state.reservations\n)\n"
     desc: Reservation dates updated to July 12-16
-  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.status == 'modified'\n\
-      \  for r in state.reservations\n)\n"
-    desc: Reservation status is modified
-  - expr: "any(\n  m.id == '{target.message_id}' and m.read == True\n  for m in state.messages\n\
+  - expr: "any(\n  r.id == '{target.reservation_id}' and\n  r.status == 'modified'\n  for r in state.reservations\n\
       )\n"
+    desc: Reservation status is modified
+  - expr: "any(\n  m.id == '{target.message_id}' and m.read == True\n  for m in state.messages\n)\n"
     desc: The hotel message was read
-  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest'\
-      \ and\n  'confirm' in m.body.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest' and\n  'confirm'\
+      \ in m.body.lower()\n  for m in state.messages\n)\n"
     desc: A confirmation reply was sent to the hotel
-  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest'\
-      \ and\n  'date change' in m.subject.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest' and\n  'date change'\
+      \ in m.subject.lower()\n  for m in state.messages\n)\n"
     desc: Reply has correct subject about date change
   negative_checks:
-  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status == 'modified'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status == 'modified'\n  for r in state.reservations\n\
+      )\n"
     desc: The distractor reservation was not modified
     penalty: 0.3
-  - expr: "not any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: The reservation was not cancelled instead of modified
     penalty: 0.4
-  - expr: "not any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-07-10'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.reservation_id}' and\n  r.check_in == '2026-07-10'\n  for r in\
+      \ state.reservations\n)\n"
     desc: The dates were actually changed (not left at original)
     penalty: 0.3
+  - expr: not any(e.action == 'review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1
+  - expr: not any(e.action.startswith('saved_list.') for e in state.audit_log)
+    desc: No off-task saved-list mutations were made
+    penalty: 0.1

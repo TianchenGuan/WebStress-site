@@ -1,16 +1,14 @@
 task_id: gmail_contact_enrichment
 env_id: gmail
 title: Enrich contacts from email signatures and star VIPs
-instruction_template: 'You have 6 contacts that are missing company and role information:
-  Omar Farouk, Ling Zhou, Beatrice Muller, Sam Okoye, Hannah Kessler, and Davi Costa.
-  For each contact, search the inbox for their most recent email thread. If a thread
-  from that contact exists, read the email signature to find their company and role,
-  then update the contact''s note to "[Role] at [Company]". If no email thread from
-  that contact exists, do not modify that contact at all.
+instruction_template: 'You have 6 contacts that are missing company and role information: Omar Farouk,
+  Ling Zhou, Beatrice Muller, Sam Okoye, Hannah Kessler, and Davi Costa. For each contact, search the
+  inbox for their most recent email thread. If a thread from that contact exists, read the email signature
+  to find their company and role, then update the contact''s note to "[Role] at [Company]". If no email
+  thread from that contact exists, do not modify that contact at all.
 
-  Your manager Grace Lin sent an email with subject "Priority Contacts" listing Omar
-  Farouk, Ling Zhou, and Sam Okoye as VIP contacts. Star the contacts for those 3
-  people.
+  Your manager Grace Lin sent an email with subject "Priority Contacts" listing Omar Farouk, Ling Zhou,
+  and Sam Okoye as VIP contacts. Star the contacts for those 3 people.
 
   Do not fabricate any data. Do not modify contacts for which you found no email thread.'
 difficulty: expert
@@ -18,12 +16,8 @@ time_limit_seconds: 600
 expected_steps: 48
 primary_primitives:
 - patience
-- exploration
-- state_tracking
-- verification
-- grounding
 secondary_primitives:
-- planning
+- exploration
 start_path: /inbox
 seed:
   distractors: 40
@@ -48,17 +42,15 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(c.id == '{target.omar_id}' and c.note == 'Operations Director at Crescent
-      Logistics' for c in state.contacts)
+  - expr: any(c.id == '{target.omar_id}' and c.note == 'Operations Director at Crescent Logistics' for
+      c in state.contacts)
     desc: Omar Farouk note enriched correctly
-  - expr: any(c.id == '{target.ling_id}' and c.note == 'Lead Data Scientist at Apex
-      Data' for c in state.contacts)
+  - expr: any(c.id == '{target.ling_id}' and c.note == 'Lead Data Scientist at Apex Data' for c in state.contacts)
     desc: Ling Zhou note enriched correctly
-  - expr: any(c.id == '{target.beatrice_id}' and c.note == 'VP of Partnerships at
-      RheinTech' for c in state.contacts)
+  - expr: any(c.id == '{target.beatrice_id}' and c.note == 'VP of Partnerships at RheinTech' for c in
+      state.contacts)
     desc: Beatrice Muller note enriched correctly
-  - expr: any(c.id == '{target.sam_id}' and c.note == 'Co-founder at BrightHorizon'
-      for c in state.contacts)
+  - expr: any(c.id == '{target.sam_id}' and c.note == 'Co-founder at BrightHorizon' for c in state.contacts)
     desc: Sam Okoye note enriched correctly
   - expr: any(c.id == '{target.omar_id}' and c.is_starred for c in state.contacts)
     desc: Omar Farouk starred as VIP
@@ -76,15 +68,15 @@ eval:
   - expr: any(c.id == '{target.beatrice_id}' and not c.is_starred for c in state.contacts)
     desc: Beatrice Muller not incorrectly starred
     penalty: 0.1
-  - expr: not any(c.id == '{target.omar_id}' and c.note == 'Logistics Coordinator
-      at Crescent Logistics' for c in state.contacts)
+  - expr: not any(c.id == '{target.omar_id}' and c.note == 'Logistics Coordinator at Crescent Logistics'
+      for c in state.contacts)
     desc: Omar not enriched with forwarded colleague role
     penalty: 0.15
-  - expr: not any(c.id == '{target.beatrice_id}' and c.note == 'Director of Sales
-      at RheinTech' for c in state.contacts)
+  - expr: not any(c.id == '{target.beatrice_id}' and c.note == 'Director of Sales at RheinTech' for c
+      in state.contacts)
     desc: Beatrice not enriched with outdated role
     penalty: 0.15
-  - expr: not any(c.id == '{target.sam_id}' and c.note == 'Program Director at BrightHorizon
-      Education' for c in state.contacts)
+  - expr: not any(c.id == '{target.sam_id}' and c.note == 'Program Director at BrightHorizon Education'
+      for c in state.contacts)
     desc: Sam not confused with Sam Okafor decoy
     penalty: 0.15

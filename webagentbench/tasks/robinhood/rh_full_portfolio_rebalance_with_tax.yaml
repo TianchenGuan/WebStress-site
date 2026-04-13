@@ -1,22 +1,16 @@
----
 task_id: rh_full_portfolio_rebalance_with_tax
 env_id: robinhood
 title: Tax-Aware Portfolio Rebalance
-instruction_template: 'Rebalance your portfolio to: VTI 40%, VXUS 20%, BND 25%, GLD
-  15%. Move your portfolio toward that core allocation while minimizing tax impact
-  by selling lots with losses first, avoiding wash sales from recent purchases, and
-  preferring to sell lots held over 1 year when you must realize gains. Execute all
-  trades.'
+instruction_template: 'Rebalance your portfolio to: VTI 40%, VXUS 20%, BND 25%, GLD 15%. Move your portfolio
+  toward that core allocation while minimizing tax impact by selling lots with losses first, avoiding
+  wash sales from recent purchases, and preferring to sell lots held over 1 year when you must realize
+  gains. Execute all trades.'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 35
 primary_primitives:
 - state_tracking
-- planning
-- backtracking
-- verification
-- grounding
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -60,39 +54,37 @@ eval:
   checks:
   - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') for o in state.orders)
     desc: Sell orders exist as part of the rebalancing
-  - expr: len(set(o.symbol for o in state.orders if o.side == 'buy' and o.status in
-      ('filled', 'pending'))) >= 3 and all(o.symbol in ('VTI', 'VXUS', 'BND', 'GLD')
-      for o in state.orders if o.side == 'buy')
+  - expr: len(set(o.symbol for o in state.orders if o.side == 'buy' and o.status in ('filled', 'pending')))
+      >= 3 and all(o.symbol in ('VTI', 'VXUS', 'BND', 'GLD') for o in state.orders if o.side == 'buy')
     desc: Buy orders moved capital into the requested target-allocation funds
-  - expr: all(state.projected_quantity_after_orders(symbol) > Decimal('0') for symbol
-      in {target.target_allocation})
+  - expr: all(state.projected_quantity_after_orders(symbol) > Decimal('0') for symbol in {target.target_allocation})
     desc: All target-allocation funds have non-zero projected exposure after rebalancing
-  - expr: not any(o.side == 'sell' and o.symbol in state.wash_sale_risk_symbols(30)
-      and not o.id.startswith('ord_decoy_') for o in state.orders)
+  - expr: not any(o.side == 'sell' and o.symbol in state.wash_sale_risk_symbols(30) and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
     desc: Recent wash-sale-risk symbols were not sold during the rebalance
-  - expr: state.allocation_error_vs_targets({target.target_allocation})
-      < state.allocation_error_vs_targets_initial({target.target_allocation})
+  - expr: state.allocation_error_vs_targets({target.target_allocation}) < state.allocation_error_vs_targets_initial({target.target_allocation})
     desc: The portfolio moved closer to the requested core allocation
   - expr: state.allocation_error_vs_targets({target.target_allocation}) <= Decimal('65')
     desc: The allocation is reasonably close to the requested core mix (relaxed for wash-sale constraints)
   negative_checks:
-  - expr: >-
-      not any(o.side == 'buy' and o.symbol not in ('VTI', 'VXUS', 'BND', 'GLD')
-      and not o.id.startswith('ord_decoy_')
+  - expr: not any(o.side == 'buy' and o.symbol not in ('VTI', 'VXUS', 'BND', 'GLD') and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: Rebalance buy orders did not drift into unrelated symbols
     penalty: 0.25
-  - expr: >-
-      not any(o.side == 'sell'
-      and o.symbol in ('VTI', 'VXUS', 'BND', 'GLD')
-      and not o.id.startswith('ord_decoy_')
+  - expr: not any(o.side == 'sell' and o.symbol in ('VTI', 'VXUS', 'BND', 'GLD') and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: Target allocation symbols were not sold during the rebalance
-    penalty: 0.20
+    penalty: 0.2
   - expr: len(state.transfers) == 0
     desc: No transfers were initiated during the rebalance
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, backtracking, verification, grounding
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+  - expr: not any(e.action.startswith('robinhood.watchlist.') for e in state.audit_log)
+    desc: No off-task watchlist changes were made
+    penalty: 0.1
+  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
+    desc: No off-task transfers were initiated
+    penalty: 0.1
+secondary_primitives:
+- planning
+primitive_thesis: Measures state_tracking, planning, backtracking, verification, grounding by requiring
+  exact completion of the requested Robinhood workflow while ignoring distractor account state.

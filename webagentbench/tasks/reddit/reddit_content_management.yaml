@@ -6,7 +6,8 @@ instruction_template: '1. Hide the post "{target.hide_title}" in r/{target.hide_
 
   3. Save "{target.save_title}" in r/{target.save_sub}.
 
-  4. Create a text post in r/programming with title exactly: "{target.create_title}" and body exactly: "{target.create_body}"
+  4. Create a text post in r/programming with title exactly: "{target.create_title}" and body exactly:
+  "{target.create_body}"
 
   5. Set default feed sort to "new" and enable compact view.'
 difficulty: expert
@@ -14,9 +15,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - state_tracking
-- planning
-- grounding
-- verification
 seed:
   distractors: 8
   actors: {}
@@ -59,9 +57,10 @@ seed:
     save_title: '{output.save_title}'
     save_id: '{output.save_id}'
     save_sub: '{output.save_sub}'
+    saved_ids: '{output.saved_ids}'
     create_title: Why I stopped using ORMs and went back to raw SQL
-    create_body: After 5 years of fighting with ORMs, I found that well-structured raw SQL with a thin query builder is simpler
-      and more performant.
+    create_body: After 5 years of fighting with ORMs, I found that well-structured raw SQL with a thin
+      query builder is simpler and more performant.
 eval:
   source: server_state
   checks:
@@ -71,21 +70,38 @@ eval:
     desc: Memes unsaved
   - expr: '''{target.save_id}'' in state.saved_post_ids'
     desc: Science post saved
-  - expr: any(p.subreddit_name == "programming" and "ORMs" in p.title and p.author_name == state.owner_username for p in state.posts)
+  - expr: "any(\n  p.subreddit_name == 'programming'\n  and p.title == '{target.create_title}'\n  and\
+      \ p.body == '{target.create_body}'\n  and p.author_name == state.owner_username\n  for p in state.posts\n\
+      )"
     desc: Programming post created
   - expr: state.settings.default_feed_sort == 'new'
     desc: Feed sort new
   - expr: state.settings.compact_view
     desc: Compact view on
   negative_checks:
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
-    desc: No excessive posts created
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.create') == 1
+    desc: Exactly one post was created for the programming write-up
     penalty: 0.15
-  - expr: len(state.sent_messages) == 0
-    desc: No messages sent when none required
+  - expr: "not any(\n  e.action == 'reddit.post.hide'\n  and e.payload.get('post_id') != '{target.hide_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No unrelated post was hidden
     penalty: 0.1
-  - expr: len(state.blocked_users) == 0
-    desc: No users blocked when none required
+  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id') != '{target.save_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No unrelated post was saved
+    penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.unsave') == len({target.saved_ids})
+    desc: Every meme save was explicitly removed
+    penalty: 0.1
+  - expr: "not any(\n  e.action == 'reddit.post.unsave'\n  and e.payload.get('post_id') not in {target.saved_ids}\n\
+      \  for e in state.audit_log\n)"
+    desc: No non-meme saved post was unsaved
+    penalty: 0.1
+  - expr: "not any(\n  e.action in ['reddit.message.send', 'reddit.user.block']\n  for e in state.audit_log\n\
+      )"
+    desc: No direct messages or user blocks were performed in this content workflow
     penalty: 0.1
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- planning

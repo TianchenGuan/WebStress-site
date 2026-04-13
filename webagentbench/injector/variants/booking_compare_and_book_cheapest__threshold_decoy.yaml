@@ -1,0 +1,30 @@
+variant_id: booking_compare_and_book_cheapest__threshold_decoy
+base_task_id: booking_compare_and_book_cheapest
+target_primitive: verification
+description: Cheaper properties appear in the result set, but they fall below the minimum review-score
+  threshold. The agent must keep the rating constraint while comparing prices.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: property
+      name: Target Property Budget Annex
+      city: Paris
+      country: France
+      property_type: Hotel
+      star_rating: 3
+      review_score: 7.9
+      review_count: 1200
+      price: 205.0
+      description: Cheaper option that misses the minimum review-score threshold.
+    - type: property
+      name: Target Property Saver Rooms
+      city: Paris
+      country: France
+      property_type: Hotel
+      star_rating: 3
+      review_score: 7.6
+      review_count: 940
+      price: 188.0
+      description: Very cheap property that should still be excluded by the rating filter.

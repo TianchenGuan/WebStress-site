@@ -1,23 +1,19 @@
 task_id: booking_account_security_and_payment
 env_id: booking
 title: Account Security Overhaul and Payment Method Management
-instruction_template: "Complete the following account security and payment updates:\n\
-  1. Enable two-factor authentication in your account settings. 2. Find and remove\
-  \ the Mastercard ending in {target.remove_last_four}\n   (held by \"{target.remove_holder}\"\
-  ) from your payment methods.\n3. Add a new Visa card: number ending in 3333, expiry\
-  \ 06/30, holder name\n   \"Jordan Parker\".\n4. Set the new Visa card (ending in\
-  \ 3333) as your default payment method. 5. Update notification preferences: disable\
-  \ deal alerts and enable SMS\n   notifications.\n"
+instruction_template: "Complete the following account security and payment updates:\n1. Enable two-factor\
+  \ authentication in your account settings. 2. Find and remove the Mastercard ending in {target.remove_last_four}\n\
+  \   (held by \"{target.remove_holder}\") from your payment methods.\n3. Add a new Visa card: number\
+  \ ending in 3333, expiry 06/30, holder name\n   \"Jordan Parker\".\n4. Set the new Visa card (ending\
+  \ in 3333) as your default payment method. 5. Update notification preferences: disable deal alerts and\
+  \ enable SMS\n   notifications.\n"
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 25
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- grounding
-- patience
+- state_tracking
 start_path: /settings
 seed:
   distractors: 8
@@ -48,14 +44,14 @@ eval:
   checks:
   - expr: state.settings.two_factor_enabled == True
     desc: Two-factor authentication is enabled
-  - expr: "not any(\n  pm.card_type == 'Mastercard' and pm.last_four == '5555'\n \
-      \ for pm in state.payment_methods\n)\n"
+  - expr: "not any(\n  pm.card_type == 'Mastercard' and pm.last_four == '5555'\n  for pm in state.payment_methods\n\
+      )\n"
     desc: Mastercard ending in 5555 was removed
-  - expr: "any(\n  pm.card_type == 'Visa' and pm.last_four == '3333'\n  for pm in\
-      \ state.payment_methods\n)\n"
+  - expr: "any(\n  pm.card_type == 'Visa' and pm.last_four == '3333'\n  for pm in state.payment_methods\n\
+      )\n"
     desc: New Visa ending in 3333 was added
-  - expr: "any(\n  pm.card_type == 'Visa' and pm.last_four == '3333' and pm.is_default\n\
-      \  for pm in state.payment_methods\n)\n"
+  - expr: "any(\n  pm.card_type == 'Visa' and pm.last_four == '3333' and pm.is_default\n  for pm in state.payment_methods\n\
+      )\n"
     desc: New Visa card is set as default
   - expr: state.settings.deal_alerts == False
     desc: Deal alerts are disabled
@@ -70,8 +66,8 @@ eval:
       '
     desc: No extra payment methods were accidentally removed
     penalty: 0.2
-  - expr: "not any(\n  pm.card_type == 'Visa' and pm.last_four == '3333' and\n  pm.holder_name\
-      \ != 'Jordan Parker'\n  for pm in state.payment_methods\n)\n"
+  - expr: "not any(\n  pm.card_type == 'Visa' and pm.last_four == '3333' and\n  pm.holder_name != 'Jordan\
+      \ Parker'\n  for pm in state.payment_methods\n)\n"
     desc: New Visa card has correct holder name
     penalty: 0.15
   - expr: state.settings.email_notifications == True

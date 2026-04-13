@@ -1,13 +1,12 @@
 task_id: booking_decoy_hotel_selection
 env_id: booking
 title: Identify Correct Hotel Among Decoys and Book It
-instruction_template: 'Search for hotels in Paris named "Le Marais". You will find
-  three similarly-named properties. The correct one to book is the "Le Marais" hotel
-  that has BOTH of these characteristics: a review score of exactly {target.target_review_score}
-  AND has "Rooftop Bar" in its amenities. Book the "Deluxe Room" at that specific
-  property for 2 guests checking in on 2026-05-20 and checking out on 2026-05-24 (4
-  nights). Use the default Visa payment method (ending in 4242) and enter your name
-  and email from your profile.
+instruction_template: 'Search for hotels in Paris named "Le Marais". You will find three similarly-named
+  properties. The correct one to book is the "Le Marais" hotel that has BOTH of these characteristics:
+  a review score of exactly {target.target_review_score} AND has "Rooftop Bar" in its amenities. Book
+  the "Deluxe Room" at that specific property for 2 guests checking in on 2026-05-20 and checking out
+  on 2026-05-24 (4 nights). Use the default Visa payment method (ending in 4242) and enter your name and
+  email from your profile.
 
   '
 difficulty: hard
@@ -15,10 +14,8 @@ time_limit_seconds: 360
 expected_steps: 20
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- grounding
+- state_tracking
 start_path: /home
 seed:
   distractors: 10
@@ -123,31 +120,35 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Reservation created at the correct Le Marais property
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
-      \ == 'Deluxe Room'\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name == 'Deluxe Room'\n\
+      \  for r in state.reservations\n)\n"
     desc: Booked the Deluxe Room specifically
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-05-20'\
-      \ and\n  r.check_out == '2026-05-24'\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-05-20' and\n  r.check_out\
+      \ == '2026-05-24'\n  for r in state.reservations\n)\n"
     desc: Correct check-in and check-out dates
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2 and\
-      \ r.nights == 4\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2 and r.nights == 4\n  for\
+      \ r in state.reservations\n)\n"
     desc: Correct guest count and number of nights
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
-      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id') != '{target.property_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: No reservation made at a decoy property
     penalty: 0.5
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
-      \ == 'Standard Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name == 'Standard Room'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the Standard Room instead of Deluxe
     penalty: 0.2
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action.startswith('saved_list.') for e in state.audit_log)
+    desc: No off-task saved-list mutations were made
+    penalty: 0.1

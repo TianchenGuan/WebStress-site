@@ -1,0 +1,27 @@
+variant_id: amazon_account_overhaul_and_shop__address_shadow_v2
+base_task_id: amazon_account_overhaul_and_shop
+target_primitive: grounding
+description: Addresses and cards include near-matches for the requested destination. The agent must still
+  ship to the exact target address while avoiding the stale twin records.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: address
+      full_name: Sam Rivera
+      street_address: 742 Maple Avenue Apt 2
+      city: Portland
+      state: OR
+      zip_code: '97201'
+    - type: address
+      full_name: Sam Rivera
+      street_address: 742 Maple Avenue Suite B
+      city: Portland
+      state: OR
+      zip_code: '97201'
+    - type: payment_method
+      card_type: Visa
+      last_four: '4243'
+      expiry: 11/29
+      holder_name: Sam Rivera

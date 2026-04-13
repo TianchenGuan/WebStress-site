@@ -1,22 +1,18 @@
 task_id: amazon_order_management_suite
 env_id: amazon
 title: Full Order Lifecycle Management
-instruction_template: >
-  Complete a full order management workflow. First, place an order for
-  "{target.first_order_product}" using the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
-  After the order is placed, check the order details to confirm it. Then
-  cancel that order. Next, place a new order containing "{target.second_item1}"
-  and "{target.second_item2}" using the same address and payment method.
-  Verify that the first order shows as cancelled and the second order is
-  confirmed.
+instruction_template: 'Complete a full order management workflow. First, place an order for "{target.first_order_product}"
+  using the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+  After the order is placed, check the order details to confirm it. Then cancel that order. Next, place
+  a new order containing "{target.second_item1}" and "{target.second_item2}" using the same address and
+  payment method. Verify that the first order shows as cancelled and the second order is confirmed.
+
+  '
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 45
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 start_path: /
 seed:
   distractors: 18
@@ -105,28 +101,59 @@ eval:
   checks:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >= 2
     desc: At least two new orders were placed
-  - expr: >
-      any(any(item.product_id == '{target.first_product_id}' for item in order.items)
-      and order.status == 'cancelled' for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.first_product_id}'' for item in order.items) and order.status
+      == ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: First order with Portable SSD is cancelled
-  - expr: >
-      any(any(item.product_id == '{target.second_item1_id}' for item in order.items)
-      and order.status != 'cancelled' for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items) and order.status
+      != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Second order containing Mechanical Pencil Set is active
-  - expr: >
-      any(any(item.product_id == '{target.second_item2_id}' for item in order.items)
-      and order.status != 'cancelled' for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.second_item2_id}'' for item in order.items) and order.status
+      != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Second order containing Notebook 5-Pack is active
-  - expr: >
-      any(any(item.product_id == '{target.second_item1_id}' for item in order.items)
-      and any(item.product_id == '{target.second_item2_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items) and any(item.product_id
+      == ''{target.second_item2_id}'' for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Both second-order items are in the same order
+  - expr: "all( any(\n  addr.id == order.shipping_address_id\n  and addr.full_name == 'Jordan Parker'\n\
+      \  and addr.street_address == '742 Evergreen Terrace'\n  for addr in state.addresses\n) for order\
+      \ in state.orders if not order.id.startswith('order_initial_'))\n"
+    desc: All new orders use Jordan Parker's shipping address
+  - expr: "all( any(\n  pm.id == order.payment_method_id\n  and pm.card_type == 'Visa'\n  and pm.last_four\
+      \ == '4242'\n  for pm in state.payment_methods\n) for order in state.orders if not order.id.startswith('order_initial_'))\n"
+    desc: All new orders use the required Visa card ending in 4242
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after all operations
     penalty: 0.1
-  - expr: >
-      sum(1 for order in state.orders if not order.id.startswith('order_initial_') and order.status == 'cancelled') <= 1
+  - expr: 'sum(1 for order in state.orders if not order.id.startswith(''order_initial_'') and order.status
+      == ''cancelled'') <= 1
+
+      '
     desc: Only one new order was cancelled
     penalty: 0.15
+  - expr: 'not any( any(item.product_id not in [''{target.first_product_id}'', ''{target.second_item1_id}'',
+      ''{target.second_item2_id}''] for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: No unrelated products were purchased during the order-management workflow
+    penalty: 0.15
+  - expr: 'not any( order.status == ''cancelled'' and (any(item.product_id == ''{target.second_item1_id}''
+      for item in order.items) or any(item.product_id == ''{target.second_item2_id}'' for item in order.items))
+      for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: Replacement office-supplies order was not cancelled by mistake
+    penalty: 0.2
+  - expr: "not any( e.action in [\n  'amazon.address.add',\n  'amazon.address.update',\n  'amazon.address.remove',\n\
+      \  'amazon.payment.add',\n  'amazon.payment.remove',\n  'amazon.return.create'\n] for e in state.audit_log)"
+    desc: Workflow did not mutate account details or create returns outside the required lifecycle
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

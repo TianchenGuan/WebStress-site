@@ -1,0 +1,112 @@
+task_id: reddit_create_and_engage
+env_id: reddit
+title: Subscribe, Post, and Engage with Existing Content
+instruction_template: >
+  Subscribe to r/{target.join_sub}. Create a text post there with title
+  "{target.post_title}" and a body about {target.post_topic}. Then find
+  the post "{target.engage_title}" in r/{target.engage_sub}, upvote it,
+  and leave a comment with the exact text: "{target.comment_text}".
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 18
+primary_primitives:
+  - grounding
+  - planning
+secondary_primitives:
+  - state_tracking
+start_path: /feed
+seed:
+  distractors: 6
+  actors: {}
+  steps:
+    - use: subscription_state
+      params:
+        unsubscribe:
+          - learnpython
+      outputs:
+        - subscriptions
+    - use: target_post
+      params:
+        subreddit: science
+        title: "New study reveals high-altitude training improves cognitive function"
+        body: "Researchers at the University of Colorado found that endurance athletes who train above 7,000 feet show measurable improvements in working memory and reaction time."
+        author: CogSciRunner
+        score: 4820
+        flair_text: "Neuroscience"
+      outputs:
+        - engage_post_id
+        - engage_post_title
+        - engage_sub_name
+    - use: filler_posts
+      params:
+        subreddit: science
+        count: 5
+        score_range: [200, 3000]
+        age_range_hours: [2, 72]
+      outputs:
+        - filler_post_ids
+    - use: decoy_posts
+      params:
+        subreddit: science
+        count: 3
+        score_range: [1500, 6000]
+      outputs:
+        - decoy_post_ids
+    - use: filler_posts
+      params:
+        subreddit: learnpython
+        count: 4
+        score_range: [50, 1500]
+        age_range_hours: [1, 48]
+      outputs:
+        - filler_lp_ids
+  targets:
+    join_sub: "learnpython"
+    post_title: "How I finally understood decorators - a visual guide"
+    post_topic: "a beginner-friendly visual explanation of Python decorators"
+    engage_sub: "science"
+    engage_title: "{output.engage_post_title}"
+    engage_post_id: "{output.engage_post_id}"
+    comment_text: "Fascinating study. I wonder if the effect persists after returning to lower altitudes."
+    initial_subscriptions: "{output.subscriptions}"
+    decoy_post_ids: "{output.decoy_post_ids}"
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(s.name == 'learnpython' and s.is_subscribed for s in state.subreddits)
+      desc: User is subscribed to r/learnpython
+    - expr: >
+        any(p.subreddit_name == 'learnpython' and
+        p.title == "How I finally understood decorators - a visual guide" and
+        p.author_name == state.owner_username
+        for p in state.posts)
+      desc: New post created in r/learnpython with correct title
+    - expr: >
+        any(p.id == '{target.engage_post_id}' and p.user_vote == 1
+        for p in state.posts)
+      desc: Target post in r/science was upvoted
+    - expr: >
+        any(c.post_id == '{target.engage_post_id}' and
+        c.body == "Fascinating study. I wonder if the effect persists after returning to lower altitudes." and
+        c.author_name == state.owner_username
+        for c in state.comments)
+      desc: Correct comment posted on target science post
+  negative_checks:
+    - expr: >
+        not any(p.author_name == state.owner_username and
+        p.subreddit_name != 'learnpython'
+        for p in state.posts)
+      desc: No posts created in wrong subreddits
+      penalty: 0.3
+    - expr: >
+        not any(c.post_id in {target.decoy_post_ids} and
+        c.author_name == state.owner_username
+        for c in state.comments)
+      desc: No comments on decoy posts
+      penalty: 0.25
+    - expr: >
+        sum(1 for p in state.posts
+        if p.author_name == state.owner_username) <= 1
+      desc: No more than 1 post was created by the user
+      penalty: 0.2

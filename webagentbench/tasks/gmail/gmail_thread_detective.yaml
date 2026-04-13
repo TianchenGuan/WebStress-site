@@ -1,19 +1,15 @@
 task_id: gmail_thread_detective
 env_id: gmail
 title: Thread Detective
-instruction_template: Read the scheduling threads from {target.sender_name} to find
-  all proposed meeting times. Then find the calendar email from {target.other_sender_name}
-  that lists which times conflict with the calendar — look for the most recent one
-  if there are multiple. Reply to {target.sender_name}'s most recent scheduling thread
-  confirming the one time that does not conflict.
+instruction_template: "Read the scheduling threads from {target.sender_name} to find all proposed meeting\
+  \ times. Then find the calendar email from {target.other_sender_name} that lists which times conflict\
+  \ with the calendar \u2014 look for the most recent one if there are multiple. Reply to {target.sender_name}'s\
+  \ most recent scheduling thread confirming the one time that does not conflict."
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 30
 primary_primitives:
 - state_tracking
-- exploration
-- grounding
-- planning
 start_path: /inbox
 seed:
   distractors: 40
@@ -72,24 +68,32 @@ eval:
   checks:
   - expr: len(state.sent) == 1
     desc: Exactly one email was sent
-  - expr: >
-      any(m.to == ['{target.sender_email}']
-      and m.in_reply_to is not None
-      and m.thread_id == '{target.most_recent_thread_id}'
+  - expr: 'any(m.to == [''{target.sender_email}''] and m.in_reply_to is not None and m.thread_id == ''{target.most_recent_thread_id}''
       for m in state.sent)
+
+      '
     desc: Reply was threaded to the correct sender in the most recent scheduling thread
-  - expr: >
-      any(m.to == ['{target.sender_email}']
-      and m.in_reply_to is not None
-      and m.thread_id == '{target.most_recent_thread_id}'
-      and '{target.correct_time}' in m.body.split('\n\nOn ', 1)[0]
-      for m in state.sent)
+  - expr: 'any(m.to == [''{target.sender_email}''] and m.in_reply_to is not None and m.thread_id == ''{target.most_recent_thread_id}''
+      and ''{target.correct_time}'' in m.body.split(''\n\nOn '', 1)[0] for m in state.sent)
+
+      '
     desc: Reply contains the correct non-conflicting time in authored text
   negative_checks:
-  - expr: not any(any(t in m.body.split('\n\nOn ', 1)[0] for t in {target.wrong_times})
-      for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
+  - expr: not any(any(t in m.body.split('\n\nOn ', 1)[0] for t in {target.wrong_times}) for m in state.sent
+      if m.thread_id == '{target.most_recent_thread_id}')
     desc: Reply does not mention any conflicting times
     penalty: 0.25
   - expr: not any(len(m.to) > 1 for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
     desc: Reply was sent only to the sender (not Reply All)
     penalty: 0.2
+  - expr: not any( '{target.other_sender_email}' in m.to for m in state.sent)
+    desc: Calendar conflict email was not replied to directly
+    penalty: 0.15
+  - expr: all( m.in_reply_to is not None for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
+    desc: Confirmation was sent as an in-thread reply, not a new compose
+    penalty: 0.15
+  - expr: len([m for m in state.sent if m.thread_id == '{target.most_recent_thread_id}']) == 1
+    desc: Only one confirmation email was sent in the scheduling thread
+    penalty: 0.1
+secondary_primitives:
+- exploration

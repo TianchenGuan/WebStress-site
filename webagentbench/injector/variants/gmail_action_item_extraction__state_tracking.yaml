@@ -1,12 +1,35 @@
-variant_id: gmail_action_item_extraction__state_tracking_v1
+variant_id: gmail_action_item_extraction__state_tracking
 base_task_id: gmail_action_item_extraction
 target_primitive: state_tracking
-description: "Double the email sources and add topical noise to exhaust working memory"
+description: One real offsite thread is moved out of Inbox while a tempting consolidated summary mixes valid items with reassigned and outdated tasks. The agent must reconstruct the final action list instead of trusting the summary.
 injections:
   - layer: seed
     params:
+      action: hide_in_non_obvious_location
+      subject_contains: "Operations Track"
+      move_to_label: updates
+  - layer: seed
+    params:
+      action: add_confusing_decoys
+      decoys:
+        - from_name: Priya Rivera
+          from: priya.rivera@company.com
+          subject: Leadership Offsite Follow-up — Consolidated Action Items
+          body: |-
+            Here is the rough consolidated list I captured before everyone confirmed ownership:
+
+            - Compile customer feedback themes from the last 3 NPS surveys
+            - {target.reassigned_item}
+            - {target.adversarial_wrong_item}
+            - Review Q3 pipeline report
+
+            Please verify against the original threads before forwarding upward.
+          labels:
+            - inbox
+  - layer: seed
+    params:
       action: increase_distractors
-      count: 30
+      count: 18
       topical_count: 8
       topical_subjects:
         - "Re: Leadership offsite follow-up - additional notes"

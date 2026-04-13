@@ -1,23 +1,17 @@
----
 task_id: rh_complete_account_audit
 env_id: robinhood
 title: Complete Account Remediation
-instruction_template: 'Perform a complete account audit and fix everything you find:
-  (1) check all position quantities against your buy/sell transaction totals — for any
-  stock with a mismatch, add it to a new watchlist called "Discrepancy Review", (2)
-  delete all price alerts for stocks you no longer own, (3) remove any recurring investment
-  that has missed its scheduled execution, and (4) mark all unread notifications as
-  read.'
+instruction_template: "Perform a complete account audit and fix everything you find: (1) check all position\
+  \ quantities against your buy/sell transaction totals \u2014 for any stock with a mismatch, add it to\
+  \ a new watchlist called \"Discrepancy Review\", (2) delete all price alerts for stocks you no longer\
+  \ own, (3) remove any recurring investment that has missed its scheduled execution, and (4) mark all\
+  \ unread notifications as read."
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 35
 primary_primitives:
 - state_tracking
-- verification
-- exploration
-- patience
-- grounding
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -61,15 +55,15 @@ seed:
       unread_ratio: 0.5
     outputs: []
   targets:
-    mismatch_symbol: "{output.mismatch_symbol}"
+    mismatch_symbol: '{output.mismatch_symbol}'
     stale_symbol: NFLX
-    overdue_symbols: "{output.overdue_symbols}"
+    overdue_symbols: '{output.overdue_symbols}'
 eval:
   source: server_state
   checks:
   - expr: state.watchlist_named('Discrepancy Review') is not None
     desc: A watchlist named "Discrepancy Review" was created
-  - expr: "'{target.mismatch_symbol}' in state.watchlist_symbols('Discrepancy Review')"
+  - expr: '''{target.mismatch_symbol}'' in state.watchlist_symbols(''Discrepancy Review'')'
     desc: The seeded mismatch symbol was added to the Discrepancy Review watchlist
   - expr: len(state.stale_alert_symbols()) == 0
     desc: All price alerts for unowned stocks were removed
@@ -77,27 +71,27 @@ eval:
     desc: All overdue recurring investments were removed
   - expr: all(n.is_read for n in state.notifications)
     desc: All notifications were marked as read
-  - expr: >-
-      len([a for a in state.price_alerts
-      if a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')]) >= 1
+  - expr: len([a for a in state.price_alerts if a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_')])
+      >= 1
     desc: Price alerts for currently owned stocks were preserved (only stale alerts deleted)
   negative_checks:
-  - expr: >-
-      all(o.id.startswith('ord_decoy_') for o in state.orders)
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The audit did not place any orders
-    penalty: 0.20
+    penalty: 0.2
   - expr: len(state.transfers) == 0
     desc: The audit did not initiate any transfers
     penalty: 0.15
-  - expr: >-
-      not any(a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')
-      and a.status == 'deleted'
-      for a in state.price_alerts)
+  - expr: not any(a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_') and a.status
+      == 'deleted' for a in state.price_alerts)
     desc: Non-stale alerts for owned stocks were not deleted
-    penalty: 0.20
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, verification, exploration, patience, grounding
-  by requiring the agent to audit multiple account areas and take corrective action
-  for each issue found.
+    penalty: 0.2
+  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
+    desc: No off-task transfers were initiated
+    penalty: 0.1
+  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
+    desc: No off-task equity orders were cancelled
+    penalty: 0.1
+secondary_primitives:
+- verification
+primitive_thesis: Measures state_tracking, verification, exploration, patience, grounding by requiring
+  the agent to audit multiple account areas and take corrective action for each issue found.

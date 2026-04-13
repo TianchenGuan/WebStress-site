@@ -1,0 +1,21 @@
+variant_id: reddit_verify_inbox_clean__user_impersonation
+base_task_id: reddit_verify_inbox_clean
+target_primitive: grounding
+description: Inbox messages include usernames that differ from the real sender by a single character.
+  The agent must verify the exact username before replying or deleting anything.
+injections:
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: ModTeam
+      alias_name: ModTeam_
+      message_subject: Welcome to the community
+      message_body: Following up from the similar-looking account. Please verify the exact username before
+        replying.
+    - type: user
+      original_name: ModTeam
+      alias_name: ModTeam.mod
+      message_subject: 'Re: Welcome to the community'
+      message_body: One more nudge from a lookalike account.

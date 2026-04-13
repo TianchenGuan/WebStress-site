@@ -1,0 +1,26 @@
+variant_id: amazon_buy_highest_rated__rating_tie
+base_task_id: amazon_buy_highest_rated
+target_primitive: verification
+description: High-review lookalikes sit in the same category but trail the target by a few tenths of a
+  star. The agent must compare actual ratings, not review volume or placement.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Sports & Outdoors Pro Edition
+      brand: TopRated Picks
+      category: Sports & Outdoors
+      price: 86.39
+      rating: 4.9
+      review_count: 2400
+      description: Popular listing with strong reviews but not the true top-rated option.
+    - type: product
+      name: Sports & Outdoors Customer Favorite
+      brand: BestValue House
+      category: Sports & Outdoors
+      price: 93.59
+      rating: 4.8
+      review_count: 3100
+      description: Heavy review count can distract from the slightly lower rating.

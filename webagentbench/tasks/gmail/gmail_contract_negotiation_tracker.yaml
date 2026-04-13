@@ -1,27 +1,25 @@
 task_id: gmail_contract_negotiation_tracker
 env_id: gmail
 title: Contract Negotiation Tracker
-instruction_template: 'Over the past 2 weeks, Legal, Finance, and Product teams negotiated contract terms with vendor Lattice
-  Works across 6 email threads. Read all 6 threads to determine the status of each contract term. A term is "agreed" only
-  if the last message referencing it from each involved party accepts it. A term is "open" if any involved party''s last message
-  rejects or counters it. The 9 terms are: (1) payment schedule, (2) liability cap, (3) IP ownership, (4) termination clause,
-  (5) SLA uptime guarantee, (6) data residency, (7) audit rights, (8) renewal pricing, (9) support response time. Identify
-  the 3 terms that remain open. Compose a new email to nora.zhang@ops.thornton.com with subject "Contract Status — Lattice Works"
-  containing a section "Open items:" listing exactly the 3 open terms and for each term, which department last objected and
-  their stated concern. For each open item, quote the objecting department''s exact words from their most recent message.
-  Create a label "Lattice Works Contract" and apply it to every email in the 6 negotiation threads. Do not apply the label
-  to any other email.'
+instruction_template: "Over the past 2 weeks, Legal, Finance, and Product teams negotiated contract terms\
+  \ with vendor Lattice Works across 6 email threads. Read all 6 threads to determine the status of each\
+  \ contract term. A term is \"agreed\" only if the last message referencing it from each involved party\
+  \ accepts it. A term is \"open\" if any involved party's last message rejects or counters it. The 9\
+  \ terms are: (1) payment schedule, (2) liability cap, (3) IP ownership, (4) termination clause, (5)\
+  \ SLA uptime guarantee, (6) data residency, (7) audit rights, (8) renewal pricing, (9) support response\
+  \ time. Identify the 3 terms that remain open. Compose a new email to nora.zhang@ops.thornton.com with\
+  \ subject \"Contract Status \u2014 Lattice Works\" containing a section \"Open items:\" listing exactly\
+  \ the 3 open terms and for each term, which department last objected and their stated concern. For each\
+  \ open item, quote the objecting department's exact words from their most recent message. Create a label\
+  \ \"Lattice Works Contract\" and apply it to every email in the 6 negotiation threads. Do not apply\
+  \ the label to any other email."
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 72
 primary_primitives:
 - state_tracking
-- patience
-- verification
-- grounding
-- exploration
 secondary_primitives:
-- planning
+- patience
 start_path: /inbox
 seed:
   distractors: 40
@@ -50,7 +48,7 @@ eval:
     desc: At least one email sent
   - expr: any('nora.zhang@ops.thornton.com' in m.to for m in state.sent)
     desc: Email sent to project lead
-  - expr: any(m.subject == 'Contract Status — Lattice Works' for m in state.sent)
+  - expr: "any(m.subject == 'Contract Status \u2014 Lattice Works' for m in state.sent)"
     desc: Correct subject line
   - expr: any('Open items:' in m.body for m in state.sent)
     desc: Open items section present

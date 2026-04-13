@@ -1,20 +1,17 @@
 task_id: amazon_wishlist_stock_audit
 env_id: amazon
 title: Purchase In-Stock Wishlist Items and Remove Out-of-Stock
-instruction_template: >
-  Go to your wishlist and review all items. Check which items are currently in
-  stock. Purchase all in-stock wishlist items in a single order. Remove every
-  out-of-stock item from your wishlist.
+instruction_template: 'Go to your wishlist and review all items. Check which items are currently in stock.
+  Purchase all in-stock wishlist items in a single order. Remove every out-of-stock item from your wishlist.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 35
 primary_primitives:
 - state_tracking
-- planning
-- grounding
-- verification
 secondary_primitives:
-- exploration
+- planning
 start_path: /wishlist
 seed:
   distractors: 18
@@ -153,40 +150,46 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.in1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.in1}'' for item in o.items) for o in state.orders if not
+      o.id.startswith(''order_initial_''))
+
+      '
     desc: In-stock item 1 purchased
-  - expr: >
-      any(any(item.product_id == '{target.in2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.in2}'' for item in o.items) for o in state.orders if not
+      o.id.startswith(''order_initial_''))
+
+      '
     desc: In-stock item 2 purchased
-  - expr: >
-      any(any(item.product_id == '{target.in3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.in3}'' for item in o.items) for o in state.orders if not
+      o.id.startswith(''order_initial_''))
+
+      '
     desc: In-stock item 3 purchased
-  - expr: "'{target.out1}' not in state.wishlist"
+  - expr: '''{target.out1}'' not in state.wishlist'
     desc: Out-of-stock item 1 removed from wishlist
-  - expr: "'{target.out2}' not in state.wishlist"
+  - expr: '''{target.out2}'' not in state.wishlist'
     desc: Out-of-stock item 2 removed from wishlist
-  - expr: "'{target.out3}' not in state.wishlist"
+  - expr: '''{target.out3}'' not in state.wishlist'
     desc: Out-of-stock item 3 removed from wishlist
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.out1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.out1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Out-of-stock item 1 was not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.out2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.out2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Out-of-stock item 2 was not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.out3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.out3}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Out-of-stock item 3 was not purchased
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1

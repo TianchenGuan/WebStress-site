@@ -43,6 +43,7 @@ if _REAL_PRODUCTS_PATH.exists():
 
 _TEMPLATE_RE = re.compile(r"\{(actor|output)\.([^}]+)\}")
 _EXACT_REF_RE = re.compile(r"^\{(actor|output)\.([^}]+)\}$")
+_MISSING_OUTPUT = object()
 
 # Product generation data used by both the catalog builder and distractors.
 _CATEGORIES: dict[str, dict[str, Any]] = {
@@ -272,7 +273,7 @@ class AmazonSeedRunner:
                     result=result,
                     result_keys=result_keys,
                 )
-                if resolved is None:
+                if resolved is _MISSING_OUTPUT:
                     available = ", ".join(result_keys) if result_keys else "<none>"
                     raise KeyError(
                         f"Builder '{builder_name}' for task {task_id} did not produce "
@@ -289,10 +290,10 @@ class AmazonSeedRunner:
         declared_outputs: list[str],
         result: dict[str, Any],
         result_keys: list[str],
-    ) -> Any | None:
+    ) -> Any:
         """Best-effort mapping from a requested alias to a canonical output."""
         if not result_keys:
-            return None
+            return _MISSING_OUTPUT
 
         # If the builder returns a single value, any declared alias refers to it.
         if len(result_keys) == 1:
@@ -314,7 +315,7 @@ class AmazonSeedRunner:
         if len(candidates) == 1:
             return result[candidates[0]]
 
-        return None
+        return _MISSING_OUTPUT
 
     # ------------------------------------------------------------------
     # Base state skeleton

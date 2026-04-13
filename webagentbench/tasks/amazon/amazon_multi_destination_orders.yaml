@@ -1,11 +1,10 @@
 task_id: amazon_multi_destination_orders
 env_id: amazon
 title: Add Address and Place Two Orders to Different Destinations
-instruction_template: 'First, add a new shipping address: {target.new_name}, {target.new_street},
-  {target.new_city}, OR {target.new_zip}. Then search for ''{target.product_1}'' and
-  purchase it, shipping to the new {target.new_city} address. After that order is
-  placed, search for ''{target.product_2}'' and purchase it using an existing address
-  on file (not the {target.new_city} address).
+instruction_template: 'First, add a new shipping address: {target.new_name}, {target.new_street}, {target.new_city},
+  OR {target.new_zip}. Then search for ''{target.product_1}'' and purchase it, shipping to the new {target.new_city}
+  address. After that order is placed, search for ''{target.product_2}'' and purchase it using an existing
+  address on file (not the {target.new_city} address).
 
   '
 difficulty: expert
@@ -13,11 +12,8 @@ time_limit_seconds: 420
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
+- state_tracking
 start_path: /
 seed:
   distractors: 20
@@ -88,60 +84,59 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(a.full_name == ''Sam Rivera'' and ''742 Maple'' in a.street_address
-      and a.city == ''Portland'' and a.state == ''OR'' and a.zip_code == ''97201''
-      for a in state.addresses)
+  - expr: 'any(a.full_name == ''Sam Rivera'' and ''742 Maple'' in a.street_address and a.city == ''Portland''
+      and a.state == ''OR'' and a.zip_code == ''97201'' for a in state.addresses)
 
       '
     desc: New address was added correctly
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
-      >= 2
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')) >= 2
 
       '
     desc: At least 2 new orders placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_dest1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id_dest1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
 
       '
     desc: Product 1 was ordered
-  - expr: 'any(any(item.product_id == ''{target.product_id_dest2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id_dest2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
 
       '
     desc: Product 2 was ordered
-  - expr: 'any(o.shipping_address_id == next(a.id for a in state.addresses if a.city
-      == ''Portland'' and a.full_name == ''Sam Rivera'') for o in state.orders if
-      not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest1}''
-      for item in o.items))
+  - expr: 'any(o.shipping_address_id == next(a.id for a in state.addresses if a.city == ''Portland'' and
+      a.full_name == ''Sam Rivera'') for o in state.orders if not o.id.startswith(''order_initial_'')
+      and any(item.product_id == ''{target.product_id_dest1}'' for item in o.items))
 
       '
     desc: Product 1 shipped to Portland address
-  - expr: 'any(o.shipping_address_id != next((a.id for a in state.addresses if a.city
-      == ''Portland'' and a.full_name == ''Sam Rivera''), '''') for o in state.orders
-      if not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest2}''
-      for item in o.items))
+  - expr: 'any(o.shipping_address_id != next((a.id for a in state.addresses if a.city == ''Portland''
+      and a.full_name == ''Sam Rivera''), '''') for o in state.orders if not o.id.startswith(''order_initial_'')
+      and any(item.product_id == ''{target.product_id_dest2}'' for item in o.items))
 
       '
     desc: Product 2 shipped to a different address
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   negative_checks:
-  - expr: 'not any(any(item.product_id == ''{target.product_id_dest1}'' for item in
-      o.items) and any(item.product_id == ''{target.product_id_dest2}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'not any(any(item.product_id == ''{target.product_id_dest1}'' for item in o.items) and any(item.product_id
+      == ''{target.product_id_dest2}'' for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
 
       '
     desc: Products are in separate orders, not combined
     penalty: 0.2
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
-      <= 2
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')) <= 2
 
       '
     desc: No more than 2 new orders placed
     penalty: 0.1
-  - expr: 'not any(a.full_name == ''Sam Rivera'' and a.city != ''Portland'' for a
-      in state.addresses)
+  - expr: 'not any(a.full_name == ''Sam Rivera'' and a.city != ''Portland'' for a in state.addresses)
 
       '
     desc: New address city is correctly Portland
+    penalty: 0.1
+  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
+    desc: No off-task returns were opened or updated
+    penalty: 0.1
+  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
     penalty: 0.1

@@ -1,0 +1,17 @@
+variant_id: booking_review_two_stays__review_shadow_v2
+base_task_id: booking_review_two_stays
+target_primitive: state_tracking
+description: Completed stays include a sibling property with a very similar name and score. The agent
+  must review the exact completed stay named in the task, not the shadow stay.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: reservation
+      property_name: Hotel Negresco Annex
+      check_in: '2025-11-12'
+      check_out: '2025-11-15'
+      status: completed
+      guests: 2
+      booked_days_ago: 120

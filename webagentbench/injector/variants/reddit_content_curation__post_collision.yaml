@@ -1,0 +1,31 @@
+variant_id: reddit_content_curation__post_collision
+base_task_id: reddit_content_curation
+target_primitive: grounding
+description: Feed and search results include near-duplicate posts with overlapping titles across similar
+  communities. The agent must engage with the exact target thread rather than the twin.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: post
+      subreddit: technology
+      title: Interesting discussion thread [Update]
+      author: lookalike_helper
+      score: 205
+      comments: 33
+      is_saved: false
+      body: Follow-up thread with overlapping keywords but not the task target.
+    - type: subreddit
+      name: technology_
+      display_name: r/technology_
+      description: Twin community used for crossposts.
+      subscribers: 66000
+    - type: post
+      subreddit: technology_
+      title: Interesting discussion thread
+      author: crosspost_helper
+      score: 178
+      comments: 12
+      is_saved: false
+      body: Same title in a different, lookalike community.

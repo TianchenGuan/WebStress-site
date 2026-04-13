@@ -1,13 +1,11 @@
 task_id: booking_multi_constraint_search_book
 env_id: booking
 title: Multi-Constraint Hotel Search and Deluxe Room Booking
-instruction_template: 'Search for hotels in London that meet ALL of the following
-  criteria: at least 4 stars, has a pool, under $300 per night, offers free cancellation,
-  includes breakfast, and is within 2 km of the city center. Among the results, find
-  the hotel with the highest review score. Book its "Deluxe Double Room" for 2 guests
-  checking in on 2026-06-15 and checking out on 2026-06-19 (4 nights). Use the default
-  Visa payment method (ending in 4242) and enter your name and email from your account
-  profile.
+instruction_template: 'Search for hotels in London that meet ALL of the following criteria: at least 4
+  stars, has a pool, under $300 per night, offers free cancellation, includes breakfast, and is within
+  2 km of the city center. Among the results, find the hotel with the highest review score. Book its "Deluxe
+  Double Room" for 2 guests checking in on 2026-06-15 and checking out on 2026-06-19 (4 nights). Use the
+  default Visa payment method (ending in 4242) and enter your name and email from your account profile.
 
   '
 difficulty: hard
@@ -15,11 +13,8 @@ time_limit_seconds: 360
 expected_steps: 22
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- grounding
-- exploration
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -176,34 +171,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.status == 'confirmed'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Reservation created for the correct property (The Kensington Grand)
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
-      \ == 'Deluxe Double Room'\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name == 'Deluxe Double Room'\n\
+      \  for r in state.reservations\n)\n"
     desc: Booked the Deluxe Double Room specifically
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-06-15'\
-      \ and\n  r.check_out == '2026-06-19'\n  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.check_in == '2026-06-15' and\n  r.check_out\
+      \ == '2026-06-19'\n  for r in state.reservations\n)\n"
     desc: Reservation has correct check-in and check-out dates
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.guests == 2\n  for r in state.reservations\n\
+      )\n"
     desc: Reservation has correct guest count of 2
-  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.nights == 4\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.property_id}' and\n  r.nights == 4\n  for r in state.reservations\n\
+      )\n"
     desc: Reservation is for 4 nights
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id')\
-      \ != '{target.property_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and e.payload.get('property_id') != '{target.property_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: No reservation was made for a wrong property
     penalty: 0.4
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name\
-      \ == 'Standard Double Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "not any(\n  r.property_id == '{target.property_id}' and\n  r.room_type_name == 'Standard Double\
+      \ Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the Standard room instead of Deluxe
     penalty: 0.3
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action.startswith('saved_list.') for e in state.audit_log)
+    desc: No off-task saved-list mutations were made
+    penalty: 0.1

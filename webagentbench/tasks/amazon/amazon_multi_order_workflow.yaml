@@ -1,21 +1,17 @@
 task_id: amazon_multi_order_workflow
 env_id: amazon
 title: Place Two Separate Category Orders
-instruction_template: >
-  Place two separate orders. Order 1 should contain the electronics items
-  "{target.elec1_name}" and "{target.elec2_name}". Order 2 should contain the
-  books "{target.book1_name}" and "{target.book2_name}". Use the shipping
-  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending
-  in 4242 for both orders. Make sure these are two distinct
-  orders, not one combined order.
+instruction_template: 'Place two separate orders. Order 1 should contain the electronics items "{target.elec1_name}"
+  and "{target.elec2_name}". Order 2 should contain the books "{target.book1_name}" and "{target.book2_name}".
+  Use the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242
+  for both orders. Make sure these are two distinct orders, not one combined order.
+
+  '
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 start_path: /
 seed:
   distractors: 18
@@ -121,24 +117,30 @@ eval:
   checks:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >= 2
     desc: At least two new orders were placed
-  - expr: >
-      any(any(item.product_id == '{target.elec1_id}' for item in order.items)
-      and any(item.product_id == '{target.elec2_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.elec1_id}'' for item in order.items) and any(item.product_id
+      == ''{target.elec2_id}'' for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: One order contains both electronics items
-  - expr: >
-      any(any(item.product_id == '{target.book1_id}' for item in order.items)
-      and any(item.product_id == '{target.book2_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.book1_id}'' for item in order.items) and any(item.product_id
+      == ''{target.book2_id}'' for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: One order contains both books
-  - expr: >
-      not any(
-      (any(item.product_id == '{target.elec1_id}' for item in order.items) or
-      any(item.product_id == '{target.elec2_id}' for item in order.items)) and
-      (any(item.product_id == '{target.book1_id}' for item in order.items) or
-      any(item.product_id == '{target.book2_id}' for item in order.items))
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'not any( (any(item.product_id == ''{target.elec1_id}'' for item in order.items) or any(item.product_id
+      == ''{target.elec2_id}'' for item in order.items)) and (any(item.product_id == ''{target.book1_id}''
+      for item in order.items) or any(item.product_id == ''{target.book2_id}'' for item in order.items))
+      for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: No order contains both electronics and books items
+  - expr: "all( any(\n  addr.id == order.shipping_address_id\n  and addr.full_name == 'Jordan Parker'\n\
+      \  and addr.street_address == '742 Evergreen Terrace'\n  for addr in state.addresses\n) for order\
+      \ in state.orders if not order.id.startswith('order_initial_'))\n"
+    desc: Both new orders use Jordan Parker's shipping address
+  - expr: "all( any(\n  pm.id == order.payment_method_id\n  and pm.card_type == 'Visa'\n  and pm.last_four\
+      \ == '4242'\n  for pm in state.payment_methods\n) for order in state.orders if not order.id.startswith('order_initial_'))\n"
+    desc: Both new orders use the required Visa card ending in 4242
   negative_checks:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 2
     desc: No more than 2 new orders placed
@@ -146,3 +148,15 @@ eval:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after both checkouts
     penalty: 0.1
+  - expr: 'not any( any(item.product_id not in [''{target.elec1_id}'', ''{target.elec2_id}'', ''{target.book1_id}'',
+      ''{target.book2_id}''] for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: No unrelated products were purchased in either order
+    penalty: 0.2
+  - expr: "not any( e.action in [\n  'amazon.address.add',\n  'amazon.address.update',\n  'amazon.address.remove',\n\
+      \  'amazon.payment.add',\n  'amazon.payment.remove'\n] for e in state.audit_log)"
+    desc: Existing address and payment details were reused without unnecessary account changes
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

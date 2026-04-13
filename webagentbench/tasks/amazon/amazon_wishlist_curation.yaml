@@ -1,23 +1,19 @@
 task_id: amazon_wishlist_curation
 env_id: amazon
 title: Curate Wishlist and Buy Remaining Items
-instruction_template: >
-  Curate your wishlist by adding 5 products from different categories, then
-  optimize it. Add "{target.prod1_name}" (Electronics, ${target.prod1_price}),
-  "{target.prod2_name}" (Books, ${target.prod2_price}),
-  "{target.prod3_name}" (Home & Kitchen, ${target.prod3_price}),
-  "{target.prod4_name}" (Sports & Outdoors, ${target.prod4_price}), and
-  "{target.prod5_name}" (Office Supplies, ${target.prod5_price}) to your
-  wishlist. Then remove the 2 most expensive items from the wishlist. Finally,
-  buy the remaining 3 items using the shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'Curate your wishlist by adding 5 products from different categories, then optimize
+  it. Add "{target.prod1_name}" (Electronics, ${target.prod1_price}), "{target.prod2_name}" (Books, ${target.prod2_price}),
+  "{target.prod3_name}" (Home & Kitchen, ${target.prod3_price}), "{target.prod4_name}" (Sports & Outdoors,
+  ${target.prod4_price}), and "{target.prod5_name}" (Office Supplies, ${target.prod5_price}) to your wishlist.
+  Then remove the 2 most expensive items from the wishlist. Finally, buy the remaining 3 items using the
+  shipping address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+
+  '
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- exploration
 start_path: /
 seed:
   distractors: 17
@@ -148,25 +144,30 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: >
-      any(any(item.product_id == '{target.prod2_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.prod2_id}'' for item in order.items) for order in state.orders
+      if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Atomic Habits (cheapest) was purchased
-  - expr: >
-      any(any(item.product_id == '{target.prod4_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.prod4_id}'' for item in order.items) for order in state.orders
+      if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Foam Roller Recovery Set was purchased
-  - expr: >
-      any(any(item.product_id == '{target.prod5_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.prod5_id}'' for item in order.items) for order in state.orders
+      if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Desk Organizer Bamboo was purchased
-  - expr: >
-      not any(any(item.product_id == '{target.prod1_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.prod1_id}'' for item in order.items) for order in
+      state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Smart Watch (expensive) was NOT purchased
-  - expr: >
-      not any(any(item.product_id == '{target.prod3_id}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.prod3_id}'' for item in order.items) for order in
+      state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Air Purifier (most expensive) was NOT purchased
   negative_checks:
   - expr: len(state.cart_items) == 0
@@ -175,9 +176,33 @@ eval:
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: All remaining items purchased in a single new order
     penalty: 0.15
-  - expr: >
-      len([pid for pid in state.wishlist]) >= 2 or
-      any('{target.prod1_id}' == pid for pid in state.wishlist) or
-      any('{target.prod3_id}' == pid for pid in state.wishlist)
+  - expr: 'len([pid for pid in state.wishlist]) >= 2 or any(''{target.prod1_id}'' == pid for pid in state.wishlist)
+      or any(''{target.prod3_id}'' == pid for pid in state.wishlist)
+
+      '
     desc: Expensive items remain on wishlist (wishlist was used in the workflow)
     penalty: 0.2
+  - expr: "not any(\n  any(item.product_id not in ['{target.prod2_id}', '{target.prod4_id}', '{target.prod5_id}']\
+      \ for item in order.items)\n  for order in state.orders if not order.id.startswith('order_initial_')\n\
+      )"
+    desc: Only the three kept wishlist items were purchased
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.wishlist.add') == 5
+    desc: Exactly five products were added to the wishlist before curation
+    penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.wishlist.remove') == 2
+    desc: Exactly two wishlist removals were used for the expensive items
+    penalty: 0.1
+  - expr: "not any(\n  e.action == 'amazon.wishlist.remove'\n  and e.payload.get('product_id') not in\
+      \ ['{target.prod1_id}', '{target.prod3_id}']\n  for e in state.audit_log\n)"
+    desc: Only the two expensive wishlist items were removed
+    penalty: 0.15
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
+    desc: The final purchase was completed in one checkout
+    penalty: 0.1
+  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n    'amazon.address.remove',\n\
+      \    'amazon.payment.add',\n    'amazon.payment.remove'\n  ]\n  for e in state.audit_log\n)"
+    desc: No address or payment profile edits were needed during wishlist curation
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

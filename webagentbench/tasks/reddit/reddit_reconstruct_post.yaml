@@ -1,0 +1,118 @@
+task_id: reddit_reconstruct_post
+env_id: reddit
+title: Resubmit Removed Post with Correct Flair
+instruction_template: 'Your post "{target.original_title}" in r/{target.sub} was removed by moderators
+  for missing flair. The content is preserved in your profile. Resubmit it in the same subreddit with
+  the same title and body, but this time add the "{target.required_flair}" flair. Also add "[Resubmitted]"
+  at the start of the body.
+
+  '
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 22
+primary_primitives:
+- exploration
+secondary_primitives:
+- grounding
+start_path: /feed
+seed:
+  distractors: 8
+  actors: {}
+  steps:
+  - use: subscription_state
+    params:
+      subscribe:
+      - datascience
+    outputs:
+    - subscriptions
+  - use: owner_post
+    params:
+      subreddit: datascience
+      title: Comparison of XGBoost vs LightGBM on tabular benchmarks
+      body: I ran both libraries on 12 Kaggle datasets with default hyperparameters. LightGBM was faster
+        in 10 out of 12 cases, but XGBoost had slightly better AUC on 7 datasets. Full results and code
+        in the comments.
+      score: 1540
+    outputs:
+    - original_post_id
+    - original_post_title
+  - use: target_notification
+    params:
+      type: mod_removal
+      title: Post removed from r/datascience
+      body: Your post 'Comparison of XGBoost vs LightGBM on tabular benchmarks' was removed because it
+        is missing a required flair. Please resubmit with the appropriate flair.
+      is_read: false
+      subreddit_name: datascience
+    outputs:
+    - removal_notif_id
+  - use: filler_posts
+    params:
+      subreddit: datascience
+      count: 6
+      score_range:
+      - 100
+      - 5000
+      age_range_hours:
+      - 1
+      - 168
+    outputs:
+    - filler_post_ids
+  targets:
+    original_title: '{output.original_post_title}'
+    original_post_id: '{output.original_post_id}'
+    sub: datascience
+    required_flair: Discussion
+    original_body: I ran both libraries on 12 Kaggle datasets with default hyperparameters. LightGBM was
+      faster in 10 out of 12 cases, but XGBoost had slightly better AUC on 7 datasets. Full results and
+      code in the comments.
+eval:
+  source: server_state
+  checks:
+  - expr: 'any(p.subreddit_name == ''datascience'' and p.title == "Comparison of XGBoost vs LightGBM on
+      tabular benchmarks" and p.author_name == state.owner_username and p.id != ''{target.original_post_id}''
+      for p in state.posts)
+
+      '
+    desc: A new post exists in r/datascience with the correct title
+  - expr: 'any(p.subreddit_name == ''datascience'' and p.author_name == state.owner_username and p.id
+      != ''{target.original_post_id}'' and p.body.startswith(''[Resubmitted]'') for p in state.posts)
+
+      '
+    desc: New post body starts with "[Resubmitted]"
+  - expr: 'any(p.subreddit_name == ''datascience'' and p.author_name == state.owner_username and p.id
+      != ''{target.original_post_id}'' and p.flair_text == ''Discussion'' for p in state.posts)
+
+      '
+    desc: New post has the correct "Discussion" flair
+  - expr: 'any(p.subreddit_name == ''datascience'' and p.author_name == state.owner_username and p.id
+      != ''{target.original_post_id}'' and ''{target.original_body}'' in p.body for p in state.posts)
+
+      '
+    desc: New post body preserves the original content
+  negative_checks:
+  - expr: 'not any(p.author_name == state.owner_username and p.id != ''{target.original_post_id}'' and
+      p.subreddit_name != ''datascience'' for p in state.posts)
+
+      '
+    desc: Post was not submitted to a wrong subreddit
+    penalty: 0.3
+  - expr: 'not any(p.author_name == state.owner_username and p.id != ''{target.original_post_id}'' and
+      p.flair_text is not None and p.flair_text != ''Discussion'' for p in state.posts)
+
+      '
+    desc: Post does not have a wrong flair
+    penalty: 0.2
+  - expr: 'not any(p.author_name == state.owner_username and p.id != ''{target.original_post_id}'' and
+      ''LightGBM'' not in p.body for p in state.posts)
+
+      '
+    desc: Original post content was not lost
+    penalty: 0.3
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.create') == 1
+    desc: Exactly one resubmission post was created
+    penalty: 0.15
+  - expr: "not any(\n  e.action in ['reddit.comment.create', 'reddit.message.send', 'reddit.user.block']\n\
+      \  for e in state.audit_log)"
+    desc: Resubmission task did not mutate unrelated comment, message, or blocking surfaces
+    penalty: 0.1

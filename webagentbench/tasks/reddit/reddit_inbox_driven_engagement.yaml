@@ -23,11 +23,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- exploration
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -131,6 +126,7 @@ seed:
     ra: DeepDiver
     rh: code coverage
     rt: Coverage diff is the key insight.
+    r_id: '{output.r_id}'
     reply_id: '{output.reply_id}'
     r_from: '{output.r_from}'
     r_sub: '{output.r_sub_msg}'
@@ -157,24 +153,50 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: state.settings.theme == 'dark'
-    desc: Theme dark
   - expr: state.unread_notification_count() == 0
     desc: Notifications read
+  - expr: state.unread_message_count() == 0
+    desc: Messages read
+  - expr: 'any(m.to_user == ''{target.r_from}'' and m.subject == ''Re: {target.r_sub}'' and m.body ==
+      ''{target.r_body}'' for m in state.sent_messages)'
+    desc: Inbox reply sent with the exact required subject and body
+  - expr: not any(m.id == '{target.del_id}' for m in state.messages)
+    desc: Spam message deleted
+  - expr: state.get_post('{target.wn_id}').vote_direction == 1
+    desc: Worldnews post upvoted
+  - expr: '''{target.wn_id}'' in state.saved_post_ids'
+    desc: Worldnews post saved
+  - expr: any(c.post_id == '{target.prog_id}' and c.body == '{target.c2}' and c.author_name == state.owner_username
+      for c in state.comments)
+    desc: Exact programming comment posted
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
-    desc: Joined ML
+    desc: Joined r/MachineLearning
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.body ==
+      '{target.post_body}' and p.author_name == state.owner_username for p in state.posts)
+    desc: Exact MachineLearning post created
+  - expr: state.settings.theme == 'dark'
+    desc: Theme dark
+  - expr: state.settings.default_feed_sort == 'new'
+    desc: Feed sort set to new
+  - expr: not state.settings.email_messages
+    desc: Message emails disabled
   negative_checks:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 6
-    desc: No excessive messages sent
+  - expr: state.get_message('{target.r_id}') is not None
+    desc: The collaboration message was not deleted by mistake
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
-    desc: No excessive posts created
+  - expr: len(state.sent_messages) <= 3
+    desc: No extra messages sent beyond the required reply
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 4
+    desc: No extra posts created beyond the required MachineLearning post
     penalty: 0.15
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- state_tracking

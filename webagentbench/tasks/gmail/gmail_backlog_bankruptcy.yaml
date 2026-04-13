@@ -1,17 +1,18 @@
 task_id: gmail_backlog_bankruptcy
 env_id: gmail
 title: Process 2-week email backlog with multi-rule triage and delegation
-instruction_template: 'You are returning from 2 weeks away. Process your entire inbox according to these rules, applied in
-  this priority order (higher priority rules take precedence):
+instruction_template: 'You are returning from 2 weeks away. Process your entire inbox according to these
+  rules, applied in this priority order (higher priority rules take precedence):
 
 
-  RULE 1 -- SPAM DELETION: A reference email from it-admin@thornton.com with subject "Blocked Sender Domains" lists 5 blocked
-  domains: dailyoffers.net, prizecentral.net, phish-alerts.thornton.com, adreach.net, worldrewards.net. Delete all emails where the
-  From-address domain matches any of these 5 domains.
+  RULE 1 -- SPAM DELETION: A reference email from it-admin@thornton.com with subject "Blocked Sender Domains"
+  lists 5 blocked domains: dailyoffers.net, prizecentral.net, phish-alerts.thornton.com, adreach.net,
+  worldrewards.net. Delete all emails where the From-address domain matches any of these 5 domains.
 
 
-  RULE 2 -- ESCALATION FORWARDING: A handoff email from backup@thornton.com with subject "Handoff Notes -- Your Escalations"
-  identifies exactly 3 threads by their subject lines and assigns a delegate for each:
+  RULE 2 -- ESCALATION FORWARDING: A handoff email from backup@thornton.com with subject "Handoff Notes
+  -- Your Escalations" identifies exactly 3 threads by their subject lines and assigns a delegate for
+  each:
 
   - Thread "Datacenter Migration Blockers" -> forward to infra-lead@thornton.com
 
@@ -28,19 +29,20 @@ instruction_template: 'You are returning from 2 weeks away. Process your entire 
 
   - From: mentor@stanford.edu, subject contains "Catching up"
 
-  Reply to each with exactly this text: "Thanks for reaching out! I''m back in the office as of today. Let''s connect this
-  week."
+  Reply to each with exactly this text: "Thanks for reaching out! I''m back in the office as of today.
+  Let''s connect this week."
 
 
   RULE 4 -- ACTION ITEMS: Star and add label ''Action Item'' to all emails where:
 
   - You are in the TO field (not CC), AND
 
-  - The subject contains one of these keywords: ''review'', ''approve'', ''sign'', ''deadline'' (case-insensitive match).
+  - The subject contains one of these keywords: ''review'', ''approve'', ''sign'', ''deadline'' (case-insensitive
+  match).
 
 
-  RULE 5 -- FYI ARCHIVE: Archive all emails where you are in the CC field (not TO) and the email has not been acted on by
-  a higher-priority rule.
+  RULE 5 -- FYI ARCHIVE: Archive all emails where you are in the CC field (not TO) and the email has not
+  been acted on by a higher-priority rule.
 
 
   Note: if an email has you in both the TO and CC fields, treat it as a TO email for rule-matching purposes.
@@ -55,19 +57,15 @@ instruction_template: 'You are returning from 2 weeks away. Process your entire 
   - Filter B: subject contains ''review'' -> star and add label ''Action Item''.
 
 
-  Do NOT act on the two reference emails (blocklist and handoff) or any email that does not match any rule. Leave unmatched
-  emails in inbox as-is.'
+  Do NOT act on the two reference emails (blocklist and handoff) or any email that does not match any
+  rule. Leave unmatched emails in inbox as-is.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 85
 primary_primitives:
 - patience
-- planning
-- state_tracking
-- grounding
 secondary_primitives:
-- exploration
-- verification
+- planning
 start_path: /inbox
 seed:
   distractors: 0
@@ -112,17 +110,23 @@ eval:
   checks:
   - expr: all(state.get_email(eid).deleted for eid in {target.spam_ids})
     desc: All 8 spam emails deleted
-  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[0] and 'infra-lead@thornton.com' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[0] and 'infra-lead@thornton.com' in m.to
+      for m in state.sent)
     desc: Datacenter Migration thread forwarded to infra-lead
-  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[1] and 'cfo-office@thornton.com' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[1] and 'cfo-office@thornton.com' in m.to
+      for m in state.sent)
     desc: Q2 Revenue thread forwarded to cfo-office
-  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[2] and 'support-mgr@thornton.com' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == {target.escalation_fwd_ids}[2] and 'support-mgr@thornton.com' in
+      m.to for m in state.sent)
     desc: Customer Complaint thread forwarded to support-mgr
-  - expr: any(m.in_reply_to == '{target.personal_friend_id}' and 'back in the office' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.personal_friend_id}' and 'back in the office' in m.body for m
+      in state.sent)
     desc: Reply sent to friend with canned text
-  - expr: any(m.in_reply_to == '{target.personal_mentor_id}' and 'back in the office' in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.personal_mentor_id}' and 'back in the office' in m.body for m
+      in state.sent)
     desc: Reply sent to mentor with canned text
-  - expr: all(state.get_email(eid).is_starred and 'Action Item' in state.get_email(eid).labels for eid in {target.action_item_ids})
+  - expr: all(state.get_email(eid).is_starred and 'Action Item' in state.get_email(eid).labels for eid
+      in {target.action_item_ids})
     desc: All 7 action-item emails starred and labeled
   - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.fyi_ids})
     desc: All 15 FYI emails archived

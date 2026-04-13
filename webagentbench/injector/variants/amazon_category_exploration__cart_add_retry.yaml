@@ -1,0 +1,17 @@
+variant_id: amazon_category_exploration__cart_add_retry
+base_task_id: amazon_category_exploration
+target_primitive: backtracking
+description: The first cart mutation fails transiently. The agent must notice the cart did not update
+  and retry the add workflow.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary write failure. Retry the action.
+    behavior:
+      mode: once

@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+from webagentbench.backend.models.gmail import Email
 from webagentbench.tasks._seed_builders import SeedContext, _register
 
 
@@ -661,4 +662,619 @@ def build_cross_functional_distribution(ctx: SeedContext, params: dict[str, Any]
         "action_items_section_text": action_items_section_text,
         "decoy_email_id": decoy_msg.id,
         "eng_team_email": eng_team_email,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gmail: Verify Inbox Clean (NO-OP archetype)
+# ---------------------------------------------------------------------------
+
+@_register("verify_inbox_clean")
+def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Create 6 emails from a VIP sender — ALL already read with replies in
+    state.sent.  Also create 4 decoy unread emails from other senders.
+    Tests whether the agent correctly determines no VIP emails need replies."""
+
+    vip_name = "Catherine Morales"
+    vip_email = "catherine.morales@partnergroup.com"
+
+    # --- 6 VIP emails, all read, all replied ---
+    vip_thread_ids: list[str] = []
+    vip_email_ids: list[str] = []
+    subjects = [
+        "Partnership agreement draft",
+        "Follow-up on Q2 deliverables",
+        "Meeting notes from Tuesday",
+        "Updated timeline for rollout",
+        "Budget allocation questions",
+        "Vendor intro — Apex Solutions",
+    ]
+    for i, subj in enumerate(subjects):
+        tid = ctx.next_id("thread")
+        vip_thread_ids.append(tid)
+        msg = ctx.email(
+            from_name=vip_name,
+            from_addr=vip_email,
+            subject=subj,
+            body=ctx.format_email_body(
+                f"Hi, just wanted to touch base on {subj.lower()}.",
+                "Please let me know your thoughts when you have a moment.",
+                signoff_name="Catherine",
+            ),
+            timestamp=ctx.now - timedelta(hours=24 + i * 3),
+            thread_id=tid,
+            labels=["inbox"],
+            is_read=True,
+        )
+        ctx.base["emails"].append(msg)
+        vip_email_ids.append(msg.id)
+
+        # Create a reply in state.sent for each VIP email
+        reply = Email(
+            id=ctx.next_id("email"),
+            from_name=ctx.owner_name,
+            from_addr=ctx.owner_email,
+            to=[vip_email],
+            cc=[],
+            subject=f"Re: {subj}",
+            body=ctx.format_email_body(
+                f"Thanks for sending this over, Catherine. I've reviewed it.",
+                "I'll follow up if anything else comes up.",
+                signoff_name=ctx.first_name(ctx.owner_name),
+            ),
+            timestamp=ctx.now - timedelta(hours=20 + i * 3),
+            is_read=True,
+            labels=["sent"],
+            thread_id=tid,
+            in_reply_to=msg.id,
+            attachments=[],
+        )
+        ctx.base["sent"].append(reply)
+
+    # --- 4 decoy unread emails from OTHER senders (NOT from VIP) ---
+    decoy_senders = [
+        ("Liam Torres", "liam.torres@techfirm.io"),
+        ("Priya Anand", "priya.anand@designstudio.co"),
+        ("Oscar Petrov", "oscar.petrov@dataworks.net"),
+        ("Naomi Fletcher", "naomi.fletcher@consultants.biz"),
+    ]
+    decoy_email_ids: list[str] = []
+    for j, (dname, daddr) in enumerate(decoy_senders):
+        dtid = ctx.next_id("thread")
+        dmsg = ctx.email(
+            from_name=dname,
+            from_addr=daddr,
+            subject=f"Quick question about project {ctx.rng.choice(['Alpha', 'Beta', 'Gamma', 'Delta'])}",
+            body=ctx.format_email_body(
+                "Hi, I have a quick question regarding the latest update.",
+                "Could you review the attached notes?",
+                signoff_name=ctx.first_name(dname),
+            ),
+            timestamp=ctx.now - timedelta(hours=6 + j * 2),
+            thread_id=dtid,
+            labels=["inbox"],
+            is_read=False,
+        )
+        ctx.base["emails"].append(dmsg)
+        decoy_email_ids.append(dmsg.id)
+        ctx.ensure_contact(dname, daddr)
+
+    ctx.ensure_contact(vip_name, vip_email, is_vip=True)
+
+    # Count sent emails so eval can verify no new ones were added
+    initial_sent_count = len(ctx.base.get("sent", []))
+
+    return {
+        "vip_name": vip_name,
+        "vip_email": vip_email,
+        "total_vip_count": len(vip_email_ids),
+        "vip_email_ids": vip_email_ids,
+        "decoy_email_ids": decoy_email_ids,
+        "initial_sent_count": initial_sent_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gmail: Diagnose Missing Reply (DIAGNOSTIC archetype)
+# ---------------------------------------------------------------------------
+
+@_register("diagnose_missing_reply")
+def build_diagnose_missing_reply(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Create 4 email threads from a client — 3 with replies, 1 without.
+    Also create 10 distractor emails from other senders."""
+
+    client_name = "Marcus Chen"
+    client_email = "marcus.chen@clientcorp.com"
+
+    # --- Thread 1: 3 emails, HAS a reply ---
+    t1_id = ctx.next_id("thread")
+    t1_subj = "Re: Quarterly metrics review"
+    t1_msg1 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject="Quarterly metrics review",
+        body=ctx.format_email_body(
+            "Hi, can we go over the Q2 metrics together?",
+            "I have some questions about the conversion funnel numbers.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=5, hours=3),
+        thread_id=t1_id, labels=["inbox"], is_read=True,
+    )
+    t1_msg2 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=t1_subj,
+        body=ctx.format_email_body(
+            "Also, the retention chart on slide 7 seems off.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=5, hours=1),
+        thread_id=t1_id, labels=["inbox"], is_read=True,
+    )
+    t1_msg3 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=t1_subj,
+        body=ctx.format_email_body(
+            "Let me know when you can schedule a call.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=4, hours=23),
+        thread_id=t1_id, labels=["inbox"], is_read=True,
+    )
+    ctx.base["emails"].extend([t1_msg1, t1_msg2, t1_msg3])
+    t1_reply = Email(
+        id=ctx.next_id("email"),
+        from_name=ctx.owner_name, from_addr=ctx.owner_email,
+        to=[client_email], cc=[], subject=t1_subj,
+        body=ctx.format_email_body(
+            "Thanks Marcus, I'll set up a call for Thursday.",
+            signoff_name=ctx.first_name(ctx.owner_name),
+        ),
+        timestamp=ctx.now - timedelta(days=4, hours=20),
+        is_read=True, labels=["sent"], thread_id=t1_id,
+        in_reply_to=t1_msg3.id, attachments=[],
+    )
+    ctx.base["sent"].append(t1_reply)
+
+    # --- Thread 2: 2 emails, HAS a reply ---
+    t2_id = ctx.next_id("thread")
+    t2_subj = "Contract renewal terms"
+    t2_msg1 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=t2_subj,
+        body=ctx.format_email_body(
+            "I wanted to discuss the renewal terms for our annual contract.",
+            "The proposed rate increase seems higher than market average.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=6, hours=5),
+        thread_id=t2_id, labels=["inbox"], is_read=True,
+    )
+    t2_msg2 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=f"Re: {t2_subj}",
+        body=ctx.format_email_body(
+            "Following up — any update on the adjusted pricing?",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=5, hours=10),
+        thread_id=t2_id, labels=["inbox"], is_read=True,
+    )
+    ctx.base["emails"].extend([t2_msg1, t2_msg2])
+    t2_reply = Email(
+        id=ctx.next_id("email"),
+        from_name=ctx.owner_name, from_addr=ctx.owner_email,
+        to=[client_email], cc=[], subject=f"Re: {t2_subj}",
+        body=ctx.format_email_body(
+            "Hi Marcus, I've sent revised pricing to the finance team.",
+            signoff_name=ctx.first_name(ctx.owner_name),
+        ),
+        timestamp=ctx.now - timedelta(days=5, hours=6),
+        is_read=True, labels=["sent"], thread_id=t2_id,
+        in_reply_to=t2_msg2.id, attachments=[],
+    )
+    ctx.base["sent"].append(t2_reply)
+
+    # --- Thread 3: 1 email, NO reply (this is the target) ---
+    t3_id = ctx.next_id("thread")
+    t3_subj = "API integration timeline"
+    question_keywords = ["integration timeline", "sandbox environment", "technical documentation"]
+    t3_msg1 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=t3_subj,
+        body=ctx.format_email_body(
+            "Hi, we need to finalize the API integration timeline for the upcoming sprint.",
+            "Specifically, we need clarity on three things: "
+            "(1) When will the sandbox environment be available for our dev team? "
+            "(2) Is there updated technical documentation for the v3 endpoints? "
+            "(3) What is the expected integration timeline for full production access?",
+            "This is blocking our Q3 roadmap planning so an answer this week would be greatly appreciated.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=7, hours=2),
+        thread_id=t3_id, labels=["inbox"], is_read=True,
+    )
+    ctx.base["emails"].append(t3_msg1)
+    # NO reply for this thread — this is the unanswered one
+
+    # --- Thread 4: 3 emails, HAS a reply ---
+    t4_id = ctx.next_id("thread")
+    t4_subj = "Onboarding feedback"
+    t4_msg1 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=t4_subj,
+        body=ctx.format_email_body(
+            "Wanted to share some feedback on the onboarding flow.",
+            "The setup wizard crashed on step 3 for two of our users.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=8, hours=4),
+        thread_id=t4_id, labels=["inbox"], is_read=True,
+    )
+    t4_msg2 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=f"Re: {t4_subj}",
+        body=ctx.format_email_body(
+            "Update: the issue seems to be intermittent, not just our setup.",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=7, hours=20),
+        thread_id=t4_id, labels=["inbox"], is_read=True,
+    )
+    t4_msg3 = ctx.email(
+        from_name=client_name, from_addr=client_email,
+        subject=f"Re: {t4_subj}",
+        body=ctx.format_email_body(
+            "Were you able to reproduce the crash on your end?",
+            signoff_name="Marcus",
+        ),
+        timestamp=ctx.now - timedelta(days=7, hours=16),
+        thread_id=t4_id, labels=["inbox"], is_read=True,
+    )
+    ctx.base["emails"].extend([t4_msg1, t4_msg2, t4_msg3])
+    t4_reply = Email(
+        id=ctx.next_id("email"),
+        from_name=ctx.owner_name, from_addr=ctx.owner_email,
+        to=[client_email], cc=[], subject=f"Re: {t4_subj}",
+        body=ctx.format_email_body(
+            "Yes, we reproduced it and a fix is shipping in the next patch.",
+            signoff_name=ctx.first_name(ctx.owner_name),
+        ),
+        timestamp=ctx.now - timedelta(days=7, hours=12),
+        is_read=True, labels=["sent"], thread_id=t4_id,
+        in_reply_to=t4_msg3.id, attachments=[],
+    )
+    ctx.base["sent"].append(t4_reply)
+
+    # --- 10 distractor emails from various senders ---
+    distractor_senders = [
+        ("Elena Vasquez", "elena.vasquez@vendorx.com"),
+        ("David Kim", "david.kim@partnerco.com"),
+        ("Sophie Laurent", "sophie.laurent@agencyblue.fr"),
+        ("Rashid Patel", "rashid.patel@logistics.io"),
+        ("Hannah Brooks", "hannah.brooks@hr.internal.com"),
+        ("Tomoko Sato", "tomoko.sato@engineering.dev"),
+        ("Andre Williams", "andre.williams@sales.ops.net"),
+        ("Mei Lin", "mei.lin@finance.corp.com"),
+        ("Carlos Duarte", "carlos.duarte@support.biz"),
+        ("Fiona O'Brien", "fiona.obrien@legal.firm.com"),
+    ]
+    distractor_subjects = [
+        "Weekly standup notes",
+        "Invoice #4492 attached",
+        "Re: Office supply order",
+        "Shipping update for PO-7781",
+        "Benefits enrollment reminder",
+        "Deploy pipeline status",
+        "Q3 sales forecast draft",
+        "Expense report approval needed",
+        "Ticket #1129 escalation",
+        "NDA review — final version",
+    ]
+    for k, ((dname, daddr), dsubj) in enumerate(zip(distractor_senders, distractor_subjects)):
+        dtid = ctx.next_id("thread")
+        dmsg = ctx.email(
+            from_name=dname, from_addr=daddr,
+            subject=dsubj,
+            body=ctx.format_email_body(
+                f"Hi, please review the attached regarding {dsubj.lower()}.",
+                signoff_name=ctx.first_name(dname),
+            ),
+            timestamp=ctx.now - timedelta(hours=12 + k * 4),
+            thread_id=dtid, labels=["inbox"], is_read=bool(k % 2),
+        )
+        ctx.base["emails"].append(dmsg)
+        ctx.ensure_contact(dname, daddr)
+
+    ctx.ensure_contact(client_name, client_email)
+
+    initial_sent_count = len(ctx.base.get("sent", []))
+
+    return {
+        "client_name": client_name,
+        "client_email": client_email,
+        "unanswered_thread_id": t3_id,
+        "unanswered_subject": t3_subj,
+        "unanswered_msg_id": t3_msg1.id,
+        "question_keywords": question_keywords,
+        "thread_1_id": t1_id,
+        "thread_2_id": t2_id,
+        "thread_4_id": t4_id,
+        "initial_sent_count": initial_sent_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gmail: Recover Deleted Draft (RECOVERY archetype)
+# ---------------------------------------------------------------------------
+
+@_register("recover_deleted_draft")
+def build_recover_deleted_draft(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Create a deleted email (in trash) that was a draft to a specific
+    recipient about a specific topic. Also create 8 other trash items as noise."""
+
+    recipient_name = "Julia Fontaine"
+    recipient_email = "julia.fontaine@innovate-labs.com"
+    draft_subject = "Q3 Product Roadmap Proposal"
+    key_point_1 = "mobile SDK launch in August"
+    key_point_2 = "enterprise dashboard redesign by September"
+    key_point_3 = "API rate limit increase to 10,000 requests per minute"
+
+    # --- The important deleted draft ---
+    draft_thread_id = ctx.next_id("thread")
+    draft_msg = Email(
+        id=ctx.next_id("email"),
+        from_name=ctx.owner_name,
+        from_addr=ctx.owner_email,
+        to=[recipient_email],
+        cc=[],
+        subject=draft_subject,
+        body=ctx.format_email_body(
+            f"Hi Julia,",
+            f"Here is the Q3 product roadmap proposal as discussed.",
+            f"Key deliverables for the quarter:",
+            f"1. {key_point_1} — targeting first two weeks of August for beta",
+            f"2. {key_point_2} — wireframes are approved, dev starts in July",
+            f"3. {key_point_3} — infrastructure work is already underway",
+            "Let me know if you'd like to schedule a walkthrough of the full timeline.",
+            signoff_name=ctx.first_name(ctx.owner_name),
+        ),
+        timestamp=ctx.now - timedelta(hours=4),
+        is_read=True,
+        labels=["trash"],
+        thread_id=draft_thread_id,
+        deleted=True,
+        attachments=[],
+    )
+    ctx.base["deleted"].append(draft_msg)
+
+    # --- 8 trash noise items ---
+    trash_items = [
+        ("Newsletter Bot", "noreply@newsletter.techdigest.com",
+         "Weekly Tech Digest - March 15", "Your weekly roundup of tech news."),
+        ("Promo Team", "offers@promo.shopdeals.com",
+         "Flash Sale — 50% OFF Everything!", "Don't miss our biggest sale of the year!"),
+        ("Spam Filter", "noreply@spam-alert.net",
+         "You have 3 unclaimed rewards!", "Click here to claim your prize now."),
+        ("Old Contact", "jenny.wu@oldcompany.com",
+         "Re: Lunch next week?", "Sure, Wednesday works for me."),
+        ("Mailing List", "digest@newsletter.devweekly.io",
+         "DevWeekly Issue #214", "This week in open source: new Rust features."),
+        ("Marketing", "campaign@promo.brandx.com",
+         "Your exclusive member deal inside", "As a valued customer, we have an offer for you."),
+        ("System", "no-reply@accounts.cloudhost.com",
+         "Your monthly invoice is ready", "Your invoice for March 2026 is attached."),
+        ("Support", "support@legacy-tool.com",
+         "Ticket #8812 — Auto-closed", "This ticket was closed due to inactivity."),
+    ]
+    trash_email_ids: list[str] = []
+    for idx, (tname, taddr, tsubj, tbody) in enumerate(trash_items):
+        ttid = ctx.next_id("thread")
+        tmsg = Email(
+            id=ctx.next_id("email"),
+            from_name=tname,
+            from_addr=taddr,
+            to=[ctx.owner_email],
+            cc=[],
+            subject=tsubj,
+            body=tbody,
+            timestamp=ctx.now - timedelta(days=2 + idx, hours=idx),
+            is_read=True,
+            labels=["trash"],
+            thread_id=ttid,
+            deleted=True,
+            attachments=[],
+        )
+        ctx.base["deleted"].append(tmsg)
+        trash_email_ids.append(tmsg.id)
+
+    ctx.ensure_contact(recipient_name, recipient_email)
+
+    return {
+        "recipient_email": recipient_email,
+        "recipient_name": recipient_name,
+        "draft_subject": draft_subject,
+        "draft_email_id": draft_msg.id,
+        "key_point_1": key_point_1,
+        "key_point_2": key_point_2,
+        "key_point_3": key_point_3,
+        "trash_noise_ids": trash_email_ids,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gmail: Ambiguous Inbox Cleanup (AMBIGUOUS archetype)
+# ---------------------------------------------------------------------------
+
+@_register("ambiguous_inbox_cleanup")
+def build_ambiguous_inbox_cleanup(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Create a mixed inbox with 20+ emails across categories: newsletters,
+    project emails, manager emails (with/without deadlines), and filler."""
+
+    project_name = "Nightingale"
+    manager_name = "Rebecca Torres"
+    manager_email = "rebecca.torres@company.internal"
+
+    # --- 5 newsletters ---
+    newsletter_senders = [
+        ("TechCrunch Weekly", "digest@newsletter.techcrunch.com",
+         "TechCrunch Weekly Newsletter — AI Roundup"),
+        ("Product Hunt", "noreply@newsletter.producthunt.com",
+         "Weekly Digest: Top Products This Week"),
+        ("Design Milk", "hello@promo.designmilk.com",
+         "This week's best design deals"),
+        ("HackerNews Digest", "bot@newsletter.hn-digest.com",
+         "HN Weekly Digest — March Edition"),
+        ("SaaS Weekly", "updates@promo.saasweekly.io",
+         "SaaS Weekly: Funding Rounds & Launches"),
+    ]
+    newsletter_ids: list[str] = []
+    for n_idx, (nname, naddr, nsubj) in enumerate(newsletter_senders):
+        ntid = ctx.next_id("thread")
+        nmsg = ctx.email(
+            from_name=nname, from_addr=naddr,
+            subject=nsubj,
+            body=ctx.format_email_body(
+                f"Here's your weekly roundup from {nname}.",
+                "Click through for the full articles and more.",
+            ),
+            timestamp=ctx.now - timedelta(hours=8 + n_idx * 5),
+            thread_id=ntid, labels=["inbox"], is_read=False,
+        )
+        ctx.base["emails"].append(nmsg)
+        newsletter_ids.append(nmsg.id)
+
+    # --- 4 project emails (all mention project_name) ---
+    project_team = [
+        ("Aiden Park", "aiden.park@company.internal"),
+        ("Lisa Romero", "lisa.romero@company.internal"),
+        ("Darius Webb", "darius.webb@company.internal"),
+        ("Nina Kowalski", "nina.kowalski@company.internal"),
+    ]
+    project_subjects = [
+        f"{project_name}: Sprint 12 Retrospective Notes",
+        f"Re: {project_name} — API endpoint review",
+        f"{project_name} deployment checklist for staging",
+        f"Updated {project_name} architecture diagram",
+    ]
+    project_email_ids: list[str] = []
+    for p_idx, ((pname, paddr), psubj) in enumerate(zip(project_team, project_subjects)):
+        ptid = ctx.next_id("thread")
+        pmsg = ctx.email(
+            from_name=pname, from_addr=paddr,
+            subject=psubj,
+            body=ctx.format_email_body(
+                f"Hi team, sharing the latest update on {project_name}.",
+                f"This relates to the {project_name} project milestones we discussed.",
+                signoff_name=ctx.first_name(pname),
+            ),
+            timestamp=ctx.now - timedelta(hours=3 + p_idx * 6),
+            thread_id=ptid, labels=["inbox"], is_read=bool(p_idx % 2),
+        )
+        ctx.base["emails"].append(pmsg)
+        project_email_ids.append(pmsg.id)
+        ctx.ensure_contact(pname, paddr)
+
+    # --- 3 manager emails WITH deadlines ---
+    deadline_subjects = [
+        "Budget review — deadline Friday",
+        "Performance reviews due by April 18",
+        "Compliance training — complete by end of month",
+    ]
+    deadline_bodies = [
+        "Please finalize the budget spreadsheet. The deadline is this Friday at 5pm sharp.",
+        "Reminder: all performance reviews are due by April 18. No extensions.",
+        "Everyone must complete the compliance training by end of month. This is mandatory.",
+    ]
+    deadline_email_ids: list[str] = []
+    for d_idx, (dsubj, dbody) in enumerate(zip(deadline_subjects, deadline_bodies)):
+        dtid = ctx.next_id("thread")
+        dmsg = ctx.email(
+            from_name=manager_name, from_addr=manager_email,
+            subject=dsubj,
+            body=ctx.format_email_body(
+                dbody,
+                signoff_name="Rebecca",
+            ),
+            timestamp=ctx.now - timedelta(hours=2 + d_idx * 7),
+            thread_id=dtid, labels=["inbox"], is_read=False,
+        )
+        ctx.base["emails"].append(dmsg)
+        deadline_email_ids.append(dmsg.id)
+
+    # --- 2 manager emails WITHOUT deadlines ---
+    non_deadline_subjects = [
+        "Team lunch next Thursday",
+        "FYI — new parking policy",
+    ]
+    non_deadline_bodies = [
+        "Hi team, I've booked the Italian place for next Thursday. Let me know dietary preferences.",
+        "Just a heads up that parking spots are being reassigned. No action needed from you right now.",
+    ]
+    non_deadline_email_ids: list[str] = []
+    for nd_idx, (ndsubj, ndbody) in enumerate(zip(non_deadline_subjects, non_deadline_bodies)):
+        ndtid = ctx.next_id("thread")
+        ndmsg = ctx.email(
+            from_name=manager_name, from_addr=manager_email,
+            subject=ndsubj,
+            body=ctx.format_email_body(
+                ndbody,
+                signoff_name="Rebecca",
+            ),
+            timestamp=ctx.now - timedelta(hours=10 + nd_idx * 8),
+            thread_id=ndtid, labels=["inbox"], is_read=True,
+        )
+        ctx.base["emails"].append(ndmsg)
+        non_deadline_email_ids.append(ndmsg.id)
+
+    # --- 8 filler emails ---
+    filler_senders = [
+        ("IT Helpdesk", "helpdesk@company.internal"),
+        ("Jamal Carter", "jamal.carter@company.internal"),
+        ("Facilities", "facilities@company.internal"),
+        ("Yuki Tanaka", "yuki.tanaka@partner.co.jp"),
+        ("All-Hands Bot", "allhands@company.internal"),
+        ("Travis Morgan", "travis.morgan@vendor.io"),
+        ("Claire Dupont", "claire.dupont@consulting.eu"),
+        ("Security Team", "security@company.internal"),
+    ]
+    filler_subjects = [
+        "VPN access reset — ticket #3391",
+        "Quick sync on hiring pipeline",
+        "Building maintenance this weekend",
+        "Follow-up from Tokyo meeting",
+        "All-hands meeting recording available",
+        "Invoice #7742 for March services",
+        "Strategy deck feedback",
+        "Mandatory password rotation reminder",
+    ]
+    filler_email_ids: list[str] = []
+    for f_idx, ((fname, faddr), fsubj) in enumerate(zip(filler_senders, filler_subjects)):
+        ftid = ctx.next_id("thread")
+        fmsg = ctx.email(
+            from_name=fname, from_addr=faddr,
+            subject=fsubj,
+            body=ctx.format_email_body(
+                f"Hi, this is regarding {fsubj.lower()}.",
+                "Please review when you get a chance.",
+                signoff_name=ctx.first_name(fname),
+            ),
+            timestamp=ctx.now - timedelta(hours=5 + f_idx * 4),
+            thread_id=ftid, labels=["inbox"], is_read=bool(f_idx % 2),
+        )
+        ctx.base["emails"].append(fmsg)
+        filler_email_ids.append(fmsg.id)
+        ctx.ensure_contact(fname, faddr)
+
+    ctx.ensure_contact(manager_name, manager_email)
+
+    return {
+        "project_name": project_name,
+        "manager_email": manager_email,
+        "manager_name": manager_name,
+        "newsletter_count": len(newsletter_ids),
+        "newsletter_ids": newsletter_ids,
+        "project_email_ids": project_email_ids,
+        "deadline_email_ids": deadline_email_ids,
+        "non_deadline_email_ids": non_deadline_email_ids,
+        "filler_email_ids": filler_email_ids,
     }

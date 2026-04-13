@@ -1,19 +1,17 @@
 task_id: amazon_cart_optimization
 env_id: amazon
 title: Optimize Cart by Removing and Adjusting Items
-instruction_template: >
-  Your cart has 6 items. Remove "{target.remove_item1}" and "{target.remove_item2}"
-  from the cart, change the quantity of "{target.qty_item1}" to {target.qty1} and
-  "{target.qty_item2}" to {target.qty2}, then complete checkout using the shipping
-  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'Your cart has 6 items. Remove "{target.remove_item1}" and "{target.remove_item2}"
+  from the cart, change the quantity of "{target.qty_item1}" to {target.qty1} and "{target.qty_item2}"
+  to {target.qty2}, then complete checkout using the shipping address for Jordan Parker at 742 Evergreen
+  Terrace and the Visa card ending in 4242.
+
+  '
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 28
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- backtracking
 start_path: /cart
 seed:
   distractors: 15
@@ -55,45 +53,55 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      not any(item.product_name == '{target.remove_item1}' for item in state.cart_items)
-    desc: "{target.remove_item1} removed from cart"
-  - expr: >
-      not any(item.product_name == '{target.remove_item2}' for item in state.cart_items)
-    desc: "{target.remove_item2} removed from cart"
-  - expr: >
-      any(item.product_name == '{target.qty_item1}' and item.quantity == {target.qty1}
-      for item in state.cart_items) or any(any(item.product_name == '{target.qty_item1}'
-      and item.quantity == {target.qty1} for item in order.items) for order in state.orders if not order.id.startswith('order_initial_'))
-    desc: "{target.qty_item1} quantity changed to {target.qty1}"
-  - expr: >
-      any(item.product_name == '{target.qty_item2}' and item.quantity == {target.qty2}
-      for item in state.cart_items) or any(any(item.product_name == '{target.qty_item2}'
-      and item.quantity == {target.qty2} for item in order.items) for order in state.orders if not order.id.startswith('order_initial_'))
-    desc: "{target.qty_item2} quantity changed to {target.qty2}"
+  - expr: 'not any(item.product_name == ''{target.remove_item1}'' for item in state.cart_items)
+
+      '
+    desc: '{target.remove_item1} removed from cart'
+  - expr: 'not any(item.product_name == ''{target.remove_item2}'' for item in state.cart_items)
+
+      '
+    desc: '{target.remove_item2} removed from cart'
+  - expr: 'any(item.product_name == ''{target.qty_item1}'' and item.quantity == {target.qty1} for item
+      in state.cart_items) or any(any(item.product_name == ''{target.qty_item1}'' and item.quantity ==
+      {target.qty1} for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: '{target.qty_item1} quantity changed to {target.qty1}'
+  - expr: 'any(item.product_name == ''{target.qty_item2}'' and item.quantity == {target.qty2} for item
+      in state.cart_items) or any(any(item.product_name == ''{target.qty_item2}'' and item.quantity ==
+      {target.qty2} for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: '{target.qty_item2} quantity changed to {target.qty2}'
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: Checkout was completed
   negative_checks:
-  - expr: >
-      not any(any(item.product_name == '{target.remove_item1}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''{target.remove_item1}'' for item in order.items) for order
+      in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Removed item ({target.remove_item1}) not in any new order
     penalty: 0.2
-  - expr: >
-      not any(any(item.product_name == '{target.remove_item2}' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''{target.remove_item2}'' for item in order.items) for order
+      in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Removed item ({target.remove_item2}) not in any new order
     penalty: 0.2
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: >
-      any(any(item.product_name == 'Wireless Gaming Mouse' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Wireless Gaming Mouse'' for item in order.items) for order in
+      state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Wireless Gaming Mouse is in the final order
     penalty: 0.15
-  - expr: >
-      any(any(item.product_name == 'Cable Management Kit' for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Cable Management Kit'' for item in order.items) for order in
+      state.orders if not order.id.startswith(''order_initial_''))
+
+      '
     desc: Cable Management Kit is in the final order
     penalty: 0.15
+secondary_primitives:
+- state_tracking

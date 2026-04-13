@@ -1,33 +1,24 @@
 task_id: booking_expert_cancel_chain
 env_id: booking
 title: Cancel Three Reservations with Personalized Messages and Saved List
-instruction_template: "Cancel three specific reservations and document them:\n\
-  1. Find and cancel your reservation at \"{target.cancel_name_1}\".\n\
-  \   Send a message to the property with subject \"Cancellation - Medical\
-  \ Emergency\" and body \"I must cancel due to a family medical emergency.\
-  \ I hope to visit in the future.\"\n\
-  2. Find and cancel your reservation at \"{target.cancel_name_2}\".\n\
-  \   Send a message to the property with subject \"Cancellation - Work\
-  \ Conflict\" and body \"A mandatory work conference has been scheduled\
-  \ during my trip dates. Apologies for the inconvenience.\"\n\
-  3. Find and cancel your reservation at \"{target.cancel_name_3}\".\n\
-  \   Send a message to the property with subject \"Cancellation - Travel\
-  \ Restrictions\" and body \"Travel restrictions have been imposed for\
-  \ the region. I will rebook once they are lifted.\"\n\
-  4. Create a saved list called \"Cancelled Trips\" and add all three\
-  \ properties to it for future rebooking reference.\n\
-  5. Add a notification reminder by updating your preferences: set\
-  \ preferred_language to \"English\" (confirm it).\n"
+instruction_template: "Cancel three specific reservations and document them:\n1. Find and cancel your\
+  \ reservation at \"{target.cancel_name_1}\".\n   Send a message to the property with subject \"Cancellation\
+  \ - Medical Emergency\" and body \"I must cancel due to a family medical emergency. I hope to visit\
+  \ in the future.\"\n2. Find and cancel your reservation at \"{target.cancel_name_2}\".\n   Send a message\
+  \ to the property with subject \"Cancellation - Work Conflict\" and body \"A mandatory work conference\
+  \ has been scheduled during my trip dates. Apologies for the inconvenience.\"\n3. Find and cancel your\
+  \ reservation at \"{target.cancel_name_3}\".\n   Send a message to the property with subject \"Cancellation\
+  \ - Travel Restrictions\" and body \"Travel restrictions have been imposed for the region. I will rebook\
+  \ once they are lifted.\"\n4. Create a saved list called \"Cancelled Trips\" and add all three properties\
+  \ to it for future rebooking reference.\n5. Add a notification reminder by updating your preferences:\
+  \ set preferred_language to \"English\" (confirm it).\n"
 difficulty: expert
 time_limit_seconds: 450
 expected_steps: 35
 primary_primitives:
 - backtracking
-- state_tracking
-- planning
 secondary_primitives:
-- grounding
-- patience
+- state_tracking
 start_path: /trips
 seed:
   distractors: 12
@@ -182,40 +173,41 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(r.id == '{target.cancel_res_id_1}' and r.status == 'cancelled'\n  for\
-      \ r in state.reservations)\n"
+  - expr: "any(r.id == '{target.cancel_res_id_1}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Venice reservation cancelled
-  - expr: "any(r.id == '{target.cancel_res_id_2}' and r.status == 'cancelled'\n  for\
-      \ r in state.reservations)\n"
+  - expr: "any(r.id == '{target.cancel_res_id_2}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Istanbul reservation cancelled
-  - expr: "any(r.id == '{target.cancel_res_id_3}' and r.status == 'cancelled'\n  for\
-      \ r in state.reservations)\n"
+  - expr: "any(r.id == '{target.cancel_res_id_3}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Madeira reservation cancelled
-  - expr: "any(\n  m.property_id == '{target.cancel_id_1}' and m.sender == 'user' and\n\
-      \  'medical emergency' in m.body.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.cancel_id_1}' and m.sender == 'user' and\n  'medical emergency'\
+      \ in m.body.lower()\n  for m in state.messages\n)\n"
     desc: Medical emergency message sent to Venice property
-  - expr: "any(\n  m.property_id == '{target.cancel_id_2}' and m.sender == 'user' and\n\
-      \  'work conference' in m.body.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.cancel_id_2}' and m.sender == 'user' and\n  'work conference'\
+      \ in m.body.lower()\n  for m in state.messages\n)\n"
     desc: Work conflict message sent to Istanbul property
-  - expr: "any(\n  m.property_id == '{target.cancel_id_3}' and m.sender == 'user' and\n\
-      \  'travel restrictions' in m.body.lower()\n  for m in state.messages\n)\n"
+  - expr: "any(\n  m.property_id == '{target.cancel_id_3}' and m.sender == 'user' and\n  'travel restrictions'\
+      \ in m.body.lower()\n  for m in state.messages\n)\n"
     desc: Travel restrictions message sent to Madeira property
-  - expr: "any(\n  sl.name == 'Cancelled Trips' and\n  '{target.cancel_id_1}' in sl.property_ids\
-      \ and\n  '{target.cancel_id_2}' in sl.property_ids and\n  '{target.cancel_id_3}'\
-      \ in sl.property_ids\n  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Cancelled Trips' and\n  '{target.cancel_id_1}' in sl.property_ids and\n\
+      \  '{target.cancel_id_2}' in sl.property_ids and\n  '{target.cancel_id_3}' in sl.property_ids\n\
+      \  for sl in state.saved_lists\n)\n"
     desc: All three properties saved to 'Cancelled Trips' list
   negative_checks:
-  - expr: "not any(\n  r.id == '{target.keep_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.keep_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: London reservation was not accidentally cancelled
     penalty: 0.4
-  - expr: "sum(1 for e in state.audit_log\n  if e.action == 'reservation.cancel') ==\
-      \ 3\n"
+  - expr: "sum(1 for e in state.audit_log\n  if e.action == 'reservation.cancel') == 3\n"
     desc: Exactly 3 reservations were cancelled (not more, not fewer)
     penalty: 0.2
-  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Cancelled Trips'') <=
-      1
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Cancelled Trips'') <= 1
 
       '
     desc: Only one 'Cancelled Trips' list was created
+    penalty: 0.1
+  - expr: not any(e.action == 'review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1
+  - expr: not any(e.action.startswith('payment.') for e in state.audit_log)
+    desc: No off-task payment-method changes were made
     penalty: 0.1

@@ -1,21 +1,15 @@
----
 task_id: rh_complex_transfer_reconciliation
 env_id: robinhood
 title: Account Cleanup and Fresh Deposit
-instruction_template: 'Perform a thorough account cleanup: (1) delete any price alerts
-  for stocks you no longer own, (2) remove any empty watchlists, (3) remove any recurring
-  investment that has missed its scheduled execution, and (4) deposit $2,500 from your
-  default linked bank account.'
+instruction_template: 'Perform a thorough account cleanup: (1) delete any price alerts for stocks you
+  no longer own, (2) remove any empty watchlists, (3) remove any recurring investment that has missed
+  its scheduled execution, and (4) deposit $2,500 from your default linked bank account.'
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 30
 primary_primitives:
 - state_tracking
-- verification
-- grounding
-- patience
-- exploration
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -61,7 +55,7 @@ seed:
     params: {}
     outputs: []
   targets:
-    overdue_symbols: "{output.overdue_symbols}"
+    overdue_symbols: '{output.overdue_symbols}'
 eval:
   source: server_state
   checks:
@@ -71,38 +65,45 @@ eval:
     desc: All empty watchlists were removed
   - expr: len(state.overdue_recurring_investments()) == 0
     desc: All overdue recurring investments were removed
-  - expr: >-
-      any(t.direction == 'deposit' and t.amount == Decimal('2500')
-      for t in state.transfers)
+  - expr: any(t.direction == 'deposit' and t.amount == Decimal('2500') for t in state.transfers)
     desc: A $2,500 deposit was initiated from the default bank
-  - expr: >-
-      len([a for a in state.price_alerts
-      if a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')]) >= 1
+  - expr: len([a for a in state.price_alerts if a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_')])
+      >= 1
     desc: Price alerts for currently owned stocks were preserved
-  - expr: >-
-      len([t for t in state.transfers
-      if t.direction == 'deposit']) == 1
+  - expr: len([t for t in state.transfers if t.direction == 'deposit']) == 1
     desc: Exactly one deposit was initiated (not multiple)
   negative_checks:
   - expr: state.watchlist_named('My Picks') is not None
     desc: Non-empty watchlists were preserved
     penalty: 0.25
-  - expr: >-
-      not any(a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')
-      and a.status == 'deleted'
-      for a in state.price_alerts)
+  - expr: not any(a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_') and a.status
+      == 'deleted' for a in state.price_alerts)
     desc: Price alerts for currently owned stocks were not deleted
-    penalty: 0.20
-  - expr: >-
-      len([ri for ri in state.recurring_investments
-      if ri.status == 'active'
-      and ri.symbol not in {target.overdue_symbols}
-      and not ri.id.startswith('ri_decoy_')]) >= 1
+    penalty: 0.2
+  - expr: len([ri for ri in state.recurring_investments if ri.status == 'active' and ri.symbol not in
+      {target.overdue_symbols} and not ri.id.startswith('ri_decoy_')]) >= 1
     desc: Non-overdue recurring investments were preserved
-    penalty: 0.20
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, verification, grounding, patience, exploration
-  by requiring the agent to audit multiple account areas and take corrective action
-  across alerts, watchlists, recurring investments, and transfers.
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.transfer.initiate') == 1
+    desc: Exactly one deposit transfer was initiated
+    penalty: 0.1
+  - expr: "not any(\n  e.action in ['robinhood.order.place', 'robinhood.options.order.place']\n  for e\
+      \ in state.audit_log\n)"
+    desc: No trading orders were placed during the cleanup
+    penalty: 0.15
+  - expr: "not any(\n  e.action.startswith('robinhood.watchlist.')\n  and e.action != 'robinhood.watchlist.delete'\n\
+      \  for e in state.audit_log\n)"
+    desc: Watchlists were only cleaned up by deleting empty lists
+    penalty: 0.1
+  - expr: "not any(\n  e.action.startswith('robinhood.recurring.')\n  and e.action != 'robinhood.recurring.delete'\n\
+      \  for e in state.audit_log\n)"
+    desc: Recurring investments were only cleaned up by deleting overdue plans
+    penalty: 0.1
+  - expr: not any(e.action == 'robinhood.alert.create' for e in state.audit_log)
+    desc: No new price alerts were added during reconciliation
+    penalty: 0.1
+secondary_primitives:
+- verification
+primitive_thesis: Measures state_tracking, verification, grounding, patience, exploration by requiring
+  the agent to audit multiple account areas and take corrective action across alerts, watchlists, recurring
+  investments, and transfers.

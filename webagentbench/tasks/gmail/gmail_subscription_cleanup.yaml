@@ -1,19 +1,17 @@
 task_id: gmail_subscription_cleanup
 env_id: gmail
 title: Subscription Cleanup
-instruction_template: Clean up your subscriptions. In your Promotions tab, archive the four newsletter emails. Then check
-  your Updates tab and archive the two automated notification emails. Forward the newsletter about {target.good_newsletter_topic}
-  to {target.personal_email} — make sure you forward the useful one, not any spam. Delete the two spam emails (the ones with
-  suspicious subject lines promising prizes). Finally, go to Settings and create two auto-archive filters for the domains
-  {target.newsletter_domain_a} and {target.newsletter_domain_b}.
+instruction_template: "Clean up your subscriptions. In your Promotions tab, archive the four newsletter\
+  \ emails. Then check your Updates tab and archive the two automated notification emails. Forward the\
+  \ newsletter about {target.good_newsletter_topic} to {target.personal_email} \u2014 make sure you forward\
+  \ the useful one, not any spam. Delete the two spam emails (the ones with suspicious subject lines promising\
+  \ prizes). Finally, go to Settings and create two auto-archive filters for the domains {target.newsletter_domain_a}\
+  \ and {target.newsletter_domain_b}."
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 48
 primary_primitives:
 - planning
-- grounding
-- exploration
-- verification
 start_path: /inbox
 seed:
   distractors: 40
@@ -46,7 +44,8 @@ eval:
     desc: 4 promo emails archived
   - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.update_ids})
     desc: 2 update emails archived
-  - expr: any(m.forwarded_from_id == '{target.good_newsletter_id}' and '{target.personal_email}' in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.good_newsletter_id}' and '{target.personal_email}' in m.to
+      for m in state.sent)
     desc: Good newsletter forwarded to personal email
   - expr: all(state.get_email(eid) is not None and state.get_email(eid).deleted for eid in {target.spam_ids})
     desc: Spam emails deleted
@@ -61,3 +60,11 @@ eval:
   - expr: len(state.sent) <= 4
     desc: No excessive emails sent
     penalty: 0.15
+  - expr: not state.get_email('{target.good_newsletter_id}').deleted
+    desc: Useful newsletter was preserved rather than deleted as spam
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.filter.create') <= 2
+    desc: Subscription cleanup created only the two requested auto-archive filters
+    penalty: 0.1
+secondary_primitives:
+- grounding

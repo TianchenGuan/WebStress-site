@@ -1,34 +1,33 @@
 task_id: booking_expert_travel_planner
 env_id: booking
 title: Multi-City Travel Planner with Saved List, Booking, and Review
-instruction_template: "Plan a world tour across three cities by completing the following\
-  \ workflow:\n\
-  1. Search for hotels in Paris and find \"{target.paris_name}\". Note its cheapest\
-  \ room price.\n\
-  2. Search for hotels in Tokyo and find \"{target.tokyo_name}\". Note its cheapest\
-  \ room price.\n\
-  3. Search for hotels in New York and find \"{target.nyc_name}\". Note its cheapest\
-  \ room price.\n\
-  4. Create a new saved list called \"World Tour\" and add all three hotels to it.\n\
-  5. Among the three hotels, book the one with the cheapest room price.\
-  \ Book its cheapest room for 2 guests checking in 2026-10-01 and checking\
-  \ out 2026-10-05 (4 nights), using the default Visa payment (ending in 4242).\n\
-  6. You also have a completed stay at \"{target.review_prop_name}\" in Paris.\
-  \ Write a review for it: overall score 8.5, title \"Charming Parisian experience\"\
-  , positive comment \"Wonderful location near the Eiffel Tower with excellent\
-  \ croissants at breakfast\", negative comment \"Elevator was quite slow during\
-  \ peak hours\", travel purpose leisure, traveled with couple.\n"
+instruction_template: 'Plan a world tour across three cities by completing the following workflow:
+
+  1. Search for hotels in Paris and find "{target.paris_name}". Note its cheapest room price.
+
+  2. Search for hotels in Tokyo and find "{target.tokyo_name}". Note its cheapest room price.
+
+  3. Search for hotels in New York and find "{target.nyc_name}". Note its cheapest room price.
+
+  4. Create a new saved list called "World Tour" and add all three hotels to it.
+
+  5. Among the three hotels, book the one with the cheapest room price. Book its cheapest room for 2 guests
+  checking in 2026-10-01 and checking out 2026-10-05 (4 nights), using the default Visa payment (ending
+  in 4242).
+
+  6. You also have a completed stay at "{target.review_prop_name}" in Paris. Write a review for it: overall
+  score 8.5, title "Charming Parisian experience", positive comment "Wonderful location near the Eiffel
+  Tower with excellent croissants at breakfast", negative comment "Elevator was quite slow during peak
+  hours", travel purpose leisure, traveled with couple.
+
+  '
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- exploration
-- grounding
-- patience
+- state_tracking
 start_path: /home
 seed:
   distractors: 15
@@ -215,41 +214,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  sl.name == 'World Tour' and '{target.paris_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
-    desc: Paris hotel saved to 'World Tour' list
-  - expr: "any(\n  sl.name == 'World Tour' and '{target.tokyo_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
-    desc: Tokyo hotel saved to 'World Tour' list
-  - expr: "any(\n  sl.name == 'World Tour' and '{target.nyc_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
-    desc: New York hotel saved to 'World Tour' list
-  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-10-01' and\n  r.check_out == '2026-10-05'\n  for\
-      \ r in state.reservations\n)\n"
-    desc: Cheapest hotel (Tokyo) booked with correct dates
-  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score\
-      \ == 8.5 and\n  rv.title == 'Charming Parisian experience'\n  for rv in state.reviews\n\
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.paris_id}' in sl.property_ids\n  for sl in state.saved_lists\n\
       )\n"
+    desc: Paris hotel saved to 'World Tour' list
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.tokyo_id}' in sl.property_ids\n  for sl in state.saved_lists\n\
+      )\n"
+    desc: Tokyo hotel saved to 'World Tour' list
+  - expr: "any(\n  sl.name == 'World Tour' and '{target.nyc_id}' in sl.property_ids\n  for sl in state.saved_lists\n\
+      )\n"
+    desc: New York hotel saved to 'World Tour' list
+  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-10-01' and\n  r.check_out == '2026-10-05'\n  for r in state.reservations\n)\n"
+    desc: Cheapest hotel (Tokyo) booked with correct dates
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 8.5 and\n  rv.title\
+      \ == 'Charming Parisian experience'\n  for rv in state.reviews\n)\n"
     desc: Review written for completed Paris stay with correct score and title
-  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'eiffel tower'\
-      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'eiffel tower' in rv.positive.lower()\n\
+      \  for rv in state.reviews\n)\n"
     desc: Review positive comment mentions Eiffel Tower
-  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'elevator' in\
-      \ rv.negative.lower()\n  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.review_prop_id}' and\n  'elevator' in rv.negative.lower()\n\
+      \  for rv in state.reviews\n)\n"
     desc: Review negative comment mentions elevator
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ != '{target.cheapest_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.cheapest_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: No reservation made at wrong property
     penalty: 0.3
-  - expr: "not any(\n  r.property_id == '{target.cheapest_id}' and\n  r.room_type_name\
-      \ != 'Standard Double Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "not any(\n  r.property_id == '{target.cheapest_id}' and\n  r.room_type_name != 'Standard Double\
+      \ Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the cheapest room, not a more expensive one
     penalty: 0.2
-  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.cheapest_id}'\n\
-      \  and rv.author_name == 'Jordan Parker') == 0\n"
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id == '{target.cheapest_id}'\n  and rv.author_name\
+      \ == 'Jordan Parker') == 0\n"
     desc: No review written for the booked hotel (only completed stays get reviews)
     penalty: 0.15
   - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''World Tour'') <= 1

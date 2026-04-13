@@ -1,43 +1,27 @@
 task_id: booking_frontier_family_planner
 env_id: booking
-title: "Frontier: Family Trip Planner - Compare, Book, Preference, and List"
-instruction_template: "Plan a family trip across two cities:\n\
-  1. Search for family hotels in Barcelona. Compare\n\
-  \   \"{target.bcn_name_1}\" and \"{target.bcn_name_2}\".\n\
-  \   Book the one with BOTH pool AND kids club amenities:\n\
-  \   \"{target.bcn_winner_name}\" - \"Family Suite\" for 4 guests,\n\
-  \   checking in 2026-07-20, checking out 2026-07-25 (5 nights),\n\
-  \   using default Visa (ending 4242).\n\
-  2. Search for family hotels in Rome. Compare\n\
-  \   \"{target.rome_name_1}\" and \"{target.rome_name_2}\".\n\
-  \   Book the one with BOTH pool AND family rooms amenities:\n\
-  \   \"{target.rome_winner_name}\" - \"Family Room\" for 4 guests,\n\
-  \   checking in 2026-07-26, checking out 2026-07-30 (4 nights),\n\
-  \   using the Mastercard ending in 8888.\n\
-  3. Update travel preferences: set preferred bed type to \"twin\",\n\
-  \   preferred room type to \"family\",\n\
-  \   and add \"nut-free\" to dietary restrictions.\n\
-  4. Create a saved list called \"Family Favorites\" and add both\n\
-  \   booked properties to it.\n\
-  5. Send a message to \"{target.bcn_winner_name}\" with subject\n\
-  \   \"Family amenities question\" and body \"We are traveling with\n\
-  \   two children aged 5 and 8. Are there kids activities available?\"\n\
-  6. Write a review for your completed stay at\n\
-  \   \"{target.review_prop_name}\": score 9.0, title \"Perfect for\n\
-  \   families\", positive \"Amazing kids club and wonderful pool area\",\n\
-  \   no negative, leisure, family.\n"
+title: 'Frontier: Family Trip Planner - Compare, Book, Preference, and List'
+instruction_template: "Plan a family trip across two cities:\n1. Search for family hotels in Barcelona.\
+  \ Compare\n   \"{target.bcn_name_1}\" and \"{target.bcn_name_2}\".\n   Book the one with BOTH pool AND\
+  \ kids club amenities:\n   \"{target.bcn_winner_name}\" - \"Family Suite\" for 4 guests,\n   checking\
+  \ in 2026-07-20, checking out 2026-07-25 (5 nights),\n   using default Visa (ending 4242).\n2. Search\
+  \ for family hotels in Rome. Compare\n   \"{target.rome_name_1}\" and \"{target.rome_name_2}\".\n  \
+  \ Book the one with BOTH pool AND family rooms amenities:\n   \"{target.rome_winner_name}\" - \"Family\
+  \ Room\" for 4 guests,\n   checking in 2026-07-26, checking out 2026-07-30 (4 nights),\n   using the\
+  \ Mastercard ending in 8888.\n3. Update travel preferences: set preferred bed type to \"twin\",\n  \
+  \ preferred room type to \"family\",\n   and add \"nut-free\" to dietary restrictions.\n4. Create a\
+  \ saved list called \"Family Favorites\" and add both\n   booked properties to it.\n5. Send a message\
+  \ to \"{target.bcn_winner_name}\" with subject\n   \"Family amenities question\" and body \"We are traveling\
+  \ with\n   two children aged 5 and 8. Are there kids activities available?\"\n6. Write a review for\
+  \ your completed stay at\n   \"{target.review_prop_name}\": score 9.0, title \"Perfect for\n   families\"\
+  , positive \"Amazing kids club and wonderful pool area\",\n   no negative, leisure, family.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 48
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -213,57 +197,47 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.bcn_winner_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Family Suite' and\n\
-      \  r.check_in == '2026-07-20' and r.check_out == '2026-07-25' and\n\
-      \  r.guests == 4\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.bcn_winner_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Family Suite' and\n  r.check_in == '2026-07-20' and r.check_out == '2026-07-25' and\n  r.guests\
+      \ == 4\n  for r in state.reservations\n)\n"
     desc: Barcelona family hotel booked with Family Suite and correct dates
-  - expr: "any(\n  r.property_id == '{target.rome_winner_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Family Room' and\n\
-      \  r.check_in == '2026-07-26' and r.check_out == '2026-07-30' and\n\
-      \  r.guests == 4\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.rome_winner_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Family Room' and\n  r.check_in == '2026-07-26' and r.check_out == '2026-07-30' and\n  r.guests\
+      \ == 4\n  for r in state.reservations\n)\n"
     desc: Rome family hotel booked with Family Room and correct dates
-  - expr: "any(\n  r.property_id == '{target.rome_winner_id}' and\n\
-      \  r.payment_method_id in [pm.id for pm in state.payment_methods if pm.last_four == '8888']\n\
-      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.rome_winner_id}' and\n  r.payment_method_id in [pm.id for\
+      \ pm in state.payment_methods if pm.last_four == '8888']\n  for r in state.reservations\n  if not\
+      \ r.id.startswith('res_initial_')\n)\n"
     desc: Rome booking used Mastercard ending 8888
-  - expr: "state.travel_preferences.preferred_bed_type == 'twin' and state.travel_preferences.preferred_room_type == 'family'"
+  - expr: state.travel_preferences.preferred_bed_type == 'twin' and state.travel_preferences.preferred_room_type
+      == 'family'
     desc: Bed type and room type preferences updated
-  - expr: "'nut-free' in state.travel_preferences.dietary_restrictions"
+  - expr: '''nut-free'' in state.travel_preferences.dietary_restrictions'
     desc: Nut-free added to dietary restrictions
-  - expr: "any(sl.name == 'Family Favorites' and\n\
-      \  '{target.bcn_winner_id}' in sl.property_ids and\n\
-      \  '{target.rome_winner_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'Family Favorites' and\n  '{target.bcn_winner_id}' in sl.property_ids and\n\
+      \  '{target.rome_winner_id}' in sl.property_ids\n  for sl in state.saved_lists)\n"
     desc: Family Favorites list has both booked properties
-  - expr: "any(m.property_id == '{target.bcn_winner_id}' and m.sender == 'guest'\n\
-      \  and 'kids' in m.body.lower()\n\
+  - expr: "any(m.property_id == '{target.bcn_winner_id}' and m.sender == 'guest'\n  and 'kids' in m.body.lower()\n\
       \  for m in state.messages)\n"
     desc: Message sent to Barcelona hotel about kids activities
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  rv.overall_score == 9.0 and rv.title == 'Perfect for families' and\n\
-      \  rv.traveled_with == 'family'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 9.0 and rv.title\
+      \ == 'Perfect for families' and\n  rv.traveled_with == 'family'\n  for rv in state.reviews)\n"
     desc: Review written with correct score, title, and traveled with family
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') == '{target.bcn_id_2}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.bcn_id_2}'\n\
       \  for e in state.audit_log\n)\n"
     desc: Did not book the Barcelona Beach Hotel (no pool+kids club)
     penalty: 0.4
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') == '{target.rome_id_2}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.rome_id_2}'\n\
       \  for e in state.audit_log\n)\n"
     desc: Did not book Rome Centro Apartment (no pool+family rooms)
     penalty: 0.4
-  - expr: "sum(1 for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 2\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 2\n"
     desc: Only two new reservations created
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Family Favorites') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Family Favorites'') <= 1
+
+      '
     desc: Only one Family Favorites list created
     penalty: 0.1

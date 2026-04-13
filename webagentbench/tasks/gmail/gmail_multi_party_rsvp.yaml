@@ -1,26 +1,25 @@
 task_id: gmail_multi_party_rsvp
 env_id: gmail
 title: Multi-Party RSVP
-instruction_template: 'You are organizing a team lunch. Your original email (subject "Team Lunch — Date Poll") lists three
-  proposed dates: April 4, April 11, April 18. It also names 5 required attendees: {target.marcus_name}, {target.sofia_name},
-  {target.theo_name}, {target.elena_name}, and {target.nina_name}. Three others ({target.jordan_name}, {target.miles_name},
-  {target.priya_name}) are optional. Responses arrived across 4 threads. Read every response to find the one date where all
-  5 required attendees can attend. Note: {target.sofia_name} initially replied "April 11 works" but sent a correction later
-  in the same thread saying "Sorry, April 11 conflict came up — only April 4 works for me now." Collect all dietary restrictions
-  mentioned in any response. Compose a new email to team.lunch@ops.thornton.com with subject "Team Lunch Confirmed" containing
-  the confirmed date as "Date: April 4" and a "Dietary notes:" section listing each person''s restriction as ''{name}: {restriction}''
-  on separate lines. After sending, star the most recent email in each of the 4 RSVP threads and archive the original poll
-  email.'
+instruction_template: "You are organizing a team lunch. Your original email (subject \"Team Lunch \u2014\
+  \ Date Poll\") lists three proposed dates: April 4, April 11, April 18. It also names 5 required attendees:\
+  \ {target.marcus_name}, {target.sofia_name}, {target.theo_name}, {target.elena_name}, and {target.nina_name}.\
+  \ Three others ({target.jordan_name}, {target.miles_name}, {target.priya_name}) are optional. Responses\
+  \ arrived across 4 threads. Read every response to find the one date where all 5 required attendees\
+  \ can attend. Note: {target.sofia_name} initially replied \"April 11 works\" but sent a correction later\
+  \ in the same thread saying \"Sorry, April 11 conflict came up \u2014 only April 4 works for me now.\"\
+  \ Collect all dietary restrictions mentioned in any response. Compose a new email to team.lunch@ops.thornton.com\
+  \ with subject \"Team Lunch Confirmed\" containing the confirmed date as \"Date: April 4\" and a \"\
+  Dietary notes:\" section listing each person's restriction as '{name}: {restriction}' on separate lines.\
+  \ After sending, star the most recent email in each of the 4 RSVP threads and archive the original poll\
+  \ email."
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 52
 primary_primitives:
 - patience
-- state_tracking
-- planning
-- exploration
 secondary_primitives:
-- grounding
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -92,4 +91,10 @@ eval:
     penalty: 0.25
   - expr: len(state.deleted) == 0
     desc: No emails moved to trash
+    penalty: 0.1
+  - expr: not any(e.action.startswith('gmail.filter.') for e in state.audit_log)
+    desc: No off-task Gmail filters were changed
+    penalty: 0.1
+  - expr: not any(e.action.startswith('gmail.label.') for e in state.audit_log)
+    desc: No off-task labels were created or edited
     penalty: 0.1

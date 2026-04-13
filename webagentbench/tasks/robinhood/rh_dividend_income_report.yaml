@@ -1,72 +1,89 @@
 task_id: rh_dividend_income_report
 env_id: robinhood
 title: Optimize Dividend Income by Swapping Positions
-instruction_template: "Calculate your total expected annual dividend income across all positions. Find the stock contributing the least dividend income and sell all of it. Then buy shares of the highest-yielding stock from your \"Income Ideas\" watchlist with the proceeds."
+instruction_template: Calculate your total expected annual dividend income across all positions. Find
+  the stock contributing the least dividend income and sell all of it. Then buy shares of the highest-yielding
+  stock from your "Income Ideas" watchlist with the proceeds.
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 12
 primary_primitives:
-  - state_tracking
-  - planning
-  - exploration
+- state_tracking
 start_path: /
-
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 30
-        must_include: ["AAPL", "MSFT", "KO", "PEP", "PG", "JNJ", "SCHD", "VTI"]
-      outputs: []
-    - use: portfolio_diverse
-      params:
-        count: 6
-      outputs: [lowest_dividend_income_symbol, gain_symbols]
-    - use: watchlist
-      params:
-        name: "Income Ideas"
-        symbols: ["SCHD", "VTI", "KO"]
-      outputs: []
-    - use: dividend_schedule
-      params:
-        include_history: true
-      outputs: []
+  - use: stock_universe
+    params:
+      count: 30
+      must_include:
+      - AAPL
+      - MSFT
+      - KO
+      - PEP
+      - PG
+      - JNJ
+      - SCHD
+      - VTI
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      count: 6
+    outputs:
+    - lowest_dividend_income_symbol
+    - gain_symbols
+  - use: watchlist
+    params:
+      name: Income Ideas
+      symbols:
+      - SCHD
+      - VTI
+      - KO
+    outputs: []
+  - use: dividend_schedule
+    params:
+      include_history: true
+    outputs: []
   targets:
-    worst_yield_symbol: "{output.lowest_dividend_income_symbol}"
-    watchlist_symbols: ["SCHD", "VTI", "KO"]
-
+    worst_yield_symbol: '{output.lowest_dividend_income_symbol}'
+    watchlist_symbols:
+    - SCHD
+    - VTI
+    - KO
 eval:
   source: server_state
   checks:
-    - expr: >-
-        any(o.symbol == '{target.worst_yield_symbol}' and o.side == 'sell'
-        and not o.id.startswith('ord_decoy_')
-        for o in state.orders)
-      desc: The lowest-dividend-income stock was sold
-    - expr: >-
-        any(o.side == 'buy' and o.symbol in {target.watchlist_symbols}
-        and not o.id.startswith('ord_decoy_')
-        for o in state.orders)
-      desc: A buy order was placed for a stock from the Income Ideas watchlist
-    - expr: >-
-        len([o for o in state.orders
-        if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) >= 1
-      desc: At least one sell order was placed
-    - expr: >-
-        len([o for o in state.orders
-        if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) >= 1
-      desc: At least one buy order was placed
+  - expr: any(o.symbol == '{target.worst_yield_symbol}' and o.side == 'sell' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: The lowest-dividend-income stock was sold
+  - expr: any(o.side == 'buy' and o.symbol in {target.watchlist_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: A buy order was placed for a stock from the Income Ideas watchlist
+  - expr: len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) >=
+      1
+    desc: At least one sell order was placed
+  - expr: len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) >= 1
+    desc: At least one buy order was placed
   negative_checks:
-    - expr: >-
-        not any(o.side == 'sell' and o.symbol != '{target.worst_yield_symbol}'
-        and not o.id.startswith('ord_decoy_')
-        for o in state.orders)
-      desc: Only the lowest-yield stock was sold, not other positions
-      penalty: 0.25
-    - expr: >-
-        not any(o.side == 'buy' and o.symbol not in {target.watchlist_symbols}
-        and not o.id.startswith('ord_decoy_')
-        for o in state.orders)
-      desc: Buys were limited to stocks from the Income Ideas watchlist
-      penalty: 0.25
+  - expr: not any(o.side == 'sell' and o.symbol != '{target.worst_yield_symbol}' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: Only the lowest-yield stock was sold, not other positions
+    penalty: 0.25
+  - expr: not any(o.side == 'buy' and o.symbol not in {target.watchlist_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: Buys were limited to stocks from the Income Ideas watchlist
+    penalty: 0.25
+  - expr: sum( 1 for e in state.audit_log if e.action == 'robinhood.order.place' and e.payload.get('side')
+      == 'sell' ) == 1
+    desc: Dividend rotation used exactly one sell order
+    penalty: 0.1
+  - expr: sum( 1 for e in state.audit_log if e.action == 'robinhood.order.place' and e.payload.get('side')
+      == 'buy' ) == 1
+    desc: Dividend rotation used exactly one buy order
+    penalty: 0.1
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
+      or e.action == 'robinhood.options.order.place' for e in state.audit_log)
+    desc: Dividend rotation did not mutate unrelated transfer, watchlist, or options surfaces
+    penalty: 0.1
+secondary_primitives:
+- planning

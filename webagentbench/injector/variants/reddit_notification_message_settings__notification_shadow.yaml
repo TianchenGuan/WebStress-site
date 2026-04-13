@@ -1,0 +1,22 @@
+variant_id: reddit_notification_message_settings__notification_shadow
+base_task_id: reddit_notification_message_settings
+target_primitive: state_tracking
+description: Unread notifications emphasize lookalike activity in nearby communities and threads. The
+  agent must verify which alerts actually correspond to the task-relevant post or user.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: notification
+      title: New activity in r/MachineLearning_
+      body: u/NeuralNexus_ commented on "Interesting discussion thread" in the lookalike community.
+      subreddit_name: MachineLearning_
+      from_user: NeuralNexus_
+      is_read: false
+    - type: notification
+      title: Update on "Interesting discussion thread"
+      body: u/NeuralNexus replied in a nearby thread, but not the exact target branch.
+      subreddit_name: MachineLearning
+      from_user: NeuralNexus
+      is_read: false

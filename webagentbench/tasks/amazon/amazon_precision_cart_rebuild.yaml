@@ -1,26 +1,19 @@
 task_id: amazon_precision_cart_rebuild
 env_id: amazon
 title: Rebuild Cart with Precise Removals, Quantity Changes, and New Products
-instruction_template: >
-  Rebuild your shopping cart with these precise changes:
-  1. Remove these items: 'Cotton Bath Towel Set', 'Yoga Strap Set', and
-  'Vitamin D3 Supplement'.
-  2. Change the quantity of 'Wireless Mouse Pro' to 3.
-  3. Change the quantity of 'Glass Food Containers' to 2.
-  4. Search for '{target.new_1}' and add 1 to your cart.
-  5. Search for '{target.new_2}' and add 1 to your cart.
-  6. Complete checkout.
+instruction_template: 'Rebuild your shopping cart with these precise changes: 1. Remove these items: ''Cotton
+  Bath Towel Set'', ''Yoga Strap Set'', and ''Vitamin D3 Supplement''. 2. Change the quantity of ''Wireless
+  Mouse Pro'' to 3. 3. Change the quantity of ''Glass Food Containers'' to 2. 4. Search for ''{target.new_1}''
+  and add 1 to your cart. 5. Search for ''{target.new_2}'' and add 1 to your cart. 6. Complete checkout.
+
+  '
 difficulty: frontier
 time_limit_seconds: 480
 expected_steps: 45
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- verification
-- patience
 secondary_primitives:
-- exploration
+- state_tracking
 start_path: /cart
 seed:
   distractors: 20
@@ -129,57 +122,68 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_name == 'Wireless Mouse Pro' and item.quantity == 3
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity == 3 for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Wireless Mouse Pro quantity is 3
-  - expr: >
-      any(any(item.product_name == 'Glass Food Containers' and item.quantity == 2
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Glass Food Containers'' and item.quantity == 2 for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Glass Food Containers quantity is 2
-  - expr: >
-      any(any(item.product_name == 'Bamboo Notebook Stand' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Bamboo Notebook Stand'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Bamboo Notebook Stand kept
-  - expr: >
-      any(any(item.product_name == 'Running Headband 3-Pack' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Running Headband 3-Pack'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Running Headband kept
-  - expr: >
-      any(any(item.product_name == 'LED Book Light' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''LED Book Light'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: LED Book Light kept
-  - expr: >
-      any(any(item.product_id == '{target.new_pid_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.new_pid_1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: New product 1 added
-  - expr: >
-      any(any(item.product_id == '{target.new_pid_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.new_pid_2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: New product 2 added
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   negative_checks:
-  - expr: >
-      not any(any(item.product_name == 'Cotton Bath Towel Set' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Cotton Bath Towel Set'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cotton Bath Towel Set removed
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_name == 'Yoga Strap Set' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Yoga Strap Set'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Yoga Strap Set removed
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_name == 'Vitamin D3 Supplement' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Vitamin D3 Supplement'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Vitamin D3 Supplement removed
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one order placed
     penalty: 0.1
-  - expr: >
-      not any(any(item.product_name == 'Wireless Mouse Pro' and item.quantity != 3
-      for item in o.items) for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity != 3 for item in
+      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Mouse quantity is exactly 3
     penalty: 0.15

@@ -1,25 +1,21 @@
 task_id: gmail_action_item_extraction
 env_id: gmail
 title: Action Item Extraction
-instruction_template: 'Four attendees — {target.attendee_a}, {target.attendee_b},
-  {target.attendee_c}, and {target.attendee_d} — each sent a follow-up email after
-  the leadership offsite with action items. Find all four emails (search for "leadership
-  offsite follow-up" in the subject). Read each one and extract only the action items
-  assigned to you ({target.user_name}). Ignore action items assigned to other people.
-  Compose a new email to {target.manager_email} with subject "Offsite Action Items
-  — {target.user_name}" listing each action item assigned to you on its own line.
-  Note: one action item was reassigned — if a later message in any thread reassigns
-  an item away from you, do not include it.'
+instruction_template: "Four attendees \u2014 {target.attendee_a}, {target.attendee_b}, {target.attendee_c},\
+  \ and {target.attendee_d} \u2014 each sent a follow-up email after the leadership offsite with action\
+  \ items. Find all four emails (search for \"leadership offsite follow-up\" in the subject). Read each\
+  \ one and extract only the action items assigned to you ({target.user_name}). Ignore action items assigned\
+  \ to other people. Compose a new email to {target.manager_email} with subject \"Offsite Action Items\
+  \ \u2014 {target.user_name}\" listing each action item assigned to you on its own line. Note: one action\
+  \ item was reassigned \u2014 if a later message in any thread reassigns an item away from you, do not\
+  \ include it."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 45
 primary_primitives:
 - state_tracking
-- grounding
-- planning
 secondary_primitives:
-- patience
-- verification
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -54,19 +50,29 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
-  - expr: 'any(m.to == [''{target.manager_email}''] and ''Offsite Action Items'' in
-      m.subject for m in state.sent)
+  - expr: len(state.sent) == 1
+    desc: Exactly one summary email sent
+  - expr: "any(m.to == ['{target.manager_email}'] and m.cc == [] and m.bcc == [] and m.subject == 'Offsite\
+      \ Action Items \u2014 {target.user_name}' and m.in_reply_to is None for m in state.sent)\n"
+    desc: New email sent only to the manager with the exact required subject
+  - expr: 'any( all( any( line.strip() == item or line.strip().lstrip(''-* '').strip() == item for line
+      in m.body.splitlines() ) for item in {target.correct_action_items} ) for m in state.sent if m.to
+      == [''{target.manager_email}''])
 
       '
-    desc: Email sent to manager with correct subject
-  - expr: "any(all(item in m.body for item in {target.correct_action_items}) for m in state.sent if '{target.manager_email}' in m.to)"
-    desc: All correct action items appear in sent email body
+    desc: Every correct action item appears as its own line in the summary email
   negative_checks:
-  - expr: "not any('{target.reassigned_item}' in m.body for m in state.sent if '{target.manager_email}' in m.to)"
+  - expr: sum(1 for m in state.sent if m.to == ['{target.manager_email}']) == 1
+    desc: No duplicate summary emails were sent to the manager
+    penalty: 0.15
+  - expr: not any('{target.reassigned_item}' in m.body for m in state.sent if '{target.manager_email}'
+      in m.to)
     desc: Reassigned item not included in summary
     penalty: 0.25
-  - expr: "not any('{target.adversarial_wrong_item}' in m.body for m in state.sent if '{target.manager_email}' in m.to)"
+  - expr: not any('{target.adversarial_wrong_item}' in m.body for m in state.sent if '{target.manager_email}'
+      in m.to)
     desc: Item from adversarial summary line (assigned to another attendee) not included
     penalty: 0.2
+  - expr: not any(m.in_reply_to is not None for m in state.sent)
+    desc: Summary was composed as a new message rather than a reply
+    penalty: 0.15

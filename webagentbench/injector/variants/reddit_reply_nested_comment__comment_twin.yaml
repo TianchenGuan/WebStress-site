@@ -1,0 +1,22 @@
+variant_id: reddit_reply_nested_comment__comment_twin
+base_task_id: reddit_reply_nested_comment
+target_primitive: grounding
+description: The thread contains comments from confusingly similar usernames with overlapping phrasing.
+  The agent must target the exact author and comment branch.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: comment
+      post_title: Interesting thread
+      author: helpful_user_
+      body: Similar advice in a nearby thread branch from a lookalike username.
+      score: 18
+      depth: 1
+    - type: comment
+      post_title: Interesting thread
+      author: helpful_user.alt
+      body: Follow-up comment that looks related but is authored by a different user.
+      score: 9
+      depth: 2

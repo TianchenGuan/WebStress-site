@@ -1,0 +1,21 @@
+variant_id: amazon_strategic_cart_overhaul__cart_shadow_v2
+base_task_id: amazon_strategic_cart_overhaul
+target_primitive: state_tracking
+description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
+  and purchase the exact target products instead of the shadow items.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Compact Bluetooth Speaker Plus
+      brand: SoundWave
+      category: Electronics
+      price: 37.44
+      rating: 4.4
+      description: A closely named upsell variant that should stay out of the final cart.
+    - type: cart_item
+      product_name: Compact Bluetooth Speaker Plus
+      quantity: 1
+      unit_price: 37.44

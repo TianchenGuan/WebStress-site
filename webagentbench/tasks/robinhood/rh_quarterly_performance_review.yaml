@@ -1,22 +1,16 @@
----
 task_id: rh_quarterly_performance_review
 env_id: robinhood
 title: Quarterly Portfolio Cleanup
-instruction_template: 'Perform a quarterly portfolio cleanup: (1) sell your worst-performing
-  position entirely using a market order, (2) set price alerts on your best-performing
-  position at 10% above and 10% below the current price, (3) mark all unread notifications
-  as read, and (4) add any stock with an upcoming corporate action to a new watchlist
-  called "Corporate Actions Watch".'
+instruction_template: 'Perform a quarterly portfolio cleanup: (1) sell your worst-performing position
+  entirely using a market order, (2) set price alerts on your best-performing position at 10% above and
+  10% below the current price, (3) mark all unread notifications as read, and (4) add any stock with an
+  upcoming corporate action to a new watchlist called "Corporate Actions Watch".'
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 30
 primary_primitives:
 - state_tracking
-- exploration
-- grounding
-- verification
-- patience
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -50,50 +44,49 @@ seed:
       quarters: 2
     outputs: []
   targets:
-    worst_symbol: "{output.worst_symbol}"
-    best_symbol: "{output.best_symbol}"
+    worst_symbol: '{output.worst_symbol}'
+    best_symbol: '{output.best_symbol}'
 eval:
   source: server_state
   checks:
-  - expr: any(o.symbol == '{target.worst_symbol}' and o.side == 'sell' and o.order_type
-      == 'market' and o.status in ('filled', 'pending') for o in state.orders)
+  - expr: any(o.symbol == '{target.worst_symbol}' and o.side == 'sell' and o.order_type == 'market' and
+      o.status in ('filled', 'pending') for o in state.orders)
     desc: The worst-performing position was sold via market order
-  - expr: sum(o.quantity for o in state.orders if o.symbol == '{target.worst_symbol}'
-      and o.side == 'sell') >= state.initial_quantity('{target.worst_symbol}')
+  - expr: sum(o.quantity for o in state.orders if o.symbol == '{target.worst_symbol}' and o.side == 'sell')
+      >= state.initial_quantity('{target.worst_symbol}')
     desc: The entire worst-performing position was sold, not just a partial amount
-  - expr: any(a.symbol == '{target.best_symbol}' and a.condition == 'above' and a.target_price
-      >= state.get_stock('{target.best_symbol}').price * Decimal('1.09') and a.target_price
-      <= state.get_stock('{target.best_symbol}').price * Decimal('1.11') for a in state.price_alerts)
-    desc: A price alert was set on the best position at approximately 10% above current
-      price
-  - expr: any(a.symbol == '{target.best_symbol}' and a.condition == 'below' and a.target_price
-      >= state.get_stock('{target.best_symbol}').price * Decimal('0.89') and a.target_price
-      <= state.get_stock('{target.best_symbol}').price * Decimal('0.91') for a in state.price_alerts)
-    desc: A price alert was set on the best position at approximately 10% below current
-      price
+  - expr: any(a.symbol == '{target.best_symbol}' and a.condition == 'above' and a.target_price >= state.get_stock('{target.best_symbol}').price
+      * Decimal('1.09') and a.target_price <= state.get_stock('{target.best_symbol}').price * Decimal('1.11')
+      for a in state.price_alerts)
+    desc: A price alert was set on the best position at approximately 10% above current price
+  - expr: any(a.symbol == '{target.best_symbol}' and a.condition == 'below' and a.target_price >= state.get_stock('{target.best_symbol}').price
+      * Decimal('0.89') and a.target_price <= state.get_stock('{target.best_symbol}').price * Decimal('0.91')
+      for a in state.price_alerts)
+    desc: A price alert was set on the best position at approximately 10% below current price
   - expr: all(n.is_read for n in state.notifications)
     desc: All notifications were marked as read
   - expr: state.watchlist_named('Corporate Actions Watch') is not None
     desc: A watchlist named "Corporate Actions Watch" was created
-  - expr: state.watchlist_named('Corporate Actions Watch') is not None and all(sym
-      in state.watchlist_symbols('Corporate Actions Watch') for sym in state.corporate_action_symbols()
-      if sym in state.owned_symbols())
+  - expr: state.watchlist_named('Corporate Actions Watch') is not None and all(sym in state.watchlist_symbols('Corporate
+      Actions Watch') for sym in state.corporate_action_symbols() if sym in state.owned_symbols())
     desc: All owned stocks with upcoming corporate actions were added to the watchlist
   negative_checks:
-  - expr: >-
-      not any(o.side == 'sell' and o.symbol != '{target.worst_symbol}'
-      and not o.id.startswith('ord_decoy_')
+  - expr: not any(o.side == 'sell' and o.symbol != '{target.worst_symbol}' and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: Only the worst-performing position was sold
   - expr: len(state.transfers) == 0
     desc: No transfers were initiated during the cleanup
-  - expr: >-
-      not any(a.symbol == '{target.worst_symbol}'
-      and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
+  - expr: not any(a.symbol == '{target.worst_symbol}' and not a.id.startswith('alert_decoy_') for a in
+      state.price_alerts)
     desc: No alerts were set on the worst-performing position that was sold
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, exploration, grounding, verification, patience
-  by requiring the agent to identify best/worst performers, manage notifications, and
-  organize corporate action monitoring.
+  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
+    desc: No off-task transfers were initiated
+    penalty: 0.1
+  - expr: not any(e.action.startswith('robinhood.recurring.') for e in state.audit_log)
+    desc: No off-task recurring-investment changes were made
+    penalty: 0.1
+secondary_primitives:
+- exploration
+primitive_thesis: Measures state_tracking, exploration, grounding, verification, patience by requiring
+  the agent to identify best/worst performers, manage notifications, and organize corporate action monitoring.

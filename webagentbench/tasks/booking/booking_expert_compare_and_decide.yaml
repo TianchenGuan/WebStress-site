@@ -1,34 +1,25 @@
 task_id: booking_expert_compare_and_decide
 env_id: booking
 title: Compare Four London Hotels and Book the One Meeting All Criteria
-instruction_template: "Compare four hotels in London and make a decision:\n\
-  1. Search London hotels and find these four properties:\n\
-  \   - \"{target.prop_name_1}\" ({target.stars_1}-star, ${target.price_1}/night)\n\
-  \   - \"{target.prop_name_2}\" ({target.stars_2}-star, ${target.price_2}/night)\n\
-  \   - \"{target.prop_name_3}\" ({target.stars_3}-star, ${target.price_3}/night)\n\
-  \   - \"{target.prop_name_4}\" ({target.stars_4}-star, ${target.price_4}/night)\n\
-  2. Compare all four in detail. Find the one hotel that has ALL of these:\n\
-  \   - Spa AND pool AND restaurant among its amenities\n\
-  \   - At least one room with free cancellation\n\
-  \   - A room priced under $400 per night\n\
-  3. Book that hotel's best room (the one under $400 with free cancellation)\n\
-  \   for 2 guests checking in 2026-10-15 and checking out 2026-10-19\
-  \ (4 nights). Use Visa ending in 9876.\n\
-  4. Save all four compared hotels to a new list called \"London Shortlist\".\n\
-  5. Write a review for your completed stay at \"{target.completed_name}\"\
-  \ in London: score 8.5, title \"Pleasant London stay\", positive\
-  \ \"Excellent afternoon tea service and prime West End location\",\
-  \ no negative, leisure, couple.\n"
+instruction_template: "Compare four hotels in London and make a decision:\n1. Search London hotels and\
+  \ find these four properties:\n   - \"{target.prop_name_1}\" ({target.stars_1}-star, ${target.price_1}/night)\n\
+  \   - \"{target.prop_name_2}\" ({target.stars_2}-star, ${target.price_2}/night)\n   - \"{target.prop_name_3}\"\
+  \ ({target.stars_3}-star, ${target.price_3}/night)\n   - \"{target.prop_name_4}\" ({target.stars_4}-star,\
+  \ ${target.price_4}/night)\n2. Compare all four in detail. Find the one hotel that has ALL of these:\n\
+  \   - Spa AND pool AND restaurant among its amenities\n   - At least one room with free cancellation\n\
+  \   - A room priced under $400 per night\n3. Book that hotel's best room (the one under $400 with free\
+  \ cancellation)\n   for 2 guests checking in 2026-10-15 and checking out 2026-10-19 (4 nights). Use\
+  \ Visa ending in 9876.\n4. Save all four compared hotels to a new list called \"London Shortlist\".\n\
+  5. Write a review for your completed stay at \"{target.completed_name}\" in London: score 8.5, title\
+  \ \"Pleasant London stay\", positive \"Excellent afternoon tea service and prime West End location\"\
+  , no negative, leisure, couple.\n"
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - verification
-- planning
-- exploration
 secondary_primitives:
-- grounding
-- state_tracking
+- planning
 start_path: /home
 seed:
   distractors: 15
@@ -202,45 +193,40 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-10-15' and\n  r.check_out == '2026-10-19'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-10-15' and\n  r.check_out == '2026-10-19'\n  for r in state.reservations\n)\n"
     desc: Rosewood London booked (spa+pool+restaurant+free cancel under $400)
-  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.room_type_name ==\
-      \ 'Deluxe Room' and\n  r.price_per_night < 400.0\n  for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_')\n)\n"
+  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.room_type_name == 'Deluxe Room' and\n\
+      \  r.price_per_night < 400.0\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
     desc: Booked the correct room under $400 with free cancellation
-  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.payment_method_id\
-      \ == 'pm_4'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.target_id}' and\n  r.payment_method_id == 'pm_4'\n  for r\
+      \ in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Used Visa ending in 9876 for payment
-  - expr: "any(\n  sl.name == 'London Shortlist' and\n  '{target.prop_id_1}' in sl.property_ids\
-      \ and\n  '{target.prop_id_2}' in sl.property_ids and\n  '{target.prop_id_3}'\
-      \ in sl.property_ids and\n  '{target.prop_id_4}' in sl.property_ids\n  for sl\
-      \ in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'London Shortlist' and\n  '{target.prop_id_1}' in sl.property_ids and\n\
+      \  '{target.prop_id_2}' in sl.property_ids and\n  '{target.prop_id_3}' in sl.property_ids and\n\
+      \  '{target.prop_id_4}' in sl.property_ids\n  for sl in state.saved_lists\n)\n"
     desc: All four hotels saved to 'London Shortlist'
-  - expr: "any(\n  rv.property_id == '{target.completed_id}' and\n  rv.overall_score\
-      \ == 8.5 and\n  rv.title == 'Pleasant London stay'\n  for rv in state.reviews\n\
-      )\n"
+  - expr: "any(\n  rv.property_id == '{target.completed_id}' and\n  rv.overall_score == 8.5 and\n  rv.title\
+      \ == 'Pleasant London stay'\n  for rv in state.reviews\n)\n"
     desc: Review written for completed stay with correct score and title
-  - expr: "any(\n  rv.property_id == '{target.completed_id}' and\n  'afternoon tea'\
-      \ in rv.positive.lower()\n  for rv in state.reviews\n)\n"
+  - expr: "any(\n  rv.property_id == '{target.completed_id}' and\n  'afternoon tea' in rv.positive.lower()\n\
+      \  for rv in state.reviews\n)\n"
     desc: Review positive comment mentions afternoon tea
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_1}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_1}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book Corinthia (no free cancel room under $400)
     penalty: 0.3
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_3}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_3}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book Premier Inn (no spa/pool)
     penalty: 0.25
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_4}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_4}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book Langham (no pool)
     penalty: 0.2
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created

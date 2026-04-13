@@ -14,8 +14,8 @@ instruction_template: '1. Unsave all posts from r/memes. Unsubscribe from r/meme
 
   7. Send message to u/{target.msg_to} subject "{target.msg_sub}" body: "{target.msg_body}"
 
-  8. Settings: theme "dark", compact on, feed sort "top", comment sort "new", disable
-  all email notifications, disable show online status.
+  8. Settings: theme "dark", compact on, feed sort "top", comment sort "new", disable all email notifications,
+  disable show online status.
 
   9. Mark all messages and notifications read.'
 difficulty: frontier
@@ -23,11 +23,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- exploration
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -157,47 +152,44 @@ seed:
 eval:
   source: server_state
   checks:
-  # Step 1: Unsaved meme posts and unsubscribed from r/memes
-  - expr: "not any(s.name == 'memes' and s.is_subscribed for s in state.subreddits)"
+  - expr: not any(s.name == 'memes' and s.is_subscribed for s in state.subreddits)
     desc: Unsubscribed from r/memes
-  # Step 2: Subscribed to new subreddits
-  - expr: "any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.join}
-  - expr: "any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/Piracy
-  - expr: "any(s.name == 'dataisbeautiful' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == 'dataisbeautiful' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/dataisbeautiful
-  # Step 3: Blocked user
-  - expr: "'CryptoSkeptic' in state.blocked_users"
+  - expr: '''CryptoSkeptic'' in state.blocked_users'
     desc: Blocked u/CryptoSkeptic
-  # Step 4: Created post in r/MachineLearning
-  - expr: "any(p.subreddit_name == '{target.join}' and p.title == '{target.post_title}' and p.author_name == state.owner_username for p in state.posts)"
+  - expr: any(p.subreddit_name == '{target.join}' and p.title == '{target.post_title}' and p.author_name
+      == state.owner_username for p in state.posts)
     desc: Post created in r/{target.join} with correct title
-  # Step 5: Worldnews post upvoted, saved, and commented
-  - expr: "'{target.wn_id}' in state.saved_post_ids"
+  - expr: state.get_post('{target.wn_id}').vote_direction == 1
+    desc: Worldnews post upvoted
+  - expr: '''{target.wn_id}'' in state.saved_post_ids'
     desc: Worldnews post saved
-  - expr: "any(c.post_id == '{target.wn_id}' and '{target.wn_comment}' in c.body and c.author_name == state.owner_username for c in state.comments)"
+  - expr: any(c.post_id == '{target.wn_id}' and '{target.wn_comment}' in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: Commented on worldnews post
-  # Step 6: Programming post saved
-  - expr: "'{target.prog_id}' in state.saved_post_ids"
+  - expr: '''{target.prog_id}'' in state.saved_post_ids'
     desc: Programming post saved
-  # Step 7: Message sent
-  - expr: "any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_sub}' for m in state.sent_messages)"
-    desc: Message sent to u/{target.msg_to}
-  # Step 8: Settings updated
-  - expr: "state.settings.theme == 'dark'"
+  - expr: any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_sub}' and m.body == '{target.mb}'
+      for m in state.sent_messages)
+    desc: Message sent to u/{target.msg_to} with exact body
+  - expr: state.settings.theme == 'dark'
     desc: Theme set to dark
   - expr: state.settings.compact_view == True
     desc: Compact view enabled
-  - expr: "state.settings.default_feed_sort == 'top'"
+  - expr: state.settings.default_feed_sort == 'top'
     desc: Feed sort set to top
-  - expr: "state.settings.default_comment_sort == 'new'"
+  - expr: state.settings.default_comment_sort == 'new'
     desc: Comment sort set to new
-  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages
+  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages
     desc: All email notifications disabled
   - expr: state.settings.show_online_status == False
     desc: Show online status disabled
-  # Step 9: Messages and notifications read
   - expr: state.unread_notification_count() == 0
     desc: All notifications read
   - expr: state.unread_message_count() == 0
@@ -209,5 +201,18 @@ eval:
   - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
     desc: No excessive posts created
     penalty: 0.15
+  - expr: len(state.blocked_users) == 1 and 'CryptoSkeptic' in state.blocked_users
+    desc: No user other than CryptoSkeptic was blocked
+    penalty: 0.15
+  - expr: not any( e.action == 'reddit.post.create' and e.payload.get('subreddit') != '{target.join}'
+      for e in state.audit_log)
+    desc: No extra posts were created outside the MachineLearning overhaul post
+    penalty: 0.15
+  - expr: not any( e.action == 'reddit.message.send' and e.payload.get('to_user') != '{target.msg_to}'
+      for e in state.audit_log)
+    desc: Direct outreach was sent only to the intended user
+    penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

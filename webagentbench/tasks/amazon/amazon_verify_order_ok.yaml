@@ -1,0 +1,69 @@
+task_id: amazon_verify_order_ok
+env_id: amazon
+title: Verify Order Status Is Correct
+instruction_template: >
+  Check your recent order for "{target.product_name}". If the shipping address is
+  wrong or the item is no longer needed, cancel it. Otherwise, leave it as is.
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+- verification
+- grounding
+start_path: /
+seed:
+  distractors: 5
+  actors: {}
+  steps:
+  - use: featured_product
+    params:
+      name: Stainless Steel Water Bottle
+      brand: Hydro Flask
+      category: Home & Kitchen
+      price: 34.99
+      rating: 4.7
+      features:
+      - Double-wall vacuum insulation
+      - 32 oz capacity
+      - BPA-free
+      - Keeps drinks cold 24 hours
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id
+    - product_name
+    - product_price
+  - use: existing_order
+    params:
+      product_ids:
+      - '{output.product_id}'
+      status: confirmed
+      days_ago: 1
+    outputs:
+    - order_id
+  targets:
+    product_name: '{output.product_name}'
+    product_id: '{output.product_id}'
+    order_id: '{output.order_id}'
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(o.id == '{target.order_id}' and not o.id.startswith('order_initial_') and o.status != 'cancelled'
+        for o in state.orders)
+      desc: Order was not cancelled (correct behavior since address and item are fine)
+  negative_checks:
+    - expr: >
+        not any(o.id == '{target.order_id}' and not o.id.startswith('order_initial_') and o.status == 'cancelled'
+        for o in state.orders)
+      desc: Order should not have been cancelled since everything was correct
+      penalty: 0.5
+    - expr: len(state.returns) == 0
+      desc: No returns filed when none required
+      penalty: 0.3
+    - expr: >
+        not any(not o.id.startswith('order_initial_')
+        and o.id != '{target.order_id}'
+        for o in state.orders)
+      desc: No extra orders placed
+      penalty: 0.2

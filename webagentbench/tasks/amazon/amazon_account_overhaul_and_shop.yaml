@@ -1,13 +1,12 @@
 task_id: amazon_account_overhaul_and_shop
 env_id: amazon
 title: Configure Account Settings and Complete Multi-Product Purchase
-instruction_template: 'Set up your account and complete a purchase: 1. Add a new address:
-  {target.addr1_name}, {target.addr1_street}, {target.addr1_city}, TX {target.addr1_zip}.
-  2. Add a second address: {target.addr2_name}, {target.addr2_street}, {target.addr2_city},
-  CO {target.addr2_zip}. 3. Set the {target.addr1_city} address as your default shipping
-  address. 4. Enable one-click ordering and two-factor authentication in your account
-  settings. 5. Search for ''{target.p1}'', ''{target.p2}'', and ''{target.p3}'', add
-  all three to your cart, and complete checkout shipping to your default address.
+instruction_template: 'Set up your account and complete a purchase: 1. Add a new address: {target.addr1_name},
+  {target.addr1_street}, {target.addr1_city}, TX {target.addr1_zip}. 2. Add a second address: {target.addr2_name},
+  {target.addr2_street}, {target.addr2_city}, CO {target.addr2_zip}. 3. Set the {target.addr1_city} address
+  as your default shipping address. 4. Enable one-click ordering and two-factor authentication in your
+  account settings. 5. Search for ''{target.p1}'', ''{target.p2}'', and ''{target.p3}'', add all three
+  to your cart, and complete checkout shipping to your default address.
 
   '
 difficulty: frontier
@@ -15,12 +14,8 @@ time_limit_seconds: 540
 expected_steps: 48
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- exploration
-- patience
 secondary_primitives:
-- grounding
+- state_tracking
 start_path: /
 seed:
   distractors: 18
@@ -118,18 +113,16 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.state ==
-      ''TX'' for a in state.addresses)
+  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.state == ''TX'' for a in state.addresses)
 
       '
     desc: Austin address added
-  - expr: 'any(a.full_name == ''Morgan Blake'' and a.city == ''Denver'' and a.state
-      == ''CO'' for a in state.addresses)
+  - expr: 'any(a.full_name == ''Morgan Blake'' and a.city == ''Denver'' and a.state == ''CO'' for a in
+      state.addresses)
 
       '
     desc: Denver address added
-  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.is_default
-      for a in state.addresses)
+  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.is_default for a in state.addresses)
 
       '
     desc: Austin address set as default
@@ -139,24 +132,23 @@ eval:
     desc: Two-factor authentication enabled
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id_acct1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
 
       '
     desc: Product 1 purchased
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id_acct2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
 
       '
     desc: Product 2 purchased
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id_acct3}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
 
       '
     desc: Product 3 purchased
-  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
-      == ''Alex Chen'' and a.city == ''Austin''), '''') for o in state.orders if not
-      o.id.startswith(''order_initial_''))
+  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name == ''Alex Chen''
+      and a.city == ''Austin''), '''') for o in state.orders if not o.id.startswith(''order_initial_''))
 
       '
     desc: Order shipped to Austin address
@@ -164,12 +156,11 @@ eval:
   - expr: not any(a.full_name == 'Morgan Blake' and a.is_default for a in state.addresses)
     desc: Denver address is not default
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      1
+  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one order placed
     penalty: 0.1
-  - expr: 'not any(o.shipping_address_id == next((a.id for a in state.addresses if
-      a.full_name == ''Morgan Blake''), '''') for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'not any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name == ''Morgan
+      Blake''), '''') for o in state.orders if not o.id.startswith(''order_initial_''))
 
       '
     desc: Order not shipped to Denver address

@@ -1,7 +1,7 @@
 task_id: reddit_profile_engage_message
 title: Profile Research and Outreach
-instruction_template: '1. Visit u/{target.user}''s profile. Find their post "{target.user_post}" in r/{target.user_sub}. Upvote
-  and save it.
+instruction_template: '1. Visit u/{target.user}''s profile. Find their post "{target.user_post}" in r/{target.user_sub}.
+  Upvote and save it.
 
   2. Comment on it with exactly: "{target.comment}"
 
@@ -15,9 +15,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - exploration
-- planning
-- grounding
-- state_tracking
 seed:
   distractors: 8
   actors: {}
@@ -45,7 +42,8 @@ seed:
     user_post: '{output.post_title}'
     user_sub: '{output.subreddit_name}'
     post_id: '{output.post_id}'
-    comment: Incredible analysis. The decline in jQuery usage inversely correlated with React adoption is fascinating.
+    comment: Incredible analysis. The decline in jQuery usage inversely correlated with React adoption
+      is fascinating.
     msg_sub: Your SO survey analysis
     msg_body: Would you be open to sharing the raw dataset? I would love to build on your analysis.
     join: MachineLearning
@@ -56,23 +54,40 @@ eval:
     desc: Post upvoted
   - expr: '''{target.post_id}'' in state.saved_post_ids'
     desc: Post saved
-  - expr: any(c.post_id == '{target.post_id}' and "jQuery" in c.body for c in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and c.body == '{target.comment}' for c in state.comments)
     desc: Comment posted
-  - expr: any(m.to_user == "DataWizard42" and "raw dataset" in m.body for m in state.sent_messages)
+  - expr: "any(\n  m.to_user == '{target.user}'\n  and m.subject == '{target.msg_sub}'\n  and m.body ==\
+      \ '{target.msg_body}'\n  for m in state.sent_messages\n)"
     desc: Message sent
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed ML
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
   negative_checks:
-  - expr: len(state.sent_messages) <= 2
-    desc: No excessive messages sent
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.message.send') == 1
+    desc: Exactly one outreach message was sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
-    desc: No posts created when none required
+  - expr: "not any(\n  e.action == 'reddit.message.send'\n  and e.payload.get('to_user') != '{target.user}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No message was sent to the wrong user
+    penalty: 0.15
+  - expr: "not any(\n  e.action == 'reddit.comment.create'\n  and e.payload.get('post_id') != '{target.post_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No comment was posted on the wrong submission
     penalty: 0.1
-  - expr: len(state.blocked_users) == 0
-    desc: No users blocked when none required
+  - expr: "not any(\n  e.action == 'reddit.post.vote'\n  and e.payload.get('post_id') != '{target.post_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No unrelated post was voted on
+    penalty: 0.1
+  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id') != '{target.post_id}'\n\
+      \  for e in state.audit_log\n)"
+    desc: No unrelated post was saved
+    penalty: 0.1
+  - expr: "not any(\n  e.action in ['reddit.post.create', 'reddit.user.block']\n  for e in state.audit_log\n\
+      )"
+    desc: No new posts or user blocks were created during the outreach workflow
     penalty: 0.1
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- planning

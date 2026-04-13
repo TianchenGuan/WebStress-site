@@ -1,8 +1,7 @@
 variant_id: gmail_thread_detective__exploration
 base_task_id: gmail_thread_detective
 target_primitive: exploration
-description: Hidden prerequisite email and confusing decoys require thorough investigation
-  to find evidence chain
+description: The real calendar-conflict email is buried in Updates while a newer inbox recap and a nearby same-sender thread point to the wrong evidence. The agent must find the final conflict email and reply on the correct launch-review thread.
 injections:
 - layer: seed
   params:
@@ -13,20 +12,36 @@ injections:
   params:
     action: add_confusing_decoys
     decoys:
-    - The answer is in the Q3 report attachment
-    - Check the previous email for clarification
-    - Refer to the meeting notes I sent last week
-    - The details are in the shared document
-    - See the original thread for context
-    - Review the forwarded message from John
+    - from_name: '{target.other_sender_name}'
+      from: '{target.other_sender_email}'
+      subject: '{target.calendar_subject}'
+      body: |-
+        Quick recap before I verified the final executive holds:
+
+        - 9:00 AM: tentatively blocked
+        - 10:00 AM: tentatively blocked
+
+        I will send the final conflict list separately once the ops calendar is reconciled.
+      labels:
+      - inbox
+      - important
+    - from_name: '{target.sender_name}'
+      from: '{target.sender_email}'
+      subject: 'Could we hold {target.correct_time} for the Atlas staffing sync?'
+      body: |-
+        Separate staffing discussion that happens to use the same time slot.
+        Please do not use this thread for the launch review decision.
+      labels:
+      - inbox
+      - VIP
 - layer: seed
   params:
     action: increase_distractors
     count: 8
     topical_count: 5
     topical_subjects:
-    - 'Re: Investigation update'
-    - 'Fwd: Evidence review'
-    - 'Thread: Case details'
-    - 'Re: Findings summary'
-    - 'Fwd: Discovery notes'
+    - 'Re: Atlas staffing sync'
+    - 'Fwd: Calendar hold recap'
+    - 'Thread: Launch review notes'
+    - 'Re: Scheduling follow-up'
+    - 'Fwd: Ops calendar reconciliation'

@@ -1,0 +1,24 @@
+variant_id: amazon_verify_order_ok__order_twin
+base_task_id: amazon_verify_order_ok
+target_primitive: state_tracking
+description: Order history includes a similarly named recent purchase alongside the real target order.
+  The agent must inspect the exact item before reordering or leaving it alone.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Stainless Steel Water Bottle Travel Edition
+      brand: Hydro Flask Travel
+      category: Home & Kitchen
+      price: 37.79
+      rating: 4.5
+      description: Closely named travel edition that is not the original item.
+    - type: order
+      product_name: Stainless Steel Water Bottle Travel Edition
+      quantity: 1
+      unit_price: 37.79
+      status: confirmed
+      placed_hours_ago: 6
+      estimated_delivery: Arriving tomorrow

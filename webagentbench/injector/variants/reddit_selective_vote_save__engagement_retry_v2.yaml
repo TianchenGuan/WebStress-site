@@ -1,0 +1,19 @@
+variant_id: reddit_selective_vote_save__engagement_retry_v2
+base_task_id: reddit_selective_vote_save
+target_primitive: backtracking
+description: The first post or engagement write fails transiently. The agent must verify the action landed
+  and retry if it did not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/posts**'
+    methods:
+    - POST
+    - PUT
+    - DELETE
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

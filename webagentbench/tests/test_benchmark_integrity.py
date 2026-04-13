@@ -19,6 +19,7 @@ from webagentbench.injector.middleware import (
 )
 from webagentbench.injector.seed import apply_seed_injection
 from webagentbench.injector.server import apply_server_injection
+from webagentbench.runner import controller_headers, ensure_controller_secret
 from webagentbench.task_rendering import render_template
 from webagentbench.tasks._evaluator import evaluate
 from webagentbench.tasks._schema import Check, EvalConfig, NegativeCheck
@@ -47,7 +48,7 @@ def test_create_session_stores_seed_and_degradation_metadata() -> None:
         SessionCreateRequest(
             task_id="gmail_board_briefing_prep",
             seed=42,
-            variant_filename="gmail_board_briefing__grounding.yaml",
+            variant_filename="gmail_board_briefing_prep__label_trap.yaml",
         ),
         session_manager=session_manager,
     )
@@ -55,16 +56,16 @@ def test_create_session_stores_seed_and_degradation_metadata() -> None:
     state = session_manager.get(payload["session_id"])
 
     assert state.seed == 42
-    assert state.degradation["variant_id"] == "gmail_board_briefing__grounding_v1"
+    assert state.degradation["variant_id"] == "gmail_board_briefing_prep__label_trap"
     assert state.degradation["base_task_id"] == "gmail_board_briefing_prep"
-    assert state.degradation["variant_filename"] == "gmail_board_briefing__grounding.yaml"
+    assert state.degradation["variant_filename"] == "gmail_board_briefing_prep__label_trap.yaml"
 
 
 def test_create_session_accepts_string_based_confusing_decoys_variants() -> None:
     session_manager = SessionManager()
 
     for task_id, variant_filename in [
-        ("gmail_thread_version_conflict", "gmail_thread_version_conflict__grounding.yaml"),
+        ("gmail_thread_version_conflict", "gmail_thread_version_conflict__recap_trap.yaml"),
         ("gmail_thread_detective", "gmail_thread_detective__exploration.yaml"),
     ]:
         payload = create_session(
@@ -125,8 +126,8 @@ def test_create_session_renders_degradation_target_params_before_seed_injection(
     )
 
     state = session_manager.get(payload["session_id"])
-    assert state.degradation["injections"][0]["params"]["email_id"] == payload["resolved_targets"]["calendar_email_id"]
-    assert state.get_email(payload["resolved_targets"]["calendar_email_id"]).labels == ["updates"]
+    assert state.degradation["injections"][0]["params"]["email_id"] == state.resolved_targets["calendar_email_id"]
+    assert state.get_email(state.resolved_targets["calendar_email_id"]).labels == ["updates"]
 
 
 def test_thread_detective_exploration_variant_hides_calendar_email() -> None:
@@ -142,7 +143,7 @@ def test_thread_detective_exploration_variant_hides_calendar_email() -> None:
     )
 
     state = session_manager.get(payload["session_id"])
-    calendar_email = state.get_email(payload["resolved_targets"]["calendar_email_id"])
+    calendar_email = state.get_email(state.resolved_targets["calendar_email_id"])
     assert calendar_email.labels == ["updates"]
 
 def test_incident_postmortem_exploration_variant_hides_corrected_email() -> None:
@@ -158,7 +159,7 @@ def test_incident_postmortem_exploration_variant_hides_corrected_email() -> None
     )
 
     state = session_manager.get(payload["session_id"])
-    corrected_email = state.get_email(payload["resolved_targets"]["corrected_email_id"])
+    corrected_email = state.get_email(state.resolved_targets["corrected_email_id"])
     assert corrected_email.labels == ["updates"]
 
 
@@ -209,7 +210,7 @@ def test_gmail_stale_email_and_search_variants_use_paginated_items_schema() -> N
 
 def test_board_briefing_state_tracking_uses_email_decoys_not_contact_shuffle() -> None:
     variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
-    data = yaml.safe_load((variants_dir / "gmail_board_briefing_prep__state_tracking.yaml").read_text()) or {}
+    data = yaml.safe_load((variants_dir / "gmail_board_briefing_prep__label_trap.yaml").read_text()) or {}
     actions = [injection.get("params", {}).get("action") for injection in data.get("injections", [])]
 
     assert "shuffle_contacts" not in actions
@@ -361,17 +362,17 @@ def test_search_and_star_passes_when_target_starred() -> None:
     before = evaluate(
         task,
         server_state=state,
-        targets=payload["resolved_targets"],
+        targets=state.resolved_targets,
         trajectory=[],
     )
     assert before["success"] is False
 
     # After starring: should pass (no search event required)
-    state.toggle_star(payload["resolved_targets"]["target_email_id"], True)
+    state.toggle_star(state.resolved_targets["target_email_id"], True)
     after = evaluate(
         task,
         server_state=state,
-        targets=payload["resolved_targets"],
+        targets=state.resolved_targets,
         trajectory=[],
     )
     assert after["success"] is True
@@ -379,6 +380,7 @@ def test_search_and_star_passes_when_target_starred() -> None:
 
 def test_browsergym_task_rejects_stale_server_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
     task = WebAgentBenchTask(seed=42, task_id="gmail_search_and_star", server_port=8099)
+    monkeypatch.setenv("WEBAGENTBENCH_CONTROLLER_SECRET", "test-controller-secret")
 
     monkeypatch.setattr("webagentbench.runner.wait_for_server", lambda host, port, timeout=2: True)
     monkeypatch.setattr(
@@ -401,6 +403,17 @@ def test_browsergym_task_rejects_stale_server_manifest(monkeypatch: pytest.Monke
     )
 
     task._ensure_server()
+
+
+def test_controller_secret_helpers_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("WEBAGENTBENCH_CONTROLLER_SECRET", raising=False)
+
+    assert controller_headers() == {}
+
+    secret = ensure_controller_secret()
+
+    assert secret
+    assert controller_headers() == {"X-WAB-Controller-Secret": secret}
 
 
 def test_thread_detective_ignores_quoted_conflicting_times() -> None:

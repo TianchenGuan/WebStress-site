@@ -1,0 +1,17 @@
+variant_id: reddit_edit_then_comment__edit_retry
+base_task_id: reddit_edit_then_comment
+target_primitive: verification
+description: The first post edit fails transiently. The agent must verify the edited body actually stuck
+  before moving on.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/posts/*'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 503
+    error_message: Temporary Reddit write failure. Retry the action.
+    behavior:
+      mode: once

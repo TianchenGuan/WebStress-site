@@ -1,32 +1,42 @@
 task_id: booking_expert_settings_and_security
 env_id: booking
 title: Comprehensive Security and Settings Overhaul
-instruction_template: "Perform a complete security and settings overhaul:\n\
-  1. Enable two-factor authentication.\n\
-  2. Change your password (update the security settings).\n\
-  3. Set your preferred currency to GBP.\n\
-  4. Set your language to English (confirm or set it).\n\
-  5. Disable SMS notifications.\n\
-  6. Enable the newsletter.\n\
-  7. Disable deal alerts.\n\
-  8. Update your dietary restrictions to [\"gluten-free\", \"vegetarian\"].\n\
-  9. Set your preferred bed type to \"king\".\n\
-  10. Set floor preference to \"high\".\n\
-  11. Update your phone number to \"+44-20-7946-0958\".\n\
-  12. After completing all settings changes, book \"{target.property_name}\"\
-  \ in London to confirm your updated settings work: book the \"Standard\
-  \ Room\" for 2 guests checking in 2026-11-01 and checking out 2026-11-04.\
-  \ Use the default Visa (ending in 4242).\n"
+instruction_template: 'Perform a complete security and settings overhaul:
+
+  1. Enable two-factor authentication.
+
+  2. Change your password (update the security settings).
+
+  3. Set your preferred currency to GBP.
+
+  4. Set your language to English (confirm or set it).
+
+  5. Disable SMS notifications.
+
+  6. Enable the newsletter.
+
+  7. Disable deal alerts.
+
+  8. Update your dietary restrictions to ["gluten-free", "vegetarian"].
+
+  9. Set your preferred bed type to "king".
+
+  10. Set floor preference to "high".
+
+  11. Update your phone number to "+44-20-7946-0958".
+
+  12. After completing all settings changes, book "{target.property_name}" in London to confirm your updated
+  settings work: book the "Standard Room" for 2 guests checking in 2026-11-01 and checking out 2026-11-04.
+  Use the default Visa (ending in 4242).
+
+  '
 difficulty: expert
 time_limit_seconds: 460
 expected_steps: 35
 primary_primitives:
 - patience
-- state_tracking
-- planning
 secondary_primitives:
-- grounding
-- verification
+- state_tracking
 start_path: /settings
 seed:
   distractors: 10
@@ -109,16 +119,14 @@ eval:
     desc: Newsletter enabled
   - expr: state.settings.deal_alerts == False
     desc: Deal alerts disabled
-  - expr: "'gluten-free' in state.travel_preferences.dietary_restrictions and 'vegetarian'\
-      \ in state.travel_preferences.dietary_restrictions"
+  - expr: '''gluten-free'' in state.travel_preferences.dietary_restrictions and ''vegetarian'' in state.travel_preferences.dietary_restrictions'
     desc: Dietary restrictions updated to gluten-free and vegetarian
   - expr: state.travel_preferences.preferred_bed_type == 'king'
     desc: Preferred bed type set to king
   - expr: state.travel_preferences.floor_preference == 'high'
     desc: Floor preference set to high
-  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-11-01' and\n  r.check_out == '2026-11-04'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-11-01' and\n  r.check_out == '2026-11-04'\n  for r in state.reservations\n)\n"
     desc: Hotel booked with correct dates
   negative_checks:
   - expr: state.settings.email_notifications == True
@@ -127,11 +135,10 @@ eval:
   - expr: state.owner_phone == '+44-20-7946-0958'
     desc: Phone number was updated correctly
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name !=\
-      \ 'Standard Room'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name != 'Standard Room'\n\
+      \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the correct room type (Standard Room)
     penalty: 0.2
-  - expr: "'dairy-free' not in state.travel_preferences.dietary_restrictions"
+  - expr: '''dairy-free'' not in state.travel_preferences.dietary_restrictions'
     desc: Old dietary restriction (dairy-free) was replaced, not kept
     penalty: 0.15

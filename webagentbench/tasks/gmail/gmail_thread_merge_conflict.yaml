@@ -1,37 +1,29 @@
 task_id: gmail_thread_merge_conflict
 env_id: gmail
 title: Identify conflicting decisions from two threads and draft a resolution email
-instruction_template: 'Two threads contain final decisions about the Meridian conference
-  room renovation:
+instruction_template: 'Two threads contain final decisions about the Meridian conference room renovation:
 
-  (1) "Meridian Room - Engineering Buildout" where the engineering team decided to
-  convert
+  (1) "Meridian Room - Engineering Buildout" where the engineering team decided to convert
 
   the room into a server lab starting 2026-04-01,
 
-  (2) "Meridian Room - Executive Retreat Setup" where the executive team decided to
-  convert
+  (2) "Meridian Room - Executive Retreat Setup" where the executive team decided to convert
 
   the same room into an executive lounge starting 2026-04-01.
 
-  Read both threads fully. Determine which decision was finalized first (the thread
-  where
+  Read both threads fully. Determine which decision was finalized first (the thread where
 
-  the decision-maker explicitly wrote "Decision finalized" or "Approved" with the
-  earlier
+  the decision-maker explicitly wrote "Decision finalized" or "Approved" with the earlier
 
   timestamp). Compose a new email to both decision-makers AND to the facilities manager
 
-  Nadia Orozco <{target.nadia_orozco_email}> with subject "Conflict: Meridian Room
-  double-booked
+  Nadia Orozco <{target.nadia_orozco_email}> with subject "Conflict: Meridian Room double-booked
 
   for 2026-04-01" and body containing ALL of the following:
 
-  (a) "Engineering decided: convert to server lab. Decision by {target.eng_decision_maker}
-  on {target.eng_decision_date}."
+  (a) "Engineering decided: convert to server lab. Decision by {target.eng_decision_maker} on {target.eng_decision_date}."
 
-  (b) "Executive decided: convert to executive lounge. Decision by {target.exec_decision_maker}
-  on {target.exec_decision_date}."
+  (b) "Executive decided: convert to executive lounge. Decision by {target.exec_decision_maker} on {target.exec_decision_date}."
 
   (c) "First decision: Engineering on {target.eng_decision_date}."
 
@@ -45,12 +37,8 @@ time_limit_seconds: 720
 expected_steps: 45
 primary_primitives:
 - verification
-- state_tracking
-- grounding
-- planning
 secondary_primitives:
-- exploration
-- patience
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -119,46 +107,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any('{target.victor_hahn_email}' in e.to and '{target.leila_osman_email}'
-      in e.to and '{target.nadia_orozco_email}' in e.to for e in state.sent)
+  - expr: any('{target.victor_hahn_email}' in e.to and '{target.leila_osman_email}' in e.to and '{target.nadia_orozco_email}'
+      in e.to for e in state.sent)
     desc: Email sent to all three recipients
-  - expr: 'any(''Conflict: Meridian Room double-booked for 2026-04-01'' in e.subject
-      for e in state.sent)'
+  - expr: 'any(''Conflict: Meridian Room double-booked for 2026-04-01'' in e.subject for e in state.sent)'
     desc: Email has correct subject
   - expr: 'any(''Engineering decided: convert to server lab'' in e.body for e in state.sent)'
     desc: Body contains engineering decision statement
-  - expr: any('Decision by {target.eng_decision_maker} on {target.eng_decision_date}'
-      in e.body for e in state.sent)
-    desc: Body contains engineering decision-maker and date
-  - expr: 'any(''Executive decided: convert to executive lounge'' in e.body for e
-      in state.sent)'
-    desc: Body contains executive decision statement
-  - expr: any('Decision by {target.exec_decision_maker} on {target.exec_decision_date}'
-      in e.body for e in state.sent)
-    desc: Body contains executive decision-maker and date
-  - expr: 'any(''First decision: Engineering on {target.eng_decision_date}'' in e.body
-      for e in state.sent)'
-    desc: Body correctly identifies Engineering as first decision
-  - expr: any('escalate to VP of Operations for final allocation' in e.body for e
+  - expr: any('Decision by {target.eng_decision_maker} on {target.eng_decision_date}' in e.body for e
       in state.sent)
+    desc: Body contains engineering decision-maker and date
+  - expr: 'any(''Executive decided: convert to executive lounge'' in e.body for e in state.sent)'
+    desc: Body contains executive decision statement
+  - expr: any('Decision by {target.exec_decision_maker} on {target.exec_decision_date}' in e.body for
+      e in state.sent)
+    desc: Body contains executive decision-maker and date
+  - expr: 'any(''First decision: Engineering on {target.eng_decision_date}'' in e.body for e in state.sent)'
+    desc: Body correctly identifies Engineering as first decision
+  - expr: any('escalate to VP of Operations for final allocation' in e.body for e in state.sent)
     desc: Body contains recommended resolution
-  - expr: len([e for e in state.sent if e.in_reply_to is None and e.forwarded_from_id
-      is None]) >= 1
+  - expr: len([e for e in state.sent if e.in_reply_to is None and e.forwarded_from_id is None]) >= 1
     desc: Email is a compose (not reply or forward)
   negative_checks:
-  - expr: not any(e.thread_id == '{target.eng_thread_id}' and e.in_reply_to is not
-      None for e in state.sent)
+  - expr: not any(e.thread_id == '{target.eng_thread_id}' and e.in_reply_to is not None for e in state.sent)
     desc: No reply in Engineering thread
     penalty: 0.15
-  - expr: not any(e.thread_id == '{target.exec_thread_id}' and e.in_reply_to is not
-      None for e in state.sent)
+  - expr: not any(e.thread_id == '{target.exec_thread_id}' and e.in_reply_to is not None for e in state.sent)
     desc: No reply in Executive thread
     penalty: 0.15
   - expr: 'not any(''First decision: Executive'' in e.body for e in state.sent)'
     desc: Does not incorrectly claim Executive decided first
     penalty: 0.15
-  - expr: not any('Maintenance' in e.subject or 'Maintenance Schedule' in e.body for
-      e in state.sent)
+  - expr: not any('Maintenance' in e.subject or 'Maintenance Schedule' in e.body for e in state.sent)
     desc: No reference to Maintenance Schedule
     penalty: 0.15
   - expr: not any('no conflict exists' in e.body for e in state.sent)

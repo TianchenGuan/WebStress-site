@@ -25,6 +25,7 @@ from starlette.testclient import TestClient
 
 from webagentbench.app import app
 from webagentbench.injector.middleware import clear_all_degradations
+from webagentbench.runner import controller_headers, ensure_controller_secret
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +38,7 @@ def _clean_degradation_state():
 
 @pytest.fixture()
 def client():
+    app.state.controller_secret = ensure_controller_secret()
     return TestClient(app)
 
 
@@ -45,11 +47,18 @@ def client():
 def _create_session(client: TestClient, task_id: str = "gmail_star_email",
                     seed: int = 42, **extra) -> dict:
     payload = {"task_id": task_id, "seed": seed, **extra}
-    resp = client.post("/api/env/gmail/session", json=payload)
+    resp = client.post("/api/env/gmail/session", json=payload, headers=controller_headers())
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert "session_id" in data
     return data
+
+
+def _evaluate(client: TestClient, *, session_id: str, task_id: str, **extra) -> dict:
+    payload = {"session_id": session_id, "task_id": task_id, **extra}
+    resp = client.post("/api/env/gmail/evaluate", json=payload, headers=controller_headers())
+    assert resp.status_code == 200, resp.text
+    return resp.json()
 
 
 def _referer(session_id: str) -> dict:
@@ -79,11 +88,7 @@ class TestStandardLifecycle:
         assert resp.status_code == 200
 
         # Evaluate
-        resp = client.post("/api/env/gmail/evaluate", json={
-            "session_id": sid, "task_id": "gmail_star_email",
-        })
-        assert resp.status_code == 200
-        result = resp.json()
+        result = _evaluate(client, session_id=sid, task_id="gmail_star_email")
         assert result["success"] is True
         assert result["score"] > 0.5
 
@@ -93,14 +98,62 @@ class TestStandardLifecycle:
 
     def test_evaluation_fails_when_task_not_done(self, client: TestClient):
         session = _create_session(client)
-        resp = client.post("/api/env/gmail/evaluate", json={
-            "session_id": session["session_id"],
-            "task_id": "gmail_star_email",
-        })
-        result = resp.json()
+        result = _evaluate(client, session_id=session["session_id"], task_id="gmail_star_email")
         # Email is not starred → check fails
         assert result["success"] is False
         assert result["score"] < 1.0
+
+    @pytest.mark.parametrize(
+        ("env_id", "task_id"),
+        [
+            ("amazon", "amazon_add_single_item"),
+            ("booking", "booking_change_phone"),
+            ("gmail", "gmail_star_email"),
+            ("reddit", "reddit_upvote_post"),
+            ("robinhood", "rh_add_to_watchlist"),
+        ],
+    )
+    def test_public_evaluate_allows_bound_session_task_without_controller_headers(
+        self,
+        client: TestClient,
+        env_id: str,
+        task_id: str,
+    ) -> None:
+        session_resp = client.post(
+            f"/api/env/{env_id}/session",
+            json={"task_id": task_id, "seed": 42},
+            headers=controller_headers(),
+        )
+        assert session_resp.status_code == 200, session_resp.text
+        session = session_resp.json()
+
+        eval_resp = client.post(
+            f"/api/env/{env_id}/evaluate",
+            json={
+                "session_id": session["session_id"],
+                "task_id": None,
+                "benchmark_state": {},
+                "trajectory": [],
+            },
+        )
+        assert eval_resp.status_code == 200, eval_resp.text
+        result = eval_resp.json()
+        assert "checks" in result
+        assert "negative_checks" in result
+
+    def test_public_evaluate_rejects_cross_task_override_without_controller_headers(self, client: TestClient) -> None:
+        session = _create_session(client)
+        resp = client.post(
+            "/api/env/gmail/evaluate",
+            json={
+                "session_id": session["session_id"],
+                "task_id": "gmail_reply_simple",
+                "benchmark_state": {},
+                "trajectory": [],
+            },
+        )
+        assert resp.status_code == 403
+        assert "Controller access required" in resp.json()["detail"]
 
 
 # ── 2. Network degradation: error_then_success ──────────────────────────
@@ -496,11 +549,11 @@ class TestRealVariantFiles:
         assert elapsed >= 0.8, f"Expected >=800ms delay, got {elapsed*1000:.0f}ms"
 
     def test_grounding_variant_registers_client_injections(self, client: TestClient):
-        """Load the actual gmail_board_briefing__grounding.yaml variant."""
+        """Load a real client-layer Gmail grounding variant."""
         session = _create_session(
             client,
-            task_id="gmail_board_briefing_prep",
-            variant_filename="gmail_board_briefing__grounding.yaml",
+            task_id="gmail_client_handoff",
+            variant_filename="gmail_client_handoff__grounding.yaml",
         )
         sid = session["session_id"]
 
@@ -524,15 +577,13 @@ class TestEvaluationScoring:
             json={"session_id": sid},
         )
 
-        result = client.post("/api/env/gmail/evaluate", json={
-            "session_id": sid, "task_id": "gmail_star_email",
-        }).json()
+        result = _evaluate(client, session_id=sid, task_id="gmail_star_email")
 
         assert result["success"] is True
         assert result["score"] >= 0.8  # 1.0 base - possible small negative penalty
 
     def test_session_metadata_persisted(self, client: TestClient):
-        """Verify seed and degradation are accessible on the session."""
+        """Verify the public session summary exposes degradation, not internal seed."""
         session = _create_session(client, seed=42, degradation={
             "variant_id": "test_meta",
             "base_task_id": "gmail_star_email",
@@ -545,6 +596,62 @@ class TestEvaluationScoring:
         resp = client.get(f"/api/env/gmail/session/{sid}")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["seed"] == 42
+        assert "seed" not in data
+        assert data["session_id"] == sid
+        assert data["title"] == "Star a Specific Email"
+        assert data["degradation_active"] is True
         assert data["degradation"]["variant_id"] == "test_meta"
         assert data["degradation"]["target_primitive"] == "patience"
+
+
+@pytest.mark.parametrize(
+    "env_id,task_id,variant_filename",
+    [
+        ("amazon", "amazon_account_overhaul_and_shop", "amazon_account_overhaul_and_shop__address_retry_v2.yaml"),
+        ("booking", "booking_account_security_and_payment", "booking_account_security_and_payment__exploration.yaml"),
+        ("gmail", "gmail_access_review_audit", "gmail_access_review_audit__state_tracking.yaml"),
+        ("reddit", "reddit_account_cleanup", "reddit_account_cleanup__engagement_retry_v2.yaml"),
+        ("robinhood", "rh_add_to_watchlist", "rh_add_to_watchlist__ticker_twin.yaml"),
+    ],
+)
+def test_reset_endpoint_recreates_session_and_preserves_variant(
+    client: TestClient,
+    env_id: str,
+    task_id: str,
+    variant_filename: str,
+) -> None:
+    create = client.post(
+        f"/api/env/{env_id}/session",
+        json={
+            "task_id": task_id,
+            "seed": 42,
+            "variant_filename": variant_filename,
+        },
+        headers=controller_headers(),
+    )
+    assert create.status_code == 200, create.text
+    first = create.json()
+    first_sid = first["session_id"]
+
+    summary = client.get(f"/api/env/{env_id}/session/{first_sid}")
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["degradation"]["variant_filename"] == variant_filename
+
+    reset = client.post(
+        f"/api/env/{env_id}/session/{first_sid}/reset",
+        headers=controller_headers(),
+    )
+    assert reset.status_code == 200, reset.text
+    second = reset.json()
+    second_sid = second["session_id"]
+
+    assert second_sid != first_sid
+    assert second["start_path"] == first["start_path"]
+    assert second["instruction"] == first["instruction"]
+
+    old_summary = client.get(f"/api/env/{env_id}/session/{first_sid}")
+    assert old_summary.status_code == 404
+
+    new_summary = client.get(f"/api/env/{env_id}/session/{second_sid}")
+    assert new_summary.status_code == 200, new_summary.text
+    assert new_summary.json()["degradation"]["variant_filename"] == variant_filename

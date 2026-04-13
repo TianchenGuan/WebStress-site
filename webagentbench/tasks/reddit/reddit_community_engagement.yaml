@@ -1,169 +1,163 @@
 task_id: reddit_community_engagement
 env_id: reddit
 title: Multi-Community Engagement Workflow
-instruction_template: >
-  Complete all of the following community engagement tasks in order:
+instruction_template: 'Complete all of the following community engagement tasks in order:
 
   1. Subscribe to r/{target.join_subreddit} (you are not currently a member).
 
-  2. Create a new text post in r/{target.join_subreddit} with the title exactly:
-  "{target.new_post_title}" and body exactly: "{target.new_post_body}".
+  2. Create a new text post in r/{target.join_subreddit} with the title exactly: "{target.new_post_title}"
+  and body exactly: "{target.new_post_body}".
 
-  3. Navigate to the post titled "{target.comment_post_title}" in
-  r/{target.comment_subreddit} by u/{target.comment_post_author}. Upvote
-  that post and add a top-level comment with the exact text:
-  "{target.comment_text}".
+  3. Navigate to the post titled "{target.comment_post_title}" in r/{target.comment_subreddit} by u/{target.comment_post_author}.
+  Upvote that post and add a top-level comment with the exact text: "{target.comment_text}".
 
-  4. Find and reply to the comment by u/{target.reply_author} on the same
-  post (the comment that says "{target.reply_target_body}") with the exact
-  text: "{target.reply_text}".
+  4. Find and reply to the comment by u/{target.reply_author} on the same post (the comment that says
+  "{target.reply_target_body}") with the exact text: "{target.reply_text}".
 
-  5. Go to Settings and change the default comment sort to "new" and switch
-  the theme to "dark".
+  5. Go to Settings and change the default comment sort to "new" and switch the theme to "dark".
 
   Do not downvote any posts. Do not unsubscribe from any communities.
+
+  '
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
-  - planning
-  - grounding
-  - state_tracking
+- planning
 secondary_primitives:
-  - verification
-  - exploration
+- grounding
 start_path: /feed
 seed:
   distractors: 10
   actors: {}
   steps:
-    - use: subscription_state
-      params:
-        unsubscribe:
-          - MachineLearning
-      outputs:
-        - subscriptions
-    - use: target_post
-      params:
-        subreddit: AskReddit
-        title: "What common advice is actually terrible and you wish people would stop giving?"
-        body: ""
-        author: QuantumPanda
-        score: 42000
-        flair_text: null
-      outputs:
-        - post_id
-        - post_title
-        - subreddit_name
-    - use: target_comment
-      params:
-        post_id: "{output.post_id}"
-        body: "Honey never spoils. Archaeologists have found 3000-year-old honey in Egyptian tombs that was still perfectly edible."
-        author: MidnightCoder
-        score: 8500
-      outputs:
-        - comment_id
-        - comment_body
-    - use: decoy_posts
-      params:
-        subreddit: AskReddit
-        count: 4
-        title_pattern: "What's a {topic} that sounds unbelievable?"
-        score_range: [10000, 35000]
-      outputs:
-        - decoy_post_ids
-    - use: comment_thread
-      params:
-        post_id: "{output.post_id}"
-        depth: 2
-        comments_per_level: 3
-        bodies:
-          - "Octopuses have three hearts and blue blood."
-          - "A day on Venus is longer than a year on Venus."
-          - "The inventor of Pringles is buried in a Pringles can."
-          - "Bananas are berries but strawberries aren't."
-          - "Honey is essentially bee vomit."
-          - "There are more trees on Earth than stars in the Milky Way."
-      outputs:
-        - comment_ids
+  - use: subscription_state
+    params:
+      unsubscribe:
+      - MachineLearning
+    outputs:
+    - subscriptions
+  - use: target_post
+    params:
+      subreddit: AskReddit
+      title: What common advice is actually terrible and you wish people would stop giving?
+      body: ''
+      author: QuantumPanda
+      score: 42000
+      flair_text: null
+    outputs:
+    - post_id
+    - post_title
+    - subreddit_name
+  - use: target_comment
+    params:
+      post_id: '{output.post_id}'
+      body: Honey never spoils. Archaeologists have found 3000-year-old honey in Egyptian tombs that was
+        still perfectly edible.
+      author: MidnightCoder
+      score: 8500
+    outputs:
+    - comment_id
+    - comment_body
+  - use: decoy_posts
+    params:
+      subreddit: AskReddit
+      count: 4
+      title_pattern: What's a {topic} that sounds unbelievable?
+      score_range:
+      - 10000
+      - 35000
+    outputs:
+    - decoy_post_ids
+  - use: comment_thread
+    params:
+      post_id: '{output.post_id}'
+      depth: 2
+      comments_per_level: 3
+      bodies:
+      - Octopuses have three hearts and blue blood.
+      - A day on Venus is longer than a year on Venus.
+      - The inventor of Pringles is buried in a Pringles can.
+      - Bananas are berries but strawberries aren't.
+      - Honey is essentially bee vomit.
+      - There are more trees on Earth than stars in the Milky Way.
+    outputs:
+    - comment_ids
   targets:
-    join_subreddit: "MachineLearning"
-    new_post_title: "Paper Discussion: Attention Is All You Need revisited in 2026"
-    new_post_body: "It's been 9 years since the original transformer paper. How has the architecture evolved, and what are the most impactful modifications since then?"
-    comment_subreddit: "AskReddit"
-    comment_post_title: "{output.post_title}"
-    comment_post_author: "QuantumPanda"
-    comment_post_id: "{output.post_id}"
-    comment_text: "The mantis shrimp can punch with the force of a .22 caliber bullet and can see 16 types of color receptors (humans have 3)."
-    reply_author: "MidnightCoder"
-    reply_target_comment_id: "{output.comment_id}"
-    reply_target_body: "Honey never spoils"
-    reply_text: "This is one of my favorites! The key is the low moisture content and acidic pH that create an inhospitable environment for bacteria."
-    decoy_post_ids: "{output.decoy_post_ids}"
-    initial_subscriptions: "{output.subscriptions}"
+    join_subreddit: MachineLearning
+    new_post_title: 'Paper Discussion: Attention Is All You Need revisited in 2026'
+    new_post_body: It's been 9 years since the original transformer paper. How has the architecture evolved,
+      and what are the most impactful modifications since then?
+    comment_subreddit: AskReddit
+    comment_post_title: '{output.post_title}'
+    comment_post_author: QuantumPanda
+    comment_post_id: '{output.post_id}'
+    comment_text: The mantis shrimp can punch with the force of a .22 caliber bullet and can see 16 types
+      of color receptors (humans have 3).
+    reply_author: MidnightCoder
+    reply_target_comment_id: '{output.comment_id}'
+    reply_target_body: Honey never spoils
+    reply_text: This is one of my favorites! The key is the low moisture content and acidic pH that create
+      an inhospitable environment for bacteria.
+    decoy_post_ids: '{output.decoy_post_ids}'
+    initial_subscriptions: '{output.subscriptions}'
 eval:
   source: server_state
   checks:
-    # Step 1: Subscribed to MachineLearning
-    - expr: "any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)"
-      desc: Subscribed to r/MachineLearning
-    # Step 2: Created post in MachineLearning with exact title and body
-    - expr: >
-        any(p.subreddit_name == 'MachineLearning' and
-        p.title == "Paper Discussion: Attention Is All You Need revisited in 2026" and
-        p.author_name == state.owner_username
-        for p in state.posts)
-      desc: Post created in r/MachineLearning with correct title
-    - expr: >
-        any(p.subreddit_name == 'MachineLearning' and
-        p.body == "It's been 9 years since the original transformer paper. How has the architecture evolved, and what are the most impactful modifications since then?" and
-        p.author_name == state.owner_username
-        for p in state.posts)
-      desc: Post body is exact required text
-    # Step 3: Upvoted the AskReddit post
-    - expr: "state.get_post('{target.comment_post_id}').vote_direction == 1"
-      desc: AskReddit post was upvoted
-    # Step 3: Commented on the AskReddit post with exact text
-    - expr: >
-        any(c.post_id == '{target.comment_post_id}' and
-        c.body == "The mantis shrimp can punch with the force of a .22 caliber bullet and can see 16 types of color receptors (humans have 3)." and
-        c.author_name == state.owner_username and
-        c.parent_id is None
-        for c in state.comments)
-      desc: Exact top-level comment posted on AskReddit post
-    # Step 4: Replied to MidnightCoder's comment with exact text
-    - expr: >
-        any(c.post_id == '{target.comment_post_id}' and
-        c.parent_id == '{target.reply_target_comment_id}' and
-        c.body == "This is one of my favorites! The key is the low moisture content and acidic pH that create an inhospitable environment for bacteria." and
-        c.author_name == state.owner_username
-        for c in state.comments)
-      desc: Exact reply posted to MidnightCoder's comment
-    # Step 5: Settings updated
-    - expr: "state.settings.default_comment_sort == 'new'"
-      desc: Default comment sort changed to new
-    - expr: "state.settings.theme == 'dark'"
-      desc: Theme changed to dark
+  - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
+    desc: Subscribed to r/MachineLearning
+  - expr: 'any(p.subreddit_name == ''MachineLearning'' and p.title == "Paper Discussion: Attention Is
+      All You Need revisited in 2026" and p.author_name == state.owner_username for p in state.posts)
+
+      '
+    desc: Post created in r/MachineLearning with correct title
+  - expr: 'any(p.subreddit_name == ''MachineLearning'' and p.body == "It''s been 9 years since the original
+      transformer paper. How has the architecture evolved, and what are the most impactful modifications
+      since then?" and p.author_name == state.owner_username for p in state.posts)
+
+      '
+    desc: Post body is exact required text
+  - expr: state.get_post('{target.comment_post_id}').vote_direction == 1
+    desc: AskReddit post was upvoted
+  - expr: 'any(c.post_id == ''{target.comment_post_id}'' and c.body == "The mantis shrimp can punch with
+      the force of a .22 caliber bullet and can see 16 types of color receptors (humans have 3)." and
+      c.author_name == state.owner_username and c.parent_id is None for c in state.comments)
+
+      '
+    desc: Exact top-level comment posted on AskReddit post
+  - expr: 'any(c.post_id == ''{target.comment_post_id}'' and c.parent_id == ''{target.reply_target_comment_id}''
+      and c.body == "This is one of my favorites! The key is the low moisture content and acidic pH that
+      create an inhospitable environment for bacteria." and c.author_name == state.owner_username for
+      c in state.comments)
+
+      '
+    desc: Exact reply posted to MidnightCoder's comment
+  - expr: state.settings.default_comment_sort == 'new'
+    desc: Default comment sort changed to new
+  - expr: state.settings.theme == 'dark'
+    desc: Theme changed to dark
   negative_checks:
-    - expr: >
-        not any(state.get_post(did).vote_direction != 0
-        for did in {target.decoy_post_ids})
-      desc: No votes on decoy posts
-      penalty: 0.15
-    - expr: >
-        not any(c.post_id in {target.decoy_post_ids} and
-        c.author_name == state.owner_username
-        for c in state.comments)
-      desc: No comments on decoy posts
-      penalty: 0.2
-    - expr: >
-        not any(p.vote_direction == -1 for p in state.posts)
-      desc: No posts were downvoted
-      penalty: 0.15
-    - expr: "state.settings.default_feed_sort == 'hot'"
-      desc: Feed sort was not accidentally changed
-      penalty: 0.1
-    - expr: >
-        all(sid in state.subscriptions for sid in {target.initial_subscriptions})
-      desc: No existing subscriptions were removed
-      penalty: 0.2
+  - expr: 'not any(state.get_post(did).vote_direction != 0 for did in {target.decoy_post_ids})
+
+      '
+    desc: No votes on decoy posts
+    penalty: 0.15
+  - expr: 'not any(c.post_id in {target.decoy_post_ids} and c.author_name == state.owner_username for
+      c in state.comments)
+
+      '
+    desc: No comments on decoy posts
+    penalty: 0.2
+  - expr: 'not any(p.vote_direction == -1 for p in state.posts)
+
+      '
+    desc: No posts were downvoted
+    penalty: 0.15
+  - expr: state.settings.default_feed_sort == 'hot'
+    desc: Feed sort was not accidentally changed
+    penalty: 0.1
+  - expr: 'all(sid in state.subscriptions for sid in {target.initial_subscriptions})
+
+      '
+    desc: No existing subscriptions were removed
+    penalty: 0.2

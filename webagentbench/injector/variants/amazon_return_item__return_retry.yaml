@@ -1,0 +1,17 @@
+variant_id: amazon_return_item__return_retry
+base_task_id: amazon_return_item
+target_primitive: backtracking
+description: The first return request fails transiently. The agent must retry the return instead of assuming
+  it was filed.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/returns'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary write failure. Retry the action.
+    behavior:
+      mode: once

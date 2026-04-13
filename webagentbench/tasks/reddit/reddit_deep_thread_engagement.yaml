@@ -1,7 +1,7 @@
 task_id: reddit_deep_thread_engagement
 title: Deep Multi-Thread Engagement
-instruction_template: '1. In r/{target.sub1} find "{target.p1}". Upvote. Comment: "{target.c1}". Reply to u/{target.r1_auth}
-  (mentions "{target.r1_hint}"): "{target.r1_text}".
+instruction_template: '1. In r/{target.sub1} find "{target.p1}". Upvote. Comment: "{target.c1}". Reply
+  to u/{target.r1_auth} (mentions "{target.r1_hint}"): "{target.r1_text}".
 
   2. In r/{target.sub2} find "{target.p2}". Save. Comment: "{target.c2}".
 
@@ -20,11 +20,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - grounding
-- exploration
-- planning
-- state_tracking
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -175,3 +170,5 @@ eval:
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- exploration

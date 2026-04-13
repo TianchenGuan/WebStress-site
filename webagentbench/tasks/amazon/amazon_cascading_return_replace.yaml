@@ -1,22 +1,19 @@
 task_id: amazon_cascading_return_replace
 env_id: amazon
 title: Return Items from Multiple Orders and Buy Replacement
-instruction_template: >
-  You need to process two returns and buy a replacement. First, return
-  '{target.ret_product_1}' from your order with the reason 'defective'. Second,
-  return '{target.ret_product_2}' from your other delivered order with the reason
-  'wrong_item'. Finally, search for '{target.replace_name}' and purchase it as
-  a replacement.
+instruction_template: 'You need to process two returns and buy a replacement. First, return ''{target.ret_product_1}''
+  from your order with the reason ''defective''. Second, return ''{target.ret_product_2}'' from your other
+  delivered order with the reason ''wrong_item''. Finally, search for ''{target.replace_name}'' and purchase
+  it as a replacement.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 38
 primary_primitives:
 - planning
-- state_tracking
-- backtracking
-- verification
 secondary_primitives:
-- exploration
+- state_tracking
 start_path: /orders
 seed:
   distractors: 18
@@ -111,39 +108,46 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.order_id == '{target.order_1}' and r.reason == 'defective'
-      for r in state.returns)
+  - expr: 'any(r.order_id == ''{target.order_1}'' and r.reason == ''defective'' for r in state.returns)
+
+      '
     desc: Return filed for order 1 with reason defective
-  - expr: >
-      any(r.order_id == '{target.order_2}' and r.reason == 'wrong_item'
-      for r in state.returns)
+  - expr: 'any(r.order_id == ''{target.order_2}'' and r.reason == ''wrong_item'' for r in state.returns)
+
+      '
     desc: Return filed for order 2 with reason wrong_item
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: >
-      any(any(item.product_id == '{target.replace_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.replace_pid}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Replacement product purchased
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Replacement order confirmed
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   - expr: len(state.returns) >= 2
     desc: At least two returns were filed
   negative_checks:
-  - expr: >
-      not any(r.reason != 'defective' for r in state.returns
-      if r.order_id == '{target.order_1}')
+  - expr: 'not any(r.reason != ''defective'' for r in state.returns if r.order_id == ''{target.order_1}'')
+
+      '
     desc: Order 1 return has correct reason
     penalty: 0.15
-  - expr: >
-      not any(r.reason != 'wrong_item' for r in state.returns
-      if r.order_id == '{target.order_2}')
+  - expr: 'not any(r.reason != ''wrong_item'' for r in state.returns if r.order_id == ''{target.order_2}'')
+
+      '
     desc: Order 2 return has correct reason
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one replacement order placed
+    penalty: 0.1
+  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1
+  - expr: not any(e.action.startswith('amazon.wishlist.') for e in state.audit_log)
+    desc: No off-task wishlist mutations were made
     penalty: 0.1

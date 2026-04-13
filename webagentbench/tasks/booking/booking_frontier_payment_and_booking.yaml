@@ -1,42 +1,27 @@
 task_id: booking_frontier_payment_and_booking
 env_id: booking
-title: "Frontier: Add 3 Payment Methods, Book 3 Hotels Each with Different Card"
-instruction_template: "Manage payment methods and book across three properties:\n\
-  1. Add three new payment methods:\n\
-  \   - Visa ending in 6666, expiry 12/30, holder \"Jordan Parker\"\n\
-  \   - Mastercard ending in 4444, expiry 03/29, holder \"Jordan Parker\"\n\
-  \   - Amex ending in 2222, expiry 06/30, holder \"Jordan Parker\"\n\
-  2. Set the new Visa (ending 6666) as your default payment method.\n\
-  3. Search for \"{target.prop1_name}\" in London and book its\n\
-  \   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n\
-  \   checking out 2026-11-04, using the NEW Visa (ending 6666).\n\
-  4. Search for \"{target.prop2_name}\" in Paris and book its\n\
-  \   \"Classic Room\" for 2 guests, checking in 2026-11-06,\n\
-  \   checking out 2026-11-09, using the NEW Mastercard (ending 4444).\n\
-  5. Search for \"{target.prop3_name}\" in Rome and book its\n\
-  \   \"Comfort Room\" for 2 guests, checking in 2026-11-11,\n\
-  \   checking out 2026-11-14, using the NEW Amex (ending 2222).\n\
-  6. Remove the old Mastercard ending in {target.remove_last_four}\n\
-  \   (held by \"{target.remove_holder}\").\n\
-  7. Save all three booked properties to a new list called\n\
-  \   \"November Europe Trip\".\n\
-  8. Write a review for your completed stay at\n\
-  \   \"{target.review_prop_name}\": score 7.5,\n\
-  \   title \"Decent European stay\", positive \"Good location\n\
-  \   and clean rooms\", negative \"Slow WiFi\",\n\
-  \   business, solo.\n"
+title: 'Frontier: Add 3 Payment Methods, Book 3 Hotels Each with Different Card'
+instruction_template: "Manage payment methods and book across three properties:\n1. Add three new payment\
+  \ methods:\n   - Visa ending in 6666, expiry 12/30, holder \"Jordan Parker\"\n   - Mastercard ending\
+  \ in 4444, expiry 03/29, holder \"Jordan Parker\"\n   - Amex ending in 2222, expiry 06/30, holder \"\
+  Jordan Parker\"\n2. Set the new Visa (ending 6666) as your default payment method.\n3. Search for \"\
+  {target.prop1_name}\" in London and book its\n   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n\
+  \   checking out 2026-11-04, using the NEW Visa (ending 6666).\n4. Search for \"{target.prop2_name}\"\
+  \ in Paris and book its\n   \"Classic Room\" for 2 guests, checking in 2026-11-06,\n   checking out\
+  \ 2026-11-09, using the NEW Mastercard (ending 4444).\n5. Search for \"{target.prop3_name}\" in Rome\
+  \ and book its\n   \"Comfort Room\" for 2 guests, checking in 2026-11-11,\n   checking out 2026-11-14,\
+  \ using the NEW Amex (ending 2222).\n6. Remove the old Mastercard ending in {target.remove_last_four}\n\
+  \   (held by \"{target.remove_holder}\").\n7. Save all three booked properties to a new list called\n\
+  \   \"November Europe Trip\".\n8. Write a review for your completed stay at\n   \"{target.review_prop_name}\"\
+  : score 7.5,\n   title \"Decent European stay\", positive \"Good location\n   and clean rooms\", negative\
+  \ \"Slow WiFi\",\n   business, solo.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 10
@@ -196,61 +181,49 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666'\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666'\n  for pm in state.payment_methods)\n"
     desc: New Visa 6666 was added
-  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '4444'\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '4444'\n  for pm in state.payment_methods)\n"
     desc: New Mastercard 4444 was added
-  - expr: "any(pm.card_type == 'Amex' and pm.last_four == '2222'\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Amex' and pm.last_four == '2222'\n  for pm in state.payment_methods)\n"
     desc: New Amex 2222 was added
-  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default\n  for pm in state.payment_methods)\n"
     desc: Visa 6666 set as default
-  - expr: "any(\n  r.property_id == '{target.prop1_id}' and\n\
-      \  r.status == 'confirmed' and r.room_type_name == 'Standard Room' and\n\
-      \  r.check_in == '2026-11-01' and r.check_out == '2026-11-04'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop1_id}' and\n  r.status == 'confirmed' and r.room_type_name\
+      \ == 'Standard Room' and\n  r.check_in == '2026-11-01' and r.check_out == '2026-11-04'\n  for r\
+      \ in state.reservations\n)\n"
     desc: London property booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.prop2_id}' and\n\
-      \  r.status == 'confirmed' and r.room_type_name == 'Classic Room' and\n\
-      \  r.check_in == '2026-11-06' and r.check_out == '2026-11-09'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop2_id}' and\n  r.status == 'confirmed' and r.room_type_name\
+      \ == 'Classic Room' and\n  r.check_in == '2026-11-06' and r.check_out == '2026-11-09'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Paris property booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.prop3_id}' and\n\
-      \  r.status == 'confirmed' and r.room_type_name == 'Comfort Room' and\n\
-      \  r.check_in == '2026-11-11' and r.check_out == '2026-11-14'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop3_id}' and\n  r.status == 'confirmed' and r.room_type_name\
+      \ == 'Comfort Room' and\n  r.check_in == '2026-11-11' and r.check_out == '2026-11-14'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Rome property booked with correct room and dates
-  - expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '5555'\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '5555'\n  for pm in state.payment_methods)\n"
     desc: Old Mastercard 5555 was removed
-  - expr: "any(sl.name == 'November Europe Trip' and\n\
-      \  '{target.prop1_id}' in sl.property_ids and\n\
-      \  '{target.prop2_id}' in sl.property_ids and\n\
-      \  '{target.prop3_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'November Europe Trip' and\n  '{target.prop1_id}' in sl.property_ids and\n \
+      \ '{target.prop2_id}' in sl.property_ids and\n  '{target.prop3_id}' in sl.property_ids\n  for sl\
+      \ in state.saved_lists)\n"
     desc: All three booked properties in November Europe Trip list
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  rv.overall_score == 7.5 and rv.title == 'Decent European stay' and\n\
-      \  'slow wifi' in rv.negative.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 7.5 and rv.title\
+      \ == 'Decent European stay' and\n  'slow wifi' in rv.negative.lower()\n  for rv in state.reviews)\n"
     desc: Review written with correct score, title, and negative
   negative_checks:
-  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '4242'\n\
-      \  for pm in state.payment_methods)\n"
+  - expr: "any(pm.card_type == 'Visa' and pm.last_four == '4242'\n  for pm in state.payment_methods)\n"
     desc: Original Visa 4242 was not removed
     penalty: 0.3
-  - expr: "sum(1 for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 3\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 3\n"
     desc: Only three new reservations created
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'November Europe Trip') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''November Europe Trip'') <= 1
+
+      '
     desc: Only one November Europe Trip list created
     penalty: 0.1
-  - expr: "not any(\n  e.action == 'payment_method.delete' and\n\
-      \  e.payload.get('payment_method_id') not in ('{target.remove_pm_id}',)\n\
-      \  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'payment_method.delete' and\n  e.payload.get('payment_method_id') not\
+      \ in ('{target.remove_pm_id}',)\n  for e in state.audit_log\n)\n"
     desc: No wrong payment methods were deleted
     penalty: 0.3

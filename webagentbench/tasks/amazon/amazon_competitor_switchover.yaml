@@ -1,22 +1,19 @@
 task_id: amazon_competitor_switchover
 env_id: amazon
 title: Compare Products and Buy the Superior Competitor
-instruction_template: >
-  Search for '{target.ref_name}' and examine its details (price and rating).
-  Then browse for similar products in the same category and subcategory. If
-  you find a product with a higher rating AND a lower price than
-  '{target.ref_name}', buy that superior product instead. If no product beats
-  it on both criteria, buy '{target.ref_name}'.
+instruction_template: 'Search for ''{target.ref_name}'' and examine its details (price and rating). Then
+  browse for similar products in the same category and subcategory. If you find a product with a higher
+  rating AND a lower price than ''{target.ref_name}'', buy that superior product instead. If no product
+  beats it on both criteria, buy ''{target.ref_name}''.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 35
 primary_primitives:
 - grounding
-- exploration
-- verification
-- planning
 secondary_primitives:
-- state_tracking
+- exploration
 start_path: /
 seed:
   distractors: 20
@@ -84,27 +81,46 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.best_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.best_pid}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: The superior competitor was purchased
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order confirmed
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      '{target.ref_pid}' in [p for p in state.recently_viewed]
-      or len(state.search_history) > 0
+  - expr: '''{target.ref_pid}'' in [p for p in state.recently_viewed] or len(state.search_history) > 0
+
+      '
     desc: Agent searched or viewed the reference product
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.ref_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.ref_pid}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Reference product was NOT purchased (competitor is better)
     penalty: 0.25
-  - expr: >
-      sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')) <= 1
+
+      '
     desc: Only one order placed
+    penalty: 0.1
+  - expr: 'all( len(o.items) == 1 and o.items[0].product_id == ''{target.best_pid}'' and o.items[0].quantity
+      == 1 for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
+    desc: No extra items or non-target products were purchased with the competitor order
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
+    desc: Competitor-switchover workflow used a single checkout flow
+    penalty: 0.1
+  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n    'amazon.address.remove',\n\
+      \    'amazon.payment.add',\n    'amazon.payment.remove'\n  ]\n  for e in state.audit_log)"
+    desc: Competitor-switchover reused existing account checkout details
+    penalty: 0.1
+  - expr: "not any(\n  e.action in ['amazon.return.create', 'amazon.review.add']\n  for e in state.audit_log)"
+    desc: Competitor-switchover did not create unrelated returns or reviews
     penalty: 0.1

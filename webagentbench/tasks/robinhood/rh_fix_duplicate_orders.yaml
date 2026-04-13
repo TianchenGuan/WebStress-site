@@ -1,0 +1,95 @@
+task_id: rh_fix_duplicate_orders
+env_id: robinhood
+title: Cancel Duplicate Pending Orders
+instruction_template: Due to a glitch, duplicate buy orders were placed for several stocks. Review your
+  pending orders, identify any duplicates (same symbol, same side, same quantity), and cancel the duplicates
+  -- keep the earliest order for each and cancel the rest.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 20
+primary_primitives:
+- state_tracking
+start_path: /
+seed:
+  distractors: 10
+  steps:
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - AAPL
+      - MSFT
+      - GOOGL
+      - AMZN
+      - NVDA
+      - TSLA
+    outputs: []
+  - use: portfolio_basic
+    params:
+      stocks:
+      - AAPL
+      - MSFT
+      - GOOGL
+      quantities:
+      - '50'
+      - '30'
+      - '20'
+      cost_bases:
+      - '175.00'
+      - '380.00'
+      - '165.00'
+    outputs: []
+  - use: pending_orders
+    params:
+      count: 10
+      order_types:
+      - limit
+      symbols:
+      - AAPL
+      - AAPL
+      - AAPL
+      - MSFT
+      - MSFT
+      - GOOGL
+      - GOOGL
+      - AMZN
+      - NVDA
+      - TSLA
+    outputs:
+    - order_ids
+  targets:
+    order_ids: '{output.order_ids}'
+eval:
+  source: server_state
+  checks:
+  - expr: all( len([o for o in state.orders if o.symbol == sym and o.status == 'pending' and not o.id.startswith('ord_decoy_')])
+      <= 1 for sym in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA'])
+    desc: At most one pending order remains per symbol (duplicates cancelled)
+  - expr: any(o.status == 'cancelled' and not o.id.startswith('ord_decoy_') for o in state.orders)
+    desc: At least one duplicate order was cancelled
+  - expr: len([o for o in state.orders if o.status == 'cancelled' and not o.id.startswith('ord_decoy_')])
+      >= 4
+    desc: At least 4 duplicate orders were cancelled (AAPL has 2 extras, MSFT and GOOGL have 1 each)
+  - expr: all( len([o for o in state.orders if o.symbol == sym and o.status == 'pending' and not o.id.startswith('ord_decoy_')])
+      >= 1 for sym in ['AAPL', 'MSFT', 'GOOGL'] if any(o.symbol == sym and not o.id.startswith('ord_decoy_')
+      for o in state.orders))
+    desc: The earliest order for each duplicated symbol was kept (not all cancelled)
+  negative_checks:
+  - expr: not any(o.symbol in ('AMZN', 'NVDA', 'TSLA') and o.status == 'cancelled' and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: Non-duplicate orders (single orders for AMZN, NVDA, TSLA) were not cancelled
+    penalty: 0.3
+  - expr: not any(o.side == 'buy' and o.status == 'pending' and not o.id.startswith('ord_decoy_') and
+      o.id not in {target.order_ids} for o in state.orders)
+    desc: No new orders were placed during the recovery task
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.cancel') == 4
+    desc: Duplicate-order recovery cancelled exactly the four extra pending orders
+    penalty: 0.15
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
+      or e.action.startswith('robinhood.recurring.') or e.action == 'robinhood.alert.create' or e.action
+      == 'robinhood.alert.delete' or e.action == 'robinhood.options.order.place' for e in state.audit_log)
+    desc: Duplicate cleanup did not mutate unrelated account surfaces
+    penalty: 0.1
+secondary_primitives:
+- verification

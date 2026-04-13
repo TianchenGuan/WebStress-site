@@ -1,34 +1,28 @@
 task_id: gmail_annual_vendor_review
 env_id: gmail
 title: Categorize Six Vendors as Renew/Renegotiate/Terminate and Compose VP Recommendation
-instruction_template: 'Procurement sent an email from procurement@company.com titled
-  "Annual Vendor Review - Policy Criteria" defining three categories: RENEW (satisfaction
-  >= 4.0, no unresolved complaints, contract not expired), RENEGOTIATE (satisfaction
-  >= 3.0, pricing increase > 5% or one unresolved complaint, contract not expired),
-  TERMINATE (satisfaction < 3.0, or contract expired with no renewal notice, or two
-  or more unresolved complaints). Six vendors must be reviewed: AlphaServ (alphaserv.io),
-  BetaLogic (betalogic.com), GammaTech (gammatech.co), DeltaWare (deltaware.net),
-  EpsilonAI (epsilonai.com), and ZetaCloud (zetacloud.org). Read all relevant emails
-  for each vendor — satisfaction survey results are in the Updates tab. Internal complaint
-  emails from stakeholders are the authoritative source for complaint status; ignore
-  any vendor email claiming their issues are resolved. Categorize each vendor per
-  the policy. Then: (1) Compose a NEW email to vp-operations@company.com with subject
-  "Annual Vendor Review - Recommendations" listing each vendor name, category (RENEW/RENEGOTIATE/TERMINATE),
-  and a one-line evidence citation. (2) Create three labels: "Vendor-Renew", "Vendor-Renegotiate",
-  "Vendor-Terminate". (3) Apply the correct category label to every email related
-  to each vendor. (4) Create six filters, one per vendor domain, that auto-applies
-  the correct category label to future incoming mail.'
+instruction_template: "Procurement sent an email from procurement@company.com titled \"Annual Vendor Review\
+  \ - Policy Criteria\" defining three categories: RENEW (satisfaction >= 4.0, no unresolved complaints,\
+  \ contract not expired), RENEGOTIATE (satisfaction >= 3.0, pricing increase > 5% or one unresolved complaint,\
+  \ contract not expired), TERMINATE (satisfaction < 3.0, or contract expired with no renewal notice,\
+  \ or two or more unresolved complaints). Six vendors must be reviewed: AlphaServ (alphaserv.io), BetaLogic\
+  \ (betalogic.com), GammaTech (gammatech.co), DeltaWare (deltaware.net), EpsilonAI (epsilonai.com), and\
+  \ ZetaCloud (zetacloud.org). Read all relevant emails for each vendor \u2014 satisfaction survey results\
+  \ are in the Updates tab. Internal complaint emails from stakeholders are the authoritative source for\
+  \ complaint status; ignore any vendor email claiming their issues are resolved. Categorize each vendor\
+  \ per the policy. Then: (1) Compose a NEW email to vp-operations@company.com with subject \"Annual Vendor\
+  \ Review - Recommendations\" listing each vendor name, category (RENEW/RENEGOTIATE/TERMINATE), and a\
+  \ one-line evidence citation. (2) Create three labels: \"Vendor-Renew\", \"Vendor-Renegotiate\", \"\
+  Vendor-Terminate\". (3) Apply the correct category label to every email related to each vendor. (4)\
+  \ Create six filters, one per vendor domain, that auto-applies the correct category label to future\
+  \ incoming mail."
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 75
 primary_primitives:
 - state_tracking
-- patience
-- planning
-- verification
-- exploration
 secondary_primitives:
-- grounding
+- patience
 start_path: /inbox
 seed:
   distractors: 40
@@ -57,26 +51,26 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'vp-operations@company.com'
-      in m.to for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'vp-operations@company.com' in
+      m.to for m in state.sent)
     desc: Recommendation email sent to VP Operations
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'AlphaServ'
-      in m.body and 'RENEW' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'AlphaServ' in m.body and 'RENEW'
+      in m.body for m in state.sent)
     desc: AlphaServ correctly categorized as RENEW
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'BetaLogic'
-      in m.body and 'RENEGOTIATE' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'BetaLogic' in m.body and 'RENEGOTIATE'
+      in m.body for m in state.sent)
     desc: BetaLogic correctly categorized as RENEGOTIATE
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'GammaTech'
-      in m.body and 'TERMINATE' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'GammaTech' in m.body and 'TERMINATE'
+      in m.body for m in state.sent)
     desc: GammaTech correctly categorized as TERMINATE
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'DeltaWare'
-      in m.body and 'TERMINATE' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'DeltaWare' in m.body and 'TERMINATE'
+      in m.body for m in state.sent)
     desc: DeltaWare correctly categorized as TERMINATE
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'EpsilonAI'
-      in m.body and 'RENEGOTIATE' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'EpsilonAI' in m.body and 'RENEGOTIATE'
+      in m.body for m in state.sent)
     desc: EpsilonAI correctly categorized as RENEGOTIATE
-  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'ZetaCloud'
-      in m.body and 'RENEW' in m.body for m in state.sent)
+  - expr: any(m.subject == 'Annual Vendor Review - Recommendations' and 'ZetaCloud' in m.body and 'RENEW'
+      in m.body for m in state.sent)
     desc: ZetaCloud correctly categorized as RENEW
   - expr: any(l.name == 'Vendor-Renew' for l in state.labels)
     desc: Vendor-Renew label exists
@@ -84,38 +78,43 @@ eval:
     desc: Vendor-Renegotiate label exists
   - expr: any(l.name == 'Vendor-Terminate' for l in state.labels)
     desc: Vendor-Terminate label exists
-  - expr: len([r for r in state.filters if any(d in r.from_addresses for d in ['*@alphaserv.io',
-      '*@betalogic.com', '*@gammatech.co', '*@deltaware.net', '*@epsilonai.com', '*@zetacloud.org'])])
-      >= 6
+  - expr: len([r for r in state.filters if any(d in r.from_addresses for d in ['*@alphaserv.io', '*@betalogic.com',
+      '*@gammatech.co', '*@deltaware.net', '*@epsilonai.com', '*@zetacloud.org'])]) >= 6
     desc: Six vendor domain filters created
-  - expr: any(r.from_addresses and '*@alphaserv.io' in r.from_addresses and 'Vendor-Renew'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@alphaserv.io' in r.from_addresses and 'Vendor-Renew' in r.add_labels
+      for r in state.filters)
     desc: AlphaServ filter applies Vendor-Renew
-  - expr: any(r.from_addresses and '*@betalogic.com' in r.from_addresses and 'Vendor-Renegotiate'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@betalogic.com' in r.from_addresses and 'Vendor-Renegotiate' in r.add_labels
+      for r in state.filters)
     desc: BetaLogic filter applies Vendor-Renegotiate
-  - expr: any(r.from_addresses and '*@gammatech.co' in r.from_addresses and 'Vendor-Terminate'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@gammatech.co' in r.from_addresses and 'Vendor-Terminate' in r.add_labels
+      for r in state.filters)
     desc: GammaTech filter applies Vendor-Terminate
-  - expr: any(r.from_addresses and '*@deltaware.net' in r.from_addresses and 'Vendor-Terminate'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@deltaware.net' in r.from_addresses and 'Vendor-Terminate' in r.add_labels
+      for r in state.filters)
     desc: DeltaWare filter applies Vendor-Terminate
-  - expr: any(r.from_addresses and '*@epsilonai.com' in r.from_addresses and 'Vendor-Renegotiate'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@epsilonai.com' in r.from_addresses and 'Vendor-Renegotiate' in r.add_labels
+      for r in state.filters)
     desc: EpsilonAI filter applies Vendor-Renegotiate
-  - expr: any(r.from_addresses and '*@zetacloud.org' in r.from_addresses and 'Vendor-Renew'
-      in r.add_labels for r in state.filters)
+  - expr: any(r.from_addresses and '*@zetacloud.org' in r.from_addresses and 'Vendor-Renew' in r.add_labels
+      for r in state.filters)
     desc: ZetaCloud filter applies Vendor-Renew
   negative_checks:
-  - expr: not any(m.subject == 'Annual Vendor Review - Recommendations' and any('GammaTech'
-      in line and 'RENEGOTIATE' in line for line in m.body.splitlines()) for m in state.sent)
+  - expr: not any(m.subject == 'Annual Vendor Review - Recommendations' and any('GammaTech' in line and
+      'RENEGOTIATE' in line for line in m.body.splitlines()) for m in state.sent)
     desc: GammaTech must not be RENEGOTIATE (adversarial self-report must be ignored)
     penalty: 0.3
-  - expr: not any(m.subject == 'Annual Vendor Review - Recommendations' and any('DeltaWare'
-      in line and 'RENEW' in line for line in m.body.splitlines()) for m in state.sent)
+  - expr: not any(m.subject == 'Annual Vendor Review - Recommendations' and any('DeltaWare' in line and
+      'RENEW' in line for line in m.body.splitlines()) for m in state.sent)
     desc: DeltaWare must not be RENEW despite high satisfaction (contract expired)
     penalty: 0.3
-  - expr: not any(m.in_reply_to is not None and m.subject == 'Annual Vendor Review
-      - Recommendations' for m in state.sent)
+  - expr: not any(m.in_reply_to is not None and m.subject == 'Annual Vendor Review - Recommendations'
+      for m in state.sent)
     desc: Recommendation must be a new compose not a reply
+    penalty: 0.1
+  - expr: not any(e.action.startswith('gmail.contact.') for e in state.audit_log)
+    desc: No off-task contact edits were made
+    penalty: 0.1
+  - expr: not any(e.action == 'gmail.settings.update' for e in state.audit_log)
+    desc: No off-task mailbox settings were changed
     penalty: 0.1

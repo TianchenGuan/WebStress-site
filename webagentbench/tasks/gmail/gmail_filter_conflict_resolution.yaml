@@ -1,27 +1,19 @@
 task_id: gmail_filter_conflict_resolution
 env_id: gmail
 title: Resolve Overlapping Filter Criteria per Admin Directive
-instruction_template: 'Read the email from admin Tara Okonkwo (tara.okonkwo@dataviz.io)
-  with subject "Fix the report filter conflict". Two existing filters both match emails
-  from reports@dataviz.io — one stars and labels them "Analytics", the other archives
-  them. This causes reports to be simultaneously starred, labeled, and archived. Follow
-  Tara''s directive: delete both existing filters for reports@dataviz.io, then create
-  two new non-overlapping filters:
-
-  (1) From: reports@dataviz.io, Subject contains: "dashboard" — Action: star, add
-  label "Analytics/Dashboard"
-
-  (2) From: reports@dataviz.io, Subject contains: "export" — Action: skip inbox (archive)
-
-  Do NOT modify any other filters. The label "Analytics" should not be deleted. Create
-  the label "Analytics/Dashboard" if it does not already exist.'
+instruction_template: "Read the email from admin Tara Okonkwo (tara.okonkwo@dataviz.io) with subject \"\
+  Fix the report filter conflict\". Two existing filters both match emails from reports@dataviz.io \u2014\
+  \ one stars and labels them \"Analytics\", the other archives them. This causes reports to be simultaneously\
+  \ starred, labeled, and archived. Follow Tara's directive: delete both existing filters for reports@dataviz.io,\
+  \ then create two new non-overlapping filters:\n(1) From: reports@dataviz.io, Subject contains: \"dashboard\"\
+  \ \u2014 Action: star, add label \"Analytics/Dashboard\"\n(2) From: reports@dataviz.io, Subject contains:\
+  \ \"export\" \u2014 Action: skip inbox (archive)\nDo NOT modify any other filters. The label \"Analytics\"\
+  \ should not be deleted. Create the label \"Analytics/Dashboard\" if it does not already exist."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 30
 primary_primitives:
 - verification
-- planning
-- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -52,15 +44,13 @@ eval:
     desc: Old filter A (star + label Analytics) deleted
   - expr: not any(r.id == '{target.old_filter_b_id}' for r in state.filters)
     desc: Old filter B (skip inbox) deleted
-  - expr: any('reports@dataviz.io' in r.from_addresses and 'dashboard' in [kw.lower()
-      for kw in r.subject_keywords] and r.star and 'Analytics/Dashboard' in r.add_labels
-      for r in state.filters)
+  - expr: any('reports@dataviz.io' in r.from_addresses and 'dashboard' in [kw.lower() for kw in r.subject_keywords]
+      and r.star and 'Analytics/Dashboard' in r.add_labels for r in state.filters)
     desc: New dashboard filter exists with star and label
-  - expr: any('reports@dataviz.io' in r.from_addresses and 'export' in [kw.lower()
-      for kw in r.subject_keywords] and r.archive for r in state.filters)
+  - expr: any('reports@dataviz.io' in r.from_addresses and 'export' in [kw.lower() for kw in r.subject_keywords]
+      and r.archive for r in state.filters)
     desc: New export filter exists with skip inbox
-  - expr: not any('reports@dataviz.io' in r.from_addresses and not r.subject_keywords
-      for r in state.filters)
+  - expr: not any('reports@dataviz.io' in r.from_addresses and not r.subject_keywords for r in state.filters)
     desc: No from-only filter for reports@dataviz.io without subject constraint
   - expr: any(l.name == 'Analytics/Dashboard' for l in state.labels)
     desc: Analytics/Dashboard label exists
@@ -72,7 +62,15 @@ eval:
   - expr: any(l.name == 'Analytics' for l in state.labels)
     desc: Label Analytics was not deleted
     penalty: 0.15
-  - expr: not any('reports@dataviz.io' in r.from_addresses and len(r.subject_keywords)
-      >= 2 for r in state.filters)
+  - expr: not any('reports@dataviz.io' in r.from_addresses and len(r.subject_keywords) >= 2 for r in state.filters)
     desc: No combined multi-keyword filter per colleague suggestion
     penalty: 0.15
+  - expr: not any( e.action == 'gmail.filter.delete' and e.payload.get('filter_id') not in ['{target.old_filter_a_id}',
+      '{target.old_filter_b_id}'] for e in state.audit_log)
+    desc: No unrelated filters were deleted while resolving the conflict
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.filter.create') <= 2
+    desc: Conflict resolution did not create extra speculative filters
+    penalty: 0.1
+secondary_primitives:
+- planning

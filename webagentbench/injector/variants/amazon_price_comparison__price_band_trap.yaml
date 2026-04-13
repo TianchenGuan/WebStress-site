@@ -1,0 +1,31 @@
+variant_id: amazon_price_comparison__price_band_trap
+base_task_id: amazon_price_comparison
+target_primitive: verification
+description: 'Search results include near-miss items: one is rated higher but falls outside the allowed
+  price band, and another is inside the band but still lower-rated than the target.'
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Home & Kitchen Elite Pick
+      brand: Kitchen Select
+      category: Home & Kitchen
+      price: 49.99
+      rating: 5.0
+      description: Tempting five-star item that sits just below the allowed budget window.
+    - type: product
+      name: Home & Kitchen Premium Bundle
+      brand: Kitchen Select
+      category: Home & Kitchen
+      price: 104.99
+      rating: 4.9
+      description: Excellent rating but slightly above the allowed maximum price.
+    - type: product
+      name: Home & Kitchen Reviewer Favorite
+      brand: HomeChoice
+      category: Home & Kitchen
+      price: 79.99
+      rating: 4.7
+      description: Within range, but still not the best-rated qualifying product.

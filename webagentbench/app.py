@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .backend.routes import mount_environment_routes
+from .backend.security import CONTROLLER_SECRET_ENV
 from .backend.state import SessionManager
 from .tasks._registry import tasks_by_env
 
@@ -247,6 +248,7 @@ app = FastAPI(
     version=MANIFEST_VERSION,
 )
 app.state.session_manager = SessionManager()
+app.state.controller_secret = os.getenv(CONTROLLER_SECRET_ENV)
 
 # Server-side network degradation middleware — applies delays, errors, silent failures
 # for both Playwright agents and human browsers

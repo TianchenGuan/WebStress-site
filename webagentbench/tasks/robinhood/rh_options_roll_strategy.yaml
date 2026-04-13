@@ -1,19 +1,15 @@
----
 task_id: rh_options_roll_strategy
 env_id: robinhood
 title: Roll a Covered Call on {target.symbol}
-instruction_template: 'You have a covered call on {target.symbol} that expires this
-  week and is in-the-money. Roll the position: buy back the current call, then sell
-  a new call at the next monthly expiration with a strike 5% above current price.'
+instruction_template: 'You have a covered call on {target.symbol} that expires this week and is in-the-money.
+  Roll the position: buy back the current call, then sell a new call at the next monthly expiration with
+  a strike 5% above current price.'
 difficulty: expert
 time_limit_seconds: 400
 expected_steps: 20
 primary_primitives:
 - state_tracking
-- planning
-- grounding
-- exploration
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -60,51 +56,40 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      any(leg.side == 'buy' and leg.option_type == 'call'
-      and state.days_until(leg.expiration) <= 7
-      for oo in state.options_orders_for_symbol('{target.symbol}')
-      for leg in oo.legs)
+  - expr: any(leg.side == 'buy' and leg.option_type == 'call' and state.days_until(leg.expiration) <=
+      7 for oo in state.options_orders_for_symbol('{target.symbol}') for leg in oo.legs)
     desc: The expiring target call was bought back near its original expiration
-  - expr: >-
-      any(leg.side == 'sell' and leg.option_type == 'call'
-      and state.days_until(leg.expiration) >= 14
-      and state.days_until(leg.expiration) <= 45
-      and leg.strike >= state.get_stock('{target.symbol}').price * Decimal('1.03')
-      and leg.strike <= state.get_stock('{target.symbol}').price * Decimal('1.07')
-      for oo in state.options_orders_for_symbol('{target.symbol}')
-      for leg in oo.legs)
+  - expr: any(leg.side == 'sell' and leg.option_type == 'call' and state.days_until(leg.expiration) >=
+      14 and state.days_until(leg.expiration) <= 45 and leg.strike >= state.get_stock('{target.symbol}').price
+      * Decimal('1.03') and leg.strike <= state.get_stock('{target.symbol}').price * Decimal('1.07') for
+      oo in state.options_orders_for_symbol('{target.symbol}') for leg in oo.legs)
     desc: A new target call was sold at a later expiration and around 5% above current price
-  - expr: >-
-      len([oo for oo in state.options_orders_for_symbol('{target.symbol}')
-      for leg in oo.legs
-      if leg.side == 'buy' and leg.option_type == 'call']) >= 1
+  - expr: len([oo for oo in state.options_orders_for_symbol('{target.symbol}') for leg in oo.legs if leg.side
+      == 'buy' and leg.option_type == 'call']) >= 1
     desc: At least one buy-to-close call order exists for the target symbol
-  - expr: >-
-      len([oo for oo in state.options_orders_for_symbol('{target.symbol}')
-      for leg in oo.legs
-      if leg.side == 'sell' and leg.option_type == 'call']) >= 1
+  - expr: len([oo for oo in state.options_orders_for_symbol('{target.symbol}') for leg in oo.legs if leg.side
+      == 'sell' and leg.option_type == 'call']) >= 1
     desc: At least one sell-to-open call order exists for the target symbol
-  - expr: >-
-      all(leg.option_type == 'call'
-      for oo in state.options_orders_for_symbol('{target.symbol}')
-      for leg in oo.legs
-      if leg.side in ('buy', 'sell'))
-      or len(list(state.options_orders_for_symbol('{target.symbol}'))) == 0
+  - expr: all(leg.option_type == 'call' for oo in state.options_orders_for_symbol('{target.symbol}') for
+      leg in oo.legs if leg.side in ('buy', 'sell')) or len(list(state.options_orders_for_symbol('{target.symbol}')))
+      == 0
     desc: All options orders for the target are call options (no puts in a covered call roll)
   negative_checks:
-  - expr: >-
-      not any(any(leg.underlying_symbol != '{target.symbol}' for leg in oo.legs)
-      for oo in state.options_orders)
+  - expr: not any(any(leg.underlying_symbol != '{target.symbol}' for leg in oo.legs) for oo in state.options_orders)
     desc: The roll did not place options orders on a different underlying
     penalty: 0.25
-  - expr: >-
-      not any(o.side in ('buy', 'sell')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No equity trades were placed during the options roll
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, grounding, exploration by requiring
-  exact completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.options.order.place') <= 2
+    desc: Covered-call roll did not spray extra options orders
+    penalty: 0.1
+  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create' or
+      e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
+      for e in state.audit_log)
+    desc: Covered-call roll did not mutate unrelated account surfaces
+    penalty: 0.1
+secondary_primitives:
+- planning
+primitive_thesis: Measures state_tracking, planning, grounding, exploration by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

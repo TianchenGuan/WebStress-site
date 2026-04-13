@@ -1,33 +1,46 @@
-variant_id: gmail_meeting_negotiation__grounding_v1
+variant_id: gmail_meeting_negotiation__grounding
 base_task_id: gmail_meeting_negotiation
 target_primitive: grounding
-description: Ambiguous availability signals and conflicting constraints make identifying
-  viable time slots difficult
+description: A newer facilities email and a lookalike attendee response present plausible but wrong slots for the same meeting. The agent must verify the real room email and the exact attendee set before confirming a time.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
-    - Maybe available which means no
-    - Prefer morning but actually unavailable
-    - Afternoon works but later cancelled
-    - Flexible but has hard constraints
-    - Available except during proposed times
+    - from_name: Theo Nguyen
+      from: facilities-overflow@facilities.thornton.com
+      subject: Room availability for {target.meeting_name}
+      body: |-
+        The Harbor Suite is tentatively available at the following times next week:
+
+        - Tuesday 10:00 AM
+        - Friday 4:00 PM
+
+        Use this only if the original room request falls through.
+      labels:
+      - inbox
+      - updates
+    - from_name: Elena Patel
+      from: elena.patel@ops-thornton.com
+      subject: "Re: {target.meeting_name} — my availability"
+      body: |-
+        Here are the slots that still work for me after the prep call moved:
+
+        - Tuesday 10:00 AM
+        - Friday 4:00 PM
+
+        These are for the prep session, not the launch review itself.
+      labels:
+      - inbox
 - layer: seed
   params:
-    action: alias_entities
-    aliases:
-      - name: "Conference Room B (alt)"
-        email: "rooms-b@thornton.com"
-        note: "Overflow booking"
-      - name: "J. Organizer"
-        email: "j.organizer@thornton.com"
-        note: "Meeting coordinator"
-      - name: "A. Attendee"
-        email: "a.attendee@thornton.com"
-        note: "Team member"
-- layer: server
-  params:
-    action: inject_distractor_emails
+    action: increase_distractors
     count: 10
-    subject_prefix: 'Re: Meeting'
+    topical_count: 6
+    topical_subjects:
+    - Room change for another launch review
+    - "Re: Availability for vendor prep session"
+    - Facilities hold confirmation
+    - Updated room request
+    - Reschedule note from marketing
+    - Calendar coordination follow-up

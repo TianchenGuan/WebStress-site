@@ -1,26 +1,19 @@
 task_id: amazon_order_audit_correction
 env_id: amazon
 title: Audit Orders Then Cancel, Return, Reorder, and Review
-instruction_template: >
-  Audit and correct your order history:
-  1. Review all your recent orders and find the pending order for
-  '{target.pend_name}'. Cancel it.
-  2. Find the delivered order for '{target.del2_name}' and return it with
-  reason 'changed_mind'.
-  3. Find '{target.del3_name}' in your order history and reorder it.
-  4. Write a 5-star review for 'Ceramic Mug Set 4-Pack' with the title
-  '{target.review_title}'.
+instruction_template: 'Audit and correct your order history: 1. Review all your recent orders and find
+  the pending order for ''{target.pend_name}''. Cancel it. 2. Find the delivered order for ''{target.del2_name}''
+  and return it with reason ''changed_mind''. 3. Find ''{target.del3_name}'' in your order history and
+  reorder it. 4. Write a 5-star review for ''Ceramic Mug Set 4-Pack'' with the title ''{target.review_title}''.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 48
 primary_primitives:
 - exploration
+secondary_primitives:
 - state_tracking
-- planning
-- verification
-- patience
-- backtracking
-secondary_primitives: []
 start_path: /orders
 seed:
   distractors: 20
@@ -178,46 +171,50 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(o.id == '{target.order_id_pend}' and o.status == 'cancelled'
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.id == ''{target.order_id_pend}'' and o.status == ''cancelled'' for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Pending order cancelled
-  - expr: >
-      any(r.order_id == '{target.order_id_del2}' and r.reason == 'changed_mind'
-      for r in state.returns)
+  - expr: 'any(r.order_id == ''{target.order_id_del2}'' and r.reason == ''changed_mind'' for r in state.returns)
+
+      '
     desc: Return filed for delivered order 2
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order placed
-  - expr: >
-      any(any(item.product_id == '{target.del3_pid}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.del3_pid}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Product from order 3 reordered
-  - expr: >
-      any(r.product_id == '{target.del1_pid}' and r.rating == 5
-      and r.title == '{target.review_title}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.del1_pid}'' and r.rating == 5 and r.title == ''{target.review_title}''
+      for r in state.reviews)
+
+      '
     desc: 5-star review for Ceramic Mug Set
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Reorder is confirmed
   - expr: len(state.cart_items) == 0
     desc: Cart empty
-  - expr: "'{target.order_id_pend}' in state.viewed_order_ids"
+  - expr: '''{target.order_id_pend}'' in state.viewed_order_ids'
     desc: Agent viewed the pending order
   negative_checks:
   - expr: not any(r.product_id == '{target.del3_pid}' for r in state.returns)
     desc: Reordered product was not returned
     penalty: 0.15
-  - expr: >
-      not any(o.id == '{target.order_id_pend}' and o.status != 'cancelled'
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(o.id == ''{target.order_id_pend}'' and o.status != ''cancelled'' for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Pending order is actually cancelled
     penalty: 0.2
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one new order placed
     penalty: 0.1
-  - expr: >
-      not any(r.reason != 'changed_mind' for r in state.returns
-      if r.order_id == '{target.order_id_del2}')
+  - expr: 'not any(r.reason != ''changed_mind'' for r in state.returns if r.order_id == ''{target.order_id_del2}'')
+
+      '
     desc: Return reason is exactly changed_mind
     penalty: 0.15

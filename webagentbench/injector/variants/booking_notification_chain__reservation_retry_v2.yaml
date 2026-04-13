@@ -1,0 +1,18 @@
+variant_id: booking_notification_chain__reservation_retry_v2
+base_task_id: booking_notification_chain
+target_primitive: backtracking
+description: The first reservation write fails transiently. The agent must verify the booking or reservation
+  change exists before moving on.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/booking/reservations**'
+    methods:
+    - POST
+    - PUT
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

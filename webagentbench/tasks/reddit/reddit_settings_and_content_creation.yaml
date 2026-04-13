@@ -1,7 +1,7 @@
 task_id: reddit_settings_and_content_creation
 title: Full Settings Overhaul with Content Creation
-instruction_template: '1. Go to Settings. Set theme to "dark", enable compact view, disable show online status, set feed sort
-  to "top", set comment sort to "controversial".
+instruction_template: '1. Go to Settings. Set theme to "dark", enable compact view, disable show online
+  status, set feed sort to "top", set comment sort to "controversial".
 
   2. Disable all email notifications (replies, mentions, messages, digest).
 
@@ -16,9 +16,6 @@ time_limit_seconds: 540
 expected_steps: 40
 primary_primitives:
 - grounding
-- planning
-- state_tracking
-- verification
 seed:
   distractors: 8
   actors: {}
@@ -31,8 +28,8 @@ seed:
     - subscriptions
   targets:
     post_title: 'Type hints in Python 3.13: what changed and what it means for your codebase'
-    post_body: Python 3.13 introduces several new typing features including TypeForm, type parameter defaults, and better
-      generic syntax. Here is a practical migration guide.
+    post_body: Python 3.13 introduces several new typing features including TypeForm, type parameter defaults,
+      and better generic syntax. Here is a practical migration guide.
     join_sub: Piracy
     initial_subscriptions: '{output.subscriptions}'
 eval:
@@ -51,8 +48,8 @@ eval:
   - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
       and not state.settings.email_messages
     desc: Email notifications disabled
-  - expr: any(p.subreddit_name == "Python" and "Type hints" in p.title and p.author_name == state.owner_username for p in
-      state.posts)
+  - expr: any(p.subreddit_name == "Python" and "Type hints" in p.title and p.author_name == state.owner_username
+      for p in state.posts)
     desc: Python post created
   - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to Piracy
@@ -71,3 +68,5 @@ eval:
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- planning

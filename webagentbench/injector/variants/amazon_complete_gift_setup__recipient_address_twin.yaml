@@ -1,0 +1,29 @@
+variant_id: amazon_complete_gift_setup__recipient_address_twin
+base_task_id: amazon_complete_gift_setup
+target_primitive: grounding
+description: Search results and saved addresses include near-matches for both the gift item and recipient
+  address. The agent must purchase the exact product for the exact recipient record it just added.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Kindle Paperwhite Signature Edition Bundle
+      brand: Amazon
+      category: Electronics
+      price: 205.19
+      rating: 4.6
+      description: A gift bundle with a nearly identical name but different contents.
+    - type: address
+      full_name: Maria Chen
+      street_address: 500 Oak Ave Apt 2
+      city: Portland
+      state: OR
+      zip_code: '97201'
+    - type: address
+      full_name: Maria Chen
+      street_address: 500 Oak Ave Suite B
+      city: Portland
+      state: OR
+      zip_code: '97201'

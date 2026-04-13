@@ -1,0 +1,30 @@
+variant_id: rh_live_take_profit__quote_delay
+base_task_id: rh_live_take_profit
+target_primitive: patience
+description: Quote refreshes lag behind for several polls. The agent must wait for the live move instead
+  of acting on the initial stale-looking quote.
+injections:
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/robinhood/prices**'
+    delay_ms: 2200
+    behavior:
+      mode: progressive
+      stages:
+      - after_call: 0
+        delay_ms: 1100
+      - after_call: 3
+        delay_ms: 2200
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/robinhood/stocks/*/chart**'
+    delay_ms: 2200
+    behavior:
+      mode: progressive
+      stages:
+      - after_call: 0
+        delay_ms: 1100
+      - after_call: 3
+        delay_ms: 2200

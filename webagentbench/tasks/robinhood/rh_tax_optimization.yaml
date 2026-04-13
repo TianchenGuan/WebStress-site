@@ -1,19 +1,15 @@
----
 task_id: rh_tax_optimization
 env_id: robinhood
 title: Tax-Loss Harvesting to Offset Gains
-instruction_template: You have short-term capital gains this year. Find positions
-  with unrealized losses that you have held for more than 30 days (to avoid wash sale
-  conflicts with recent purchases). Sell enough losing positions to offset your gains.
+instruction_template: You have short-term capital gains this year. Find positions with unrealized losses
+  that you have held for more than 30 days (to avoid wash sale conflicts with recent purchases). Sell
+  enough losing positions to offset your gains.
 difficulty: expert
 time_limit_seconds: 400
 expected_steps: 20
 primary_primitives:
 - state_tracking
-- planning
-- backtracking
-- verification
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -46,7 +42,7 @@ seed:
     params:
       months: 3
       include_recent_buys: true
-      recent_buy_symbols: "{output.loss_symbols}"
+      recent_buy_symbols: '{output.loss_symbols}'
       recent_buy_count: 1
     outputs:
     - recent_buy_symbols
@@ -54,39 +50,40 @@ seed:
     params: {}
     outputs: []
   targets:
-    loss_symbols: "{output.loss_symbols}"
-    recent_buy_symbols: "{output.recent_buy_symbols}"
+    loss_symbols: '{output.loss_symbols}'
+    recent_buy_symbols: '{output.recent_buy_symbols}'
 eval:
   source: server_state
   checks:
   - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_')
       for o in state.orders)
     desc: At least one tax-loss harvesting sell order exists
-  - expr: any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)
-      and all(o.symbol in {target.loss_symbols} for o in state.orders if o.side ==
-      'sell' and not o.id.startswith('ord_decoy_'))
+  - expr: any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders) and all(o.symbol
+      in {target.loss_symbols} for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
     desc: All harvest sells target seeded loss positions
-  - expr: not any(o.symbol in {target.recent_buy_symbols} for o in state.orders if
-      o.side == 'sell' and not o.id.startswith('ord_decoy_'))
+  - expr: not any(o.symbol in {target.recent_buy_symbols} for o in state.orders if o.side == 'sell' and
+      not o.id.startswith('ord_decoy_'))
     desc: No harvest sell violates the recent-purchase wash-sale guardrail
-  - expr: >-
-      state.estimated_harvested_loss() >= state.total_realized_gains(gains_only=True)
+  - expr: state.estimated_harvested_loss() >= state.total_realized_gains(gains_only=True)
     desc: The harvested losses are sufficient to offset the seeded realized gains
-  - expr: >-
-      all(state.days_held(o.symbol) > 30 for o in state.orders
-      if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
+  - expr: all(state.days_held(o.symbol) > 30 for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
       or not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: All sold positions were held for more than 30 days to avoid wash sale conflicts
   negative_checks:
-  - expr: >-
-      not any(o.side == 'buy' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: The tax-loss harvesting workflow did not add new buy orders
     penalty: 0.15
-  - expr: len(state.transfers) == 0
+  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
     desc: No deposits or transfers were initiated during tax-loss harvesting
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, backtracking, verification by
-  requiring exact completion of the requested Robinhood workflow while ignoring distractor
-  account state.
+  - expr: not any(e.action == 'robinhood.options.order.place' for e in state.audit_log)
+    desc: Tax-loss harvesting did not place options orders
+    penalty: 0.1
+  - expr: not any( e.action == 'robinhood.alert.create' or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
+      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
+    desc: Tax-loss harvesting did not mutate unrelated alert, watchlist, or recurring surfaces
+    penalty: 0.1
+secondary_primitives:
+- planning
+primitive_thesis: Measures state_tracking, planning, backtracking, verification by requiring exact completion
+  of the requested Robinhood workflow while ignoring distractor account state.

@@ -1,21 +1,18 @@
 task_id: amazon_deal_discovery_checkout
 env_id: amazon
 title: Browse Deals and Buy All High-Rated Sale Items
-instruction_template: >
-  Browse the deals page to find products currently on sale. A product is on
-  sale when its list price is higher than its current price. Among all on-sale
-  products, add every item that has a rating of 4.0 or higher to your cart.
-  Do not add any on-sale items rated below 4.0. Complete checkout.
+instruction_template: 'Browse the deals page to find products currently on sale. A product is on sale
+  when its list price is higher than its current price. Among all on-sale products, add every item that
+  has a rating of 4.0 or higher to your cart. Do not add any on-sale items rated below 4.0. Complete checkout.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 35
 primary_primitives:
 - grounding
-- planning
-- state_tracking
-- verification
 secondary_primitives:
-- exploration
+- planning
 start_path: /
 seed:
   distractors: 20
@@ -138,36 +135,56 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.deal_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.deal_1}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Deal product 1 purchased (4.5 rating)
-  - expr: >
-      any(any(item.product_id == '{target.deal_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.deal_2}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Deal product 2 purchased (4.3 rating)
-  - expr: >
-      any(any(item.product_id == '{target.deal_3}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.deal_3}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Deal product 3 purchased (4.6 rating)
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      any(o.status == 'confirmed' for o in state.orders
-      if not o.id.startswith('order_initial_'))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Order confirmed
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.bad_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.bad_1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Low-rated deal 1 not purchased
     penalty: 0.2
-  - expr: >
-      not any(any(item.product_id == '{target.bad_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.bad_2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Low-rated deal 2 not purchased
     penalty: 0.2
-  - expr: >
-      sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')) <= 1
+
+      '
     desc: Only one order placed
+    penalty: 0.1
+  - expr: "not any(\n  any(item.product_id not in ['{target.deal_1}', '{target.deal_2}', '{target.deal_3}']\
+      \ for item in o.items)\n  for o in state.orders if not o.id.startswith('order_initial_')\n)"
+    desc: No non-qualifying item was purchased alongside the three target deals
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
+    desc: Exactly one checkout was used to complete the deal basket
+    penalty: 0.1
+  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n    'amazon.address.remove',\n\
+      \    'amazon.payment.add',\n    'amazon.payment.remove'\n  ]\n  for e in state.audit_log\n)"
+    desc: No address or payment profile edits were needed for the deal checkout
+    penalty: 0.1
+  - expr: not any(e.action in ['amazon.review.add', 'amazon.return.create'] for e in state.audit_log)
+    desc: No review or return workflow was started during checkout
     penalty: 0.1

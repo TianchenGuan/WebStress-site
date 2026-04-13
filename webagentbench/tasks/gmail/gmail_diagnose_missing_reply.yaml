@@ -1,0 +1,75 @@
+task_id: gmail_diagnose_missing_reply
+env_id: gmail
+title: Diagnose Missing Client Reply
+instruction_template: A client ({target.client_name}) has complained they never got a response to an important
+  email sent last week. You have multiple email threads with this client. Search your inbox and sent folder,
+  find which specific thread has no reply, and send a reply apologizing for the delay and directly addressing
+  their question about {target.unanswered_subject}.
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 28
+primary_primitives:
+- exploration
+secondary_primitives:
+- state_tracking
+start_path: /inbox
+seed:
+  distractors: 20
+  actors: {}
+  steps:
+  - use: diagnose_missing_reply
+    params: {}
+    outputs:
+    - client_name
+    - client_email
+    - unanswered_thread_id
+    - unanswered_subject
+    - unanswered_msg_id
+    - question_keywords
+    - thread_1_id
+    - thread_2_id
+    - thread_4_id
+    - initial_sent_count
+  targets:
+    client_name: '{output.client_name}'
+    client_email: '{output.client_email}'
+    unanswered_thread_id: '{output.unanswered_thread_id}'
+    unanswered_subject: '{output.unanswered_subject}'
+    unanswered_msg_id: '{output.unanswered_msg_id}'
+    question_keywords: '{output.question_keywords}'
+    thread_1_id: '{output.thread_1_id}'
+    thread_2_id: '{output.thread_2_id}'
+    thread_4_id: '{output.thread_4_id}'
+    initial_sent_count: '{output.initial_sent_count}'
+eval:
+  source: server_state
+  checks:
+  - expr: len(state.sent) > {target.initial_sent_count}
+    desc: At least one new email was sent
+  - expr: any('{target.client_email}' in m.to for m in state.sent if m.thread_id == '{target.unanswered_thread_id}')
+    desc: Reply sent to client in the correct unanswered thread
+  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and ('apolog' in m.body.lower() or 'sorry'
+      in m.body.lower() or 'delay' in m.body.lower()) for m in state.sent)
+    desc: Reply contains apology language
+  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and any(kw in m.body.lower() for kw in {target.question_keywords})
+      for m in state.sent)
+    desc: Reply addresses the client question with relevant keywords
+  negative_checks:
+  - expr: not any(m.thread_id in ['{target.thread_1_id}', '{target.thread_2_id}', '{target.thread_4_id}']
+      and m.from_addr != '{target.client_email}' for m in state.sent)
+    desc: No new reply sent to already-answered threads
+    penalty: 0.3
+  - expr: len(state.sent) <= {target.initial_sent_count} + 2
+    desc: No excessive emails sent
+    penalty: 0.2
+  - expr: not any( '{target.client_email}' in m.to and m.thread_id not in ['{target.unanswered_thread_id}',
+      '{target.thread_1_id}', '{target.thread_2_id}', '{target.thread_4_id}'] for m in state.sent)
+    desc: Did not compose a fresh wrong thread to the client instead of replying in-thread
+    penalty: 0.2
+  - expr: len([ m for m in state.sent if m.thread_id == '{target.unanswered_thread_id}' and '{target.client_email}'
+      in m.to ]) <= 1
+    desc: Unanswered client thread received only one corrective reply
+    penalty: 0.15
+  - expr: all( len(m.cc) == 0 and len(m.bcc) == 0 for m in state.sent if m.thread_id == '{target.unanswered_thread_id}')
+    desc: Client apology reply did not add extra recipients
+    penalty: 0.1

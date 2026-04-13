@@ -1,0 +1,24 @@
+variant_id: amazon_gift_purchase__product_twin
+base_task_id: amazon_gift_purchase
+target_primitive: grounding
+description: Renewed and plus listings with nearly identical names sit beside the target item. The agent
+  must match the exact product before acting.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Kindle Paperwhite E-Reader Plus
+      brand: Amazon Direct
+      category: Electronics
+      price: 160.99
+      rating: 4.6
+      description: Lookalike listing with slightly different packaging and model copy.
+    - type: product
+      name: Kindle Paperwhite E-Reader (Renewed)
+      brand: Amazon Outlet
+      category: Electronics
+      price: 114.79
+      rating: 4.3
+      description: Refurbished lookalike listing that is not the exact requested item.

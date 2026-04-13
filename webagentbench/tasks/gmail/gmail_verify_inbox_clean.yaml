@@ -1,0 +1,51 @@
+task_id: gmail_verify_inbox_clean
+env_id: gmail
+title: Verify VIP Inbox is Clean (No-Op)
+instruction_template: 'Check your inbox for any unread emails from {target.vip_name}
+  ({target.vip_email}) that haven''t been replied to. If you find any unreplied emails
+  from this sender, reply acknowledging receipt. If all their emails have already been
+  answered, no action is needed.'
+difficulty: medium
+time_limit_seconds: 180
+expected_steps: 12
+primary_primitives:
+- verification
+secondary_primitives:
+- exploration
+- patience
+start_path: /inbox
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: verify_inbox_clean
+    params: {}
+    outputs:
+    - vip_name
+    - vip_email
+    - total_vip_count
+    - vip_email_ids
+    - decoy_email_ids
+    - initial_sent_count
+  targets:
+    vip_name: '{output.vip_name}'
+    vip_email: '{output.vip_email}'
+    total_vip_count: '{output.total_vip_count}'
+    vip_email_ids: '{output.vip_email_ids}'
+    decoy_email_ids: '{output.decoy_email_ids}'
+    initial_sent_count: '{output.initial_sent_count}'
+eval:
+  source: server_state
+  checks:
+  - expr: len(state.sent) == {target.initial_sent_count}
+    desc: No new emails sent — all VIP emails already had replies
+  negative_checks:
+  - expr: len(state.sent) <= {target.initial_sent_count}
+    desc: Agent did not send any new emails
+    penalty: 0.5
+  - expr: len(state.deleted) == 0
+    desc: No emails were deleted
+    penalty: 0.3
+  - expr: all('inbox' in state.get_email(eid).labels for eid in {target.vip_email_ids})
+    desc: VIP emails were not archived or moved
+    penalty: 0.2

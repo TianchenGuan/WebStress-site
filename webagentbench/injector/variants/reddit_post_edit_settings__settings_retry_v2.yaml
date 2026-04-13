@@ -1,0 +1,17 @@
+variant_id: reddit_post_edit_settings__settings_retry_v2
+base_task_id: reddit_post_edit_settings
+target_primitive: verification
+description: The first settings update fails transiently. The agent must verify the Reddit settings actually
+  changed and retry if not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/settings'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

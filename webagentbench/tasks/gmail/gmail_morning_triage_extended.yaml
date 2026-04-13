@@ -1,21 +1,17 @@
 task_id: gmail_morning_triage_extended
 env_id: gmail
 title: Morning Triage Extended
-instruction_template: Process your morning inbox. Star the two emails that mention
-  an end-of-day deadline or need your sign-off. Archive the newsletter in your Promotions
-  tab and the FYI update in your Primary tab. Forward the email that asks you to loop
-  in a colleague — find the correct person from the email body. Reply to the email
-  from {target.reply_sender_name} about the project update (Reply only, not Reply
-  All). Reply to the email from {target.reply_b_sender_name} confirming receipt. Then
-  create an 'Action Required' label and apply it to the two starred emails.
+instruction_template: "Process your morning inbox. Star the two emails that mention an end-of-day deadline\
+  \ or need your sign-off. Archive the newsletter in your Promotions tab and the FYI update in your Primary\
+  \ tab. Forward the email that asks you to loop in a colleague \u2014 find the correct person from the\
+  \ email body. Reply to the email from {target.reply_sender_name} about the project update (Reply only,\
+  \ not Reply All). Reply to the email from {target.reply_b_sender_name} confirming receipt. Then create\
+  \ an 'Action Required' label and apply it to the two starred emails."
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 45
 primary_primitives:
 - planning
-- grounding
-- verification
-- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -60,16 +56,15 @@ eval:
     desc: Newsletter archived from Promotions
   - expr: '''inbox'' not in state.get_email(''{target.fyi_id}'').labels'
     desc: FYI email archived
-  - expr: any(m.forwarded_from_id == '{target.forward_id}' and '{target.forward_to_email}'
-      in m.to for m in state.sent)
+  - expr: any(m.forwarded_from_id == '{target.forward_id}' and '{target.forward_to_email}' in m.to for
+      m in state.sent)
     desc: Email forwarded to correct colleague
-  - expr: any(m.in_reply_to == '{target.reply_a_id}' and '{target.reply_phrase_a}'
-      in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.reply_a_id}' and '{target.reply_phrase_a}' in m.body for m in
+      state.sent)
     desc: Project update replied
   - expr: any(m.in_reply_to == '{target.reply_b_id}' for m in state.sent)
     desc: Receipt confirmation replied
-  - expr: all('Action Required' in state.get_email(eid).labels for eid in ['{target.urgent_a_id}',
-      '{target.urgent_b_id}'])
+  - expr: all('Action Required' in state.get_email(eid).labels for eid in ['{target.urgent_a_id}', '{target.urgent_b_id}'])
     desc: Action Required label applied to both starred
   negative_checks:
   - expr: not state.get_email('{target.fyi_decoy_id}').is_starred
@@ -78,3 +73,16 @@ eval:
   - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.reply_a_id}')
     desc: Reply not Reply All
     penalty: 0.15
+  - expr: not state.get_email('{target.promo_id}').is_starred and not state.get_email('{target.fyi_id}').is_starred
+    desc: Archived newsletter and FYI messages were not incorrectly starred
+    penalty: 0.15
+  - expr: all( m.to == ['{target.forward_to_email}'] and len(m.cc) == 0 and len(m.bcc) == 0 for m in state.sent
+      if m.forwarded_from_id == '{target.forward_id}')
+    desc: Loop-in forward went only to the intended colleague
+    penalty: 0.15
+  - expr: sum( 1 for m in state.sent if m.forwarded_from_id == '{target.forward_id}' or m.in_reply_to
+      in ['{target.reply_a_id}', '{target.reply_b_id}'] ) <= 3
+    desc: Morning triage did not send extra replies or forwards beyond the required three
+    penalty: 0.1
+secondary_primitives:
+- grounding

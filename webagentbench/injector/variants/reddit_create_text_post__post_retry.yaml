@@ -1,0 +1,17 @@
+variant_id: reddit_create_text_post__post_retry
+base_task_id: reddit_create_text_post
+target_primitive: backtracking
+description: The first post submission fails transiently. The agent must verify the post exists and retry
+  if it does not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/posts'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary Reddit write failure. Retry the action.
+    behavior:
+      mode: once

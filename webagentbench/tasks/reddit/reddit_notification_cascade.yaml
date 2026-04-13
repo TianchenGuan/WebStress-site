@@ -25,11 +25,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- exploration
-- patience
-- verification
 seed:
   distractors: 10
   actors: {}
@@ -139,7 +134,8 @@ seed:
     pt: Practical guide to deploying ML models with FastAPI and Docker
     pb: Step-by-step walkthrough from local development to production Kubernetes deployment.
     py_title: Async Python patterns that actually improve performance
-    py_body: Not all async code is faster. Here are the patterns where async Python genuinely helps and where it hurts.
+    py_body: Not all async code is faster. Here are the patterns where async Python genuinely helps and
+      where it hurts.
     ml_title: 'Fine-tuning LLMs on domain-specific data: lessons from healthcare NLP'
     ml_body: We fine-tuned several models on clinical notes. Here is what worked and what did not.
     p1_title: Practical guide to deploying ML models with FastAPI and Docker
@@ -157,40 +153,34 @@ seed:
 eval:
   source: server_state
   checks:
-  # Steps 1-2: All notifications and messages read
   - expr: state.unread_notification_count() == 0
     desc: All notifications read
   - expr: state.unread_message_count() == 0
     desc: All messages read
-  # Step 3: Reply to message
-  - expr: "any(m.to_user == '{target.r_from}' and '{target.r_body}' in m.body for m in state.sent_messages)"
+  - expr: any(m.to_user == '{target.r_from}' and '{target.r_body}' in m.body for m in state.sent_messages)
     desc: Replied to u/{target.r_from}
-  # Step 4: Delete spam message
-  - expr: "not any(m.id == '{target.del_id}' for m in state.messages)"
+  - expr: not any(m.id == '{target.del_id}' for m in state.messages)
     desc: Spam message deleted
-  # Step 5: Worldnews post upvoted, saved, and commented
-  - expr: "'{target.wn_id}' in state.saved_post_ids"
+  - expr: '''{target.wn_id}'' in state.saved_post_ids'
     desc: Worldnews post saved
-  - expr: "any(c.post_id == '{target.wn_id}' and '{target.c1}' in c.body and c.author_name == state.owner_username for c in state.comments)"
+  - expr: any(c.post_id == '{target.wn_id}' and '{target.c1}' in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: Commented on worldnews post
-  # Step 6: Programming post saved
-  - expr: "'{target.prog_id}' in state.saved_post_ids"
+  - expr: '''{target.prog_id}'' in state.saved_post_ids'
     desc: Programming post saved
-  # Step 7: Subscribed to r/MachineLearning
-  - expr: "any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)"
+  - expr: any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.join}
-  # Step 8: Created post in r/MachineLearning
-  - expr: "any(p.subreddit_name == '{target.join}' and '{target.pt}' in p.title and p.author_name == state.owner_username for p in state.posts)"
+  - expr: any(p.subreddit_name == '{target.join}' and '{target.pt}' in p.title and p.author_name == state.owner_username
+      for p in state.posts)
     desc: Post created in r/{target.join}
-  # Step 9: Settings
-  - expr: "state.settings.theme == 'dark'"
+  - expr: state.settings.theme == 'dark'
     desc: Theme set to dark
-  - expr: "state.settings.default_feed_sort == 'new'"
+  - expr: state.settings.default_feed_sort == 'new'
     desc: Feed sort set to new
   - expr: state.settings.email_messages == False
     desc: Email for messages disabled
   negative_checks:
-  - expr: "all(sid in state.subscriptions for sid in {target.initial_subscriptions})"
+  - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: No existing subscriptions removed (instruction says do not unsubscribe)
     penalty: 0.2
   - expr: len(state.sent_messages) <= 2
@@ -199,5 +189,14 @@ eval:
   - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
     desc: No excessive posts created
     penalty: 0.15
+  - expr: not any(e.action.startswith('reddit.user.block') or e.action.startswith('reddit.user.unblock')
+      for e in state.audit_log)
+    desc: No off-task user blocks were changed
+    penalty: 0.1
+  - expr: not any(e.action in {'reddit.post.hide', 'reddit.post.unhide'} for e in state.audit_log)
+    desc: No off-task posts were hidden or unhidden
+    penalty: 0.1
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- state_tracking

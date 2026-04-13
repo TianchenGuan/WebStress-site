@@ -502,6 +502,7 @@ def build_stock_universe(ctx: RobinhoodSeedContext, params: dict[str, Any]) -> d
     if "stocks" not in ctx.base:
         ctx.base["stocks"] = []
 
+    outputs: dict[str, Any] = {}
     for sd in selected:
         # Deterministic price perturbation
         pct_change = ctx.rng.uniform(-0.08, 0.08)
@@ -550,8 +551,9 @@ def build_stock_universe(ctx: RobinhoodSeedContext, params: dict[str, Any]) -> d
             historical_prices=historical,
         )
         ctx.base["stocks"].append(stock)
+        outputs[f"stock_price_{stock.symbol}"] = stock.price
 
-    return {}
+    return outputs
 
 
 # ---------------------------------------------------------------------------

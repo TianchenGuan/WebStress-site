@@ -1,37 +1,24 @@
 task_id: booking_expert_family_vacation
 env_id: booking
 title: Family Vacation Planner with Specific Room Requirements and Saved List
-instruction_template: "Plan a family vacation in Barcelona:\n\
-  1. Search for family-friendly hotels in Barcelona with a pool. Find\
-  \ \"{target.property_name}\".\n\
-  2. Verify it has the following:\n\
-  \   - A \"Family Room\" that accommodates at least 4 guests\n\
-  \   - Kids' club or kids activities among its amenities\n\
-  \   - A pool in its facilities\n\
-  3. Book the \"Family Room\" with breakfast for 4 guests checking in\
-  \ 2026-08-01 and checking out 2026-08-08 (7 nights). Use the default Visa\
-  \ payment (ending in 4242).\n\
-  4. Create a new saved list called \"Family Trips\" and add\
-  \ \"{target.property_name}\" to it.\n\
-  5. Also save the alternative family hotel \"{target.alt_name}\" to the\
-  \ same \"Family Trips\" list for future reference.\n\
-  6. Send a message to \"{target.property_name}\" with subject \"Family\
-  \ requirements\" and body \"We are traveling with two children ages 5\
-  \ and 8. Could you please arrange a crib and provide information about\
-  \ your kids club schedule?\"\n\
-  7. Update your travel preferences: set preferred room type to\
-  \ \"family\" and add \"highchair\" to accessibility needs.\n"
+instruction_template: "Plan a family vacation in Barcelona:\n1. Search for family-friendly hotels in Barcelona\
+  \ with a pool. Find \"{target.property_name}\".\n2. Verify it has the following:\n   - A \"Family Room\"\
+  \ that accommodates at least 4 guests\n   - Kids' club or kids activities among its amenities\n   -\
+  \ A pool in its facilities\n3. Book the \"Family Room\" with breakfast for 4 guests checking in 2026-08-01\
+  \ and checking out 2026-08-08 (7 nights). Use the default Visa payment (ending in 4242).\n4. Create\
+  \ a new saved list called \"Family Trips\" and add \"{target.property_name}\" to it.\n5. Also save the\
+  \ alternative family hotel \"{target.alt_name}\" to the same \"Family Trips\" list for future reference.\n\
+  6. Send a message to \"{target.property_name}\" with subject \"Family requirements\" and body \"We are\
+  \ traveling with two children ages 5 and 8. Could you please arrange a crib and provide information\
+  \ about your kids club schedule?\"\n7. Update your travel preferences: set preferred room type to \"\
+  family\" and add \"highchair\" to accessibility needs.\n"
 difficulty: expert
 time_limit_seconds: 460
 expected_steps: 35
 primary_primitives:
 - planning
-- verification
-- grounding
 secondary_primitives:
-- exploration
-- state_tracking
-- patience
+- verification
 start_path: /home
 seed:
   distractors: 15
@@ -155,38 +142,34 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-08-01' and\n  r.check_out == '2026-08-08'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-08-01' and\n  r.check_out == '2026-08-08'\n  for r in state.reservations\n)\n"
     desc: Family hotel booked with correct dates (7 nights)
-  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name == 'Family\
-      \ Room' and\n  r.guests == 4\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name == 'Family Room' and\n\
+      \  r.guests == 4\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked Family Room for 4 guests
-  - expr: "any(\n  sl.name == 'Family Trips' and\n  '{target.prop_id}' in sl.property_ids\
-      \ and\n  '{target.alt_id}' in sl.property_ids\n  for sl in state.saved_lists\n\
-      )\n"
+  - expr: "any(\n  sl.name == 'Family Trips' and\n  '{target.prop_id}' in sl.property_ids and\n  '{target.alt_id}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists\n)\n"
     desc: Both hotels saved to 'Family Trips' list
-  - expr: "any(\n  m.property_id == '{target.prop_id}' and\n  'family requirements'\
-      \ in m.subject.lower() and\n  'children ages 5 and 8' in m.body.lower()\n  for\
-      \ m in state.messages\n  if m.sender == 'user'\n)\n"
+  - expr: "any(\n  m.property_id == '{target.prop_id}' and\n  'family requirements' in m.subject.lower()\
+      \ and\n  'children ages 5 and 8' in m.body.lower()\n  for m in state.messages\n  if m.sender ==\
+      \ 'user'\n)\n"
     desc: Family requirements message sent to hotel
   - expr: state.travel_preferences.preferred_room_type == 'family'
     desc: Preferred room type updated to family
-  - expr: "state.travel_preferences.accessibility_needs == True"
+  - expr: state.travel_preferences.accessibility_needs == True
     desc: Accessibility needs enabled for family trip
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.alt_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.alt_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the alternative hotel (only saved it)
     penalty: 0.3
-  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name in\
-      \ ('Standard Double Room', 'Junior Suite')\n  for r in state.reservations\n  if\
-      \ not r.id.startswith('res_initial_')\n)\n"
+  - expr: "not any(\n  r.property_id == '{target.prop_id}' and\n  r.room_type_name in ('Standard Double\
+      \ Room', 'Junior Suite')\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
+      )\n"
     desc: Did not book the wrong room type
     penalty: 0.25
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created

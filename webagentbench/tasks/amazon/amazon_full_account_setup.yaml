@@ -1,10 +1,11 @@
 task_id: amazon_full_account_setup
 env_id: amazon
 title: Full Account Setup and First Purchase
-instruction_template: 'Set up your account fully and make a purchase. First, add two new shipping addresses: (1) name "Home"
-  at "200 Pine St, Seattle, WA 98101" and (2) name "Office" at "800 Corporate Blvd, Bellevue, WA 98004". Then add a new payment
-  method (credit card). Update your account settings to enable one-click ordering and turn on deal-alert emails. Finally,
-  purchase "{target.product_name}" using the "Office" address and the new payment method.
+instruction_template: 'Set up your account fully and make a purchase. First, add two new shipping addresses:
+  (1) name "Home" at "200 Pine St, Seattle, WA 98101" and (2) name "Office" at "800 Corporate Blvd, Bellevue,
+  WA 98004". Then add a new payment method (credit card). Update your account settings to enable one-click
+  ordering and turn on deal-alert emails. Finally, purchase "{target.product_name}" using the "Office"
+  address and the new payment method.
 
   '
 difficulty: hard
@@ -12,9 +13,6 @@ time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 start_path: /
 seed:
   distractors: 16
@@ -62,12 +60,13 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(''200 Pine'' in addr.street_address and addr.city == ''Seattle'' and addr.state == ''WA'' for addr in state.addresses)
+  - expr: 'any(''200 Pine'' in addr.street_address and addr.city == ''Seattle'' and addr.state == ''WA''
+      for addr in state.addresses)
 
       '
     desc: Home address added with correct details
-  - expr: 'any(''800 Corporate'' in addr.street_address and addr.city == ''Bellevue'' and addr.state == ''WA'' for addr in
-      state.addresses)
+  - expr: 'any(''800 Corporate'' in addr.street_address and addr.city == ''Bellevue'' and addr.state ==
+      ''WA'' for addr in state.addresses)
 
       '
     desc: Office address added with correct details
@@ -79,17 +78,19 @@ eval:
     desc: Deal-alert emails are turned on
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items) for order in state.orders
+      if not order.id.startswith(''order_initial_''))
 
       '
     desc: Target product was purchased
-  - expr: 'any(any(''800 Corporate'' in addr.street_address for addr in state.addresses if addr.id == order.shipping_address_id)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'any(any(''800 Corporate'' in addr.street_address for addr in state.addresses if addr.id ==
+      order.shipping_address_id) for order in state.orders if not order.id.startswith(''order_initial_''))
 
       '
     desc: Order shipped to the Office address
-  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order in state.orders if not order.id.startswith(''order_initial_'')
-      and any(item.product_id == ''{target.product_id}'' for item in order.items))
+  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order in state.orders
+      if not order.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id}''
+      for item in order.items))
 
       '
     desc: Order uses the new payment method, not any pre-loaded one
@@ -103,3 +104,11 @@ eval:
   - expr: len(state.orders) <= 2
     desc: No excessive orders placed
     penalty: 0.15
+  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
+    desc: No off-task returns were opened or updated
+    penalty: 0.1
+  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

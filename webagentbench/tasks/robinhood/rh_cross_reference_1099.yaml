@@ -1,22 +1,17 @@
----
 task_id: rh_cross_reference_1099
 env_id: robinhood
 title: Set Breakeven Alerts from 1099-B Tax Document
-instruction_template: Open your 1099-B tax document for this year. Cross-reference
-  each sale listed against your transaction history. For any stock where the reported
-  cost basis on the 1099 differs from your transaction records and you still hold the
-  stock, set a price alert at the 1099 reported cost basis to track your breakeven point.
-  Use the 'above' condition if the current price is below the cost basis, or the 'below'
-  condition if the current price is above the cost basis.
+instruction_template: Open your 1099-B tax document for this year. Cross-reference each sale listed against
+  your transaction history. For any stock where the reported cost basis on the 1099 differs from your
+  transaction records and you still hold the stock, set a price alert at the 1099 reported cost basis
+  to track your breakeven point. Use the 'above' condition if the current price is below the cost basis,
+  or the 'below' condition if the current price is above the cost basis.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 18
 primary_primitives:
 - state_tracking
-- verification
-- grounding
-- exploration
-start_path: "/"
+start_path: /
 seed:
   distractors: 20
   steps:
@@ -61,51 +56,45 @@ seed:
       months: 12
     outputs: []
   targets:
-    discrepancy_symbols: "{output.discrepancy_symbols}"
-    reported_cost_bases: "{output.reported_cost_bases}"
+    discrepancy_symbols: '{output.discrepancy_symbols}'
+    reported_cost_bases: '{output.reported_cost_bases}'
 eval:
   source: server_state
   checks:
-  - expr: >-
-      len([sym for sym in {target.discrepancy_symbols} if sym in state.owned_symbols()]) >= 1
-      and all(any(a.symbol == sym and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
-      for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
+  - expr: len([sym for sym in {target.discrepancy_symbols} if sym in state.owned_symbols()]) >= 1 and
+      all(any(a.symbol == sym and not a.id.startswith('alert_decoy_') for a in state.price_alerts) for
+      sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
     desc: Every discrepancy symbol still held in the portfolio has a price alert
-  - expr: >-
-      all(any(a.symbol == sym and a.target_price == Decimal({target.reported_cost_bases}[sym])
-      and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
-      for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
+  - expr: all(any(a.symbol == sym and a.target_price == Decimal({target.reported_cost_bases}[sym]) and
+      not a.id.startswith('alert_decoy_') for a in state.price_alerts) for sym in {target.discrepancy_symbols}
+      if sym in state.owned_symbols())
     desc: Each alert is set at the 1099 reported cost basis
-  - expr: >-
-      all(any(a.symbol == sym
-      and ((a.condition == 'above' and state.get_stock(sym).price < a.target_price)
-      or (a.condition == 'below' and state.get_stock(sym).price > a.target_price))
-      and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
-      for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
+  - expr: all(any(a.symbol == sym and ((a.condition == 'above' and state.get_stock(sym).price < a.target_price)
+      or (a.condition == 'below' and state.get_stock(sym).price > a.target_price)) and not a.id.startswith('alert_decoy_')
+      for a in state.price_alerts) for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
     desc: Each alert uses the correct above/below condition relative to current price
-  - expr: >-
-      len([a for a in state.price_alerts
-      if a.symbol in {target.discrepancy_symbols}
-      and a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')]) >= len([sym for sym in {target.discrepancy_symbols} if sym in state.owned_symbols()])
+  - expr: len([a for a in state.price_alerts if a.symbol in {target.discrepancy_symbols} and a.symbol
+      in state.owned_symbols() and not a.id.startswith('alert_decoy_')]) >= len([sym for sym in {target.discrepancy_symbols}
+      if sym in state.owned_symbols()])
     desc: The number of non-decoy alerts matches the number of discrepancy symbols held
-  - expr: >-
-      not any(a.symbol not in {target.discrepancy_symbols}
-      and not a.id.startswith('alert_decoy_')
+  - expr: not any(a.symbol not in {target.discrepancy_symbols} and not a.id.startswith('alert_decoy_')
       for a in state.price_alerts)
     desc: No alerts were set for non-discrepancy symbols
   negative_checks:
-  - expr: >-
-      all(o.id.startswith('ord_decoy_') for o in state.orders)
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No trades were placed during this task
     penalty: 0.15
-  - expr: len(state.transfers) == 0
+  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
     desc: No transfers were initiated
     penalty: 0.15
-secondary_primitives: []
-primitive_thesis: Measures state_tracking, verification, grounding, exploration by
-  requiring the agent to cross-reference tax documents with current holdings and set
-  appropriate alerts for discrepancies.
+  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
+      for e in state.audit_log)
+    desc: 1099 review did not mutate watchlists or recurring investments
+    penalty: 0.1
+  - expr: not any(e.action == 'robinhood.alert.delete' for e in state.audit_log)
+    desc: Existing alerts were not deleted during the 1099 cross-reference
+    penalty: 0.1
+secondary_primitives:
+- verification
+primitive_thesis: Measures state_tracking, verification, grounding, exploration by requiring the agent
+  to cross-reference tax documents with current holdings and set appropriate alerts for discrepancies.

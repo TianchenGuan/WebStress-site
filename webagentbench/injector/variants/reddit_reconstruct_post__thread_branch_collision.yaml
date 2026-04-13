@@ -1,0 +1,22 @@
+variant_id: reddit_reconstruct_post__thread_branch_collision
+base_task_id: reddit_reconstruct_post
+target_primitive: grounding
+description: The relevant thread contains comments from nearly identical usernames in adjacent branches.
+  The agent must target the exact author and branch instead of the lookalike reply.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: comment
+      post_title: Interesting discussion thread
+      author: NeuralNexus_
+      body: Similar-looking advice from a near-match username in a sibling branch.
+      score: 18
+      depth: 1
+    - type: comment
+      post_title: Interesting discussion thread
+      author: NeuralNexus.alt
+      body: A follow-up that looks related but belongs to a different branch.
+      score: 9
+      depth: 2

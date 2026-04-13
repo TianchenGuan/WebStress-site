@@ -1,0 +1,17 @@
+variant_id: amazon_budget_optimized_spree__product_shadow_v2
+base_task_id: amazon_budget_optimized_spree
+target_primitive: grounding
+description: Search and comparison views include a near-identical sibling product with a slightly different
+  price-rating tradeoff. The agent must still pick the exact task target.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Pro Wireless Charger Stand Max
+      brand: ChargeMax
+      category: Electronics
+      price: 43.59
+      rating: 4.8
+      description: Lookalike product whose tradeoffs should not override the exact benchmark instruction.

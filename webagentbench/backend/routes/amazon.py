@@ -16,7 +16,11 @@ from ..models.amazon import (
     ReturnRequest as ReturnRequestModel, PromoCode, ProductQuestion,
     ProductAnswer, GiftCard, Notification,
 )
-from ..security import build_public_session_summary, has_controller_access, require_controller_access
+from ..security import (
+    build_public_session_summary,
+    has_controller_access,
+    require_evaluation_access,
+)
 from ..state import SessionManager
 from ...task_rendering import render_template
 
@@ -528,8 +532,12 @@ def evaluate_session(
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     try:
-        require_controller_access(request)
         state = session_manager.get(body.session_id)
+        require_evaluation_access(
+            request,
+            requested_task_id=body.task_id,
+            bound_task_id=state.task_id,
+        )
         if body.benchmark_state is not None:
             session_manager.set_benchmark_state(body.session_id, body.benchmark_state)
         if body.task_id and body.task_id != state.task_id:

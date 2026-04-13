@@ -1,39 +1,24 @@
 task_id: booking_frontier_notification_master
 env_id: booking
-title: "Frontier: Process All Notifications and Act on Each Type"
-instruction_template: "Process and act on all your notifications:\n\
-  1. Read the booking confirmation notification\n\
-  \   \"{target.confirm_notif_title}\". Verify the reservation at\n\
-  \   \"{target.confirm_prop_name}\" exists in your trips.\n\
-  2. Read the price drop notification \"{target.price_notif_title}\".\n\
-  \   Save the property \"{target.price_prop_name}\" to a new list\n\
-  \   called \"Price Drop Deals\".\n\
-  3. Read the deal alert notification \"{target.deal_notif_title}\".\n\
-  \   Search for \"{target.deal_prop_name}\" and book its\n\
-  \   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n\
-  \   checking out 2026-11-04, using the default Visa (ending 4242).\n\
-  4. Read the review reminder notification\n\
-  \   \"{target.review_notif_title}\". Write a review for\n\
-  \   \"{target.review_prop_name}\": score 8.0, title \"Pleasant stay\",\n\
-  \   positive \"Clean rooms and helpful staff\", no negative,\n\
-  \   leisure, couple.\n\
-  5. Send a message to \"{target.confirm_prop_name}\" with subject\n\
-  \   \"Pre-arrival question\" and body \"What time is early\n\
-  \   check-in available?\"\n\
-  6. Mark all notifications as read.\n\
-  7. Update settings: enable SMS notifications.\n"
+title: 'Frontier: Process All Notifications and Act on Each Type'
+instruction_template: "Process and act on all your notifications:\n1. Read the booking confirmation notification\n\
+  \   \"{target.confirm_notif_title}\". Verify the reservation at\n   \"{target.confirm_prop_name}\" exists\
+  \ in your trips.\n2. Read the price drop notification \"{target.price_notif_title}\".\n   Save the property\
+  \ \"{target.price_prop_name}\" to a new list\n   called \"Price Drop Deals\".\n3. Read the deal alert\
+  \ notification \"{target.deal_notif_title}\".\n   Search for \"{target.deal_prop_name}\" and book its\n\
+  \   \"Standard Room\" for 2 guests, checking in 2026-11-01,\n   checking out 2026-11-04, using the default\
+  \ Visa (ending 4242).\n4. Read the review reminder notification\n   \"{target.review_notif_title}\"\
+  . Write a review for\n   \"{target.review_prop_name}\": score 8.0, title \"Pleasant stay\",\n   positive\
+  \ \"Clean rooms and helpful staff\", no negative,\n   leisure, couple.\n5. Send a message to \"{target.confirm_prop_name}\"\
+  \ with subject\n   \"Pre-arrival question\" and body \"What time is early\n   check-in available?\"\n\
+  6. Mark all notifications as read.\n7. Update settings: enable SMS notifications.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 45
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -80,7 +65,8 @@ seed:
     params:
       type: booking_confirmed
       title: Booking Confirmed - Park Hyatt Sydney
-      message: 'Your reservation at Park Hyatt Sydney is confirmed. Confirmation: {output.confirm_conf_num}. Check-in Dec 1, Check-out Dec 5.'
+      message: 'Your reservation at Park Hyatt Sydney is confirmed. Confirmation: {output.confirm_conf_num}.
+        Check-in Dec 1, Check-out Dec 5.'
       read: false
       related_id: '{output.confirm_res_id}'
     outputs:
@@ -111,7 +97,7 @@ seed:
     params:
       type: price_drop
       title: Price Drop - Fairmont Banff Springs now 25% off
-      message: 'Great news! Fairmont Banff Springs has dropped prices by 25%. Rooms from $315/night.'
+      message: Great news! Fairmont Banff Springs has dropped prices by 25%. Rooms from $315/night.
       read: false
       related_id: '{output.price_prop_id}'
     outputs:
@@ -155,7 +141,7 @@ seed:
     params:
       type: deal_alert
       title: Flash Deal - Santorini from $290/night
-      message: 'Limited time offer on Santorini Sunset Resort. Book now for exclusive rates!'
+      message: Limited time offer on Santorini Sunset Resort. Book now for exclusive rates!
       read: false
       related_id: '{output.deal_prop_id}'
     outputs:
@@ -198,7 +184,7 @@ seed:
     params:
       type: review_reminder
       title: Share your experience at Hotel & Spa Napa Valley
-      message: 'How was your stay at Hotel & Spa Napa Valley? Write a review to help other travelers.'
+      message: How was your stay at Hotel & Spa Napa Valley? Write a review to help other travelers.
       read: false
       related_id: '{output.review_prop_id}'
     outputs:
@@ -229,49 +215,43 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(n.id == '{target.confirm_notif_id}' and n.read == True\n\
-      \  for n in state.notifications)\n"
+  - expr: "any(n.id == '{target.confirm_notif_id}' and n.read == True\n  for n in state.notifications)\n"
     desc: Booking confirmation notification was read
-  - expr: "any(n.id == '{target.price_notif_id}' and n.read == True\n\
-      \  for n in state.notifications)\n"
+  - expr: "any(n.id == '{target.price_notif_id}' and n.read == True\n  for n in state.notifications)\n"
     desc: Price drop notification was read
-  - expr: "any(\n  sl.name == 'Price Drop Deals' and\n\
-      \  '{target.price_prop_id}' in sl.property_ids\n\
+  - expr: "any(\n  sl.name == 'Price Drop Deals' and\n  '{target.price_prop_id}' in sl.property_ids\n\
       \  for sl in state.saved_lists\n)\n"
     desc: Price drop property saved to Price Drop Deals list
-  - expr: "any(\n  r.property_id == '{target.deal_prop_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.check_in == '2026-11-01' and r.check_out == '2026-11-04' and\n\
-      \  r.room_type_name == 'Standard Room'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.deal_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-11-01' and r.check_out == '2026-11-04' and\n  r.room_type_name == 'Standard Room'\n \
+      \ for r in state.reservations\n)\n"
     desc: Deal property booked with Standard Room and correct dates
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  rv.overall_score == 8.0 and rv.title == 'Pleasant stay'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 8.0 and rv.title\
+      \ == 'Pleasant stay'\n  for rv in state.reviews)\n"
     desc: Review written for Napa Valley with correct score and title
-  - expr: "any(m.property_id == '{target.confirm_prop_id}' and m.sender == 'guest'\n\
-      \  and 'early check-in' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.confirm_prop_id}' and m.sender == 'guest'\n  and 'early check-in'\
+      \ in m.body.lower()\n  for m in state.messages)\n"
     desc: Message sent to confirmed property about early check-in
   - expr: state.settings.sms_notifications == True
     desc: SMS notifications enabled
-  - expr: "all(n.read == True for n in state.notifications)\n"
+  - expr: 'all(n.read == True for n in state.notifications)
+
+      '
     desc: All notifications marked as read
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') != '{target.deal_prop_id}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.deal_prop_id}'\n\
       \  for e in state.audit_log\n)\n"
     desc: No reservation at wrong property
     penalty: 0.3
-  - expr: "not any(r.id == '{target.confirm_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations)\n"
+  - expr: "not any(r.id == '{target.confirm_res_id}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Existing confirmed reservation was not cancelled
     penalty: 0.4
-  - expr: "not any(\n  r.property_id == '{target.deal_prop_id}' and\n\
-      \  r.room_type_name == 'Deluxe Suite'\n\
+  - expr: "not any(\n  r.property_id == '{target.deal_prop_id}' and\n  r.room_type_name == 'Deluxe Suite'\n\
       \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book the Deluxe Suite instead of Standard Room
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Price Drop Deals') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Price Drop Deals'') <= 1
+
+      '
     desc: Only one Price Drop Deals list created
     penalty: 0.1

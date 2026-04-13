@@ -1,21 +1,17 @@
 task_id: amazon_strategic_cart_overhaul
 env_id: amazon
 title: Remove Expensive Cart Items and Add Budget Alternatives
-instruction_template: >
-  Your shopping cart needs optimization. Review all items currently in your cart
-  and remove every item that costs more than $50.00 per unit. Then search for
-  '{target.alt_product_1}' and add 1 to your cart. Also search for
-  '{target.alt_product_2}' and add 1 to your cart. Finally, complete checkout
-  using the address and payment method already on file.
+instruction_template: 'Your shopping cart needs optimization. Review all items currently in your cart
+  and remove every item that costs more than $50.00 per unit. Then search for ''{target.alt_product_1}''
+  and add 1 to your cart. Also search for ''{target.alt_product_2}'' and add 1 to your cart. Finally,
+  complete checkout using the address and payment method already on file.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 38
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- verification
-- exploration
 start_path: /cart
 seed:
   distractors: 20
@@ -121,44 +117,54 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.alt_id_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.alt_id_1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Alternative product 1 is in the order
-  - expr: >
-      any(any(item.product_id == '{target.alt_id_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.alt_id_2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Alternative product 2 is in the order
-  - expr: >
-      any(any(item.product_name == 'USB-C Charging Cable 3-Pack' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''USB-C Charging Cable 3-Pack'' for item in o.items) for o in
+      state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Budget item USB-C cable kept in order
-  - expr: >
-      any(any(item.product_name == 'Stainless Steel Water Bottle' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Stainless Steel Water Bottle'' for item in o.items) for o in
+      state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Budget item water bottle kept in order
-  - expr: >
-      any(any(item.product_name == 'Cotton Crew Socks 6-Pack' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_name == ''Cotton Crew Socks 6-Pack'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Budget item socks kept in order
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
   negative_checks:
-  - expr: >
-      not any(any(item.product_name == 'Premium Noise-Cancelling Headphones' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Premium Noise-Cancelling Headphones'' for item in o.items)
+      for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive headphones were not included in order
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_name == 'Smart Home Security Camera' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Smart Home Security Camera'' for item in o.items) for o
+      in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive security camera was not included in order
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_name == 'Ergonomic Standing Desk Mat' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_name == ''Ergonomic Standing Desk Mat'' for item in o.items) for o
+      in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive desk mat was not included in order
     penalty: 0.15
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one order was placed
     penalty: 0.1
+secondary_primitives:
+- state_tracking

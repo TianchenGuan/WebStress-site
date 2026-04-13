@@ -1,0 +1,24 @@
+variant_id: amazon_browse_category__cheapest_decoy
+base_task_id: amazon_browse_category
+target_primitive: grounding
+description: Several low-priced lookalikes sit just above the real cheapest item. The agent must compare
+  exact prices instead of trusting badges or visual prominence.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Electronics Daily Pick
+      brand: Amazon Choice
+      category: Electronics
+      price: 8.49
+      rating: 4.8
+      description: Highlighted deal placement but not actually the lowest price.
+    - type: product
+      name: Electronics Value Cable Bundle
+      brand: DealHub
+      category: Electronics
+      price: 9.24
+      rating: 4.7
+      description: Prominent low-price bundle that is still slightly more expensive.

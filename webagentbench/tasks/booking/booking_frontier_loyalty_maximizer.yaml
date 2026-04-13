@@ -1,42 +1,26 @@
 task_id: booking_frontier_loyalty_maximizer
 env_id: booking
-title: "Frontier: Maximize Genius Loyalty - Book 3 Discounted Properties Across Cities"
-instruction_template: "Maximize your Genius Level 2 benefits:\n\
-  1. Search London and find \"{target.london_name}\" (a Genius property).\n\
-  \   Book its \"Genius Deluxe Room\" for 2 guests,\n\
-  \   checking in 2026-10-01, checking out 2026-10-04 (3 nights),\n\
-  \   using default Visa (ending 4242).\n\
-  2. Search Paris and find \"{target.paris_name}\" (a Genius property).\n\
-  \   Book its \"Genius Suite\" for 2 guests,\n\
-  \   checking in 2026-10-05, checking out 2026-10-08 (3 nights),\n\
-  \   using Mastercard ending in 8888.\n\
-  3. Search Tokyo and find \"{target.tokyo_name}\" (a Genius property).\n\
-  \   Book its \"Genius Premium Room\" for 2 guests,\n\
-  \   checking in 2026-10-10, checking out 2026-10-13 (3 nights),\n\
-  \   using Amex ending in 1234.\n\
-  4. Save all three Genius properties to a new list called\n\
-  \   \"Genius October Tour\".\n\
-  5. Update travel preferences: set preferred currency to \"GBP\".\n\
-  6. Send a message to \"{target.london_name}\" with subject\n\
-  \   \"Genius benefits\" and body \"As a Genius Level 2 member,\n\
-  \   are there any additional complimentary upgrades available?\"\n\
-  7. Write a review for your completed stay at \"{target.review_name}\":\n\
-  \   score 9.5, title \"Genius perks made the difference\",\n\
-  \   positive \"The Genius discount was excellent and the free\n\
-  \   room upgrade was a wonderful surprise\", no negative,\n\
-  \   leisure, couple.\n"
+title: 'Frontier: Maximize Genius Loyalty - Book 3 Discounted Properties Across Cities'
+instruction_template: "Maximize your Genius Level 2 benefits:\n1. Search London and find \"{target.london_name}\"\
+  \ (a Genius property).\n   Book its \"Genius Deluxe Room\" for 2 guests,\n   checking in 2026-10-01,\
+  \ checking out 2026-10-04 (3 nights),\n   using default Visa (ending 4242).\n2. Search Paris and find\
+  \ \"{target.paris_name}\" (a Genius property).\n   Book its \"Genius Suite\" for 2 guests,\n   checking\
+  \ in 2026-10-05, checking out 2026-10-08 (3 nights),\n   using Mastercard ending in 8888.\n3. Search\
+  \ Tokyo and find \"{target.tokyo_name}\" (a Genius property).\n   Book its \"Genius Premium Room\" for\
+  \ 2 guests,\n   checking in 2026-10-10, checking out 2026-10-13 (3 nights),\n   using Amex ending in\
+  \ 1234.\n4. Save all three Genius properties to a new list called\n   \"Genius October Tour\".\n5. Update\
+  \ travel preferences: set preferred currency to \"GBP\".\n6. Send a message to \"{target.london_name}\"\
+  \ with subject\n   \"Genius benefits\" and body \"As a Genius Level 2 member,\n   are there any additional\
+  \ complimentary upgrades available?\"\n7. Write a review for your completed stay at \"{target.review_name}\"\
+  :\n   score 9.5, title \"Genius perks made the difference\",\n   positive \"The Genius discount was\
+  \ excellent and the free\n   room upgrade was a wonderful surprise\", no negative,\n   leisure, couple.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 48
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -205,64 +189,52 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.london_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Genius Deluxe Room' and\n\
-      \  r.check_in == '2026-10-01' and r.check_out == '2026-10-04'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.london_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Genius Deluxe Room' and\n  r.check_in == '2026-10-01' and r.check_out == '2026-10-04'\n  for\
+      \ r in state.reservations\n)\n"
     desc: London Genius hotel booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.paris_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Genius Suite' and\n\
-      \  r.check_in == '2026-10-05' and r.check_out == '2026-10-08'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.paris_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Genius Suite' and\n  r.check_in == '2026-10-05' and r.check_out == '2026-10-08'\n  for r in\
+      \ state.reservations\n)\n"
     desc: Paris Genius hotel booked with correct room and dates
-  - expr: "any(\n  r.property_id == '{target.tokyo_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.room_type_name == 'Genius Premium Room' and\n\
-      \  r.check_in == '2026-10-10' and r.check_out == '2026-10-13'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.tokyo_id}' and\n  r.status == 'confirmed' and\n  r.room_type_name\
+      \ == 'Genius Premium Room' and\n  r.check_in == '2026-10-10' and r.check_out == '2026-10-13'\n \
+      \ for r in state.reservations\n)\n"
     desc: Tokyo Genius hotel booked with correct room and dates
-  - expr: "any(sl.name == 'Genius October Tour' and\n\
-      \  '{target.london_id}' in sl.property_ids and\n\
-      \  '{target.paris_id}' in sl.property_ids and\n\
-      \  '{target.tokyo_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'Genius October Tour' and\n  '{target.london_id}' in sl.property_ids and\n \
+      \ '{target.paris_id}' in sl.property_ids and\n  '{target.tokyo_id}' in sl.property_ids\n  for sl\
+      \ in state.saved_lists)\n"
     desc: All three Genius properties in Genius October Tour list
   - expr: state.travel_preferences.preferred_currency == 'GBP'
     desc: Preferred currency updated to GBP
-  - expr: "any(m.property_id == '{target.london_id}' and m.sender == 'guest'\n\
-      \  and 'genius' in m.body.lower() and 'upgrade' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.london_id}' and m.sender == 'guest'\n  and 'genius' in m.body.lower()\
+      \ and 'upgrade' in m.body.lower()\n  for m in state.messages)\n"
     desc: Message sent to London hotel about Genius upgrades
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  rv.overall_score == 9.5 and rv.title == 'Genius perks made the difference'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  rv.overall_score == 9.5 and rv.title\
+      \ == 'Genius perks made the difference'\n  for rv in state.reviews)\n"
     desc: Review written with correct score and title
-  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n\
-      \  'room upgrade' in rv.positive.lower()\n\
+  - expr: "any(rv.property_id == '{target.review_prop_id}' and\n  'room upgrade' in rv.positive.lower()\n\
       \  for rv in state.reviews)\n"
     desc: Review positive mentions room upgrade
   negative_checks:
-  - expr: "sum(1 for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 3\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 3\n"
     desc: Exactly three new reservations created
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.london_id}' and\n\
-      \  r.room_type_name == 'Standard Room'\n\
+  - expr: "not any(\n  r.property_id == '{target.london_id}' and\n  r.room_type_name == 'Standard Room'\n\
       \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book Standard Room at London hotel
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.paris_id}' and\n\
-      \  r.room_type_name == 'Classic Room'\n\
+  - expr: "not any(\n  r.property_id == '{target.paris_id}' and\n  r.room_type_name == 'Classic Room'\n\
       \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book Classic Room at Paris hotel
     penalty: 0.2
-  - expr: "not any(\n  r.property_id == '{target.tokyo_id}' and\n\
-      \  r.room_type_name == 'Standard Twin'\n\
+  - expr: "not any(\n  r.property_id == '{target.tokyo_id}' and\n  r.room_type_name == 'Standard Twin'\n\
       \  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Did not book Standard Twin at Tokyo hotel
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Genius October Tour') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Genius October Tour'') <= 1
+
+      '
     desc: Only one Genius October Tour list created
     penalty: 0.1

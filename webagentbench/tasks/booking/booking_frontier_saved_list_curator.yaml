@@ -1,38 +1,24 @@
 task_id: booking_frontier_saved_list_curator
 env_id: booking
-title: "Frontier: Create 3 Themed Saved Lists, Populate, and Book Cheapest"
-instruction_template: "Create and curate three themed saved lists, then book:\n\
-  1. Create a list called \"Beach Getaways\" and add\n\
-  \   \"{target.beach1_name}\" and \"{target.beach2_name}\" to it.\n\
-  2. Create a list called \"City Breaks\" and add\n\
-  \   \"{target.city1_name}\", \"{target.city2_name}\", and\n\
-  \   \"{target.city3_name}\" to it.\n\
-  3. Create a list called \"Mountain Retreats\" and add\n\
-  \   \"{target.mtn1_name}\" and \"{target.mtn2_name}\" to it.\n\
-  4. Across ALL three lists, find the property with the lowest\n\
-  \   cheapest-room price. (Hint: it is \"{target.cheapest_name}\"\n\
-  \   at ${target.cheapest_price}/night.) Book its cheapest room\n\
-  \   for 2 guests, checking in 2026-10-15, checking out 2026-10-19,\n\
-  \   using the default Visa (ending 4242).\n\
-  5. Send a message to the booked property with subject\n\
-  \   \"Upcoming reservation\" and body \"Looking forward to my stay.\n\
-  \   Can you arrange airport pickup?\"\n\
-  6. Write a review for your completed stay at \"{target.review_name}\":\n\
-  \   score 8.5, title \"Great mountain escape\",\n\
-  \   positive \"Breathtaking views and cozy fireplace\",\n\
-  \   no negative, leisure, couple.\n"
+title: 'Frontier: Create 3 Themed Saved Lists, Populate, and Book Cheapest'
+instruction_template: "Create and curate three themed saved lists, then book:\n1. Create a list called\
+  \ \"Beach Getaways\" and add\n   \"{target.beach1_name}\" and \"{target.beach2_name}\" to it.\n2. Create\
+  \ a list called \"City Breaks\" and add\n   \"{target.city1_name}\", \"{target.city2_name}\", and\n\
+  \   \"{target.city3_name}\" to it.\n3. Create a list called \"Mountain Retreats\" and add\n   \"{target.mtn1_name}\"\
+  \ and \"{target.mtn2_name}\" to it.\n4. Across ALL three lists, find the property with the lowest\n\
+  \   cheapest-room price. (Hint: it is \"{target.cheapest_name}\"\n   at ${target.cheapest_price}/night.)\
+  \ Book its cheapest room\n   for 2 guests, checking in 2026-10-15, checking out 2026-10-19,\n   using\
+  \ the default Visa (ending 4242).\n5. Send a message to the booked property with subject\n   \"Upcoming\
+  \ reservation\" and body \"Looking forward to my stay.\n   Can you arrange airport pickup?\"\n6. Write\
+  \ a review for your completed stay at \"{target.review_name}\":\n   score 8.5, title \"Great mountain\
+  \ escape\",\n   positive \"Breathtaking views and cozy fireplace\",\n   no negative, leisure, couple.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 48
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /home
 seed:
   distractors: 12
@@ -219,55 +205,48 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(sl.name == 'Beach Getaways' and\n\
-      \  '{target.beach1_id}' in sl.property_ids and\n\
-      \  '{target.beach2_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'Beach Getaways' and\n  '{target.beach1_id}' in sl.property_ids and\n  '{target.beach2_id}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists)\n"
     desc: Beach Getaways list has both beach properties
-  - expr: "any(sl.name == 'City Breaks' and\n\
-      \  '{target.city1_id}' in sl.property_ids and\n\
-      \  '{target.city2_id}' in sl.property_ids and\n\
-      \  '{target.city3_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'City Breaks' and\n  '{target.city1_id}' in sl.property_ids and\n  '{target.city2_id}'\
+      \ in sl.property_ids and\n  '{target.city3_id}' in sl.property_ids\n  for sl in state.saved_lists)\n"
     desc: City Breaks list has all three city properties
-  - expr: "any(sl.name == 'Mountain Retreats' and\n\
-      \  '{target.mtn1_id}' in sl.property_ids and\n\
-      \  '{target.mtn2_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists)\n"
+  - expr: "any(sl.name == 'Mountain Retreats' and\n  '{target.mtn1_id}' in sl.property_ids and\n  '{target.mtn2_id}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists)\n"
     desc: Mountain Retreats list has both mountain properties
-  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n\
-      \  r.status == 'confirmed' and\n\
-      \  r.check_in == '2026-10-15' and r.check_out == '2026-10-19'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.cheapest_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-10-15' and r.check_out == '2026-10-19'\n  for r in state.reservations\n)\n"
     desc: Cheapest property booked with correct dates
-  - expr: "any(m.property_id == '{target.cheapest_id}' and m.sender == 'guest'\n\
-      \  and 'airport' in m.body.lower()\n\
+  - expr: "any(m.property_id == '{target.cheapest_id}' and m.sender == 'guest'\n  and 'airport' in m.body.lower()\n\
       \  for m in state.messages)\n"
     desc: Message sent to booked property about airport pickup
-  - expr: "any(rv.property_id == '{target.review_id}' and\n\
-      \  rv.overall_score == 8.5 and rv.title == 'Great mountain escape'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_id}' and\n  rv.overall_score == 8.5 and rv.title == 'Great\
+      \ mountain escape'\n  for rv in state.reviews)\n"
     desc: Mountain review with correct score and title
-  - expr: "any(rv.property_id == '{target.review_id}' and\n\
-      \  'fireplace' in rv.positive.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review_id}' and\n  'fireplace' in rv.positive.lower()\n  for\
+      \ rv in state.reviews)\n"
     desc: Review positive mentions fireplace
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n\
-      \  e.payload.get('property_id') != '{target.cheapest_id}'\n\
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.cheapest_id}'\n\
       \  for e in state.audit_log\n)\n"
     desc: No reservation at wrong property
     penalty: 0.4
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Beach Getaways') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Beach Getaways'') <= 1
+
+      '
     desc: Only one Beach Getaways list
     penalty: 0.1
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'City Breaks') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''City Breaks'') <= 1
+
+      '
     desc: Only one City Breaks list
     penalty: 0.1
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Mountain Retreats') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Mountain Retreats'') <= 1
+
+      '
     desc: Only one Mountain Retreats list
     penalty: 0.1
-  - expr: "sum(1 for r in state.reservations\n\
-      \  if not r.id.startswith('res_initial_') and r.status == 'confirmed') <= 1\n"
+  - expr: "sum(1 for r in state.reservations\n  if not r.id.startswith('res_initial_') and r.status ==\
+      \ 'confirmed') <= 1\n"
     desc: Only one new reservation created
     penalty: 0.2

@@ -1,22 +1,20 @@
 task_id: gmail_social_engineering_triage
 env_id: gmail
 title: CEO Impersonation Triage
-instruction_template: 'Three emails in the inbox display the name "David Chen, CEO".
-  One is from david.chen@acme.com (the real CEO — verify this matches the contacts
-  list). The other two are social engineering attempts: one from david.chen@acme-corp.net
-  and one from david.chen@mail.acme.com.co. Delete the two fake emails. Reply (not
-  Reply All) to the legitimate email from david.chen@acme.com with the exact body
-  text "Confirmed. Will proceed as discussed." Compose a new email to {target.report_to}
-  with subject "{target.report_subject}" and body containing both fake sender addresses
-  ({target.fake1_address} and {target.fake2_address}).'
+instruction_template: "Three emails in the inbox display the name \"David Chen, CEO\". One is from david.chen@acme.com\
+  \ (the real CEO \u2014 verify this matches the contacts list). The other two are social engineering\
+  \ attempts: one from david.chen@acme-corp.net and one from david.chen@mail.acme.com.co. Delete the two\
+  \ fake emails. Reply (not Reply All) to the legitimate email from david.chen@acme.com with the exact\
+  \ body text \"Confirmed. Will proceed as discussed.\" Compose a new email to {target.report_to} with\
+  \ subject \"{target.report_subject}\" and body containing both fake sender addresses ({target.fake1_address}\
+  \ and {target.fake2_address})."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 35
 primary_primitives:
 - grounding
-- verification
 secondary_primitives:
-- planning
+- verification
 start_path: /inbox
 seed:
   distractors: 40
@@ -49,17 +47,14 @@ eval:
     desc: Fake CEO email from acme-corp.net deleted
   - expr: state.get_email('{target.fake2_email_id}').deleted
     desc: Fake CEO email from mail.acme.com.co deleted
-  - expr: any(m.in_reply_to == '{target.real_ceo_email_id}' and '{target.reply_body_contains}'
-      in m.body for m in state.sent)
+  - expr: any(m.in_reply_to == '{target.real_ceo_email_id}' and '{target.reply_body_contains}' in m.body
+      for m in state.sent)
     desc: Reply to legitimate CEO email with correct body
-  - expr: any('{target.report_to}' in m.to and '{target.report_subject}' in m.subject
-      for m in state.sent)
+  - expr: any('{target.report_to}' in m.to and '{target.report_subject}' in m.subject for m in state.sent)
     desc: Report email sent to phishing-reports
-  - expr: any('{target.report_to}' in m.to and '{target.fake1_address}' in m.body
-      for m in state.sent)
+  - expr: any('{target.report_to}' in m.to and '{target.fake1_address}' in m.body for m in state.sent)
     desc: Report contains fake1 sender address
-  - expr: any('{target.report_to}' in m.to and '{target.fake2_address}' in m.body
-      for m in state.sent)
+  - expr: any('{target.report_to}' in m.to and '{target.fake2_address}' in m.body for m in state.sent)
     desc: Report contains fake2 sender address
   negative_checks:
   - expr: not state.get_email('{target.real_ceo_email_id}').deleted

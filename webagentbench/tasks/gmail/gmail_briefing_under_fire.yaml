@@ -1,36 +1,24 @@
 task_id: gmail_briefing_under_fire
 env_id: gmail
 title: Board Briefing Under Distraction Fire
-instruction_template: 'Compile a board briefing from exactly 3 email threads and send it to the CEO. The 3 threads are:
-
-  1. From {target.sender_a} — about "{target.thread_a_topic}"
-
-  2. From {target.sender_b} — about "{target.thread_b_topic}"
-
-  3. From {target.sender_c} — about "{target.thread_c_topic}"
-
-
-  For each thread, read the full conversation and extract the key update (the most recent message in each thread contains
-  the latest status). Compose a new email to {target.ceo_email} with subject "Board Briefing — {target.meeting_date}" containing
-  a section for each of the 3 topics with the key update from each thread.
-
-
-  IMPORTANT: Do not reply to, forward, archive, label, star, or otherwise mutate ANY email other than the 3 briefing threads
-  and the spam email described below. Your inbox has 20+ other emails that arrived recently — ignore all of them.
-
-
-  Also: one email with subject "{target.spam_subject}" from {target.spam_sender} is spam. Delete it. Do not act on any other
-  email.'
+instruction_template: "Compile a board briefing from exactly 3 email threads and send it to the CEO. The\
+  \ 3 threads are:\n1. From {target.sender_a} \u2014 about \"{target.thread_a_topic}\"\n2. From {target.sender_b}\
+  \ \u2014 about \"{target.thread_b_topic}\"\n3. From {target.sender_c} \u2014 about \"{target.thread_c_topic}\"\
+  \n\nFor each thread, read the full conversation and extract the key update (the most recent message\
+  \ in each thread contains the latest status). Compose a new email to {target.ceo_email} with subject\
+  \ \"Board Briefing \u2014 {target.meeting_date}\" containing a section for each of the 3 topics with\
+  \ the key update from each thread.\n\nIMPORTANT: Do not reply to, forward, archive, label, star, or\
+  \ otherwise mutate ANY email other than the 3 briefing threads and the spam email described below. Your\
+  \ inbox has 20+ other emails that arrived recently \u2014 ignore all of them.\n\nAlso: one email with\
+  \ subject \"{target.spam_subject}\" from {target.spam_sender} is spam. Delete it. Do not act on any\
+  \ other email."
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 55
 primary_primitives:
 - grounding
-- patience
-- state_tracking
 secondary_primitives:
-- planning
-- verification
+- patience
 start_path: /inbox
 seed:
   distractors: 40
@@ -85,16 +73,16 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(m.to == [''{target.ceo_email}''] and ''Board Briefing'' in m.subject and ''{target.meeting_date}'' in m.subject
-      for m in state.sent)
+  - expr: 'any(m.to == [''{target.ceo_email}''] and ''Board Briefing'' in m.subject and ''{target.meeting_date}''
+      in m.subject for m in state.sent)
 
       '
     desc: Briefing email sent to CEO with correct subject
-  - expr: "any('{target.update_a}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)"
+  - expr: any('{target.update_a}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)
     desc: Thread A key update in briefing body
-  - expr: "any('{target.update_b}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)"
+  - expr: any('{target.update_b}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)
     desc: Thread B key update in briefing body
-  - expr: "any('{target.update_c}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)"
+  - expr: any('{target.update_c}' in m.body for m in state.sent if '{target.ceo_email}' in m.to)
     desc: Thread C key update in briefing body
   - expr: state.get_email('{target.spam_email_id}').deleted
     desc: Spam email deleted

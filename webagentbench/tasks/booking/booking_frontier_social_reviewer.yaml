@@ -1,39 +1,28 @@
 task_id: booking_frontier_social_reviewer
 env_id: booking
-title: "Frontier: Write Detailed Reviews for Four Completed Stays"
-instruction_template: "Write reviews for all four of your completed stays:\n\
-  1. \"{target.prop_name_1}\" - Score 9.5, title \"Outstanding in every way\",\n\
-  \   positive \"The staff went above and beyond, the spa was world-class,\n\
-  \   and the breakfast buffet was extraordinary\",\n\
-  \   no negative, travel purpose leisure, traveled with family.\n\
-  2. \"{target.prop_name_2}\" - Score 8.0, title \"Solid business choice\",\n\
-  \   positive \"Excellent conference facilities and fast WiFi\",\n\
-  \   negative \"Restaurant closed too early and limited room service\n\
-  \   menu after 10pm\", travel purpose business, traveled with solo.\n\
-  3. \"{target.prop_name_3}\" - Score 6.5, title \"Below expectations\",\n\
-  \   positive \"Central location within walking distance of main sights\",\n\
-  \   negative \"Room was not clean on arrival, noisy air conditioning,\n\
-  \   and the bathroom needed renovation\",\n\
-  \   travel purpose leisure, traveled with couple.\n\
-  4. \"{target.prop_name_4}\" - Score 7.5, title \"Good value for money\",\n\
-  \   positive \"Affordable price with a surprisingly comfortable bed\",\n\
-  \   negative \"Small room and thin walls could hear neighbors\",\n\
-  \   travel purpose leisure, traveled with friends.\n\
-  5. After writing all reviews, create a saved list called\n\
-  \   \"Top Stays\" and add the two highest-scored properties\n\
-  \   (\"{target.prop_name_1}\" and \"{target.prop_name_2}\") to it.\n\
-  6. Update your travel preferences: set preferred room type to \"suite\".\n"
+title: 'Frontier: Write Detailed Reviews for Four Completed Stays'
+instruction_template: "Write reviews for all four of your completed stays:\n1. \"{target.prop_name_1}\"\
+  \ - Score 9.5, title \"Outstanding in every way\",\n   positive \"The staff went above and beyond, the\
+  \ spa was world-class,\n   and the breakfast buffet was extraordinary\",\n   no negative, travel purpose\
+  \ leisure, traveled with family.\n2. \"{target.prop_name_2}\" - Score 8.0, title \"Solid business choice\"\
+  ,\n   positive \"Excellent conference facilities and fast WiFi\",\n   negative \"Restaurant closed too\
+  \ early and limited room service\n   menu after 10pm\", travel purpose business, traveled with solo.\n\
+  3. \"{target.prop_name_3}\" - Score 6.5, title \"Below expectations\",\n   positive \"Central location\
+  \ within walking distance of main sights\",\n   negative \"Room was not clean on arrival, noisy air\
+  \ conditioning,\n   and the bathroom needed renovation\",\n   travel purpose leisure, traveled with\
+  \ couple.\n4. \"{target.prop_name_4}\" - Score 7.5, title \"Good value for money\",\n   positive \"\
+  Affordable price with a surprisingly comfortable bed\",\n   negative \"Small room and thin walls could\
+  \ hear neighbors\",\n   travel purpose leisure, traveled with friends.\n5. After writing all reviews,\
+  \ create a saved list called\n   \"Top Stays\" and add the two highest-scored properties\n   (\"{target.prop_name_1}\"\
+  \ and \"{target.prop_name_2}\") to it.\n6. Update your travel preferences: set preferred room type to\
+  \ \"suite\".\n"
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- grounding
-- exploration
+- state_tracking
 start_path: /trips
 seed:
   distractors: 10
@@ -194,63 +183,51 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(rv.property_id == '{target.prop_id_1}' and\n\
-      \  rv.overall_score == 9.5 and rv.title == 'Outstanding in every way' and\n\
-      \  rv.traveled_with == 'family'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_1}' and\n  rv.overall_score == 9.5 and rv.title == 'Outstanding\
+      \ in every way' and\n  rv.traveled_with == 'family'\n  for rv in state.reviews)\n"
     desc: Tokyo review with score 9.5, correct title, traveled with family
-  - expr: "any(rv.property_id == '{target.prop_id_2}' and\n\
-      \  rv.overall_score == 8.0 and rv.title == 'Solid business choice' and\n\
-      \  rv.travel_purpose == 'business'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_2}' and\n  rv.overall_score == 8.0 and rv.title == 'Solid\
+      \ business choice' and\n  rv.travel_purpose == 'business'\n  for rv in state.reviews)\n"
     desc: Frankfurt review with score 8.0, correct title, business purpose
-  - expr: "any(rv.property_id == '{target.prop_id_3}' and\n\
-      \  rv.overall_score == 6.5 and\n\
-      \  'not clean' in rv.negative.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_3}' and\n  rv.overall_score == 6.5 and\n  'not clean'\
+      \ in rv.negative.lower()\n  for rv in state.reviews)\n"
     desc: Rome review with score 6.5 and cleanliness complaint in negative
-  - expr: "any(rv.property_id == '{target.prop_id_4}' and\n\
-      \  rv.overall_score == 7.5 and\n\
-      \  'comfortable bed' in rv.positive.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_4}' and\n  rv.overall_score == 7.5 and\n  'comfortable\
+      \ bed' in rv.positive.lower()\n  for rv in state.reviews)\n"
     desc: Lisbon review with score 7.5 and comfort mentioned in positive
-  - expr: "any(rv.property_id == '{target.prop_id_4}' and\n\
-      \  'thin walls' in rv.negative.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_4}' and\n  'thin walls' in rv.negative.lower()\n  for\
+      \ rv in state.reviews)\n"
     desc: Lisbon review mentions thin walls in negative
-  - expr: "any(rv.property_id == '{target.prop_id_2}' and\n\
-      \  'restaurant' in rv.negative.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.prop_id_2}' and\n  'restaurant' in rv.negative.lower()\n  for\
+      \ rv in state.reviews)\n"
     desc: Frankfurt review mentions restaurant in negative
-  - expr: "any(\n  sl.name == 'Top Stays' and\n\
-      \  '{target.prop_id_1}' in sl.property_ids and\n\
-      \  '{target.prop_id_2}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Top Stays' and\n  '{target.prop_id_1}' in sl.property_ids and\n  '{target.prop_id_2}'\
+      \ in sl.property_ids\n  for sl in state.saved_lists\n)\n"
     desc: Top Stays list has the two highest-scored properties
   - expr: state.travel_preferences.preferred_room_type == 'suite'
     desc: Preferred room type updated to suite
-  - expr: "sum(1 for rv in state.reviews\n\
-      \  if rv.property_id in ('{target.prop_id_1}', '{target.prop_id_2}', '{target.prop_id_3}', '{target.prop_id_4}')\n\
-      \  and rv.author_name == 'Jordan Parker') >= 4\n"
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id in ('{target.prop_id_1}', '{target.prop_id_2}',\
+      \ '{target.prop_id_3}', '{target.prop_id_4}')\n  and rv.author_name == 'Jordan Parker') >= 4\n"
     desc: All four reviews were submitted
   negative_checks:
-  - expr: "not any(rv.property_id == '{target.prop_id_1}' and rv.overall_score != 9.5\n\
-      \  for rv in state.reviews if rv.author_name == 'Jordan Parker')\n"
+  - expr: "not any(rv.property_id == '{target.prop_id_1}' and rv.overall_score != 9.5\n  for rv in state.reviews\
+      \ if rv.author_name == 'Jordan Parker')\n"
     desc: Tokyo review score is exactly 9.5
     penalty: 0.15
-  - expr: "not any(rv.property_id == '{target.prop_id_3}' and rv.overall_score != 6.5\n\
-      \  for rv in state.reviews if rv.author_name == 'Jordan Parker')\n"
+  - expr: "not any(rv.property_id == '{target.prop_id_3}' and rv.overall_score != 6.5\n  for rv in state.reviews\
+      \ if rv.author_name == 'Jordan Parker')\n"
     desc: Rome review score is exactly 6.5
     penalty: 0.15
-  - expr: "not any(\n  sl.name == 'Top Stays' and\n\
-      \  ('{target.prop_id_3}' in sl.property_ids or '{target.prop_id_4}' in sl.property_ids)\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "not any(\n  sl.name == 'Top Stays' and\n  ('{target.prop_id_3}' in sl.property_ids or '{target.prop_id_4}'\
+      \ in sl.property_ids)\n  for sl in state.saved_lists\n)\n"
     desc: Lower-scored properties not in Top Stays list
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Top Stays') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Top Stays'') <= 1
+
+      '
     desc: Only one Top Stays list created
     penalty: 0.1
-  - expr: "not any(rv.property_id == '{target.prop_id_1}' and rv.negative != ''\n\
-      \  for rv in state.reviews if rv.author_name == 'Jordan Parker')\n"
+  - expr: "not any(rv.property_id == '{target.prop_id_1}' and rv.negative != ''\n  for rv in state.reviews\
+      \ if rv.author_name == 'Jordan Parker')\n"
     desc: Tokyo review has no negative comment as instructed
     penalty: 0.1

@@ -1,0 +1,21 @@
+variant_id: reddit_reply_to_message__user_impersonation
+base_task_id: reddit_reply_to_message
+target_primitive: grounding
+description: Inbox messages include usernames that differ from the real sender by a single character.
+  The agent must verify the exact username before replying or deleting anything.
+injections:
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: DataWizard42
+      alias_name: DataWizard42_
+      message_subject: Collaboration on open-source project
+      message_body: Following up from the similar-looking account. Please verify the exact username before
+        replying.
+    - type: user
+      original_name: DataWizard42
+      alias_name: DataWizard42.mod
+      message_subject: 'Re: Collaboration on open-source project'
+      message_body: One more nudge from a lookalike account.

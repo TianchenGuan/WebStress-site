@@ -1,24 +1,19 @@
 task_id: gmail_phishing_investigation
 env_id: gmail
 title: Phishing Investigation
-instruction_template: The security team flagged suspicious activity. Search for unread
-  emails with attachments (use 'has:attachment is:unread') and review the results.
-  You should find four emails — two are legitimate and two are phishing attempts.
-  The phishing emails have a sender address that does not match the displayed name
-  (check the actual email address). Delete the two phishing emails. Star the two legitimate
-  emails. Compose a new email to {target.security_team_email} reporting your findings
-  — include the subjects of both phishing emails in your report. Do NOT forward the
-  phishing emails directly. Create a 'Verified Safe' label and apply it to the two
-  legitimate emails. Then create a filter to auto-archive and mark-read future emails
-  from the phishing domain.
+instruction_template: "The security team flagged suspicious activity. Search for unread emails with attachments\
+  \ (use 'has:attachment is:unread') and review the results. You should find four emails \u2014 two are\
+  \ legitimate and two are phishing attempts. The phishing emails have a sender address that does not\
+  \ match the displayed name (check the actual email address). Delete the two phishing emails. Star the\
+  \ two legitimate emails. Compose a new email to {target.security_team_email} reporting your findings\
+  \ \u2014 include the subjects of both phishing emails in your report. Do NOT forward the phishing emails\
+  \ directly. Create a 'Verified Safe' label and apply it to the two legitimate emails. Then create a\
+  \ filter to auto-archive and mark-read future emails from the phishing domain."
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 50
 primary_primitives:
 - grounding
-- verification
-- planning
-- exploration
 start_path: /inbox
 seed:
   distractors: 40
@@ -45,24 +40,22 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: all(state.get_email(eid) is not None and state.get_email(eid).deleted for
-      eid in {target.phishing_ids})
+  - expr: all(state.get_email(eid) is not None and state.get_email(eid).deleted for eid in {target.phishing_ids})
     desc: Phishing emails deleted
-  - expr: all(state.get_email(eid) is not None and state.get_email(eid).is_starred
-      for eid in {target.legit_ids})
+  - expr: all(state.get_email(eid) is not None and state.get_email(eid).is_starred for eid in {target.legit_ids})
     desc: Legit emails starred
   - expr: any('{target.security_team_email}' in m.to for m in state.sent)
     desc: Report sent to security
-  - expr: any('{target.phishing_subject_a}' in m.body and '{target.security_team_email}'
-      in m.to for m in state.sent)
+  - expr: any('{target.phishing_subject_a}' in m.body and '{target.security_team_email}' in m.to for m
+      in state.sent)
     desc: Phishing subject A in report
-  - expr: any('{target.phishing_subject_b}' in m.body and '{target.security_team_email}'
-      in m.to for m in state.sent)
+  - expr: any('{target.phishing_subject_b}' in m.body and '{target.security_team_email}' in m.to for m
+      in state.sent)
     desc: Phishing subject B in report
   - expr: all('Verified Safe' in state.get_email(eid).labels for eid in {target.legit_ids})
     desc: Verified Safe applied
-  - expr: any(r.archive and r.mark_read and '*@{target.phishing_domain}' in r.from_addresses
-      for r in state.filters)
+  - expr: any(r.archive and r.mark_read and '*@{target.phishing_domain}' in r.from_addresses for r in
+      state.filters)
     desc: Phishing filter created
   negative_checks:
   - expr: all(not state.get_email(eid).is_starred for eid in {target.phishing_ids})
@@ -71,3 +64,11 @@ eval:
   - expr: not any(m.forwarded_from_id in {target.phishing_ids} for m in state.sent)
     desc: Phishing not forwarded
     penalty: 0.2
+  - expr: all(not state.get_email(eid).deleted for eid in {target.legit_ids})
+    desc: Legitimate emails were not deleted during the phishing sweep
+    penalty: 0.2
+  - expr: all('Verified Safe' not in state.get_email(eid).labels for eid in {target.phishing_ids})
+    desc: Phishing emails were not mislabeled as verified safe
+    penalty: 0.2
+secondary_primitives:
+- verification

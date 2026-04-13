@@ -1,29 +1,22 @@
 task_id: booking_expert_loyalty_optimizer
 env_id: booking
 title: Genius Loyalty Optimizer with Price Comparison and Wallet Credit
-instruction_template: "Maximize your Genius Level 2 benefits with this workflow:\n\
-  1. Search for hotels in Paris with Genius discounts. Find these three properties:\n\
-  \   - \"{target.prop_name_1}\" (Genius {target.discount_1}% off)\n\
-  \   - \"{target.prop_name_2}\" (Genius {target.discount_2}% off)\n\
-  \   - \"{target.prop_name_3}\" (Genius {target.discount_3}% off)\n\
-  2. Compare their prices and identify the one that offers the best value:\n\
-  \   the lowest price per night that ALSO includes breakfast.\n\
-  3. Book that hotel's cheapest room with breakfast included for 2 guests,\n\
-  \   checking in 2026-08-15 and checking out 2026-08-20 (5 nights).\n\
-  \   Use the Mastercard ending in 8888.\n\
-  4. Apply your wallet credit ($47.50) to the reservation.\n\
-  5. Save the booked property to a new list called \"Genius Picks\".\n\
-  6. Update your travel preferences: set preferred currency to EUR.\n"
+instruction_template: "Maximize your Genius Level 2 benefits with this workflow:\n1. Search for hotels\
+  \ in Paris with Genius discounts. Find these three properties:\n   - \"{target.prop_name_1}\" (Genius\
+  \ {target.discount_1}% off)\n   - \"{target.prop_name_2}\" (Genius {target.discount_2}% off)\n   - \"\
+  {target.prop_name_3}\" (Genius {target.discount_3}% off)\n2. Compare their prices and identify the one\
+  \ that offers the best value:\n   the lowest price per night that ALSO includes breakfast.\n3. Book\
+  \ that hotel's cheapest room with breakfast included for 2 guests,\n   checking in 2026-08-15 and checking\
+  \ out 2026-08-20 (5 nights).\n   Use the Mastercard ending in 8888.\n4. Apply your wallet credit ($47.50)\
+  \ to the reservation.\n5. Save the booked property to a new list called \"Genius Picks\".\n6. Update\
+  \ your travel preferences: set preferred currency to EUR.\n"
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 32
 primary_primitives:
 - verification
-- state_tracking
-- planning
 secondary_primitives:
-- exploration
-- grounding
+- state_tracking
 start_path: /home
 seed:
   distractors: 15
@@ -184,37 +177,39 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-08-15' and\n  r.check_out == '2026-08-20'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-08-15' and\n  r.check_out == '2026-08-20'\n  for r in state.reservations\n)\n"
     desc: Booked the best-value Genius property with correct dates
-  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.room_type_name\
-      \ == 'Comfort Room with Breakfast'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.room_type_name == 'Comfort Room\
+      \ with Breakfast'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Booked the room with breakfast included
-  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.payment_method_id\
-      \ == 'pm_2'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.target_prop_id}' and\n  r.payment_method_id == 'pm_2'\n \
+      \ for r in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Used Mastercard ending in 8888 for payment
-  - expr: "any(\n  sl.name == 'Genius Picks' and '{target.target_prop_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Genius Picks' and '{target.target_prop_id}' in sl.property_ids\n  for sl\
+      \ in state.saved_lists\n)\n"
     desc: Booked property saved to 'Genius Picks' list
   - expr: state.wallet.balance < 47.50
     desc: Wallet credit was applied (balance reduced)
   - expr: state.travel_preferences.preferred_currency == 'EUR'
     desc: Preferred currency updated to EUR
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ != '{target.target_prop_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') != '{target.target_prop_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: No reservation made at wrong property
     penalty: 0.3
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.prop_id_1}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.prop_id_1}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the more expensive Genius property without best value
     penalty: 0.2
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.15
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action == 'review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1

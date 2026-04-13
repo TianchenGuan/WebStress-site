@@ -1,0 +1,115 @@
+task_id: amazon_recover_cancelled_order
+env_id: amazon
+title: Reorder After Accidental Cancellation
+instruction_template: 'Your order for "{target.product_name}" was accidentally cancelled. Find the same
+  product again and reorder it. Use the same shipping address ({target.address_line}) and the default
+  Visa payment method.
+
+  '
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 25
+primary_primitives:
+- planning
+start_path: /
+seed:
+  distractors: 12
+  actors: {}
+  steps:
+  - use: checkout_ready
+    params:
+      items:
+      - name: Placeholder Item
+        price: 9.99
+        quantity: 1
+    outputs:
+    - cart_item_ids
+    - address_id
+    - payment_id
+    - expected_total
+  - use: featured_product
+    params:
+      name: Mechanical Keyboard with Cherry MX Switches
+      brand: Keychron
+      category: Electronics
+      price: 189.99
+      rating: 4.8
+      features:
+      - Hot-swappable switches
+      - RGB backlight
+      - Wireless Bluetooth 5.1
+      - Mac and Windows compatible
+      - Aluminum frame
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id
+    - product_name
+    - product_price
+  - use: existing_order
+    params:
+      product_ids:
+      - '{output.product_id}'
+      status: cancelled
+      days_ago: 2
+    outputs:
+    - cancelled_order_id
+  - use: product_catalog
+    params:
+      category: Electronics
+      count: 10
+      price_range:
+      - 50.0
+      - 300.0
+    outputs:
+    - catalog_product_ids
+  targets:
+    product_name: '{output.product_name}'
+    product_id: '{output.product_id}'
+    cancelled_order_id: '{output.cancelled_order_id}'
+    address_id: '{output.address_id}'
+    payment_id: '{output.payment_id}'
+    address_line: 742 Evergreen Terrace
+eval:
+  source: server_state
+  checks:
+  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}'' and
+      o.status == ''confirmed'' and any(item.product_id == ''{target.product_id}'' for item in o.items)
+      for o in state.orders)
+
+      '
+    desc: A new confirmed order was placed for the target product
+  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}'' and
+      o.shipping_address_id == ''{target.address_id}'' and any(item.product_id == ''{target.product_id}''
+      for item in o.items) for o in state.orders)
+
+      '
+    desc: New order uses the correct shipping address (742 Evergreen Terrace)
+  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}'' and
+      o.payment_method_id == ''{target.payment_id}'' and any(item.product_id == ''{target.product_id}''
+      for item in o.items) for o in state.orders)
+
+      '
+    desc: New order uses the default Visa payment method
+  negative_checks:
+  - expr: 'not any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+      and o.status == ''confirmed'' and not any(item.product_id == ''{target.product_id}'' for item in
+      o.items) for o in state.orders)
+
+      '
+    desc: No orders placed for wrong products
+    penalty: 0.3
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+      and o.status == ''confirmed'') <= 1
+
+      '
+    desc: Only one new order was placed
+    penalty: 0.2
+  - expr: len(state.cart_items) == 0
+    desc: Cart is empty after checkout
+    penalty: 0.1
+  - expr: len(state.returns) == 0
+    desc: No returns filed when none required
+    penalty: 0.15
+secondary_primitives:
+- grounding

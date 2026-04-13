@@ -1,0 +1,27 @@
+variant_id: reddit_feed_curation_expert__subreddit_collision
+base_task_id: reddit_feed_curation_expert
+target_primitive: grounding
+description: A twin subreddit with a nearly identical name appears beside the real community, including
+  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: subreddit
+      name: science_
+      display_name: r/science_
+      description: Lookalike community with nearly identical branding.
+      subscribers: 185000
+    - type: subreddit
+      name: sciencehub
+      display_name: r/sciencehub
+      description: Companion community that often appears next to the real one in search.
+      subscribers: 74000
+    - type: post
+      subreddit: science_
+      title: Interesting discussion thread
+      author: shadow_mod
+      score: 144
+      comments: 21
+      body: Same headline posted into the wrong, lookalike subreddit.

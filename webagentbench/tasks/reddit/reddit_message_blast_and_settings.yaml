@@ -17,16 +17,13 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- patience
 seed:
   distractors: 8
   actors: {}
   steps: []
   targets:
-    msg_body: Organizing a virtual meetup for ML practitioners next Friday at 7pm EST. Topics include fine-tuning techniques
-      and deployment best practices. RSVP by replying to this message.
+    msg_body: Organizing a virtual meetup for ML practitioners next Friday at 7pm EST. Topics include
+      fine-tuning techniques and deployment best practices. RSVP by replying to this message.
 eval:
   source: server_state
   checks:
@@ -45,7 +42,8 @@ eval:
   - expr: state.settings.default_feed_sort == 'new'
     desc: Feed sort new
   negative_checks:
-  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username and m.subject == 'ML meetup') <= 3
+  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username and m.subject == 'ML
+      meetup') <= 3
     desc: Exactly 3 messages sent
     penalty: 0.2
   - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == 0
@@ -54,5 +52,16 @@ eval:
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
+  - expr: not any(e.action.startswith('reddit.post.') and e.action != 'reddit.post.vote' and e.action
+      != 'reddit.post.save' and e.action != 'reddit.post.unsave' and e.action != 'reddit.post.hide' and
+      e.action != 'reddit.post.unhide' for e in state.audit_log)
+    desc: No off-task posts were created, edited, or deleted
+    penalty: 0.1
+  - expr: not any(e.action.startswith('reddit.comment.') and e.action != 'reddit.comment.vote' and e.action
+      != 'reddit.comment.save' and e.action != 'reddit.comment.unsave' for e in state.audit_log)
+    desc: No off-task comments were created, edited, or deleted
+    penalty: 0.1
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

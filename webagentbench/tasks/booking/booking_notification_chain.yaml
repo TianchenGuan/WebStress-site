@@ -1,22 +1,18 @@
 task_id: booking_notification_chain
 env_id: booking
 title: Read Notification, Cancel Reservation, and Save Property
-instruction_template: "Complete this multi-step workflow: 1. Go to your notifications\
-  \ and find the booking confirmation notification\n   titled \"{target.notif_title}\"\
-  . Read it to learn which reservation it\n   refers to.\n2. Find that reservation\
-  \ (at \"{target.property_name}\") in your trips and\n   cancel it.\n3. Create a\
-  \ new saved list named \"Revisit Later\" and save the property\n   \"{target.property_name}\"\
+instruction_template: "Complete this multi-step workflow: 1. Go to your notifications and find the booking\
+  \ confirmation notification\n   titled \"{target.notif_title}\". Read it to learn which reservation\
+  \ it\n   refers to.\n2. Find that reservation (at \"{target.property_name}\") in your trips and\n  \
+  \ cancel it.\n3. Create a new saved list named \"Revisit Later\" and save the property\n   \"{target.property_name}\"\
   \ to that list for future reference.\n"
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 18
 primary_primitives:
 - planning
-- state_tracking
-- verification
 secondary_primitives:
-- exploration
-- grounding
+- state_tracking
 start_path: /home
 seed:
   distractors: 10
@@ -64,8 +60,8 @@ seed:
     params:
       type: booking_confirmed
       title: Booking Confirmed - The Savoy London
-      message: 'Your reservation at The Savoy London has been confirmed. Confirmation
-        number: {output.target_conf_num}. Check-in: 2026-09-15, Check-out: 2026-09-19.'
+      message: 'Your reservation at The Savoy London has been confirmed. Confirmation number: {output.target_conf_num}.
+        Check-in: 2026-09-15, Check-out: 2026-09-19.'
       read: false
       related_id: '{output.target_res_id}'
     outputs:
@@ -113,28 +109,34 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "any(\n  r.id == '{target.reservation_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: The target reservation was cancelled
   - expr: "any(\n  sl.name == 'Revisit Later'\n  for sl in state.saved_lists\n)\n"
     desc: A saved list named 'Revisit Later' was created
-  - expr: "any(\n  sl.name == 'Revisit Later' and '{target.property_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Revisit Later' and '{target.property_id}' in sl.property_ids\n  for sl\
+      \ in state.saved_lists\n)\n"
     desc: The property was added to the 'Revisit Later' list
-  - expr: "any(\n  n.id == '{target.notification_id}' and n.read == True\n  for n\
-      \ in state.notifications\n)\n"
+  - expr: "any(\n  n.id == '{target.notification_id}' and n.read == True\n  for n in state.notifications\n\
+      )\n"
     desc: The booking confirmation notification was read
   negative_checks:
-  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations\n)\n"
+  - expr: "not any(\n  r.id == '{target.distractor_res_id}' and r.status == 'cancelled'\n  for r in state.reservations\n\
+      )\n"
     desc: The distractor reservation was not cancelled
     penalty: 0.4
-  - expr: "not any(\n  e.action == 'reservation.cancel' and\n  e.payload.get('reservation_id')\
-      \ != '{target.reservation_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.cancel' and\n  e.payload.get('reservation_id') != '{target.reservation_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: No other reservation was cancelled
     penalty: 0.3
   - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Revisit Later'') <= 1
 
       '
     desc: Only one 'Revisit Later' list was created
+    penalty: 0.1
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action == 'review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
     penalty: 0.1

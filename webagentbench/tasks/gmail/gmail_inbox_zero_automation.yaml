@@ -1,34 +1,27 @@
 task_id: gmail_inbox_zero_automation
 env_id: gmail
 title: Implement Inbox-Zero Automation Policy
-instruction_template: "Read the email from ops lead Priya Sharma (priya.sharma@blueridge.dev)\
-  \ with subject \"Inbox Zero policy - implement now\". Follow every instruction:\n\
-  (1) Create 5 labels with specified visibility:\n    - \"Auto/Vendor\" (show in label\
-  \ list, hide in message list)\n    - \"Auto/CI-CD\" (show in label list, show in\
-  \ message list)\n    - \"Auto/Newsletters\" (hide in label list, hide in message\
-  \ list)\n    - \"Auto/Billing\" (show in label list, show in message list)\n   \
-  \ - \"Auto/Social\" (hide in label list, hide in message list)\n(2) Create 6 filters:\n\
-  \    - From: *@vendors.blueridge.dev → add label \"Auto/Vendor\", skip inbox, mark\
-  \ as read\n    - From: ci@github.com, Subject contains: \"build\" → add label \"\
-  Auto/CI-CD\", skip inbox\n    - From: *@newsletter.blueridge.dev → add label \"\
-  Auto/Newsletters\", skip inbox, mark as read\n    - From: billing@stripe.com → add\
-  \ label \"Auto/Billing\", star\n    - From: billing@aws.amazon.com → add label \"\
-  Auto/Billing\", star\n    - From: *@social.blueridge.dev → add label \"Auto/Social\"\
-  , skip inbox\n(3) Archive all existing emails in the inbox that match any of the\
-  \ 6 filter criteria above.\n(4) Star every email in the inbox received in the last\
-  \ 24 hours that does NOT match any of the 6 filter criteria.\nIgnore the older draft\
-  \ policy email — only follow the latest \"implement now\" version."
+instruction_template: "Read the email from ops lead Priya Sharma (priya.sharma@blueridge.dev) with subject\
+  \ \"Inbox Zero policy - implement now\". Follow every instruction:\n(1) Create 5 labels with specified\
+  \ visibility:\n    - \"Auto/Vendor\" (show in label list, hide in message list)\n    - \"Auto/CI-CD\"\
+  \ (show in label list, show in message list)\n    - \"Auto/Newsletters\" (hide in label list, hide in\
+  \ message list)\n    - \"Auto/Billing\" (show in label list, show in message list)\n    - \"Auto/Social\"\
+  \ (hide in label list, hide in message list)\n(2) Create 6 filters:\n    - From: *@vendors.blueridge.dev\
+  \ \u2192 add label \"Auto/Vendor\", skip inbox, mark as read\n    - From: ci@github.com, Subject contains:\
+  \ \"build\" \u2192 add label \"Auto/CI-CD\", skip inbox\n    - From: *@newsletter.blueridge.dev \u2192\
+  \ add label \"Auto/Newsletters\", skip inbox, mark as read\n    - From: billing@stripe.com \u2192 add\
+  \ label \"Auto/Billing\", star\n    - From: billing@aws.amazon.com \u2192 add label \"Auto/Billing\"\
+  , star\n    - From: *@social.blueridge.dev \u2192 add label \"Auto/Social\", skip inbox\n(3) Archive\
+  \ all existing emails in the inbox that match any of the 6 filter criteria above.\n(4) Star every email\
+  \ in the inbox received in the last 24 hours that does NOT match any of the 6 filter criteria.\nIgnore\
+  \ the older draft policy email \u2014 only follow the latest \"implement now\" version."
 difficulty: expert
 time_limit_seconds: 600
 expected_steps: 55
 primary_primitives:
 - planning
-- exploration
-- state_tracking
-- patience
-- verification
 secondary_primitives:
-- grounding
+- exploration
 start_path: /inbox
 seed:
   distractors: 40
@@ -69,39 +62,38 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(l.name == 'Auto/Vendor' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'hide' for l in state.labels)
+  - expr: any(l.name == 'Auto/Vendor' and l.show_in_label_list == 'show' and l.show_in_message_list ==
+      'hide' for l in state.labels)
     desc: Auto/Vendor label exists with correct visibility
-  - expr: any(l.name == 'Auto/CI-CD' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'show' for l in state.labels)
+  - expr: any(l.name == 'Auto/CI-CD' and l.show_in_label_list == 'show' and l.show_in_message_list ==
+      'show' for l in state.labels)
     desc: Auto/CI-CD label exists with correct visibility
-  - expr: any(l.name == 'Auto/Newsletters' and l.show_in_label_list == 'hide' and
-      l.show_in_message_list == 'hide' for l in state.labels)
-    desc: Auto/Newsletters label exists with correct visibility
-  - expr: any(l.name == 'Auto/Billing' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'show' for l in state.labels)
-    desc: Auto/Billing label exists with correct visibility
-  - expr: any(l.name == 'Auto/Social' and l.show_in_label_list == 'hide' and l.show_in_message_list
+  - expr: any(l.name == 'Auto/Newsletters' and l.show_in_label_list == 'hide' and l.show_in_message_list
       == 'hide' for l in state.labels)
+    desc: Auto/Newsletters label exists with correct visibility
+  - expr: any(l.name == 'Auto/Billing' and l.show_in_label_list == 'show' and l.show_in_message_list ==
+      'show' for l in state.labels)
+    desc: Auto/Billing label exists with correct visibility
+  - expr: any(l.name == 'Auto/Social' and l.show_in_label_list == 'hide' and l.show_in_message_list ==
+      'hide' for l in state.labels)
     desc: Auto/Social label exists with correct visibility
-  - expr: any('*@vendors.blueridge.dev' in r.from_addresses and 'Auto/Vendor' in r.add_labels
-      and r.archive and r.mark_read for r in state.filters)
+  - expr: any('*@vendors.blueridge.dev' in r.from_addresses and 'Auto/Vendor' in r.add_labels and r.archive
+      and r.mark_read for r in state.filters)
     desc: Vendor filter exists with correct actions
-  - expr: any('ci@github.com' in r.from_addresses and 'build' in [kw.lower() for kw
-      in r.subject_keywords] and 'Auto/CI-CD' in r.add_labels and r.archive for r
-      in state.filters)
+  - expr: any('ci@github.com' in r.from_addresses and 'build' in [kw.lower() for kw in r.subject_keywords]
+      and 'Auto/CI-CD' in r.add_labels and r.archive for r in state.filters)
     desc: CI-CD filter exists with correct actions
-  - expr: any('*@newsletter.blueridge.dev' in r.from_addresses and 'Auto/Newsletters'
-      in r.add_labels and r.archive and r.mark_read for r in state.filters)
+  - expr: any('*@newsletter.blueridge.dev' in r.from_addresses and 'Auto/Newsletters' in r.add_labels
+      and r.archive and r.mark_read for r in state.filters)
     desc: Newsletter filter exists with correct actions
-  - expr: any('billing@stripe.com' in r.from_addresses and 'Auto/Billing' in r.add_labels
-      and r.star for r in state.filters)
+  - expr: any('billing@stripe.com' in r.from_addresses and 'Auto/Billing' in r.add_labels and r.star for
+      r in state.filters)
     desc: Billing Stripe filter exists with correct actions
-  - expr: any('billing@aws.amazon.com' in r.from_addresses and 'Auto/Billing' in r.add_labels
-      and r.star for r in state.filters)
+  - expr: any('billing@aws.amazon.com' in r.from_addresses and 'Auto/Billing' in r.add_labels and r.star
+      for r in state.filters)
     desc: Billing AWS filter exists with correct actions
-  - expr: any('*@social.blueridge.dev' in r.from_addresses and 'Auto/Social' in r.add_labels
-      and r.archive for r in state.filters)
+  - expr: any('*@social.blueridge.dev' in r.from_addresses and 'Auto/Social' in r.add_labels and r.archive
+      for r in state.filters)
     desc: Social filter exists with correct actions
   - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.archive_target_ids})
     desc: All filter-matching emails archived

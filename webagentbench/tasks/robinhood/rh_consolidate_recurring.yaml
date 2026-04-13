@@ -1,66 +1,76 @@
 task_id: rh_consolidate_recurring
 env_id: robinhood
 title: Consolidate Duplicate Recurring Investments
-instruction_template: "Review your recurring investments. Find any stocks that have multiple recurring investments set up. For each, consolidate them into a single monthly investment with the combined amount."
+instruction_template: Review your recurring investments. Find any stocks that have multiple recurring
+  investments set up. For each, consolidate them into a single monthly investment with the combined amount.
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 12
 primary_primitives:
-  - state_tracking
-  - planning
-  - exploration
+- state_tracking
 start_path: /
-
 seed:
   distractors: 10
   steps:
-    - use: stock_universe
-      params:
-        count: 25
-        must_include: ["AAPL", "MSFT", "VOO", "SCHD"]
-      outputs: []
-    - use: recurring_investments
-      params:
-        count: 6
-        symbols: ["AAPL", "AAPL", "MSFT", "MSFT", "VOO", "SCHD"]
-        frequencies: ["weekly", "monthly"]
-      outputs: [duplicate_symbols, combined_amounts]
+  - use: stock_universe
+    params:
+      count: 25
+      must_include:
+      - AAPL
+      - MSFT
+      - VOO
+      - SCHD
+    outputs: []
+  - use: recurring_investments
+    params:
+      count: 6
+      symbols:
+      - AAPL
+      - AAPL
+      - MSFT
+      - MSFT
+      - VOO
+      - SCHD
+      frequencies:
+      - weekly
+      - monthly
+    outputs:
+    - duplicate_symbols
+    - combined_amounts
   targets:
-    duplicate_symbols: "{output.duplicate_symbols}"
-    combined_amounts: "{output.combined_amounts}"
-
+    duplicate_symbols: '{output.duplicate_symbols}'
+    combined_amounts: '{output.combined_amounts}'
 eval:
   source: server_state
   checks:
-    - expr: >-
-        len(set(ri.symbol for ri in state.recurring_investments
-        if ri.status == 'active')) == len([ri for ri in state.recurring_investments
-        if ri.status == 'active'])
-      desc: No duplicate symbols exist among active recurring investments
-    - expr: >-
-        all(any(ri.symbol == sym and ri.status == 'active' and ri.frequency == 'monthly'
-        for ri in state.recurring_investments)
-        for sym in {target.duplicate_symbols})
-      desc: Each previously-duplicated symbol now has a monthly recurring investment
-    - expr: >-
-        all(any(ri.symbol == sym and ri.status == 'active'
-        and ri.amount == Decimal({target.combined_amounts}[sym])
-        for ri in state.recurring_investments)
-        for sym in {target.duplicate_symbols})
-      desc: The combined amount for each consolidated symbol matches the sum of the originals
-    - expr: >-
-        all(ri.status == 'active'
-        for ri in state.recurring_investments
-        if ri.symbol in ['VOO', 'SCHD'])
-      desc: Non-duplicate recurring investments (VOO, SCHD) remain active
+  - expr: len(set(ri.symbol for ri in state.recurring_investments if ri.status == 'active')) == len([ri
+      for ri in state.recurring_investments if ri.status == 'active'])
+    desc: No duplicate symbols exist among active recurring investments
+  - expr: all(any(ri.symbol == sym and ri.status == 'active' and ri.frequency == 'monthly' for ri in state.recurring_investments)
+      for sym in {target.duplicate_symbols})
+    desc: Each previously-duplicated symbol now has a monthly recurring investment
+  - expr: all(any(ri.symbol == sym and ri.status == 'active' and ri.amount == Decimal({target.combined_amounts}[sym])
+      for ri in state.recurring_investments) for sym in {target.duplicate_symbols})
+    desc: The combined amount for each consolidated symbol matches the sum of the originals
+  - expr: all(ri.status == 'active' for ri in state.recurring_investments if ri.symbol in ['VOO', 'SCHD'])
+    desc: Non-duplicate recurring investments (VOO, SCHD) remain active
   negative_checks:
-    - expr: >-
-        all(ri.status == 'active'
-        for ri in state.recurring_investments
-        if ri.symbol not in {target.duplicate_symbols})
-      desc: Non-duplicate recurring investments were not modified or cancelled
-      penalty: 0.25
-    - expr: >-
-        all(o.id.startswith('ord_decoy_') for o in state.orders)
-      desc: No equity orders were placed during the consolidation task
-      penalty: 0.15
+  - expr: all(ri.status == 'active' for ri in state.recurring_investments if ri.symbol not in {target.duplicate_symbols})
+    desc: Non-duplicate recurring investments were not modified or cancelled
+    penalty: 0.25
+  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
+    desc: No equity orders were placed during the consolidation task
+    penalty: 0.15
+  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
+    desc: Consolidation did not initiate any transfers
+    penalty: 0.1
+  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action == 'robinhood.alert.create'
+      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
+    desc: Consolidation did not mutate watchlists or price alerts
+    penalty: 0.1
+  - expr: not any( e.action == 'robinhood.recurring.create' and e.payload.get('symbol') not in {target.duplicate_symbols}
+      for e in state.audit_log)
+    desc: No brand-new recurring plans were created for unrelated symbols
+    penalty: 0.15
+secondary_primitives:
+- planning

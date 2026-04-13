@@ -10,8 +10,8 @@ instruction_template: '1. Subscribe to r/Piracy.
 
   5. Block u/CryptoSkeptic.
 
-  6. Settings: theme "dark", compact view on, disable show online status and allow followers, set feed sort "new" and comment
-  sort "top".
+  6. Settings: theme "dark", compact view on, disable show online status and allow followers, set feed
+  sort "new" and comment sort "top".
 
 
   Do not unsubscribe from anything else.'
@@ -20,9 +20,6 @@ time_limit_seconds: 540
 expected_steps: 40
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- verification
 seed:
   distractors: 8
   actors: {}
@@ -58,14 +55,15 @@ eval:
     desc: Joined Piracy
   - expr: any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)
     desc: Left memes
-  - expr: any(p.subreddit_name == "Python" and "packaging" in p.title and p.author_name == state.owner_username for p in state.posts)
+  - expr: any(p.subreddit_name == "Python" and "packaging" in p.title and p.author_name == state.owner_username
+      for p in state.posts)
     desc: Python post created
   - expr: state.get_post('{target.wn_id}').vote_direction == 1
     desc: WN post upvoted
   - expr: '''CryptoSkeptic'' in state.blocked_users'
     desc: User blocked
-  - expr: state.settings.theme == 'dark' and state.settings.compact_view and not state.settings.show_online_status and not
-      state.settings.allow_followers
+  - expr: state.settings.theme == 'dark' and state.settings.compact_view and not state.settings.show_online_status
+      and not state.settings.allow_followers
     desc: Settings updated
   - expr: state.settings.default_feed_sort == 'new' and state.settings.default_comment_sort == 'top'
     desc: Sort settings updated
@@ -84,3 +82,5 @@ eval:
     penalty: 0.2
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

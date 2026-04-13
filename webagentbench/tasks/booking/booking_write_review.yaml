@@ -1,0 +1,130 @@
+task_id: booking_write_review
+env_id: booking
+title: Write a Hotel Review for a Completed Stay
+instruction_template: >-
+  Write a review for your completed stay at "{target.hotel_name}". Give it an
+  overall score of {target.score}/10, title it "{target.review_title}", and
+  mention {target.key_feedback} in the body of your review. Set the travel
+  purpose to "leisure" and traveled with to "couple".
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 18
+primary_primitives:
+  - grounding
+  - state_tracking
+secondary_primitives: []
+start_path: /trips
+seed:
+  distractors: 6
+  actors: {}
+  steps:
+    - use: featured_property
+      params:
+        name: Grand Hotel Vesuvio
+        city: Naples
+        country: Italy
+        star_rating: 5
+        review_score: 9.2
+        review_count: 4120
+        price: 350.0
+        neighborhood: Lungomare
+        address: Via Partenope 45, 80121 Naples
+        amenities:
+          - Free WiFi
+          - Spa
+          - Restaurant
+          - Bar
+          - Room service
+          - Sea view
+          - Fitness center
+      outputs:
+        - prop_id
+        - prop_name
+        - cheapest_room_id
+        - cheapest_room_name
+    - use: create_reservation
+      params:
+        property_id: '{output.prop_id}'
+        check_in: '2026-01-10'
+        check_out: '2026-01-14'
+        price_per_night: 350.0
+        status: completed
+        guests: 2
+        booked_days_ago: 90
+      outputs:
+        - res_id
+        - conf_num
+        - res_prop_id
+    - use: featured_property
+      params:
+        name: Palazzo Avino
+        city: Ravello
+        country: Italy
+        star_rating: 5
+        review_score: 9.5
+        price: 520.0
+      outputs:
+        - distractor_prop_id
+        - distractor_prop_name
+        - distractor_room_id
+        - distractor_room_name
+    - use: create_reservation
+      params:
+        property_id: '{output.distractor_prop_id}'
+        check_in: '2026-03-05'
+        check_out: '2026-03-08'
+        status: completed
+        booked_days_ago: 40
+      outputs:
+        - distractor_res_id
+        - distractor_conf_num
+        - distractor_res_prop_id
+  targets:
+    prop_id: '{output.prop_id}'
+    hotel_name: '{output.prop_name}'
+    score: '8.5'
+    review_title: 'Stunning views and warm hospitality'
+    key_feedback: 'the breathtaking sea view from the room and the exceptional breakfast buffet'
+    distractor_prop_id: '{output.distractor_prop_id}'
+eval:
+  source: server_state
+  checks:
+    - expr: >-
+        any(
+          rv.property_id == '{target.prop_id}' and
+          rv.overall_score == 8.5 and
+          rv.title == 'Stunning views and warm hospitality'
+          for rv in state.reviews
+        )
+      desc: Review exists for correct property with score 8.5 and correct title
+    - expr: >-
+        any(
+          rv.property_id == '{target.prop_id}' and
+          'sea view' in rv.positive.lower()
+          for rv in state.reviews
+        )
+      desc: Review body mentions the sea view
+    - expr: >-
+        any(
+          rv.property_id == '{target.prop_id}' and
+          'breakfast' in rv.positive.lower()
+          for rv in state.reviews
+        )
+      desc: Review body mentions the breakfast
+  negative_checks:
+    - expr: >-
+        not any(
+          rv.property_id == '{target.distractor_prop_id}'
+          for rv in state.reviews
+          if rv.author_name == 'Jordan Parker'
+        )
+      desc: No review written for the wrong property
+      penalty: 0.4
+    - expr: >-
+        not any(
+          rv.property_id == '{target.prop_id}' and rv.overall_score != 8.5
+          for rv in state.reviews
+          if rv.author_name == 'Jordan Parker'
+        )
+      desc: Review score is exactly 8.5, not a different value
+      penalty: 0.2

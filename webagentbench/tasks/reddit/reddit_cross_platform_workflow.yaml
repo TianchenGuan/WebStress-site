@@ -10,11 +10,12 @@ instruction_template: 'Complete this research workflow:
   2. Open that post and add a comment with exactly: "{target.search_comment}"
 
 
-  3. Navigate to r/{target.create_sub} and create a new post with title exactly: "{target.create_title}" and body exactly:
-  "{target.create_body}"
+  3. Navigate to r/{target.create_sub} and create a new post with title exactly: "{target.create_title}"
+  and body exactly: "{target.create_body}"
 
 
-  4. Go to Messages and compose a message to u/{target.msg_to} with subject "{target.msg_subject}" and body exactly: "{target.msg_body}"
+  4. Go to Messages and compose a message to u/{target.msg_to} with subject "{target.msg_subject}" and
+  body exactly: "{target.msg_body}"
 
 
   5. Subscribe to r/{target.join_sub}.
@@ -26,9 +27,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - exploration
-- planning
-- grounding
-- state_tracking
 start_path: /feed
 seed:
   distractors: 8
@@ -55,15 +53,16 @@ seed:
     search_title: '{output.search_title}'
     search_sub: '{output.search_sub}'
     search_id: '{output.search_id}'
-    search_comment: SQLite is a masterpiece of engineering. The test suite alone has over 100 million test cases.
+    search_comment: SQLite is a masterpiece of engineering. The test suite alone has over 100 million
+      test cases.
     create_sub: Python
     create_title: 'Building a local-first app with SQLite and Python: lessons learned'
-    create_body: After building three production apps with SQLite as the primary database, here are the patterns that worked
-      and the pitfalls to avoid.
+    create_body: After building three production apps with SQLite as the primary database, here are the
+      patterns that worked and the pitfalls to avoid.
     msg_to: drunksandman
     msg_subject: Your SQLite post
-    msg_body: Great post about SQLite! I have been using it extensively in my Python projects. Would you be open to co-authoring
-      a blog post about SQLite best practices?
+    msg_body: Great post about SQLite! I have been using it extensively in my Python projects. Would you
+      be open to co-authoring a blog post about SQLite best practices?
     join_sub: Piracy
     initial_subscriptions: '{output.subscriptions}'
 eval:
@@ -71,20 +70,32 @@ eval:
   checks:
   - expr: '''{target.search_id}'' in state.saved_post_ids'
     desc: SQLite post saved
-  - expr: any(c.post_id == '{target.search_id}' and "100 million test cases" in c.body and c.author_name == state.owner_username
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.search_id}' and "100 million test cases" in c.body and c.author_name
+      == state.owner_username for c in state.comments)
     desc: Comment on SQLite post
-  - expr: 'any(p.subreddit_name == "Python" and p.title == "Building a local-first app with SQLite and Python: lessons learned"
-      and p.author_name == state.owner_username for p in state.posts)'
-    desc: Python post created
-  - expr: any(m.to_user == "drunksandman" and m.subject == "Your SQLite post" for m in state.sent_messages)
-    desc: Message sent
+  - expr: any(p.subreddit_name == '{target.create_sub}' and p.title == '{target.create_title}' and p.body
+      == '{target.create_body}' and p.author_name == state.owner_username for p in state.posts)
+    desc: Python post created with exact body
+  - expr: any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_subject}' and m.body == '{target.msg_body}'
+      for m in state.sent_messages)
+    desc: Message sent with exact body
   - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/Piracy
   negative_checks:
-  - expr: sum(1 for pid in state.saved_post_ids if pid != '{target.search_id}') <= 4
-    desc: No extra posts saved
+  - expr: not any( e.action == 'reddit.post.save' and e.payload.get('post_id') != '{target.search_id}'
+      for e in state.audit_log)
+    desc: No other posts were newly saved during the workflow
     penalty: 0.15
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
+  - expr: not any( e.action == 'reddit.post.create' and e.payload.get('subreddit') != '{target.create_sub}'
+      for e in state.audit_log)
+    desc: No extra posts were created outside r/{target.create_sub}
+    penalty: 0.15
+  - expr: not any( e.action == 'reddit.message.send' and e.payload.get('to_user') != '{target.msg_to}'
+      for e in state.audit_log)
+    desc: Research outreach message was sent only to the target author
+    penalty: 0.15
+secondary_primitives:
+- planning

@@ -1,20 +1,18 @@
 task_id: amazon_wishlist_cart_consolidation
 env_id: amazon
 title: Consolidate Wishlist and Cart Then Checkout
-instruction_template: >
-  Your cart has 2 items and your wishlist has 4 items. Move the 2 cheapest
-  wishlist items to your cart. Remove the 2 most expensive wishlist items
-  from your wishlist. Then complete checkout for everything in your cart.
+instruction_template: 'Your cart has 2 items and your wishlist has 4 items. Move the 2 cheapest wishlist
+  items to your cart. Remove the 2 most expensive wishlist items from your wishlist. Then complete checkout
+  for everything in your cart.
+
+  '
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 36
 primary_primitives:
 - state_tracking
-- planning
-- grounding
-- verification
 secondary_primitives:
-- exploration
+- planning
 start_path: /
 seed:
   distractors: 20
@@ -161,40 +159,53 @@ eval:
   checks:
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: An order was placed
-  - expr: >
-      any(any(item.product_id == '{target.cart1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.cart1}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Original cart item 1 in order
-  - expr: >
-      any(any(item.product_id == '{target.cart2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.cart2}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Original cart item 2 in order
-  - expr: >
-      any(any(item.product_id == '{target.cheap1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.cheap1}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheap wishlist item 1 in order
-  - expr: >
-      any(any(item.product_id == '{target.cheap2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.cheap2}'' for item in o.items) for o in state.orders if
+      not o.id.startswith(''order_initial_''))
+
+      '
     desc: Cheap wishlist item 2 in order
-  - expr: "'{target.exp1}' not in state.wishlist"
+  - expr: '''{target.exp1}'' not in state.wishlist'
     desc: Expensive item 1 removed from wishlist
-  - expr: "'{target.exp2}' not in state.wishlist"
+  - expr: '''{target.exp2}'' not in state.wishlist'
     desc: Expensive item 2 removed from wishlist
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   negative_checks:
-  - expr: >
-      not any(any(item.product_id == '{target.exp1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.exp1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive item 1 not purchased
     penalty: 0.15
-  - expr: >
-      not any(any(item.product_id == '{target.exp2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'not any(any(item.product_id == ''{target.exp2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Expensive item 2 not purchased
     penalty: 0.15
-  - expr: >
-      sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
+  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')) <= 1
+
+      '
     desc: Only one order placed
+    penalty: 0.1
+  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
+    desc: No off-task returns were opened or updated
+    penalty: 0.1
+  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
     penalty: 0.1

@@ -1,0 +1,71 @@
+task_id: gmail_ambiguous_inbox_cleanup
+env_id: gmail
+title: Ambiguous Inbox Cleanup
+instruction_template: 'Your inbox is cluttered. Clean it up:
+
+  (1) Archive all newsletters and promotional emails.
+
+  (2) Create a label "Project/{target.project_name}" and apply it to all emails related to the {target.project_name}
+  project.
+
+  (3) Star any emails from your manager ({target.manager_name}) that mention deadlines or due dates.
+
+  Do NOT delete any emails.'
+difficulty: expert
+time_limit_seconds: 420
+expected_steps: 35
+primary_primitives:
+- planning
+secondary_primitives:
+- grounding
+start_path: /inbox
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: ambiguous_inbox_cleanup
+    params: {}
+    outputs:
+    - project_name
+    - manager_email
+    - manager_name
+    - newsletter_count
+    - newsletter_ids
+    - project_email_ids
+    - deadline_email_ids
+    - non_deadline_email_ids
+    - filler_email_ids
+  targets:
+    project_name: '{output.project_name}'
+    manager_email: '{output.manager_email}'
+    manager_name: '{output.manager_name}'
+    newsletter_count: '{output.newsletter_count}'
+    newsletter_ids: '{output.newsletter_ids}'
+    project_email_ids: '{output.project_email_ids}'
+    deadline_email_ids: '{output.deadline_email_ids}'
+    non_deadline_email_ids: '{output.non_deadline_email_ids}'
+    filler_email_ids: '{output.filler_email_ids}'
+eval:
+  source: server_state
+  checks:
+  - expr: any(l.name == 'Project/{target.project_name}' for l in state.labels)
+    desc: Label Project/{target.project_name} exists
+  - expr: all('Project/{target.project_name}' in state.get_email(eid).labels for eid in {target.project_email_ids})
+    desc: All project emails have the project label applied
+  - expr: all(state.get_email(eid).is_starred for eid in {target.deadline_email_ids})
+    desc: Manager emails with deadlines are starred
+  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.newsletter_ids})
+    desc: All newsletters archived out of inbox
+  negative_checks:
+  - expr: len(state.deleted) == 0
+    desc: No emails were deleted
+    penalty: 0.4
+  - expr: all('Project/{target.project_name}' not in state.get_email(eid).labels for eid in {target.filler_email_ids})
+    desc: Non-project filler emails do not have the project label
+    penalty: 0.2
+  - expr: all(not state.get_email(eid).is_starred for eid in {target.non_deadline_email_ids})
+    desc: Manager emails without deadlines are not starred
+    penalty: 0.15
+  - expr: all('inbox' in state.get_email(eid).labels for eid in {target.project_email_ids})
+    desc: Project emails are still in inbox (not archived)
+    penalty: 0.15

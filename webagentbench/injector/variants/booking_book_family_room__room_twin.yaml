@@ -1,0 +1,46 @@
+variant_id: booking_book_family_room__room_twin
+base_task_id: booking_book_family_room
+target_primitive: grounding
+description: A lookalike property offers rooms with nearly identical family-room names. The agent must
+  select the exact room rather than the similarly named twin.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: property
+      name: The Kensington Family Hotel Residence
+      city: London
+      country: United Kingdom
+      property_type: Hotel
+      star_rating: 4
+      review_score: 8.2
+      review_count: 860
+      price: 187.06
+      description: Nearly identical property name with slightly different review profile.
+      rooms:
+      - name: Family Room Select
+        price: 195.02
+        bed_type: queen
+        max_occupancy: 4
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        rooms_left: 1
+    - type: property
+      name: The Kensington Family Hotel Collection
+      city: London
+      country: United Kingdom
+      property_type: Hotel
+      star_rating: 3
+      review_score: 7.9
+      review_count: 640
+      price: 210.94
+      description: Similar branding can distract from the exact property match.
+      rooms:
+      - name: Family Room Family Plus
+        price: 208.95
+        bed_type: queen
+        max_occupancy: 4
+        meals_included: breakfast
+        cancel_type: non_refundable
+        rooms_left: 2

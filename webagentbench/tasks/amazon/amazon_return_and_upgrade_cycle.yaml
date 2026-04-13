@@ -1,25 +1,21 @@
 task_id: amazon_return_and_upgrade_cycle
 env_id: amazon
 title: Return Disappointing Items and Purchase Upgrades with Review
-instruction_template: >
-  You received a disappointing order. Handle returns and buy upgrades:
-  1. Return '{target.ret_name_1}' from your delivered order with reason 'defective'.
-  2. Return '{target.ret_name_2}' from the same order with reason 'not_as_described'.
-  3. Search for '{target.up_name_1}' as a replacement for the earphones and add it to cart.
-  4. Search for '{target.up_name_2}' as a replacement for the desk lamp and add it to cart.
-  5. Purchase both upgrades in a single order.
-  6. Write a 5-star review for '{target.up_name_1}' with the title '{target.review_title}'.
+instruction_template: 'You received a disappointing order. Handle returns and buy upgrades: 1. Return
+  ''{target.ret_name_1}'' from your delivered order with reason ''defective''. 2. Return ''{target.ret_name_2}''
+  from the same order with reason ''not_as_described''. 3. Search for ''{target.up_name_1}'' as a replacement
+  for the earphones and add it to cart. 4. Search for ''{target.up_name_2}'' as a replacement for the
+  desk lamp and add it to cart. 5. Purchase both upgrades in a single order. 6. Write a 5-star review
+  for ''{target.up_name_1}'' with the title ''{target.review_title}''.
+
+  '
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 50
 primary_primitives:
 - planning
+secondary_primitives:
 - state_tracking
-- verification
-- backtracking
-- exploration
-- patience
-secondary_primitives: []
 start_path: /orders
 seed:
   distractors: 18
@@ -136,52 +132,57 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >
-      any(r.product_id == '{target.ret_pid_1}' and r.reason == 'defective'
-      for r in state.returns)
+  - expr: 'any(r.product_id == ''{target.ret_pid_1}'' and r.reason == ''defective'' for r in state.returns)
+
+      '
     desc: Return 1 filed with reason defective
-  - expr: >
-      any(r.product_id == '{target.ret_pid_2}' and r.reason == 'not_as_described'
-      for r in state.returns)
+  - expr: 'any(r.product_id == ''{target.ret_pid_2}'' and r.reason == ''not_as_described'' for r in state.returns)
+
+      '
     desc: Return 2 filed with reason not_as_described
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order placed
-  - expr: >
-      any(any(item.product_id == '{target.up_pid_1}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Upgrade 1 purchased
-  - expr: >
-      any(any(item.product_id == '{target.up_pid_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.up_pid_2}'' for item in o.items) for o in state.orders
+      if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Upgrade 2 purchased
-  - expr: >
-      any(any(item.product_id == '{target.up_pid_1}' for item in o.items)
-      and any(item.product_id == '{target.up_pid_2}' for item in o.items)
-      for o in state.orders if not o.id.startswith('order_initial_'))
+  - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) and any(item.product_id
+      == ''{target.up_pid_2}'' for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+
+      '
     desc: Both upgrades in same order
-  - expr: >
-      any(r.product_id == '{target.up_pid_1}' and r.rating == 5
-      and r.title == '{target.review_title}' for r in state.reviews)
+  - expr: 'any(r.product_id == ''{target.up_pid_1}'' and r.rating == 5 and r.title == ''{target.review_title}''
+      for r in state.reviews)
+
+      '
     desc: 5-star review for upgrade 1
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: >
-      len([r for r in state.returns if r.order_id == '{target.order_id}']) >= 2
+  - expr: 'len([r for r in state.returns if r.order_id == ''{target.order_id}'']) >= 2
+
+      '
     desc: Both returns filed against the correct order
   negative_checks:
   - expr: not any(r.product_id == '{target.up_pid_2}' for r in state.reviews)
     desc: No review for upgrade 2 (only upgrade 1 should be reviewed)
     penalty: 0.1
-  - expr: >
-      not any(r.product_id == '{target.ret_pid_1}'
-      or r.product_id == '{target.ret_pid_2}' for r in state.reviews)
+  - expr: 'not any(r.product_id == ''{target.ret_pid_1}'' or r.product_id == ''{target.ret_pid_2}'' for
+      r in state.reviews)
+
+      '
     desc: No reviews for returned products
     penalty: 0.1
   - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <= 1
     desc: Only one new order placed
     penalty: 0.1
-  - expr: >
-      not any(r.reason != 'defective' for r in state.returns
-      if r.product_id == '{target.ret_pid_1}')
+  - expr: 'not any(r.reason != ''defective'' for r in state.returns if r.product_id == ''{target.ret_pid_1}'')
+
+      '
     desc: Return 1 reason is exactly defective
     penalty: 0.15

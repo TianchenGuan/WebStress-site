@@ -8,26 +8,22 @@ instruction_template: '1. Subscribe to r/{target.join}.
 
   4. In r/{target.save_sub} find "{target.save_title}". Save.
 
-  5. In r/{target.comment_sub} find "{target.comment_title}". Comment: "{target.ct}". Reply to u/{target.ra} about "{target.rh}":
-  "{target.rt}".
+  5. In r/{target.comment_sub} find "{target.comment_title}". Comment: "{target.ct}". Reply to u/{target.ra}
+  about "{target.rh}": "{target.rt}".
 
   6. Send message to u/{target.mt} subject "{target.ms}" body: "{target.mb}".
 
-  7. Block u/CryptoSkeptic. Hide posts by them.
+  7. Block u/{target.block_user}. Hide posts by them.
 
   8. Mark all notifications/messages read.
 
-  9. Settings: theme "dark", compact on, comment sort "new", disable show online status and all email notifications.'
+  9. Settings: theme "dark", compact on, comment sort "new", disable show online status and all email
+  notifications.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- exploration
-- verification
-- patience
 seed:
   distractors: 10
   actors: {}
@@ -113,6 +109,7 @@ seed:
     - block_post_sub
   targets:
     initial_subscriptions: '{output.subscriptions}'
+    initial_saved_ids: '{output.saved_ids}'
     join: MachineLearning
     wn_title: '{output.wn_title}'
     wn_id: '{output.wn_id}'
@@ -154,24 +151,72 @@ seed:
     ms: Your CI/CD post
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
+    block_user: CryptoSkeptic
 eval:
   source: server_state
   checks:
+  - expr: any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)
+    desc: Joined r/MachineLearning
+  - expr: any(p.subreddit_name == '{target.join}' and p.title == '{target.pt}' and p.body == '{target.pb}'
+      and p.author_name == state.owner_username for p in state.posts)
+    desc: Exact post created in r/MachineLearning
+  - expr: state.get_post('{target.wn_id}').vote_direction == 1
+    desc: Exact worldnews target post was upvoted
+  - expr: '''{target.prog_id}'' in state.saved_post_ids'
+    desc: Exact programming target post was saved
+  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id is None and c.body == '{target.ct}' and
+      c.author_name == state.owner_username for c in state.comments)
+    desc: Exact top-level comment posted on the programming target
+  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id == '{target.reply_id}' and c.body == '{target.rt}'
+      and c.author_name == state.owner_username for c in state.comments)
+    desc: Exact reply posted to DeepDiver on the correct comment
+  - expr: any(m.to_user == '{target.mt}' and m.subject == '{target.ms}' and m.body == '{target.mb}' for
+      m in state.sent_messages)
+    desc: Exact direct message sent to CompileError
+  - expr: '''{target.block_user}'' in state.blocked_users'
+    desc: CryptoSkeptic was blocked
+  - expr: all(p.is_hidden for p in state.posts if p.author_name == '{target.block_user}')
+    desc: All CryptoSkeptic posts were hidden
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
+  - expr: state.settings.compact_view == True
+    desc: Compact view enabled
+  - expr: state.settings.default_comment_sort == 'new'
+    desc: Comment sort set to new
+  - expr: not state.settings.show_online_status
+    desc: Online status disabled
+  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages and not state.settings.email_digest
+    desc: All email notifications disabled
+  - expr: state.unread_message_count() == 0
+    desc: Messages read
   - expr: state.unread_notification_count() == 0
     desc: Notifications read
-  - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
-    desc: Joined ML
   negative_checks:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 5
-    desc: No excessive messages sent
+  - expr: all(pid in state.saved_post_ids for pid in {target.initial_saved_ids})
+    desc: Existing saved posts were preserved
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 2
-    desc: No excessive posts created
+  - expr: len(state.sent_messages) == 1
+    desc: No extra direct messages were sent
+    penalty: 0.15
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= 4
+    desc: No extra posts were created beyond the required MachineLearning post
+    penalty: 0.15
+  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and c.post_id == '{target.prog_id}'
+      and c.body == '{target.ct}' and c.parent_id is None) == 1
+    desc: Only one top-level programming comment was posted
+    penalty: 0.15
+  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and c.post_id == '{target.prog_id}'
+      and c.body == '{target.rt}' and c.parent_id == '{target.reply_id}') == 1
+    desc: Only one DeepDiver reply was posted
+    penalty: 0.15
+  - expr: len(state.blocked_users) == 1
+    desc: No extra users were blocked
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

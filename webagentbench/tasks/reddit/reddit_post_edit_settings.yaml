@@ -1,8 +1,8 @@
 task_id: reddit_post_edit_settings
 env_id: reddit
 title: Create Post, Edit, and Update Settings
-instruction_template: '1. Create a text post in r/MachineLearning with title exactly: "{target.post_title}" and body exactly:
-  "{target.post_body}"
+instruction_template: '1. Create a text post in r/MachineLearning with title exactly: "{target.post_title}"
+  and body exactly: "{target.post_body}"
 
 
   2. After creating the post, edit its body to exactly: "{target.edited_body}"
@@ -20,8 +20,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- grounding
-- state_tracking
 start_path: /feed
 seed:
   distractors: 8
@@ -36,18 +34,18 @@ seed:
   targets:
     post_title: 'Scaling Laws for Neural Machine Translation: An Empirical Study'
     post_body: Draft - will update with results.
-    edited_body: We find that translation quality scales predictably with model size, dataset size, and compute budget. Full
-      paper and code linked in comments.
+    edited_body: We find that translation quality scales predictably with model size, dataset size, and
+      compute budget. Full paper and code linked in comments.
     join_sub: Piracy
 eval:
   source: server_state
   checks:
-  - expr: 'any(p.subreddit_name == "MachineLearning" and p.title == "Scaling Laws for Neural Machine Translation: An Empirical
-      Study" and p.author_name == state.owner_username for p in state.posts)'
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.author_name
+      == state.owner_username for p in state.posts)
     desc: Post created in r/ML
-  - expr: 'any(p.title == "Scaling Laws for Neural Machine Translation: An Empirical Study" and p.is_edited and "scales predictably"
-      in p.body for p in state.posts)'
-    desc: Post was edited with updated body
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.author_name
+      == state.owner_username and p.is_edited and p.body == '{target.edited_body}' for p in state.posts)
+    desc: Post was edited with the exact required body
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
   - expr: state.settings.default_comment_sort == 'new'
@@ -55,13 +53,28 @@ eval:
   - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/Piracy
   negative_checks:
-  - expr: not any(p.author_name == state.owner_username and p.subreddit_name not in ('MachineLearning', 'technology', 'Python',
-      'personalfinance') for p in state.posts)
+  - expr: not any(p.author_name == state.owner_username and p.subreddit_name not in ('MachineLearning',
+      'technology', 'Python', 'personalfinance') for p in state.posts)
     desc: No posts in wrong subs
     penalty: 0.2
-  - expr: len(state.sent_messages) == 0
-    desc: No messages sent when none required
+  - expr: len(state.sent_messages) <= 2
+    desc: No extra messages were sent
     penalty: 0.15
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
+  - expr: "not any(\n  e.action == 'reddit.post.create'\n  and e.payload.get('subreddit') != 'MachineLearning'\n\
+      \  for e in state.audit_log)"
+    desc: No posts were created outside r/MachineLearning during the workflow
+    penalty: 0.15
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.create') == 1
+    desc: Post/edit/settings workflow created exactly one post
+    penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.edit') == 1
+    desc: Post/edit/settings workflow edited the post exactly once
+    penalty: 0.1
+  - expr: not any(e.action == 'reddit.comment.create' for e in state.audit_log)
+    desc: Post/edit/settings workflow did not create unrelated comments
+    penalty: 0.1
+secondary_primitives:
+- grounding

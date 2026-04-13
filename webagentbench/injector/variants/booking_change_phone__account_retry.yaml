@@ -1,0 +1,17 @@
+variant_id: booking_change_phone__account_retry
+base_task_id: booking_change_phone
+target_primitive: verification
+description: The first account-profile update fails transiently. The agent must confirm the profile changed
+  and retry if it did not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/booking/account'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 503
+    error_message: Temporary booking API failure. Retry the action.
+    behavior:
+      mode: once

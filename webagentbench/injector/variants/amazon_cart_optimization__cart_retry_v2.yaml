@@ -1,0 +1,19 @@
+variant_id: amazon_cart_optimization__cart_retry_v2
+base_task_id: amazon_cart_optimization
+target_primitive: backtracking
+description: The first cart mutation fails transiently. The agent must confirm the cart changed and retry
+  the add/update/remove action if it did not.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/cart**'
+    methods:
+    - POST
+    - PUT
+    - DELETE
+    error_count: 1
+    error_status: 503
+    error_message: Temporary failure. Retry the request.
+    behavior:
+      mode: once

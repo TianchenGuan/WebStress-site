@@ -1,0 +1,27 @@
+variant_id: amazon_multi_destination_orders__address_shadow_v2
+base_task_id: amazon_multi_destination_orders
+target_primitive: grounding
+description: Addresses and cards include near-matches for the requested destination. The agent must still
+  ship to the exact target address while avoiding the stale twin records.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: address
+      full_name: '{target.new_name}'
+      street_address: '{target.new_street} Apt 2'
+      city: '{target.new_city}'
+      state: '{target.new_state}'
+      zip_code: '{target.new_zip}'
+    - type: address
+      full_name: '{target.new_name}'
+      street_address: '{target.new_street} Suite B'
+      city: '{target.new_city}'
+      state: '{target.new_state}'
+      zip_code: '{target.new_zip}'
+    - type: payment_method
+      card_type: Visa
+      last_four: '4243'
+      expiry: 11/29
+      holder_name: '{target.new_name}'

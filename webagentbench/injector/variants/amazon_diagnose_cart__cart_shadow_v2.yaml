@@ -1,0 +1,21 @@
+variant_id: amazon_diagnose_cart__cart_shadow_v2
+base_task_id: amazon_diagnose_cart
+target_primitive: state_tracking
+description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
+  and purchase the exact target products instead of the shadow items.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: '{target.product_name} Plus'
+      brand: JBL
+      category: Electronics
+      price: 74.89
+      rating: 4.5
+      description: A closely named upsell variant that should stay out of the final cart.
+    - type: cart_item
+      product_name: '{target.product_name} Plus'
+      quantity: 1
+      unit_price: 74.89

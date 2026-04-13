@@ -1,0 +1,27 @@
+variant_id: reddit_subscribe_subreddit__subreddit_twin
+base_task_id: reddit_subscribe_subreddit
+target_primitive: grounding
+description: A twin subreddit with a nearly identical name appears in search and navigation. The agent
+  must act in the exact community named in the task.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: subreddit
+      name: MachineLearning_
+      display_name: r/MachineLearning_
+      description: Lookalike community with a confusingly similar name.
+      subscribers: 215000
+    - type: subreddit
+      name: MachineLearninghelp
+      display_name: r/MachineLearninghelp
+      description: Meta/help community for a similarly named subreddit.
+      subscribers: 54000
+    - type: post
+      subreddit: MachineLearning_
+      title: Helpful thread
+      author: shadow_mod
+      score: 92
+      comments: 11
+      body: Same headline in the wrong, lookalike subreddit.

@@ -1,10 +1,10 @@
 task_id: amazon_complete_gift_setup
 env_id: amazon
 title: Set Up Gift Purchase with New Address and Payment
-instruction_template: 'Set up a gift purchase for {target.recipient_name}. First, add a new shipping address: name "{target.recipient_name}",
-  street "{target.street}", city "{target.city}", state "{target.state_code}", ZIP "{target.zip}". Then add a new payment
-  method (credit card). Finally, purchase the product "{target.gift_product}" and ship it to {target.recipient_name}''s address
-  using the new payment method.
+instruction_template: 'Set up a gift purchase for {target.recipient_name}. First, add a new shipping address:
+  name "{target.recipient_name}", street "{target.street}", city "{target.city}", state "{target.state_code}",
+  ZIP "{target.zip}". Then add a new payment method (credit card). Finally, purchase the product "{target.gift_product}"
+  and ship it to {target.recipient_name}''s address using the new payment method.
 
   '
 difficulty: hard
@@ -12,9 +12,6 @@ time_limit_seconds: 480
 expected_steps: 35
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- grounding
 start_path: /
 seed:
   distractors: 17
@@ -67,8 +64,8 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(addr.full_name == ''Maria Chen'' and addr.street_address == ''500 Oak Ave'' and addr.city == ''Portland'' and
-      addr.state == ''OR'' and addr.zip_code == ''97201'' for addr in state.addresses)
+  - expr: 'any(addr.full_name == ''Maria Chen'' and addr.street_address == ''500 Oak Ave'' and addr.city
+      == ''Portland'' and addr.state == ''OR'' and addr.zip_code == ''97201'' for addr in state.addresses)
 
       '
     desc: New address added with correct details for Maria Chen
@@ -78,18 +75,19 @@ eval:
     desc: A new payment method was added (3 pre-loaded + at least 1 new)
   - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
     desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.gift_product_id}'' for item in order.items) for order in state.orders if not
-      order.id.startswith(''order_initial_''))
+  - expr: 'any(any(item.product_id == ''{target.gift_product_id}'' for item in order.items) for order
+      in state.orders if not order.id.startswith(''order_initial_''))
 
       '
     desc: Gift product was purchased
-  - expr: 'any(any(addr.full_name == ''Maria Chen'' for addr in state.addresses if addr.id == order.shipping_address_id) for
-      order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'any(any(addr.full_name == ''Maria Chen'' for addr in state.addresses if addr.id == order.shipping_address_id)
+      for order in state.orders if not order.id.startswith(''order_initial_''))
 
       '
     desc: Order shipped to Maria Chen's address
-  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order in state.orders if not order.id.startswith(''order_initial_'')
-      and any(item.product_id == ''{target.gift_product_id}'' for item in order.items))
+  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order in state.orders
+      if not order.id.startswith(''order_initial_'') and any(item.product_id == ''{target.gift_product_id}''
+      for item in order.items))
 
       '
     desc: Order uses the new payment method, not any pre-loaded one
@@ -100,3 +98,17 @@ eval:
   - expr: len(state.returns) == 0
     desc: No returns filed when none required
     penalty: 0.15
+  - expr: 'all( len(order.items) == 1 and order.items[0].product_id == ''{target.gift_product_id}'' and
+      order.items[0].quantity == 1 for order in state.orders if not order.id.startswith(''order_initial_''))
+
+      '
+    desc: Gift checkout purchased only the intended gift product
+    penalty: 0.2
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.address.add') == 1
+    desc: Exactly one new recipient address was added for the gift flow
+    penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.payment.add') == 1
+    desc: Exactly one new payment method was added for the gift flow
+    penalty: 0.1
+secondary_primitives:
+- state_tracking

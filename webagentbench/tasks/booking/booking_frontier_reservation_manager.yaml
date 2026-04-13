@@ -1,43 +1,28 @@
 task_id: booking_frontier_reservation_manager
 env_id: booking
-title: "Frontier: Audit Reservations - Cancel, Modify, Message, Review, and Save"
-instruction_template: "Audit and manage your reservations with these exact steps:\n\
-  1. Cancel your confirmed reservation at \"{target.cancel1_name}\"\n\
-  \   (confirmation {target.cancel1_conf}).\n\
-  2. Cancel your confirmed reservation at \"{target.cancel2_name}\"\n\
-  \   (confirmation {target.cancel2_conf}).\n\
-  3. Modify your reservation at \"{target.modify_name}\"\n\
-  \   (confirmation {target.modify_conf}): change check-in to\n\
-  \   {target.new_check_in} and check-out to {target.new_check_out}.\n\
-  4. Send a message to \"{target.cancel1_name}\" with subject\n\
-  \   \"Cancellation notice\" and body \"I had to cancel due to\n\
-  \   schedule changes. Hope to visit next time.\"\n\
-  5. Send a message to \"{target.cancel2_name}\" with subject\n\
-  \   \"Cancellation inquiry\" and body \"Can I get a refund\n\
-  \   confirmation for my cancelled booking?\"\n\
-  6. Send a message to \"{target.modify_name}\" with subject\n\
-  \   \"Date change confirmation\" and body \"I have updated my\n\
-  \   dates. Please confirm the room is available.\"\n\
-  7. Create a saved list named \"Cancelled - Revisit\" and add both\n\
-  \   cancelled properties to it.\n\
-  8. Write a review for your completed stay at \"{target.review1_name}\":\n\
-  \   score 8.5, title \"Very comfortable\", positive \"Great beds and\n\
-  \   quiet rooms\", no negative, leisure, couple.\n\
-  9. Write a review for your completed stay at \"{target.review2_name}\":\n\
-  \   score 7.0, title \"Decent stay\", positive \"Good location\",\n\
-  \   negative \"Slow room service\", business, solo.\n"
+title: 'Frontier: Audit Reservations - Cancel, Modify, Message, Review, and Save'
+instruction_template: "Audit and manage your reservations with these exact steps:\n1. Cancel your confirmed\
+  \ reservation at \"{target.cancel1_name}\"\n   (confirmation {target.cancel1_conf}).\n2. Cancel your\
+  \ confirmed reservation at \"{target.cancel2_name}\"\n   (confirmation {target.cancel2_conf}).\n3. Modify\
+  \ your reservation at \"{target.modify_name}\"\n   (confirmation {target.modify_conf}): change check-in\
+  \ to\n   {target.new_check_in} and check-out to {target.new_check_out}.\n4. Send a message to \"{target.cancel1_name}\"\
+  \ with subject\n   \"Cancellation notice\" and body \"I had to cancel due to\n   schedule changes. Hope\
+  \ to visit next time.\"\n5. Send a message to \"{target.cancel2_name}\" with subject\n   \"Cancellation\
+  \ inquiry\" and body \"Can I get a refund\n   confirmation for my cancelled booking?\"\n6. Send a message\
+  \ to \"{target.modify_name}\" with subject\n   \"Date change confirmation\" and body \"I have updated\
+  \ my\n   dates. Please confirm the room is available.\"\n7. Create a saved list named \"Cancelled -\
+  \ Revisit\" and add both\n   cancelled properties to it.\n8. Write a review for your completed stay\
+  \ at \"{target.review1_name}\":\n   score 8.5, title \"Very comfortable\", positive \"Great beds and\n\
+  \   quiet rooms\", no negative, leisure, couple.\n9. Write a review for your completed stay at \"{target.review2_name}\"\
+  :\n   score 7.0, title \"Decent stay\", positive \"Good location\",\n   negative \"Slow room service\"\
+  , business, solo.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
 primary_primitives:
 - planning
-- state_tracking
-- verification
-- patience
 secondary_primitives:
-- exploration
-- grounding
-- backtracking
+- state_tracking
 start_path: /trips
 seed:
   distractors: 12
@@ -234,55 +219,45 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(r.id == '{target.cancel1_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations)\n"
+  - expr: "any(r.id == '{target.cancel1_res_id}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: First reservation cancelled
-  - expr: "any(r.id == '{target.cancel2_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations)\n"
+  - expr: "any(r.id == '{target.cancel2_res_id}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Second reservation cancelled
-  - expr: "any(r.id == '{target.modify_res_id}' and\n\
-      \  r.check_in == '2026-09-10' and r.check_out == '2026-09-14'\n\
+  - expr: "any(r.id == '{target.modify_res_id}' and\n  r.check_in == '2026-09-10' and r.check_out == '2026-09-14'\n\
       \  for r in state.reservations)\n"
     desc: Reservation dates modified correctly
-  - expr: "any(m.property_id == '{target.cancel1_prop_id}' and m.sender == 'guest'\n\
-      \  and 'cancellation' in m.subject.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.cancel1_prop_id}' and m.sender == 'guest'\n  and 'cancellation'\
+      \ in m.subject.lower()\n  for m in state.messages)\n"
     desc: Message sent to first cancelled property
-  - expr: "any(m.property_id == '{target.cancel2_prop_id}' and m.sender == 'guest'\n\
-      \  and 'refund' in m.body.lower()\n\
-      \  for m in state.messages)\n"
+  - expr: "any(m.property_id == '{target.cancel2_prop_id}' and m.sender == 'guest'\n  and 'refund' in\
+      \ m.body.lower()\n  for m in state.messages)\n"
     desc: Message sent to second cancelled property about refund
-  - expr: "any(m.property_id == '{target.modify_prop_id}' and m.sender == 'guest'\n\
-      \  and 'date' in m.subject.lower()\n\
+  - expr: "any(m.property_id == '{target.modify_prop_id}' and m.sender == 'guest'\n  and 'date' in m.subject.lower()\n\
       \  for m in state.messages)\n"
     desc: Message sent to modified property about date change
-  - expr: "any(\n  sl.name == 'Cancelled - Revisit' and\n\
-      \  '{target.cancel1_prop_id}' in sl.property_ids and\n\
-      \  '{target.cancel2_prop_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Cancelled - Revisit' and\n  '{target.cancel1_prop_id}' in sl.property_ids\
+      \ and\n  '{target.cancel2_prop_id}' in sl.property_ids\n  for sl in state.saved_lists\n)\n"
     desc: Both cancelled properties saved to Cancelled - Revisit list
-  - expr: "any(rv.property_id == '{target.review1_prop_id}' and\n\
-      \  rv.overall_score == 8.5 and rv.title == 'Very comfortable'\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review1_prop_id}' and\n  rv.overall_score == 8.5 and rv.title\
+      \ == 'Very comfortable'\n  for rv in state.reviews)\n"
     desc: Review written for first completed stay with correct score and title
-  - expr: "any(rv.property_id == '{target.review2_prop_id}' and\n\
-      \  rv.overall_score == 7.0 and 'slow room service' in rv.negative.lower()\n\
-      \  for rv in state.reviews)\n"
+  - expr: "any(rv.property_id == '{target.review2_prop_id}' and\n  rv.overall_score == 7.0 and 'slow room\
+      \ service' in rv.negative.lower()\n  for rv in state.reviews)\n"
     desc: Review written for second completed stay with correct negative comment
   negative_checks:
-  - expr: "not any(r.id == '{target.modify_res_id}' and r.status == 'cancelled'\n\
-      \  for r in state.reservations)\n"
+  - expr: "not any(r.id == '{target.modify_res_id}' and r.status == 'cancelled'\n  for r in state.reservations)\n"
     desc: Modified reservation was not cancelled
     penalty: 0.4
-  - expr: "sum(1 for m in state.messages if m.sender == 'guest'\n\
-      \  and m.property_id not in ('{target.cancel1_prop_id}', '{target.cancel2_prop_id}', '{target.modify_prop_id}')) == 0\n"
+  - expr: "sum(1 for m in state.messages if m.sender == 'guest'\n  and m.property_id not in ('{target.cancel1_prop_id}',\
+      \ '{target.cancel2_prop_id}', '{target.modify_prop_id}')) == 0\n"
     desc: No messages sent to wrong properties
     penalty: 0.15
-  - expr: "sum(1 for rv in state.reviews\n\
-      \  if rv.property_id in ('{target.cancel1_prop_id}', '{target.cancel2_prop_id}', '{target.modify_prop_id}')\n\
-      \  and rv.author_name == 'Jordan Parker') == 0\n"
+  - expr: "sum(1 for rv in state.reviews\n  if rv.property_id in ('{target.cancel1_prop_id}', '{target.cancel2_prop_id}',\
+      \ '{target.modify_prop_id}')\n  and rv.author_name == 'Jordan Parker') == 0\n"
     desc: No reviews written for non-completed stays
     penalty: 0.2
-  - expr: "sum(1 for sl in state.saved_lists if sl.name == 'Cancelled - Revisit') <= 1\n"
+  - expr: 'sum(1 for sl in state.saved_lists if sl.name == ''Cancelled - Revisit'') <= 1
+
+      '
     desc: Only one Cancelled - Revisit list was created
     penalty: 0.1

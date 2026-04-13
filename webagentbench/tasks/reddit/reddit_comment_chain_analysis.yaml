@@ -24,9 +24,6 @@ time_limit_seconds: 540
 expected_steps: 40
 primary_primitives:
 - exploration
-- grounding
-- state_tracking
-- planning
 seed:
   distractors: 8
   actors: {}
@@ -45,8 +42,8 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: Disagree. At scale, a monolith becomes an unmaintainable ball of mud. The real issue is teams adopting microservices
-        too early.
+      body: Disagree. At scale, a monolith becomes an unmaintainable ball of mud. The real issue is teams
+        adopting microservices too early.
       author: CompileError
       score: 3800
     outputs:
@@ -55,8 +52,8 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: The best architecture is the one your team can actually operate. Most small teams cannot handle the operational
-        overhead of Kubernetes and service meshes.
+      body: The best architecture is the one your team can actually operate. Most small teams cannot handle
+        the operational overhead of Kubernetes and service meshes.
       author: DeepDiver
       score: 2900
     outputs:
@@ -65,8 +62,8 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: Shopify runs a massive Rails monolith and they seem to be doing fine. Sometimes boring technology is the right
-        choice.
+      body: Shopify runs a massive Rails monolith and they seem to be doing fine. Sometimes boring technology
+        is the right choice.
       author: BinaryBard
       score: 5100
     outputs:
@@ -84,12 +81,13 @@ seed:
     sub: '{output.subreddit_name}'
     post_title: '{output.post_title}'
     post_id: '{output.post_id}'
-    top_comment: The real answer is that it depends on your team size, deployment frequency, and domain complexity. There
-      is no universal right answer.
+    top_comment: The real answer is that it depends on your team size, deployment frequency, and domain
+      complexity. There is no universal right answer.
     reply1_author: CompileError
     reply1_hint: unmaintainable ball of mud
     reply1_id: '{output.reply1_id}'
-    reply1_text: Agreed on the timing point. The issue is organizational, not technical. Conway's Law applies here.
+    reply1_text: Agreed on the timing point. The issue is organizational, not technical. Conway's Law
+      applies here.
     reply2_author: DeepDiver
     reply2_hint: operational overhead of Kubernetes
     reply2_id: '{output.reply2_id}'
@@ -102,14 +100,14 @@ eval:
   checks:
   - expr: state.get_post('{target.post_id}').vote_direction == 1
     desc: Post upvoted
-  - expr: any(c.post_id == '{target.post_id}' and c.parent_id is None and "depends on your team size" in c.body and c.author_name
-      == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and c.parent_id is None and "depends on your team size"
+      in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Top-level comment
-  - expr: any(c.parent_id == '{target.reply1_id}' and "Conway's Law" in c.body and c.author_name == state.owner_username for
-      c in state.comments)
+  - expr: any(c.parent_id == '{target.reply1_id}' and "Conway's Law" in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: Reply to CompileError
-  - expr: any(c.parent_id == '{target.reply2_id}' and "ops burden" in c.body and c.author_name == state.owner_username for
-      c in state.comments)
+  - expr: any(c.parent_id == '{target.reply2_id}' and "ops burden" in c.body and c.author_name == state.owner_username
+      for c in state.comments)
     desc: Reply to DeepDiver
   - expr: '''{target.save_id}'' in state.saved_comment_ids'
     desc: BinaryBard comment saved
@@ -128,3 +126,5 @@ eval:
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

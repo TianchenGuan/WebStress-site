@@ -1,0 +1,21 @@
+variant_id: amazon_diagnose_cart__cart_item_twin
+base_task_id: amazon_diagnose_cart
+target_primitive: grounding
+description: The cart already contains a near-identical speaker variant at the correct quantity, while
+  the real target still has the wrong count. The agent must fix the exact item, not the lookalike.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Portable Bluetooth Speaker Mini
+      brand: JBL
+      category: Electronics
+      price: 58.79
+      rating: 4.5
+      description: Nearly identical speaker variant already sitting at the desired quantity.
+    - type: cart_item
+      product_name: Portable Bluetooth Speaker Mini
+      quantity: '{target.correct_qty}'
+      unit_price: 58.79

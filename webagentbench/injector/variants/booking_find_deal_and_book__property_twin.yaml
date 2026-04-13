@@ -1,0 +1,30 @@
+variant_id: booking_find_deal_and_book__property_twin
+base_task_id: booking_find_deal_and_book
+target_primitive: grounding
+description: A near-identical property appears alongside the true target. The agent must match the exact
+  hotel before saving or booking it.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: property
+      name: Lisbon Riverside Retreat Residence
+      city: Lisbon
+      country: Portugal
+      property_type: Hotel
+      star_rating: 4
+      review_score: 8.1
+      review_count: 860
+      price: 155.1
+      description: Nearly identical property name with slightly different review profile.
+    - type: property
+      name: Lisbon Riverside Retreat Collection
+      city: Lisbon
+      country: Portugal
+      property_type: Hotel
+      star_rating: 3
+      review_score: 7.8
+      review_count: 640
+      price: 174.9
+      description: Similar branding can distract from the exact property match.

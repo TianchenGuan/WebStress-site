@@ -18,13 +18,12 @@ interface EvaluationResult {
   checks?: EvaluationCheck[];
   negative_checks?: EvaluationCheck[];
   reasoning?: string;
+  detail?: string;
 }
 
 interface SessionInfoResponse {
   instruction?: string;
   title?: string;
-  task_id?: string;
-  seed?: number;
   degradation?: {
     variant_filename?: string;
     injections?: Array<Record<string, unknown>>;
@@ -256,6 +255,9 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
         }),
       });
       const result = (await response.json()) as EvaluationResult;
+      if (!response.ok) {
+        throw new Error(result.reasoning || result.detail || `Evaluate failed with status ${response.status}`);
+      }
       setEvaluation(result);
       setOpen(true);
 
@@ -340,29 +342,22 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
 
   const handleReset = async () => {
     try {
-      const infoResponse = await fetch(`/api/env/${envId}/session/${encodeURIComponent(sessionId)}`);
-      const info = (await infoResponse.json()) as SessionInfoResponse;
-
-      await fetch(`/api/env/${envId}/session/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
-
-      const payload: Record<string, unknown> = { task_id: info.task_id };
-      if (info.seed != null) {
-        payload.seed = info.seed;
+      // Use the server reset route because the public session summary intentionally
+      // omits task_id and seed. Reconstructing a session client-side is lossy.
+      const resetResponse = await fetch(
+        `/api/env/${envId}/session/${encodeURIComponent(sessionId)}/reset`,
+        { method: "POST" },
+      );
+      const nextSession = (await resetResponse.json()) as {
+        session_id?: string;
+        start_path?: string;
+        detail?: string;
+      };
+      if (!resetResponse.ok || !nextSession.session_id) {
+        throw new Error(nextSession.detail || `Reset failed with status ${resetResponse.status}`);
       }
-      if (info.degradation?.variant_filename) {
-        payload.variant_filename = info.degradation.variant_filename;
-      } else if (info.degradation?.injections?.length) {
-        payload.degradation = info.degradation;
-      }
-
-      const createResponse = await fetch(`/api/env/${envId}/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const nextSession = (await createResponse.json()) as { session_id: string; start_path?: string };
       window.location.assign(
-        sessionUrl(envId, nextSession.start_path || "/inbox", nextSession.session_id, location.search),
+        sessionUrl(envId, nextSession.start_path || "/", nextSession.session_id, location.search),
       );
     } catch (error) {
       setRecordMessage(`Reset failed: ${(error as Error).message}`);

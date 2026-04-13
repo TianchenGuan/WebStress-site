@@ -6,9 +6,11 @@ instruction_template: '1. Subscribe to r/{target.join1} and r/{target.join2}.
 
   3. In r/AskReddit, find "{target.ask_title}". Upvote it and comment with exactly: "{target.ask_comment}"
 
-  4. Reply to u/{target.reply_author}''s comment on that post (the one mentioning "{target.reply_hint}") with exactly: "{target.reply_text}"
+  4. Reply to u/{target.reply_author}''s comment on that post (the one mentioning "{target.reply_hint}")
+  with exactly: "{target.reply_text}"
 
-  5. Send messages to u/{target.msg1_to} and u/{target.msg2_to} with subject "{target.msg_subject}" and body exactly: "{target.msg_body}"
+  5. Send messages to u/{target.msg1_to} and u/{target.msg2_to} with subject "{target.msg_subject}" and
+  body exactly: "{target.msg_body}"
 
   6. Mark all notifications as read.
 
@@ -21,11 +23,6 @@ time_limit_seconds: 720
 expected_steps: 55
 primary_primitives:
 - planning
-- grounding
-- state_tracking
-- exploration
-- patience
-- verification
 seed:
   distractors: 12
   actors: {}
@@ -76,20 +73,22 @@ seed:
     join1: MachineLearning
     join2: Piracy
     post1_title: 'State of open-source LLMs in April 2026: a comprehensive comparison'
-    post1_body: I benchmarked 15 open-source models across 8 tasks. Llama 4 and Mistral Large 3 lead in most categories, but
-      smaller models like Phi-4 punch above their weight.
+    post1_body: I benchmarked 15 open-source models across 8 tasks. Llama 4 and Mistral Large 3 lead in
+      most categories, but smaller models like Phi-4 punch above their weight.
     ask_title: '{output.ask_title}'
     ask_id: '{output.ask_id}'
-    ask_comment: Negotiation. Learning to negotiate salary, rent, and contracts has probably saved me $50,000 over the past
-      decade.
+    ask_comment: Negotiation. Learning to negotiate salary, rent, and contracts has probably saved me
+      $50,000 over the past decade.
     reply_author: MidnightCoder
     reply_hint: taxes
     reply_id: '{output.reply_id}'
-    reply_text: Same here. I wish schools taught basic financial literacy instead of making us memorize the quadratic formula.
+    reply_text: Same here. I wish schools taught basic financial literacy instead of making us memorize
+      the quadratic formula.
     msg1_to: NeuralNexus
     msg2_to: DataWizard42
     msg_subject: New LLM benchmark posted
-    msg_body: Just published an open-source LLM comparison in r/MachineLearning. Would love your feedback on the methodology.
+    msg_body: Just published an open-source LLM comparison in r/MachineLearning. Would love your feedback
+      on the methodology.
     decoy_ids: '{output.decoy_ids}'
     initial_subscriptions: '{output.subscriptions}'
 eval:
@@ -99,16 +98,16 @@ eval:
     desc: Joined ML
   - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Joined Piracy
-  - expr: any(p.subreddit_name == "MachineLearning" and "open-source LLMs" in p.title and p.author_name == state.owner_username
-      for p in state.posts)
+  - expr: any(p.subreddit_name == "MachineLearning" and "open-source LLMs" in p.title and p.author_name
+      == state.owner_username for p in state.posts)
     desc: ML post created
   - expr: state.get_post('{target.ask_id}').vote_direction == 1
     desc: AskReddit post upvoted
-  - expr: any(c.post_id == '{target.ask_id}' and "Negotiation" in c.body and c.parent_id is None and c.author_name == state.owner_username
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.ask_id}' and "Negotiation" in c.body and c.parent_id is None and c.author_name
+      == state.owner_username for c in state.comments)
     desc: Top comment on AskReddit
-  - expr: any(c.parent_id == '{target.reply_id}' and "financial literacy" in c.body and c.author_name == state.owner_username
-      for c in state.comments)
+  - expr: any(c.parent_id == '{target.reply_id}' and "financial literacy" in c.body and c.author_name
+      == state.owner_username for c in state.comments)
     desc: Reply to MidnightCoder
   - expr: any(m.to_user == "NeuralNexus" and "LLM benchmark" in m.body for m in state.sent_messages)
     desc: Msg to NeuralNexus
@@ -134,5 +133,14 @@ eval:
   - expr: not any(state.get_post(did).vote_direction != 0 for did in {target.decoy_ids})
     desc: Decoys not voted
     penalty: 0.15
+  - expr: not any(e.action.startswith('reddit.user.block') or e.action.startswith('reddit.user.unblock')
+      for e in state.audit_log)
+    desc: No off-task user blocks were changed
+    penalty: 0.1
+  - expr: not any(e.action in {'reddit.post.hide', 'reddit.post.unhide'} for e in state.audit_log)
+    desc: No off-task posts were hidden or unhidden
+    penalty: 0.1
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- grounding

@@ -1,0 +1,21 @@
+variant_id: amazon_wishlist_stock_audit__cart_shadow_v2
+base_task_id: amazon_wishlist_stock_audit
+target_primitive: state_tracking
+description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
+  and purchase the exact target products instead of the shadow items.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Wireless Charging Pad Plus
+      brand: ChargeMax
+      category: Electronics
+      price: 32.09
+      rating: 4.4
+      description: A closely named upsell variant that should stay out of the final cart.
+    - type: cart_item
+      product_name: Wireless Charging Pad Plus
+      quantity: 1
+      unit_price: 32.09

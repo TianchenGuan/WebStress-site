@@ -1,25 +1,22 @@
 task_id: gmail_travel_itinerary_resolution
 env_id: gmail
 title: Travel Itinerary Resolution
-instruction_template: 'You have two flight confirmation emails and two hotel confirmation
-  emails for your trip to the Denver conference on March 25. One flight was rebooked
-  — find the current flight confirmation (the one with a rebooking reference starting
-  with "RBK-"). You also have two hotel bookings: one in Denver with a non-refundable
-  cancellation deadline that has passed, and one in Boulder that is freely cancellable.
-  The Denver hotel is the correct one for the conference. Forward the current flight
-  confirmation and the Denver hotel confirmation — exactly those two emails, as two
-  separate forwards — to travel.assistant@ops.thornton.com. Do not forward the superseded
-  flight or the Boulder hotel. After forwarding, create a Gmail filter for emails
-  from {target.airline_sender} that automatically applies the label "Travel."'
+instruction_template: "You have two flight confirmation emails and two hotel confirmation emails for your\
+  \ trip to the Denver conference on March 25. One flight was rebooked \u2014 find the current flight\
+  \ confirmation (the one with a rebooking reference starting with \"RBK-\"). You also have two hotel\
+  \ bookings: one in Denver with a non-refundable cancellation deadline that has passed, and one in Boulder\
+  \ that is freely cancellable. The Denver hotel is the correct one for the conference. Forward the current\
+  \ flight confirmation and the Denver hotel confirmation \u2014 exactly those two emails, as two separate\
+  \ forwards \u2014 to travel.assistant@ops.thornton.com. Do not forward the superseded flight or the\
+  \ Boulder hotel. After forwarding, create a Gmail filter for emails from {target.airline_sender} that\
+  \ automatically applies the label \"Travel.\""
 difficulty: hard
 time_limit_seconds: 480
 expected_steps: 36
 primary_primitives:
 - verification
-- state_tracking
-- grounding
 secondary_primitives:
-- planning
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -57,8 +54,7 @@ eval:
   - expr: any(m.forwarded_from_id == '{target.hotel_denver_email_id}' and 'travel.assistant@ops.thornton.com'
       in m.to for m in state.sent)
     desc: Denver hotel forwarded to travel assistant
-  - expr: any('{target.airline_sender}' in f.from_addresses and 'Travel' in f.add_labels
-      for f in state.filters)
+  - expr: any('{target.airline_sender}' in f.from_addresses and 'Travel' in f.add_labels for f in state.filters)
     desc: Filter created for airline sender with Travel label
   negative_checks:
   - expr: not any(m.forwarded_from_id == '{target.flight_original_email_id}' and 'travel.assistant@ops.thornton.com'
@@ -73,3 +69,14 @@ eval:
       in m.to for m in state.sent)
     desc: Did not forward decoy itinerary summary
     penalty: 0.25
+  - expr: not any(m.forwarded_from_id == '{target.conference_email_id}' and 'travel.assistant@ops.thornton.com'
+      in m.to for m in state.sent)
+    desc: Did not forward the conference logistics email instead of an itinerary document
+    penalty: 0.15
+  - expr: "all(\n  m.to == ['travel.assistant@ops.thornton.com']\n  and len(m.cc) == 0\n  and len(m.bcc)\
+      \ == 0\n  for m in state.sent\n  if m.forwarded_from_id is not None)"
+    desc: Travel forwards went only to the travel assistant
+    penalty: 0.1
+  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.filter.create') == 1
+    desc: Travel resolution created only the single requested airline filter
+    penalty: 0.1

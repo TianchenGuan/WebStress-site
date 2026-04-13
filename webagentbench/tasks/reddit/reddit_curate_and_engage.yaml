@@ -22,8 +22,6 @@ time_limit_seconds: 480
 expected_steps: 38
 primary_primitives:
 - planning
-- grounding
-- state_tracking
 start_path: /feed
 seed:
   distractors: 8
@@ -71,8 +69,8 @@ seed:
     upvote_title: '{output.upvote_title}'
     upvote_id: '{output.upvote_id}'
     upvote_sub: '{output.upvote_sub}'
-    comment_text: It is because each year becomes a smaller fraction of your total life experience. When you are 5, a year
-      is 20% of your life. When you are 50, it is only 2%.
+    comment_text: It is because each year becomes a smaller fraction of your total life experience. When
+      you are 5, a year is 20% of your life. When you are 50, it is only 2%.
 eval:
   source: server_state
   checks:
@@ -82,8 +80,8 @@ eval:
     desc: DataIsBeautiful post saved
   - expr: state.get_post('{target.upvote_id}').vote_direction == 1
     desc: ELI5 post upvoted
-  - expr: any(c.post_id == '{target.upvote_id}' and "smaller fraction" in c.body and c.author_name == state.owner_username
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.upvote_id}' and "smaller fraction" in c.body and c.author_name ==
+      state.owner_username for c in state.comments)
     desc: Comment on ELI5 post
   - expr: state.settings.compact_view
     desc: Compact view enabled
@@ -100,3 +98,5 @@ eval:
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
+secondary_primitives:
+- grounding

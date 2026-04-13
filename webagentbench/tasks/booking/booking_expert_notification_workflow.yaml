@@ -1,29 +1,21 @@
 task_id: booking_expert_notification_workflow
 env_id: booking
 title: Notification-Driven Property Discovery with Save and Book
-instruction_template: "Follow up on your price-drop notifications:\n\
-  1. Go to your notifications and read all unread notifications.\n\
-  2. Find the notifications about price drops. You should find:\n\
-  \   - A price drop for \"{target.drop_name_1}\" in Vienna\n\
-  \   - A price drop for \"{target.drop_name_2}\" in Vienna\n\
-  \   - A price drop for \"{target.drop_name_3}\" in Vienna\n\
-  3. Look up each of these three properties and compare their current prices.\n\
-  4. Save the cheapest one (\"{target.cheapest_name}\") to a new list called\
-  \ \"Price Drop Picks\".\n\
-  5. Book the second cheapest one (\"{target.second_name}\") - book its\
-  \ cheapest room for 2 guests checking in 2026-09-15 and checking out\
-  \ 2026-09-19 (4 nights). Use the Amex card ending in 1234.\n\
-  6. Mark all price-drop notifications as read.\n"
+instruction_template: "Follow up on your price-drop notifications:\n1. Go to your notifications and read\
+  \ all unread notifications.\n2. Find the notifications about price drops. You should find:\n   - A price\
+  \ drop for \"{target.drop_name_1}\" in Vienna\n   - A price drop for \"{target.drop_name_2}\" in Vienna\n\
+  \   - A price drop for \"{target.drop_name_3}\" in Vienna\n3. Look up each of these three properties\
+  \ and compare their current prices.\n4. Save the cheapest one (\"{target.cheapest_name}\") to a new\
+  \ list called \"Price Drop Picks\".\n5. Book the second cheapest one (\"{target.second_name}\") - book\
+  \ its cheapest room for 2 guests checking in 2026-09-15 and checking out 2026-09-19 (4 nights). Use\
+  \ the Amex card ending in 1234.\n6. Mark all price-drop notifications as read.\n"
 difficulty: expert
 time_limit_seconds: 440
 expected_steps: 35
 primary_primitives:
 - exploration
-- state_tracking
-- planning
 secondary_primitives:
-- grounding
-- verification
+- state_tracking
 start_path: /home
 seed:
   distractors: 15
@@ -130,8 +122,9 @@ seed:
   - use: add_notification
     params:
       type: price_drop
-      title: "Price Drop - Hotel Sacher Wien"
-      message: "Great news! Hotel Sacher Wien in Vienna has dropped its price from $560 to $480 per night. Book now before the price goes back up!"
+      title: Price Drop - Hotel Sacher Wien
+      message: Great news! Hotel Sacher Wien in Vienna has dropped its price from $560 to $480 per night.
+        Book now before the price goes back up!
       read: false
       related_id: '{output.drop_id_1}'
     outputs:
@@ -139,8 +132,9 @@ seed:
   - use: add_notification
     params:
       type: price_drop
-      title: "Price Drop - The Guesthouse Vienna"
-      message: "Price alert! The Guesthouse Vienna has reduced rates from $275 to $220 per night. Limited availability!"
+      title: Price Drop - The Guesthouse Vienna
+      message: Price alert! The Guesthouse Vienna has reduced rates from $275 to $220 per night. Limited
+        availability!
       read: false
       related_id: '{output.drop_id_2}'
     outputs:
@@ -148,8 +142,9 @@ seed:
   - use: add_notification
     params:
       type: price_drop
-      title: "Price Drop - Hotel Topazz Vienna"
-      message: "Hotel Topazz Vienna has lowered its rate from $380 to $310 per night. This is a rare price drop!"
+      title: Price Drop - Hotel Topazz Vienna
+      message: Hotel Topazz Vienna has lowered its rate from $380 to $310 per night. This is a rare price
+        drop!
       read: false
       related_id: '{output.drop_id_3}'
     outputs:
@@ -157,8 +152,8 @@ seed:
   - use: add_notification
     params:
       type: deal_alert
-      title: "Summer Flash Sale - Greek Islands"
-      message: "Save up to 40% on hotels in Santorini and Mykonos this summer!"
+      title: Summer Flash Sale - Greek Islands
+      message: Save up to 40% on hotels in Santorini and Mykonos this summer!
       read: false
     outputs:
     - distractor_notif_id
@@ -179,16 +174,14 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  sl.name == 'Price Drop Picks' and\n  '{target.cheapest_id}' in sl.property_ids\n\
-      \  for sl in state.saved_lists\n)\n"
+  - expr: "any(\n  sl.name == 'Price Drop Picks' and\n  '{target.cheapest_id}' in sl.property_ids\n  for\
+      \ sl in state.saved_lists\n)\n"
     desc: Cheapest property saved to 'Price Drop Picks' list
-  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.status == 'confirmed'\
-      \ and\n  r.check_in == '2026-09-15' and\n  r.check_out == '2026-09-19'\n  for\
-      \ r in state.reservations\n)\n"
+  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.status == 'confirmed' and\n  r.check_in\
+      \ == '2026-09-15' and\n  r.check_out == '2026-09-19'\n  for r in state.reservations\n)\n"
     desc: Second cheapest property booked with correct dates
-  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.payment_method_id\
-      \ == 'pm_3'\n  for r in state.reservations\n  if not r.id.startswith('res_initial_')\n\
-      )\n"
+  - expr: "any(\n  r.property_id == '{target.second_id}' and\n  r.payment_method_id == 'pm_3'\n  for r\
+      \ in state.reservations\n  if not r.id.startswith('res_initial_')\n)\n"
     desc: Used Amex card (ending in 1234) for payment
   - expr: "any(\n  n.id == '{target.notif_id_1}' and n.read == True\n  for n in state.notifications\n\
       )\n"
@@ -200,17 +193,22 @@ eval:
       )\n"
     desc: Hotel Topazz price-drop notification marked as read
   negative_checks:
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.cheapest_id}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.cheapest_id}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the cheapest property (should only be saved)
     penalty: 0.3
-  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id')\
-      \ == '{target.drop_id_1}'\n  for e in state.audit_log\n)\n"
+  - expr: "not any(\n  e.action == 'reservation.create' and\n  e.payload.get('property_id') == '{target.drop_id_1}'\n\
+      \  for e in state.audit_log\n)\n"
     desc: Did not book the most expensive property
     penalty: 0.25
-  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_''))
-      <= 1
+  - expr: 'sum(1 for r in state.reservations if not r.id.startswith(''res_initial_'')) <= 1
 
       '
     desc: Only one new reservation was created
     penalty: 0.15
+  - expr: not any(e.action == 'message.send' for e in state.audit_log)
+    desc: No off-task hotel messages were sent
+    penalty: 0.1
+  - expr: not any(e.action == 'review.add' for e in state.audit_log)
+    desc: No off-task reviews were submitted
+    penalty: 0.1

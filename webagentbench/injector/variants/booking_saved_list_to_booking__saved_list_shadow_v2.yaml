@@ -1,0 +1,22 @@
+variant_id: booking_saved_list_to_booking__saved_list_shadow_v2
+base_task_id: booking_saved_list_to_booking
+target_primitive: state_tracking
+description: Saved lists already contain a near-match list name and a sibling property in the same city.
+  The agent must curate the exact intended list and properties.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: saved_list
+      name: '{target.list_name} Archive'
+      property_ids: []
+    - type: property
+      name: Harbour Bridge Hotel Suites
+      city: Sydney
+      country: Australia
+      price: 288.75
+      review_score: 8.4
+      amenities:
+      - Free WiFi
+      - Restaurant

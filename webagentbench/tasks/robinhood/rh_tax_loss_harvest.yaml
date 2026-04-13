@@ -1,0 +1,102 @@
+task_id: rh_tax_loss_harvest
+env_id: robinhood
+title: Tax-Loss Harvest with Wash Sale Avoidance and Reinvestment
+instruction_template: Review your realized and unrealized gains/losses for the year. Sell positions with
+  unrealized losses to offset your realized gains, but avoid wash sales by NOT selling anything you purchased
+  within the last 30 days. After selling, reinvest the total proceeds into {target.replacement_etf} to
+  maintain market exposure.
+difficulty: frontier
+time_limit_seconds: 600
+expected_steps: 40
+primary_primitives:
+- state_tracking
+start_path: /
+seed:
+  distractors: 20
+  steps:
+  - use: stock_universe
+    params:
+      count: 30
+      must_include:
+      - AAPL
+      - MSFT
+      - GOOGL
+      - AMZN
+      - TSLA
+      - META
+      - AMD
+      - INTC
+      - VOO
+    outputs: []
+  - use: portfolio_diverse
+    params:
+      position_count: 8
+      multi_lot: true
+      include_losers: true
+      loser_count: 3
+    outputs:
+    - loss_symbols
+    - gain_symbols
+  - use: transaction_ledger
+    params:
+      months: 2
+      include_recent_buys: true
+      recent_buy_count: 2
+    outputs:
+    - recent_buy_symbols
+  - use: tax_documents
+    params:
+      include_gains: true
+    outputs: []
+  - use: filled_orders
+    params:
+      count: 5
+      symbols:
+      - AAPL
+      - MSFT
+      - GOOGL
+      - AMZN
+      - TSLA
+      order_types:
+      - limit
+      - market
+    outputs: []
+  targets:
+    loss_symbols: '{output.loss_symbols}'
+    gain_symbols: '{output.gain_symbols}'
+    recent_buy_symbols: '{output.recent_buy_symbols}'
+    replacement_etf: VOO
+eval:
+  source: server_state
+  checks:
+  - expr: any(o.side == 'sell' and o.symbol in {target.loss_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: At least one position with unrealized losses was sold for tax-loss harvesting
+  - expr: all(o.symbol in {target.loss_symbols} for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))
+    desc: All sell orders target positions with unrealized losses (not gainers)
+  - expr: not any(o.side == 'sell' and o.symbol in {target.recent_buy_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: No sells were placed on stocks purchased within the last 30 days (wash sale avoidance)
+  - expr: any(o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_') for o in state.orders)
+    desc: A buy order for the replacement ETF (VOO) was placed to maintain market exposure
+  - expr: len([o for o in state.orders if o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_')])
+      == 1
+    desc: Exactly one buy order for the replacement ETF was placed
+  negative_checks:
+  - expr: not any(o.side == 'sell' and o.symbol in {target.recent_buy_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: Wash sale violation -- sold a stock purchased within last 30 days
+    penalty: 0.4
+  - expr: not any(o.side == 'sell' and o.symbol in {target.gain_symbols} and not o.id.startswith('ord_decoy_')
+      for o in state.orders)
+    desc: Profitable positions were sold unnecessarily (only loss positions qualify)
+    penalty: 0.25
+  - expr: not any(o.side == 'buy' and o.symbol != 'VOO' and not o.id.startswith('ord_decoy_') for o in
+      state.orders)
+    desc: Buy orders were placed for stocks other than the replacement ETF
+    penalty: 0.15
+  - expr: len(state.transfers) == 0
+    desc: No transfers were initiated during the tax-loss harvesting task
+    penalty: 0.1
+secondary_primitives:
+- planning

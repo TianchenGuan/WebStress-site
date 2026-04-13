@@ -1,19 +1,14 @@
----
 task_id: rh_live_multi_stock_limits
 env_id: robinhood
 title: Multi-Stock Limit Order Monitoring
-instruction_template: 'Set limit buy orders: AAPL below $180 for 10 shares, GOOGL
-  below $165 for 10 shares, AMZN below $175 for 10 shares. Monitor which orders fill.'
+instruction_template: 'Set limit buy orders: AAPL below $180 for 10 shares, GOOGL below $165 for 10 shares,
+  AMZN below $175 for 10 shares. Monitor which orders fill.'
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 30
 primary_primitives:
 - planning
-- patience
-- state_tracking
-- verification
-- grounding
-start_path: "/"
+start_path: /
 seed:
   distractors: 10
   steps:
@@ -62,62 +57,52 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: >-
-      any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit'
-      and o.status == 'filled' and o.quantity == 10
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'filled'
+      and o.quantity == 10 and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: A filled limit buy order for 10 shares of AAPL exists
-  - expr: >-
-      any(o.symbol == 'AMZN' and o.side == 'buy' and o.order_type == 'limit'
-      and o.status == 'filled' and o.quantity == 10
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'AMZN' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'filled'
+      and o.quantity == 10 and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: A filled limit buy order for 10 shares of AMZN exists
-  - expr: >-
-      any(o.symbol == 'GOOGL' and o.side == 'buy' and o.order_type == 'limit'
-      and o.status == 'pending'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'GOOGL' and o.side == 'buy' and o.order_type == 'limit' and o.status == 'pending'
+      and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: A pending limit buy order for GOOGL still exists (price never reached)
-  - expr: >-
-      any(o.symbol == 'AAPL' and o.order_type == 'limit'
-      and o.limit_price is not None and o.limit_price <= Decimal('180')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'AAPL' and o.order_type == 'limit' and o.limit_price is not None and o.limit_price
+      <= Decimal('180') and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: AAPL limit order was set at or below the $180 threshold
-  - expr: >-
-      any(o.symbol == 'AMZN' and o.order_type == 'limit'
-      and o.limit_price is not None and o.limit_price <= Decimal('175')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'AMZN' and o.order_type == 'limit' and o.limit_price is not None and o.limit_price
+      <= Decimal('175') and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: AMZN limit order was set at or below the $175 threshold
-  - expr: >-
-      any(o.symbol == 'GOOGL' and o.order_type == 'limit'
-      and o.limit_price is not None and o.limit_price <= Decimal('165')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: any(o.symbol == 'GOOGL' and o.order_type == 'limit' and o.limit_price is not None and o.limit_price
+      <= Decimal('165') and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: GOOGL limit order was set at or below the $165 threshold
   negative_checks:
-  - expr: >-
-      not any(o.symbol == 'GOOGL' and o.status == 'filled'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: GOOGL was not incorrectly reported as filled when the price never reached
-      the limit
-  - expr: >-
-      not any(o.order_type == 'market'
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.symbol == 'GOOGL' and o.status == 'filled' and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
+    desc: GOOGL was not incorrectly reported as filled when the price never reached the limit
+  - expr: not any(o.order_type == 'market' and not o.id.startswith('ord_decoy_') for o in state.orders)
     desc: No market orders were placed (task requires limit orders)
     penalty: 0.15
-  - expr: >-
-      not any(o.symbol not in ('AAPL', 'GOOGL', 'AMZN')
-      and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
+  - expr: not any(o.symbol not in ('AAPL', 'GOOGL', 'AMZN') and not o.id.startswith('ord_decoy_') for
+      o in state.orders)
     desc: No orders were placed on unrelated symbols
     penalty: 0.25
-secondary_primitives: []
-primitive_thesis: Measures planning, patience, state_tracking, verification, grounding
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') == 3
+    desc: Exactly three limit orders were placed for the tracked symbols
+    penalty: 0.15
+  - expr: "not any(\n  e.action == 'robinhood.order.place'\n  and (\n    e.payload.get('side') != 'buy'\n\
+      \    or e.payload.get('order_type') != 'limit'\n  )\n  for e in state.audit_log\n)"
+    desc: Every placed order was a limit buy order
+    penalty: 0.15
+  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
+    desc: No limit orders were cancelled during the monitoring window
+    penalty: 0.1
+  - expr: "not any(\n  e.action == 'robinhood.transfer.initiate'\n  or e.action == 'robinhood.options.order.place'\n\
+      \  or e.action.startswith('robinhood.watchlist.')\n  or e.action.startswith('robinhood.recurring.')\n\
+      \  or e.action == 'robinhood.alert.create'\n  or e.action == 'robinhood.alert.delete'\n  for e in\
+      \ state.audit_log\n)"
+    desc: No unrelated account-management actions were taken during limit monitoring
+    penalty: 0.1
+secondary_primitives:
+- patience
+primitive_thesis: Measures planning, patience, state_tracking, verification, grounding by requiring exact
+  completion of the requested Robinhood workflow while ignoring distractor account state.

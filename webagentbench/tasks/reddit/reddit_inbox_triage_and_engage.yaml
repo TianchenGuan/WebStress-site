@@ -2,8 +2,8 @@ task_id: reddit_inbox_triage_and_engage
 title: Inbox Triage and Targeted Engagement
 instruction_template: '1. Mark all notifications as read.
 
-  2. Go to Messages. Read all unread messages. Reply to u/{target.reply_from} (subject: "{target.reply_subject}") with exactly:
-  "{target.reply_body}"
+  2. Go to Messages. Read all unread messages. Reply to u/{target.reply_from} (subject: "{target.reply_subject}")
+  with exactly: "{target.reply_body}"
 
   3. Delete the message with subject "{target.delete_subject}".
 
@@ -18,9 +18,6 @@ time_limit_seconds: 540
 expected_steps: 40
 primary_primitives:
 - planning
-- state_tracking
-- grounding
-- exploration
 seed:
   distractors: 8
   actors: {}
@@ -65,8 +62,8 @@ seed:
     sub: '{output.subreddit_name}'
     post_title: '{output.post_title}'
     post_id: '{output.post_id}'
-    comment_text: This is a great explainer. The relationship between ISO and noise is something beginners always struggle
-      with.
+    comment_text: This is a great explainer. The relationship between ISO and noise is something beginners
+      always struggle with.
 eval:
   source: server_state
   checks:
@@ -97,3 +94,5 @@ eval:
     penalty: 0.15
 env_id: reddit
 start_path: /feed
+secondary_primitives:
+- state_tracking

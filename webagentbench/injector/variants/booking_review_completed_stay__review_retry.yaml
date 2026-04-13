@@ -1,0 +1,17 @@
+variant_id: booking_review_completed_stay__review_retry
+base_task_id: booking_review_completed_stay
+target_primitive: verification
+description: The first review submission fails transiently. The agent must retry after verifying the review
+  was not recorded.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/booking/reviews'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Temporary booking API failure. Retry the action.
+    behavior:
+      mode: once

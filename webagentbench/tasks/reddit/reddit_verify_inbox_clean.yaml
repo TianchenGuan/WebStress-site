@@ -1,0 +1,81 @@
+task_id: reddit_verify_inbox_clean
+env_id: reddit
+title: Verify Inbox Is Clean of Spam
+instruction_template: >
+  Check your message inbox. If you have any unread messages from users
+  you don't recognize (not from moderators or users you've interacted
+  with), delete them as potential spam. If all messages are from known
+  contacts, leave them alone.
+difficulty: easy
+time_limit_seconds: 120
+expected_steps: 8
+primary_primitives:
+  - verification
+secondary_primitives:
+  - state_tracking
+start_path: /feed
+seed:
+  distractors: 2
+  actors: {}
+  steps:
+    - use: target_message
+      params:
+        from_user: ModTeam
+        subject: "Welcome to the community"
+        body: "Thanks for joining! Please review our rules in the sidebar before posting."
+        is_read: false
+      outputs:
+        - msg1_id
+        - msg1_subject
+        - msg1_from
+    - use: target_message
+      params:
+        from_user: TechHelper
+        subject: "Re: Build help request"
+        body: "I'd recommend the Ryzen 7 5800X3D for your use case. Great price-to-performance ratio."
+        is_read: false
+      outputs:
+        - msg2_id
+        - msg2_subject
+        - msg2_from
+    - use: target_message
+      params:
+        from_user: StudyBuddy
+        subject: "Study group meetup this Saturday"
+        body: "Hey! We're meeting at the library at 2pm. Bring your notes from chapter 7."
+        is_read: false
+      outputs:
+        - msg3_id
+        - msg3_subject
+        - msg3_from
+  targets:
+    msg1_id: "{output.msg1_id}"
+    msg2_id: "{output.msg2_id}"
+    msg3_id: "{output.msg3_id}"
+eval:
+  source: server_state
+  checks:
+    - expr: >
+        any(m.id == '{target.msg1_id}' for m in state.messages)
+      desc: Message from ModTeam still exists in inbox
+    - expr: >
+        any(m.id == '{target.msg2_id}' for m in state.messages)
+      desc: Message from TechHelper still exists in inbox
+    - expr: >
+        any(m.id == '{target.msg3_id}' for m in state.messages)
+      desc: Message from StudyBuddy still exists in inbox
+    - expr: >
+        len(state.messages) >= 3
+      desc: All three messages are still present in the inbox
+  negative_checks:
+    - expr: >
+        not any(
+        e.action == 'reddit.message.delete'
+        and e.payload.get('message_id') in ['{target.msg1_id}', '{target.msg2_id}', '{target.msg3_id}']
+        for e in state.audit_log)
+      desc: No known-contact messages were deleted
+      penalty: 0.5
+    - expr: >
+        len(state.blocked_users) == 0
+      desc: No users were blocked
+      penalty: 0.3

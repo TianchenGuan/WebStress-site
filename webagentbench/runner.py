@@ -9,11 +9,33 @@ advanced environment tasks.
 from __future__ import annotations
 
 import json
+import os
+import secrets
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+
+from .backend.security import CONTROLLER_SECRET_ENV, CONTROLLER_SECRET_HEADER
+
+
+def ensure_controller_secret() -> str:
+    """Ensure a controller secret exists for local harness-managed servers."""
+    secret = os.environ.get(CONTROLLER_SECRET_ENV)
+    if isinstance(secret, str) and secret:
+        return secret
+    secret = secrets.token_urlsafe(32)
+    os.environ[CONTROLLER_SECRET_ENV] = secret
+    return secret
+
+
+def controller_headers() -> dict[str, str]:
+    """Return controller auth headers when this process has a shared secret."""
+    secret = os.environ.get(CONTROLLER_SECRET_ENV)
+    if not isinstance(secret, str) or not secret:
+        return {}
+    return {CONTROLLER_SECRET_HEADER: secret}
 
 
 def start_server(host: str, port: int) -> subprocess.Popen:

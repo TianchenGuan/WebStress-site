@@ -1,11 +1,10 @@
 task_id: gmail_thread_blame_trace
 env_id: gmail
 title: Trace who introduced a pricing error by reading backwards through a thread
-instruction_template: 'In the thread "Vendor Contract Renewal - Apex Solutions", someone
-  first introduced the
+instruction_template: 'In the thread "Vendor Contract Renewal - Apex Solutions", someone first introduced
+  the
 
-  wrong unit price of $4,500 (the correct price is $5,400 per the original contract).
-  Read
+  wrong unit price of $4,500 (the correct price is $5,400 per the original contract). Read
 
   the entire thread. Identify the person who FIRST wrote "$4,500" in the thread. Forward
 
@@ -19,10 +18,8 @@ time_limit_seconds: 480
 expected_steps: 24
 primary_primitives:
 - state_tracking
-- patience
-- grounding
 secondary_primitives:
-- verification
+- patience
 start_path: /inbox
 seed:
   distractors: 40
@@ -79,24 +76,37 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(e.forwarded_from_id == '{target.blame_msg_3_id}' for e in state.sent)
-    desc: Forwarded Tomasz Krol's originating message (msg_3)
-  - expr: any('{target.mariela_voss_email}' in e.to and e.forwarded_from_id == '{target.blame_msg_3_id}'
-      for e in state.sent)
-    desc: Forward sent to Mariela Voss
-  - expr: any('Pricing error origin' in e.subject for e in state.sent)
-    desc: Forward has correct subject
-  - expr: any('This is the message that introduced the $4,500 error.' in e.body for
-      e in state.sent)
-    desc: Forward body contains required text
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
+  - expr: "any(\n  e.forwarded_from_id == '{target.blame_msg_3_id}' and\n  e.to == ['{target.mariela_voss_email}']\
+      \ and\n  len(e.cc) == 0 and\n  len(e.bcc) == 0 and\n  e.in_reply_to is None\n  for e in state.sent\n\
+      )"
+    desc: Forwarded Tomasz Krol's originating message only to Mariela Voss
+  - expr: "any(\n  e.subject == 'Pricing error origin' and\n  e.forwarded_from_id == '{target.blame_msg_3_id}'\n\
+      \  for e in state.sent\n)"
+    desc: Forward has the exact required subject
+  - expr: "any(\n  e.forwarded_from_id == '{target.blame_msg_3_id}' and\n  e.body.split('\\n\\nForwarded\
+      \ message', 1)[0].strip() == 'This is the message that introduced the $4,500 error.'\n  for e in\
+      \ state.sent\n)"
+    desc: Forward body contains only the required authored explanation
   negative_checks:
-  - expr: not any(e.forwarded_from_id in ['{target.blame_msg_1_id}', '{target.blame_msg_2_id}',
-      '{target.blame_msg_4_id}', '{target.blame_msg_5_id}', '{target.blame_msg_6_id}',
-      '{target.blame_msg_7_id}', '{target.blame_msg_8_id}', '{target.blame_msg_9_id}',
-      '{target.forwarding_chain_decoy_id}'] for e in state.sent)
+  - expr: "not any(\n  e.forwarded_from_id in ['{target.blame_msg_1_id}', '{target.blame_msg_2_id}',\n\
+      \  '{target.blame_msg_4_id}', '{target.blame_msg_5_id}', '{target.blame_msg_6_id}',\n  '{target.blame_msg_7_id}',\
+      \ '{target.blame_msg_8_id}', '{target.blame_msg_9_id}',\n  '{target.forwarding_chain_decoy_id}']\n\
+      \  for e in state.sent\n)"
     desc: No forward of any message other than msg_3
     penalty: 0.15
-  - expr: not any(e.thread_id == '{target.target_thread_id}' and e.in_reply_to is
-      not None for e in state.sent)
+  - expr: "not any(\n  e.thread_id == '{target.target_thread_id}' and\n  e.in_reply_to is not None\n \
+      \ for e in state.sent\n)"
     desc: No reply in original thread (should forward, not reply)
     penalty: 0.15
+  - expr: "not any(\n  any(addr != '{target.mariela_voss_email}' for addr in e.to + e.cc + e.bcc)\n  for\
+      \ e in state.sent\n)"
+    desc: Forward was not sent to any unintended recipients
+    penalty: 0.15
+  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.email.forward') == 1
+    desc: Exactly one forward action was used
+    penalty: 0.1
+  - expr: sum(1 for m in state.sent if m.forwarded_from_id is None) == 0
+    desc: No fresh compose email was sent instead of the required forward
+    penalty: 0.1
