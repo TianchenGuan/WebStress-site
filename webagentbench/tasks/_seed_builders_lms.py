@@ -490,6 +490,11 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
     resubmit_ids: list[str] = []
     lowest_homework_id: str | None = None
     lowest_homework_score: Decimal | None = None
+    # Also track lowest homework ID within the target course specifically.
+    # This ensures lms_identify_dropped_homework uses the correct course.
+    _target_course_id_for_hw = ctx.outputs.get("target_course_id", "")
+    _lowest_hw_in_target: str | None = None
+    _lowest_hw_score_in_target: Decimal | None = None
     exam_assignment_id: str | None = None
     file_name: str = "submission.pdf"
 
@@ -528,7 +533,45 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             graded_count = int(per_course * graded_frac)
             is_past_due = due_offset_days < 0
 
+            # Guarantee missing/late slots are filled: force past-due if budget
+            # still has capacity and we are at the reserved position but the
+            # random offset happened to land in the future. We negate the offset
+            # to avoid consuming extra RNG calls (which would shift all subsequent
+            # random draws and corrupt other seeded data).
+            # missing_count==1: reserve slot at per_course
+            # missing_count>=2: also reserve slot at per_course-3 for second missing
+            # For the PRIMARY missing slot (n==per_course), cap days past-due to
+            # the course's max_late_days so at least one missing assignment is
+            # always recoverable (within the late-submission window).
+            _course_max_late = course_data.get("syllabus", {}).get("late_policy", {}).get("max_late_days", 7)
+            _second_missing_slot = per_course - 3 if missing_count >= 2 else -1
+            if missing_budget > 0 and n == per_course and not is_past_due:
+                # Cap to within recoverable window (1..max_late_days-1 days past due)
+                _capped = max(1, min(abs(due_offset_days), max(1, _course_max_late - 1)))
+                due_offset_days = -_capped
+                due_at = ctx.now + timedelta(days=due_offset_days)
+                is_past_due = True
+            elif missing_budget > 0 and n == per_course and is_past_due and abs(due_offset_days) > _course_max_late:
+                # Already past-due but beyond max_late: cap to recoverable window
+                _capped = max(1, _course_max_late - 1)
+                due_offset_days = -_capped
+                due_at = ctx.now + timedelta(days=due_offset_days)
+            elif missing_budget > 0 and n == _second_missing_slot and not is_past_due:
+                due_offset_days = -abs(due_offset_days) if due_offset_days != 0 else -7
+                due_at = ctx.now + timedelta(days=due_offset_days)
+                is_past_due = True
+            elif late_budget > 0 and n == per_course - 1 and not is_past_due:
+                due_offset_days = -abs(due_offset_days) if due_offset_days != 0 else -7
+                due_at = ctx.now + timedelta(days=due_offset_days)
+                is_past_due = True
+
             if missing_budget > 0 and is_past_due and n == per_course:
+                status = "not_submitted"
+                score = None
+                submitted_at = None
+                missing_budget -= 1
+                missing_ids.append(assignment_id)
+            elif missing_budget > 0 and is_past_due and n == _second_missing_slot:
                 status = "not_submitted"
                 score = None
                 submitted_at = None
@@ -569,6 +612,9 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 submitted_at = None
 
             attempt_count = 1 if status in ("submitted", "graded", "late", "resubmit_requested") else 0
+            # For resubmit_requested, ensure at least one more attempt is available
+            base_max = 2 if atype in ("homework", "quiz") else 1
+            max_attempts = max(base_max, attempt_count + 1) if status == "resubmit_requested" else base_max
 
             assignment = Assignment(
                 id=assignment_id,
@@ -581,7 +627,7 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 score=score,
                 feedback="Good work." if status == "graded" else None,
                 attempt_count=attempt_count,
-                max_attempts=2 if atype in ("homework", "quiz") else 1,
+                max_attempts=max_attempts,
                 rubric=[],
                 weight_category=cat,
                 submitted_at=submitted_at,
@@ -600,6 +646,51 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             # Track an exam assignment
             if atype == "exam" and exam_assignment_id is None:
                 exam_assignment_id = assignment_id
+
+    # ── Post-loop: ensure drop-lowest validity ──
+    # For each course that has drop_lowest > 0 on homework, ensure at least 2 graded
+    # homework assignments exist, so dropped_grades_for_category() returns ≥ 1 entry.
+    for course_data in courses:
+        cid = course_data["id"]
+        gp = course_data["syllabus"]["grading_policy"]
+        hw_policy = gp.get("homework")
+        if hw_policy is None:
+            continue
+        drop_low = hw_policy["drop_lowest"] if isinstance(hw_policy, dict) else hw_policy.drop_lowest
+        if drop_low == 0:
+            continue
+        graded_hw = [
+            a for a in ctx.base["assignments"]
+            if a["course_id"] == cid and a["weight_category"] == "homework" and a["score"] is not None
+        ]
+        if len(graded_hw) < 2:
+            # Promote the first non-graded homework to graded.
+            # Skip assignments already committed as missing — promoting them
+            # would corrupt the missing/recoverable tracking built above.
+            for a in ctx.base["assignments"]:
+                if (a["course_id"] == cid and a["weight_category"] == "homework"
+                        and a["score"] is None and a["id"] not in [g["id"] for g in graded_hw]
+                        and a["id"] not in missing_ids):
+                    pts = Decimal(str(a["points_possible"]))
+                    # Assign a moderate score (higher than lowest so it won't be the new lowest)
+                    if graded_hw:
+                        low_pct = Decimal(str(graded_hw[0]["score"])) / Decimal(str(graded_hw[0]["points_possible"]))
+                        new_pct = min(low_pct + Decimal("0.10"), Decimal("1.0"))
+                    else:
+                        new_pct = Decimal("0.75")
+                    new_score = (pts * new_pct).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                    a["score"] = str(new_score)
+                    a["submission_status"] = "graded"
+                    a["feedback"] = "Good work."
+                    a["attempt_count"] = 1
+                    a["submitted_at"] = ctx.now.isoformat()
+                    a["file_name"] = "submission.pdf"
+                    # Also update lowest_homework tracking
+                    cur_pct = Decimal(str(a["score"])) / pts
+                    if lowest_homework_score is None:
+                        lowest_homework_score = cur_pct
+                        lowest_homework_id = a["id"]
+                    break
 
     # Select target and decoy assignments
     target_assignment_id: str | None = None
@@ -626,11 +717,20 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 target_course_code = c["course_code"]
                 break
 
-        # Find a decoy in a different course with a similar title word
+        # Find a decoy in a different course — prefer statuses that agent hasn't
+        # interacted with so the negative check (decoy was not submitted) fires correctly.
         decoy_candidates = [
             a for a in all_assignments
-            if a["course_id"] != target_course_id and a["id"] != target_assignment_id
+            if a["course_id"] != target_course_id
+            and a["id"] != target_assignment_id
+            and a["submission_status"] in ("not_submitted", "graded")
         ]
+        if not decoy_candidates:
+            # Fallback: any assignment in a different course
+            decoy_candidates = [
+                a for a in all_assignments
+                if a["course_id"] != target_course_id and a["id"] != target_assignment_id
+            ]
         if decoy_candidates:
             decoy_assignment_id = ctx.rng.choice(decoy_candidates)["id"]
 
@@ -657,21 +757,39 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             break
 
     # ── unsubmitted_hw_id: first unsubmitted homework assignment ──
+    # Prefer homework; fall back to any not_submitted so the target is always populated.
     unsubmitted_hw_id = ""
     for a in all_assignments:
         if a["submission_status"] == "not_submitted" and a["type"] == "homework":
             unsubmitted_hw_id = a["id"]
             break
+    if not unsubmitted_hw_id:
+        for a in all_assignments:
+            if a["submission_status"] == "not_submitted":
+                unsubmitted_hw_id = a["id"]
+                break
 
     # ── disputed_assignment_id_1, disputed_assignment_id_2 ──
+    # Use catalog-level target_course_id when available (more reliable than the
+    # locally-random target_course_id derived from ctx.rng.choice(candidates)).
+    dispute_target_cid = ctx.outputs.get("target_course_id", target_course_id) or target_course_id
     graded_in_target = [
         a for a in all_assignments
         if a.get("score") is not None
         and a["submission_status"] in ("graded", "late", "resubmit_requested")
-        and a["course_id"] == target_course_id
+        and a["course_id"] == dispute_target_cid
+        and a.get("attempt_count", 0) < a.get("max_attempts", 1)
     ]
     if len(graded_in_target) < 2:
-        # Fallback to any graded assignments
+        # Fallback: any resubmittable graded assignment across all courses
+        graded_in_target = [
+            a for a in all_assignments
+            if a.get("score") is not None
+            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+            and a.get("attempt_count", 0) < a.get("max_attempts", 1)
+        ]
+    if len(graded_in_target) < 2:
+        # Final fallback: any graded regardless of resubmit capacity
         graded_in_target = [
             a for a in all_assignments
             if a.get("score") is not None
@@ -704,6 +822,21 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         a["id"] for a in all_assignments
         if a["type"] == "project" and a["submission_status"] == "not_submitted"
     ]
+    # Guarantee at least one unsubmitted project so the task is non-vacuous.
+    # If the RNG happened to grade every project, forcibly reset the first
+    # graded project to not_submitted (preserving score so grade_book still has data).
+    if not unsubmitted_project_ids_list:
+        for a in all_assignments:
+            if a["type"] == "project" and a["submission_status"] == "graded":
+                a["submission_status"] = "not_submitted"
+                a["submitted_at"] = None
+                a["file_name"] = None
+                a["attempt_count"] = 0
+                # Keep score as None so grade_book skips it
+                a["score"] = None
+                a["feedback"] = None
+                unsubmitted_project_ids_list.append(a["id"])
+                break
 
     # ── next_deadline_assignment_id: earliest upcoming due_at ──
     next_deadline_assignment_id = ""
@@ -1331,13 +1464,26 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
     min_score_achievable = "true" if minimum_final_score_for_b and minimum_final_score_for_b != "" else "false"
 
     # ── final_exam_assignment_id: ID of a final exam assignment (single) ──
+    # Prefer not_submitted so the task can submit study_plan.pdf.
     final_exam_assignment_id = ""
     for a in assignments:
-        if a["type"] == "exam" and a["weight_category"] == "final":
+        if a["type"] == "exam" and a["weight_category"] == "final" and a["submission_status"] == "not_submitted":
             final_exam_assignment_id = a["id"]
             break
     if not final_exam_assignment_id:
-        # Fallback: any exam
+        # Fallback: any final exam regardless of status
+        for a in assignments:
+            if a["type"] == "exam" and a["weight_category"] == "final":
+                final_exam_assignment_id = a["id"]
+                break
+    if not final_exam_assignment_id:
+        # Fallback: any unsubmitted exam
+        for a in assignments:
+            if a["type"] == "exam" and a["submission_status"] == "not_submitted":
+                final_exam_assignment_id = a["id"]
+                break
+    if not final_exam_assignment_id:
+        # Last resort: any exam
         for a in assignments:
             if a["type"] == "exam":
                 final_exam_assignment_id = a["id"]
@@ -1425,6 +1571,19 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 )
                 if unsub:
                     worst_category_assignment_id = unsub["id"]
+                else:
+                    # Fallback: search across all enrolled courses for a
+                    # not_submitted assignment in the same worst category
+                    enrolled_cids = {e["course_id"] for e in ctx.base.get("enrollments", [])}
+                    unsub_any = next(
+                        (a for a in assignments
+                         if a["course_id"] in enrolled_cids
+                         and a["weight_category"] == worst_cat
+                         and a["submission_status"] == "not_submitted"),
+                        None,
+                    )
+                    if unsub_any:
+                        worst_category_assignment_id = unsub_any["id"]
 
     # ── impossible/achievable course IDs (computed with grade data) ──
     impossible_course_ids: list[str] = []
@@ -1432,14 +1591,9 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
     impossible_b_course_ids: list[str] = []
     next_unsubmitted_ids: list[str] = []
 
-    for c in courses:
-        cid = c["id"]
-        gp = c["syllabus"]["grading_policy"]
+    def _compute_need(cid: str, gp: dict) -> tuple[Decimal, Decimal, Decimal]:
+        """Return (need, tw, xc) for a course. need=Decimal('inf') if xc==0."""
         rem = [a for a in assignments if a["course_id"] == cid and a["score"] is None]
-        if not rem:
-            achievable_course_ids.append(cid)
-            continue
-
         t_pct = Decimal("80")
         tw = Decimal("0")
         fp = Decimal("0")
@@ -1461,21 +1615,80 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             dn = Decimal(str(n))
             fp += w * ss / dn
             xc += w * Decimal(str(len(rc))) / dn
+        if tw > 0 and xc > 0:
+            need = (Decimal("80") * tw - fp) / xc
+        else:
+            need = Decimal("0")  # no remaining → achievable
+        return need, tw, xc
+
+    for c in courses:
+        cid = c["id"]
+        gp = c["syllabus"]["grading_policy"]
+        rem = [a for a in assignments if a["course_id"] == cid and a["score"] is None]
+        if not rem:
+            achievable_course_ids.append(cid)
+            continue
+
+        need, tw, xc = _compute_need(cid, gp)
 
         if tw > 0 and xc > 0:
-            need = (t_pct * tw - fp) / xc
             if need > Decimal("100"):
                 impossible_course_ids.append(cid)
                 impossible_b_course_ids.append(cid)
             else:
                 achievable_course_ids.append(cid)
+                # Only add next unsubmitted for achievable courses
+                nu = next((a for a in assignments if a["course_id"] == cid and a["submission_status"] == "not_submitted"), None)
+                if nu:
+                    next_unsubmitted_ids.append(nu["id"])
         else:
             achievable_course_ids.append(cid)
+            # Only add next unsubmitted for achievable courses
+            nu = next((a for a in assignments if a["course_id"] == cid and a["submission_status"] == "not_submitted"), None)
+            if nu:
+                next_unsubmitted_ids.append(nu["id"])
 
-        # Next unsubmitted in this course
-        nu = next((a for a in assignments if a["course_id"] == cid and a["submission_status"] == "not_submitted"), None)
-        if nu:
-            next_unsubmitted_ids.append(nu["id"])
+    # ── Guarantee at least 1 impossible course when multiple achievable courses exist ──
+    # The lms_multi_course_thresholds task requires at least 1 impossible course for the
+    # eval check to be satisfiable. If randomness produced all achievable courses, force
+    # the first achievable course (that has remaining assignments) to be impossible by
+    # reducing its existing grade scores to near-zero, making need > 100%.
+    if not impossible_course_ids and len(achievable_course_ids) >= 2:
+        # Find first achievable course with remaining assignments AND existing grades
+        victim_cid = None
+        for cid in achievable_course_ids:
+            rem = [a for a in assignments if a["course_id"] == cid and a["score"] is None]
+            cid_grades = [g for g in ctx.base["grades"]
+                          if g["course_id"] == cid and g["score"] is not None and not g["is_dropped"]]
+            if rem and cid_grades:
+                victim_cid = cid
+                break
+        if victim_cid is not None:
+            # Set all active grade scores to 1% of points_possible, making fp ≈ 1%
+            # so need ≈ (80*tw - fp) / xc >> 100 for any course with ≥1 remaining assignment
+            for g in ctx.base["grades"]:
+                if g["course_id"] == victim_cid and not g["is_dropped"]:
+                    pts = Decimal(str(g["points_possible"]))
+                    g["score"] = float((pts * Decimal("0.01")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            # NOTE: Do NOT update assignment["score"] — grade records and assignment
+            # records serve different purposes. grade_book weighted-score computation
+            # uses grade records only. Assignment records' score field is used by
+            # assignment_battery outputs (e.g. most_disputed_assignment_ids) which are
+            # computed before grade_book runs and must reflect realistic scores.
+            # Recompute and reclassify
+            victim_course = next(c for c in courses if c["id"] == victim_cid)
+            gp = victim_course["syllabus"]["grading_policy"]
+            need, tw, xc = _compute_need(victim_cid, gp)
+            # Move from achievable to impossible
+            achievable_course_ids.remove(victim_cid)
+            # Remove from next_unsubmitted_ids if it was added
+            victim_nu = next((a for a in assignments if a["course_id"] == victim_cid and a["submission_status"] == "not_submitted"), None)
+            if victim_nu and victim_nu["id"] in next_unsubmitted_ids:
+                next_unsubmitted_ids.remove(victim_nu["id"])
+            impossible_course_ids.append(victim_cid)
+            impossible_b_course_ids.append(victim_cid)
+            # Update current_weighted_scores for the victim course
+            current_weighted_scores[victim_cid] = "1.00"
 
     # ── priority_order_ids (with grade data) ──
     unsubmitted_all = [a for a in assignments if a["submission_status"] == "not_submitted"]
@@ -1596,11 +1809,17 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             _gb_score_below_70 = "true" if pct < Decimal("0.70") else "false"
 
     # ── unsubmitted_hw_id (forwarded) ──
+    # Prefer homework; fall back to any not_submitted assignment so the target is always set.
     _gb_unsubmitted_hw_id = ""
     for a in assignments:
         if a["submission_status"] == "not_submitted" and a["type"] == "homework":
             _gb_unsubmitted_hw_id = a["id"]
             break
+    if not _gb_unsubmitted_hw_id:
+        for a in assignments:
+            if a["submission_status"] == "not_submitted":
+                _gb_unsubmitted_hw_id = a["id"]
+                break
 
     # ── latest_announcement_id (from announcements if available) ──
     latest_announcement_id = ""

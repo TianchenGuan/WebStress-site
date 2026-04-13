@@ -68,7 +68,7 @@ eval:
       \  if cid.strip()))"
     desc: All courses with impossible targets were dropped
   - expr: "all(\n  state.get_assignment(aid.strip()) is not None\n  and state.get_assignment(aid.strip()).submission_status\
-      \ == 'submitted'\n  and state.get_assignment(aid.strip()).file_name == 'priority_plan.pdf'\n  for aid in '{target.next_unsubmitted_ids}'.split(',')\n\
+      \ in ('submitted', 'late')\n  and state.get_assignment(aid.strip()).file_name == 'priority_plan.pdf'\n  for aid in '{target.next_unsubmitted_ids}'.split(',')\n\
       \  if aid.strip()\n)"
     desc: Next unsubmitted assignment in each achievable course was submitted with priority_plan.pdf
   negative_checks:
@@ -76,7 +76,7 @@ eval:
       \ == 'dropped'\n  for cid in '{target.achievable_course_ids}'.split(',')\n  if cid.strip()\n)"
     desc: No achievable course was dropped
     penalty: 0.5
-  - expr: "not any(\n  a.submission_status == 'submitted'\n  and a.file_name == 'priority_plan.pdf'\n  and a.course_id in\
+  - expr: "not any(\n  a.submission_status in ('submitted', 'late')\n  and a.file_name == 'priority_plan.pdf'\n  and a.course_id in\
       \ [cid.strip() for cid in '{target.impossible_course_ids}'.split(',')]\n  for a in state.assignments\n)"
     desc: No submission made in impossible courses
     penalty: 0.3
