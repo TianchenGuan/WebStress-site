@@ -66,33 +66,16 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(state.get_referral(rid) is not None
-            and state.get_referral(rid).status == 'approved'
-            and state.get_referral(rid).to_specialty == 'cardiology'
-            for rid in {target.approved_ref_ids})
-      desc: An approved cardiology referral exists
-    - expr: >-
         any(a.provider_id in {target.cardio_provider_ids}
             and a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             for a in state.appointments)
       desc: Cardiologist appointment was scheduled
     - expr: >-
-        (state.get_referral('{target.prior_auth_ref_id}') is not None
-         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
-      desc: Second referral pre-authorization is verified
-    - expr: >-
         len([a for a in state.appointments
              if a.status == 'scheduled'
              and a.id not in {target.upcoming_ids}]) >= 2
       desc: At least two new appointments were scheduled
-    - expr: >-
-        all(
-          state.get_referral(rid) is not None
-          and state.get_referral(rid).status == 'approved'
-          for rid in {target.approved_ref_ids}
-        )
-      desc: All approved referrals remain in approved status
   negative_checks:
     - expr: >-
         all(

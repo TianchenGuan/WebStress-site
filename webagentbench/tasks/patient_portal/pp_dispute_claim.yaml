@@ -76,14 +76,6 @@ eval:
     - expr: >-
         len([c for c in state.claims if c.status == 'appealed']) == 1
       desc: Exactly one claim was appealed
-    - expr: >-
-        all(c.status == 'approved'
-            for c in state.claims
-            if c.id in {target.approved_claim_ids})
-      desc: Approved claims were not modified
-    - expr: >-
-        len(state.claims) >= len({target.approved_claim_ids}) + len({target.denied_claim_ids})
-      desc: No claims were deleted from state
   negative_checks:
     - expr: >-
         not any(c.id in {target.approved_claim_ids}

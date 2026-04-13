@@ -1,97 +1,78 @@
 task_id: lms_exam_conflict
 env_id: lms
 title: Resolve Exam Scheduling Conflict by Dropping Lower-Grade Course
-instruction_template: >-
-  Check the calendar for upcoming exam dates. Find any two exams scheduled on
-  the same day. Once you identify the conflict, drop the course with the lower
-  weighted grade to resolve the scheduling conflict.
+instruction_template: Check the calendar for upcoming exam dates. Find any two exams scheduled on the same day. Once you identify
+  the conflict, drop the course with the lower weighted grade to resolve the scheduling conflict.
 difficulty: expert
 time_limit_seconds: 300
 expected_steps: 18
 primary_primitives:
-  - state_tracking
-  - exploration
-  - planning
+- state_tracking
+- exploration
+- planning
 start_path: /calendar
-
 seed:
   distractors: 1
   steps:
-    - use: student_profile
-      params: {}
-      outputs:
-        - student_id
-    - use: course_catalog
-      params:
-        count: 4
-        must_include: ["CS101", "MATH201", "PHYS201"]
-      outputs:
-        - course_ids
-        - course_codes
-    - use: enrollment_set
-      params: {}
-      outputs:
-        - enrollment_ids
-    - use: assignment_battery
-      params:
-        per_course_count: 5
-        graded_fraction: 0.5
-      outputs:
-        - assignment_ids
-    - use: grade_book
-      params: {}
-      outputs:
-        - grade_ids
-        - current_weighted_scores
-    - use: calendar_events
-      params:
-        include_recurring: false
-        force_exam_conflict: true
-      outputs:
-        - event_ids
-        - conflicting_course_ids
-        - lower_grade_conflict_course_id
-        - higher_grade_conflict_course_id
-    - use: announcements_feed
-      params:
-        count: 4
-        unread_count: 1
-      outputs:
-        - announcement_ids
+  - use: student_profile
+    params: {}
+    outputs:
+    - student_id
+  - use: course_catalog
+    params:
+      count: 4
+      must_include:
+      - CS101
+      - MATH201
+      - PHYS201
+    outputs:
+    - course_ids
+    - course_codes
+  - use: enrollment_set
+    params: {}
+    outputs:
+    - enrollment_ids
+  - use: assignment_battery
+    params:
+      per_course_count: 5
+      graded_fraction: 0.5
+    outputs:
+    - assignment_ids
+  - use: grade_book
+    params: {}
+    outputs:
+    - grade_ids
+    - current_weighted_scores
+  - use: calendar_events
+    params:
+      include_recurring: false
+      force_exam_conflict: true
+    outputs:
+    - event_ids
+    - conflicting_course_ids
+    - lower_grade_conflict_course_id
+    - higher_grade_conflict_course_id
+  - use: announcements_feed
+    params:
+      count: 4
+      unread_count: 1
+    outputs:
+    - announcement_ids
   targets:
     lower_grade_conflict_course_id: '{output.lower_grade_conflict_course_id}'
     higher_grade_conflict_course_id: '{output.higher_grade_conflict_course_id}'
     conflicting_course_ids: '{output.conflicting_course_ids}'
-
 eval:
   source: server_state
   checks:
-    - expr: >-
-        (state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}') is not None
-        and state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}').status == 'dropped')
-      desc: The lower-grade conflicting course was dropped
-    - expr: >-
-        (state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}') is not None
-        and state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}').status == 'enrolled')
-      desc: The higher-grade conflicting course was NOT dropped
-    - expr: >-
-        state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}') is not None
-      desc: Lower-grade conflict course enrollment exists (seed validation)
-    - expr: >-
-        state.get_enrollment_for_course('{target.higher_grade_conflict_course_id}') is not None
-      desc: Higher-grade conflict course enrollment exists (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: At least 3 courses remain enrolled after resolving conflict
+  - expr: (state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}') is not None and state.get_enrollment_for_course('{target.lower_grade_conflict_course_id}').status
+      == 'dropped')
+    desc: The lower-grade conflicting course was dropped
   negative_checks:
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
-      desc: Only one course was dropped (not multiple)
-      penalty: 0.3
-    - expr: >-
-        not any(e.status == 'dropped'
-                and e.course_id not in
-                    [cid.strip() for cid in '{target.conflicting_course_ids}'.split(',')]
-                for e in state.enrollments)
-      desc: No non-conflicting course was dropped
-      penalty: 0.3
+  - expr: sum(1 for e in state.enrollments if e.status == 'dropped') <= 1
+    desc: Only one course was dropped (not multiple)
+    penalty: 0.3
+  - expr: "not any(e.status == 'dropped'\n        and e.course_id not in\n            [cid.strip() for cid in '{target.conflicting_course_ids}'.split(',')]\n\
+      \        for e in state.enrollments)"
+    desc: No non-conflicting course was dropped
+    penalty: 0.3

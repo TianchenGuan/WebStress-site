@@ -73,9 +73,6 @@ eval:
       desc: At least one project submission was made
     - expr: all(a.is_read for a in state.announcements)
       desc: All announcements are marked as read
-    - expr: >-
-        len('{target.unsubmitted_project_ids}'.split(',')) >= 1
-      desc: At least one unsubmitted project exists (seed validation)
   negative_checks:
     - expr: >-
         not any(a.submission_status in ('submitted', 'late')

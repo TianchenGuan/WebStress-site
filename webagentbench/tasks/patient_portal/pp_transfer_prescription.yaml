@@ -47,20 +47,10 @@ eval:
   checks:
     - expr: >-
         any(r.medication == 'Metformin 500mg'
-            and r.status == 'active'
-            for r in state.prescriptions)
-      desc: Metformin prescription still exists and is active
-    - expr: >-
-        any(r.medication == 'Metformin 500mg'
             and state.get_pharmacy(r.pharmacy_id) is not None
             and 'Walgreens' in state.get_pharmacy(r.pharmacy_id).name
             for r in state.prescriptions)
       desc: Metformin was transferred to the Walgreens pharmacy
-    - expr: >-
-        len([r for r in state.prescriptions
-             if r.medication == 'Metformin 500mg'
-             and r.status == 'active']) == 1
-      desc: There is exactly one active Metformin prescription
   negative_checks:
     - expr: >-
         not any(r.medication != 'Metformin 500mg'

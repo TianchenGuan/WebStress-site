@@ -72,9 +72,6 @@ eval:
       desc: >-
         Submit late_submit.pdf if max_late_days > 3, or mark latest
         announcement as read if 3 or fewer late days
-    - expr: >-
-        state.get_assignment('{target.overdue_assignment_id}') is not None
-      desc: Overdue assignment exists (seed validation)
   negative_checks:
     - expr: >-
         '{target.allows_late_submit}' != 'true'

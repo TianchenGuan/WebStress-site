@@ -79,18 +79,6 @@ eval:
       desc: >-
         Mark all announcements read if GPA stays above 3.0, or drop lowest
         course if GPA would drop below 3.0
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: At least 3 courses remain enrolled
-    - expr: >-
-        state.get_enrollment_for_course('{target.lowest_performing_course_id}') is not None
-      desc: Lowest-performing course enrollment exists (seed validation)
-    - expr: >-
-        state.weighted_score_for_course('{target.lowest_performing_course_id}') is not None
-      desc: Lowest-performing course has graded assignments (seed validation)
-    - expr: >-
-        len(state.announcements) >= 1
-      desc: Announcements exist for review (seed validation)
   negative_checks:
     - expr: >-
         '{target.can_add_course}' != 'true'

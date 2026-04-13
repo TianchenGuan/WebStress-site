@@ -66,9 +66,6 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        len('{target.courses_with_upcoming_exams}'.split(',')) >= 1
-      desc: At least one course has an upcoming exam (seed validation)
-    - expr: >-
         all(
             all(a.is_read for a in state.announcements
                 if a.course_id == cid)
@@ -76,9 +73,6 @@ eval:
             if cid.strip()
         )
       desc: All announcements for courses with upcoming exams are marked as read
-    - expr: >-
-        len(state.announcements) >= 1
-      desc: Announcements exist for review (seed validation)
   negative_checks:
     - expr: >-
         (len([cid for cid in '{target.courses_without_upcoming_exams}'.split(',') if cid.strip()]) == 0

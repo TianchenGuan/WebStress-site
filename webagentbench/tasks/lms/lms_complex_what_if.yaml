@@ -64,19 +64,6 @@ eval:
         and state.get_assignment('{target.highest_weight_ungraded_id}').submission_status == 'submitted'
         and state.get_assignment('{target.highest_weight_ungraded_id}').file_name == 'priority_submission.pdf'
       desc: Highest-weight ungraded assignment submitted with priority_submission.pdf
-    - expr: >-
-        state.get_assignment('{target.highest_weight_ungraded_id}') is not None
-        and state.get_assignment('{target.highest_weight_ungraded_id}').course_id == '{target.target_course_id}'
-      desc: Submitted assignment belongs to the target course (seed validation)
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments for what-if computation (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: All enrollments remain active during analysis
-    - expr: >-
-        state.get_assignment('{target.highest_weight_ungraded_id}') is not None
-      desc: Target highest-weight ungraded assignment exists (seed validation)
   negative_checks:
     - expr: >-
         not any(

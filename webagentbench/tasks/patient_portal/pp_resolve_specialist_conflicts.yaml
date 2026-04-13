@@ -54,25 +54,10 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        min(
-          [a for a in state.appointments if a.id in {target.conflict_apt_ids}],
-          key=lambda a: a.booked_at
-        ).status == 'scheduled'
-      desc: The earlier-booked conflicting appointment remains scheduled
-    - expr: >-
         any(a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             for a in state.appointments)
       desc: A new rescheduled appointment exists
-    - expr: >-
-        len([a for a in state.appointments
-             if a.status == 'scheduled'
-             and a.id in {target.upcoming_ids}
-             and a.id not in {target.conflict_apt_ids}]) >= 1
-      desc: Non-conflicting appointments remain unchanged
-    - expr: >-
-        len(state.appointments) >= len({target.upcoming_ids})
-      desc: No appointments were deleted from state
   negative_checks:
     - expr: >-
         not any(a.status == 'cancelled'

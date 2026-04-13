@@ -74,15 +74,6 @@ eval:
       desc: >-
         Resubmit most impactful assignment with grade_verification.pdf if
         discrepancy exists, or mark latest announcement read if no discrepancy
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments for verification (seed validation)
-    - expr: >-
-        state.get_assignment('{target.most_impactful_graded_id}') is not None
-      desc: Target impactful assignment exists (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: All enrollments remain active during investigation
   negative_checks:
     - expr: >-
         '{target.has_discrepancy}' != 'true'

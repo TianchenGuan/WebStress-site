@@ -1,85 +1,68 @@
 task_id: lms_find_missing_assignments
 env_id: lms
 title: Find and Submit Recoverable Missing Assignments
-instruction_template: >-
-  Check all your courses and find every assignment that is past due and not
-  submitted. Submit all recoverable missing assignments — those where the late
-  penalty would still leave a positive score (i.e., not past the maximum late
-  days) — with file "late_recovery.pdf". Do NOT submit assignments that are
-  past the maximum late days.
+instruction_template: Check all your courses and find every assignment that is past due and not submitted. Submit all recoverable
+  missing assignments — those where the late penalty would still leave a positive score (i.e., not past the maximum late days)
+  — with file "late_recovery.pdf". Do NOT submit assignments that are past the maximum late days.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 12
 primary_primitives:
-  - state_tracking
-  - exploration
+- state_tracking
+- exploration
 start_path: /
-
 seed:
   distractors: 2
   steps:
-    - use: student_profile
-      params: {}
-      outputs:
-        - student_id
-    - use: course_catalog
-      params:
-        count: 4
-        must_include: ["CS101", "MATH201", "ENG102"]
-        vary_late_policies: true
-      outputs:
-        - course_ids
-        - course_codes
-    - use: enrollment_set
-      params: {}
-      outputs:
-        - enrollment_ids
-    - use: assignment_battery
-      params:
-        per_course_count: 6
-        graded_fraction: 0.4
-        missing_count: 3
-      outputs:
-        - assignment_ids
-        - missing_assignment_ids
-        - recoverable_assignment_ids
-        - unrecoverable_assignment_ids
+  - use: student_profile
+    params: {}
+    outputs:
+    - student_id
+  - use: course_catalog
+    params:
+      count: 4
+      must_include:
+      - CS101
+      - MATH201
+      - ENG102
+      vary_late_policies: true
+    outputs:
+    - course_ids
+    - course_codes
+  - use: enrollment_set
+    params: {}
+    outputs:
+    - enrollment_ids
+  - use: assignment_battery
+    params:
+      per_course_count: 6
+      graded_fraction: 0.4
+      missing_count: 3
+    outputs:
+    - assignment_ids
+    - missing_assignment_ids
+    - recoverable_assignment_ids
+    - unrecoverable_assignment_ids
   targets:
     recoverable_assignment_ids: '{output.recoverable_assignment_ids}'
     unrecoverable_assignment_ids: '{output.unrecoverable_assignment_ids}'
     missing_assignment_ids: '{output.missing_assignment_ids}'
-
 eval:
   source: server_state
   checks:
-    - expr: >-
-        len('{target.recoverable_assignment_ids}'.split(',')) >= 1
-      desc: Recoverable assignments exist (seed validation)
-    - expr: >-
-        all(
-            state.get_assignment(aid) is not None
-            and state.get_assignment(aid).submission_status in ('submitted', 'late')
-            and state.get_assignment(aid).file_name == 'late_recovery.pdf'
-            for aid in '{target.recoverable_assignment_ids}'.split(',')
-            if aid.strip()
-        )
-      desc: All recoverable missing assignments were submitted with correct file
-    - expr: >-
-        len([a for a in state.assignments
-             if a.file_name == 'late_recovery.pdf'
-             and a.submission_status in ('submitted', 'late')]) >= 1
-      desc: At least one late recovery submission was made
+  - expr: "(len([aid.strip() for aid in '{target.recoverable_assignment_ids}'.split(',') if aid.strip()]) >= 1\nand all(\n\
+      \  state.get_assignment(aid.strip()) is not None\n  and state.get_assignment(aid.strip()).submission_status in ('submitted',\
+      \ 'late')\n  and state.get_assignment(aid.strip()).file_name == 'late_recovery.pdf'\n  for aid in '{target.recoverable_assignment_ids}'.split(',')\n\
+      \  if aid.strip()))"
+    desc: All recoverable missing assignments were submitted with correct file
+  - expr: "len([a for a in state.assignments\n     if a.file_name == 'late_recovery.pdf'\n     and a.submission_status in\
+      \ ('submitted', 'late')]) >= 1"
+    desc: At least one late recovery submission was made
   negative_checks:
-    - expr: >-
-        not any(
-            state.get_assignment(aid) is not None
-            and state.get_assignment(aid).submission_status in ('submitted', 'late')
-            for aid in '{target.unrecoverable_assignment_ids}'.split(',')
-            if aid.strip()
-        )
-      desc: No unrecoverable (past max late days) assignments were submitted
-      penalty: 0.3
-    - expr: >-
-        all(e.status != 'dropped' for e in state.enrollments)
-      desc: No courses were dropped
-      penalty: 0.2
+  - expr: "not any(\n    state.get_assignment(aid) is not None\n    and state.get_assignment(aid).submission_status in ('submitted',\
+      \ 'late')\n    for aid in '{target.unrecoverable_assignment_ids}'.split(',')\n    if aid.strip()\n)"
+    desc: No unrecoverable (past max late days) assignments were submitted
+    penalty: 0.3
+  - expr: all(e.status != 'dropped' for e in state.enrollments)
+    desc: No courses were dropped
+    penalty: 0.2

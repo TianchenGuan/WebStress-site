@@ -59,14 +59,6 @@ eval:
              and a.id not in {target.upcoming_ids}]) >= 1
       desc: At least one new appointment was scheduled for immunizations
     - expr: >-
-        len(state.immunizations) >= len({target.completed_imm_ids}) + len({target.due_imm_ids})
-      desc: All immunization records are preserved in state
-    - expr: >-
-        all(i.id in {target.due_imm_ids}
-            or i.id in {target.completed_imm_ids}
-            for i in state.immunizations)
-      desc: No immunization records were deleted or corrupted
-    - expr: >-
         (len([a for a in state.appointments
              if a.status == 'scheduled'
              and a.id not in {target.upcoming_ids}]) >= len({target.due_imm_ids})

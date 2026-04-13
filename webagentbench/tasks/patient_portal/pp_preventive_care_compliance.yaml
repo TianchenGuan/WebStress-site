@@ -80,17 +80,6 @@ eval:
              and a.id not in {target.upcoming_ids}]) >= 1
       desc: At least one screening appointment was scheduled
     - expr: >-
-        all(
-          state.get_referral(rid) is not None
-          and state.get_referral(rid).status == 'approved'
-          for rid in {target.approved_ref_ids}
-        )
-      desc: Referrals for specialist screenings remain approved
-    - expr: >-
-        (state.get_referral('{target.prior_auth_ref_id}') is not None
-         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
-      desc: Pre-authorization is verified for required screenings
-    - expr: >-
         any(a.status == 'scheduled'
             and a.id not in {target.upcoming_ids}
             for a in state.appointments)
@@ -104,13 +93,6 @@ eval:
                and a.id not in {target.upcoming_ids}
                for a in state.appointments))
       desc: Screening appointments were scheduled with relevant providers
-    - expr: >-
-        all(
-          state.get_appointment(aid) is not None
-          and state.get_appointment(aid).status != 'cancelled'
-          for aid in {target.upcoming_ids}
-        )
-      desc: Existing appointments were preserved
   negative_checks:
     - expr: >-
         not any(

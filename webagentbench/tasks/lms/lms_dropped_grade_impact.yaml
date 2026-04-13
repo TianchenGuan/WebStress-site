@@ -71,15 +71,6 @@ eval:
       desc: >-
         Resubmit lowest homework with improvement.pdf if drop impact > 3 points,
         or mark latest announcement as read if impact <= 3 points
-    - expr: >-
-        len(state.dropped_grades_for_category('{target.target_course_id}', 'homework')) >= 1
-      desc: There are grades eligible for dropping (seed validation)
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Weighted score is computable (seed validation)
-    - expr: >-
-        state.get_assignment('{target.lowest_hw_id}') is not None
-      desc: Lowest homework assignment exists (seed validation)
   negative_checks:
     - expr: >-
         '{target.drop_impact_above_3}' != 'true'

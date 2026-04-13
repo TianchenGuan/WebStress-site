@@ -96,15 +96,6 @@ eval:
             and len(p.body.strip()) > 10
             for p in state.discussion_posts)
       desc: A dispute notice was posted in the course discussion forum
-    - expr: >-
-        len('{target.most_disputed_assignment_ids}'.split(',')) >= 2
-      desc: At least two disputed assignments identified (seed validation)
-    - expr: >-
-        state.get_assignment('{target.most_disputed_assignment_ids}'.split(',')[0].strip()) is not None
-      desc: First disputed assignment exists (seed validation)
-    - expr: >-
-        state.get_assignment('{target.most_disputed_assignment_ids}'.split(',')[1].strip()) is not None
-      desc: Second disputed assignment exists (seed validation)
   negative_checks:
     - expr: >-
         (state.get_assignment('{target.decoy_assignment_id}') is None

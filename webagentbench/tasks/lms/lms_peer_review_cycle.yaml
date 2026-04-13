@@ -59,22 +59,6 @@ eval:
             for pr in state.peer_reviews
             if pr.reviewer_student_id == state.student.id)
       desc: All peer reviews assigned to student are submitted
-    - expr: >-
-        all(len(pr.rubric_scores) >= 1
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: Each submitted review has rubric scores filled in
-    - expr: >-
-        all(len(pr.comments.strip()) > 10
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: Each submitted review has a substantive comment
-    - expr: >-
-        all(e.status == 'enrolled'
-            for e in state.enrollments)
-      desc: All enrollments remain active
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

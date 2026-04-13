@@ -46,10 +46,6 @@ eval:
         state.get_announcement('{target.urgent_announcement_id}') is not None
         and state.get_announcement('{target.urgent_announcement_id}').is_read == True
       desc: Urgent announcement is marked as read
-    - expr: >-
-        state.get_announcement('{target.urgent_announcement_id}') is not None
-        and state.get_announcement('{target.urgent_announcement_id}').priority == 'urgent'
-      desc: The marked announcement was indeed the urgent one
   negative_checks:
     - expr: >-
         (sum(1 for a in state.announcements

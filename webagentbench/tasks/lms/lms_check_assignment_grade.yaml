@@ -76,10 +76,6 @@ eval:
       desc: >-
         Submit improvement.pdf if score < 70%, or mark latest
         announcement as read if >= 70%
-    - expr: >-
-        state.get_assignment('{target.target_assignment_id}') is not None
-        and state.get_assignment('{target.target_assignment_id}').score is not None
-      desc: Assignment exists and is graded (seed validation)
   negative_checks:
     - expr: >-
         '{target.score_below_70}' != 'false'

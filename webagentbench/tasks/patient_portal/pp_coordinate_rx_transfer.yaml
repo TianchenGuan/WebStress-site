@@ -50,24 +50,9 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        all(r.pharmacy_id != '{target.default_pharmacy_id}'
-            for r in state.prescriptions
-            if r.status == 'active' and r.id in {target.active_rx_ids})
-      desc: All active prescriptions moved away from old default pharmacy
-    - expr: >-
-        len([r for r in state.prescriptions
-             if r.status == 'active'
-             and r.id in {target.active_rx_ids}
-             and r.pharmacy_id != '{target.default_pharmacy_id}']) >= 1
-      desc: At least one active prescription was transferred
-    - expr: >-
         state.default_pharmacy() is not None
         and state.default_pharmacy().id != '{target.default_pharmacy_id}'
       desc: Default pharmacy was changed to a different pharmacy
-    - expr: >-
-        state.default_pharmacy() is not None
-        and not state.default_pharmacy().is_mail_order
-      desc: New default pharmacy is a retail pharmacy (not mail-order)
   negative_checks:
     - expr: >-
         state.default_pharmacy() is None

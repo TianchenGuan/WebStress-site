@@ -93,15 +93,6 @@ eval:
                      if a.file_name == 'improvement_plan.pdf'
                      and a.submission_status in ('submitted', 'late')]) >= 1))
       desc: Correct action taken based on GPA risk analysis
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: All enrollments remain active during analysis
-    - expr: >-
-        len(state.announcements) >= 1
-      desc: Announcements exist for review (seed validation)
-    - expr: >-
-        len('{target.improvement_assignment_ids}'.split(',')) >= 1
-      desc: At least one improvement assignment identified (seed validation)
   negative_checks:
     - expr: >-
         all(e.status != 'dropped' for e in state.enrollments)

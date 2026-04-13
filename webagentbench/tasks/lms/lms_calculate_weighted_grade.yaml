@@ -72,12 +72,6 @@ eval:
       desc: >-
         Correct conditional action taken: resubmit with grade_dispute.pdf if
         discrepancy exists, or mark latest announcement as read if no discrepancy
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments (seed validation)
-    - expr: >-
-        state.get_assignment('{target.most_recent_graded_id}') is not None
-      desc: Target assignment exists (seed validation)
   negative_checks:
     - expr: >-
         '{target.has_discrepancy}' != 'true'

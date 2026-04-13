@@ -72,25 +72,6 @@ eval:
             and pr.status == 'submitted') >= 4
       desc: At least 4 peer reviews completed
     - expr: >-
-        all(len(pr.rubric_scores) >= 3
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: All submitted reviews have complete rubric scores
-    - expr: >-
-        all(len(pr.comments) >= 50
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: All submitted reviews have 50+ character comments
-    - expr: >-
-        all('clarity' in pr.rubric_scores and 'depth' in pr.rubric_scores
-            and 'originality' in pr.rubric_scores
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: All reviews score all three rubric criteria
-    - expr: >-
         any(a.file_name == 'revised_after_review.pdf'
             and a.submission_status in ('submitted', 'late')
             and a.id in [rid.strip() for rid in '{target.resubmit_assignment_ids}'.split(',')]

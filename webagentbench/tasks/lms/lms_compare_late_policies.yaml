@@ -57,16 +57,6 @@ eval:
         and state.get_assignment('{target.missing_assignment_id}').submission_status == 'submitted'
         and state.get_assignment('{target.missing_assignment_id}').file_name == 'late_recovery.pdf'
       desc: Missing assignment in the most lenient course was submitted with late_recovery.pdf
-    - expr: >-
-        state.get_assignment('{target.missing_assignment_id}') is not None
-        and state.get_assignment('{target.missing_assignment_id}').course_id == '{target.most_lenient_course_id}'
-      desc: Submitted assignment belongs to the most lenient course (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: All enrollments remain active (seed validation)
-    - expr: >-
-        state.get_assignment('{target.missing_assignment_id}') is not None
-      desc: Target missing assignment exists (seed validation)
   negative_checks:
     - expr: >-
         not any(

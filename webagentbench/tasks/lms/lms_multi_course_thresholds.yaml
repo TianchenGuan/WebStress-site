@@ -1,113 +1,82 @@
 task_id: lms_multi_course_thresholds
 env_id: lms
 title: Multi-Course Grade Threshold Planning
-instruction_template: >-
-  Determine the minimum average score needed on remaining assignments to
-  achieve: B (80%) in {target.course_code_1}, A (90%) in
-  {target.course_code_2}, C (70%) in {target.course_code_3}. For any course
-  where the target is impossible (requires more than 100% on remaining
-  assignments), drop that course. For each achievable course, submit
-  'priority_plan.pdf' for the next unsubmitted assignment.
+instruction_template: 'Determine the minimum average score needed on remaining assignments to achieve: B (80%) in {target.course_code_1},
+  A (90%) in {target.course_code_2}, C (70%) in {target.course_code_3}. For any course where the target is impossible (requires
+  more than 100% on remaining assignments), drop that course. For each achievable course, submit ''priority_plan.pdf'' for
+  the next unsubmitted assignment.'
 difficulty: expert
 time_limit_seconds: 420
 expected_steps: 25
 primary_primitives:
-  - state_tracking
-  - verification
-  - planning
+- state_tracking
+- verification
+- planning
 start_path: /dashboard
-
 seed:
   distractors: 1
   steps:
-    - use: student_profile
-      params:
-        gpa: "2.90"
-      outputs:
-        - student_id
-        - advisor_name
-    - use: course_catalog
-      params:
-        count: 4
-        must_include: ["CS101", "MATH201", "ENG102"]
-        vary_late_policies: true
-      outputs:
-        - course_ids
-        - course_codes
-    - use: enrollment_set
-      params: {}
-      outputs:
-        - enrollment_ids
-    - use: assignment_battery
-      params:
-        per_course_count: 7
-        graded_fraction: 0.5
-        late_count: 1
-      outputs:
-        - assignment_ids
-    - use: grade_book
-      params: {}
-      outputs:
-        - grade_ids
-        - current_weighted_scores
-        - minimum_final_score_for_b
-        - impossible_course_ids
-        - achievable_course_ids
-        - next_unsubmitted_ids
+  - use: student_profile
+    params:
+      gpa: '2.90'
+    outputs:
+    - student_id
+    - advisor_name
+  - use: course_catalog
+    params:
+      count: 4
+      must_include:
+      - CS101
+      - MATH201
+      - ENG102
+      vary_late_policies: true
+    outputs:
+    - course_ids
+    - course_codes
+  - use: enrollment_set
+    params: {}
+    outputs:
+    - enrollment_ids
+  - use: assignment_battery
+    params:
+      per_course_count: 7
+      graded_fraction: 0.5
+      late_count: 1
+    outputs:
+    - assignment_ids
+  - use: grade_book
+    params: {}
+    outputs:
+    - grade_ids
+    - current_weighted_scores
+    - minimum_final_score_for_b
+    - impossible_course_ids
+    - achievable_course_ids
+    - next_unsubmitted_ids
   targets:
-    course_code_1: "CS101"
-    course_code_2: "MATH201"
-    course_code_3: "ENG102"
+    course_code_1: CS101
+    course_code_2: MATH201
+    course_code_3: ENG102
     impossible_course_ids: '{output.impossible_course_ids}'
     achievable_course_ids: '{output.achievable_course_ids}'
     next_unsubmitted_ids: '{output.next_unsubmitted_ids}'
-
 eval:
   source: server_state
   checks:
-    - expr: >-
-        all(
-          state.get_enrollment_for_course(cid.strip()) is not None
-          and state.get_enrollment_for_course(cid.strip()).status == 'dropped'
-          for cid in '{target.impossible_course_ids}'.split(',')
-          if cid.strip()
-        )
-      desc: All courses with impossible targets were dropped
-    - expr: >-
-        all(
-          state.get_assignment(aid.strip()) is not None
-          and state.get_assignment(aid.strip()).submission_status == 'submitted'
-          and state.get_assignment(aid.strip()).file_name == 'priority_plan.pdf'
-          for aid in '{target.next_unsubmitted_ids}'.split(',')
-          if aid.strip()
-        )
-      desc: Next unsubmitted assignment in each achievable course was submitted with priority_plan.pdf
-    - expr: >-
-        len('{target.impossible_course_ids}') >= 1
-        or len('{target.achievable_course_ids}') >= 1
-      desc: Impossible and achievable course lists are defined (seed validation)
-    - expr: >-
-        len([c for c in '{target.achievable_course_ids}'.split(',') if c.strip()]) >= 1
-      desc: At least one achievable course exists (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 2
-      desc: At least 2 courses remain enrolled after dropping impossible ones
+  - expr: "(len([cid.strip() for cid in '{target.impossible_course_ids}'.split(',') if cid.strip()]) >= 1\nand all(\n  state.get_enrollment_for_course(cid.strip())\
+      \ is not None\n  and state.get_enrollment_for_course(cid.strip()).status == 'dropped'\n  for cid in '{target.impossible_course_ids}'.split(',')\n\
+      \  if cid.strip()))"
+    desc: All courses with impossible targets were dropped
+  - expr: "all(\n  state.get_assignment(aid.strip()) is not None\n  and state.get_assignment(aid.strip()).submission_status\
+      \ == 'submitted'\n  and state.get_assignment(aid.strip()).file_name == 'priority_plan.pdf'\n  for aid in '{target.next_unsubmitted_ids}'.split(',')\n\
+      \  if aid.strip()\n)"
+    desc: Next unsubmitted assignment in each achievable course was submitted with priority_plan.pdf
   negative_checks:
-    - expr: >-
-        not any(
-          state.get_enrollment_for_course(cid.strip()) is not None
-          and state.get_enrollment_for_course(cid.strip()).status == 'dropped'
-          for cid in '{target.achievable_course_ids}'.split(',')
-          if cid.strip()
-        )
-      desc: No achievable course was dropped
-      penalty: 0.5
-    - expr: >-
-        not any(
-          a.submission_status == 'submitted'
-          and a.file_name == 'priority_plan.pdf'
-          and a.course_id in [cid.strip() for cid in '{target.impossible_course_ids}'.split(',')]
-          for a in state.assignments
-        )
-      desc: No submission made in impossible courses
-      penalty: 0.3
+  - expr: "not any(\n  state.get_enrollment_for_course(cid.strip()) is not None\n  and state.get_enrollment_for_course(cid.strip()).status\
+      \ == 'dropped'\n  for cid in '{target.achievable_course_ids}'.split(',')\n  if cid.strip()\n)"
+    desc: No achievable course was dropped
+    penalty: 0.5
+  - expr: "not any(\n  a.submission_status == 'submitted'\n  and a.file_name == 'priority_plan.pdf'\n  and a.course_id in\
+      \ [cid.strip() for cid in '{target.impossible_course_ids}'.split(',')]\n  for a in state.assignments\n)"
+    desc: No submission made in impossible courses
+    penalty: 0.3

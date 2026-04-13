@@ -73,15 +73,6 @@ eval:
       desc: >-
         Submit study_plan.pdf for final exam if B is achievable, or drop the
         course if required score exceeds 100
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments for computation (seed validation)
-    - expr: >-
-        state.get_assignment('{target.final_exam_assignment_id}') is not None
-      desc: Final exam assignment exists (seed validation)
-    - expr: >-
-        state.get_enrollment_for_course('{target.target_course_id}') is not None
-      desc: Target course enrollment exists (seed validation)
   negative_checks:
     - expr: >-
         '{target.min_score_achievable}' != 'true'

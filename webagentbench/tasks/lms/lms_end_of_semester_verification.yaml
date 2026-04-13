@@ -80,15 +80,6 @@ eval:
       desc: All announcements are marked as read
     - expr: len(state.unread_announcements()) == 0
       desc: No unread announcements remain
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: At least 3 enrollments remain active
-    - expr: >-
-        len(state.announcements) >= 1
-      desc: Announcements exist for review (seed validation)
-    - expr: >-
-        len('{target.discrepant_resubmit_assignment_ids}'.split(',')) >= 1
-      desc: At least one discrepant assignment identified (seed validation)
   negative_checks:
     - expr: >-
         not any(a.submission_status in ('submitted', 'late')

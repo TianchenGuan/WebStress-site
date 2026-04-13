@@ -67,27 +67,12 @@ seed:
 eval:
   source: server_state
   checks:
-    - expr: >-
-        any(e.status == 'waitlisted'
-            for e in state.enrollments)
-      desc: Waitlisted enrollment was identified (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments
-            if e.status == 'dropped') <= 1
-      desc: At most one course was dropped during strategy evaluation
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a decision message
     - expr: >-
         any('{target.advisor_name}' in m.get('to', '')
             for m in state.sent_messages)
       desc: Message addressed to advisor
-    - expr: >-
-        sum(1 for e in state.enrollments
-            if e.status in ('enrolled', 'waitlisted')) >= 4
-      desc: At least 4 enrollments exist across enrolled and waitlisted (seed integrity)
-    - expr: >-
-        len(state.assignments) >= 5
-      desc: Assignment state preserved across all courses (seed integrity)
   negative_checks:
     - expr: >-
         sum(1 for e in state.enrollments if e.status == 'dropped') <= 1

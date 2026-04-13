@@ -80,15 +80,6 @@ eval:
       desc: >-
         Submit letter_grade_report.pdf for lowest homework if drop changes
         letter grade, or mark latest announcement as read if it does not
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Weighted score is computable (seed validation)
-    - expr: >-
-        state.get_assignment('{target.lowest_hw_id}') is not None
-      desc: Lowest homework assignment exists (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 3
-      desc: All enrollments remain active during analysis
   negative_checks:
     - expr: >-
         '{target.drop_changes_letter}' != 'false'

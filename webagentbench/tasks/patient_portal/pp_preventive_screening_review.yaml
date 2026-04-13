@@ -70,12 +70,6 @@ eval:
           for m in state.messages
         )
       desc: PCP message lists every overdue screening
-    - expr: >-
-        len(state.patient.applicable_screenings) >= 1
-      desc: Patient still has applicable screenings data
-    - expr: >-
-        state.patient.pcp_id == '{target.pcp_id}'
-      desc: PCP assignment was not modified
   negative_checks:
     - expr: >-
         not any(

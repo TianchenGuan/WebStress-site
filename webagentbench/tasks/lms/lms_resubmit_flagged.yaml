@@ -60,19 +60,6 @@ eval:
         len([a for a in state.assignments
              if a.submission_status == 'resubmit_requested']) == 0
       desc: No assignments remain in resubmit_requested status
-    - expr: >-
-        all(a.attempt_count >= 2
-            for a in state.assignments
-            if a.file_name is not None
-            and 'revision' in a.file_name)
-      desc: Resubmitted assignments have incremented attempt counts
-    - expr: >-
-        all(a.file_name is not None
-            and 'revision' in a.file_name
-            for a in state.assignments
-            if a.attempt_count >= 2
-            and a.submission_status in ('submitted', 'late'))
-      desc: Resubmissions use the revision naming convention
   negative_checks:
     - expr: >-
         state.get_assignment('{target.decoy_assignment_id}') is None

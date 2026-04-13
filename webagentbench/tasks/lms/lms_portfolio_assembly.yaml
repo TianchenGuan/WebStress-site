@@ -76,22 +76,6 @@ eval:
             and a.submission_status in ('submitted', 'late')
             for a in state.assignments)
       desc: Agent submitted portfolio.pdf file
-    - expr: >-
-        len([a for a in state.assignments
-             if a.score is not None
-             and a.points_possible > 0
-             and float(a.score) / float(a.points_possible) >= 0.8]) >= 3
-      desc: At least 3 graded assignments score above 80% (seed validation)
-    - expr: >-
-        len(set(a.course_id for a in state.assignments
-                if a.score is not None
-                and a.points_possible > 0
-                and float(a.score) / float(a.points_possible) >= 0.8)) >= 2
-      desc: High-scoring assignments span at least 2 courses (seed validation)
-    - expr: >-
-        all(e.status == 'enrolled'
-            for e in state.enrollments)
-      desc: All enrollments remain active
     - expr: len(state.sent_messages) >= 1
       desc: Agent sent a portfolio summary
     - expr: >-

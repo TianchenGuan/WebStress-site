@@ -89,15 +89,6 @@ eval:
             if cid.strip()
         )
       desc: Achievable courses were NOT dropped
-    - expr: >-
-        len('{target.impossible_b_course_ids}'.split(',')) >= 1
-      desc: At least one impossible-B course exists (seed validation)
-    - expr: >-
-        len('{target.achievable_course_ids}'.split(',')) >= 1
-      desc: At least one achievable course exists (seed validation)
-    - expr: >-
-        sum(1 for e in state.enrollments if e.status == 'enrolled') >= 2
-      desc: At least 2 courses remain enrolled
   negative_checks:
     - expr: >-
         not any(e.status == 'dropped'

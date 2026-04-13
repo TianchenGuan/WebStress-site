@@ -55,14 +55,6 @@ eval:
         state.get_enrollment_for_course('{target.lower_grade_course_id}') is not None
         and state.get_enrollment_for_course('{target.lower_grade_course_id}').status == 'dropped'
       desc: The course with the lower weighted grade was dropped
-    - expr: >-
-        state.get_course_by_code('CS101') is not None
-        and state.weighted_score_for_course(state.get_course_by_code('CS101').id) is not None
-      desc: CS101 has graded assignments for comparison (seed validation)
-    - expr: >-
-        state.get_course_by_code('MATH201') is not None
-        and state.weighted_score_for_course(state.get_course_by_code('MATH201').id) is not None
-      desc: MATH201 has graded assignments for comparison (seed validation)
   negative_checks:
     - expr: >-
         sum(1 for e in state.enrollments if e.status == 'dropped') <= 1

@@ -73,9 +73,6 @@ eval:
       desc: >-
         Submit catch_up.pdf for next unsubmitted homework if grade < 80%,
         or mark latest announcement as read if grade >= 80%
-    - expr: >-
-        state.weighted_score_for_course('{target.target_course_id}') is not None
-      desc: Course has graded assignments (seed validation)
   negative_checks:
     - expr: >-
         '{target.grade_below_80}' != 'false'

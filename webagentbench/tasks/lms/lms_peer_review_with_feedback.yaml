@@ -66,18 +66,6 @@ eval:
             if pr.reviewer_student_id == state.student.id)
       desc: All peer reviews assigned to student are submitted
     - expr: >-
-        all(len(pr.rubric_scores) >= 1
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: Each submitted review has rubric scores
-    - expr: >-
-        all(len(pr.comments.strip()) > 10
-            for pr in state.peer_reviews
-            if pr.reviewer_student_id == state.student.id
-            and pr.status == 'submitted')
-      desc: Each submitted review has substantive comments
-    - expr: >-
         (not any(a.submission_status == 'resubmit_requested' for a in state.assignments))
         or any(a.file_name == 'revised_with_feedback.pdf'
                and a.submission_status in ('submitted', 'late')

@@ -76,16 +76,6 @@ eval:
              if m.from_type == 'patient'
              and m.id not in {target.all_msg_ids}]) >= 1
       desc: At least one new message was sent
-    - expr: >-
-        all(r.status == 'active'
-            for r in state.prescriptions
-            if r.id in {target.interacting_rx_ids})
-      desc: Both interacting medications remain active
-    - expr: >-
-        len([r for r in state.prescriptions
-             if r.id in {target.interacting_rx_ids}
-             and len(r.interactions) > 0]) == 2
-      desc: Both medications still show their interaction listings
   negative_checks:
     - expr: >-
         not any(r.status == 'discontinued'
