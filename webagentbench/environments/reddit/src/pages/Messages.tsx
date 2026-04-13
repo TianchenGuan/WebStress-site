@@ -17,6 +17,7 @@ export function MessagesPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [composing, setComposing] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [toUser, setToUser] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -55,11 +56,32 @@ export function MessagesPage() {
     } catch { notify("Failed to mark all as read"); }
   };
 
+  const handleStartReply = (msg: Message) => {
+    setReplyingTo(msg);
+    setComposing(false);
+    setToUser(msg.from_user);
+    setSubject(msg.subject.startsWith("Re: ") ? msg.subject : `Re: ${msg.subject}`);
+    setBody("");
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setToUser("");
+    setSubject("");
+    setBody("");
+  };
+
   const handleSend = async () => {
     if (!toUser.trim() || !subject.trim() || !body.trim()) return;
     try {
-      await api.sendMessage({ to_user: toUser.trim(), subject: subject.trim(), body: body.trim() });
+      await api.sendMessage({
+        to_user: toUser.trim(),
+        subject: subject.trim(),
+        body: body.trim(),
+        ...(replyingTo ? { parent_id: replyingTo.id } : {}),
+      });
       setComposing(false);
+      setReplyingTo(null);
       setToUser("");
       setSubject("");
       setBody("");
@@ -88,7 +110,7 @@ export function MessagesPage() {
               Mark all read ({unreadCount})
             </Button>
           )}
-          <Button variant="primary" onClick={() => setComposing(!composing)} aria-label="Compose new message">
+          <Button variant="primary" onClick={() => { setComposing(!composing); setReplyingTo(null); setToUser(""); setSubject(""); setBody(""); }} aria-label="Compose new message">
             {composing ? "Cancel" : "New Message"}
           </Button>
         </div>
@@ -129,11 +151,23 @@ export function MessagesPage() {
               <h3 className="message-item__subject">{msg.subject}</h3>
               <p className="message-item__body">{msg.body}</p>
               <div className="message-item__actions">
+                {folder === "inbox" && (
+                  <button className="message-action" onClick={() => handleStartReply(msg)} aria-label="Reply to message">Reply</button>
+                )}
                 {!msg.is_read && folder === "inbox" && (
                   <button className="message-action" onClick={() => handleMarkRead(msg.id)} aria-label="Mark as read">Mark read</button>
                 )}
                 <button className="message-action message-action--delete" onClick={() => handleDelete(msg.id)} aria-label="Delete message">Delete</button>
               </div>
+              {replyingTo?.id === msg.id && (
+                <div className="message-reply-form" aria-label="Reply to message">
+                  <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your reply..." className="messages-compose__textarea" rows={3} aria-label="Reply body" />
+                  <div className="message-reply-form__actions">
+                    <button className="message-action" onClick={handleCancelReply}>Cancel</button>
+                    <Button variant="primary" onClick={handleSend} disabled={!body.trim()} aria-label="Send reply">Send Reply</Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
