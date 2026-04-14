@@ -53,7 +53,7 @@ export function DashboardPage() {
           <table aria-label="Upcoming appointments table">
             <thead>
               <tr>
-                <th>Date/Time</th>
+                <th>Time</th>
                 <th>Provider</th>
                 <th>Specialty</th>
                 <th>Type</th>
@@ -61,15 +61,22 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {upcoming.map((apt) => (
+              {upcoming.map((apt) => {
+                const start = new Date(apt.datetime);
+                const end = new Date(start.getTime() + (apt.duration_minutes ?? 30) * 60_000);
+                const datePart = start.toLocaleDateString();
+                const startTime = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                const endTime = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                return (
                 <tr key={apt.id}>
-                  <td>{new Date(apt.datetime).toLocaleString()}</td>
+                  <td>{datePart} {startTime} – {endTime}</td>
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>
                   <td><span className={`pp-type-badge pp-type-badge--${apt.type}`}>{apt.type}</span></td>
                   <td>{apt.location}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
