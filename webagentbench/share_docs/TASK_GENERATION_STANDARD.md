@@ -228,6 +228,26 @@ Before adding a task, verify:
 - The frontend has a page, button, or form that triggers that endpoint.
 - The action is discoverable by an agent navigating the UI.
 
+### Information asymmetry prevention
+
+Every data field the instruction tells the agent to **read, compare, or use
+for decision-making** must be visible in the frontend. This requires all
+three layers to align:
+
+1. **Backend model** — field on the Pydantic model (e.g., `Appointment.duration_minutes`)
+2. **Frontend type** — field in the TS interface (e.g., `interface Appointment { duration_minutes: number }`)
+3. **Frontend render** — field rendered in the React component the agent visits
+
+Common failures:
+- **Decision field not rendered:** "cancel the one booked more recently" but `booked_at` not shown → add to component
+- **Insufficient precision:** bare start time with no duration → agent can't detect overlaps → show intervals
+- **Placeholder content:** instruction says "read the discharge summary" but message body is `faker.paragraph()` → seed builder must generate real content
+- **Field in wrong view:** `drop_deadline` only in Syllabus tab, not course list → surface in summary views
+
+Automated guard: `tests/test_frontend_field_coverage.py` maps instruction
+keywords to required frontend fields. Add entries when creating new tasks.
+See `docs/guides/eval-hardening-playbook.md` §11 for the full pattern.
+
 ## Evaluation And Grading Standard
 
 Grading should answer one question: did the final environment state prove the

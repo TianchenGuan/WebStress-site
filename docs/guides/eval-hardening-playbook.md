@@ -557,14 +557,69 @@ Every action in a task's eval MUST be reachable through the frontend UI.
 
 ---
 
-## 11  Audit Procedure
+## 11  Information Asymmetry (UI–Model Field Gaps)
+
+A task is **unsolvable** when its instruction references data that exists in the backend model but is not rendered in the frontend UI.  The agent cannot see the information it needs to make a decision.
+
+### 11.1  The three layers
+
+Every piece of task-relevant data flows through three layers:
+
+| Layer | Example | Failure mode |
+|-------|---------|-------------|
+| **Backend model** | `Appointment.duration_minutes = 30` | Field doesn't exist → seed builder crash |
+| **Frontend type** | `interface Appointment { duration_minutes: number }` | Field missing from TS type → not sent to component |
+| **Frontend render** | `<td>{formatInterval(apt)}</td>` | Field exists but never rendered → agent can't see it |
+
+A gap at **any** layer makes the task impossible for a UI-based agent.
+
+### 11.2  Common broken patterns
+
+| Pattern | Example | Fix |
+|---------|---------|-----|
+| **Decision field not rendered** | "Cancel the one booked more recently" but `booked_at` not shown | Render the field in the component |
+| **Insufficient precision** | Start time shown but no duration/end → agent can't detect overlaps | Show time intervals, not bare timestamps |
+| **Content in model but placeholder in UI** | Instruction says "read the discharge summary" but message body is `faker.paragraph()` | Seed builder must generate real content |
+| **Field in wrong view** | `drop_deadline` only in Syllabus tab but task says "check the deadline" from course list | Show key fields in summary views |
+| **Backend field not in TS type** | `duration_minutes` on Pydantic model but missing from `interface Appointment` | Add to both type AND component |
+
+### 11.3  Prevention checklist (per task)
+
+For every **noun or data point** the instruction tells the agent to read, compare, or use:
+
+1. Does the backend model have this field?
+2. Does the frontend TypeScript type include it?
+3. Does the React component render it on the page the agent will visit?
+4. Is the rendering precise enough for the decision? (e.g., intervals not bare times)
+5. If the data is in message/announcement bodies: does the seed builder generate real content, not placeholders?
+
+### 11.4  Automated guard
+
+`webagentbench/tests/test_frontend_field_coverage.py` maps instruction keywords to required frontend fields.  Add new entries when creating tasks:
+
+```python
+FIELD_REQUIREMENTS = [
+    # (keyword_in_instruction, frontend_file, field_that_must_appear)
+    ("booked more recently", "Appointments.tsx", "booked_at"),
+    ("refills remaining",    "Medications.tsx",  "refills_remaining"),
+    ("rubric",               "Assignment.tsx",   "rubric"),
+    ("feedback",             "Assignment.tsx",   "feedback"),
+    ("denial reason",        "Billing.tsx",      "denial_reason"),
+    # ... extend as tasks are added
+]
+```
+
+---
+
+## 12  Audit Procedure
 
 When hardening an existing task:
 
 1. **Read the instruction.** List every atomic requirement and exclusion.
 2. **State verifiability.** Is every primary eval check based on a state change?  If any check's only evidence is message/text content, flag it.
 3. **Frontend coverage.** Can the agent perform every required action through the UI?  Check routes AND frontend pages.
-4. **Map checks → requirements.** Each requirement needs ≥1 positive check.  Mark gaps.
+4. **Information asymmetry (§11).** For every data point the instruction references, verify it's in the backend model, frontend type, AND rendered in the component.  Check rendering precision (intervals not bare times, real content not placeholders).
+5. **Map checks → requirements.** Each requirement needs ≥1 positive check.  Mark gaps.
 5. **Decoy safety.** Every `any()`/`all()` over a seeded collection — does it filter seed state from agent state?
 6. **Vacuous truth.** Every `all()` — can the filtered set be empty after agent actions?
 7. **Target stability.** Every value in a check — was it captured at seed time?  Any dynamic recomputation?
