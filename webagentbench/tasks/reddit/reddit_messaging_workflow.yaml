@@ -77,12 +77,6 @@ eval:
     desc: Exactly two messages were sent
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam message deleted
-<<<<<<< HEAD
-  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}' and m.body == '{target.new_body}'
-      for m in state.sent_messages)
-    desc: New message sent to ByteRunner with exact body
-=======
->>>>>>> c9c05be5 (fix(tasks): minor eval fixes across amazon, booking, reddit, robinhood tasks)
   - expr: not state.settings.email_messages
     desc: Email messages notifications disabled
   negative_checks:

@@ -482,8 +482,6 @@ class TestDecoyAndExplorationVariants:
         assert r2.status_code == 200 and r2.json()["total"] == 0
         assert r3.status_code == 200
         assert any(item["id"] == target for item in r3.json()["items"])
-<<<<<<< HEAD
-=======
 
 
 class TestStressGrounding:
@@ -591,4 +589,3 @@ class TestStressPlanning:
         _star(client, sid, target)
         ev = _eval(client, sid, "gmail_search_and_star")
         assert ev["success"] is True
->>>>>>> aeef7318 (chore: infrastructure updates and test additions)
