@@ -180,6 +180,23 @@ _RX_RENEWAL_SUBJECTS: list[str] = [
     "Medication renewal due",
 ]
 
+_BODY_CONTEXT_SUBJECTS: dict[str, str] = {
+    "discharge_summary": "Discharge Summary",
+    "formulary_info": "Formulary Coverage Update",
+    "generic_alternative": "Generic Alternative Recommendation",
+    "bp_medication_adjustment": "Blood Pressure Medication Adjustment",
+    "referral_details": "Specialist Referral Information",
+}
+
+# Denial reason pool for EOB claims
+_EOB_DENIAL_REASONS: list[str] = [
+    "Service not medically necessary",
+    "Out-of-network provider",
+    "Missing prior authorization",
+    "Duplicate claim submission",
+    "Procedure not covered under plan",
+]
+
 # ---------------------------------------------------------------------------
 # Vaccine pool
 # ---------------------------------------------------------------------------
@@ -314,14 +331,16 @@ _INSURANCE_TIERS: dict[str, dict[str, Any]] = {
 def build_patient_profile(ctx: PatientPortalSeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Create the patient singleton, insurance, emergency contact, and PCP assignment.
 
-    Params: allergies (list[str]), conditions (list[str]), insurance_tier (str)
+    Params: allergies (list[str]), conditions (list[str]), insurance_tier (str),
+            overdue_screening_count (int) — force this many screenings to be overdue
     Outputs: patient_name, pcp_id, pcp_name, insurance_plan_name, member_id,
-             conditions_list, applicable_screening_names
+             group_number, conditions_list, allergies_list, applicable_screening_names
     """
     allergies = params.get("allergies", [])
     conditions = params.get("conditions", [])
     tier_key = params.get("insurance_tier", "standard")
     tier = _INSURANCE_TIERS.get(tier_key, _INSURANCE_TIERS["standard"])
+    overdue_screening_count: int = params.get("overdue_screening_count", 0)
 
     # Generate patient demographics
     patient_name = ctx.fake.name()
@@ -363,9 +382,19 @@ def build_patient_profile(ctx: PatientPortalSeedContext, params: dict[str, Any])
     selected_screenings = eligible[:num_screenings]
 
     screening_models: list[dict[str, Any]] = []
-    for s in selected_screenings:
-        # Random last_completed in the past 0-5 years (some may be None)
-        if ctx.rng.random() > 0.3:
+    overdue_forced = 0
+    for idx, s in enumerate(selected_screenings):
+        # Force overdue for the first `overdue_screening_count` screenings
+        force_overdue = overdue_forced < overdue_screening_count
+        if force_overdue:
+            # Make last_completed far enough in the past that next_due has already passed
+            freq_years = _parse_frequency_years(s["frequency"])
+            years_ago = freq_years + ctx.rng.randint(1, 2)
+            last_completed = date(ctx.now.year - years_ago, ctx.rng.randint(1, 12), ctx.rng.randint(1, 28))
+            next_due = date(last_completed.year + freq_years, last_completed.month, last_completed.day)
+            overdue_forced += 1
+        elif ctx.rng.random() > 0.3:
+            # Random last_completed in the past 0-5 years (some may be None)
             years_ago = ctx.rng.randint(0, 5)
             last_completed = date(ctx.now.year - years_ago, ctx.rng.randint(1, 12), ctx.rng.randint(1, 28))
             # Compute next_due based on frequency
@@ -418,7 +447,9 @@ def build_patient_profile(ctx: PatientPortalSeedContext, params: dict[str, Any])
         "pcp_name": "",  # Will be filled by provider_directory
         "insurance_plan_name": plan_name,
         "member_id": member_id,
+        "group_number": group_number,
         "conditions_list": conditions,
+        "allergies_list": allergies,
         "applicable_screening_names": [s["screening_name"] for s in screening_models],
     }
 
@@ -616,6 +647,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
 
     pcp_provider = next((p for p in providers if p["specialty"] == "pcp"), providers[0])
     specialist_providers = [p for p in providers if p["specialty"] not in ("pcp", "billing", "admin")]
+    completed_provider_pool = [p for p in providers if p["specialty"] not in ("billing", "admin")] or providers
 
     upcoming_ids: list[str] = []
     completed_ids: list[str] = []
@@ -625,6 +657,17 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     specialist_apt_id: str | None = None
     telehealth_apt_id: str | None = None
     next_appointment_id: str | None = None
+
+    def _link_matching_referral(apt_dict: dict[str, Any], prov: dict[str, Any]) -> None:
+        for ref in ctx.base.get("referrals", []):
+            if ref.get("linked_appointment_id"):
+                continue
+            provider_match = ref.get("to_provider_id") == prov["id"]
+            specialty_match = ref.get("to_specialty") == prov.get("specialty")
+            if provider_match or specialty_match:
+                apt_dict["linked_referral_id"] = ref["id"]
+                ref["linked_appointment_id"] = apt_dict["id"]
+                break
 
     # --- Upcoming appointments ---
     for i in range(upcoming_count):
@@ -652,9 +695,11 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             "status": "scheduled",
             "reason": ctx.rng.choice(["Follow-up", "Routine checkup", "Medication review", "Annual physical"]),
             "notes": "",
+            "linked_referral_id": None,
             "booked_at": booked_at.isoformat(),
             "location": "Main Campus" if apt_type == "in-person" else "Telehealth",
         }
+        _link_matching_referral(apt_dict, prov)
         ctx.base["appointments"].append(apt_dict)
         upcoming_ids.append(apt_id)
 
@@ -673,7 +718,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
         days_ago = ctx.rng.randint(7, 90)
         hour = ctx.rng.randint(9, 16)
         apt_dt = ctx.now.replace(hour=hour, minute=0, second=0, microsecond=0) - timedelta(days=days_ago)
-        prov = ctx.rng.choice(providers)
+        prov = ctx.rng.choice(completed_provider_pool)
         booked_at = apt_dt - timedelta(days=ctx.rng.randint(7, 30))
 
         apt_dict = {
@@ -684,9 +729,11 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             "status": "completed",
             "reason": ctx.rng.choice(["Follow-up", "Lab review", "Consultation"]),
             "notes": "Patient doing well. Continue current treatment plan.",
+            "linked_referral_id": None,
             "booked_at": booked_at.isoformat(),
             "location": "Main Campus",
         }
+        _link_matching_referral(apt_dict, prov)
         ctx.base["appointments"].append(apt_dict)
         completed_ids.append(apt_id)
 
@@ -707,6 +754,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             "status": "cancelled",
             "reason": "Patient requested cancellation",
             "notes": "",
+            "linked_referral_id": None,
             "booked_at": booked_at.isoformat(),
             "location": "Main Campus",
         }
@@ -716,10 +764,15 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     # --- Conflict pair: two overlapping scheduled appointments ---
     if conflict_pair and len(providers) >= 2:
         conflict_dt = ctx.now.replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=ctx.rng.randint(3, 10))
+        # First appointment booked earlier, second booked 1 day later so
+        # booked_at values are always distinct and ordering is deterministic.
+        first_booked_at = ctx.now - timedelta(days=ctx.rng.randint(2, 7))
+        second_booked_at = first_booked_at + timedelta(days=1)
+        conflict_booked_ats = [first_booked_at, second_booked_at]
         for j in range(2):
             apt_id = ctx.next_id("apt")
             prov = providers[j % len(providers)]
-            booked_at = ctx.now - timedelta(days=ctx.rng.randint(1, 7))
+            booked_at = conflict_booked_ats[j]
 
             apt_dict = {
                 "id": apt_id,
@@ -729,9 +782,11 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
                 "status": "scheduled",
                 "reason": "Follow-up",
                 "notes": "",
+                "linked_referral_id": None,
                 "booked_at": booked_at.isoformat(),
                 "location": "Main Campus",
             }
+            _link_matching_referral(apt_dict, prov)
             ctx.base["appointments"].append(apt_dict)
             conflict_apt_ids.append(apt_id)
             upcoming_ids.append(apt_id)
@@ -766,6 +821,8 @@ def build_prescription_cabinet(ctx: PatientPortalSeedContext, params: dict[str, 
     zero_refill_count = params.get("zero_refill_count", 0)
     expiring_soon_count = params.get("expiring_soon_count", 0)
     interaction_pair = params.get("interaction_pair", False)
+    target_medication_name: str | None = params.get("target_medication_name")
+    target_exclude_mail_order = bool(params.get("target_exclude_mail_order", False))
 
     if "prescriptions" not in ctx.base:
         ctx.base["prescriptions"] = []
@@ -775,22 +832,44 @@ def build_prescription_cabinet(ctx: PatientPortalSeedContext, params: dict[str, 
     pcp_id = ctx.base.get("patient", {}).get("pcp_id", "prov_1")
     default_pharm_id = next((p["id"] for p in pharmacies if p.get("is_default")), "pharm_1") if pharmacies else "pharm_1"
 
-    # Shuffle the medication pool
+    # Shuffle the medication pool, then pin target_medication_name first if specified
     med_pool = list(_MEDICATIONS)
     ctx.rng.shuffle(med_pool)
+    if target_medication_name:
+        pinned = next(
+            (m for m in med_pool if target_medication_name.lower() in m["name"].lower()),
+            None,
+        )
+        if pinned:
+            med_pool.remove(pinned)
+            med_pool.insert(0, pinned)
     med_idx = 0
 
     active_rx_ids: list[str] = []
     zero_refill_rx_id: str | None = None
+    zero_refill_medication: str = ""
+    target_rx_id: str | None = None
     expiring_rx_ids: list[str] = []
     interacting_rx_ids: list[str] = []
     interacting_medications: list[str] = []
 
-    def _make_rx(med: dict, status: str, refills: int, expires_days: int) -> dict[str, Any]:
+    def _make_rx(
+        med: dict,
+        status: str,
+        refills: int,
+        expires_days: int,
+        *,
+        force_retail_pharmacy: bool = False,
+    ) -> dict[str, Any]:
         nonlocal med_idx
         rx_id = ctx.next_id("rx")
         provider_id = ctx.rng.choice([p["id"] for p in providers]) if providers else pcp_id
-        pharm_id = ctx.rng.choice([p["id"] for p in pharmacies]) if pharmacies else default_pharm_id
+        available_pharmacies = list(pharmacies)
+        if force_retail_pharmacy and pharmacies:
+            retail_pharmacies = [p for p in pharmacies if not p.get("is_mail_order")]
+            if retail_pharmacies:
+                available_pharmacies = retail_pharmacies
+        pharm_id = ctx.rng.choice([p["id"] for p in available_pharmacies]) if available_pharmacies else default_pharm_id
         last_filled = ctx.now - timedelta(days=ctx.rng.randint(7, 60))
         expires_at = ctx.now + timedelta(days=expires_days)
 
@@ -814,9 +893,24 @@ def build_prescription_cabinet(ctx: PatientPortalSeedContext, params: dict[str, 
             break
         med = med_pool[med_idx]
         med_idx += 1
-        rx = _make_rx(med, "active", ctx.rng.randint(2, 6), ctx.rng.randint(90, 365))
+        force_retail_pharmacy = bool(
+            target_exclude_mail_order
+            and target_medication_name
+            and target_medication_name.lower() in med["name"].lower()
+        )
+        rx = _make_rx(
+            med,
+            "active",
+            ctx.rng.randint(2, 6),
+            ctx.rng.randint(90, 365),
+            force_retail_pharmacy=force_retail_pharmacy,
+        )
         ctx.base["prescriptions"].append(rx)
         active_rx_ids.append(rx["id"])
+        # Track target rx if this medication matches the pinned target
+        if target_medication_name and target_rx_id is None:
+            if target_medication_name.lower() in med["name"].lower():
+                target_rx_id = rx["id"]
 
     # Zero-refill prescriptions
     for _ in range(zero_refill_count):
@@ -829,6 +923,7 @@ def build_prescription_cabinet(ctx: PatientPortalSeedContext, params: dict[str, 
         active_rx_ids.append(rx["id"])
         if zero_refill_rx_id is None:
             zero_refill_rx_id = rx["id"]
+            zero_refill_medication = med["name"]
 
     # Expiring-soon prescriptions
     for _ in range(expiring_soon_count):
@@ -883,6 +978,8 @@ def build_prescription_cabinet(ctx: PatientPortalSeedContext, params: dict[str, 
     return {
         "active_rx_ids": active_rx_ids,
         "zero_refill_rx_id": zero_refill_rx_id,
+        "zero_refill_medication": zero_refill_medication,
+        "target_rx_id": target_rx_id,
         "expiring_rx_ids": expiring_rx_ids,
         "interacting_rx_ids": interacting_rx_ids,
         "interacting_medications": interacting_medications,
@@ -914,6 +1011,9 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
 
     providers = ctx.base.get("providers", [])
     pcp_id = ctx.base.get("patient", {}).get("pcp_id", "prov_1")
+    appointments = ctx.base.get("appointments", [])
+    completed_apts = [a for a in appointments if a.get("status") == "completed"]
+    linked_apt_cursor = 0
 
     # Available ordering providers (non-billing, non-admin)
     ordering_providers = [p["id"] for p in providers if p.get("specialty") not in ("billing", "admin")]
@@ -938,10 +1038,15 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
         return lab
 
     def _make_lab(test: dict, flag: str, status: str, days_ago: int, value_override: str | None = None) -> dict[str, Any]:
+        nonlocal linked_apt_cursor
         lab_id = ctx.next_id("lab")
         collected_at = ctx.now - timedelta(days=days_ago)
         value = value_override or test[flag] if flag in test else test["normal"]
-        ordered_by = ctx.rng.choice(ordering_providers)
+        linked_apt = None
+        if completed_apts:
+            linked_apt = completed_apts[linked_apt_cursor % len(completed_apts)]
+            linked_apt_cursor += 1
+        ordered_by = linked_apt["provider_id"] if linked_apt else ctx.rng.choice(ordering_providers)
         return {
             "id": lab_id,
             "test_name": test["name"],
@@ -953,6 +1058,7 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
             "reference_range": test["ref"],
             "flag": flag,
             "status": status,
+            "linked_appointment_id": linked_apt["id"] if linked_apt else None,
         }
 
     # Normal resulted labs
@@ -989,7 +1095,11 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
         test = _pick_lab()
         lab_id = ctx.next_id("lab")
         collected_at = ctx.now - timedelta(days=ctx.rng.randint(0, 2))
-        ordered_by = ctx.rng.choice(ordering_providers)
+        linked_apt = None
+        if completed_apts:
+            linked_apt = completed_apts[linked_apt_cursor % len(completed_apts)]
+            linked_apt_cursor += 1
+        ordered_by = linked_apt["provider_id"] if linked_apt else ctx.rng.choice(ordering_providers)
         lab = {
             "id": lab_id,
             "test_name": test["name"],
@@ -1001,6 +1111,7 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
             "reference_range": test["ref"],
             "flag": "normal",
             "status": "pending",
+            "linked_appointment_id": linked_apt["id"] if linked_apt else None,
         }
         ctx.base["lab_results"].append(lab)
         pending_lab_ids.append(lab_id)
@@ -1029,6 +1140,10 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
                 lab = _make_lab(trend_test_info, flag, "resulted", days_ago, value_override=val)
                 ctx.base["lab_results"].append(lab)
                 trend_lab_ids.append(lab["id"])
+                # If this is a critical trend value and no separate critical lab was created,
+                # use it as the primary critical_lab_id
+                if flag == "critical" and critical_lab_id is None:
+                    critical_lab_id = lab["id"]
 
     return {
         "resulted_lab_ids": resulted_lab_ids,
@@ -1041,6 +1156,257 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
 
 
 # ---------------------------------------------------------------------------
+# Helper: resolve contextual provider
+# ---------------------------------------------------------------------------
+
+def _resolve_context_provider(
+    ctx: PatientPortalSeedContext,
+    body_context: dict[str, Any],
+    clinical_providers: list[dict[str, Any]],
+    pcp_id: str,
+) -> dict[str, Any] | None:
+    providers = ctx.base.get("providers", [])
+    providers_by_id = {p["id"]: p for p in providers}
+
+    explicit_provider_id = body_context.get("provider_id")
+    if explicit_provider_id:
+        return providers_by_id.get(str(explicit_provider_id))
+
+    provider_selector = body_context.get("provider_selector")
+    if provider_selector == "pcp":
+        return providers_by_id.get(pcp_id)
+    if provider_selector == "most_recent_completed":
+        completed_apts = [a for a in ctx.base.get("appointments", []) if a.get("status") == "completed"]
+        if completed_apts:
+            most_recent = max(completed_apts, key=lambda a: a["datetime"])
+            return providers_by_id.get(most_recent["provider_id"])
+
+    specialty = body_context.get("provider_specialty")
+    if specialty:
+        return next((p for p in providers if p.get("specialty") == specialty), None)
+
+    if clinical_providers:
+        return clinical_providers[0]
+    return providers_by_id.get(pcp_id) or (providers[0] if providers else None)
+
+
+# ---------------------------------------------------------------------------
+# Helper: generate contextual message body
+# ---------------------------------------------------------------------------
+
+def _generate_contextual_body(ctx: PatientPortalSeedContext, body_context: dict[str, Any]) -> str:
+    """Generate a realistic message body based on *body_context* type.
+
+    Reads from ctx.base["prescriptions"] and ctx.base["providers"] so it must
+    be called after those builders have run.
+    """
+    btype = body_context.get("type", "")
+    prescriptions = [rx for rx in ctx.base.get("prescriptions", []) if rx.get("status") == "active"]
+    providers = ctx.base.get("providers", [])
+    referrals = ctx.base.get("referrals", [])
+
+    if btype == "discharge_summary":
+        # List active meds, change one dosage, add one new med, omit one existing med
+        if not prescriptions:
+            return (
+                "Discharge Summary - Medication List:\n"
+                "No active medications found in your record.\n"
+                "Please contact your care team if you believe this is in error."
+            )
+        # Work with up to 4 meds for readability
+        meds = prescriptions[:4]
+        lines = ["Discharge Summary - Medication List:"]
+        changed_one = False
+        omit_idx = len(meds) - 1  # omit the last active med from the discharge list
+        line_number = 1
+        for i, rx in enumerate(meds):
+            if i == omit_idx:
+                continue  # this one is "removed" — not listed on discharge summary
+            med_name = rx["medication"]
+            freq = rx.get("frequency", "daily")
+            if not changed_one and i == 0:
+                # Change dosage on first med
+                original_dosage = rx.get("dosage", "")
+                # Produce a plausibly changed dosage (double or halve)
+                try:
+                    dose_num = "".join(c for c in original_dosage if c.isdigit())
+                    dose_unit = "".join(c for c in original_dosage if not c.isdigit())
+                    new_num = int(dose_num) * 2 if int(dose_num) < 100 else int(dose_num) // 2
+                    new_dosage = f"{new_num}{dose_unit}"
+                except (ValueError, TypeError):
+                    new_dosage = original_dosage
+                lines.append(
+                    f"{line_number}. {med_name.split()[0]} {new_dosage} {freq}"
+                    f" (was {original_dosage} - dosage adjusted)"
+                )
+                changed_one = True
+            else:
+                lines.append(f"{line_number}. {med_name} {freq} (unchanged)")
+            line_number += 1
+        # Add one new med not in the current active list
+        new_med_name = body_context.get("new_medication_name", "Metformin 500mg")
+        new_med_frequency = body_context.get("new_medication_frequency", "twice daily")
+        new_med = f"{new_med_name} {new_med_frequency} (NEW - started during hospitalization)"
+        lines.append(f"{line_number}. {new_med}")
+        # Note the omitted med
+        omitted_name = meds[omit_idx]["medication"]
+        lines.append(f"Note: {omitted_name} was discontinued during hospitalization.")
+        if body_context.get("include_referral_mention"):
+            referral_mentions = [
+                ref.get("to_specialty", "specialist").title()
+                for ref in referrals
+                if ref.get("status") in ("approved", "requested")
+            ]
+            if referral_mentions:
+                lines.append(
+                    "Follow-up referrals noted on discharge: "
+                    + ", ".join(sorted(set(referral_mentions[:2])))
+                    + ". Please coordinate with your PCP."
+                )
+            else:
+                specialist = next(
+                    (p for p in providers if p.get("specialty") not in ("pcp", "billing", "admin")),
+                    None,
+                )
+                if specialist is not None:
+                    lines.append(
+                        f"Follow-up referral recommended: {specialist.get('specialty', 'specialist').title()} consultation."
+                    )
+        return "\n".join(lines)
+
+    elif btype in ("formulary_info", "generic_alternative"):
+        if not prescriptions:
+            return (
+                "Formulary Update: Please contact your insurance provider to verify "
+                "coverage for your current medications."
+            )
+        requested_med_name = body_context.get("medication_name")
+        new_med_name = body_context.get("new_medication_name")
+        include_all_active = bool(body_context.get("include_all_active"))
+        alternatives = body_context.get("alternatives", {})
+        coverage_map = body_context.get("coverage_status_by_medication", {})
+        default_coverage_status = str(body_context.get("coverage_status", "not covered"))
+        preferred_pharmacy = body_context.get("preferred_pharmacy")
+
+        def _default_alternative_name(name: str) -> str:
+            generic_base = name.split()[0].lower()
+            return f"{generic_base.capitalize()} (preferred generic)"
+
+        def _coverage_line(med_name: str, coverage_status: str, alternative: str) -> str:
+            coverage_lower = coverage_status.lower()
+            if coverage_lower in ("covered", "preferred", "preferred brand", "preferred generic"):
+                return f"{med_name}: covered as {coverage_status}."
+            return f"{med_name}: {coverage_status}; preferred alternative is {alternative}."
+
+        if include_all_active:
+            lines = ["Formulary Review for New Plan:"]
+            for rx in prescriptions:
+                med_name = rx["medication"]
+                alternative = alternatives.get(med_name, _default_alternative_name(med_name))
+                coverage_status = str(coverage_map.get(med_name, default_coverage_status))
+                lines.append(_coverage_line(med_name, coverage_status, alternative))
+            if preferred_pharmacy:
+                lines.append(f"Preferred pharmacy for this plan: {preferred_pharmacy}.")
+            lines.append("Please let us know which medications need prior authorization.")
+            return "\n".join(lines)
+
+        med_name = new_med_name or requested_med_name or prescriptions[0]["medication"]
+        alternative = body_context.get("alternative_name", _default_alternative_name(med_name))
+        coverage_status = str(coverage_map.get(med_name, default_coverage_status))
+        if btype == "formulary_info":
+            coverage_lower = coverage_status.lower()
+            if coverage_lower in ("covered", "preferred", "preferred brand", "preferred generic"):
+                return (
+                    f"Formulary Update: The recommended medication {med_name} is covered under your "
+                    f"insurance plan as {coverage_status}. You may proceed if you would like to start it."
+                )
+            return (
+                f"Formulary Update: The recommended medication {med_name} is {coverage_status} under "
+                f"your insurance plan. The preferred covered alternative is {alternative}. "
+                "Please message me if you would like me to prescribe the preferred option instead."
+            )
+        return (
+            f"Cost Optimization Recommendation: The medication option {med_name} has a lower-cost "
+            f"alternative available: {alternative}. Switching could reduce your monthly out-of-pocket "
+            "cost. Please contact your provider if you would like to authorize the switch."
+        )
+
+    elif btype == "bp_medication_adjustment":
+        # Find a BP-related med (Lisinopril, Losartan, Amlodipine, etc.) or use first active
+        bp_keywords = ("lisinopril", "losartan", "amlodipine", "metoprolol", "atenolol", "valsartan")
+        current_medication_name = body_context.get("current_medication_name")
+        bp_rx = next(
+            (
+                rx for rx in prescriptions
+                if current_medication_name and current_medication_name.lower() in rx["medication"].lower()
+            ),
+            None,
+        ) or next(
+            (rx for rx in prescriptions if any(k in rx["medication"].lower() for k in bp_keywords)),
+            prescriptions[0] if prescriptions else None,
+        )
+        if bp_rx is None:
+            return (
+                "Based on your recent labs, I'd like to adjust your blood pressure medication. "
+                "Please monitor your BP daily and report any dizziness."
+            )
+        med_name = bp_rx["medication"]
+        current_dosage = bp_rx.get("dosage", "current dose")
+        new_medication_name = body_context.get("new_medication_name")
+        alternative_name = body_context.get("alternative_name")
+        coverage_status = str(body_context.get("coverage_status", "covered"))
+        if new_medication_name:
+            coverage_line = (
+                f"Formulary note: {new_medication_name} is covered on your current plan."
+                if coverage_status.lower() in ("covered", "preferred", "preferred generic")
+                else f"Formulary note: {new_medication_name} is {coverage_status}; preferred covered alternative is {alternative_name}."
+            )
+            return (
+                f"I recommend changing your blood pressure medication from {med_name} to "
+                f"{new_medication_name}. Please stop the old dose once you start the new medication "
+                f"and monitor your blood pressure daily for the next 2 weeks. {coverage_line}"
+            )
+        # Produce a new higher dosage
+        try:
+            dose_num = "".join(c for c in current_dosage if c.isdigit())
+            dose_unit = "".join(c for c in current_dosage if not c.isdigit())
+            new_num = int(dose_num) * 2 if int(dose_num) < 100 else int(dose_num) + 25
+            new_dosage = f"{new_num}{dose_unit}"
+        except (ValueError, TypeError):
+            new_dosage = "increased dose"
+        med_base = med_name.split()[0]
+        return (
+            f"Based on your recent labs, I'd like to adjust your blood pressure medication. "
+            f"Please increase your {med_base} from {current_dosage} to {new_dosage} starting "
+            f"next week. Monitor your BP daily and report any dizziness or lightheadedness."
+        )
+
+    elif btype == "referral_details":
+        # Find a non-PCP, non-billing, non-admin specialist provider
+        specialist = next(
+            (p for p in providers if p.get("specialty") not in ("pcp", "billing", "admin")),
+            None,
+        )
+        if specialist is None:
+            return (
+                "Referral Information: A specialist referral has been submitted for you. "
+                "Please check the referrals section of your portal for details and contact "
+                "your care team with any questions."
+            )
+        name = specialist.get("name", "Specialist")
+        specialty = specialist.get("specialty", "specialist").title()
+        return (
+            f"Referral Details: I have submitted a referral for you to see {name} "
+            f"in our {specialty} department. The referral has been sent to your insurance "
+            f"for prior authorization. You should receive approval within 3-5 business days. "
+            f"Once approved, please call the {specialty} office to schedule your appointment."
+        )
+
+    # Fallback — should not normally be reached
+    return ctx.fake.paragraph(nb_sentences=ctx.rng.randint(2, 4))
+
+
+# ---------------------------------------------------------------------------
 # 7. message_threads
 # ---------------------------------------------------------------------------
 
@@ -1049,7 +1415,9 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
     """Create message threads with realistic clinical conversations.
 
     Params: thread_count (int), unread_count (int), categories (list[str]),
-            include_billing (bool), include_rx_renewal (bool)
+            include_billing (bool), include_rx_renewal (bool),
+            body_context (dict) — optional; injects specific content into the
+            first provider message of the first clinical thread.
     Outputs: thread_ids, unread_msg_ids, billing_thread_id, rx_renewal_thread_id,
              all_msg_ids
     """
@@ -1058,6 +1426,10 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
     categories = params.get("categories", ["clinical"])
     include_billing = params.get("include_billing", False)
     include_rx_renewal = params.get("include_rx_renewal", False)
+    body_context: dict[str, Any] | None = params.get("body_context")
+    body_contexts: list[dict[str, Any]] = [dict(item) for item in params.get("body_contexts", [])]
+    if body_context:
+        body_contexts.insert(0, dict(body_context))
 
     if "messages" not in ctx.base:
         ctx.base["messages"] = []
@@ -1077,9 +1449,12 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
     for t in range(thread_count):
         thread_id = ctx.next_id("thread")
         thread_ids.append(thread_id)
+        thread_context = body_contexts.pop(0) if body_contexts else None
 
         # Decide category for this thread
-        if include_billing and billing_thread_id is None and t == thread_count - 2:
+        if thread_context:
+            cat = str(thread_context.get("category", "clinical"))
+        elif include_billing and billing_thread_id is None and t == thread_count - 2:
             cat = "billing"
         elif include_rx_renewal and rx_renewal_thread_id is None and t == thread_count - 1:
             cat = "rx_renewal"
@@ -1089,18 +1464,26 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
             cat = "clinical"
 
         # Pick provider for the thread
-        if cat == "billing" and billing_providers:
+        if thread_context:
+            resolved_provider = _resolve_context_provider(ctx, thread_context, clinical_providers, pcp_id)
+            prov_id = resolved_provider["id"] if resolved_provider else pcp_id
+        elif cat == "billing" and billing_providers:
             prov_id = billing_providers[0]["id"]
         elif clinical_providers:
             prov_id = ctx.rng.choice(clinical_providers)["id"]
         else:
             prov_id = pcp_id
 
-        # Pick subject
+        # Pick subject — override with body_context type subject for the first clinical thread
         if cat == "billing":
             subject = ctx.rng.choice(_BILLING_SUBJECTS)
         elif cat == "rx_renewal":
             subject = ctx.rng.choice(_RX_RENEWAL_SUBJECTS)
+        elif thread_context:
+            subject = thread_context.get(
+                "subject",
+                _BODY_CONTEXT_SUBJECTS.get(thread_context.get("type", ""), ctx.rng.choice(_CLINICAL_SUBJECTS)),
+            )
         else:
             subject = ctx.rng.choice(_CLINICAL_SUBJECTS)
 
@@ -1121,7 +1504,12 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
                 is_read = False
                 unread_assigned += 1
 
-            body = ctx.fake.paragraph(nb_sentences=ctx.rng.randint(2, 4))
+            # Inject contextual body for the first provider message of the first clinical thread
+            if thread_context and from_type == "provider" and m == 0:
+                body = _generate_contextual_body(ctx, thread_context)
+            else:
+                body = ctx.fake.paragraph(nb_sentences=ctx.rng.randint(2, 4))
+
             msg_dict = {
                 "id": msg_id,
                 "from_type": from_type,
@@ -1161,7 +1549,8 @@ def build_referral_chain(ctx: PatientPortalSeedContext, params: dict[str, Any]) 
     """Create referrals in various states.
 
     Params: approved_count (int), pending_count (int), denied_count (int),
-            with_prior_auth (bool), expiring_soon (bool)
+            with_prior_auth (bool), expiring_soon (bool),
+            must_have_specialties (list[str]) — approved referrals guaranteed for these specialties
     Outputs: approved_ref_ids, pending_ref_ids, denied_ref_ids,
              prior_auth_ref_id, expiring_ref_id
     """
@@ -1170,11 +1559,14 @@ def build_referral_chain(ctx: PatientPortalSeedContext, params: dict[str, Any]) 
     denied_count = params.get("denied_count", 0)
     with_prior_auth = params.get("with_prior_auth", False)
     expiring_soon = params.get("expiring_soon", False)
+    must_have_specialties: list[str] = list(params.get("must_have_specialties", []))
 
     if "referrals" not in ctx.base:
         ctx.base["referrals"] = []
 
     providers = ctx.base.get("providers", [])
+    providers_by_id = {p["id"]: p for p in providers}
+    appointments = ctx.base.get("appointments", [])
     pcp_id = ctx.base.get("patient", {}).get("pcp_id", "prov_1")
     specialist_specs = [p for p in providers if p.get("specialty") not in ("pcp", "billing", "admin")]
 
@@ -1187,11 +1579,40 @@ def build_referral_chain(ctx: PatientPortalSeedContext, params: dict[str, Any]) 
     prior_auth_ref_id: str | None = None
     expiring_ref_id: str | None = None
 
-    def _make_ref(status: str, expires_days: int, prior_auth: bool = False) -> dict[str, Any]:
+    def _make_ref(status: str, expires_days: int, prior_auth: bool = False,
+                  specialty: str | None = None) -> dict[str, Any]:
         ref_id = ctx.next_id("ref")
-        specialty = ctx.rng.choice(available_specialties)
-        to_prov = next((p for p in specialist_specs if p["specialty"] == specialty), None)
+        candidate_appointments = [
+            apt for apt in appointments
+            if apt.get("status") in ("scheduled", "completed")
+            and not apt.get("linked_referral_id")
+            and providers_by_id.get(apt.get("provider_id"), {}).get("specialty") not in ("pcp", "billing", "admin")
+        ]
+        preferred_appointment = candidate_appointments[0] if candidate_appointments else None
+        if specialty is None and preferred_appointment is not None:
+            specialty = providers_by_id[preferred_appointment["provider_id"]]["specialty"]
+        if specialty is None:
+            specialty = ctx.rng.choice(available_specialties)
+        to_prov = (
+            providers_by_id.get(preferred_appointment["provider_id"])
+            if preferred_appointment is not None
+            else next((p for p in specialist_specs if p["specialty"] == specialty), None)
+        )
         to_prov_id = to_prov["id"] if to_prov else None
+        linked_appointment = preferred_appointment or next(
+            (
+                apt for apt in appointments
+                if apt.get("status") in ("scheduled", "completed")
+                and not apt.get("linked_referral_id")
+                and (
+                    (to_prov_id is not None and apt.get("provider_id") == to_prov_id)
+                    or specialty == providers_by_id.get(apt.get("provider_id"), {}).get("specialty")
+                )
+            ),
+            None,
+        )
+        if linked_appointment is not None:
+            linked_appointment["linked_referral_id"] = ref_id
         reason = ctx.rng.choice([
             "Specialist consultation",
             "Further evaluation needed",
@@ -1213,12 +1634,16 @@ def build_referral_chain(ctx: PatientPortalSeedContext, params: dict[str, Any]) 
             "prior_auth_status": prior_auth_status,
             "expires_at": (ctx.now + timedelta(days=expires_days)).isoformat(),
             "notes": "",
+            "linked_appointment_id": linked_appointment["id"] if linked_appointment else None,
         }
 
-    # Approved
+    # Approved — guarantee must_have_specialties first, then fill remaining randomly
+    guaranteed = list(must_have_specialties)  # consume in order
     for i in range(approved_count):
         needs_auth = with_prior_auth and prior_auth_ref_id is None and i == 0
-        ref = _make_ref("approved", ctx.rng.randint(60, 180), prior_auth=needs_auth)
+        forced_specialty = guaranteed.pop(0) if guaranteed else None
+        ref = _make_ref("approved", ctx.rng.randint(60, 180), prior_auth=needs_auth,
+                        specialty=forced_specialty)
         ctx.base["referrals"].append(ref)
         approved_ref_ids.append(ref["id"])
         if needs_auth:
@@ -1275,8 +1700,22 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
         ctx.base["claims"] = []
 
     providers = ctx.base.get("providers", [])
+    providers_by_id = {p["id"]: p for p in providers}
     appointments = ctx.base.get("appointments", [])
-    completed_apts = [a for a in appointments if a.get("status") == "completed"]
+    lab_results = ctx.base.get("lab_results", [])
+    referrals = ctx.base.get("referrals", [])
+    clinical_completed_apts = [
+        a for a in appointments
+        if a.get("status") == "completed"
+        and providers_by_id.get(a.get("provider_id"), {}).get("specialty") not in ("billing", "admin")
+    ]
+    completed_apts = clinical_completed_apts or [a for a in appointments if a.get("status") == "completed"]
+    used_appointment_ids: set[str] = set()
+    labs_by_appointment: dict[str, list[str]] = {}
+    for lab in lab_results:
+        linked_appointment_id = lab.get("linked_appointment_id")
+        if linked_appointment_id:
+            labs_by_appointment.setdefault(linked_appointment_id, []).append(lab["id"])
 
     approved_claim_ids: list[str] = []
     denied_claim_ids: list[str] = []
@@ -1288,14 +1727,55 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
     proc_codes = ["99213", "99214", "99215", "93000", "80053", "71046", "36415"]
     diag_codes = ["E11.65", "I10", "J06.9", "M54.5", "Z00.00", "K21.0", "R51"]
 
+    def _find_supporting_referral(apt: dict[str, Any] | None) -> str | None:
+        if apt is None:
+            return None
+        if apt.get("linked_referral_id"):
+            return apt["linked_referral_id"]
+        apt_provider = apt.get("provider_id")
+        apt_specialty = providers_by_id.get(apt_provider, {}).get("specialty")
+        for ref in referrals:
+            if ref.get("linked_appointment_id") == apt.get("id"):
+                return ref["id"]
+            if ref.get("to_provider_id") == apt_provider or ref.get("to_specialty") == apt_specialty:
+                return ref["id"]
+        return None
+
+    def _pick_completed_appointment(prefer_referral: bool) -> dict[str, Any] | None:
+        candidate_groups: list[list[dict[str, Any]]] = []
+        if prefer_referral:
+            candidate_groups.append([
+                apt for apt in completed_apts
+                if apt["id"] not in used_appointment_ids and _find_supporting_referral(apt) is not None
+            ])
+        else:
+            candidate_groups.append([
+                apt for apt in completed_apts
+                if apt["id"] not in used_appointment_ids and _find_supporting_referral(apt) is None
+            ])
+        candidate_groups.append([apt for apt in completed_apts if apt["id"] not in used_appointment_ids])
+        if prefer_referral:
+            candidate_groups.append([apt for apt in completed_apts if _find_supporting_referral(apt) is not None])
+        else:
+            candidate_groups.append([apt for apt in completed_apts if _find_supporting_referral(apt) is None])
+        candidate_groups.append(completed_apts)
+        for group in candidate_groups:
+            if group:
+                apt = group[0]
+                used_appointment_ids.add(apt["id"])
+                return apt
+        return None
+
     def _make_claim(status: str, appeal_days: int, eob: bool = False) -> dict[str, Any]:
         clm_id = ctx.next_id("clm")
         service_date = (ctx.now - timedelta(days=ctx.rng.randint(7, 120))).date()
 
         # Link to a completed appointment if available
-        apt = completed_apts.pop(0) if completed_apts else None
+        apt = _pick_completed_appointment(prefer_referral=(status == "denied"))
         apt_id = apt["id"] if apt else ctx.next_id("apt")
         prov_id = apt["provider_id"] if apt else (ctx.rng.choice([p["id"] for p in providers]) if providers else "prov_1")
+        supporting_referral_id = _find_supporting_referral(apt)
+        supporting_lab_ids = labs_by_appointment.get(apt_id, [])[:2] if apt else []
 
         amount_billed = Decimal(str(ctx.rng.randint(100, 2000)))
         if status == "approved":
@@ -1308,7 +1788,7 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
             amount_covered = Decimal("0")
             patient_resp = Decimal("0")
 
-        return {
+        claim_dict: dict[str, Any] = {
             "id": clm_id,
             "service_date": service_date.isoformat(),
             "provider_id": prov_id,
@@ -1321,7 +1801,24 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
             "patient_responsibility": str(patient_resp),
             "eob_available": eob,
             "appeal_deadline": (ctx.now + timedelta(days=appeal_days)).isoformat(),
+            "denial_reason": None,
+            "supporting_referral_id": supporting_referral_id,
+            "supporting_lab_ids": supporting_lab_ids,
         }
+        if status == "denied" and eob:
+            claim_dict["denial_reason"] = ctx.rng.choice(_EOB_DENIAL_REASONS)
+        if apt is not None:
+            evidence_bits: list[str] = []
+            if supporting_referral_id:
+                evidence_bits.append(f"referral {supporting_referral_id}")
+            if supporting_lab_ids:
+                evidence_bits.append(f"labs {', '.join(supporting_lab_ids)}")
+            if evidence_bits:
+                base_notes = apt.get("notes", "").strip()
+                evidence_note = "Claim support available via " + " and ".join(evidence_bits) + "."
+                if evidence_note not in base_notes:
+                    apt["notes"] = f"{base_notes} {evidence_note}".strip()
+        return claim_dict
 
     # Approved claims
     for _ in range(approved_count):
@@ -1448,8 +1945,14 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
 
     # Incomplete series
     if series_incomplete:
-        # Find a multi-dose vaccine
-        series_vax = next((v for v in _VACCINES if v.get("series") and v.get("doses", 0) >= 2), _VACCINES[3])
+        # Find a multi-dose vaccine; prefer the one specified by series_vaccine param
+        _series_vaccine_name = params.get("series_vaccine", None)
+        if _series_vaccine_name:
+            series_vax = next((v for v in _VACCINES if v["name"] == _series_vaccine_name and v.get("series")), None)
+            if series_vax is None:
+                series_vax = next((v for v in _VACCINES if v.get("series") and v.get("doses", 0) >= 2), _VACCINES[3])
+        else:
+            series_vax = next((v for v in _VACCINES if v.get("series") and v.get("doses", 0) >= 2), _VACCINES[3])
         imm_id = ctx.next_id("imm")
         admin_prov = ctx.rng.choice(providers_with_slots)
         administered_at = ctx.now - timedelta(days=ctx.rng.randint(30, 180))
