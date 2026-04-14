@@ -27,6 +27,15 @@ export function AppointmentsPage() {
   const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
   const providerSpecialty = (id: string) => providers.find((p) => p.id === id)?.specialty ?? "";
 
+  const formatInterval = (apt: Appointment) => {
+    const start = new Date(apt.datetime);
+    const end = new Date(start.getTime() + (apt.duration_minutes ?? 30) * 60_000);
+    const datePart = start.toLocaleDateString();
+    const startTime = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const endTime = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `${datePart} ${startTime} – ${endTime}`;
+  };
+
   const loadAppointments = useCallback(async () => {
     try {
       const items = await api.listAppointments();
@@ -150,7 +159,7 @@ export function AppointmentsPage() {
               {upcoming.map((apt) => (
                 <tr key={apt.id}>
                   <td>{apt.id}</td>
-                  <td>{new Date(apt.datetime).toLocaleString()}</td>
+                  <td>{formatInterval(apt)}</td>
                   <td aria-label={`Booked at ${new Date(apt.booked_at).toLocaleString()}`} className="pp-text--muted pp-text--sm">{new Date(apt.booked_at).toLocaleString()}</td>
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>
@@ -247,7 +256,7 @@ export function AppointmentsPage() {
               {past.map((apt) => (
                 <tr key={apt.id}>
                   <td>{apt.id}</td>
-                  <td>{new Date(apt.datetime).toLocaleString()}</td>
+                  <td>{formatInterval(apt)}</td>
                   <td aria-label={`Booked at ${new Date(apt.booked_at).toLocaleString()}`} className="pp-text--muted pp-text--sm">{new Date(apt.booked_at).toLocaleString()}</td>
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>

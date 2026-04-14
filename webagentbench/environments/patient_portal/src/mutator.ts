@@ -220,6 +220,7 @@ route("POST", "appointments/create", (state, _params, body) => {
     id: genId("apt"),
     provider_id: providerId,
     datetime: slot.datetime,
+    duration_minutes: slot.duration_minutes ?? 30,
     type: String(body?.type ?? slot.type),
     status: "scheduled",
     reason: String(body?.reason ?? ""),

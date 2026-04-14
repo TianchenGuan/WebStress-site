@@ -60,6 +60,7 @@ export interface Appointment {
   id: string;
   provider_id: string;
   datetime: string;
+  duration_minutes: number;
   type: string;
   status: string;
   reason: string;
