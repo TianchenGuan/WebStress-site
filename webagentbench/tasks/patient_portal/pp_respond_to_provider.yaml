@@ -1,10 +1,12 @@
 task_id: pp_respond_to_provider
 env_id: patient_portal
-title: Review and Respond to Provider Message
+title: Review Provider Message and Schedule Follow-Up
 instruction_template: >-
   Your PCP sent you a message about adjusting your blood pressure medication.
-  Read the message and reply in the same thread confirming you understand
-  the change.
+  Read the message, then schedule exactly one PCP follow-up appointment using the
+  next available PCP slot. Use the appointment reason exactly
+  "Blood pressure medication adjustment follow-up". Do not reply and do not send
+  any messages.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -37,6 +39,7 @@ seed:
         unread_count: 2
         categories: ["clinical", "scheduling"]
         include_billing: true
+        body_context: {type: "bp_medication_adjustment"}
       outputs: [thread_ids, unread_msg_ids, all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
@@ -47,33 +50,44 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent replied to the PCP
+        any(
+          m.from_type == 'provider'
+          and m.provider_id == '{target.pcp_id}'
+          and m.subject == 'Blood Pressure Medication Adjustment'
+          and m.id in {target.all_msg_ids}
+          and state.get_message(m.id) is not None
+          and state.get_message(m.id).is_read
+          for m in state.messages
+        )
+      desc: The PCP medication-adjustment message was read
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.thread_id in {target.thread_ids}
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Reply was sent in an existing thread (not a new message)
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Blood pressure medication adjustment follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP follow-up appointment was scheduled
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) >= 1
-      desc: At least one new patient message exists
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Blood pressure medication adjustment follow-up'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The PCP follow-up used the next available PCP slot
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not reply to a non-PCP provider
-      penalty: 0.15
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) <= 2
-      desc: Agent did not send excessive messages
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in {target.all_msg_ids}
+        ]) == 0
+      desc: Agent did not send any patient replies or new messages
+      penalty: 0.2

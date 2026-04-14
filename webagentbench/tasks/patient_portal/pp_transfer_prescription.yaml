@@ -55,8 +55,8 @@ eval:
     - expr: >-
         not any(r.medication != 'Metformin 500mg'
                 and r.status == 'active'
-                and r.pharmacy_id != '{target.default_pharmacy_id}'
                 and r.id in {target.active_rx_ids}
+                and state._initial_snapshot.get('prescriptions', {}).get(r.id, {}).get('pharmacy_id') != r.pharmacy_id
                 for r in state.prescriptions
                 if state.get_pharmacy(r.pharmacy_id) is not None
                 and 'Walgreens' in state.get_pharmacy(r.pharmacy_id).name)

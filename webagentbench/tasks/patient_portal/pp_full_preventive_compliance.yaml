@@ -2,15 +2,15 @@ task_id: pp_full_preventive_compliance
 env_id: patient_portal
 title: Full Preventive Care Compliance
 instruction_template: >-
-  Complete all overdue preventive care actions:
+  Complete all overdue preventive care actions using only appointments, refills,
+  and renewal requests:
   1) Review your applicable screenings list and schedule appointments for any where
   the next_due date has passed,
   2) Schedule appointments for all due or overdue immunizations,
   3) Identify all prescriptions expiring within 30 days that still have refills
-  remaining and request refills; for those with zero refills, message the prescribing
-  provider to request a renewal,
-  4) Send a single consolidated care gap summary message to your PCP ({target.pcp_name})
-  listing every action you took. Do not send separate messages for each item.
+  remaining and request refills,
+  4) For the prescription with zero refills remaining, use the renewal request flow.
+  Do not send any separate clinical summary messages.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 60
@@ -59,12 +59,6 @@ seed:
         upcoming_count: 1
         completed_count: 2
       outputs: [upcoming_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     pcp_name: "{output.pcp_name}"
@@ -79,45 +73,10 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.category == 'clinical'
-             and m.id not in state._initial_snapshot.get('messages', {})]) == 1
-      desc: Exactly one consolidated clinical message was sent to the PCP
-    - expr: >-
-        any(
-          m.from_type == 'patient'
-          and m.provider_id == '{target.pcp_id}'
-          and m.category == 'clinical'
-          and m.id not in state._initial_snapshot.get('messages', {})
-          and all(
-            screening.screening_name in m.body
-            for screening in state.patient.applicable_screenings
-            if screening.next_due is not None
-            and screening.next_due < state.created_at.date()
-          )
-          and all(
-            imm.vaccine_name in m.body
-            for imm in state.immunizations
-            if imm.next_due_at is not None
-            and imm.next_due_at <= state.created_at
-          )
-          and all(
-            state.get_prescription(rid).medication in m.body
-            for rid in {target.active_rx_ids}
-            if state._initial_snapshot['prescriptions'][rid]['refills_remaining'] > 0
-            and (state.get_prescription(rid).expires_at - state.created_at).days <= 30
-          )
-          and state.get_prescription('{target.zero_refill_rx_id}').medication in m.body
-          for m in state.messages
-        )
-      desc: Consolidated message names every overdue screening, due immunization, and prescription action
-    - expr: >-
         len([
           a for a in state.appointments
           if a.status == 'scheduled'
-          and a.id not in {target.upcoming_ids}
+          and a.id not in state._initial_snapshot.get('appointments', {})
         ]) == (
           len([
             screening for screening in state.patient.applicable_screenings
@@ -149,7 +108,7 @@ eval:
           ) == 1
           for a in state.appointments
           if a.status == 'scheduled'
-          and a.id not in {target.upcoming_ids}
+          and a.id not in state._initial_snapshot.get('appointments', {})
         )
       desc: Each new appointment corresponds to exactly one overdue screening or due immunization
     - expr: >-
@@ -174,21 +133,19 @@ eval:
           and m.linked_entity_id == '{target.zero_refill_rx_id}'
           and m.id not in state._initial_snapshot.get('messages', {})
         ]) == 1
-      desc: The zero-refill prescription was moved to pending renewal with one renewal request message
+      desc: The zero-refill prescription was moved to pending renewal with one renewal-request artifact
   negative_checks:
     - expr: >-
         not any(
           m.from_type == 'patient'
           and m.id not in state._initial_snapshot.get('messages', {})
           and not (
-            m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            or m.category == 'rx_renewal'
-               and m.linked_entity_id == '{target.zero_refill_rx_id}'
+            m.category == 'rx_renewal'
+            and m.linked_entity_id == '{target.zero_refill_rx_id}'
           )
           for m in state.messages
         )
-      desc: No extra messages were sent beyond the consolidated summary and the zero-refill renewal request
+      desc: No extra patient messages were sent beyond the zero-refill renewal request artifact
       penalty: 0.2
     - expr: >-
         not any(rx.status == 'discontinued'

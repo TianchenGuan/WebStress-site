@@ -1,10 +1,12 @@
 task_id: pp_message_correct_provider
 env_id: patient_portal
-title: Message Correct Provider About Referral
+title: Follow Up on Pending Referral With PCP
 instruction_template: >-
-  You have a pending referral to orthopedics. Message the referring provider
-  (your PCP who initiated the referral) to check on the referral status.
-  Do not message the orthopedic specialist. Use the clinical message category.
+  You have a pending referral to orthopedics. Schedule exactly one follow-up
+  appointment with the referring provider, which is your PCP, using the next
+  available PCP slot. Use the appointment reason exactly
+  "Orthopedic referral status review". Do not schedule the orthopedic specialist
+  and do not send any messages.
 difficulty: hard
 time_limit_seconds: 240
 expected_steps: 15
@@ -37,38 +39,36 @@ seed:
         approved_count: 1
         pending_count: 1
       outputs: [approved_ref_ids, pending_ref_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 1
-        categories: ["clinical", "scheduling"]
-      outputs: [all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    providers_by_specialty: "{output.providers_by_specialty}"
+    ortho_provider_ids: "{output.providers_by_specialty.orthopedics}"
     pending_ref_ids: "{output.pending_ref_ids}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent messaged the PCP (referring provider)
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Orthopedic referral status review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP referral-status review appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message was sent with clinical category
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) >= 1
-      desc: At least one new message was sent
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Orthopedic referral status review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The referral-status review used the next available PCP slot
     - expr: >-
         all(r.status in ('requested', 'approved', 'denied')
             for r in state.referrals
@@ -76,16 +76,16 @@ eval:
       desc: Pending referral status was not incorrectly modified
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.category == 'clinical'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not message the orthopedic specialist instead of PCP
+        not any(a.provider_id in {target.ortho_provider_ids}
+                and a.id not in state._initial_snapshot.get('appointments', {})
+                for a in state.appointments)
+      desc: Agent did not schedule the orthopedic specialist instead of the PCP
       penalty: 0.25
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) <= 2
-      desc: Agent did not send excessive messages to multiple providers
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

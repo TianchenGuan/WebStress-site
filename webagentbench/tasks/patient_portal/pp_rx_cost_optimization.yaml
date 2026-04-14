@@ -2,19 +2,16 @@ task_id: pp_rx_cost_optimization
 env_id: patient_portal
 title: Prescription Cost Optimization
 instruction_template: >-
-  Find the lowest-cost option for your Atorvastatin prescription. Check your messages
-  from your provider for information about generic alternatives. Compare the pricing
-  across your linked pharmacies (including mail-order if available). Transfer the
-  prescription to the pharmacy that offers the lowest cost. If a generic alternative
-  is mentioned, request the switch by messaging the prescribing provider.
-difficulty: expert
-time_limit_seconds: 480
-expected_steps: 30
+  Move your active Atorvastatin prescription to the mail-order pharmacy already
+  linked to your profile. Do not send any messages, do not request a renewal,
+  and do not modify any other prescription.
+difficulty: hard
+time_limit_seconds: 360
+expected_steps: 16
 primary_primitives:
   - grounding
   - planning
   - state_tracking
-  - exploration
   - verification
 start_path: /medications
 
@@ -41,74 +38,65 @@ seed:
       params:
         active_count: 4
         expired_count: 1
-      outputs: [active_rx_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 2
-        categories: ["clinical", "rx_renewal"]
-        include_rx_renewal: true
-      outputs: [thread_ids, unread_msg_ids]
+        target_medication_name: "Atorvastatin"
+        target_exclude_mail_order: true
+      outputs: [active_rx_ids, target_rx_id]
   targets:
-    pcp_id: "{output.pcp_id}"
-    pharmacy_ids: "{output.pharmacy_ids}"
+    active_rx_ids: "{output.active_rx_ids}"
+    target_rx_id: "{output.target_rx_id}"
     default_pharmacy_id: "{output.default_pharmacy_id}"
     mail_order_pharmacy_id: "{output.mail_order_pharmacy_id}"
-    active_rx_ids: "{output.active_rx_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(rx.medication.lower().find('atorvastatin') >= 0
-            for rx in state.prescriptions
-            if rx.status == 'active')
-      desc: Atorvastatin prescription remains active
+        state.get_prescription('{target.target_rx_id}') is not None
+        and state.get_prescription('{target.target_rx_id}').status == 'active'
+      desc: The target Atorvastatin prescription remained active
     - expr: >-
-        (any(rx.medication.lower().find('atorvastatin') >= 0
-            and rx.pharmacy_id != '{target.default_pharmacy_id}'
-            for rx in state.prescriptions
-            if rx.status == 'active')
-        or any(m.from_type == 'patient'
-               and m.category in ('clinical', 'rx_renewal')
-               and m.id not in state._initial_snapshot.get('messages', {})
-               for m in state.messages))
-      desc: Prescription was transferred or provider was contacted
+        state.get_prescription('{target.target_rx_id}') is not None
+        and state.get_prescription('{target.target_rx_id}').pharmacy_id == '{target.mail_order_pharmacy_id}'
+      desc: The target Atorvastatin prescription was transferred to the mail-order pharmacy
     - expr: >-
-        any(m.from_type == 'patient'
-            and 'Atorvastatin' in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent mentioned Atorvastatin by exact medication name
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
-      desc: Agent sent at least one message during optimization
-    - expr: >-
-        all(rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
-            for rx in state.prescriptions
-            if rx.id in state._initial_snapshot.get('prescriptions', {})
-            and rx.medication.lower().find('atorvastatin') < 0)
-      desc: Non-target prescriptions were not modified
+        len([
+          rx for rx in state.prescriptions
+          if rx.id in state._initial_snapshot.get('prescriptions', {})
+          and rx.pharmacy_id != state._initial_snapshot['prescriptions'][rx.id]['pharmacy_id']
+        ]) == 1
+      desc: Exactly one prescription changed pharmacies
   negative_checks:
     - expr: >-
-        not any(rx.status == 'discontinued'
-                and rx.medication.lower().find('atorvastatin') >= 0
-                for rx in state.prescriptions)
-      desc: Atorvastatin was not discontinued
-      penalty: 0.3
+        all(
+          rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+          for rx in state.prescriptions
+          if rx.id in state._initial_snapshot.get('prescriptions', {})
+          and rx.id != '{target.target_rx_id}'
+        )
+      desc: Non-target prescriptions kept their original status
+      penalty: 0.25
     - expr: >-
-        not any(rx.pharmacy_id not in {target.pharmacy_ids}
-                for rx in state.prescriptions
-                if rx.status == 'active'
-                and rx.id in {target.active_rx_ids})
-      desc: Prescriptions were not transferred to unknown pharmacies
+        all(
+          rx.pharmacy_id == state._initial_snapshot['prescriptions'][rx.id]['pharmacy_id']
+          for rx in state.prescriptions
+          if rx.id in state._initial_snapshot.get('prescriptions', {})
+          and rx.id != '{target.target_rx_id}'
+        )
+      desc: Non-target prescriptions were not transferred
+      penalty: 0.25
+    - expr: >-
+        not any(
+          rx.status == 'pending_renewal'
+          for rx in state.prescriptions
+          if rx.id in {target.active_rx_ids}
+        )
+      desc: No renewal request was started
       penalty: 0.2
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category == 'billing'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not misroute cost optimization through billing channel
-      penalty: 0.15
+        not any(
+          m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+          for m in state.messages
+        )
+      desc: No new patient messages were sent
+      penalty: 0.2

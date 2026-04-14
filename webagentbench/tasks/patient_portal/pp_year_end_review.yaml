@@ -2,14 +2,15 @@ task_id: pp_year_end_review
 env_id: patient_portal
 title: Year-End Health Maintenance Review
 instruction_template: >-
-  Conduct a comprehensive year-end health review. Identify all of the following:
-  1) Due or overdue immunizations,
-  2) Overdue screenings from your applicable screenings list,
-  3) Prescriptions expiring within 60 days,
-  4) Open referrals nearing expiration (within 30 days),
-  5) Unresolved denied insurance claims eligible for appeal.
-  Compile all findings into a single consolidated action plan message to your PCP
-  ({target.pcp_name}). Do not send separate messages for each category.
+  Conduct a comprehensive year-end health review using direct actions only:
+  1) For every due or overdue immunization, schedule exactly one appointment and
+  use the vaccine name itself as the appointment reason,
+  2) For every overdue screening, schedule exactly one appointment and use the
+  screening name itself as the appointment reason,
+  3) Use the expiring approved referral to schedule exactly one specialist follow-up
+  appointment with reason "Expiring referral follow-up",
+  4) Appeal every denied insurance claim that has an available EOB.
+  Do not send any messages and do not discontinue any prescriptions.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -30,6 +31,7 @@ seed:
       params:
         conditions: ["Type 2 Diabetes", "Hypertension", "High Cholesterol"]
         insurance_tier: standard
+        overdue_screening_count: 2
       outputs: [pcp_id, pcp_name, applicable_screening_names]
     - use: provider_directory
       params:
@@ -71,80 +73,58 @@ seed:
         upcoming_count: 2
         completed_count: 3
       outputs: [upcoming_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
-    pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
     due_vaccine_names: "{output.due_vaccine_names}"
-    expiring_rx_ids: "{output.expiring_rx_ids}"
     expiring_ref_id: "{output.expiring_ref_id}"
     denied_claim_ids: "{output.denied_claim_ids}"
     applicable_screening_names: "{output.applicable_screening_names}"
+    expiring_rx_ids: "{output.expiring_rx_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a message to PCP
+        sorted(
+          a.reason
+          for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          and a.reason != 'Expiring referral follow-up'
+        ) == sorted(
+          [imm.vaccine_name for imm in state.immunizations if imm.next_due_at is not None and imm.next_due_at <= state.created_at]
+          + [
+            screening.screening_name
+            for screening in state.patient.applicable_screenings
+            if screening.next_due is not None
+            and screening.next_due < state.created_at.date()
+          ]
+        )
+      desc: Every due vaccine and overdue screening was scheduled once using the exact item name as the appointment reason
     - expr: >-
-        any(m.from_type == 'patient'
-            and any(v in m.body for v in {target.due_vaccine_names})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references due vaccines by name
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.reason == 'Expiring referral follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          and a.linked_referral_id == '{target.expiring_ref_id}'
+        ]) == 1
+      desc: Exactly one follow-up appointment was scheduled using the expiring approved referral
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent with clinical category
-    - expr: >-
-        any(m.from_type == 'patient'
-            and any(
-              state.get_prescription(rid).medication in m.body
-              for rid in {target.expiring_rx_ids}
-            )
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references expiring prescriptions by medication name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and state.get_referral('{target.expiring_ref_id}') is not None
-            and state.get_referral('{target.expiring_ref_id}').to_specialty in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references the expiring referral specialty
-    - expr: >-
-        any(m.from_type == 'patient'
-            and any(cid in m.body for cid in {target.denied_claim_ids})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references denied claim IDs
+        all(
+          state.get_claim(cid) is not None
+          and state.get_claim(cid).status == 'appealed'
+          for cid in {target.denied_claim_ids}
+        )
+      desc: Every denied claim with an EOB was appealed
   negative_checks:
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.id not in state._initial_snapshot.get('messages', {})]) <= 1
-      desc: Agent sent a single consolidated message not multiple separate messages
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.2
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.category == 'clinical'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not send year-end review to non-PCP providers
-      penalty: 0.15
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions

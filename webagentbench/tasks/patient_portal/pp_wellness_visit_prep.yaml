@@ -2,12 +2,13 @@ task_id: pp_wellness_visit_prep
 env_id: patient_portal
 title: Annual Wellness Visit Preparation
 instruction_template: >-
-  Prepare for your annual wellness visit by reviewing your health records and compiling
-  a summary for your PCP. Identify: 1) any immunizations that are due or overdue,
-  2) any applicable screenings that are overdue (next_due has passed),
-  3) any prescriptions expiring within 30 days, and 4) any open referral questions.
-  Compile all findings into a single message to your PCP ({target.pcp_name}).
-  Do not send separate messages for each item.
+  Prepare for your annual wellness visit using appointments only:
+  1) Schedule exactly one PCP appointment with reason "Annual wellness visit",
+  2) For every due or overdue immunization, schedule exactly one appointment and
+  use the vaccine name itself as the appointment reason,
+  3) For every overdue screening, schedule exactly one appointment and use the
+  screening name itself as the appointment reason.
+  Do not send any messages.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 35
@@ -26,6 +27,7 @@ seed:
       params:
         conditions: ["Hypertension", "Type 2 Diabetes"]
         insurance_tier: standard
+        overdue_screening_count: 1
       outputs: [pcp_id, pcp_name, applicable_screening_names]
     - use: provider_directory
       params:
@@ -52,15 +54,8 @@ seed:
         approved_count: 1
         pending_count: 1
       outputs: [pending_ref_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
     due_vaccine_names: "{output.due_vaccine_names}"
     expiring_rx_ids: "{output.expiring_rx_ids}"
     pending_ref_ids: "{output.pending_ref_ids}"
@@ -70,57 +65,37 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a message to PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Annual wellness visit'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP annual wellness appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and any(v in m.body for v in {target.due_vaccine_names})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references due vaccines by name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent with clinical category
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and any(
-              state.get_prescription(rid).medication in m.body
-              for rid in {target.expiring_rx_ids}
-            )
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references expiring prescriptions by medication name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and any(
-              state.get_referral(rid).to_specialty in m.body
-              for rid in {target.pending_ref_ids}
-            )
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references pending referral specialties
+        sorted(
+          a.reason
+          for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          and a.reason != 'Annual wellness visit'
+        ) == sorted(
+          [imm.vaccine_name for imm in state.immunizations if imm.next_due_at is not None and imm.next_due_at <= state.created_at]
+          + [
+            screening.screening_name
+            for screening in state.patient.applicable_screenings
+            if screening.next_due is not None
+            and screening.next_due < state.created_at.date()
+          ]
+        )
+      desc: Every due vaccine and overdue screening was scheduled once using the exact item name as the appointment reason
   negative_checks:
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.id not in state._initial_snapshot.get('messages', {})]) <= 1
-      desc: Agent sent a single consolidated message, not multiple separate messages
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.2
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not message non-PCP providers for wellness prep
-      penalty: 0.15

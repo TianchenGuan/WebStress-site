@@ -2,23 +2,18 @@ task_id: pp_specialist_roundrobin
 env_id: patient_portal
 title: Specialist Round-Robin
 instruction_template: >-
-  Your cardiologist has recommended an echocardiogram. Complete the following
-  sequential chain:
-  1) Schedule the echocardiogram appointment with the cardiology department,
-  2) Review the echocardiogram results in your lab results and look for any
-  abnormal findings,
-  3) If there are abnormal results, message your cardiologist with every
-  abnormal finding and its test value,
-  4) Read the referral message already in your inbox,
-  5) Check that the approved referral exists and that pre-authorization is
-  approved,
-  6) Once confirmed, schedule a consultation with the specialist named in that
-  approved referral.
-  Do not schedule the surgical consultation without the referral and pre-auth
-  being confirmed.
+  Complete this referral chain without using messages:
+  1) Schedule one cardiology appointment in the next available slot with reason
+  exactly "Echocardiogram",
+  2) Confirm that an approved referral exists and that its prior-authorization
+  status is approved,
+  3) Use that approved referral to schedule one specialist appointment in the
+  next available slot with reason exactly "Referral consultation".
+  Book the echocardiogram before the referral consultation. Do not cancel any
+  existing appointments and do not send any messages.
 difficulty: frontier
-time_limit_seconds: 600
-expected_steps: 50
+time_limit_seconds: 540
+expected_steps: 34
 primary_primitives:
   - grounding
   - planning
@@ -26,8 +21,7 @@ primary_primitives:
   - verification
   - backtracking
   - patience
-  - exploration
-start_path: /labs
+start_path: /appointments
 
 seed:
   distractors: 10
@@ -43,46 +37,23 @@ seed:
         specialties: ["pcp", "cardiology", "orthopedics", "neurology", "radiology", "billing"]
         must_include: ["pcp", "cardiology"]
       outputs: [provider_ids, providers_by_specialty]
-    - use: pharmacy_list
-      params:
-        count: 2
-      outputs: [default_pharmacy_id]
-    - use: prescription_cabinet
-      params:
-        active_count: 3
-      outputs: [active_rx_ids]
-    - use: lab_results_panel
-      params:
-        resulted_count: 4
-        abnormal_count: 2
-        critical_count: 0
-      outputs: [resulted_lab_ids, abnormal_lab_ids]
     - use: referral_chain
       params:
         approved_count: 1
         pending_count: 1
         with_prior_auth: true
+        must_have_specialties: ["orthopedics"]
       outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
     - use: appointment_history
       params:
         upcoming_count: 2
         completed_count: 2
       outputs: [upcoming_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 2
-        categories: ["clinical"]
-      outputs: [thread_ids, unread_msg_ids]
   targets:
-    pcp_id: "{output.pcp_id}"
     cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
-    abnormal_lab_ids: "{output.abnormal_lab_ids}"
     approved_ref_ids: "{output.approved_ref_ids}"
-    pending_ref_ids: "{output.pending_ref_ids}"
     prior_auth_ref_id: "{output.prior_auth_ref_id}"
     upcoming_ids: "{output.upcoming_ids}"
-    active_rx_ids: "{output.active_rx_ids}"
 
 eval:
   source: server_state
@@ -100,116 +71,87 @@ eval:
           if a.status == 'scheduled'
           and a.id not in {target.upcoming_ids}
           and a.provider_id in {target.cardio_provider_ids}
-          and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())
+          and a.reason == 'Echocardiogram'
         ]) == 1
       desc: Exactly one echocardiogram appointment was scheduled with cardiology
     - expr: >-
+        any(
+          a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and a.provider_id in {target.cardio_provider_ids}
+          and a.reason == 'Echocardiogram'
+          and a.datetime.isoformat() <= min(
+            slot.datetime.isoformat()
+            for slot in state.get_provider(a.provider_id).available_slots
+          )
+          for a in state.appointments
+        )
+      desc: The echocardiogram used the next available cardiology slot
+    - expr: >-
+        state.get_referral('{target.prior_auth_ref_id}') is not None
+        and state.get_referral('{target.prior_auth_ref_id}').status == 'approved'
+        and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved'
+      desc: The target referral is approved and has approved prior authorization
+    - expr: >-
         len([
-          m for m in state.messages
-          if m.from_type == 'patient'
-          and m.provider_id in {target.cardio_provider_ids}
-          and m.category == 'clinical'
-          and m.id not in state._initial_snapshot.get('messages', {})
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and a.reason == 'Referral consultation'
+          and a.linked_referral_id == '{target.prior_auth_ref_id}'
+          and state.get_provider(a.provider_id) is not None
+          and state.get_provider(a.provider_id).specialty == state.get_referral('{target.prior_auth_ref_id}').to_specialty
         ]) == 1
-      desc: Exactly one new clinical message was sent to the cardiologist
+      desc: Exactly one specialist consultation was scheduled using the approved pre-authorized referral
     - expr: >-
         any(
-          m.from_type == 'patient'
-          and m.provider_id in {target.cardio_provider_ids}
-          and m.category == 'clinical'
-          and m.id not in state._initial_snapshot.get('messages', {})
-          and all(
-            state.get_lab(lid).test_name in m.body
-            and state.get_lab(lid).value in m.body
-            for lid in {target.abnormal_lab_ids}
+          a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and a.reason == 'Referral consultation'
+          and a.linked_referral_id == '{target.prior_auth_ref_id}'
+          and a.datetime.isoformat() <= min(
+            slot.datetime.isoformat()
+            for slot in state.get_provider(a.provider_id).available_slots
           )
-          for m in state.messages
+          for a in state.appointments
         )
-      desc: The cardiology message names every abnormal lab result and value
-    - expr: >-
-        (state.get_referral('{target.prior_auth_ref_id}') is not None
-         and state.get_referral('{target.prior_auth_ref_id}').status == 'approved'
-         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
-      desc: The surgical referral exists and pre-authorization is approved
-    - expr: >-
-        len([
-          a for a in sorted(
-            [
-              a for a in state.appointments
-              if a.status == 'scheduled'
-              and a.id not in {target.upcoming_ids}
-            ],
-            key=lambda a: a.booked_at,
-          )
-        ]) == 2
-      desc: The two new appointments were created in a single ordered sequence
+      desc: The referral consultation used the next available slot for the referred specialist
     - expr: >-
         (
           lambda echo_id=next(
-            (a.id for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and a.provider_id in {target.cardio_provider_ids}
-            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())),
+            (
+              a.id for a in state.appointments
+              if a.status == 'scheduled'
+              and a.id not in {target.upcoming_ids}
+              and a.provider_id in {target.cardio_provider_ids}
+              and a.reason == 'Echocardiogram'
+            ),
             None,
           ),
           consult_id=next(
-            (a.id for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and a.linked_referral_id == '{target.prior_auth_ref_id}'
-            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))),
+            (
+              a.id for a in state.appointments
+              if a.status == 'scheduled'
+              and a.id not in {target.upcoming_ids}
+              and a.reason == 'Referral consultation'
+              and a.linked_referral_id == '{target.prior_auth_ref_id}'
+            ),
             None,
           ):
           echo_id is not None and consult_id is not None
           and [
             a.id
             for a in sorted(
-              [a for a in state.appointments
-               if a.status == 'scheduled' and a.id not in {target.upcoming_ids}],
+              [
+                a for a in state.appointments
+                if a.status == 'scheduled' and a.id not in {target.upcoming_ids}
+              ],
               key=lambda a: a.booked_at,
             )
           ] == [echo_id, consult_id]
         )()
-      desc: The echocardiogram was booked before the surgical consultation
-    - expr: >-
-        (
-          lambda echo_t=next(
-            (a.booked_at for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and a.provider_id in {target.cardio_provider_ids}
-            and ('echo' in a.reason.lower() or 'echocardiogram' in a.reason.lower())),
-            None,
-          ),
-          msg_t=next(
-            (m.timestamp for m in state.messages
-            if m.from_type == 'patient'
-            and m.provider_id in {target.cardio_provider_ids}
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})),
-            None,
-          ),
-          consult_t=next(
-            (a.booked_at for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            and a.linked_referral_id == '{target.prior_auth_ref_id}'
-            and any(word in a.reason.lower() for word in ('consult', 'surgery', 'specialist', 'follow-up'))),
-            None,
-          ):
-          echo_t is not None and msg_t is not None and consult_t is not None
-          and echo_t < msg_t < consult_t
-        )()
-      desc: The message was sent after the echo appointment and before the surgical consultation
+      desc: The echocardiogram was booked before the referral consultation
   negative_checks:
-    - expr: >-
-        not any(a.status == 'scheduled'
-                and a.id not in {target.upcoming_ids}
-                and a.pre_auth_status not in ('approved', 'not_required')
-                for a in state.appointments)
-      desc: No appointments were scheduled without approved pre-authorization
-      penalty: 0.3
     - expr: >-
         all(
           state.get_appointment(aid) is not None
@@ -219,19 +161,18 @@ eval:
       desc: Existing appointments were not cancelled
       penalty: 0.2
     - expr: >-
-        len([
-          m for m in state.messages
-          if m.from_type == 'patient'
+        not any(
+          m.from_type == 'patient'
           and m.id not in state._initial_snapshot.get('messages', {})
-        ]) == 1
-      desc: No extra patient messages were sent beyond the cardiology message
-      penalty: 0.15
+          for m in state.messages
+        )
+      desc: No new patient messages were sent
+      penalty: 0.2
     - expr: >-
         not any(
           a.status == 'scheduled'
           and a.id not in {target.upcoming_ids}
-          and state.get_provider(a.provider_id) is not None
-          and state.get_provider(a.provider_id).specialty not in ('pcp', 'billing', 'admin')
+          and a.reason == 'Referral consultation'
           and (
             a.linked_referral_id is None
             or state.get_referral(a.linked_referral_id) is None
@@ -240,5 +181,5 @@ eval:
           )
           for a in state.appointments
         )
-      desc: No specialist appointment was scheduled without approved referral and pre-auth
-      penalty: 0.2
+      desc: No referral consultation was scheduled without an approved pre-authorized referral
+      penalty: 0.3

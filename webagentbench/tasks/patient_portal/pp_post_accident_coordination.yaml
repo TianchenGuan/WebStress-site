@@ -2,15 +2,16 @@ task_id: pp_post_accident_coordination
 env_id: patient_portal
 title: Post-Accident Care Coordination
 instruction_template: >-
-  After an accident, coordinate the following care workstreams:
-  1) Schedule an orthopedic follow-up appointment (verify referral and pre-authorization),
-  2) Message your PCP to request a physical therapy referral,
-  3) File an insurance claim for the ER visit by messaging the billing department
-  with the visit date and details,
-  4) Request disability documentation from your PCP,
-  5) Check that your pain medication prescription has no interactions with your
-  existing medications. If interactions exist, message the prescribing provider.
-  Do not cancel any existing appointments.
+  After an accident, coordinate the following care workstreams using only
+  appointments and referrals:
+  1) Schedule exactly one orthopedic follow-up appointment with reason
+  "Post-accident orthopedic follow-up",
+  2) Request exactly one new radiology referral from your PCP with reason
+  "Post-accident MRI evaluation",
+  3) Schedule exactly one PCP appointment with reason
+  "Disability documentation visit".
+  Do not send any messages, do not cancel any existing appointments, and do not
+  modify any medications.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -37,7 +38,7 @@ seed:
       params:
         count: 7
         specialties: ["pcp", "orthopedics", "cardiology", "neurology", "radiology", "billing"]
-        must_include: ["pcp", "orthopedics", "billing"]
+        must_include: ["pcp", "orthopedics", "radiology"]
       outputs: [provider_ids, providers_by_specialty]
     - use: pharmacy_list
       params:
@@ -51,78 +52,69 @@ seed:
     - use: referral_chain
       params:
         approved_count: 1
-        pending_count: 1
+        pending_count: 0
         with_prior_auth: true
+        must_have_specialties: ["orthopedics"]
       outputs: [approved_ref_ids, pending_ref_ids, prior_auth_ref_id]
     - use: appointment_history
       params:
         upcoming_count: 2
         completed_count: 2
       outputs: [upcoming_ids, completed_ids]
-    - use: insurance_claims
-      params:
-        approved_count: 1
-        processing_count: 1
-      outputs: [approved_claim_ids, processing_claim_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 2
-        categories: ["clinical", "billing"]
-        include_billing: true
-      outputs: [thread_ids, billing_thread_id]
   targets:
     pcp_id: "{output.pcp_id}"
     pcp_name: "{output.pcp_name}"
     ortho_provider_ids: "{output.providers_by_specialty.orthopedics}"
-    billing_provider_ids: "{output.providers_by_specialty.billing}"
     active_rx_ids: "{output.active_rx_ids}"
-    interacting_medications: "{output.interacting_medications}"
     approved_ref_ids: "{output.approved_ref_ids}"
-    prior_auth_ref_id: "{output.prior_auth_ref_id}"
     upcoming_ids: "{output.upcoming_ids}"
-    conditions_list: "{output.conditions_list}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(a.provider_id in {target.ortho_provider_ids}
-            and a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Orthopedic follow-up appointment was scheduled
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.ortho_provider_ids}
+          and a.reason == 'Post-accident orthopedic follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one orthopedic follow-up appointment was scheduled with the required reason
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: PCP was sent a clinical message
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Disability documentation visit'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP documentation appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id in {target.billing_provider_ids}
-            and m.category == 'billing'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Billing department was contacted about ER visit claim
+        len([
+          r for r in state.referrals
+          if r.id not in state._initial_snapshot.get('referrals', {})
+          and r.from_provider_id == '{target.pcp_id}'
+          and r.to_specialty == 'radiology'
+          and r.reason == 'Post-accident MRI evaluation'
+          and r.status == 'requested'
+        ]) == 1
+      desc: Exactly one new radiology referral was requested from the PCP
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 2
-      desc: Agent sent at least two messages to PCP (referral + documentation)
-    - expr: >-
-        all(rx.status == 'active'
-            for rx in state.prescriptions
-            if rx.id in {target.active_rx_ids})
-      desc: All existing prescriptions remain active
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 3
-      desc: Agent sent at least three messages across workstreams
+        len([
+          a for a in state.appointments
+          if a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 2
+      desc: Agent created exactly two new appointments
   negative_checks:
+    - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
     - expr: >-
         all(
           state.get_appointment(aid) is not None
@@ -132,17 +124,8 @@ eval:
       desc: Existing appointments were not cancelled
       penalty: 0.2
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category == 'clinical'
-                and any(cond in m.body for cond in {target.conditions_list})
-                and m.provider_id in {target.billing_provider_ids}
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Clinical diagnosis was not shared in billing messages
-      penalty: 0.15
-    - expr: >-
-        not any(rx.status == 'discontinued'
-                for rx in state.prescriptions
-                if rx.id in {target.active_rx_ids})
-      desc: No medications were discontinued without authorization
+        all(rx.status == 'active'
+            for rx in state.prescriptions
+            if rx.id in {target.active_rx_ids})
+      desc: All existing prescriptions remain active
       penalty: 0.3

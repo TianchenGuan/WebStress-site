@@ -2,11 +2,14 @@ task_id: pp_multi_provider_coord
 env_id: patient_portal
 title: Multi-Provider Medication Change
 instruction_template: >-
-  Your cardiologist recommends changing your blood pressure medication. You need to
-  coordinate this change safely: 1) Message your PCP to verify the change is safe
-  given your other conditions ({target.conditions_list}), 2) Check your insurance
-  formulary for coverage of the new medication, 3) Message the cardiologist confirming
-  you have verified with your PCP and insurance. Include the medication name in all messages.
+  Your cardiologist recommends changing your blood pressure medication. Coordinate
+  the follow-up with appointments only:
+  1) Schedule exactly one PCP appointment using the next available PCP slot with
+  reason "Blood pressure medication coordination",
+  2) Read the cardiology coverage note,
+  3) Schedule exactly one cardiology appointment using the next available cardiology
+  slot with reason "Covered medication follow-up".
+  Do not send any messages and do not discontinue any medications.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 32
@@ -47,60 +50,60 @@ seed:
         thread_count: 3
         unread_count: 2
         categories: ["clinical"]
+        body_context:
+          type: "bp_medication_adjustment"
+          provider_specialty: "cardiology"
+          new_medication_name: "Valsartan 80mg"
+          coverage_status: "covered"
       outputs: [thread_ids, unread_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
     cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
-    conditions_list: "{output.conditions_list}"
     active_rx_ids: "{output.active_rx_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent messaged PCP for verification
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Blood pressure medication coordination'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP coordination appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id in {target.cardio_provider_ids}
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent messaged cardiologist with confirmation
+        any(
+          m.from_type == 'provider'
+          and m.provider_id in {target.cardio_provider_ids}
+          and m.subject == 'Blood Pressure Medication Adjustment'
+          and m.id in state._initial_snapshot.get('messages', {})
+          and state.get_message(m.id) is not None
+          and state.get_message(m.id).is_read
+          for m in state.messages
+        )
+      desc: The cardiology medication-adjustment message was read
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: PCP message was sent with clinical category
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id in {target.cardio_provider_ids}
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Cardiologist was sent a clinical message
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 2
-      desc: Agent sent at least two messages (PCP + cardiologist)
-  negative_checks:
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id not in {target.cardio_provider_ids}
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not message unrelated providers
-      penalty: 0.2
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.cardio_provider_ids}
+          and a.reason == 'Covered medication follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one cardiology follow-up appointment was scheduled
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
             if rx.id in {target.active_rx_ids})
       desc: Agent did not discontinue medications without authorization
-      penalty: 0.3
+  negative_checks:
+    - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

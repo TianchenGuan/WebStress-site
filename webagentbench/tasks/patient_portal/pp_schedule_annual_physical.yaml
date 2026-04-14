@@ -81,7 +81,8 @@ eval:
             (a.datetime for a in state.appointments
             if a.status == 'scheduled'
             and a.provider_id == '{target.pcp_id}'
-            and a.id not in {target.upcoming_ids}),
+            and a.id not in {target.upcoming_ids}
+            and not any(word in a.reason.lower() for word in ('lab', 'blood', 'pre-visit'))),
             None,
           ),
           lab_dt=next(

@@ -2,34 +2,22 @@ task_id: pp_treatment_cost_comparison
 env_id: patient_portal
 title: Treatment Cost Comparison
 instruction_template: >-
-  Compare two treatment options for your condition:
-  1) Check the insurance coverage for each option by reviewing your claims
-  history and formulary information — look at approved claims to understand
-  typical coverage rates,
-  2) Review your deductible status (how much of your {target.insurance_plan_name}
-  deductible has been met vs. the total),
-  3) For Option A (ongoing prescription), check your active prescriptions for
-  the medication cost pattern including refill frequency and pharmacy,
-  4) For Option B (specialist procedure), verify the referral is approved and
-  check pre-authorization status,
-  5) Calculate estimated out-of-pocket costs for each option considering your
-  deductible status and coverage rates,
-  6) Message your PCP ({target.pcp_name}) with a cost comparison summary that
-  includes your deductible status, estimated out-of-pocket for each option,
-  and your preferred choice.
-  Do not schedule any appointments or modify prescriptions — this is an
-  analysis-only task.
-difficulty: frontier
-time_limit_seconds: 600
-expected_steps: 45
+  Review your deductible progress, your existing approved claim balances, and
+  the approved pre-authorized procedure referral. After reviewing those costs,
+  schedule exactly one PCP appointment in the next available slot with the
+  reason exactly "Treatment cost comparison review". Do not send any messages,
+  do not schedule any other appointments, and do not modify prescriptions,
+  claims, or referrals.
+difficulty: hard
+time_limit_seconds: 420
+expected_steps: 24
 primary_primitives:
   - grounding
   - planning
   - state_tracking
   - verification
   - patience
-  - exploration
-start_path: /messages
+start_path: /billing
 
 seed:
   distractors: 10
@@ -46,11 +34,6 @@ seed:
         specialties: ["pcp", "orthopedics", "radiology", "neurology", "cardiology", "billing"]
         must_include: ["pcp", "orthopedics", "billing"]
       outputs: [provider_ids, providers_by_specialty]
-    - use: pharmacy_list
-      params:
-        count: 2
-        include_mail_order: true
-      outputs: [pharmacy_ids, default_pharmacy_id, mail_order_pharmacy_id]
     - use: prescription_cabinet
       params:
         active_count: 4
@@ -66,7 +49,7 @@ seed:
       params:
         upcoming_count: 2
         completed_count: 3
-      outputs: [upcoming_ids, completed_ids]
+      outputs: [upcoming_ids]
     - use: insurance_claims
       params:
         approved_count: 3
@@ -74,100 +57,97 @@ seed:
         processing_count: 1
         with_eob: true
       outputs: [approved_claim_ids, denied_claim_ids, total_patient_responsibility]
-    - use: message_threads
-      params:
-        thread_count: 4
-        unread_count: 2
-        categories: ["clinical"]
-        include_billing: true
-      outputs: [thread_ids, unread_msg_ids, billing_thread_id]
   targets:
     pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
-    insurance_plan_name: "{output.insurance_plan_name}"
-    member_id: "{output.member_id}"
     active_rx_ids: "{output.active_rx_ids}"
     approved_ref_ids: "{output.approved_ref_ids}"
     pending_ref_ids: "{output.pending_ref_ids}"
     prior_auth_ref_id: "{output.prior_auth_ref_id}"
     approved_claim_ids: "{output.approved_claim_ids}"
     denied_claim_ids: "{output.denied_claim_ids}"
-    total_patient_responsibility: "{output.total_patient_responsibility}"
     upcoming_ids: "{output.upcoming_ids}"
 
 eval:
   source: server_state
   checks:
-    # Sub-goal 6: cost comparison message sent to PCP
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a cost comparison message to the PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+        ]) == 1
+      desc: Exactly one new appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent to PCP with clinical category
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Treatment cost comparison review'
+        ]) == 1
+      desc: Exactly one PCP treatment-cost review appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and '{target.insurance_plan_name}' in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references the insurance plan by name
+        any(
+          a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Treatment cost comparison review'
+          and a.datetime.isoformat() <= min(
+            slot.datetime.isoformat()
+            for slot in state.get_provider(a.provider_id).available_slots
+          )
+          for a in state.appointments
+        )
+      desc: The PCP cost-review appointment used the next available PCP slot
     - expr: >-
-        any(m.from_type == 'patient'
-            and str(state.patient.insurance_plan.deductible_met) in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message includes specific deductible amount from patient records
-    # Sub-goal 4: referral and pre-auth verification
+        state.get_referral('{target.prior_auth_ref_id}') is not None
+        and state.get_referral('{target.prior_auth_ref_id}').status == 'approved'
+        and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved'
+      desc: The procedure referral remained approved with approved prior authorization
     - expr: >-
-        (state.get_referral('{target.prior_auth_ref_id}') is not None
-         and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
-      desc: Pre-authorization for the procedure referral is verified
-    # Preservation: no state mutations
+        all(
+          c.status == state._initial_snapshot['claims'][c.id]['status']
+          and c.patient_responsibility == state._initial_snapshot['claims'][c.id]['patient_responsibility']
+          for c in state.claims
+          if c.id in state._initial_snapshot.get('claims', {})
+        )
+      desc: Claim statuses and balances were not modified
     - expr: >-
-        all(rx.status == 'active'
-            for rx in state.prescriptions
-            if rx.id in {target.active_rx_ids})
+        all(
+          rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']
+          for rx in state.prescriptions
+          if rx.id in state._initial_snapshot.get('prescriptions', {})
+          and rx.id in {target.active_rx_ids}
+        )
       desc: Active prescriptions were not modified
-    - expr: >-
-        all(c.status == state._initial_snapshot['claims'][c.id]['status']
-            for c in state.claims
-            if c.id in state._initial_snapshot.get('claims', {}))
-      desc: Insurance claim statuses were not changed
   negative_checks:
     - expr: >-
-        not any(a.status == 'scheduled'
-                and a.id not in {target.upcoming_ids}
-                for a in state.appointments)
-      desc: No new appointments were scheduled (task is analysis-only)
+        not any(
+          a.status == 'scheduled'
+          and a.id not in {target.upcoming_ids}
+          and (
+            a.provider_id != '{target.pcp_id}'
+            or a.reason != 'Treatment cost comparison review'
+          )
+          for a in state.appointments
+        )
+      desc: No extra appointments were scheduled beyond the PCP cost-review visit
       penalty: 0.2
     - expr: >-
-        not any(rx.status == 'discontinued'
-                for rx in state.prescriptions
-                if rx.id in {target.active_rx_ids})
-      desc: No active prescriptions were discontinued
-      penalty: 0.3
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and ('cost' in m.body.lower() or 'comparison' in m.body.lower()
-                     or 'prefer' in m.body.lower())
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Cost comparison was not sent to non-PCP providers
+        not any(
+          m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+          for m in state.messages
+        )
+      desc: No new patient messages were sent
       penalty: 0.2
     - expr: >-
         all(
           state.get_referral(rid) is not None
           and state.get_referral(rid).status == state._initial_snapshot['referrals'][rid]['status']
+          and state.get_referral(rid).prior_auth_status == state._initial_snapshot['referrals'][rid]['prior_auth_status']
           for rid in {target.approved_ref_ids}
           if rid in state._initial_snapshot.get('referrals', {})
         )
-      desc: Approved referral statuses were not changed
+      desc: Approved referrals were not modified
       penalty: 0.2

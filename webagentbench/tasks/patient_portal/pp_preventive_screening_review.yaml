@@ -2,10 +2,10 @@ task_id: pp_preventive_screening_review
 env_id: patient_portal
 title: Identify Overdue Screenings
 instruction_template: >-
-  Review your applicable screenings list in your profile. Identify all
-  screenings where the next due date has already passed. Message your PCP
-  listing the overdue screenings so you can schedule them. Use the clinical
-  message category.
+  Review your applicable screenings list in your profile. For every screening
+  where the next due date has already passed, schedule exactly one appointment.
+  Use the screening name itself as the appointment reason exactly as shown in the
+  profile. Do not send any messages.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 15
@@ -23,6 +23,7 @@ seed:
       params:
         conditions: ["Hypertension", "Type 2 Diabetes"]
         insurance_tier: standard
+        overdue_screening_count: 2
       outputs: [pcp_id, pcp_name, applicable_screening_names]
     - use: provider_directory
       params:
@@ -34,70 +35,57 @@ seed:
       params:
         count: 2
       outputs: [default_pharmacy_id]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     applicable_screening_names: "{output.applicable_screening_names}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.category == 'clinical'
-             and m.id not in {target.all_msg_ids}]) == 1
-      desc: Exactly one clinical message was sent to the PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == len([
+          screening for screening in state.patient.applicable_screenings
+          if screening.next_due is not None
+          and screening.next_due < state.created_at.date()
+        ])
+      desc: Exactly one appointment was scheduled for each overdue screening
     - expr: >-
-        any(
-          m.from_type == 'patient'
-          and m.provider_id == '{target.pcp_id}'
-          and m.category == 'clinical'
-          and m.id not in {target.all_msg_ids}
-          and all(
-            screening.screening_name in m.body
+        sorted(
+          a.reason
+          for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ) == sorted(
+          screening.screening_name
+          for screening in state.patient.applicable_screenings
+          if screening.next_due is not None
+          and screening.next_due < state.created_at.date()
+        )
+      desc: Every new appointment uses the exact overdue screening name as its reason
+  negative_checks:
+    - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
+    - expr: >-
+        not any(
+          a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          and a.reason not in [
+            screening.screening_name
             for screening in state.patient.applicable_screenings
             if screening.next_due is not None
             and screening.next_due < state.created_at.date()
-          )
-          for m in state.messages
+          ]
+          for a in state.appointments
         )
-      desc: PCP message lists every overdue screening
-  negative_checks:
-    - expr: >-
-        not any(
-          m.from_type == 'patient'
-          and m.provider_id == '{target.pcp_id}'
-          and m.category == 'clinical'
-          and m.id not in {target.all_msg_ids}
-          and any(
-            screening.screening_name in m.body
-            for screening in state.patient.applicable_screenings
-            if screening.next_due is None
-            or screening.next_due >= state.created_at.date()
-          )
-          for m in state.messages
-        )
-      desc: Agent did not include screenings that are not overdue
-      penalty: 0.15
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent messaged PCP and not a different provider
-      penalty: 0.20
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category != 'clinical'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent used clinical category, not billing or other
+      desc: Agent did not schedule appointments for screenings that were not overdue
       penalty: 0.15

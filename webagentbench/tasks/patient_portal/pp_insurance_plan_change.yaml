@@ -2,14 +2,13 @@ task_id: pp_insurance_plan_change
 env_id: patient_portal
 title: Insurance Plan Change with Rx Audit
 instruction_template: >-
-  Your insurance has changed to a new plan. Complete the full transition:
-  1) Update your insurance plan details (plan name, member ID, group number),
-  2) Review each active prescription to verify coverage under the new plan by
-  checking provider messages about formulary information,
-  3) For any non-formulary medications, message the prescribing provider to request
-  prior authorization,
-  4) If the new plan requires a preferred pharmacy, update your default pharmacy.
-  Do not discontinue any medications during this process.
+  Your insurance has changed to a new plan. Complete the transition by:
+  1) Updating your insurance plan details to plan name "Aetna PPO Silver",
+  member ID "AET-5529103", and group number "GRP-88914",
+  2) Setting the mail-order pharmacy already in your pharmacy list as the default
+  pharmacy for the new plan.
+  Do not send any messages, do not cancel appointments, and do not discontinue
+  any medications.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -47,63 +46,37 @@ seed:
         active_count: 5
         expired_count: 1
       outputs: [active_rx_ids]
-    - use: message_threads
-      params:
-        thread_count: 4
-        unread_count: 3
-        categories: ["clinical", "billing"]
-        include_billing: true
-      outputs: [thread_ids, unread_msg_ids, billing_thread_id]
     - use: appointment_history
       params:
         upcoming_count: 2
         completed_count: 2
       outputs: [upcoming_ids]
   targets:
-    pcp_id: "{output.pcp_id}"
-    old_plan_name: "{output.insurance_plan_name}"
-    old_member_id: "{output.member_id}"
     active_rx_ids: "{output.active_rx_ids}"
     pharmacy_ids: "{output.pharmacy_ids}"
+    mail_order_pharmacy_id: "{output.mail_order_pharmacy_id}"
     upcoming_ids: "{output.upcoming_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        state.patient.insurance_plan.plan_name != '{target.old_plan_name}'
-        or state.patient.insurance_plan.member_id != '{target.old_member_id}'
-      desc: Insurance plan details were updated
+        state.patient.insurance_plan.plan_name == 'Aetna PPO Silver'
+        and state.patient.insurance_plan.member_id == 'AET-5529103'
+        and state.patient.insurance_plan.group_number == 'GRP-88914'
+      desc: Insurance plan details were updated to the exact new values
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category in ('clinical', 'rx_renewal')
-            and any(
-              state.get_prescription(rid).medication in m.body
-              for rid in {target.active_rx_ids}
-            )
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a message referencing active medications by name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.category in ('clinical', 'rx_renewal')
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Messages sent through appropriate channels
+        any(
+          p.id == '{target.mail_order_pharmacy_id}'
+          and p.is_default
+          for p in state.pharmacies
+        )
+      desc: The mail-order pharmacy was set as the default pharmacy
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
             if rx.id in {target.active_rx_ids})
       desc: All active prescriptions remain active
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
-      desc: Agent sent at least one message during the transition
-    - expr: >-
-        state.patient.insurance_plan.plan_name != '{target.old_plan_name}'
-        and state.patient.insurance_plan.member_id != '{target.old_member_id}'
-      desc: Both plan name and member ID were updated (not just one)
   negative_checks:
     - expr: >-
         not any(rx.status == 'discontinued'
@@ -120,16 +93,10 @@ eval:
       desc: Existing appointments were not cancelled
       penalty: 0.2
     - expr: >-
-        not any(rx.pharmacy_id not in {target.pharmacy_ids}
-                for rx in state.prescriptions
-                if rx.status == 'active'
-                and rx.id in {target.active_rx_ids})
-      desc: No prescriptions transferred to unknown pharmacies
-      penalty: 0.2
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category == 'billing'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not misroute formulary requests through billing channel
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.15

@@ -1,10 +1,12 @@
 task_id: pp_lab_trend_analysis
 env_id: patient_portal
-title: Lab Trend Analysis and Provider Message
+title: Lab Trend Analysis and Endocrinology Follow-Up
 instruction_template: >-
-  Review your HbA1c results from the past 6 months. Your levels have been
-  trending upward. Message your endocrinologist with the specific values
-  and request a medication review. Use the clinical message category.
+  Review your HbA1c results from the past 6 months. In this seed the values are
+  trending upward, so schedule exactly one follow-up appointment with an
+  endocrinologist using the next available endocrinology slot. Use the
+  appointment reason exactly "HbA1c trend review". Do not send any messages and
+  do not modify any prescriptions.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 15
@@ -41,60 +43,61 @@ seed:
         trend_test: "HbA1c"
         trend_values: ["6.5", "6.9", "7.4", "7.8"]
       outputs: [resulted_lab_ids, pending_lab_ids, abnormal_lab_ids, trend_lab_ids, trend_test_name]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
     - use: prescription_cabinet
       params:
         active_count: 3
       outputs: [active_rx_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    providers_by_specialty: "{output.providers_by_specialty}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
     trend_lab_ids: "{output.trend_lab_ids}"
     trend_test_name: "{output.trend_test_name}"
     pending_lab_ids: "{output.pending_lab_ids}"
-    all_msg_ids: "{output.all_msg_ids}"
     active_rx_ids: "{output.active_rx_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and state.get_provider(m.provider_id) is not None
-            and state.get_provider(m.provider_id).specialty == 'endocrinology'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent sent a message to the endocrinologist
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and state.get_provider(a.provider_id) is not None
+          and state.get_provider(a.provider_id).specialty == 'endocrinology'
+          and a.reason == 'HbA1c trend review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one endocrinology trend-review appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and 'HbA1c' in m.body
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message body mentions HbA1c
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message was sent with clinical category
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) >= 1
-      desc: At least one new message was created
+        any(
+          a.status == 'scheduled'
+          and state.get_provider(a.provider_id) is not None
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'HbA1c trend review'
+          and a.datetime == min(
+            slot['datetime']
+            for provider_id in {target.endo_provider_ids}
+            for slot in state._initial_snapshot['providers'][provider_id]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The endocrinology follow-up used the next available endocrinology slot
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id == '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent messaged the endocrinologist, not the PCP
+        not any(a.provider_id == '{target.pcp_id}'
+                and a.id not in state._initial_snapshot.get('appointments', {})
+                for a in state.appointments)
+      desc: Agent did not schedule the PCP instead of endocrinology
       penalty: 0.20
+    - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
     - expr: >-
         all(r.status in ('active', 'pending_renewal')
             for r in state.prescriptions

@@ -1,14 +1,13 @@
 task_id: pp_full_care_transition
 env_id: patient_portal
-title: Full Care Transition
+title: Full Care Continuity Review
 instruction_template: >-
-  Transfer to a new PCP. Complete the full transition:
-  1) Update your PCP assignment to the new provider,
-  2) Re-establish all active prescriptions with the new PCP as the prescribing provider,
-  3) Re-route any open referrals to go through the new PCP,
-  4) Send an introduction message to the new PCP summarizing your conditions
-  ({target.conditions_list}), current medications, and any pending referrals.
-  Do not cancel any existing specialist appointments.
+  Complete a continuity-of-care review across your active providers:
+  1) Schedule exactly one PCP appointment with reason "Care continuity review",
+  2) Schedule exactly one cardiology appointment with reason "Cardiology continuity visit",
+  3) Schedule exactly one endocrinology appointment with reason "Endocrinology continuity visit".
+  Do not send any messages, do not cancel any existing specialist appointments,
+  and do not modify any prescriptions.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
@@ -51,76 +50,55 @@ seed:
       params:
         approved_count: 2
         pending_count: 1
+        must_have_specialties: ["cardiology", "endocrinology"]
       outputs: [approved_ref_ids, pending_ref_ids]
     - use: appointment_history
       params:
         upcoming_count: 3
         completed_count: 3
       outputs: [upcoming_ids, completed_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
-    old_pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
-    conditions_list: "{output.conditions_list}"
+    pcp_id: "{output.pcp_id}"
+    cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
     active_rx_ids: "{output.active_rx_ids}"
-    approved_ref_ids: "{output.approved_ref_ids}"
-    pending_ref_ids: "{output.pending_ref_ids}"
     upcoming_ids: "{output.upcoming_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        state.patient.pcp_id != '{target.old_pcp_id}'
-        and state.get_provider(state.patient.pcp_id) is not None
-      desc: PCP assignment was updated to a different provider
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Care continuity review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP continuity-review appointment was scheduled
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == state.patient.pcp_id
-             and m.category == 'clinical'
-             and m.id not in state._initial_snapshot.get('messages', {})]) == 1
-      desc: Exactly one introduction message was sent to the new PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.cardio_provider_ids}
+          and a.reason == 'Cardiology continuity visit'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one cardiology continuity visit was scheduled
     - expr: >-
-        any(
-          m.from_type == 'patient'
-          and m.provider_id == state.patient.pcp_id
-          and m.category == 'clinical'
-          and m.id not in state._initial_snapshot.get('messages', {})
-          and all(cond in m.body for cond in {target.conditions_list})
-          and all(
-            state.get_prescription(rid).medication in m.body
-            for rid in {target.active_rx_ids}
-          )
-          and all(
-            state.get_referral(rid).reason in m.body
-            for rid in {target.approved_ref_ids} + {target.pending_ref_ids}
-          )
-          for m in state.messages
-        )
-      desc: Introduction message summarizes conditions, medications, and referrals
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'Endocrinology continuity visit'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one endocrinology continuity visit was scheduled
     - expr: >-
         all(rx.status == 'active'
-            and rx.provider_id == state.patient.pcp_id
             for rx in state.prescriptions
             if rx.id in {target.active_rx_ids})
-      desc: All active prescriptions were re-established with the new PCP
-    - expr: >-
-        len([r for r in state.referrals
-             if r.status in ('approved', 'requested')]) == len({target.approved_ref_ids}) + len({target.pending_ref_ids})
-      desc: All open referrals remain open with no extras introduced
-    - expr: >-
-        all(
-          r.from_provider_id == state.patient.pcp_id
-          for r in state.referrals
-          if r.id in {target.approved_ref_ids} + {target.pending_ref_ids}
-        )
-      desc: Open referrals were re-routed through the new PCP
+      desc: All active prescriptions remain unchanged
   negative_checks:
     - expr: >-
         all(
@@ -131,25 +109,10 @@ eval:
       desc: Existing specialist appointments were not cancelled
       penalty: 0.2
     - expr: >-
-        not any(rx.status == 'discontinued'
-                for rx in state.prescriptions
-                if rx.id in {target.active_rx_ids})
-      desc: No active prescriptions were discontinued during transition
-      penalty: 0.3
-    - expr: >-
-        not any(
-          r.id in {target.approved_ref_ids} + {target.pending_ref_ids}
-          and r.from_provider_id == '{target.old_pcp_id}'
-          for r in state.referrals
-        )
-      desc: Open referrals were not left under the old PCP
-      penalty: 0.25
-    - expr: >-
-        not any(
-          m.from_type == 'patient'
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
           and m.id not in state._initial_snapshot.get('messages', {})
-          and m.provider_id != state.patient.pcp_id
-          for m in state.messages
-        )
-      desc: No extra messages were sent to other providers during transition
-      penalty: 0.25
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

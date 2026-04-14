@@ -5,9 +5,9 @@ instruction_template: >-
   Review all your insurance claims. Identify all denied claims that are still eligible
   for appeal (appeal deadline has not passed and an EOB is available). From those
   eligible claims, select the top 3 by patient responsibility amount (highest first;
-  if two claims tie, break the tie by claim ID). Send exactly one billing message for
-  each of those 3 claims to the billing department, and include the claim ID and the
-  linked appointment ID in each message. Do not message any other claims.
+  if two claims tie, break the tie by claim ID). Appeal exactly those 3 claims
+  using the claim appeal action. Do not appeal any other claim and do not send
+  any messages.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 40
@@ -54,16 +54,8 @@ seed:
         approved_count: 2
         pending_count: 0
       outputs: [approved_ref_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["billing"]
-        include_billing: true
-      outputs: [thread_ids, billing_thread_id]
   targets:
     pcp_id: "{output.pcp_id}"
-    billing_provider_ids: "{output.providers_by_specialty.billing}"
     denied_claim_ids: "{output.denied_claim_ids}"
     appealable_claim_id: "{output.appealable_claim_id}"
     approved_claim_ids: "{output.approved_claim_ids}"
@@ -72,71 +64,45 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        len([
-          m for m in state.messages
-          if m.from_type == 'patient'
-          and m.category == 'billing'
-          and m.provider_id in {target.billing_provider_ids}
-          and m.id not in state._initial_snapshot.get('messages', {})
-        ]) == 3
-      desc: Exactly three billing appeal messages were sent
-    - expr: >-
-        [
-          m.linked_entity_id
-          for m in sorted(
-            [
-              m for m in state.messages
-              if m.from_type == 'patient'
-              and m.category == 'billing'
-              and m.provider_id in {target.billing_provider_ids}
-              and m.id not in state._initial_snapshot.get('messages', {})
-            ],
-            key=lambda m: m.timestamp,
-          )
-        ] == sorted(
-          [
-            cid for cid in {target.denied_claim_ids}
-            if state._initial_snapshot['claims'][cid]['eob_available']
-            and state._initial_snapshot['claims'][cid]['appeal_deadline'] >= state.created_at
-          ],
-          key=lambda cid: (
-            -float(state._initial_snapshot['claims'][cid]['patient_responsibility']),
-            cid,
-          ),
-        )[:3]
-      desc: The billing appeals target the top 3 eligible denied claims in the required order
+        len([c for c in state.claims if c.status == 'appealed']) == 3
+      desc: Exactly three claims were appealed
     - expr: >-
         all(
-          m.linked_entity_type == 'claim'
-          and m.linked_entity_id in {target.denied_claim_ids}
-          and m.linked_entity_id is not None
-          and m.linked_entity_id in [
-            cid for cid in sorted(
+          state.get_claim(cid) is not None
+          and state.get_claim(cid).status == 'appealed'
+          for cid in sorted(
+            [
+              cid for cid in {target.denied_claim_ids}
+              if state.get_claim(cid).eob_available
+              and state.get_claim(cid).appeal_deadline >= state.created_at
+            ],
+            key=lambda cid: (
+              -float(state._initial_snapshot['claims'][cid]['patient_responsibility']),
+              cid,
+            ),
+          )[:3]
+        )
+      desc: The top 3 eligible denied claims by patient responsibility were appealed
+    - expr: >-
+        all(
+          state.get_claim(cid) is not None
+          and state.get_claim(cid).status == 'denied'
+          for cid in [
+            cid for cid in {target.denied_claim_ids}
+            if cid not in sorted(
               [
-                cid for cid in {target.denied_claim_ids}
-                if state._initial_snapshot['claims'][cid]['eob_available']
-                and state._initial_snapshot['claims'][cid]['appeal_deadline'] >= state.created_at
+                inner_cid for inner_cid in {target.denied_claim_ids}
+                if state.get_claim(inner_cid).eob_available
+                and state.get_claim(inner_cid).appeal_deadline >= state.created_at
               ],
-              key=lambda cid: (
-                -float(state._initial_snapshot['claims'][cid]['patient_responsibility']),
-                cid,
+              key=lambda inner_cid: (
+                -float(state._initial_snapshot['claims'][inner_cid]['patient_responsibility']),
+                inner_cid,
               ),
             )[:3]
           ]
-          and m.linked_entity_id in m.body
-          and state._initial_snapshot['claims'][m.linked_entity_id]['appointment_id'] in m.body
-          for m in state.messages
-          if m.from_type == 'patient'
-          and m.category == 'billing'
-          and m.provider_id in {target.billing_provider_ids}
-          and m.id not in state._initial_snapshot.get('messages', {})
         )
-      desc: Each appeal message names the claim and its linked appointment
-    - expr: >-
-        all(c.status != 'approved'
-            for c in state.claims
-            if c.id in {target.denied_claim_ids})
-      desc: Denied claims were not incorrectly changed to approved
+      desc: No denied claim outside the exact top 3 eligible set was appealed
     - expr: >-
         all(c.status == 'approved'
             for c in state.claims
@@ -144,42 +110,10 @@ eval:
       desc: Approved claims were not modified
   negative_checks:
     - expr: >-
-        not any(
-          m.from_type == 'patient'
-          and m.category == 'billing'
-          and m.provider_id in {target.billing_provider_ids}
-          and m.id not in state._initial_snapshot.get('messages', {})
-          and m.linked_entity_id not in [
-            cid for cid in sorted(
-              [
-                cid for cid in {target.denied_claim_ids}
-                if state._initial_snapshot['claims'][cid]['eob_available']
-                and state._initial_snapshot['claims'][cid]['appeal_deadline'] >= state.created_at
-              ],
-              key=lambda cid: (
-                -float(state._initial_snapshot['claims'][cid]['patient_responsibility']),
-                cid,
-              ),
-            )[:3]
-          ]
-          for m in state.messages
-        )
-      desc: No billing appeal was sent for a claim outside the exact top 3
-      penalty: 0.2
-    - expr: >-
         len([
           m for m in state.messages
           if m.from_type == 'patient'
           and m.id not in state._initial_snapshot.get('messages', {})
-        ]) == 3
-      desc: No extra patient messages were sent beyond the three appeals
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.2
-    - expr: >-
-        not any(
-          m.from_type == 'patient'
-          and m.category != 'billing'
-          and m.id not in state._initial_snapshot.get('messages', {})
-          for m in state.messages
-        )
-      desc: Appeals were not routed through a non-billing channel
-      penalty: 0.15

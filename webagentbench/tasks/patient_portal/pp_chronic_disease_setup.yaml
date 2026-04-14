@@ -2,13 +2,14 @@ task_id: pp_chronic_disease_setup
 env_id: patient_portal
 title: Chronic Disease Monitoring Setup
 instruction_template: >-
-  Establish a chronic disease monitoring plan for your conditions ({target.conditions_list}):
-  1) Schedule quarterly HbA1c and kidney function lab appointments,
-  2) Send a message to your PCP about monthly blood pressure medication reviews,
-  3) Schedule annual specialist visits for cardiology and endocrinology (verify
-  referrals and pre-authorizations are in place),
-  4) Verify that all monitoring-related prescriptions are current and active.
-  Include a plan summary in your PCP message.
+  Establish a chronic disease monitoring plan for your conditions
+  ({target.conditions_list}) using only appointments:
+  1) Schedule exactly one monitoring appointment with reason "HbA1c monitoring",
+  2) Schedule exactly one monitoring appointment with reason "Kidney function monitoring",
+  3) Schedule exactly one PCP appointment with reason "Monthly blood pressure review",
+  4) Schedule exactly one cardiology appointment with reason "Annual cardiology monitoring",
+  5) Schedule exactly one endocrinology appointment with reason "Annual endocrinology monitoring".
+  Do not send any messages and do not modify any prescriptions.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -50,6 +51,7 @@ seed:
         approved_count: 2
         pending_count: 1
         with_prior_auth: true
+        must_have_specialties: ["cardiology", "endocrinology"]
       outputs: [approved_ref_ids, prior_auth_ref_id]
     - use: lab_results_panel
       params:
@@ -62,12 +64,6 @@ seed:
         upcoming_count: 1
         completed_count: 3
       outputs: [upcoming_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     pcp_name: "{output.pcp_name}"
@@ -82,29 +78,55 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        len([a for a in state.appointments
-             if a.status == 'scheduled'
-             and a.id not in {target.upcoming_ids}]) >= 2
-      desc: At least two new monitoring appointments were scheduled
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 5
+      desc: Exactly five new monitoring appointments were scheduled
     - expr: >-
-        any(a.provider_id in {target.cardio_provider_ids}
-            and a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Annual cardiology specialist visit was scheduled
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.reason == 'HbA1c monitoring'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one HbA1c monitoring appointment was scheduled
     - expr: >-
-        any(a.provider_id in {target.endo_provider_ids}
-            and a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Annual endocrinology specialist visit was scheduled
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.reason == 'Kidney function monitoring'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one kidney function monitoring appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: PCP was messaged with clinical category about monitoring plan
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Monthly blood pressure review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP blood-pressure review appointment was scheduled
+    - expr: >-
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.cardio_provider_ids}
+          and a.reason == 'Annual cardiology monitoring'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one annual cardiology monitoring appointment was scheduled
+    - expr: >-
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'Annual endocrinology monitoring'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one annual endocrinology monitoring appointment was scheduled
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
@@ -119,6 +141,14 @@ eval:
       desc: Specialist referrals remain approved
   negative_checks:
     - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
+    - expr: >-
         all(
           state.get_appointment(aid) is not None
           and state.get_appointment(aid).status != 'cancelled'
@@ -132,19 +162,3 @@ eval:
                 if rx.id in {target.active_rx_ids})
       desc: No monitoring medications were discontinued
       penalty: 0.3
-    - expr: >-
-        not any(
-          state.get_referral(rid) is not None
-          and state.get_referral(rid).status == 'denied'
-          for rid in {target.approved_ref_ids}
-        )
-      desc: Approved referrals were not changed to denied
-      penalty: 0.25
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.category == 'clinical'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Clinical monitoring messages were not sent to non-PCP providers
-      penalty: 0.15

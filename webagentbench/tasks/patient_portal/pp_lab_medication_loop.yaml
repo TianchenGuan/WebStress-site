@@ -3,11 +3,10 @@ env_id: patient_portal
 title: Lab-Medication Feedback Loop
 instruction_template: >-
   Your latest HbA1c lab result is critically high. Find the critical HbA1c result
-  in your lab results, then message your endocrinologist (not your PCP) with:
-  1) the specific lab value and collection date,
-  2) a request for a medication dose adjustment for your diabetes medication,
-  3) a reference to the lab result. Use the clinical message category.
-  Do not attempt to adjust your own medications.
+  in your lab results, then schedule exactly one follow-up appointment with your
+  endocrinologist, not your PCP, using the endocrinologist's next available slot.
+  Use the appointment reason exactly "Critical HbA1c follow-up". Do not modify
+  any medications and do not send any messages.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 28
@@ -45,16 +44,10 @@ seed:
       params:
         resulted_count: 4
         abnormal_count: 1
-        critical_count: 1
+        critical_count: 0
         trend_test: "HbA1c"
         trend_values: ["6.2", "7.5", "9.1", "10.5"]
       outputs: [critical_lab_id, trend_lab_ids, trend_test_name]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
@@ -66,29 +59,28 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id in {target.endo_provider_ids}
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent messaged the endocrinologist
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'Critical HbA1c follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one endocrinology follow-up appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and state.get_lab('{target.critical_lab_id}').test_name in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references the critical lab test by name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and state.get_lab('{target.critical_lab_id}').value in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message includes the specific critical lab value
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent with clinical category
+        any(
+          a.status == 'scheduled'
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'Critical HbA1c follow-up'
+          and a.datetime == min(
+            slot['datetime']
+            for provider_id in {target.endo_provider_ids}
+            for slot in state._initial_snapshot['providers'][provider_id]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The endocrinology follow-up used the next available endocrinology slot
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
@@ -96,17 +88,16 @@ eval:
       desc: Agent did not modify any prescriptions directly
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id == '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not message PCP instead of endocrinologist
+        not any(a.provider_id == '{target.pcp_id}'
+                and a.id not in state._initial_snapshot.get('appointments', {})
+                for a in state.appointments)
+      desc: Agent did not schedule the PCP instead of endocrinology
       penalty: 0.25
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id not in {target.endo_provider_ids}
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not message unrelated providers
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.2

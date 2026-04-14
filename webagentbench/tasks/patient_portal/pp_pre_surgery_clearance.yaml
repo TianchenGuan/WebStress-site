@@ -2,12 +2,17 @@ task_id: pp_pre_surgery_clearance
 env_id: patient_portal
 title: Pre-Surgery Clearance Workflow
 instruction_template: >-
-  Complete pre-surgery clearance for your upcoming orthopedic procedure:
-  1) Schedule pre-operative lab work (blood work) with any available provider,
-  2) Send a message to your PCP requesting a surgical clearance letter,
+  Complete pre-surgery clearance for your upcoming orthopedic procedure using
+  appointments only:
+  1) Schedule exactly one pre-operative lab appointment with reason
+  "Pre-operative lab work",
+  2) Schedule exactly one PCP appointment with reason
+  "Surgical clearance visit",
   3) Verify the surgery referral's pre-authorization status is approved,
-  4) Schedule the surgery appointment with the orthopedic specialist only after
-  all three steps are complete. The surgery must be at least 7 days after the labs.
+  4) Schedule exactly one orthopedic procedure appointment only after the lab
+  appointment and at least 7 days later. Use the appointment reason exactly
+  "Orthopedic procedure clearance".
+  Do not send any messages.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 35
@@ -42,6 +47,7 @@ seed:
         approved_count: 1
         pending_count: 1
         with_prior_auth: true
+        must_have_specialties: ["orthopedics"]
       outputs: [approved_ref_ids, prior_auth_ref_id]
     - use: appointment_history
       params:
@@ -53,12 +59,6 @@ seed:
         resulted_count: 2
         pending_count: 0
       outputs: [resulted_lab_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     pcp_name: "{output.pcp_name}"
@@ -66,47 +66,75 @@ seed:
     prior_auth_ref_id: "{output.prior_auth_ref_id}"
     approved_ref_ids: "{output.approved_ref_ids}"
     upcoming_ids: "{output.upcoming_ids}"
-    initial_apt_count: "{output.upcoming_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any((a.reason.lower().find('lab') >= 0
-             or a.reason.lower().find('pre-op') >= 0
-             or a.reason.lower().find('blood') >= 0)
-            and a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Pre-operative lab appointment was scheduled
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.reason == 'Pre-operative lab work'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one pre-operative lab appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a clinical message to PCP for surgical clearance
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Surgical clearance visit'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP surgical-clearance appointment was scheduled
     - expr: >-
         (state.get_referral('{target.prior_auth_ref_id}') is not None
          and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status == 'approved')
       desc: Surgery referral pre-authorization status is approved
     - expr: >-
-        any(a.provider_id in {target.ortho_provider_ids}
-            and a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
-            for a in state.appointments)
-      desc: Surgery appointment was scheduled with orthopedic specialist
+        len([
+          a for a in state.appointments
+          if a.provider_id in {target.ortho_provider_ids}
+          and a.status == 'scheduled'
+          and a.reason == 'Orthopedic procedure clearance'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one orthopedic procedure appointment was scheduled
     - expr: >-
         len([a for a in state.appointments
              if a.status == 'scheduled'
-             and a.id not in {target.upcoming_ids}]) >= 2
-      desc: At least two new appointments were created (labs + surgery)
+             and a.id not in state._initial_snapshot.get('appointments', {})]) == 3
+      desc: Exactly three new appointments were created
+    - expr: >-
+        (
+          next(
+            a for a in state.appointments
+            if a.status == 'scheduled'
+            and a.reason == 'Orthopedic procedure clearance'
+            and a.id not in state._initial_snapshot.get('appointments', {})
+          ).datetime
+          - next(
+            a for a in state.appointments
+            if a.status == 'scheduled'
+            and a.reason == 'Pre-operative lab work'
+            and a.id not in state._initial_snapshot.get('appointments', {})
+          ).datetime
+        ).days >= 7
+      desc: The orthopedic procedure was scheduled at least 7 days after the lab appointment
   negative_checks:
+    - expr: >-
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
     - expr: >-
         not any(a.provider_id in {target.ortho_provider_ids}
                 and a.status == 'scheduled'
-                and a.id not in {target.upcoming_ids}
-                and a.pre_auth_status != 'approved'
+                and a.id not in state._initial_snapshot.get('appointments', {})
+                and a.pre_auth_status not in ('approved', 'not_required')
                 for a in state.appointments)
       desc: Surgery was not scheduled without approved pre-authorization
       penalty: 0.3

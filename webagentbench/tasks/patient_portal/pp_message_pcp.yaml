@@ -1,13 +1,17 @@
 task_id: pp_message_pcp
 env_id: patient_portal
-title: Send Message to PCP
-instruction_template: "Send a message to your primary care physician asking about potential side effects of your current medications."
+title: Schedule PCP Medication Review
+instruction_template: >-
+  Review your medication list, then schedule exactly one follow-up appointment
+  with your primary care physician using the next available PCP slot. Use the
+  appointment reason exactly "Medication side effect review". Do not send any
+  messages.
 difficulty: easy
 time_limit_seconds: 120
 expected_steps: 5
 primary_primitives:
   - grounding
-start_path: /messages
+start_path: /medications
 
 seed:
   distractors: 5
@@ -27,36 +31,46 @@ seed:
       params:
         count: 2
       outputs: [default_pharmacy_id]
-    - use: message_threads
+    - use: prescription_cabinet
       params:
-        unread_count: 2
-        read_count: 1
-        categories: ["clinical", "billing"]
-      outputs: [thread_ids]
+        active_count: 3
+      outputs: [active_rx_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     pcp_name: "{output.pcp_name}"
+    active_rx_ids: "{output.active_rx_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: A new patient message to the PCP exists with clinical category
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Medication side effect review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP medication-review appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: At least one new patient message was sent
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Medication side effect review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The medication-review appointment used the next available PCP slot
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not send messages to non-PCP providers
-      penalty: 0.25
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

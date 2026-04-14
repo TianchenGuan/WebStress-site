@@ -2,12 +2,15 @@ task_id: pp_care_gap_analysis
 env_id: patient_portal
 title: Care Gap Analysis
 instruction_template: >-
-  Cross-reference your conditions, medications, and lab results to identify care gaps.
-  Check for: 1) conditions without a recent specialist visit (within 6 months),
-  2) medications that require lab monitoring but have no recent labs (e.g., Warfarin
-  needs INR, Metformin needs kidney function), 3) abnormal lab results without
-  follow-up messages or appointments. Compile all findings into a single message to
-  your PCP ({target.pcp_name}).
+  Cross-reference your conditions, medications, and lab results to close the
+  seeded care gaps using only appointments:
+  1) Schedule exactly one cardiology follow-up appointment with reason
+  "Atrial fibrillation care gap",
+  2) Schedule exactly one endocrinology follow-up appointment with reason
+  "Diabetes care gap",
+  3) Schedule exactly one PCP follow-up appointment with reason
+  "Abnormal lab follow-up".
+  Do not send any messages and do not modify any prescriptions.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 35
@@ -53,61 +56,56 @@ seed:
         upcoming_count: 1
         completed_count: 3
       outputs: [upcoming_ids, completed_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    pcp_name: "{output.pcp_name}"
-    conditions_list: "{output.conditions_list}"
+    cardio_provider_ids: "{output.providers_by_specialty.cardiology}"
+    endo_provider_ids: "{output.providers_by_specialty.endocrinology}"
     active_rx_ids: "{output.active_rx_ids}"
-    abnormal_lab_ids: "{output.abnormal_lab_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a message to PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.cardio_provider_ids}
+          and a.reason == 'Atrial fibrillation care gap'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one cardiology care-gap follow-up was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent with clinical category
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.endo_provider_ids}
+          and a.reason == 'Diabetes care gap'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one endocrinology care-gap follow-up was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and all(cond in m.body for cond in {target.conditions_list})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references all patient conditions by name
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Abnormal lab follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP abnormal-lab follow-up was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and any(state.get_lab(lid).test_name in m.body
-                    for lid in {target.abnormal_lab_ids})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references abnormal lab results by test name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and any(state.get_prescription(rid).medication in m.body
-                    for rid in {target.active_rx_ids})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message references active medications by name
+        len([
+          a for a in state.appointments
+          if a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 3
+      desc: Agent created exactly three new appointments
   negative_checks:
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.provider_id == '{target.pcp_id}'
-             and m.id not in state._initial_snapshot.get('messages', {})]) <= 1
-      desc: Agent sent a single consolidated message not multiple messages
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.2
     - expr: >-
         all(rx.status == 'active'

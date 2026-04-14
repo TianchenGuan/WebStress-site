@@ -2,8 +2,10 @@ task_id: pp_compare_lab_trends
 env_id: patient_portal
 title: Compare Lab Results Over Time
 instruction_template: >-
-  Compare your last two HbA1c results and determine if your levels are improving
-  or worsening. Send a message to your PCP summarizing the trend.
+  Compare your two most recent HbA1c results. In this seed, the most recent pair
+  is improving, so schedule exactly one follow-up appointment with your PCP at the
+  next available slot. Use the appointment reason exactly "HbA1c trend review".
+  Do not send any messages.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 10
@@ -38,44 +40,46 @@ seed:
         trend_test: "HbA1c"
         trend_values: ["7.8", "7.4", "7.1"]
       outputs: [resulted_lab_ids, pending_lab_ids, trend_lab_ids, trend_test_name]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    trend_lab_ids: "{output.trend_lab_ids}"
-    trend_test_name: "{output.trend_test_name}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent sent a message to the PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'HbA1c trend review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one new PCP follow-up appointment was scheduled with the required reason
     - expr: >-
-        any(m.from_type == 'patient'
-            and 'HbA1c' in m.body
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message mentions HbA1c test name
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'HbA1c trend review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The PCP follow-up used the next available PCP slot
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message was sent with clinical category
+        len([
+          a for a in state.appointments
+          if a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Agent created exactly one new appointment
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not message a provider other than PCP
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

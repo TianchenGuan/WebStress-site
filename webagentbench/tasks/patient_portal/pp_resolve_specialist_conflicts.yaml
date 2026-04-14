@@ -55,9 +55,27 @@ eval:
   checks:
     - expr: >-
         any(a.status == 'scheduled'
-            and a.id not in {target.upcoming_ids}
+            and a.id in {target.conflict_apt_ids}
+            and a.datetime != state._initial_snapshot['appointments'][a.id]['datetime']
             for a in state.appointments)
-      desc: A new rescheduled appointment exists
+      desc: The later-booked conflicting appointment was rescheduled to a new time
+    - expr: >-
+        len([a for a in state.appointments
+             if a.id in {target.conflict_apt_ids}
+             and a.status == 'scheduled']) >= 1
+      desc: At least one conflicting appointment remains scheduled
+    - expr: >-
+        not any(
+          a.id in {target.conflict_apt_ids}
+          and a.status == 'scheduled'
+          and b.id in {target.conflict_apt_ids}
+          and b.status == 'scheduled'
+          and a.id != b.id
+          and a.datetime == b.datetime
+          for a in state.appointments
+          for b in state.appointments
+        )
+      desc: The two conflicting appointments no longer share the same timeslot
   negative_checks:
     - expr: >-
         not any(a.status == 'cancelled'

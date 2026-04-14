@@ -1,9 +1,11 @@
 task_id: pp_message_about_lab
 env_id: patient_portal
-title: Message Provider About Abnormal Lab
+title: Schedule Follow-Up for Abnormal Lab
 instruction_template: >-
-  You have an abnormal HbA1c result. Send a message to the provider who ordered
-  it asking about next steps. Use the clinical message category.
+  Find your most recent HbA1c result. Schedule exactly one follow-up appointment
+  with the provider who ordered that result, using that provider's next available
+  slot. Use the appointment reason exactly "HbA1c result follow-up". Do not send
+  any messages.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -38,48 +40,57 @@ seed:
         trend_test: "HbA1c"
         trend_values: ["6.1", "6.8", "7.4"]
       outputs: [abnormal_lab_ids, pending_lab_ids, trend_lab_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids, all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
-    abnormal_lab_ids: "{output.abnormal_lab_ids}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent sent a clinical message
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == max(
+            [lab for lab in state.lab_results if lab.test_name == 'HbA1c'],
+            key=lambda lab: lab.collected_at,
+          ).ordered_by
+          and a.reason == 'HbA1c result follow-up'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one follow-up appointment was scheduled with the ordering provider of the latest HbA1c result
     - expr: >-
-        any(m.from_type == 'patient'
-            and 'HbA1c' in m.body
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message body mentions HbA1c
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == max(
+            [lab for lab in state.lab_results if lab.test_name == 'HbA1c'],
+            key=lambda lab: lab.collected_at,
+          ).ordered_by
+          and a.reason == 'HbA1c result follow-up'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers'][
+              max(
+                [lab for lab in state.lab_results if lab.test_name == 'HbA1c'],
+                key=lambda lab: lab.collected_at,
+              ).ordered_by
+            ]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The follow-up used the ordering provider's next available slot
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) >= 1
-      desc: At least one new patient message was sent
+        len([
+          a for a in state.appointments
+          if a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Agent created exactly one new appointment
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category == 'billing'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not send a billing category message
-      penalty: 0.15
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) <= 1
-      desc: Agent sent at most one new message (no scatter-shot messaging)
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

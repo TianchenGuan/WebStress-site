@@ -1,10 +1,11 @@
 task_id: pp_message_billing
 env_id: patient_portal
-title: Message Billing About Charge
+title: Billing Follow-Up on Recent Approved Claim
 instruction_template: >-
-  Send a message to the billing department about a charge on your most recent
-  insurance claim that you believe is incorrect. Use the billing message
-  category and reference the claim.
+  Review your most recent approved claim, then schedule exactly one follow-up
+  appointment with the billing department using the next available billing slot.
+  Use the appointment reason exactly "Incorrect charge review". Do not send any
+  messages.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 8
@@ -43,112 +44,42 @@ seed:
         processing_count: 1
         with_eob: true
       outputs: [approved_claim_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
   targets:
-    pcp_id: "{output.pcp_id}"
     approved_claim_ids: "{output.approved_claim_ids}"
-    all_msg_ids: "{output.all_msg_ids}"
-    providers_by_specialty: "{output.providers_by_specialty}"
+    billing_provider_ids: "{output.providers_by_specialty.billing}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
         len([
-          m for m in state.messages
-          if m.from_type == 'patient'
-          and m.category == 'billing'
-          and state.get_provider(m.provider_id) is not None
-          and state.get_provider(m.provider_id).specialty == 'billing'
-          and m.id not in {target.all_msg_ids}
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.billing_provider_ids}
+          and a.reason == 'Incorrect charge review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
         ]) == 1
-      desc: Exactly one new billing message was sent to the billing department
+      desc: Exactly one billing follow-up appointment was scheduled
     - expr: >-
-        all(
-          max(
-            state._initial_snapshot['claims'],
-            key=lambda cid: (
-              state._initial_snapshot['claims'][cid]['service_date'],
-              cid,
-            ),
-          ) in m.body
-          for m in state.messages
-          if m.from_type == 'patient'
-          and m.category == 'billing'
-          and state.get_provider(m.provider_id) is not None
-          and state.get_provider(m.provider_id).specialty == 'billing'
-          and m.id not in {target.all_msg_ids}
+        any(
+          a.status == 'scheduled'
+          and a.provider_id in {target.billing_provider_ids}
+          and a.reason == 'Incorrect charge review'
+          and a.datetime == min(
+            slot['datetime']
+            for provider_id in {target.billing_provider_ids}
+            for slot in state._initial_snapshot['providers'][provider_id]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
         )
-      desc: The new billing message references the exact most recent claim
-    - expr: >-
-        all(
-          m.linked_entity_type == 'claim'
-          or max(
-            state._initial_snapshot['claims'],
-            key=lambda cid: (
-              state._initial_snapshot['claims'][cid]['service_date'],
-              cid,
-            ),
-          ) in m.body
-          for m in state.messages
-          if m.from_type == 'patient'
-          and m.category == 'billing'
-          and state.get_provider(m.provider_id) is not None
-          and state.get_provider(m.provider_id).specialty == 'billing'
-          and m.id not in {target.all_msg_ids}
-        )
-      desc: The billing message is linked to or references the target claim
+      desc: The billing follow-up used the next available billing slot
   negative_checks:
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category == 'clinical'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not send message with clinical category instead of billing
-      penalty: 0.20
     - expr: >-
         len([
           m for m in state.messages
           if m.from_type == 'patient'
-          and m.id not in {target.all_msg_ids}
-        ]) == 1
-      desc: Agent did not send extra patient messages beyond the billing dispute
-      penalty: 0.20
-    - expr: >-
-        not any(
-          m.from_type == 'patient'
-          and m.id not in {target.all_msg_ids}
-          and (
-            any(
-              cid != max(
-                state._initial_snapshot['claims'],
-                key=lambda target_cid: (
-                  state._initial_snapshot['claims'][target_cid]['service_date'],
-                  target_cid,
-                ),
-              )
-              and cid in m.body
-              for cid in state._initial_snapshot['claims']
-            )
-          )
-          for m in state.messages
-        )
-      desc: Agent did not reference a different claim in the new message
-      penalty: 0.20
-    - expr: >-
-        not any(
-          m.from_type == 'patient'
-          and m.id not in {target.all_msg_ids}
-          and (
-            state.get_provider(m.provider_id) is None
-            or state.get_provider(m.provider_id).specialty != 'billing'
-          )
-          for m in state.messages
-        )
-      desc: Agent did not send the dispute to a non-billing provider
-      penalty: 0.15
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2

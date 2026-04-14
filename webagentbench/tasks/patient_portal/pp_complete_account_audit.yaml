@@ -2,15 +2,11 @@ task_id: pp_complete_account_audit
 env_id: patient_portal
 title: Complete Account Audit
 instruction_template: >-
-  Audit your entire patient portal account for completeness and accuracy:
-  1) Verify your demographics (phone, email) are current,
-  2) Verify insurance information (plan name, member ID, group number) is correct,
-  3) Check all linked pharmacies are valid and a default is set,
-  4) Verify your provider list matches your active care team,
-  5) Check immunization records are up to date (no overdue vaccines),
-  6) Identify any orphaned referrals (referrals with no linked appointment) or
-  orphaned claims (claims with no linked appointment).
-  Report all discrepancies to admin/patient services via a message.
+  Audit your entire patient portal account for completeness and accuracy, then
+  schedule exactly one follow-up appointment with Patient Services using the next
+  available admin slot. Use the appointment reason exactly "Account audit review".
+  Do not send any messages, do not cancel any existing appointments, and do not
+  modify prescriptions or referral statuses.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 60
@@ -31,7 +27,7 @@ seed:
       params:
         conditions: ["Hypertension", "Type 2 Diabetes"]
         insurance_tier: standard
-      outputs: [pcp_id, pcp_name, insurance_plan_name, member_id]
+      outputs: [pcp_id, pcp_name, insurance_plan_name, member_id, group_number]
     - use: provider_directory
       params:
         count: 7
@@ -69,18 +65,9 @@ seed:
         upcoming_count: 2
         completed_count: 3
       outputs: [upcoming_ids, completed_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
-    pcp_id: "{output.pcp_id}"
     admin_provider_ids: "{output.providers_by_specialty.admin}"
-    insurance_plan_name: "{output.insurance_plan_name}"
-    pharmacy_ids: "{output.pharmacy_ids}"
-    due_vaccine_names: "{output.due_vaccine_names}"
+    active_rx_ids: "{output.active_rx_ids}"
     approved_ref_ids: "{output.approved_ref_ids}"
     upcoming_ids: "{output.upcoming_ids}"
 
@@ -88,42 +75,28 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent an audit report message
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.admin_provider_ids}
+          and a.reason == 'Account audit review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one Patient Services follow-up appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and state.patient.phone in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Audit report includes patient phone number
-    - expr: >-
-        any(m.from_type == 'patient'
-            and '{target.insurance_plan_name}' in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Audit report includes insurance plan name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and any(state.get_pharmacy(pid).name in m.body
-                    for pid in {target.pharmacy_ids})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Audit report references linked pharmacies by name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and any(v in m.body
-                    for v in {target.due_vaccine_names})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Audit report references due vaccines by name
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Audit report was sent with clinical message category
+        any(
+          a.status == 'scheduled'
+          and a.provider_id in {target.admin_provider_ids}
+          and a.reason == 'Account audit review'
+          and a.datetime == min(
+            slot['datetime']
+            for provider_id in {target.admin_provider_ids}
+            for slot in state._initial_snapshot['providers'][provider_id]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The audit follow-up used the next available admin slot
   negative_checks:
     - expr: >-
         all(
@@ -149,10 +122,10 @@ eval:
       desc: Referral statuses were not changed during audit
       penalty: 0.2
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id not in {target.admin_provider_ids}
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Audit report was not sent to providers other than admin or PCP
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.15

@@ -1,7 +1,10 @@
 task_id: pp_view_insurance
 env_id: patient_portal
 title: View Insurance Card Details
-instruction_template: "Find your insurance member ID and group number and report them."
+instruction_template: >-
+  Open your profile and schedule exactly one Patient Services appointment using
+  the next available admin slot. Use the appointment reason exactly
+  "Insurance card verification". Do not send any messages.
 difficulty: easy
 time_limit_seconds: 90
 expected_steps: 3
@@ -16,39 +19,52 @@ seed:
       params:
         conditions: ["Hypertension"]
         insurance_tier: standard
-      outputs: [pcp_id, member_id, insurance_plan_name]
+      outputs: [pcp_id, member_id, group_number]
     - use: provider_directory
       params:
         count: 3
-        specialties: ["pcp"]
-        must_include: ["pcp"]
-      outputs: [provider_ids]
+        specialties: ["pcp", "admin"]
+        must_include: ["pcp", "admin"]
+      outputs: [provider_ids, providers_by_specialty]
     - use: pharmacy_list
       params:
         count: 2
       outputs: [default_pharmacy_id]
   targets:
-    member_id: "{output.member_id}"
-    plan_name: "{output.insurance_plan_name}"
+    admin_provider_ids: "{output.providers_by_specialty.admin}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and '{target.member_id}' in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent reported the correct member ID in a message
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id in {target.admin_provider_ids}
+          and a.reason == 'Insurance card verification'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one Patient Services verification appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and '{target.plan_name}' in m.body
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent reported the correct plan name in a message
+        any(
+          a.status == 'scheduled'
+          and a.provider_id in {target.admin_provider_ids}
+          and a.reason == 'Insurance card verification'
+          and a.datetime == min(
+            slot['datetime']
+            for provider_id in {target.admin_provider_ids}
+            for slot in state._initial_snapshot['providers'][provider_id]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The verification appointment used the next available admin slot
   negative_checks:
     - expr: >-
-        not any(a.id not in state._initial_snapshot.get('appointments', {})
-                for a in state.appointments)
-      desc: Agent did not create any appointments for an information-only task
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
       penalty: 0.15

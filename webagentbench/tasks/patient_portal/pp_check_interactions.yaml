@@ -3,8 +3,10 @@ env_id: patient_portal
 title: Check Medication Interactions
 instruction_template: >-
   Check if any of your active prescriptions have listed drug interactions with
-  each other. If interactions exist, message your PCP listing the interacting
-  medications.
+  each other. In this seed there is an interacting pair, so schedule exactly one
+  follow-up appointment with your PCP at the next available slot. Use the appointment
+  reason exactly "Drug interaction review". Do not send any messages and do not
+  discontinue any medications.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 10
@@ -37,49 +39,54 @@ seed:
         expired_count: 1
         interaction_pair: true
       outputs: [active_rx_ids, interacting_rx_ids, interacting_medications]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     interacting_rx_ids: "{output.interacting_rx_ids}"
     interacting_medications: "{output.interacting_medications}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent sent a message to the PCP about interactions
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Drug interaction review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP interaction-review appointment was scheduled
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Message was sent with clinical category
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Drug interaction review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The interaction-review appointment used the next available PCP slot
     - expr: >-
         len([r for r in state.prescriptions
              if r.id in {target.interacting_rx_ids}
              and r.status == 'active']) == 2
-      desc: Both interacting prescriptions remain active (agent did not discontinue)
+      desc: Both interacting prescriptions remain active
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not message a provider other than PCP about interactions
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
     - expr: >-
-        not any(r.status == 'discontinued'
-                and r.id in {target.interacting_rx_ids}
-                for r in state.prescriptions)
-      desc: Agent did not discontinue either interacting medication
-      penalty: 0.25
+        len([
+          a for a in state.appointments
+          if a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Agent created exactly one new appointment
+      penalty: 0.15

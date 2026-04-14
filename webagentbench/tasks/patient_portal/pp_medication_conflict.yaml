@@ -4,9 +4,10 @@ title: Medication Conflict Resolution
 instruction_template: >-
   A new prescription has been added to your medication list. Check your active
   prescriptions for any listed drug interactions. Identify the conflicting pair,
-  then message the prescribing provider of the newer medication with the specific
-  interaction details (medication names and interaction warning). Do not discontinue
-  either medication yourself.
+  then schedule exactly one follow-up appointment with the prescribing provider
+  of the newer medication using that provider's next available slot. Use the
+  appointment reason exactly "Interaction review". Do not discontinue any
+  medication and do not send any messages.
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 30
@@ -47,12 +48,6 @@ seed:
         upcoming_count: 2
         completed_count: 2
       outputs: [upcoming_ids]
-    - use: message_threads
-      params:
-        thread_count: 3
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [thread_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     interacting_rx_ids: "{output.interacting_rx_ids}"
@@ -64,47 +59,52 @@ eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and all(med in m.body for med in {target.interacting_medications})
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Agent sent a message mentioning both interacting medications
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == state.get_prescription(
+            max({target.interacting_rx_ids},
+                key=lambda rid: state.get_prescription(rid).last_filled)
+          ).provider_id
+          and a.reason == 'Interaction review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one interaction-review appointment was scheduled with the prescriber of the newer conflicting medication
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == state.get_prescription(
-              max({target.interacting_rx_ids},
-                  key=lambda rid: state.get_prescription(rid).last_filled)
-            ).provider_id
-            for m in state.messages
-            if m.id not in state._initial_snapshot.get('messages', {}))
-      desc: Message was sent to the prescriber of the newer conflicting medication
-    - expr: >-
-        any(m.from_type == 'patient'
-            and m.category == 'clinical'
-            and m.id not in state._initial_snapshot.get('messages', {})
-            for m in state.messages)
-      desc: Message was sent with clinical category
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == state.get_prescription(
+            max({target.interacting_rx_ids},
+                key=lambda rid: state.get_prescription(rid).last_filled)
+          ).provider_id
+          and a.reason == 'Interaction review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers'][
+              state.get_prescription(
+                max({target.interacting_rx_ids},
+                    key=lambda rid: state.get_prescription(rid).last_filled)
+              ).provider_id
+            ]['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The interaction-review appointment used that provider's next available slot
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions
             if rx.id in {target.interacting_rx_ids})
       desc: Neither interacting medication was discontinued by the agent
-    - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in state._initial_snapshot.get('messages', {})]) >= 1
-      desc: At least one new patient message was sent
   negative_checks:
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != state.get_prescription(
-                  max({target.interacting_rx_ids},
-                      key=lambda rid: state.get_prescription(rid).last_filled)
-                ).provider_id
-                and m.id not in state._initial_snapshot.get('messages', {})
-                for m in state.messages)
-      desc: Agent did not message the wrong provider about the interaction
-      penalty: 0.25
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
     - expr: >-
         all(rx.status == 'active'
             for rx in state.prescriptions

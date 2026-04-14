@@ -68,8 +68,11 @@ eval:
       desc: Agent did not cancel a non-dermatology upcoming appointment
       penalty: 0.25
     - expr: >-
-        not any(a.status == 'cancelled'
-                and a.id not in {target.upcoming_ids}
-                for a in state.appointments)
+        not any(
+          a.status == 'cancelled'
+          and a.id not in {target.upcoming_ids}
+          and state._initial_snapshot.get('appointments', {}).get(a.id, {}).get('status') != 'cancelled'
+          for a in state.appointments
+        )
       desc: Agent did not cancel any newly created appointments
       penalty: 0.15

@@ -2,10 +2,11 @@ task_id: pp_cross_reference_labs_meds
 env_id: patient_portal
 title: Cross-Reference Labs and Medications
 instruction_template: >-
-  Review your active medications and recent lab results. If any active
-  medication has listed drug interactions, message your PCP identifying the
-  interacting medications and the relevant lab values for monitoring.
-  Use the clinical message category.
+  Review your active medications and recent lab results. In this seed there is
+  an interacting medication pair and an abnormal lab result, so schedule exactly
+  one follow-up appointment with your PCP at the next available slot. Use the
+  appointment reason exactly "Drug interaction and abnormal lab review".
+  Do not send any messages and do not discontinue any medications.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 18
@@ -46,12 +47,6 @@ seed:
         pending_count: 1
         abnormal_count: 1
       outputs: [resulted_lab_ids, pending_lab_ids, abnormal_lab_ids]
-    - use: message_threads
-      params:
-        thread_count: 2
-        unread_count: 1
-        categories: ["clinical"]
-      outputs: [all_msg_ids]
   targets:
     pcp_id: "{output.pcp_id}"
     active_rx_ids: "{output.active_rx_ids}"
@@ -59,23 +54,32 @@ seed:
     interacting_medications: "{output.interacting_medications}"
     resulted_lab_ids: "{output.resulted_lab_ids}"
     pending_lab_ids: "{output.pending_lab_ids}"
-    all_msg_ids: "{output.all_msg_ids}"
 
 eval:
   source: server_state
   checks:
     - expr: >-
-        any(m.from_type == 'patient'
-            and m.provider_id == '{target.pcp_id}'
-            and m.category == 'clinical'
-            and m.id not in {target.all_msg_ids}
-            for m in state.messages)
-      desc: Agent sent a clinical message to PCP
+        len([
+          a for a in state.appointments
+          if a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Drug interaction and abnormal lab review'
+          and a.id not in state._initial_snapshot.get('appointments', {})
+        ]) == 1
+      desc: Exactly one PCP review appointment was scheduled for the interaction-plus-lab finding
     - expr: >-
-        len([m for m in state.messages
-             if m.from_type == 'patient'
-             and m.id not in {target.all_msg_ids}]) >= 1
-      desc: At least one new message was sent
+        any(
+          a.status == 'scheduled'
+          and a.provider_id == '{target.pcp_id}'
+          and a.reason == 'Drug interaction and abnormal lab review'
+          and a.datetime == min(
+            slot['datetime']
+            for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']
+          )
+          and a.id not in state._initial_snapshot.get('appointments', {})
+          for a in state.appointments
+        )
+      desc: The PCP review used the next available PCP slot
   negative_checks:
     - expr: >-
         not any(r.status == 'discontinued'
@@ -84,16 +88,10 @@ eval:
       desc: Agent did not discontinue interacting medications
       penalty: 0.30
     - expr: >-
-        not any(m.from_type == 'patient'
-                and m.category != 'clinical'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not misroute the message to a non-clinical category
-      penalty: 0.15
-    - expr: >-
-        not any(m.from_type == 'patient'
-                and m.provider_id != '{target.pcp_id}'
-                and m.id not in {target.all_msg_ids}
-                for m in state.messages)
-      desc: Agent did not message a provider other than PCP
-      penalty: 0.15
+        len([
+          m for m in state.messages
+          if m.from_type == 'patient'
+          and m.id not in state._initial_snapshot.get('messages', {})
+        ]) == 0
+      desc: Agent did not send any patient messages
+      penalty: 0.2
