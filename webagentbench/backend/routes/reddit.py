@@ -344,6 +344,7 @@ def destroy_session(session_id: str, session_manager: SessionManager = Depends(g
 @router.post("/evaluate")
 def evaluate_session(
     body: EvaluateRequest,
+    request: Request = None,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     try:
