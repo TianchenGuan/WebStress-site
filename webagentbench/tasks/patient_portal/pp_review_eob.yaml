@@ -88,7 +88,8 @@ eval:
                 cid,
               ),
             )
-          ).patient_responsibility) == float(state._initial_snapshot['claims'][
+          ).patient_responsibility == float(
+            state._initial_snapshot['claims'][
             max(
               {target.approved_claim_ids},
               key=lambda cid: (
@@ -96,7 +97,8 @@ eval:
                 cid,
               ),
             )
-          ]['patient_responsibility'])
+          ]['patient_responsibility']
+          )
         )
       desc: Agent followed the pay-versus-do-not-pay threshold rule for the most recent approved claim
     - expr: >-

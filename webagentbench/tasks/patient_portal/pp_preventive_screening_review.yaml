@@ -77,6 +77,20 @@ eval:
       penalty: 0.2
     - expr: >-
         not any(
+          m.from_type == 'patient'
+          and any(
+            screening.screening_name.lower() in m.body.lower()
+            for screening in state.patient.applicable_screenings
+            if screening.next_due is not None
+            and screening.next_due < state.created_at.date()
+          )
+          and m.id not in state._initial_snapshot.get('messages', {})
+          for m in state.messages
+        )
+      desc: Agent did not message about overdue screenings instead of scheduling them
+      penalty: 0.1
+    - expr: >-
+        not any(
           a.status == 'scheduled'
           and a.id not in state._initial_snapshot.get('appointments', {})
           and a.reason not in [

@@ -119,6 +119,15 @@ eval:
       penalty: 0.2
     - expr: >-
         not any(
+          m.from_type == 'patient'
+          and m.category == 'billing'
+          and m.id not in state._initial_snapshot.get('messages', {})
+          for m in state.messages
+        )
+      desc: No billing-category patient messages were sent
+      penalty: 0.1
+    - expr: >-
+        not any(
           a.status == 'scheduled'
           and a.id not in {target.upcoming_ids}
           and a.provider_id not in {target.billing_provider_ids}
