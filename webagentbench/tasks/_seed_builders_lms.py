@@ -179,6 +179,60 @@ _TOPICS: list[str] = [
     "Case Study",
 ]
 
+# Rubric templates by assignment type (criteria + relative weights summing to 100)
+_RUBRIC_TEMPLATES: dict[str, list[dict[str, Any]]] = {
+    "homework": [
+        {"criterion": "Accuracy", "max_points": 40, "description": "Correctness of solutions and calculations"},
+        {"criterion": "Completeness", "max_points": 30, "description": "All required parts attempted and addressed"},
+        {"criterion": "Presentation", "max_points": 30, "description": "Clear formatting, organization, and explanation"},
+    ],
+    "essay": [
+        {"criterion": "Thesis", "max_points": 25, "description": "Clear, arguable thesis statement"},
+        {"criterion": "Evidence", "max_points": 25, "description": "Quality and relevance of supporting evidence"},
+        {"criterion": "Analysis", "max_points": 25, "description": "Depth of critical analysis and interpretation"},
+        {"criterion": "Writing Quality", "max_points": 25, "description": "Grammar, style, and overall writing clarity"},
+    ],
+    "project": [
+        {"criterion": "Design", "max_points": 30, "description": "Overall architecture and design decisions"},
+        {"criterion": "Implementation", "max_points": 40, "description": "Correctness and quality of implementation"},
+        {"criterion": "Documentation", "max_points": 30, "description": "Clarity and completeness of documentation"},
+    ],
+    "exam": [
+        {"criterion": "Knowledge", "max_points": 50, "description": "Demonstrated understanding of core concepts"},
+        {"criterion": "Application", "max_points": 30, "description": "Ability to apply concepts to new problems"},
+        {"criterion": "Critical Thinking", "max_points": 20, "description": "Reasoning and problem-solving approach"},
+    ],
+    "quiz": [
+        {"criterion": "Accuracy", "max_points": 70, "description": "Correctness of answers"},
+        {"criterion": "Completeness", "max_points": 30, "description": "All questions answered"},
+    ],
+    "peer_review": [
+        {"criterion": "Clarity", "max_points": 34, "description": "How clearly the work communicates its ideas"},
+        {"criterion": "Depth", "max_points": 33, "description": "Depth of analysis and thoroughness"},
+        {"criterion": "Originality", "max_points": 33, "description": "Original thinking and contribution"},
+    ],
+    "participation": [
+        {"criterion": "Engagement", "max_points": 50, "description": "Active participation in discussions"},
+        {"criterion": "Quality", "max_points": 50, "description": "Quality of contributions"},
+    ],
+}
+
+_RESUBMIT_FEEDBACK: list[str] = [
+    "Your analysis needs more depth in section 2. Please expand on the methodology and add supporting evidence.",
+    "The argument structure is weak. Reorganize around your main thesis and address the counterarguments.",
+    "Missing citations on key claims. Please add proper references and resubmit.",
+    "Good foundation but the conclusion doesn't follow from the evidence. Revise the final section.",
+    "Technical accuracy issues in problems 3 and 5. Please double-check your calculations.",
+]
+
+_GRADED_FEEDBACK: list[str] = [
+    "Good work. Strong analysis with clear methodology.",
+    "Well-structured submission. Consider expanding the literature review in future work.",
+    "Excellent problem-solving approach. Minor formatting issues noted.",
+    "Solid effort. The theoretical framework is well-applied.",
+    "Good submission overall. More detail on assumptions would strengthen the work.",
+]
+
 
 # ---------------------------------------------------------------------------
 # LMSSeedContext
@@ -469,24 +523,30 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
     per_course_count : int     -- assignments per course (default 6)
     graded_fraction : float    -- fraction that are graded (default 0.5)
     late_count : int           -- how many assignments are late (default 1)
+    late_within_grace_count : int -- how many late assignments are within grace (default 0)
     missing_count : int        -- how many are not_submitted past due (default 1)
+    unrecoverable_missing_count : int -- how many missing assignments are past max late days (default 0)
     resubmit_count : int       -- how many request resubmission (default 0)
     target_assignment_status : str -- filter target selection by status
     """
     per_course = params.get("per_course_count", 6)
     graded_frac = params.get("graded_fraction", 0.5)
     late_count = params.get("late_count", 1)
+    late_within_grace_count = params.get("late_within_grace_count", 0)
     missing_count = params.get("missing_count", 1)
+    unrecoverable_missing_count = params.get("unrecoverable_missing_count", 0)
     resubmit_count = params.get("resubmit_count", 0)
     target_status = params.get("target_assignment_status", None)
 
     courses = ctx.base.get("courses", [])
+    courses_by_id = {course["id"]: course for course in courses}
     if "assignments" not in ctx.base:
         ctx.base["assignments"] = []
 
     all_assignment_ids: list[str] = []
     missing_ids: list[str] = []
     late_ids: list[str] = []
+    late_within_grace_ids: list[str] = []
     resubmit_ids: list[str] = []
     lowest_homework_id: str | None = None
     lowest_homework_score: Decimal | None = None
@@ -616,6 +676,27 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             base_max = 2 if atype in ("homework", "quiz") else 1
             max_attempts = max(base_max, attempt_count + 1) if status == "resubmit_requested" else base_max
 
+            # Build rubric by scaling template to points_possible
+            rubric_template = _RUBRIC_TEMPLATES.get(atype, _RUBRIC_TEMPLATES["homework"])
+            template_total = sum(item["max_points"] for item in rubric_template)
+            scale = float(points_possible) / template_total if template_total > 0 else 1.0
+            rubric_items = [
+                RubricItem(
+                    criterion=item["criterion"],
+                    max_points=Decimal(str(round(item["max_points"] * scale, 1))),
+                    description=item["description"],
+                )
+                for item in rubric_template
+            ]
+
+            # Choose feedback based on status
+            if status == "graded":
+                assignment_feedback: str | None = ctx.rng.choice(_GRADED_FEEDBACK)
+            elif status == "resubmit_requested":
+                assignment_feedback = ctx.rng.choice(_RESUBMIT_FEEDBACK)
+            else:
+                assignment_feedback = None
+
             assignment = Assignment(
                 id=assignment_id,
                 course_id=course_id,
@@ -625,10 +706,10 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 points_possible=points_possible,
                 submission_status=status,
                 score=score,
-                feedback="Good work." if status == "graded" else None,
+                feedback=assignment_feedback,
                 attempt_count=attempt_count,
                 max_attempts=max_attempts,
-                rubric=[],
+                rubric=rubric_items,
                 weight_category=cat,
                 submitted_at=submitted_at,
                 file_name=file_name if status != "not_submitted" else None,
@@ -636,12 +717,17 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             ctx.base["assignments"].append(assignment.model_dump())
             all_assignment_ids.append(assignment_id)
 
-            # Track lowest homework score for drop-lowest
+            # Track lowest homework score for drop-lowest (global and target-course-specific)
             if cat == "homework" and score is not None:
                 pct = score / points_possible
                 if lowest_homework_score is None or pct < lowest_homework_score:
                     lowest_homework_score = pct
                     lowest_homework_id = assignment_id
+                # Also track within target course
+                if _target_course_id_for_hw and course_id == _target_course_id_for_hw:
+                    if _lowest_hw_score_in_target is None or pct < _lowest_hw_score_in_target:
+                        _lowest_hw_score_in_target = pct
+                        _lowest_hw_in_target = assignment_id
 
             # Track an exam assignment
             if atype == "exam" and exam_assignment_id is None:
@@ -681,16 +767,107 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                     new_score = (pts * new_pct).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
                     a["score"] = str(new_score)
                     a["submission_status"] = "graded"
-                    a["feedback"] = "Good work."
+                    a["feedback"] = ctx.rng.choice(_GRADED_FEEDBACK)
                     a["attempt_count"] = 1
                     a["submitted_at"] = ctx.now.isoformat()
                     a["file_name"] = "submission.pdf"
-                    # Also update lowest_homework tracking
+                    # Also update lowest_homework tracking (global and target-course-specific)
                     cur_pct = Decimal(str(a["score"])) / pts
                     if lowest_homework_score is None:
                         lowest_homework_score = cur_pct
                         lowest_homework_id = a["id"]
+                    if _target_course_id_for_hw and a["course_id"] == _target_course_id_for_hw:
+                        if _lowest_hw_score_in_target is None:
+                            _lowest_hw_score_in_target = cur_pct
+                            _lowest_hw_in_target = a["id"]
                     break
+
+    # Use target-course-specific lowest homework ID when available (course-scoped tasks).
+    # Fall back to global lowest only when no target course was resolved.
+    if _target_course_id_for_hw and _lowest_hw_in_target:
+        lowest_homework_id = _lowest_hw_in_target
+
+    all_assignments = ctx.base.get("assignments", [])
+
+    def _ensure_scored_submission(assignment: dict[str, Any], score_fraction: Decimal) -> None:
+        points = Decimal(str(assignment["points_possible"]))
+        assignment["score"] = str((points * score_fraction).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+        assignment["submitted_at"] = assignment.get("submitted_at") or (ctx.now - timedelta(hours=4)).isoformat()
+        assignment["file_name"] = assignment.get("file_name") or "submission.pdf"
+        assignment["attempt_count"] = max(1, assignment.get("attempt_count", 0))
+        assignment["max_attempts"] = max(assignment.get("max_attempts", 1), assignment["attempt_count"] + 1)
+
+    # Guarantee requested resubmission targets exist so feedback-based tasks are non-vacuous.
+    needed_resubmits = max(0, resubmit_count - len(resubmit_ids))
+    if needed_resubmits > 0:
+        resubmit_candidates = [
+            a for a in all_assignments
+            if a["id"] not in resubmit_ids
+            and a["submission_status"] in ("graded", "late", "submitted")
+        ]
+        for assignment in resubmit_candidates[:needed_resubmits]:
+            _ensure_scored_submission(assignment, Decimal("0.62"))
+            assignment["submission_status"] = "resubmit_requested"
+            assignment["feedback"] = ctx.rng.choice(_RESUBMIT_FEEDBACK)
+            if assignment["id"] not in resubmit_ids:
+                resubmit_ids.append(assignment["id"])
+
+    # Guarantee late-within-grace examples when requested for grading-dispute tasks.
+    needed_grace_lates = late_within_grace_count
+    if needed_grace_lates > 0:
+        dispute_target_cid = ctx.outputs.get("target_course_id", "")
+        grace_candidates = [
+            a for a in all_assignments
+            if a["submission_status"] in ("graded", "late", "resubmit_requested")
+            and a.get("id") not in late_within_grace_ids
+            and (a["course_id"] == dispute_target_cid or not dispute_target_cid)
+        ]
+        if len(grace_candidates) < needed_grace_lates:
+            grace_candidates = [
+                a for a in all_assignments
+                if a["submission_status"] in ("graded", "late", "resubmit_requested")
+                and a.get("id") not in late_within_grace_ids
+            ]
+        for assignment in grace_candidates[:needed_grace_lates]:
+            course = courses_by_id.get(assignment["course_id"])
+            if not course:
+                continue
+            grace_hours = max(1, int(course["syllabus"]["late_policy"]["grace_period_hours"]))
+            due_dt = ctx.now - timedelta(hours=max(2, min(grace_hours, 6)))
+            submitted_dt = due_dt + timedelta(hours=max(1, min(grace_hours - 1, 3)))
+            if submitted_dt <= due_dt:
+                submitted_dt = due_dt + timedelta(minutes=30)
+            if submitted_dt > ctx.now:
+                submitted_dt = ctx.now - timedelta(minutes=15)
+            _ensure_scored_submission(assignment, Decimal("0.78"))
+            assignment["due_at"] = due_dt.isoformat()
+            assignment["submitted_at"] = submitted_dt.isoformat()
+            assignment["submission_status"] = "late"
+            if assignment["id"] not in late_ids:
+                late_ids.append(assignment["id"])
+            late_within_grace_ids.append(assignment["id"])
+
+    # Guarantee unrecoverable missing work when requested for late-policy tasks.
+    needed_unrecoverable = unrecoverable_missing_count
+    if needed_unrecoverable > 0:
+        missing_candidates = [
+            a for a in all_assignments
+            if a["submission_status"] == "not_submitted"
+        ]
+        for assignment in missing_candidates[:needed_unrecoverable]:
+            course = courses_by_id.get(assignment["course_id"])
+            if not course:
+                continue
+            max_late_days = int(course["syllabus"]["late_policy"]["max_late_days"])
+            assignment["due_at"] = (ctx.now - timedelta(days=max_late_days + 2)).isoformat()
+            assignment["submission_status"] = "not_submitted"
+            assignment["score"] = None
+            assignment["feedback"] = None
+            assignment["submitted_at"] = None
+            assignment["file_name"] = None
+            assignment["attempt_count"] = 0
+            if assignment["id"] not in missing_ids:
+                missing_ids.append(assignment["id"])
 
     # Select target and decoy assignments
     target_assignment_id: str | None = None
@@ -699,7 +876,6 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
     target_course_code: str = ""
     decoy_assignment_id: str | None = None
 
-    all_assignments = ctx.base.get("assignments", [])
     candidates = all_assignments
     if target_status:
         candidates = [a for a in all_assignments if a["submission_status"] == target_status]
@@ -776,7 +952,7 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
     graded_in_target = [
         a for a in all_assignments
         if a.get("score") is not None
-        and a["submission_status"] in ("graded", "late", "resubmit_requested")
+        and a["submission_status"] == "graded"
         and a["course_id"] == dispute_target_cid
         and a.get("attempt_count", 0) < a.get("max_attempts", 1)
     ]
@@ -785,7 +961,7 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         graded_in_target = [
             a for a in all_assignments
             if a.get("score") is not None
-            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+            and a["submission_status"] == "graded"
             and a.get("attempt_count", 0) < a.get("max_attempts", 1)
         ]
     if len(graded_in_target) < 2:
@@ -793,10 +969,24 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         graded_in_target = [
             a for a in all_assignments
             if a.get("score") is not None
-            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+            and a["submission_status"] == "graded"
         ]
-    disputed_assignment_id_1 = graded_in_target[0]["id"] if len(graded_in_target) >= 1 else ""
-    disputed_assignment_id_2 = graded_in_target[1]["id"] if len(graded_in_target) >= 2 else ""
+    disputed_assignment_id_1 = graded_in_target[0]["id"] if graded_in_target else ""
+    grace_candidates = [
+        a for a in all_assignments
+        if a["id"] in late_within_grace_ids
+        and a["id"] != disputed_assignment_id_1
+        and (a["course_id"] == dispute_target_cid or not dispute_target_cid)
+    ]
+    if not grace_candidates:
+        grace_candidates = [a for a in all_assignments if a["id"] in late_within_grace_ids and a["id"] != disputed_assignment_id_1]
+    disputed_assignment_id_2 = (
+        grace_candidates[0]["id"]
+        if grace_candidates
+        else (graded_in_target[1]["id"] if len(graded_in_target) >= 2 else "")
+    )
+    disputed_title_1 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_1), "")
+    disputed_title_2 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_2), "")
 
     # ── overdue_assignment_id / overdue_assignment_title ──
     overdue_assignment_id = ""
@@ -899,18 +1089,31 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         else:
             unrecoverable_ids.append(a["id"])
 
-    # ── most_disputed_assignment_ids: 2 graded assignments with lowest score/max ratio ──
+    # ── most_disputed_assignment_ids: 2 resubmittable graded assignments with lowest score/max ratio ──
+    # Use the catalog-level target_course_id (set by course_catalog builder) when available,
+    # since the locally-selected target_course_id may differ from the task's target course.
+    _dispute_cid = ctx.outputs.get("target_course_id") or target_course_id
     graded_all = [
         a for a in all_assignments
         if a.get("score") is not None
-        and a["submission_status"] in ("graded", "late", "resubmit_requested")
-        and a["course_id"] == target_course_id
+        and a["submission_status"] == "graded"
+        and a["course_id"] == _dispute_cid
+        and a.get("attempt_count", 0) < a.get("max_attempts", 1)  # must have remaining attempts
     ]
     if len(graded_all) < 2:
+        # Fallback: any resubmittable graded across all courses
         graded_all = [
             a for a in all_assignments
             if a.get("score") is not None
-            and a["submission_status"] in ("graded", "late", "resubmit_requested")
+            and a["submission_status"] == "graded"
+            and a.get("attempt_count", 0) < a.get("max_attempts", 1)
+        ]
+    if len(graded_all) < 2:
+        # Final fallback: any graded regardless of resubmit capacity
+        graded_all = [
+            a for a in all_assignments
+            if a.get("score") is not None
+            and a["submission_status"] == "graded"
         ]
     graded_sorted_by_ratio = sorted(
         graded_all,
@@ -1055,6 +1258,7 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         "assignment_ids": all_assignment_ids,
         "missing_assignment_ids": missing_ids,
         "late_assignment_ids": late_ids,
+        "late_within_grace_ids": late_within_grace_ids,
         "lowest_homework_id": lowest_homework_id or "",
         "exam_assignment_id": exam_assignment_id or "",
         "resubmit_assignment_ids": resubmit_ids,
@@ -1071,6 +1275,8 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         "unsubmitted_hw_id": unsubmitted_hw_id,
         "disputed_assignment_id_1": disputed_assignment_id_1,
         "disputed_assignment_id_2": disputed_assignment_id_2,
+        "disputed_title_1": disputed_title_1,
+        "disputed_title_2": disputed_title_2,
         "overdue_assignment_id": overdue_assignment_id,
         "overdue_assignment_title": overdue_assignment_title,
         "has_remaining_attempts": has_remaining_attempts,
@@ -1489,6 +1695,27 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 final_exam_assignment_id = a["id"]
                 break
 
+    # ── Guarantee final_exam_assignment_id is submittable ──
+    # If the selected final exam is already submitted with no remaining attempts,
+    # force-reset it to not_submitted so the task (submit study_plan.pdf) is solvable.
+    if final_exam_assignment_id:
+        fa = next((a for a in assignments if a["id"] == final_exam_assignment_id), None)
+        if fa and fa["submission_status"] not in ("not_submitted",):
+            # Check if there are remaining attempts
+            if fa.get("attempt_count", 0) >= fa.get("max_attempts", 1):
+                # No attempts left — reset to not_submitted so the agent can submit
+                old_score = fa.get("score")
+                fa["submission_status"] = "not_submitted"
+                fa["score"] = None
+                fa["file_name"] = None
+                fa["submitted_at"] = None
+                fa["attempt_count"] = 0
+                # Also remove the corresponding grade record so weighted score stays consistent
+                ctx.base["grades"] = [
+                    g for g in ctx.base["grades"]
+                    if g["assignment_id"] != final_exam_assignment_id
+                ]
+
     # ── final_exam_assignment_ids: per-course final exam assignment IDs ──
     final_exam_assignment_ids_list: list[str] = []
     for c in courses:
@@ -1510,8 +1737,29 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             scored.sort(key=lambda x: x[1])
             lower_grade_course_id = scored[0][0]
 
-    # ── lowest_hw_id: alias for lowest_homework_id ──
-    lowest_hw_id = ctx.outputs.get("lowest_homework_id", "")
+    # ── lowest_hw_id: lowest homework assignment in the target course (by grade record ratio) ──
+    # Recompute from grade records (post victim-modification) so that the result matches
+    # what LMSState.dropped_grades_for_category() returns.
+    lowest_hw_id = ""
+    _hw_target_cid = target_cid or ctx.outputs.get("target_course_id", "")
+    if _hw_target_cid:
+        _hw_grades = [
+            g for g in ctx.base["grades"]
+            if g["course_id"] == _hw_target_cid
+            and g["weight_category"] == "homework"
+            and g.get("score") is not None
+            and not g.get("is_dropped", False)
+        ]
+        if _hw_grades:
+            _hw_lowest = min(
+                _hw_grades,
+                key=lambda g: Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))
+                if Decimal(str(g["points_possible"])) != 0 else Decimal("0"),
+            )
+            lowest_hw_id = _hw_lowest["assignment_id"]
+    if not lowest_hw_id:
+        # Fallback to what assignment_battery computed
+        lowest_hw_id = ctx.outputs.get("lowest_homework_id", "")
 
     # ── grade_below_80: whether weighted score < 80 ──
     grade_below_80 = "false"
@@ -1753,10 +2001,24 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
 
     # ── most_disputed_assignment_ids ──
     gb_target_cid = target_cid
+    graded_assignment_ids = {
+        a["id"]
+        for a in assignments
+        if a.get("score") is not None
+        and a["submission_status"] == "graded"
+        and a.get("attempt_count", 0) < a.get("max_attempts", 1)
+    }
     graded_for_dispute = [
         g for g in ctx.base["grades"]
-        if g["course_id"] == gb_target_cid and g["score"] is not None
+        if g["course_id"] == gb_target_cid
+        and g["score"] is not None
+        and g["assignment_id"] in graded_assignment_ids
     ]
+    if len(graded_for_dispute) < 2:
+        graded_for_dispute = [
+            g for g in ctx.base["grades"]
+            if g["score"] is not None and g["assignment_id"] in graded_assignment_ids
+        ]
     if len(graded_for_dispute) < 2:
         graded_for_dispute = [g for g in ctx.base["grades"] if g["score"] is not None]
     graded_for_dispute.sort(
@@ -1850,6 +2112,7 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
         "final_exam_assignment_ids": ",".join(final_exam_assignment_ids_list),
         "lower_grade_course_id": lower_grade_course_id,
         "lowest_hw_id": lowest_hw_id,
+        "lowest_homework_id": lowest_hw_id,  # alias for YAML outputs that use this key
         "grade_below_80": grade_below_80,
         "highest_weight_ungraded_id": highest_weight_ungraded_id,
         "worst_category_assignment_id": worst_category_assignment_id,
@@ -1986,19 +2249,29 @@ def _build_module_sequence(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
 # 7. discussion_forums
 # ---------------------------------------------------------------------------
 
+_INSTRUCTOR_FEEDBACK_REPLIES: list[str] = [
+    "Good start, but your argument needs more supporting evidence. Please cite at least two sources and strengthen your conclusion.",
+    "Interesting perspective. However, you haven't addressed the counterargument. Please revise to acknowledge opposing views.",
+    "Your analysis is surface-level. Dig deeper into the underlying causes and provide concrete examples.",
+    "Solid initial post. Please expand on point 3 with more detail and connect it to this week's reading.",
+]
+
+
 @_register("discussion_forums")
 def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Generate discussions with existing classmate posts.
 
     Params
     ------
-    course_id : str          -- which course (default first)
-    count : int              -- number of discussions (default 2)
-    posts_per : int          -- classmate posts per discussion (default 3)
+    course_id : str              -- which course (default first)
+    count : int                  -- number of discussions (default 2)
+    posts_per : int              -- classmate posts per discussion (default 3)
+    include_student_post : bool  -- add a student post + instructor reply in target discussion (default False)
     """
     course_id = params.get("course_id", "")
     count = params.get("count", 2)
     posts_per = params.get("posts_per", 3)
+    include_student_post = params.get("include_student_post", False)
 
     if not course_id:
         courses = ctx.base.get("courses", [])
@@ -2069,11 +2342,42 @@ def _build_discussion_forums(ctx: LMSSeedContext, params: dict[str, Any]) -> dic
 
     # Look up course code for the target discussion
     target_course_code = ""
+    instructor_name = "Prof. Smith"
     if course_id:
         for c in ctx.base.get("courses", []):
             if c["id"] == course_id:
                 target_course_code = c["course_code"]
+                instructor_name = c.get("instructor_name", instructor_name)
                 break
+
+    # Optionally add a student post + instructor reply to the target discussion
+    if include_student_post and target_discussion_id:
+        student_id = ctx.base.get("student", {}).get("id", "student_1")
+        student_name = ctx.base.get("student", {}).get("name", "Student")
+
+        student_post_id = ctx.next_id("post")
+        student_post = DiscussionPost(
+            id=student_post_id,
+            discussion_id=target_discussion_id,
+            author_id=student_id,
+            author_name=student_name,
+            body="Here is my initial analysis of the topic. I believe the key factors are the interplay between theoretical foundations and practical application, which we have been exploring throughout the course.",
+            parent_post_id=None,
+            timestamp=ctx.now - timedelta(days=3),
+        )
+        ctx.base["discussion_posts"].append(student_post.model_dump())
+
+        instructor_reply_id = ctx.next_id("post")
+        instructor_reply = DiscussionPost(
+            id=instructor_reply_id,
+            discussion_id=target_discussion_id,
+            author_id="instructor_1",
+            author_name=instructor_name,
+            body=ctx.rng.choice(_INSTRUCTOR_FEEDBACK_REPLIES),
+            parent_post_id=student_post_id,
+            timestamp=ctx.now - timedelta(days=2),
+        )
+        ctx.base["discussion_posts"].append(instructor_reply.model_dump())
 
     return {
         "discussion_ids": discussion_ids,
@@ -2137,7 +2441,7 @@ def _build_announcements_feed(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         if is_urgent and urgent_announcement_id is None:
             urgent_announcement_id = ann_id
 
-    # ── latest_announcement_id: most recent by posted_at ──
+    # ── latest_announcement_id: most recent UNREAD by posted_at (fallback to any) ──
     latest_announcement_id = ""
     all_announcements = ctx.base.get("announcements", [])
     if all_announcements:
@@ -2147,7 +2451,10 @@ def _build_announcements_feed(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             else a["posted_at"].isoformat(),
             reverse=True,
         )
-        latest_announcement_id = sorted_ann[0]["id"]
+        # Prefer unread so conditional tasks don't vacuously pass
+        unread_sorted = [a for a in sorted_ann if not a.get("is_read", True)]
+        latest_announcement_id = (unread_sorted[0]["id"] if unread_sorted
+                                  else sorted_ann[0]["id"])
 
     # ── course_announcement_ids: mapping of course_id -> announcement IDs ──
     course_ann_map: dict[str, list[str]] = {}
@@ -2408,22 +2715,42 @@ def _build_peer_review_assignments(ctx: LMSSeedContext, params: dict[str, Any]) 
     ------
     count : int                   -- number of peer reviews (default 3)
     assignment_id : str           -- which assignment the reviews are for
+    course_id : str               -- optional course filter for choosing the review source assignment
     statuses : list[str]          -- status distribution (default mixed)
+    returned_review_count : int   -- how many reviews were returned for revision
     """
     count = params.get("count", 3)
     assignment_id = params.get("assignment_id", "")
+    course_id = params.get("course_id", "")
     statuses = params.get("statuses", ["assigned", "in_progress", "submitted"])
+    returned_review_count = params.get("returned_review_count", 0)
+    assignments = ctx.base.get("assignments", [])
 
     if not assignment_id:
-        # Find a peer_review type assignment, or fallback to first assignment
-        assignments = ctx.base.get("assignments", [])
-        pr_assignments = [a for a in assignments if a["type"] == "peer_review"]
-        if pr_assignments:
-            assignment_id = pr_assignments[0]["id"]
-        elif assignments:
-            assignment_id = assignments[0]["id"]
+        source_candidates = [
+            a for a in assignments
+            if (not course_id or a["course_id"] == course_id)
+            and a["type"] in ("essay", "project", "homework")
+        ]
+        if not source_candidates:
+            source_candidates = [a for a in assignments if not course_id or a["course_id"] == course_id]
+        if not source_candidates:
+            source_candidates = assignments
+        if source_candidates:
+            assignment_id = source_candidates[0]["id"]
 
     student_id = ctx.base.get("student", {}).get("id", "student_1")
+    source_assignment = next((a for a in assignments if a["id"] == assignment_id), None)
+    rubric_items = [
+        RubricItem(criterion="clarity", max_points=Decimal("5"), description="Ideas are clearly communicated."),
+        RubricItem(criterion="depth", max_points=Decimal("5"), description="Analysis is well developed and specific."),
+        RubricItem(criterion="originality", max_points=Decimal("5"), description="Argument shows independent thought."),
+    ]
+    submission_title = (
+        f"{source_assignment['title']} Draft"
+        if source_assignment is not None
+        else "Peer Review Draft Submission"
+    )
 
     if "peer_reviews" not in ctx.base:
         ctx.base["peer_reviews"] = []
@@ -2431,33 +2758,60 @@ def _build_peer_review_assignments(ctx: LMSSeedContext, params: dict[str, Any]) 
     review_ids: list[str] = []
     pending_review_ids: list[str] = []
     completed_review_ids: list[str] = []
+    returned_review_ids: list[str] = []
 
     for i in range(count):
         review_id = ctx.next_id("review")
         status = statuses[i % len(statuses)]
         reviewee_name = ctx.fake.name()
         reviewee_id = ctx.next_id("reviewee")
+        reviewee_submission = (
+            f"Introduction:\n{ctx.fake.paragraph(nb_sentences=3)}\n\n"
+            f"Main Argument:\n{ctx.fake.paragraph(nb_sentences=4)}\n\n"
+            f"Conclusion:\n{ctx.fake.paragraph(nb_sentences=2)}"
+        )
+        returned_for_revision = i < returned_review_count
 
         rubric_scores: dict[str, int] = {}
         comments = ""
+        previous_rubric_scores: dict[str, int] = {}
+        previous_comments = ""
         if status == "submitted":
-            rubric_scores = {
-                "clarity": ctx.rng.randint(3, 5),
-                "depth": ctx.rng.randint(2, 5),
-                "originality": ctx.rng.randint(2, 5),
-            }
+            rubric_scores = {item.criterion: ctx.rng.randint(3, 5) for item in rubric_items}
             comments = ctx.fake.paragraph(nb_sentences=2)
         elif status == "in_progress":
-            rubric_scores = {"clarity": ctx.rng.randint(3, 5)}
+            rubric_scores = {rubric_items[0].criterion: ctx.rng.randint(2, 4)}
+
+        if returned_for_revision:
+            status = "in_progress"
+            previous_rubric_scores = {
+                rubric_items[0].criterion: 2,
+                rubric_items[1].criterion: 1 if len(rubric_items) > 1 else 2,
+            }
+            previous_comments = (
+                "This review was returned because not all rubric categories were scored "
+                "and the explanation was too brief."
+            )
+            if not rubric_scores:
+                rubric_scores = previous_rubric_scores.copy()
+            if review_id not in returned_review_ids:
+                returned_review_ids.append(review_id)
 
         review = PeerReview(
             id=review_id,
             assignment_id=assignment_id,
             reviewer_student_id=student_id,
             reviewee_student_id=reviewee_id,
+            reviewee_name=reviewee_name,
+            submission_title=submission_title,
+            submission_body=reviewee_submission,
+            assignment_rubric=rubric_items,
             rubric_scores=rubric_scores,
             comments=comments,
             status=status,
+            returned_for_revision=returned_for_revision,
+            previous_rubric_scores=previous_rubric_scores,
+            previous_comments=previous_comments,
             due_at=ctx.now + timedelta(days=ctx.rng.randint(3, 10)),
         )
         ctx.base["peer_reviews"].append(review.model_dump())
@@ -2472,4 +2826,5 @@ def _build_peer_review_assignments(ctx: LMSSeedContext, params: dict[str, Any]) 
         "review_ids": review_ids,
         "pending_review_ids": pending_review_ids,
         "completed_review_ids": completed_review_ids,
+        "returned_review_ids": returned_review_ids,
     }
