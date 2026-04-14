@@ -641,10 +641,15 @@ def submit_assignment(
     assignment = state.get_assignment(assignment_id)
     if assignment is None:
         raise HTTPException(status_code=404, detail=f"Unknown assignment: {assignment_id}")
-    if assignment.submission_status not in ("not_submitted", "resubmit_requested"):
+    if assignment.submission_status not in ("not_submitted", "resubmit_requested", "graded", "late"):
         raise HTTPException(
             status_code=422,
             detail=f"Cannot submit: assignment status is '{assignment.submission_status}'",
+        )
+    if assignment.attempt_count >= assignment.max_attempts:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot submit: max attempts ({assignment.max_attempts}) reached",
         )
     now = datetime.now(timezone.utc)
     assignment.submitted_at = now

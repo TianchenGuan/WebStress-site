@@ -177,9 +177,16 @@ class PeerReview(BaseEntity):
     assignment_id: str
     reviewer_student_id: str
     reviewee_student_id: str
+    reviewee_name: str
+    submission_title: str
+    submission_body: str
+    assignment_rubric: list[RubricItem] = Field(default_factory=list)
     rubric_scores: dict[str, int] = Field(default_factory=dict)
     comments: str = ""
     status: Literal["assigned", "in_progress", "submitted"]
+    returned_for_revision: bool = False
+    previous_rubric_scores: dict[str, int] = Field(default_factory=dict)
+    previous_comments: str = ""
     due_at: datetime
 
 

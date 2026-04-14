@@ -510,6 +510,19 @@ def list_appointments(
     return {"items": [a.model_dump(mode="json") for a in appointments]}
 
 
+@router.get("/appointments/available-slots")
+def get_available_slots(
+    session_id: str = Query(...),
+    provider_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _pp_state(session_manager, session_id)
+    provider = state.get_provider(provider_id)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return {"items": [s.model_dump(mode="json") for s in provider.available_slots]}
+
+
 @router.get("/appointments/{apt_id}")
 def get_appointment(
     apt_id: str,
@@ -534,7 +547,18 @@ def create_appointment(
         raise HTTPException(status_code=404, detail="Provider not found")
 
     # Prerequisite chain for specialist visits
-    if provider.specialty not in ("pcp", "billing", "admin"):
+    # Bypass referral requirement for immunization/vaccine appointments and
+    # echocardiogram/echo diagnostic procedures (ordered directly by cardiologist)
+    _reason_lower = (body.reason or "").lower()
+    _is_immunization_appt = any(
+        kw in _reason_lower
+        for kw in ("vaccine", "vaccination", "immunization", "immunisation", "booster", "tdap", "flu shot")
+    )
+    _is_echo_appt = any(
+        kw in _reason_lower
+        for kw in ("echocardiogram", "echo", "cardiac echo", "cardiac ultrasound")
+    )
+    if provider.specialty not in ("pcp", "billing", "admin") and not _is_immunization_appt and not _is_echo_appt:
         approved_referral = next(
             (r for r in state.referrals
              if r.to_specialty == provider.specialty and r.status == "approved"),
@@ -686,19 +710,6 @@ def reschedule_appointment(
         _do_reschedule,
     )
     return result.model_dump(mode="json")
-
-
-@router.get("/appointments/available-slots")
-def get_available_slots(
-    session_id: str = Query(...),
-    provider_id: str = Query(...),
-    session_manager: SessionManager = Depends(get_session_manager),
-) -> dict[str, Any]:
-    state = _pp_state(session_manager, session_id)
-    provider = state.get_provider(provider_id)
-    if provider is None:
-        raise HTTPException(status_code=404, detail="Provider not found")
-    return {"items": [s.model_dump(mode="json") for s in provider.available_slots]}
 
 
 # ---------------------------------------------------------------------------
@@ -1357,6 +1368,19 @@ def list_immunizations(
 ) -> dict[str, Any]:
     state = _pp_state(session_manager, session_id)
     return {"items": [i.model_dump(mode="json") for i in state.immunizations]}
+
+
+# ---------------------------------------------------------------------------
+# Pharmacies
+# ---------------------------------------------------------------------------
+
+@router.get("/pharmacies")
+def list_pharmacies(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _pp_state(session_manager, session_id)
+    return {"items": [p.model_dump(mode="json") for p in state.pharmacies]}
 
 
 # ---------------------------------------------------------------------------

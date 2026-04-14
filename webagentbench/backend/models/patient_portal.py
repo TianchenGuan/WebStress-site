@@ -133,6 +133,7 @@ class Referral(BaseEntity):
     prior_auth_status: str = "not_required"
     expires_at: datetime
     notes: str = ""
+    linked_appointment_id: str | None = None
 
 
 class InsuranceClaim(BaseEntity):
@@ -147,6 +148,9 @@ class InsuranceClaim(BaseEntity):
     patient_responsibility: Decimal = Decimal("0")
     eob_available: bool = False
     appeal_deadline: datetime
+    denial_reason: str | None = None
+    supporting_referral_id: str | None = None
+    supporting_lab_ids: list[str] = Field(default_factory=list)
 
 
 class Immunization(BaseEntity):
