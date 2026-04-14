@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { preserveQueryParams, Tabs } from "@webagentbench/shared";
 
 import { useLmsLayout } from "../context";
+import type { LmsLayoutContextValue } from "../context";
 import type {
   Assignment,
   Course,
@@ -10,6 +11,8 @@ import type {
   Grade,
   Module,
 } from "../types";
+
+type LmsApi = LmsLayoutContextValue["api"];
 
 const TABS = [
   { label: "Modules", value: "modules" },
@@ -22,7 +25,7 @@ const TABS = [
 export function CourseViewPage() {
   const { id } = useParams<{ id: string }>();
   const courseId = id!;
-  const { api } = useLmsLayout();
+  const { api, notify } = useLmsLayout();
   const location = useLocation();
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -36,17 +39,21 @@ export function CourseViewPage() {
   } | null>(null);
   const [activeTab, setActiveTab] = useState("modules");
   const [loading, setLoading] = useState(true);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<"enrolled" | "waitlisted" | "dropped" | "completed" | null>(null);
+  const [dropConfirm, setDropConfirm] = useState(false);
+  const [dropping, setDropping] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [c, mods, assigns, discs, gd] = await Promise.all([
+        const [c, mods, assigns, discs, gd, enrollments] = await Promise.all([
           api.getCourse(courseId),
           api.listModules(courseId),
           api.listAssignments(courseId),
           api.listDiscussions(courseId),
           api.getCourseGrades(courseId),
+          api.listEnrollments(),
         ]);
         if (!cancelled) {
           setCourse(c);
@@ -54,6 +61,8 @@ export function CourseViewPage() {
           setAssignments(assigns);
           setDiscussions(discs);
           setGradesData(gd);
+          const enrollment = enrollments.find((e) => e.course_id === courseId);
+          setEnrollmentStatus(enrollment?.status ?? null);
         }
       } catch {
         // handled
@@ -64,15 +73,70 @@ export function CourseViewPage() {
     return () => { cancelled = true; };
   }, [api, courseId]);
 
+  const handleDrop = async () => {
+    setDropping(true);
+    try {
+      await api.dropCourse(courseId);
+      setEnrollmentStatus("dropped");
+      setDropConfirm(false);
+      notify("Course Dropped", `You have dropped ${course?.course_code}`);
+    } catch {
+      notify("Error", "Unable to drop course");
+    } finally {
+      setDropping(false);
+    }
+  };
+
   if (loading) return <div className="lms-loading">Loading...</div>;
   if (!course) return <div className="lms-empty">Course not found</div>;
 
+  const canDrop = enrollmentStatus === "enrolled" && new Date() < new Date(course.drop_deadline);
+
   return (
     <div aria-label={`Course ${course.course_code} ${course.title}`}>
-      <h1 className="lms-section-header">
-        {course.course_code}: {course.title}
-      </h1>
-      <p style={{ color: "#666", marginBottom: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+        <h1 className="lms-section-header" style={{ margin: 0 }}>
+          {course.course_code}: {course.title}
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {enrollmentStatus === "dropped" && (
+            <span className="lms-badge lms-badge--late" aria-label="Enrollment status: Dropped">Dropped</span>
+          )}
+          {canDrop && !dropConfirm && (
+            <button
+              type="button"
+              className="lms-btn lms-btn--secondary"
+              onClick={() => setDropConfirm(true)}
+              aria-label={`Drop course ${course.course_code}`}
+            >
+              Drop Course
+            </button>
+          )}
+          {canDrop && dropConfirm && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.9rem" }}>Drop {course.course_code}?</span>
+              <button
+                type="button"
+                className="lms-btn lms-btn--primary"
+                onClick={handleDrop}
+                disabled={dropping}
+                aria-label={`Confirm drop course ${course.course_code}`}
+              >
+                {dropping ? "Dropping..." : "Confirm"}
+              </button>
+              <button
+                type="button"
+                className="lms-btn lms-btn--secondary"
+                onClick={() => setDropConfirm(false)}
+                aria-label="Cancel drop course"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <p style={{ color: "#666", marginBottom: "1rem", marginTop: "0.25rem" }}>
         {course.instructor_name} -- {course.semester} -- {course.credits} credits
       </p>
 
@@ -80,7 +144,7 @@ export function CourseViewPage() {
 
       <div style={{ marginTop: "1rem" }}>
         {activeTab === "modules" && (
-          <ModulesTab modules={modules} courseId={courseId} />
+          <ModulesTab modules={modules} courseId={courseId} api={api} onModulesChange={setModules} notify={notify} />
         )}
         {activeTab === "assignments" && (
           <AssignmentsTab assignments={assignments} courseId={courseId} />
@@ -101,7 +165,47 @@ export function CourseViewPage() {
 
 /* --- Modules Tab --- */
 
-function ModulesTab({ modules, courseId }: { modules: Module[]; courseId: string }) {
+function ModulesTab({
+  modules,
+  courseId,
+  api,
+  onModulesChange,
+  notify,
+}: {
+  modules: Module[];
+  courseId: string;
+  api: LmsApi;
+  onModulesChange: (mods: Module[]) => void;
+  notify: (title: string, body: string) => void;
+}) {
+  const [completing, setCompleting] = useState<Record<string, boolean>>({});
+
+  const handleCompleteItem = async (moduleId: string, itemIndex: number) => {
+    const key = `${moduleId}:${itemIndex}`;
+    setCompleting((prev) => ({ ...prev, [key]: true }));
+    try {
+      const updated = await api.completeModuleItem(moduleId, itemIndex);
+      onModulesChange(modules.map((m) => m.id === updated.id ? updated : m));
+    } catch {
+      notify("Error", "Unable to complete item");
+    } finally {
+      setCompleting((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleCompleteModule = async (moduleId: string) => {
+    setCompleting((prev) => ({ ...prev, [moduleId]: true }));
+    try {
+      const updated = await api.completeModule(moduleId);
+      onModulesChange(modules.map((m) => m.id === updated.id ? updated : m));
+      notify("Module Complete", "Module marked as complete");
+    } catch {
+      notify("Error", "Unable to complete module");
+    } finally {
+      setCompleting((prev) => ({ ...prev, [moduleId]: false }));
+    }
+  };
+
   return (
     <section aria-label="Modules">
       {modules.length === 0 ? (
@@ -110,9 +214,10 @@ function ModulesTab({ modules, courseId }: { modules: Module[]; courseId: string
         <ol style={{ listStyle: "none", padding: 0 }}>
           {modules.map((mod) => {
             const isLocked = mod.status === "locked";
+            const allItemsDone = mod.content_items.length > 0 && mod.content_items.every((i) => i.completed);
             return (
               <li key={mod.id} className="lms-card" aria-label={`Module ${mod.title}`}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                   {isLocked && (
                     <span className="lms-lock-icon" aria-label="Locked module" role="img">
                       &#x1f512;
@@ -122,6 +227,21 @@ function ModulesTab({ modules, courseId }: { modules: Module[]; courseId: string
                   <span className={`lms-badge lms-badge--${mod.status}`} aria-label={`Status: ${mod.status}`}>
                     {mod.status}
                   </span>
+                  {isLocked && (
+                    <span className="lms-badge lms-badge--locked" aria-label="Module is locked">Locked</span>
+                  )}
+                  {!isLocked && mod.status !== "completed" && allItemsDone && (
+                    <button
+                      type="button"
+                      className="lms-btn lms-btn--primary"
+                      onClick={() => handleCompleteModule(mod.id)}
+                      disabled={completing[mod.id]}
+                      aria-label={`Complete module ${mod.title}`}
+                      style={{ fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}
+                    >
+                      {completing[mod.id] ? "Completing..." : "Complete Module"}
+                    </button>
+                  )}
                 </div>
                 {isLocked && mod.unlock_condition !== "none" && (
                   <p style={{ fontSize: "0.85rem", color: "#888", margin: "0.25rem 0 0" }}>
@@ -144,21 +264,36 @@ function ModulesTab({ modules, courseId }: { modules: Module[]; courseId: string
                 )}
                 {mod.content_items.length > 0 && (
                   <ul style={{ marginTop: "0.5rem", paddingLeft: "1.25rem" }}>
-                    {mod.content_items.map((item, idx) => (
-                      <li
-                        key={idx}
-                        style={{ fontSize: "0.9rem", marginBottom: "0.25rem" }}
-                        aria-label={`Content item: ${item.title}${item.completed ? " (completed)" : ""}`}
-                      >
-                        <span style={{ marginRight: "0.5rem" }}>
-                          {item.completed ? "\u2705" : "\u2B1C"}
-                        </span>
-                        {item.title}
-                        <span style={{ color: "#999", marginLeft: "0.5rem", fontSize: "0.8rem" }}>
-                          ({item.type})
-                        </span>
-                      </li>
-                    ))}
+                    {mod.content_items.map((item, idx) => {
+                      const key = `${mod.id}:${idx}`;
+                      return (
+                        <li
+                          key={idx}
+                          style={{ fontSize: "0.9rem", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                          aria-label={`Content item: ${item.title}${item.completed ? " (completed)" : ""}`}
+                        >
+                          <span style={{ marginRight: "0.25rem" }}>
+                            {item.completed ? "\u2705" : "\u2B1C"}
+                          </span>
+                          <span>{item.title}</span>
+                          <span style={{ color: "#999", fontSize: "0.8rem" }}>
+                            ({item.type})
+                          </span>
+                          {!isLocked && !item.completed && (
+                            <button
+                              type="button"
+                              className="lms-btn lms-btn--secondary"
+                              onClick={() => handleCompleteItem(mod.id, idx)}
+                              disabled={completing[key]}
+                              aria-label={`Mark "${item.title}" as complete`}
+                              style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginLeft: "0.25rem" }}
+                            >
+                              {completing[key] ? "..." : "Complete"}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </li>
@@ -395,6 +530,25 @@ function SyllabusTab({ course }: { course: Course }) {
       <div className="lms-card" aria-label="Important Dates">
         <p><strong>Drop deadline:</strong> {new Date(course.drop_deadline).toLocaleDateString()}</p>
         <p><strong>Final exam:</strong> {new Date(course.final_exam_date).toLocaleDateString()}</p>
+      </div>
+
+      <h3 style={{ marginTop: "1.5rem" }}>Grade Scale</h3>
+      <div className="lms-card" aria-label="Grade Scale">
+        <table className="lms-table" aria-label="Grade Scale Table">
+          <thead>
+            <tr>
+              <th>Grade</th>
+              <th>Range</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>A</td><td>90–100%</td></tr>
+            <tr><td>B</td><td>80–89%</td></tr>
+            <tr><td>C</td><td>70–79%</td></tr>
+            <tr><td>D</td><td>60–69%</td></tr>
+            <tr><td>F</td><td>below 60%</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
   );

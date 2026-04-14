@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useLmsLayout } from "../context";
 import type { PeerReview } from "../types";
 
-export function PeerReviewsPage() {
+export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string } = {}) {
   const { api, notify } = useLmsLayout();
   const [reviews, setReviews] = useState<PeerReview[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<string>(initialReviewId ?? "");
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comments, setComments] = useState("");
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,12 @@ export function PeerReviewsPage() {
         const items = await api.listPeerReviews();
         if (!cancelled) {
           setReviews(items);
-          if (items.length > 0) {
+          if (items.length > 0 && !initialReviewId) {
+            const firstPending = items.find((item) => item.status !== "submitted") ?? items[0];
+            setSelectedId(firstPending.id);
+          } else if (initialReviewId && items.some((item) => item.id === initialReviewId)) {
+            setSelectedId(initialReviewId);
+          } else if (items.length > 0) {
             const firstPending = items.find((item) => item.status !== "submitted") ?? items[0];
             setSelectedId(firstPending.id);
           }

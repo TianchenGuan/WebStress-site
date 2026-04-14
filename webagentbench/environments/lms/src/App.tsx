@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useParams,
 } from "react-router-dom";
 
 import { LmsShell } from "./Shell";
@@ -153,6 +154,11 @@ function LmsWorkspace() {
   );
 }
 
+function PeerReviewsPageWithId() {
+  const { reviewId } = useParams<{ reviewId: string }>();
+  return <PeerReviewsPage initialReviewId={reviewId} />;
+}
+
 export function App() {
   return (
     <Routes>
@@ -167,6 +173,7 @@ export function App() {
         <Route path="/courses/:id/grades" element={<GradesPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/peer-reviews" element={<PeerReviewsPage />} />
+        <Route path="/peer-reviews/:reviewId" element={<PeerReviewsPageWithId />} />
         <Route path="/messages" element={<MessagesPage />} />
       </Route>
     </Routes>

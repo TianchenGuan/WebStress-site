@@ -13,6 +13,8 @@ export function DiscussionPage() {
   const [newPostBody, setNewPostBody] = useState("");
   const [replyBodies, setReplyBodies] = useState<Record<string, string>>({});
   const [showReplyForm, setShowReplyForm] = useState<Record<string, boolean>>({});
+  const [editBodies, setEditBodies] = useState<Record<string, string>>({});
+  const [showEditForm, setShowEditForm] = useState<Record<string, boolean>>({});
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -45,6 +47,31 @@ export function DiscussionPage() {
       notify("Post Created", "Your post has been added to the discussion");
     } catch {
       notify("Post Failed", "Unable to create post");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleEditOpen = (post: DiscussionPost) => {
+    setEditBodies((prev) => ({ ...prev, [post.id]: post.body }));
+    setShowEditForm((prev) => ({ ...prev, [post.id]: true }));
+  };
+
+  const handleEditCancel = (postId: string) => {
+    setShowEditForm((prev) => ({ ...prev, [postId]: false }));
+  };
+
+  const handleEditSave = async (postId: string) => {
+    const body = editBodies[postId]?.trim();
+    if (!body) return;
+    setPosting(true);
+    try {
+      const updated = await api.updatePost(discussionId!, postId, body);
+      setPosts((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+      setShowEditForm((prev) => ({ ...prev, [postId]: false }));
+      notify("Post Updated", "Your post has been updated");
+    } catch {
+      notify("Update Failed", "Unable to update post");
     } finally {
       setPosting(false);
     }
@@ -164,7 +191,54 @@ export function DiscussionPage() {
                     >
                       Reply
                     </button>
+                    {post.author_id === studentId && (
+                      <button
+                        type="button"
+                        className="lms-btn lms-btn--secondary"
+                        onClick={() => handleEditOpen(post)}
+                        aria-label={`Edit your post`}
+                        style={{ marginLeft: "0.5rem" }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
+                  {showEditForm[post.id] && (
+                    <div style={{ marginTop: "0.5rem" }}>
+                      <textarea
+                        className="lms-input"
+                        style={{ width: "100%", minHeight: "60px", resize: "vertical" }}
+                        value={editBodies[post.id] ?? ""}
+                        onChange={(e) =>
+                          setEditBodies((prev) => ({
+                            ...prev,
+                            [post.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Edit your post..."
+                        aria-label="Edit post body"
+                      />
+                      <div style={{ marginTop: "0.25rem", display: "flex", gap: "0.5rem" }}>
+                        <button
+                          type="button"
+                          className="lms-btn lms-btn--primary"
+                          onClick={() => handleEditSave(post.id)}
+                          disabled={posting || !editBodies[post.id]?.trim()}
+                          aria-label="Save edited post"
+                        >
+                          {posting ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className="lms-btn lms-btn--secondary"
+                          onClick={() => handleEditCancel(post.id)}
+                          aria-label="Cancel edit"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {showReplyForm[post.id] && (
                     <div style={{ marginTop: "0.5rem" }}>
                       <textarea

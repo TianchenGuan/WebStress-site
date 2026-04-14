@@ -6,12 +6,14 @@ import { useLmsLayout } from "../context";
 import type { Announcement, Assignment, Course } from "../types";
 
 export function DashboardPage() {
-  const { api, student } = useLmsLayout();
+  const { api, student, notify } = useLmsLayout();
   const location = useLocation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [markingRead, setMarkingRead] = useState<Record<string, boolean>>({});
+  const [markingAll, setMarkingAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +57,31 @@ export function DashboardPage() {
     })();
     return () => { cancelled = true; };
   }, [api]);
+
+  const handleMarkRead = async (id: string) => {
+    setMarkingRead((prev) => ({ ...prev, [id]: true }));
+    try {
+      const updated = await api.markAnnouncementRead(id);
+      setAnnouncements((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+    } catch {
+      notify("Error", "Unable to mark announcement as read");
+    } finally {
+      setMarkingRead((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    setMarkingAll(true);
+    try {
+      await api.markAllAnnouncementsRead();
+      setAnnouncements((prev) => prev.map((a) => ({ ...a, is_read: true })));
+      notify("Done", "All announcements marked as read");
+    } catch {
+      notify("Error", "Unable to mark all announcements as read");
+    } finally {
+      setMarkingAll(false);
+    }
+  };
 
   if (loading) return <div className="lms-loading">Loading...</div>;
 
@@ -142,14 +169,27 @@ export function DashboardPage() {
 
       {/* Announcements */}
       <section aria-label="Announcements" style={{ marginBottom: "1.5rem" }}>
-        <h2 className="lms-card__title">
-          Announcements
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+          <h2 className="lms-card__title" style={{ margin: 0 }}>
+            Announcements
+            {unreadAnnouncements.length > 0 && (
+              <span style={{ fontWeight: 400, fontSize: "0.9rem", marginLeft: "0.5rem" }}>
+                ({unreadAnnouncements.length} unread)
+              </span>
+            )}
+          </h2>
           {unreadAnnouncements.length > 0 && (
-            <span style={{ fontWeight: 400, fontSize: "0.9rem", marginLeft: "0.5rem" }}>
-              ({unreadAnnouncements.length} unread)
-            </span>
+            <button
+              type="button"
+              className="lms-btn lms-btn--secondary"
+              onClick={handleMarkAllRead}
+              disabled={markingAll}
+              aria-label="Mark all announcements as read"
+            >
+              {markingAll ? "Marking..." : "Mark All as Read"}
+            </button>
           )}
-        </h2>
+        </div>
         {announcements.length === 0 ? (
           <p className="lms-empty">No announcements</p>
         ) : (
@@ -162,7 +202,19 @@ export function DashboardPage() {
                     <div key={a.id} className="lms-card" style={{ borderLeft: "4px solid #c62828" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <strong>{a.title}</strong>
-                        <span className="lms-badge lms-badge--urgent" aria-label="Urgent announcement">Urgent</span>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span className="lms-badge lms-badge--urgent" aria-label="Urgent announcement">Urgent</span>
+                          <button
+                            type="button"
+                            className="lms-btn lms-btn--secondary"
+                            onClick={() => handleMarkRead(a.id)}
+                            disabled={markingRead[a.id]}
+                            aria-label={`Mark announcement "${a.title}" as read`}
+                            style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
+                          >
+                            {markingRead[a.id] ? "..." : "Mark as Read"}
+                          </button>
+                        </div>
                       </div>
                       <p style={{ fontSize: "0.9rem", margin: "0.25rem 0" }}>{a.body}</p>
                       <span style={{ fontSize: "0.8rem", color: "#666" }}>
@@ -186,10 +238,24 @@ export function DashboardPage() {
                     aria-label={`Announcement: ${a.title}`}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <strong>{a.title}</strong>
-                      {!a.is_read && (
-                        <span className="lms-badge lms-badge--normal">New</span>
-                      )}
+                      <span style={{ fontWeight: a.is_read ? 400 : 700 }}>{a.title}</span>
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        {!a.is_read && (
+                          <span className="lms-badge lms-badge--normal">New</span>
+                        )}
+                        {!a.is_read && (
+                          <button
+                            type="button"
+                            className="lms-btn lms-btn--secondary"
+                            onClick={() => handleMarkRead(a.id)}
+                            disabled={markingRead[a.id]}
+                            aria-label={`Mark announcement "${a.title}" as read`}
+                            style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
+                          >
+                            {markingRead[a.id] ? "..." : "Mark as Read"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p style={{ fontSize: "0.9rem", margin: "0.25rem 0" }}>{a.body}</p>
                     <span style={{ fontSize: "0.8rem", color: "#666" }}>
