@@ -16,6 +16,7 @@ import { AppointmentsPage } from "./pages/Appointments";
 import { MessagesPage } from "./pages/Messages";
 import { MedicationsPage } from "./pages/Medications";
 import { LabsPage } from "./pages/Labs";
+import { ReferralsPage } from "./pages/Referrals";
 import { BillingPage } from "./pages/Billing";
 import { ProfilePage } from "./pages/Profile";
 
@@ -161,6 +162,7 @@ export function App() {
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/medications" element={<MedicationsPage />} />
         <Route path="/labs" element={<LabsPage />} />
+        <Route path="/referrals" element={<ReferralsPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

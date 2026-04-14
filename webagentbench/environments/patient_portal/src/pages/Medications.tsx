@@ -25,31 +25,18 @@ export function MedicationsPage() {
     }
   }, [api]);
 
-  useEffect(() => {
-    void loadMedications();
-    void api.getProfile().then((p) => {
-      // Load pharmacies from profile pharmacy_ids -- just get all from the profile
-    }).catch(() => {});
-    // We can get pharmacies by trying to load through the profile
-    void loadPharmacies();
-  }, [api, loadMedications]);
-
-  const loadPharmacies = async () => {
+  const loadPharmacies = useCallback(async () => {
     try {
-      const profile = await api.getProfile();
-      // pharmacies are available via profile, but we need the full list
-      // For now, just use the information available
-      if (profile.default_pharmacy) {
-        setPharmacies((prev) => {
-          const existing = prev.find((p) => p.id === profile.default_pharmacy!.id);
-          if (!existing) return [...prev, profile.default_pharmacy!];
-          return prev;
-        });
-      }
+      setPharmacies(await api.listPharmacies());
     } catch {
       // silently continue
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    void loadMedications();
+    void loadPharmacies();
+  }, [loadMedications, loadPharmacies]);
 
   const handleRefill = async (rxId: string) => {
     try {
@@ -79,6 +66,7 @@ export function MedicationsPage() {
       setTransferRxId(null);
       setTransferPharmacyId("");
       void loadMedications();
+      void loadPharmacies();
     } catch {
       notify("Failed to transfer prescription");
     }
@@ -188,14 +176,19 @@ export function MedicationsPage() {
           <h4>Transfer Prescription</h4>
           <div className="pp-form-field">
             <label htmlFor="transfer-pharmacy">Select Pharmacy</label>
-            <input
+            <select
               id="transfer-pharmacy"
-              type="text"
               value={transferPharmacyId}
               onChange={(e) => setTransferPharmacyId(e.target.value)}
-              aria-label="Pharmacy ID for transfer"
-              placeholder="Enter pharmacy ID"
-            />
+              aria-label="Select pharmacy for transfer"
+            >
+              <option value="">Select a pharmacy...</option>
+              {pharmacies.map((pharmacy) => (
+                <option key={pharmacy.id} value={pharmacy.id}>
+                  {`${pharmacy.name} (${pharmacy.id})${pharmacy.is_mail_order ? " - Mail Order" : ""}${pharmacy.cost_per_90day_supply ? ` - 90 day $${pharmacy.cost_per_90day_supply}` : ""}`}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="pp-form-actions">
             <button

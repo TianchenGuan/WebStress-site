@@ -159,6 +159,11 @@ route("POST", "profile/pharmacy/:pharm_id/remove", (state, params) => {
   return { state, response: target };
 });
 
+route("GET", "pharmacies", (state) => ({
+  state,
+  response: { items: state.pharmacies },
+}));
+
 /* ------------------------------------------------------------------ */
 /*  Providers                                                          */
 /* ------------------------------------------------------------------ */
@@ -225,6 +230,13 @@ route("POST", "appointments/create", (state, _params, body) => {
     location: (body?.type ?? slot.type) === "in-person" ? "Main Campus" : "Telehealth",
   };
   state.appointments.push(apt);
+  if (apt.linked_referral_id) {
+    const linkedReferral = state.referrals.find((ref) => ref.id === apt.linked_referral_id);
+    if (linkedReferral) {
+      linkedReferral.linked_appointment_id = apt.id;
+      apt.pre_auth_status = linkedReferral.prior_auth_status;
+    }
+  }
   return { state, response: apt };
 });
 
@@ -357,6 +369,21 @@ route("POST", "medications/:rx_id/renewal", (state, params) => {
   const rx = state.prescriptions.find((r) => r.id === params.rx_id);
   if (!rx) return { state, response: { error: "Not found", status: 404 } };
   rx.status = "pending_renewal";
+  const renewalMessage: ClinicalMessage = {
+    id: genId("msg"),
+    from_type: "patient",
+    provider_id: rx.provider_id,
+    subject: `Renewal request for ${rx.medication}`,
+    body: `Please renew ${rx.medication} ${rx.dosage}. Prescription ID: ${rx.id}.`,
+    thread_id: genId("thread"),
+    timestamp: new Date().toISOString(),
+    is_read: true,
+    category: "rx_renewal",
+    linked_entity_id: rx.id,
+    linked_entity_type: "prescription",
+    is_urgent: false,
+  };
+  state.messages.push(renewalMessage);
   return { state, response: rx };
 });
 
@@ -420,6 +447,7 @@ route("POST", "referrals/request", (state, _params, body) => {
     prior_auth_status: "not_required",
     expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     notes: "",
+    linked_appointment_id: null,
   };
   state.referrals.push(ref);
   return { state, response: ref };
@@ -462,6 +490,9 @@ route("POST", "claims/submit", (state, _params, body) => {
     patient_responsibility: "0",
     eob_available: false,
     appeal_deadline: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+    denial_reason: null,
+    supporting_referral_id: apt.linked_referral_id ?? null,
+    supporting_lab_ids: [],
   };
   state.claims.push(claim);
   return { state, response: claim };

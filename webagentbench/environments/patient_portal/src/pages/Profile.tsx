@@ -49,17 +49,12 @@ export function ProfilePage() {
     } catch {
       // silently continue
     }
-    // Pharmacies: get from profile pharmacy_ids
-    // The profile has pharmacy_ids but pharmacies are loaded differently.
-    // We track pharmacies from the initial load and mutations.
-    if (profile?.default_pharmacy) {
-      setPharmacies((prev) => {
-        const existing = prev.find((p) => p.id === profile.default_pharmacy!.id);
-        if (!existing) return [...prev, profile.default_pharmacy!];
-        return prev.map((p) => p.id === profile.default_pharmacy!.id ? profile.default_pharmacy! : p);
-      });
+    try {
+      setPharmacies(await api.listPharmacies());
+    } catch {
+      // silently continue
     }
-  }, [api, profile]);
+  }, [api]);
 
   useEffect(() => { void loadExtras(); }, [loadExtras]);
 
@@ -283,10 +278,13 @@ export function ProfilePage() {
           <table aria-label="Pharmacy list">
             <thead>
               <tr>
+                <th>Pharmacy ID</th>
                 <th>Name</th>
                 <th>Address</th>
                 <th>Phone</th>
                 <th>Type</th>
+                <th>Dispensing Fee</th>
+                <th>90-Day Cost</th>
                 <th>Default</th>
                 <th>Actions</th>
               </tr>
@@ -294,10 +292,13 @@ export function ProfilePage() {
             <tbody>
               {pharmacies.map((pharm) => (
                 <tr key={pharm.id}>
+                  <td>{pharm.id}</td>
                   <td>{pharm.name}</td>
                   <td>{pharm.address}</td>
                   <td>{pharm.phone}</td>
                   <td>{pharm.is_mail_order ? "Mail Order" : "Retail"}</td>
+                  <td>${pharm.dispensing_fee}</td>
+                  <td>{pharm.cost_per_90day_supply ? `$${pharm.cost_per_90day_supply}` : "N/A"}</td>
                   <td>{pharm.is_default ? "Yes" : "No"}</td>
                   <td>
                     {!pharm.is_default && (

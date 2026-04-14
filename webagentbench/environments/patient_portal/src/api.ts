@@ -38,6 +38,9 @@ export function createPatientPortalApi(request: RequestFn) {
     removePharmacy: (pharmacyId: string) =>
       request<Pharmacy>(`profile/pharmacy/${pharmacyId}/remove`, { method: "POST" }),
 
+    listPharmacies: () =>
+      request<{ items: Pharmacy[] }>("pharmacies").then((r) => r.items),
+
     /* Providers */
     listProviders: () =>
       request<{ items: Provider[] }>("providers").then((r) => r.items),

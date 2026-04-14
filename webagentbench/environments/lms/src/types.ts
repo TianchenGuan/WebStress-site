@@ -123,9 +123,16 @@ export interface PeerReview {
   assignment_id: string;
   reviewer_student_id: string;
   reviewee_student_id: string;
+  reviewee_name: string;
+  submission_title: string;
+  submission_body: string;
+  assignment_rubric: RubricItem[];
   rubric_scores: Record<string, number>;
   comments: string;
   status: "assigned" | "in_progress" | "submitted";
+  returned_for_revision: boolean;
+  previous_rubric_scores: Record<string, number>;
+  previous_comments: string;
   due_at: string;
 }
 

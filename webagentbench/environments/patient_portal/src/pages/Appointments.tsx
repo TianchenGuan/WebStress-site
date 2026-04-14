@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { usePatientPortal } from "../context";
-import type { Appointment, Provider, SlotInfo } from "../types";
+import type { Appointment, Provider, Referral, SlotInfo } from "../types";
 
 export function AppointmentsPage() {
   const { api, providers, notify } = usePatientPortal();
@@ -16,6 +16,8 @@ export function AppointmentsPage() {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [appointmentType, setAppointmentType] = useState("in-person");
   const [reason, setReason] = useState("");
+  const [linkedReferralId, setLinkedReferralId] = useState("");
+  const [referrals, setReferrals] = useState<Referral[]>([]);
 
   // Reschedule state
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
@@ -45,6 +47,9 @@ export function AppointmentsPage() {
   }, [api]);
 
   useEffect(() => { void loadAppointments(); }, [loadAppointments]);
+  useEffect(() => {
+    void api.listReferrals().then(setReferrals).catch(() => setReferrals([]));
+  }, [api]);
 
   useEffect(() => {
     if (!selectedProviderId) { setSlots([]); return; }
@@ -69,12 +74,14 @@ export function AppointmentsPage() {
         slot_datetime: selectedSlot,
         type: appointmentType,
         reason,
+        linked_referral_id: linkedReferralId || undefined,
       });
       notify("Appointment scheduled");
       setShowSchedule(false);
       setSelectedProviderId("");
       setSelectedSlot("");
       setReason("");
+      setLinkedReferralId("");
       void loadAppointments();
     } catch (err) {
       const detail = (err as { detail?: { detail?: string } })?.detail;
@@ -105,7 +112,13 @@ export function AppointmentsPage() {
     }
   };
 
-  const acceptingProviders = providers.filter((p) => p.accepting_new);
+  const schedulableProviders = providers.filter((p) => p.available_slots.length > 0);
+  const selectedProvider = providers.find((p) => p.id === selectedProviderId);
+  const eligibleReferrals = referrals.filter((referral) => {
+    if (referral.status !== "approved") return false;
+    if (!selectedProvider) return true;
+    return referral.to_provider_id === selectedProvider.id || referral.to_specialty === selectedProvider.specialty;
+  });
 
   return (
     <div aria-label="Appointments Page">
@@ -119,12 +132,14 @@ export function AppointmentsPage() {
           <table aria-label="Upcoming appointments table">
             <thead>
               <tr>
+                <th>Appointment ID</th>
                 <th>Date/Time</th>
                 <th>Provider</th>
                 <th>Specialty</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th>Reason</th>
+                <th>Linked Referral</th>
                 <th>Location</th>
                 <th>Actions</th>
               </tr>
@@ -132,12 +147,14 @@ export function AppointmentsPage() {
             <tbody>
               {upcoming.map((apt) => (
                 <tr key={apt.id}>
+                  <td>{apt.id}</td>
                   <td>{new Date(apt.datetime).toLocaleString()}</td>
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>
                   <td>{apt.type}</td>
                   <td><span className={`pp-status-badge pp-status-badge--${apt.status}`}>{apt.status}</span></td>
                   <td>{apt.reason}</td>
+                  <td>{apt.linked_referral_id ?? "None"}</td>
                   <td>{apt.location}</td>
                   <td>
                     <button
@@ -211,22 +228,26 @@ export function AppointmentsPage() {
           <table aria-label="Past appointments table">
             <thead>
               <tr>
+                <th>Appointment ID</th>
                 <th>Date/Time</th>
                 <th>Provider</th>
                 <th>Specialty</th>
                 <th>Type</th>
                 <th>Status</th>
+                <th>Linked Referral</th>
                 <th>Notes</th>
               </tr>
             </thead>
             <tbody>
               {past.map((apt) => (
                 <tr key={apt.id}>
+                  <td>{apt.id}</td>
                   <td>{new Date(apt.datetime).toLocaleString()}</td>
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>
                   <td>{apt.type}</td>
                   <td><span className={`pp-status-badge pp-status-badge--${apt.status}`}>{apt.status}</span></td>
+                  <td>{apt.linked_referral_id ?? "None"}</td>
                   <td>{apt.notes}</td>
                 </tr>
               ))}
@@ -254,7 +275,7 @@ export function AppointmentsPage() {
                 aria-label="Select provider"
               >
                 <option value="">Select a provider...</option>
-                {Object.entries(groupBySpecialty(acceptingProviders)).map(([specialty, provs]) => (
+                {Object.entries(groupBySpecialty(schedulableProviders)).map(([specialty, provs]) => (
                   <optgroup key={specialty} label={specialty}>
                     {provs.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} - {p.department}</option>
@@ -306,6 +327,23 @@ export function AppointmentsPage() {
                 aria-label="Reason for visit"
                 placeholder="Enter reason for visit"
               />
+            </div>
+
+            <div className="pp-form-field">
+              <label htmlFor="apt-referral">Linked Referral (optional)</label>
+              <select
+                id="apt-referral"
+                value={linkedReferralId}
+                onChange={(e) => setLinkedReferralId(e.target.value)}
+                aria-label="Select linked referral"
+              >
+                <option value="">No linked referral</option>
+                {eligibleReferrals.map((referral) => (
+                  <option key={referral.id} value={referral.id}>
+                    {`${referral.id} - ${referral.to_specialty} - ${referral.status} - prior auth ${referral.prior_auth_status}`}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button

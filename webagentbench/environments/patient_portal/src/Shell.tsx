@@ -97,6 +97,7 @@ export function PatientPortalShell({ sessionId }: { sessionId: string }) {
     { to: "/messages", label: "Messages" },
     { to: "/medications", label: "Medications" },
     { to: "/labs", label: "Lab Results" },
+    { to: "/referrals", label: "Referrals" },
     { to: "/billing", label: "Billing" },
     { to: "/profile", label: "Profile" },
   ];

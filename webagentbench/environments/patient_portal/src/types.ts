@@ -124,6 +124,7 @@ export interface Referral {
   prior_auth_status: string;
   expires_at: string;
   notes: string;
+  linked_appointment_id: string | null;
 }
 
 export interface InsuranceClaim {
@@ -139,6 +140,9 @@ export interface InsuranceClaim {
   patient_responsibility: string;
   eob_available: boolean;
   appeal_deadline: string;
+  denial_reason: string | null;
+  supporting_referral_id: string | null;
+  supporting_lab_ids: string[];
 }
 
 export interface Immunization {

@@ -115,6 +115,7 @@ export function LabsPage() {
           <table aria-label="Lab Results">
             <thead>
               <tr>
+                <th>Lab ID</th>
                 <th>Test Name</th>
                 <th>Date</th>
                 <th>Value</th>
@@ -136,6 +137,7 @@ export function LabsPage() {
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === "Enter") toggleExpand(lab); }}
                   >
+                    <td>{lab.id}</td>
                     <td>{lab.test_name}</td>
                     <td>{new Date(lab.collected_at).toLocaleDateString()}</td>
                     <td>{lab.value}</td>
@@ -151,13 +153,19 @@ export function LabsPage() {
                   </tr>
                   {expandedId === lab.id && (
                     <tr key={`${lab.id}-detail`} className="pp-detail-row">
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <div className="pp-lab-detail" aria-label={`Details for ${lab.test_name}`}>
+                          <div className="pp-lab-detail__id">
+                            <strong>Lab ID:</strong> {lab.id}
+                          </div>
                           <div className="pp-lab-detail__range">
                             <strong>Reference Range:</strong> {lab.reference_range}
                           </div>
                           <div className="pp-lab-detail__value">
                             <strong>Your Value:</strong> {lab.value} {lab.unit}
+                          </div>
+                          <div className="pp-lab-detail__appointment">
+                            <strong>Linked Appointment:</strong> {lab.linked_appointment_id ?? "None documented"}
                           </div>
                           {trendData.length > 1 && (
                             <div className="pp-lab-detail__trend">
@@ -189,17 +197,21 @@ export function LabsPage() {
           <table aria-label="Pending lab orders">
             <thead>
               <tr>
+                <th>Lab ID</th>
                 <th>Test Name</th>
                 <th>Status</th>
                 <th>Ordered By</th>
+                <th>Linked Appointment</th>
               </tr>
             </thead>
             <tbody>
               {pending.map((lab) => (
                 <tr key={lab.id}>
+                  <td>{lab.id}</td>
                   <td>{lab.test_name}</td>
                   <td><span className={`pp-status-badge pp-status-badge--${lab.status}`}>{lab.status}</span></td>
                   <td>{providerName(lab.ordered_by)}</td>
+                  <td>{lab.linked_appointment_id ?? "None documented"}</td>
                 </tr>
               ))}
             </tbody>

@@ -322,6 +322,7 @@ route("GET", "peer-reviews/:review_id", (state, params) => {
 route("POST", "peer-reviews/:review_id/submit", (state, params, body) => {
   const review = state.peer_reviews.find((r) => r.id === params.review_id);
   if (!review) return { state, response: { error: "Not found", status: 404 } };
+  review.returned_for_revision = false;
   review.status = "submitted";
   review.rubric_scores = (body?.rubric_scores as Record<string, number>) ?? {};
   review.comments = String(body?.comments ?? "");

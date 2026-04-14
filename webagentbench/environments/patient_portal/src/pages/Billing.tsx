@@ -77,6 +77,7 @@ export function BillingPage() {
               <table aria-label="Insurance Claims">
                 <thead>
                   <tr>
+                    <th>Claim ID</th>
                     <th>Service Date</th>
                     <th>Provider</th>
                     <th>Procedure</th>
@@ -91,6 +92,7 @@ export function BillingPage() {
                   {claims.map((claim) => (
                     <React.Fragment key={claim.id}>
                       <tr>
+                        <td>{claim.id}</td>
                         <td>{new Date(claim.service_date).toLocaleDateString()}</td>
                         <td>{providerName(claim.provider_id)}</td>
                         <td>{claim.procedure_code}</td>
@@ -130,12 +132,20 @@ export function BillingPage() {
                       </tr>
                       {expandedId === claim.id && (
                         <tr key={`${claim.id}-detail`} className="pp-detail-row">
-                          <td colSpan={8}>
+                          <td colSpan={9}>
                             <div className="pp-claim-detail" aria-label={`Claim details for ${claim.id}`}>
+                              <div><strong>Claim ID:</strong> {claim.id}</div>
+                              <div><strong>Linked Appointment:</strong> {claim.appointment_id}</div>
                               <div><strong>Procedure Code:</strong> {claim.procedure_code}</div>
                               <div><strong>Diagnosis Code:</strong> {claim.diagnosis_code}</div>
                               <div><strong>Appeal Deadline:</strong> {new Date(claim.appeal_deadline).toLocaleDateString()}</div>
                               <div><strong>EOB Available:</strong> {claim.eob_available ? "Yes" : "No"}</div>
+                              <div><strong>Denial Reason:</strong> {claim.denial_reason ?? "Not listed"}</div>
+                              <div><strong>Supporting Referral:</strong> {claim.supporting_referral_id ?? "None documented"}</div>
+                              <div>
+                                <strong>Supporting Labs:</strong>{" "}
+                                {claim.supporting_lab_ids.length > 0 ? claim.supporting_lab_ids.join(", ") : "None documented"}
+                              </div>
                               {canAppeal(claim) && (
                                 <div className="pp-appeal-form" aria-label="Appeal form">
                                   <label htmlFor={`appeal-reason-${claim.id}`}>Reason for appeal</label>
