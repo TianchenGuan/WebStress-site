@@ -71,9 +71,11 @@ def test_lms_variant_inventory_covers_all_tasks(client: TestClient) -> None:
     base_task_counts = Counter(variant.get("base_task_id", "") for variant in route_variants)
     missing_tasks = sorted(task_id for task_id in LMS_TASK_IDS if task_id not in base_task_counts)
     assert not missing_tasks, f"missing LMS variant coverage for: {missing_tasks}"
-    assert len(route_variants) >= 2 * len(LMS_TASK_IDS), "expected at least two variants per LMS task"
-    undercovered = sorted(task_id for task_id, count in base_task_counts.items() if count < 2)
-    assert not undercovered, f"expected two variants per LMS task, undercovered: {undercovered}"
+    # One meaningful variant per task is the curated goal; extras remain only
+    # when tests explicitly reference a second variant by filename.
+    assert len(route_variants) >= len(LMS_TASK_IDS), "expected at least one variant per LMS task"
+    undercovered = sorted(task_id for task_id, count in base_task_counts.items() if count < 1)
+    assert not undercovered, f"expected at least one variant per LMS task, undercovered: {undercovered}"
 
 
 @pytest.mark.parametrize("path", _variant_paths(), ids=lambda path: path.name)

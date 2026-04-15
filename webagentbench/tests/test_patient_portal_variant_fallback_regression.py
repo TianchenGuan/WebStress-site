@@ -36,14 +36,14 @@ def test_patient_portal_variants_endpoint_exposes_generated_yaml_batch(client: T
     assert all(v.get("source") == "yaml" for v in variants)
     assert all(str(v.get("filename", "")).startswith("pp_") for v in variants)
     assert not any(str(v.get("filename", "")).startswith("__auto__") for v in variants)
-    # At least 2 variants per task (the auto-generated batch). Hand-authored
-    # additions to demonstrate new degradation types are allowed to increase
-    # the per-task count.
-    assert len(variants) >= 2 * len(env_tasks("patient_portal"))
+    # At least 1 variant per task. The benchmark curates to one-meaningful
+    # variant per task; a few demo tasks retain additional variants when tests
+    # explicitly reference them.
+    assert len(variants) >= len(env_tasks("patient_portal"))
     counts = Counter(v.get("base_task_id") for v in variants)
     for task in env_tasks("patient_portal"):
-        assert counts[task.task_id] >= 2, (
-            f"{task.task_id} has fewer than 2 variants: {counts[task.task_id]}"
+        assert counts[task.task_id] >= 1, (
+            f"{task.task_id} has no variant: {counts[task.task_id]}"
         )
     assert any(
         v.get("filename") == "pp_mark_all_read__mark_all_read_verification_v1.yaml"
