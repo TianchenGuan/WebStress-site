@@ -141,8 +141,13 @@ def _extract_targets(parsed_action: dict[str, Any], obs: dict | None) -> dict[st
         return {"ref": bid}
     try:
         from browsergym.utils.obs import flatten_axtree_to_str
+        # Mirror format_obs_for_llm's call signature. The bids live in
+        # extra_element_properties; without it, filter_with_bid_only drops
+        # every line and nothing matches.
         tree_text = flatten_axtree_to_str(
-            axtree, with_clickable=True, with_visible=True,
+            axtree,
+            extra_properties=obs.get("extra_element_properties", {}),
+            with_clickable=True, with_visible=True,
             filter_visible_only=True, filter_with_bid_only=True,
         )
         # Find the line with this BID: e.g. [76] button 'Search'
