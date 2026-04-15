@@ -145,15 +145,16 @@ def _extract_targets(parsed_action: dict[str, Any], obs: dict | None) -> dict[st
             axtree, with_clickable=True, with_visible=True,
             filter_visible_only=True, filter_with_bid_only=True,
         )
-        # Find the line with this BID: e.g. [76] button "Search"
+        # Find the line with this BID: e.g. [76] button 'Search'
+        # BrowserGym's flatten_axtree uses single quotes; tolerate both.
         for line in tree_text.split("\n"):
             stripped = line.strip()
             if stripped.startswith(f"[{bid}]"):
-                # Parse: [76] role "name"
-                m = re.match(r'\[\d+\]\s+(\w+)\s+"([^"]*)"', stripped)
+                # Parse: [76] role 'name' (or double quotes)
+                m = re.match(r"""\[\d+\]\s+(\w+)\s+["']([^"']*)["']""", stripped)
                 if m:
                     return {"ref": bid, "role": m.group(1), "name": m.group(2)}
-                m2 = re.match(r'\[\d+\]\s+(\w+)', stripped)
+                m2 = re.match(r"\[\d+\]\s+(\w+)", stripped)
                 if m2:
                     return {"ref": bid, "role": m2.group(1), "name": ""}
                 return {"ref": bid}

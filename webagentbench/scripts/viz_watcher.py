@@ -50,6 +50,28 @@ def _task_replay_info(root: Path, task_id: str) -> tuple[str, str]:
     return env_id, start_path
 
 
+def _reshape_step_targets(step: dict) -> dict:
+    """visualize.py's executeAction expects `targets.ref` to be an object with
+    `.role/.name/.selector/.nth`, but agent_eval writes a flat
+    {ref, role, name}. Nest role+name under ref so the JS finds elements.
+    Also copies from_ref/to_ref for drag_and_drop."""
+    targets = dict(step.get("targets") or {})
+    ref = targets.get("ref")
+    role = targets.get("role") or ""
+    name = targets.get("name") or ""
+    if isinstance(ref, str):
+        # Flat shape — nest. Note bid selectors don't survive across sessions,
+        # so we leave selector empty and rely on findByRole.
+        targets["ref"] = {"bid": ref, "role": role, "name": name, "nth": 0}
+    for key in ("from_ref", "to_ref"):
+        v = targets.get(key)
+        if isinstance(v, str):
+            targets[key] = {"bid": v, "role": "", "name": "", "nth": 0}
+    step = dict(step)
+    step["targets"] = targets
+    return step
+
+
 def _tag(result: dict, *, configuration: str, variant_filename: str | None,
          root: Path, seed: int = 42) -> dict:
     """Tag a per-task result with configuration + attach a `replay` block so
@@ -76,6 +98,13 @@ def _tag(result: dict, *, configuration: str, variant_filename: str | None,
     if variant_filename:
         tagged.setdefault("degradation", {})
         tagged["degradation"].setdefault("variant_filename", variant_filename)
+
+    # Reshape trajectory targets so the viz's action-replay JS can locate
+    # elements via role+name (bids don't survive across sessions).
+    agent = dict(tagged.get("agent") or {})
+    traj = agent.get("trajectory") or []
+    agent["trajectory"] = [_reshape_step_targets(s) for s in traj]
+    tagged["agent"] = agent
     return tagged
 
 
