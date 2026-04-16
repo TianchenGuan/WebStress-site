@@ -101,7 +101,17 @@ Three kinds of entries — `create`, `update`, `delete` — describe **required*
 
 ### 3.2  Predicate vocabulary
 
-Every property binding is a predicate. Equality is the singleton-set case. Scalar and collection-valued fields have distinct predicate families:
+**Terminology.** A **predicate** in this spec is a YAML structure — a data object, not code — that represents a boolean rule: "the value is acceptable iff some condition holds." The matcher reads the predicate, applies it to a concrete field value, and gets back `true` or `false`. Every `{…}` form in this section is a predicate kind.
+
+A few examples to anchor the term:
+
+- `{eq: scheduled}` says "the value equals `scheduled`" — a predicate.
+- `{in: [a, b, c]}` says "the value is one of `a`, `b`, `c`" — a predicate.
+- `{between: [10, 20]}` says "the value is between 10 and 20" — a predicate.
+
+(Historical note: one specific predicate was originally named `{predicate: "..."}`, which conflicted with the general term. It has been renamed to `{expr: "..."}` — see "arbitrary expression" row below.)
+
+Every property binding in a diff is a predicate. Equality is the singleton-set case. Scalar and collection-valued fields have distinct predicate families:
 
 **Scalar predicates:**
 
@@ -110,7 +120,7 @@ Every property binding is a predicate. Equality is the singleton-set case. Scala
 | `{eq: x}` | Field value equals `x` | `{eq: scheduled}` |
 | `{in: [...]}` | Field value is in the given set | `{in: target.admin_providers[v]}` |
 | `{between: [lo, hi]}` | Numeric/date range (inclusive) | `{between: [target.week_start, target.week_end]}` |
-| `{predicate: "<expr>"}` | Arbitrary boolean; see scope note below | `{predicate: "x > state.get_stock(target.symbol).price"}` |
+| `{expr: "<source>"}` | Arbitrary boolean; see scope note below | `{expr: "x > state.get_stock(target.symbol).price"}` |
 | `{any: true}` | Explicit wildcard; author-acknowledged don't-care | `{any: true}` |
 
 **Collection-valued predicates** (lists, sets — e.g., `Email.labels`, `Order.items`):
@@ -148,7 +158,7 @@ shipping_address:
     # street and state default to any
 ```
 
-**Predicate escape-hatch scope (`{predicate: "<expr>"}`).** The expression is evaluated with the same restricted-globals pattern the existing `evaluator.py` uses for `expr:` checks (safe-builtins allow-list, no `__builtins__`). Bound names:
+**Predicate escape-hatch scope (`{expr: "<source>"}`).** The expression is evaluated with the same restricted-globals pattern the existing `evaluator.py` uses for `expr:` checks (safe-builtins allow-list, no `__builtins__`). Bound names:
 
 - `x` — the field value being predicated.
 - `v` — the bijection variable (only bound inside a `bijection` entry).
@@ -229,7 +239,7 @@ constraints:
     severity: high
 ```
 
-The `expr:` uses the same restricted-evaluator scope as `{predicate: "..."}` (`state`, `initial`, `target`, `Decimal`, `datetime`, safe-builtins). Each constraint gets a `severity:` that maps to a named-invariant penalty.
+The `expr:` uses the same restricted-evaluator scope as `{expr: "..."}` (`state`, `initial`, `target`, `Decimal`, `datetime`, safe-builtins). Each constraint gets a `severity:` that maps to a named-invariant penalty.
 
 **When to use it (rare):**
 
@@ -244,6 +254,8 @@ The `expr:` uses the same restricted-evaluator scope as `{predicate: "..."}` (`s
 - Count bounds on a single collection → use `bijection.over` or explicit `count: N`.
 
 `constraints:` is deliberately terse and ordered last in the grammar. Reviewers should treat every `constraints:` entry as a design smell to scrutinize: is there a structured predicate that would do? Only use this when the answer is genuinely no.
+
+**No count limit per task.** Authors may include as many `constraints:` entries as a task genuinely needs. The review-scrutiny norm is the enforcement mechanism, not a hard cap. Empirical usage will tell us whether abuse is a real problem; adding a cap preemptively would block legitimate rare uses.
 
 ### 3.7  Diff semantics — sequential vs net
 
@@ -431,7 +443,7 @@ Output:
    - `{eq: x}` → `x`
    - `{in: [...]}` → first element
    - `{between: [lo, hi]}` → midpoint
-   - `{predicate: "..."}` → the author must provide an `example:` value alongside the predicate for preview to work (schema validation error otherwise)
+   - `{expr: "..."}` → the author must provide an `example:` value alongside the predicate for preview to work (schema validation error otherwise)
    - `{any: true}` → retain the field's seed-time value; if the field is new on a created entity, use the env schema's default
    Then apply the resulting transformation to `initial_state`.
 3. Opens the env SPA in a browser, pre-loaded with the canonical final state.
@@ -542,7 +554,7 @@ There is no coordination requirement. Any task can be migrated independently. Re
 
 **Stays:**
 - The existing `eval:` runtime in `webagentbench/evaluator.py` — untouched. Continues to evaluate legacy tasks via expr strings.
-- The `expr:` check language — still used by tasks that haven't migrated, and by the `{predicate: "..."}` escape hatch for unusual cases.
+- The `expr:` check language — still used by tasks that haven't migrated, and by the `{expr: "..."}` escape hatch for unusual cases.
 - The per-env pydantic state schemas (`backend/gmail/state.py`, etc.) — used by the diff matcher to know field types and by schema-completeness validation.
 - Negative checks as a concept in eval output — retained for interpretability via named invariants.
 - Penalty semantics — named invariants carry a `severity` which maps to existing penalty bands.
@@ -590,7 +602,7 @@ The equivalence test is the primary migration guardrail: no task loses its legac
 ## 12  Open Questions
 
 **OQ-1: Derived predicates evaluated at final-state time.**
-Some instructions require predicates over state the agent discovers (e.g., "*reply to the sender who mentioned X*" where X is only visible in email bodies). The `{predicate: "..."}` escape hatch already covers this via the `state` binding. Deciding whether to promote this to a first-class category (e.g., a dedicated `{resolve: "..."}` predicate whose return value is then compared to the field) is a syntactic-sugar question, not an architecture one.
+Some instructions require predicates over state the agent discovers (e.g., "*reply to the sender who mentioned X*" where X is only visible in email bodies). The `{expr: "..."}` escape hatch already covers this via the `state` binding. Deciding whether to promote this to a first-class category (e.g., a dedicated `{resolve: "..."}` predicate whose return value is then compared to the field) is a syntactic-sugar question, not an architecture one.
 
 **OQ-2: Strict vs permissive dict-field equality.**
 Resolved in §3.2 (the `{fields: {...}}` predicate). Deep `{eq: {...}}` is strict; `{fields:}` is selective. Retained in OQ list only to note that we may want a `{fields_subset:}` shorthand for common "these fields must match, others may drift" cases — deferred pending real-world need.
@@ -620,7 +632,7 @@ Predicates reference target-dict keys like `target.admin_providers[v]`. If the s
 Several existing tasks lack the target data their new `canonical_diff` needs. Per-task migration prerequisite — largest chunk of migration effort.
 
 **OQ-1 (remains open): Derived-predicate syntactic sugar.**
-`{predicate: "..."}` already covers final-state-derived values via the `state` binding. Whether to add a dedicated `{resolve: "..."}` syntax is cosmetic, deferred.
+`{expr: "..."}` already covers final-state-derived values via the `state` binding. Whether to add a dedicated `{resolve: "..."}` syntax is cosmetic, deferred.
 
 Only OQ-1, OQ-3, OQ-4, OQ-8 remain open. None affect architecture.
 

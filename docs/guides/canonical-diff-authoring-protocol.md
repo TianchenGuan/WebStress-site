@@ -89,7 +89,7 @@ For each entity type identified in step 2, list **every field** defined on the p
 | Category | Meaning | Predicate in diff |
 |---|---|---|
 | **BOUND_BY_INSTRUCTION** | Instruction directly or transitively determines the value | `{eq: ...}` / `{in: ...}` / `{between: ...}` / `{set_eq: ...}` / `{superset: ...}` / etc. |
-| **BOUND_BY_DOMAIN** | Environment semantics force a value regardless of agent choice (e.g., `created_at: now`, `status: scheduled` when creating an appointment) | `{eq: ...}` or `{predicate: ...}` |
+| **BOUND_BY_DOMAIN** | Environment semantics force a value regardless of agent choice (e.g., `created_at: now`, `status: scheduled` when creating an appointment) | `{eq: ...}` or `{expr: "..."}` |
 | **FREE_BUT_RECORDED** | Agent can choose, but choice is irrelevant to correctness (e.g., `notes: ""` vs some string) | `{any: true}` |
 | **SYSTEM_MANAGED** | Field exists on the entity but is set server-side and not agent-mutable (e.g., auto-assigned `id`, monotonic `created_at`, `audit_trail` sub-object). The env's State marks these via a pydantic `Config` attribute. | Omit from diff |
 
@@ -109,7 +109,7 @@ vaccine_ref     → BOUND_BY_INSTRUCTION  ({eq: v.id})
 scheduled_at    → BOUND_BY_INSTRUCTION  ({between: [target.window_start, target.window_end]})
 status          → BOUND_BY_DOMAIN       ({eq: scheduled})
 id              → IMMUTABLE_BY_AGENT    (omit)
-created_at      → BOUND_BY_DOMAIN       ({predicate: "x >= target.session_start"})
+created_at      → BOUND_BY_DOMAIN       ({expr: "x >= target.session_start"})
 notes           → FREE_BUT_RECORDED     ({any: true})
 reminder_set    → FREE_BUT_RECORDED     ({any: true})
 ```
@@ -160,7 +160,7 @@ create:
       vaccine_ref:   {eq: v.id}                         # "for that vaccine"
       scheduled_at:  {between: [target.window_start, target.window_end]}
       status:        {eq: scheduled}
-      created_at:    {predicate: "x >= target.session_start"}
+      created_at:    {expr: "x >= target.session_start"}
       notes:         {any: true}
       reminder_set:  {any: true}
 ```
@@ -377,7 +377,7 @@ create:
       vaccine_ref:   {eq: v.id}
       scheduled_at:  {between: [target.window_start, target.window_end]}
       status:        {eq: scheduled}
-      created_at:    {predicate: "x >= target.session_start"}
+      created_at:    {expr: "x >= target.session_start"}
       notes:         {any: true}
       reminder_set:  {any: true}
 ```
