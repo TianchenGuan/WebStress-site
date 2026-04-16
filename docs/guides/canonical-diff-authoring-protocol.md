@@ -54,6 +54,10 @@ Extract six token categories from `instruction_template`. Record each explicitly
 
 If any token category is ambiguous after reading the instruction template, **do not proceed to step 2**. Rewrite the instruction first. Ambiguity in the instruction cannot be patched over in the diff.
 
+**Compound instructions** (multiple independent operations): some instructions describe multiple operations joined by "and" or semicolons. E.g., "*Forward email X to Y, mark it as read, and create a filter for sender Z.*" Treat each operation as its own row in the token table; step 4 will emit one diff entry per operation. The compound instruction produces a canonical_diff with multiple `create`/`update` entries, each handling one sub-operation. The protocol scales linearly.
+
+**Conditional instructions** ("If X, then Y"): the conditional is part of the predicate — not a new token category. Encode it as an instruction-level constraint that narrows the target set. E.g., "*For any vaccines that are overdue*" is a filter on the due-set, not a separate step.
+
 **LLM-automation hook:** this step can be scripted as a structured-output prompt against the instruction template with the table above as the schema. Reject outputs where any cell is "unclear" or "depends."
 
 ---
@@ -162,6 +166,16 @@ create:
 ```
 
 **Rule:** the number of field lines in `properties:` equals the number of BOUND + FREE fields from step 3 for that entity. If the counts don't match, you missed a field.
+
+---
+
+### 5.1  Optional: weighted entries for partial credit
+
+Every `create`/`update`/`delete`/`invariant` entry accepts an optional `weight:` (default `1.0`). The matcher computes score as a weighted average of passed entries (spec §4.2). Use this when some checks are more important than others for partial credit — e.g., the core task completion should count for 80% and a polish-level check should count for 20%. Avoid tuning weights unless the task has a clear hierarchy of importance; the default of uniform weights is usually correct.
+
+### 5.2  Optional: `constraints:` for state-level aggregates
+
+If any check is a *state-level aggregate* that cannot be expressed per-entity (sums, cross-collection joins, pre/post comparisons on derived metrics), use the `constraints:` block at the top level of the `canonical_diff` (spec §3.6). Reviewers should scrutinize every use of `constraints:` — the default answer is "you probably don't need this; rewrite as a per-entity predicate or a named invariant."
 
 ---
 
@@ -465,10 +479,19 @@ SYSTEM: You are a WebAgentBench task-eval author. Follow the canonical-diff
 authoring protocol exactly. Never skip steps.
 
 USER (one per task):
-  instruction_template: <...>
+  instruction_template: <verbatim from task YAML>
   env: <env_id>
-  env_schema: <pydantic model dump for the env>
-  seed_outputs: <list of target variables available>
+  env_schema: <JSON-schema export of the env's State pydantic model,
+               produced by `State.model_json_schema()`, trimmed to
+               only include collections + entity-type fields +
+               Config.system_managed markers>
+  seed_outputs: <list of (output_name, inferred_type) pairs, extracted
+                 from each seed step's `outputs:` block, with types
+                 either from the builder's return annotation if
+                 available or `unknown` otherwise>
+  existing_canonical_diffs: <1-2 nearest-neighbor examples from the
+                             same env for few-shot grounding, chosen
+                             by instruction-similarity>
 
 Produce a `canonical_diff:` YAML block by running steps 1–6 of the protocol.
 Output each step's artifact in a separate <step> tag so it's inspectable.
@@ -595,7 +618,84 @@ The same protocol, the same grammar, the same matcher. Read-only tasks do not ne
 
 ---
 
-## 15  Relationship to the legacy playbook
+## 15  Migration playbook (converting existing tasks)
+
+Authoring a brand-new task runs §2-§9 against the instruction + env schema. **Migrating an existing task** is a related but distinct activity: the task already has hand-written `eval.checks`, and the goal is producing a `canonical_diff:` that is equivalent-or-stricter. Follow this procedure:
+
+**M1. Read the existing `eval.checks` / `eval.negative_checks`.** For each hand-written `expr:` string, identify what the check is asserting: a property on a specific entity? An invariant? A count bound? Record each as a one-line intent statement. This reconstructs the author's original mental model.
+
+**M2. Run the authoring protocol from scratch.** Do **not** translate the expr strings one-to-one. Use §2-§6 to produce a canonical_diff from the instruction + schema. Treat the existing `eval.checks` as a sanity-check reference, not as specification. Mechanical translation often preserves the original's gaps.
+
+**M3. Diff the two mental models.** Compare the intent statements from M1 to the predicates in the new diff. For every M1 item, verify the diff has a corresponding predicate. For every diff predicate, verify it's either (a) covered by an M1 item or (b) a genuinely new axis the original missed. Items in (b) are the *coverage improvement* this migration delivers — list them in the PR description.
+
+**M4. Run the equivalence test.** Against all historical agent trajectories for this task in `results/webagentbench/*.json`, run both the legacy `eval.checks` and the new `match_diff`. For each trajectory, record (legacy_pass, new_pass). Acceptable outcomes:
+
+- (pass, pass): trajectory was correct under both systems. ✓
+- (fail, fail): trajectory was wrong under both systems. ✓
+- (fail, pass): the new diff is *more lenient* than the legacy — **investigate**. Usually means the diff missed an axis; fix before merging.
+- (pass, fail): the new diff is *stricter* — this is the expected direction of improvement. Inspect one or two and confirm the old checks were missing the stricter axis.
+
+**M5. Extend the seed if required.** If the canonical_diff references target variables the seed doesn't emit (§OQ-4 pattern), extend the seed builder in the same PR. Don't split migration across two PRs.
+
+**M6. Preview visually.** Same as step 7 of the authoring protocol.
+
+**M7. Delete the legacy block.** Once (M4) equivalence is proven satisfactory, remove the `eval.checks` / `eval.negative_checks` blocks from the YAML. Leave only `canonical_diff:`.
+
+**M8. PR description must include:**
+
+- List of coverage improvements (new axes the diff checks that the legacy didn't).
+- Equivalence-test summary: trajectory counts for each outcome quadrant.
+- Any seed-builder extensions.
+- Preview screenshot (canonical final state) attached.
+
+This procedure exists because translating legacy checks mechanically is the fastest way to preserve original gaps in the new format. Re-derive from instruction; cross-check against legacy; delete legacy last.
+
+---
+
+## 16  Reviewer checklist for LLM-generated diffs
+
+When reviewing a `canonical_diff:` authored by an LLM (via the §12 automation prompt), in addition to the self-verification checklist in §10, verify:
+
+- **Every predicate references a real field.** LLMs occasionally hallucinate field names. Cross-check against the pydantic schema for the entity.
+- **Every `target.X` reference matches a seed output.** Cross-check against the task's `seed.steps[*].outputs:` list.
+- **Every `bijection.over:` target set is finite and non-empty in at least one seed.** An LLM may have invented a target set that only makes sense when `completed_count >= 1` (etc).
+- **Predicate choice matches field type.** `{substring:}` on a string, `{between:}` on a numeric, `{set_eq:}` on a list. LLMs sometimes use scalar predicates on collection fields.
+- **No `{any: true}` on a field the instruction clearly constrains.** LLMs default to `{any: true}` when uncertain. Any such field is a red flag — re-read the instruction.
+- **Named invariant labels match severity.** A "did not modify billing" label should be `critical`, not `low`. LLMs underestimate severity.
+- **The invariant sweep covered every non-mentioned collection.** Compare the diff's `invariant:` entries to the full `state.*` collection list (minus SYSTEM_MANAGED). LLM-forgotten invariants produce the exact silent-gap class this whole design exists to prevent.
+- **Preview renders correctly.** Run it. LLM-generated diffs that pass schema validation but produce nonsense previews fail here.
+- **Adversarial tests all pass.** CI-enforced; the reviewer confirms the passing run.
+
+If any check fails, feed the specific failure back to the generator for retry rather than hand-fixing — this preserves the invariant that canonical_diff blocks can be regenerated from the instruction+schema, not rescued from them.
+
+---
+
+## 17  Preview fallback when SPA is unavailable
+
+If the env's SPA bundle isn't built or the backend can't start during preview, the preview tool falls back to a **textual canonical-state dump**:
+
+```
+$ python -m webagentbench.tasks.preview pp_immunization_gap_review --seed 42 --text-only
+Canonical final state (patient_portal, seed=42):
+
+Appointments:
+  - id=appt_new_1  provider_id=prov_0042 (Sarah Chen)  vaccine_ref=imm_05 (Tdap)
+                   scheduled_at=2026-05-18 10:00 UTC   status=scheduled
+  - id=appt_new_2  provider_id=prov_0055 (James Liu)   vaccine_ref=imm_07 (Flu)
+                   scheduled_at=2026-05-20 14:30 UTC   status=scheduled
+
+(existing upcoming appointments — unchanged)
+  - id=appt_7      provider_id=prov_0001  status=scheduled  ...
+  - id=appt_12     provider_id=prov_0003  status=scheduled  ...
+
+(medications, lab_orders, messages, billing, insurance: unchanged)
+```
+
+Textual review is a strictly-weaker check than visual SPA preview — field-level value matches are visible, but layout issues (e.g., the appointment card is not actually rendered on a visible tab) are missed. Use `--text-only` as a fallback, not a primary workflow.
+
+---
+
+## 18  Relationship to the legacy playbook
 
 The legacy [`eval-hardening-playbook.md`](eval-hardening-playbook.md) contains patterns for writing robust `expr:` checks by hand. For tasks on the legacy path, it remains the authoritative reference.
 

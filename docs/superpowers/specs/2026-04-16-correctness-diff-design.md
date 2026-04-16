@@ -323,6 +323,52 @@ This is the whole enforcement engine. Bipartite matching uses standard Hopcroft-
 
 **Why the disjoint-collections constraint.** A positive `create:` entry and an `invariant:` entry cannot target the same collection, because the invariant would forbid the very creation the positive entry requires. The schema validator rejects this at load time. Scoped invariants on a collection that *also* hosts positive entries must use a `filter:` that excludes the positive-entry targets (e.g., "existing appointments in `upcoming_ids`" vs "newly-created appointments").
 
+### 4.1  Bijection matching — excess candidates and tie-breaking
+
+When |candidates| > |left slots| and Hopcroft-Karp returns a saturating matching, the excess `|candidates| - |left|` un-matched entries are **"unaccounted" agent-diff entries** caught by the "no excess" rule at the end of the algorithm (this is how over-creation is detected).
+
+When multiple saturating matchings exist (i.e., the candidate pool has more elements than needed AND multiple subsets satisfy the predicates), tie-breaking is deterministic:
+
+1. Prefer matchings where every pairing passes every predicate (full match).
+2. Among those, pick the matching that minimizes `sum(candidate.entity_id)` lexicographically — stable sort, reproducible across runs.
+
+This matters for attribution: if the matcher reports "agent scheduled an extra appointment," it must point at a specific one, and the pointer must be stable so the same input always produces the same failure message.
+
+### 4.2  Partial credit and score mapping
+
+The matcher returns an `EvalReport` with:
+
+- `passed: bool` — true iff every required entry matched AND every invariant held AND every constraint evaluated true AND unmatched is empty.
+- `score: float ∈ [0, 1]` — computed as:
+
+```
+total_weight = sum(entry.weight for entry in authored_diff.{create, update, delete})
+               + sum(inv.weight or 1.0 for inv in invariants)
+               + sum(c.weight or 1.0 for c in constraints)
+
+passed_weight = sum of weights of entries/invariants/constraints that passed
+
+positive_score = passed_weight / total_weight
+
+invariant_penalties = sum(severity_penalty[inv.severity] for inv in failed named_invariants)
+
+score = clamp(positive_score - invariant_penalties, 0.0, 1.0)
+```
+
+- Each authored entry may declare an optional `weight:` (default 1.0) for weighted-average scoring. Matches today's behavior where some checks are more important than others.
+- `severity_penalty` map: `critical → 0.3, high → 0.2, medium → 0.15, low → 0.1` (identical to today's penalty bands).
+- Bijection entries: if N of M slots are saturated, the entry contributes `(N/M) * weight` to `passed_weight`. Partial credit for "agent scheduled 2 of 3 due vaccines."
+
+### 4.3  Debug output for match failures
+
+The matcher runs with a configurable verbosity. In verbose mode (`WEBAGENTBENCH_MATCHER_DEBUG=1`), the report includes:
+
+- For each authored entry: list of candidate agent-diff entries considered, per-predicate pass/fail, the winning candidate if any.
+- For each invariant: filtered collection size, entries touched (if any).
+- For each constraint: the expression, the values of each named binding in scope, the resulting truthy/falsy.
+
+Printed as structured JSON alongside the normal eval report. Intended for author debugging during preview/migration; not emitted during normal eval runs (cost: negligible, ~2x matcher time).
+
 ---
 
 ## 5  Named Invariants (Negative Checks, Kept for Interpretability)
@@ -443,6 +489,28 @@ The evaluator reads the task YAML. If it has a `canonical_diff:` block, the new 
 
 One pydantic schema (`CanonicalDiff`), one function (`match_diff(agent_diff, canonical_diff, session.targets) → EvalReport`). The existing expr-based evaluator stays where it is, untouched, for legacy tasks. Total new runtime surface: ~300 lines.
 
+### 7.5  Operational semantics
+
+Precise behavior on edge cases that would otherwise be implementation-defined:
+
+**Initial-state snapshot timing.** The reference snapshot is taken *after* all seed builders have applied AND after any server-side degradation injections have mutated state (seed-layer and server-layer injections, per the degradation framework). In other words: the snapshot is "what the agent first observed." Client-layer degradations (DOM mutations) and network-layer degradations (HTTP-level delays) don't alter server-side state and are not reflected in the snapshot.
+
+**Entity identity function.** Diff matching treats two entities as "the same" iff their `id` fields are equal — the convention already used across all env state models. For entities without an `id` (rare: some envs model append-only log rows), the matcher uses a per-env-configured identity tuple declared on the pydantic model's `Config.identity_fields`.
+
+**`compute_diff` handling of sub-entities.** A `list[SubEntity]` field on a parent entity is treated as a collection-valued field on the parent — a change to any sub-entity produces an `Update(parent_type, parent_id, {field: before_list → after_list})`. Sub-entities do not get their own top-level diff entries. If a task needs entity-level diffing on a sub-collection, the env should promote that sub-collection to a top-level `State` collection.
+
+**Agent timeout / incomplete session.** If the agent exhausts max_steps or hits a wall-clock timeout, the evaluator runs against whatever state exists at termination. The `state.chat` collection may not contain a final `send_msg_to_user` message; the matcher's required `ChatMessage create` entry for read-only tasks will fail to match, producing a straightforward "missing answer" attribution. No special "incomplete session" path.
+
+**Clock reference.** The predicate scope binds `now()` (a callable that returns `datetime.now(timezone.utc)` at evaluation time) and `session_start` (a `datetime` captured at session creation). Use `session_start` for predicates that need a stable reference even across re-runs; use `now()` for "in the future" checks at eval time. `datetime` and `timedelta` are in scope.
+
+**Idempotency.** `match_diff` is a pure function of its inputs: calling it twice on the same `(agent_diff, canonical_diff, targets)` produces the same `EvalReport`. The only non-determinism — match ordering when multiple saturating matchings exist — is resolved deterministically (§4.1).
+
+**Performance bounds.**
+
+- `compute_diff`: O(total entities across all collections). ~50 lines of Python, typically <5ms per session.
+- `match_diff`: dominated by bipartite matching per bijection entry. Hopcroft-Karp is O(E · √V) where V = |left slots| + |candidates|, E = V² worst case when all predicates match all candidates. At N ≤ 20 bijection slots with N ≤ 20 candidates, this is sub-millisecond. Tasks with >50 bijection slots are flagged for review as likely authoring error.
+- Predicate evaluation is cached per (entry, candidate) pair within a single match_diff call — each candidate's predicate satisfaction is computed once even if tested against multiple left slots.
+
 ---
 
 ## 8  Migration Strategy
@@ -456,7 +524,7 @@ Build the canonical_diff schema, the diff matcher, and the preview tool. Wire th
 Audit results (e.g. the pp_immunization_gap_review class) identify tasks with known check gaps. Convert these first; each conversion removes a real false-pass from the benchmark. Target: 20 tasks.
 
 **Phase 2 — new tasks must use canonical_diff:**
-Block merging any new task without a `canonical_diff:` block. Old tasks continue to work; the corpus only grows in the new format.
+Block merging any new task without a `canonical_diff:` block. The gate is a test in `webagentbench/tests/test_task_requires_canonical_diff.py` that walks every YAML under `webagentbench/tasks/` created or modified in the PR (detected via `git diff --name-only main...HEAD`), and fails if any such YAML lacks a `canonical_diff:` top-level key. Legacy tasks in the corpus are grandfathered until explicitly touched; the gate only fires on *new or modified* YAMLs. Old tasks continue to work; the corpus only grows in the new format.
 
 **Phase 3 — opportunistic backfill:**
 When touching an existing task for any reason (seed update, instruction reword, evaluator fix), convert it to `canonical_diff` as part of the change. Target: 6 months to fully migrate.
@@ -465,6 +533,8 @@ When touching an existing task for any reason (seed update, instruction reword, 
 After full migration, the `eval.checks` hand-authored path is removed. Compiler becomes the only way to produce `eval:` blocks.
 
 There is no coordination requirement. Any task can be migrated independently. Reversal (back to hand-written checks) is also trivial during the migration window — delete the `canonical_diff:` block, restore hand-written `eval:`.
+
+**Schema validation load behavior.** Task YAMLs with an invalid `canonical_diff:` block fail at `load_all_tasks()` time — same behavior as today's invalid `eval.checks`. The `_registry.py` loader raises with a structured error message pointing at the specific entry/field/predicate that failed validation, and the server refuses to start until the task is fixed. Individual-task isolation (disable only the bad task, boot the rest) is explicitly *not* supported — we want the benchmark to refuse to operate with a silently-disabled task, consistent with the "no silent gaps" principle driving this design.
 
 ---
 
