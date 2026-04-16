@@ -11,12 +11,35 @@ interface EvaluationCheck {
   penalty?: number;
 }
 
+interface BijectionSlot {
+  label: string;
+  matched_candidate_index: number | null;
+}
+
+interface BijectionCandidate {
+  label: string;
+  id: string;
+  matched_slot_index: number | null;
+  is_excess: boolean;
+}
+
+interface BijectionGraph {
+  desc: string;
+  entity: string;
+  saturated: boolean;
+  has_excess: boolean;
+  slots: BijectionSlot[];
+  candidates: BijectionCandidate[];
+  edges_possible: [number, number][];
+}
+
 interface EvaluationResult {
   score?: number;
   final_score?: number;
   success?: boolean;
   checks?: EvaluationCheck[];
   negative_checks?: EvaluationCheck[];
+  bijection_graphs?: BijectionGraph[];
   reasoning?: string;
   detail?: string;
 }
@@ -595,6 +618,75 @@ if (typeof document !== "undefined" && !document.getElementById("wab-bench-keyfr
   document.head.appendChild(style);
 }
 
+function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
+  // Simple SVG bipartite graph — left = required slots, right = agent candidates
+  const rowHeight = 24;
+  const maxRows = Math.max(graph.slots.length, graph.candidates.length, 1);
+  const height = maxRows * rowHeight + 20;
+  const leftX = 12;
+  const rightX = 260;
+  const nodeR = 8;
+
+  const slotY = (i: number) => 16 + i * rowHeight;
+  const candY = (i: number) => 16 + i * rowHeight;
+
+  return (
+    <div className="wab-bipartite" style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: "#64748b" }}>
+        {graph.desc} — {graph.saturated ? "✓ saturated" : "✗ unsaturated"}
+        {graph.has_excess ? " · ⚠ excess" : ""}
+      </div>
+      <svg width={320} height={height} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 4 }}>
+        <text x={leftX} y={10} fontSize={9} fill="#64748b">Required</text>
+        <text x={rightX} y={10} fontSize={9} fill="#64748b">Agent created</text>
+        {/* Edges possible (dotted grey) */}
+        {graph.edges_possible.map(([li, cj], idx) => {
+          const inMatch =
+            graph.slots[li]?.matched_candidate_index === cj;
+          return (
+            <line
+              key={`edge-${idx}`}
+              x1={leftX + nodeR}
+              y1={slotY(li)}
+              x2={rightX - nodeR}
+              y2={candY(cj)}
+              stroke={inMatch ? "#22c55e" : "#cbd5e1"}
+              strokeWidth={inMatch ? 2 : 1}
+              strokeDasharray={inMatch ? "" : "3 3"}
+            />
+          );
+        })}
+        {/* Left nodes (slots) */}
+        {graph.slots.map((slot, i) => {
+          const matched = slot.matched_candidate_index !== null;
+          return (
+            <g key={`slot-${i}`}>
+              <circle cx={leftX} cy={slotY(i)} r={nodeR} fill={matched ? "#22c55e" : "#ef4444"} />
+              <text x={leftX + nodeR + 4} y={slotY(i) + 3} fontSize={10} fill="#0f172a">
+                {slot.label}
+              </text>
+            </g>
+          );
+        })}
+        {/* Right nodes (candidates) */}
+        {graph.candidates.map((cand, i) => {
+          const excess = cand.is_excess;
+          const matched = cand.matched_slot_index !== null;
+          const fill = matched ? "#22c55e" : excess ? "#f59e0b" : "#94a3b8";
+          return (
+            <g key={`cand-${i}`}>
+              <circle cx={rightX} cy={candY(i)} r={nodeR} fill={fill} />
+              <text x={rightX + nodeR + 4} y={candY(i) + 3} fontSize={10} fill="#0f172a">
+                {cand.label}{excess ? " ⚠" : ""}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
   const adapter = useAdapterContext();
   const location = useLocation();
@@ -840,6 +932,7 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
   const score = evaluation?.score ?? evaluation?.final_score ?? 0;
   const checks = evaluation?.checks ?? [];
   const negativeChecks = evaluation?.negative_checks ?? [];
+  const bijectionGraphs = evaluation?.bijection_graphs ?? [];
   const launchHref = preserveQueryParams("/launch", location.search, ["agent_mode"]);
 
   return (
@@ -913,6 +1006,14 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
                 {check.passed ? "✓" : `✗ (-${(check.penalty ?? 0).toFixed(2)})`} {check.desc || check.expr}
               </div>
             ))}
+            {bijectionGraphs.length > 0 ? (
+              <>
+                <div className="wab-bench-toolbar__section-title">Bipartite Match</div>
+                {bijectionGraphs.map((graph, index) => (
+                  <BipartiteGraphView key={`bgraph-${index}`} graph={graph} />
+                ))}
+              </>
+            ) : null}
             {evaluation.reasoning ? (
               <pre className="wab-bench-toolbar__reasoning">{evaluation.reasoning}</pre>
             ) : null}

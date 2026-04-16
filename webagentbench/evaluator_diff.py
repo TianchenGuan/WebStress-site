@@ -395,6 +395,10 @@ class EvalReport:
     checks: list[dict] = field(default_factory=list)          # [{desc, passed, error}]
     negative_checks: list[dict] = field(default_factory=list)  # [{desc, passed, penalty}]
     failures: list[Failure] = field(default_factory=list)
+    # Per-bijection graph details, for frontend viz. Each entry:
+    #   {desc, entity, slots:[{label, matched_candidate_index|None}],
+    #    candidates:[{label, id, is_excess}], edges:[[slot_i, cand_i], ...]}
+    bijection_graphs: list[dict] = field(default_factory=list)
 
 
 # Severity-to-penalty mapping used by invariant / constraint reporting.
@@ -404,6 +408,17 @@ _SEVERITY_PENALTY = {"critical": 0.3, "high": 0.2, "medium": 0.15, "low": 0.1}
 # ------------------------------------------------------------------
 # Matcher helpers
 # ------------------------------------------------------------------
+
+def _candidate_label(cand: Any) -> str:
+    """Pick a short human-readable label for a Create candidate for the
+    bijection-graph viz. Prefers common identifying fields; falls back to id."""
+    fields = getattr(cand, "fields", None) or {}
+    for key in ("name", "title", "subject", "provider_id", "vaccine_ref", "reason", "type"):
+        val = fields.get(key)
+        if val:
+            return f"{val}"[:40]
+    return str(getattr(cand, "entity_id", "?"))
+
 
 def _collection_for(entity_type: str) -> str:
     """Map entity TYPE (e.g. ``'Appointment'``) to collection name (``'appointments'``).
@@ -580,6 +595,8 @@ def _match_single_block(
     # (too many). The "did not schedule more than due" label is only about
     # excess; under-saturation is already reflected in the bijection check.
     bijection_excess: dict[int, bool] = {}
+    # Frontend-facing graph data: one entry per bijection that ran matching.
+    bijection_graphs: list[dict] = []
 
     # 1. Create entries (non-bijection only — Task 5 adds bijection).
     for i, entry in enumerate(block.create):
@@ -688,6 +705,35 @@ def _match_single_block(
                         "needed": n_left,
                     },
                 ))
+
+            # Emit graph data for the frontend bipartite viz.
+            matched_cand_set = set(matching.values())
+            graph_slots = [
+                {"label": str(lv)[:40], "matched_candidate_index": matching.get(li)}
+                for li, lv in enumerate(left)
+            ]
+            graph_candidates = []
+            for cj, cand in enumerate(candidates):
+                matched_slot: int | None = None
+                for li, cidx in matching.items():
+                    if cidx == cj:
+                        matched_slot = li
+                        break
+                graph_candidates.append({
+                    "label": _candidate_label(cand),
+                    "id": cand.entity_id,
+                    "matched_slot_index": matched_slot,
+                    "is_excess": cj not in matched_cand_set,
+                })
+            bijection_graphs.append({
+                "desc": base_desc,
+                "entity": entry.entity,
+                "saturated": saturated,
+                "has_excess": bijection_excess[i],
+                "slots": graph_slots,
+                "candidates": graph_candidates,
+                "edges_possible": sorted([[li, cj] for li, cjs in edges.items() for cj in cjs]),
+            })
             continue
 
         # Non-bijection: find one unmatched Create candidate satisfying all predicates.
@@ -866,4 +912,5 @@ def _match_single_block(
         checks=checks,
         negative_checks=negative_checks,
         failures=failures,
+        bijection_graphs=bijection_graphs,
     )

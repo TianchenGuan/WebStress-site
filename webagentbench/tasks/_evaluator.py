@@ -653,6 +653,7 @@ def _evaluate_via_canonical_diff(
         "final_score": report.score,
         "checks": report.checks,
         "negative_checks": report.negative_checks,
+        "bijection_graphs": report.bijection_graphs,
         "reasoning": _format_diff_reasoning(report),
     }
 
