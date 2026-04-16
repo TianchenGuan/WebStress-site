@@ -66,8 +66,13 @@ def test_apply_canonical_diff_creates_entity_for_bijection():
         task_id="pp_immunization_gap_review",
         targets=dict(targets),
     )
+    # Preview may append either a typed Appointment or a raw dict fallback,
+    # depending on whether the canonical_diff's predicates cover every
+    # required pydantic field. Both shapes are valid for preview.
+    def _id(a):
+        return a["id"] if isinstance(a, dict) else a.id
     n_new = len([
         a for a in final_state.appointments
-        if str(a.id).startswith("appt_new_")
+        if str(_id(a)).startswith("appt_new_")
     ])
     assert n_new == len(targets["due_imm_ids"])
