@@ -22,7 +22,15 @@ from typing import Any
 
 from webagentbench.evaluator import _fuzzy_eq
 
-__all__ = ["PredicateScope", "eval_predicate"]
+__all__ = [
+    "PredicateScope",
+    "eval_predicate",
+    "Create",
+    "Update",
+    "Delete",
+    "DiffEntry",
+    "compute_diff",
+]
 
 
 # ------------------------------------------------------------------
@@ -221,3 +229,132 @@ def eval_predicate(pred: dict, scope: PredicateScope) -> bool:
             return False
 
     raise ValueError(f"unknown predicate key {key!r}")
+
+
+# ------------------------------------------------------------------
+# Diff entries
+# ------------------------------------------------------------------
+#
+# ``compute_diff(initial, final)`` produces the net set of entity-level
+# changes between two state snapshots. Semantics are defined in the
+# canonical-diff design doc §3.7 ("net, not sequential") and §7.5
+# ("entity identity is by ``.id``; sub-entity lists are collection-valued
+# fields on the parent, not independent collections").
+#
+# Dataclasses are frozen so callers treat them as immutable tokens. ``dict``
+# fields are allowed inside a frozen dataclass — ``frozen=True`` only blocks
+# attribute reassignment, not mutation of mutable field values. We never
+# hash these entries, so the non-hashable dict does not cause problems.
+
+
+@dataclass(frozen=True)
+class Create:
+    """An entity that exists in ``final`` but not in ``initial``."""
+
+    entity: str              # collection name, e.g. "appointments"
+    entity_id: str
+    fields: dict[str, Any]   # full entity dict as of ``final``
+
+
+@dataclass(frozen=True)
+class Update:
+    """An entity that exists in both snapshots with at least one changed field."""
+
+    entity: str
+    entity_id: str
+    field_changes: dict[str, tuple[Any, Any]]   # {field: (before, after)}
+
+
+@dataclass(frozen=True)
+class Delete:
+    """An entity that exists in ``initial`` but not in ``final``."""
+
+    entity: str
+    entity_id: str
+    last_fields: dict[str, Any]   # full entity dict as of ``initial``
+
+
+DiffEntry = Create | Update | Delete
+
+
+# ------------------------------------------------------------------
+# compute_diff helpers
+# ------------------------------------------------------------------
+
+def _collections_of(state: Any) -> dict[str, list[dict]]:
+    """Return ``{collection_name: [entity_dict, ...]}`` for a state snapshot.
+
+    Accepts either:
+      * a dict-of-lists (used by tests for convenience), or
+      * a pydantic ``BaseModel`` (the production shape — every env state
+        derives from ``BaseEnvState``).
+
+    Non-list fields are ignored. Entities are normalised to plain dicts
+    via ``model_dump()`` so the diff logic can treat both inputs uniformly.
+    """
+    if isinstance(state, dict):
+        return {k: list(v) for k, v in state.items() if isinstance(v, list)}
+
+    from pydantic import BaseModel
+    if isinstance(state, BaseModel):
+        out: dict[str, list[dict]] = {}
+        for name in type(state).model_fields:
+            val = getattr(state, name)
+            if isinstance(val, list):
+                out[name] = [
+                    v.model_dump() if hasattr(v, "model_dump") else dict(v)
+                    for v in val
+                ]
+        return out
+    raise TypeError(f"compute_diff: unsupported state type {type(state)!r}")
+
+
+def _index_by_id(entities: list[dict]) -> dict[str, dict]:
+    """Index entities by their ``id`` field. Entities without ``id`` are skipped."""
+    return {e["id"]: e for e in entities if "id" in e}
+
+
+# ------------------------------------------------------------------
+# compute_diff
+# ------------------------------------------------------------------
+
+def compute_diff(initial: Any, final: Any) -> list[DiffEntry]:
+    """Compute the net state delta from ``initial`` to ``final``.
+
+    Returns ``Create`` / ``Update`` / ``Delete`` entries per collection,
+    sorted by ``(collection, kind, entity_id)`` for deterministic output.
+    Kind ordering is ``Create`` < ``Delete`` < ``Update`` because
+    ``sorted(created | deleted | updated)`` groups in the order they are
+    appended below; within each kind, ids are already sorted.
+
+    Semantics are *net* (spec §3.7): intermediate mutations that the agent
+    performs and then reverts do not appear in the output.
+
+    Accepts either dict-of-lists snapshots (test convenience) or pydantic
+    ``BaseModel`` snapshots (production).
+    """
+    i_cols = _collections_of(initial)
+    f_cols = _collections_of(final)
+    out: list[DiffEntry] = []
+
+    for col in sorted(set(i_cols) | set(f_cols)):
+        before = _index_by_id(i_cols.get(col, []))
+        after = _index_by_id(f_cols.get(col, []))
+
+        created_ids = sorted(set(after) - set(before))
+        deleted_ids = sorted(set(before) - set(after))
+        maybe_updated = sorted(set(before) & set(after))
+
+        for eid in created_ids:
+            out.append(Create(entity=col, entity_id=eid, fields=after[eid]))
+        for eid in deleted_ids:
+            out.append(Delete(entity=col, entity_id=eid, last_fields=before[eid]))
+        for eid in maybe_updated:
+            changes = {
+                k: (before[eid].get(k), after[eid].get(k))
+                for k in set(before[eid]) | set(after[eid])
+                if before[eid].get(k) != after[eid].get(k)
+            }
+            if changes:
+                out.append(Update(entity=col, entity_id=eid, field_changes=changes))
+    return out
