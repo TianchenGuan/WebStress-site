@@ -3,6 +3,7 @@
 **Date:** 2026-04-16
 **Status:** Design
 **Scope:** Evaluation architecture for all WebAgentBench tasks across the 7 environments (gmail, robinhood, amazon, booking, lms, patient_portal, reddit)
+**Companion:** [`canonical-diff-authoring-protocol.md`](../../guides/canonical-diff-authoring-protocol.md) — the step-by-step protocol authors (human or LLM) follow to produce a correct `canonical_diff:` block.
 
 ---
 
