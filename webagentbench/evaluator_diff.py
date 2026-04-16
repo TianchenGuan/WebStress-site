@@ -30,6 +30,9 @@ __all__ = [
     "Delete",
     "DiffEntry",
     "compute_diff",
+    "Failure",
+    "EvalReport",
+    "match_diff",
 ]
 
 
@@ -358,3 +361,294 @@ def compute_diff(initial: Any, final: Any) -> list[DiffEntry]:
             if changes:
                 out.append(Update(entity=col, entity_id=eid, field_changes=changes))
     return out
+
+
+# ------------------------------------------------------------------
+# ── Matcher (Task 4) ──
+# ------------------------------------------------------------------
+#
+# ``match_diff`` checks an agent-produced diff against the authored
+# ``canonical_diff`` block. Algorithm is specified in the canonical-diff
+# design doc §4.
+#
+# This task implements only the non-bijection path plus invariant
+# enforcement and the unaccounted sweep. Task 5 adds bijection matching
+# via augmenting-path bipartite matching; Task 6 adds constraints,
+# named_invariants, and partial-credit scoring.
+
+
+@dataclass
+class Failure:
+    """One failed requirement in the match."""
+
+    kind: str  # "missing_create", "predicate", "invariant", "unaccounted", "constraint"
+    description: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EvalReport:
+    """Result of matching a diff against a canonical_diff block."""
+
+    passed: bool
+    score: float
+    checks: list[dict] = field(default_factory=list)          # [{desc, passed, error}]
+    negative_checks: list[dict] = field(default_factory=list)  # [{desc, passed, penalty}]
+    failures: list[Failure] = field(default_factory=list)
+
+
+# Severity-to-penalty mapping used by invariant / constraint reporting.
+_SEVERITY_PENALTY = {"critical": 0.3, "high": 0.2, "medium": 0.15, "low": 0.1}
+
+
+# ------------------------------------------------------------------
+# Matcher helpers
+# ------------------------------------------------------------------
+
+def _collection_for(entity_type: str) -> str:
+    """Map entity TYPE (e.g. ``'Appointment'``) to collection name (``'appointments'``).
+
+    Default pluralisation: lowercase + ``'s'``. Names that already end in
+    ``'s'`` pass through unchanged (e.g. ``'emails'`` -> ``'emails'``).
+    """
+    lower = entity_type.lower()
+    return lower if lower.endswith("s") else lower + "s"
+
+
+def _predicate_holds(pred: dict, value: Any, scope: PredicateScope) -> bool:
+    """Evaluate ``pred`` against ``value`` reusing ``scope`` for bindings."""
+    scope.value = value
+    return eval_predicate(pred, scope)
+
+
+def _all_predicates_hold(
+    props: dict[str, dict],
+    fields: dict[str, Any],
+    scope: PredicateScope,
+) -> bool:
+    """Return True iff every (field, predicate) pair in ``props`` holds against ``fields``."""
+    for fname, pred in props.items():
+        if not _predicate_holds(pred, fields.get(fname), scope):
+            return False
+    return True
+
+
+def _build_scope(
+    targets: dict,
+    initial: Any,
+    final: Any,
+    bijection_var: Any = None,
+    session_start: datetime | None = None,
+) -> PredicateScope:
+    """Construct a fresh ``PredicateScope`` for predicate evaluation."""
+    return PredicateScope(
+        value=None,
+        target=targets,
+        initial=initial,
+        state=final,
+        bijection_var=bijection_var,
+        session_start=session_start,
+    )
+
+
+class _DotObj:
+    """Dict-backed object exposing keys as attributes (for invariant filter exprs).
+
+    The legacy ``webagentbench/evaluator.py`` filter convention binds ``a``
+    to each candidate entity and lets authors write ``a.id in target.upcoming_ids``.
+    We mirror that here so migrated tasks can reuse their existing filter
+    expressions verbatim.
+    """
+
+    def __init__(self, d: dict[str, Any]) -> None:
+        self.__dict__.update(d)
+
+
+def _entity_dict_for_invariant(entry: "DiffEntry") -> dict[str, Any]:
+    """Best-effort view of an entry as an entity dict for invariant-filter eval."""
+    if isinstance(entry, Create):
+        return entry.fields
+    if isinstance(entry, Delete):
+        return entry.last_fields
+    # Update: reconstruct {id, <each changed field -> after value>}.
+    return {
+        "id": entry.entity_id,
+        **{k: v[1] for k, v in entry.field_changes.items()},
+    }
+
+
+# ------------------------------------------------------------------
+# match_diff
+# ------------------------------------------------------------------
+
+def match_diff(
+    agent_diff: list[DiffEntry],
+    canonical: Any,  # CanonicalDiff
+    targets: dict,
+    initial: Any,
+    final: Any,
+    session_start: datetime | None = None,
+) -> EvalReport:
+    """Match an agent-produced diff against the authored canonical_diff.
+
+    See ``docs/superpowers/specs/2026-04-16-correctness-diff-design.md`` §4.
+
+    If ``canonical.oneof`` is set, each alternative block is evaluated and
+    the highest-scoring report is returned.
+    """
+    if canonical.oneof:
+        best: EvalReport | None = None
+        for alt in canonical.oneof:
+            report = _match_single_block(
+                agent_diff, alt, targets, initial, final, session_start,
+            )
+            if best is None or report.score > best.score:
+                best = report
+        assert best is not None
+        return best
+    return _match_single_block(
+        agent_diff, canonical, targets, initial, final, session_start,
+    )
+
+
+def _match_single_block(
+    agent_diff: list[DiffEntry],
+    block: Any,  # CanonicalDiffBlock
+    targets: dict,
+    initial: Any,
+    final: Any,
+    session_start: datetime | None,
+) -> EvalReport:
+    """Match ``agent_diff`` against a single canonical_diff alternative."""
+    matched_ids: set[tuple[str, str]] = set()
+    failures: list[Failure] = []
+    checks: list[dict] = []
+    negative_checks: list[dict] = []
+    passed_weight = 0.0
+    total_weight = 0.0
+
+    # 1. Create entries (non-bijection only — Task 5 adds bijection).
+    for i, entry in enumerate(block.create):
+        total_weight += entry.weight
+        if entry.bijection is not None:
+            # Task 5 stub: record a failing check, contribute 0 to passed_weight.
+            checks.append({
+                "desc": f"Bijection {entry.entity} (not yet implemented)",
+                "passed": False,
+                "error": "bijection matching lands in Task 5",
+            })
+            failures.append(Failure(
+                kind="missing_create",
+                description=f"bijection {entry.entity} unimplemented",
+                details={"entry_index": i},
+            ))
+            continue
+
+        # Non-bijection: find one unmatched Create candidate satisfying all predicates.
+        passed = False
+        collection_name = _collection_for(entry.entity)
+        for candidate in agent_diff:
+            if not isinstance(candidate, Create):
+                continue
+            if candidate.entity != collection_name:
+                continue
+            if (candidate.entity, candidate.entity_id) in matched_ids:
+                continue
+            local_scope = _build_scope(
+                targets, initial, final, session_start=session_start,
+            )
+            if _all_predicates_hold(entry.properties, candidate.fields, local_scope):
+                matched_ids.add((candidate.entity, candidate.entity_id))
+                passed = True
+                break
+
+        desc = f"Create {entry.entity} with required properties"
+        checks.append({
+            "desc": desc,
+            "passed": passed,
+            "error": None if passed else "no candidate satisfied predicates",
+        })
+        if passed:
+            passed_weight += entry.weight
+        else:
+            failures.append(Failure(
+                kind="missing_create",
+                description=desc,
+                details={"entry_index": i},
+            ))
+
+    # 2. Invariant enforcement.
+    for i, inv in enumerate(block.invariant):
+        total_weight += inv.weight
+        collection = inv.collection.removeprefix("state.")
+        violated = False
+        for entry in agent_diff:
+            if entry.entity != collection:
+                continue
+            if (entry.entity, entry.entity_id) in matched_ids:
+                continue
+            if inv.filter:
+                filter_globs = {"__builtins__": _SAFE_BUILTINS}
+                entity_dict = _entity_dict_for_invariant(entry)
+                filter_locals = {"a": _DotObj(entity_dict), "target": targets}
+                try:
+                    # Restricted eval — author-controlled source, safe-builtins only.
+                    if not eval(inv.filter, filter_globs, filter_locals):  # noqa: S307
+                        continue
+                except Exception:
+                    continue
+            violated = True
+            break
+
+        desc = f"Preserve {inv.collection}"
+        negative_checks.append({
+            "desc": desc,
+            "passed": not violated,
+            "penalty": _SEVERITY_PENALTY["medium"],
+        })
+        if not violated:
+            passed_weight += inv.weight
+        else:
+            failures.append(Failure(
+                kind="invariant",
+                description=desc,
+                details={"entry_index": i},
+            ))
+
+    # 3. Unaccounted sweep.
+    # Any agent_diff entry that (a) was not matched to a positive target and
+    # (b) is not on an invariant-guarded collection is collateral.
+    positive_cols = {
+        _collection_for(e.entity)
+        for e in list(block.create) + list(block.update) + list(block.delete)
+    }
+    invariant_cols = {inv.collection.removeprefix("state.") for inv in block.invariant}
+    for entry in agent_diff:
+        if (entry.entity, entry.entity_id) in matched_ids:
+            continue
+        if entry.entity in invariant_cols:
+            continue  # already accounted for by the invariant branch
+        if entry.entity in positive_cols:
+            failures.append(Failure(
+                kind="unaccounted",
+                description=f"Excess unaccounted entry in {entry.entity}",
+                details={"entity_id": entry.entity_id},
+            ))
+        else:
+            failures.append(Failure(
+                kind="unaccounted",
+                description=f"Agent mutated unrelated collection: {entry.entity}",
+                details={"entity_id": entry.entity_id},
+            ))
+
+    score = (passed_weight / total_weight) if total_weight > 0 else 1.0
+    score = max(0.0, min(1.0, score))
+    passed = len(failures) == 0
+
+    return EvalReport(
+        passed=passed,
+        score=score,
+        checks=checks,
+        negative_checks=negative_checks,
+        failures=failures,
+    )
