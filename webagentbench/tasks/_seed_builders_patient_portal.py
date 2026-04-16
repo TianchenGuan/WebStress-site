@@ -1976,9 +1976,47 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
         if series_vax["name"] not in due_vaccine_names:
             due_vaccine_names.append(series_vax["name"])
 
+    # -- Extension: admin_providers + scheduling window ------------------
+    # For each due immunization, look up the provider(s) who administered the
+    # most recent completed dose of the same vaccine. Falls back to the due
+    # imm's own administering_provider_id if no completed dose matches.
+    all_imms = ctx.base["immunizations"]
+    completed_imms = [
+        imm for imm in all_imms if imm["id"] in completed_imm_ids
+    ]
+    admin_providers: dict[str, list[str]] = {}
+    for due_id in due_imm_ids:
+        due_imm = next((imm for imm in all_imms if imm["id"] == due_id), None)
+        if due_imm is None:
+            continue
+        vaccine_name = due_imm["vaccine_name"]
+        # Find completed doses with matching vaccine_name (exact match — seed
+        # data uses the canonical vaccine_name strings from _VACCINES).
+        matching_completed = [
+            imm for imm in completed_imms
+            if imm["vaccine_name"] == vaccine_name
+        ]
+        if matching_completed:
+            # Most recent completed dose by administered_at
+            most_recent = max(
+                matching_completed, key=lambda i: i["administered_at"]
+            )
+            admin_providers[due_id] = [most_recent["administering_provider_id"]]
+        else:
+            # Fallback: use the due imm's own administering provider
+            admin_providers[due_id] = [due_imm["administering_provider_id"]]
+
+    # Use ctx.now (seed-derived anchor time) so windows stay deterministic
+    # across runs with the same seed.
+    _window_start = ctx.now
+    _window_end = _window_start + timedelta(days=30)
+
     return {
         "completed_imm_ids": completed_imm_ids,
         "due_imm_ids": due_imm_ids,
         "incomplete_series_imm_id": incomplete_series_imm_id,
         "due_vaccine_names": due_vaccine_names,
+        "admin_providers": admin_providers,
+        "window_start": _window_start.isoformat(),
+        "window_end": _window_end.isoformat(),
     }

@@ -47,6 +47,12 @@ class SessionManager:
         rng = random.Random(actual_seed)
         fake = FakeDataGenerator(actual_seed)
         seeded_data, resolved_targets = runner.run(task, actual_seed, fake, rng)
+        # Every session carries a session_start timestamp so diff checks can
+        # window over "changes since session creation". Use the seed-derived
+        # anchor time so (task_id, seed) remains fully deterministic — tests
+        # like test_deterministic_seeds compare target dicts for equality.
+        from webagentbench.backend.seeder import derive_anchor_time
+        resolved_targets["session_start"] = derive_anchor_time(actual_seed).isoformat()
         state = state_cls.model_validate(seeded_data)
         state._resolved_targets = dict(resolved_targets)
         state._seed = actual_seed
