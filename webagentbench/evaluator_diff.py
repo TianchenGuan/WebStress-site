@@ -478,6 +478,55 @@ def _entity_dict_for_invariant(entry: "DiffEntry") -> dict[str, Any]:
 
 
 # ------------------------------------------------------------------
+# ── Matcher (Task 5) ── Bijection helpers
+# ------------------------------------------------------------------
+
+def _eval_target_expr(expr_source: str, targets: dict) -> Any:
+    """Evaluate a target-reference expression (e.g. ``target['due_ids']``).
+
+    Uses the same restricted-eval pattern as ``{expr: ...}`` predicates —
+    only the safe-builtins allowlist is exposed, and ``target`` is bound
+    as a local. Source is author-controlled (task YAML).
+    """
+    globs = {"__builtins__": _SAFE_BUILTINS}
+    return eval(expr_source, globs, {"target": targets})  # noqa: S307
+
+
+def _max_bipartite_matching(
+    edges: dict[int, set[int]],
+    n_left: int,
+    n_right: int,
+) -> dict[int, int]:
+    """Maximum bipartite matching via augmenting-path DFS.
+
+    Returns ``{left_idx: right_idx}``. Left vertices are processed in order;
+    right candidates are iterated in sorted order so tie-breaking is
+    deterministic (spec §4.1).
+
+    At task-level sizes (left ≤ 20, right ≤ 20), this is sub-millisecond;
+    ~40 LOC vs Hopcroft-Karp's ~120, which is the D4 trade-off we picked.
+    """
+    match_l: dict[int, int] = {}
+    match_r: dict[int, int] = {}
+
+    def augment(u: int, visited: set[int]) -> bool:
+        for v in sorted(edges.get(u, set())):
+            if v in visited:
+                continue
+            visited.add(v)
+            if v not in match_r or augment(match_r[v], visited):
+                match_l[u] = v
+                match_r[v] = u
+                return True
+        return False
+
+    for u in range(n_left):
+        augment(u, set())
+
+    return match_l
+
+
+# ------------------------------------------------------------------
 # match_diff
 # ------------------------------------------------------------------
 
@@ -531,17 +580,90 @@ def _match_single_block(
     for i, entry in enumerate(block.create):
         total_weight += entry.weight
         if entry.bijection is not None:
-            # Task 5 stub: record a failing check, contribute 0 to passed_weight.
-            checks.append({
-                "desc": f"Bijection {entry.entity} (not yet implemented)",
-                "passed": False,
-                "error": "bijection matching lands in Task 5",
-            })
-            failures.append(Failure(
-                kind="missing_create",
-                description=f"bijection {entry.entity} unimplemented",
-                details={"entry_index": i},
-            ))
+            # Bijection case (Task 5): one-to-one match between target slots
+            # and agent-diff Create entries via maximum bipartite matching.
+            try:
+                left = _eval_target_expr(entry.bijection.over, targets)
+            except Exception as exc:
+                checks.append({
+                    "desc": f"Bijection {entry.entity} (target lookup failed)",
+                    "passed": False,
+                    "error": f"target expression failed: {exc}",
+                })
+                failures.append(Failure(
+                    kind="missing_create",
+                    description=f"bijection {entry.entity} target expression failed",
+                    details={"entry_index": i, "error": str(exc)},
+                ))
+                continue
+
+            n_left = len(left) if hasattr(left, "__len__") else 0
+
+            if n_left == 0:
+                # Degenerate case — zero slots, zero creates required.
+                passed_weight += entry.weight
+                checks.append({
+                    "desc": f"Bijection {entry.entity} (empty target set)",
+                    "passed": True,
+                    "error": None,
+                })
+                continue
+
+            # Candidates: unmatched Create entries of the right entity type.
+            collection_name = _collection_for(entry.entity)
+            candidates = [
+                c for c in agent_diff
+                if isinstance(c, Create)
+                and c.entity == collection_name
+                and (c.entity, c.entity_id) not in matched_ids
+            ]
+
+            # Build bipartite graph edges: left = target slots, right = candidates.
+            edges: dict[int, set[int]] = {li: set() for li in range(n_left)}
+            for li, lv in enumerate(left):
+                for cj, cand in enumerate(candidates):
+                    local_scope = _build_scope(
+                        targets, initial, final,
+                        bijection_var=lv,
+                        session_start=session_start,
+                    )
+                    if _all_predicates_hold(entry.properties, cand.fields, local_scope):
+                        edges[li].add(cj)
+
+            # Find maximum matching.
+            matching = _max_bipartite_matching(edges, n_left, len(candidates))
+            saturated = len(matching) == n_left
+
+            desc = f"Bijection {entry.entity} ({n_left} slots)"
+            if saturated:
+                # Record matched candidates so the unaccounted sweep won't
+                # flag them as collateral.
+                for _li, cj in matching.items():
+                    cand = candidates[cj]
+                    matched_ids.add((cand.entity, cand.entity_id))
+                passed_weight += entry.weight
+                checks.append({"desc": desc, "passed": True, "error": None})
+            else:
+                # Partial credit: N/M of the weight.
+                fraction = len(matching) / n_left if n_left > 0 else 0.0
+                passed_weight += entry.weight * fraction
+                checks.append({
+                    "desc": desc,
+                    "passed": False,
+                    "error": f"matched {len(matching)} of {n_left}",
+                })
+                failures.append(Failure(
+                    kind="missing_create",
+                    description=(
+                        f"bijection {entry.entity} unsaturated: "
+                        f"matched {len(matching)} of {n_left}"
+                    ),
+                    details={
+                        "entry_index": i,
+                        "matched": len(matching),
+                        "needed": n_left,
+                    },
+                ))
             continue
 
         # Non-bijection: find one unmatched Create candidate satisfying all predicates.
