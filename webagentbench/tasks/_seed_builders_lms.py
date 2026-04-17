@@ -474,6 +474,8 @@ def _build_enrollment_set(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[s
 
     enrollment_ids: list[str] = []
     ta_course_id: str | None = None
+    target_course_id = ctx.outputs.get("target_course_id", "")
+    target_enrollment_id: str | None = None
 
     for i, course_data in enumerate(courses):
         course_id = course_data["id"]
@@ -494,10 +496,13 @@ def _build_enrollment_set(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[s
 
         if role == "ta":
             ta_course_id = course_id
+        if course_id == target_course_id and target_enrollment_id is None:
+            target_enrollment_id = enrollment.id
 
     return {
         "enrollment_ids": enrollment_ids,
         "ta_course_id": ta_course_id or "",
+        "target_enrollment_id": target_enrollment_id or "",
     }
 
 
