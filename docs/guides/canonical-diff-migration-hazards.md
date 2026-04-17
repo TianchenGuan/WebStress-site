@@ -290,6 +290,42 @@ def test_failures_always_have_visible_entries():
 
 ---
 
+## Class 8 — Scope gotchas in `{expr: "..."}` predicates
+
+**Symptom.** An `{expr: "..."}` predicate silently returns False even
+though the expression looks correct. Correct-trajectory test fails
+Stage 4 with "no candidate satisfied predicates", but inspecting the
+agent_diff shows the candidate matches what the expression should test.
+
+**Root cause.** Python comprehensions (list/gen/dict/set) run in a
+nested function scope that **only reads from the globals dict, not
+the locals dict.** Passing scope vars as locals to the restricted
+evaluator means they're invisible inside
+`any(v.lower() in x.lower() for v in target['...'])`-style expressions.
+Scalar expressions like `"x > target['threshold']"` work fine because
+they execute in a locals-aware top-level scope; only expressions
+containing a comprehension trip this.
+
+**Where.** `webagentbench/evaluator_diff.py:eval_predicate` — `expr` branch.
+
+**Fix applied.** Merge scope vars into globals for the restricted
+evaluator (instead of locals). Security unchanged (allowlist still
+`_SAFE_BUILTINS`) and matches the behaviour authors expect.
+
+**Regression guard.** Add a unit test to
+`test_evaluator_diff_predicates.py` that exercises comprehension
+access to `target`, `x`, and `v` inside an `{expr:}` predicate.
+
+**Why this matters for migrations.** Many tasks' existing legacy
+`expr:` checks use comprehensions (pattern:
+`any(v in x.reason for v in target.names)`). Translating them naively
+to canonical_diff would silently under-match until this fix. Any
+migration that uses comprehensions inside `{expr:}` predicates should
+include a round-trip test that specifically asserts the comprehension
+evaluates truly on a correct trajectory.
+
+---
+
 ## Migration pre-flight checklist
 
 Before opening a task migration PR, run through these for that specific task:
