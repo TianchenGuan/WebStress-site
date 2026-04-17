@@ -172,6 +172,123 @@ seed:
     cancel_name_3: '{output.cancel_name_3}'
     cancel_res_id_3: '{output.cancel_res_id_3}'
     keep_res_id: '{output.keep_res_id}'
+canonical_diff:
+  update:
+    - entity: Reservation
+      desc: Cancel Venice reservation
+      where:
+        id: {expr: "x == target['cancel_res_id_1']"}
+      changes:
+        status: {eq: cancelled}
+    - entity: Reservation
+      desc: Cancel Istanbul reservation
+      where:
+        id: {expr: "x == target['cancel_res_id_2']"}
+      changes:
+        status: {eq: cancelled}
+    - entity: Reservation
+      desc: Cancel Madeira reservation
+      where:
+        id: {expr: "x == target['cancel_res_id_3']"}
+      changes:
+        status: {eq: cancelled}
+  create:
+    - entity: Message
+      desc: Send medical emergency cancellation message to Venice property
+      properties:
+        property_id: {expr: "x == target['cancel_id_1']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {expr: "'medical emergency' in x.lower() or 'cancellation' in x.lower()"}
+        body: {expr: "'medical emergency' in x.lower()"}
+        sender: {eq: guest}
+        read: {eq: false}
+        created_at: {any: true}
+    - entity: Message
+      desc: Send work conflict cancellation message to Istanbul property
+      properties:
+        property_id: {expr: "x == target['cancel_id_2']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {expr: "'work' in x.lower() or 'cancellation' in x.lower()"}
+        body: {expr: "'work conference' in x.lower()"}
+        sender: {eq: guest}
+        read: {eq: false}
+        created_at: {any: true}
+    - entity: Message
+      desc: Send travel restrictions cancellation message to Madeira property
+      properties:
+        property_id: {expr: "x == target['cancel_id_3']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {expr: "'travel restrictions' in x.lower() or 'cancellation' in x.lower()"}
+        body: {expr: "'travel restrictions' in x.lower()"}
+        sender: {eq: guest}
+        read: {eq: false}
+        created_at: {any: true}
+    - entity: SavedList
+      desc: Create Cancelled Trips list with all three cancelled properties
+      properties:
+        name: {eq: "Cancelled Trips"}
+        property_ids:
+          expr: "target['cancel_id_1'] in x and target['cancel_id_2'] in x and target['cancel_id_3'] in x"
+        created_at: {any: true}
+        updated_at: {any: true}
+  invariant:
+    - collection: state.reservations
+      filter: "a.id not in (target['cancel_res_id_1'], target['cancel_res_id_2'], target['cancel_res_id_3'])"
+      preserve: ALL
+    - collection: state.messages
+      filter: "a.property_id not in (target['cancel_id_1'], target['cancel_id_2'], target['cancel_id_3'])"
+      preserve: ALL
+    - collection: state.saved_lists
+      filter: "a.name != 'Cancelled Trips'"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent cancelled all three target reservations
+      ref: update[0]
+      severity: critical
+    - name: Agent sent medical emergency message to Venice property
+      ref: create[0]
+      severity: high
+    - name: Agent sent work conflict message to Istanbul property
+      ref: create[1]
+      severity: high
+    - name: Agent sent travel restrictions message to Madeira property
+      ref: create[2]
+      severity: high
+    - name: Agent created Cancelled Trips list with all three properties
+      ref: create[3]
+      severity: high
+    - name: Agent did not cancel or modify the London reservation
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify existing messages
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify other saved lists
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not create or modify reviews
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

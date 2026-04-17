@@ -138,6 +138,138 @@ seed:
     review_id: '{output.review_id}'
     review_name: '{output.review_name}'
     review_city: Chicago
+canonical_diff:
+  constraints:
+    - desc: Phone updated to new number
+      expr: "state.owner_phone == '+1-415-555-0234'"
+      severity: high
+    - desc: Address updated to Market Street
+      expr: "'500 Market Street' in state.owner_address"
+      severity: high
+    - desc: Currency set to EUR
+      expr: "state.settings.currency == 'EUR'"
+      severity: high
+    - desc: Newsletter enabled
+      expr: "state.settings.newsletter == True"
+      severity: medium
+    - desc: Deal alerts disabled
+      expr: "state.settings.deal_alerts == False"
+      severity: medium
+    - desc: Bed type set to queen
+      expr: "state.travel_preferences.preferred_bed_type == 'queen'"
+      severity: medium
+    - desc: Floor preference set to high
+      expr: "state.travel_preferences.floor_preference == 'high'"
+      severity: medium
+    - desc: Vegan added to dietary restrictions
+      expr: "'vegan' in state.travel_preferences.dietary_restrictions"
+      severity: medium
+    - desc: Email was not changed
+      expr: "state.owner_email == initial.owner_email"
+      severity: medium
+  create:
+    - entity: PaymentMethod
+      desc: Add new Mastercard ending in 2222
+      properties:
+        card_type: {eq: Mastercard}
+        last_four: {eq: "2222"}
+        expiry: {eq: "05/30"}
+        holder_name: {eq: "Jordan Parker"}
+        is_default: {eq: false}
+    - entity: Reservation
+      desc: Book Deluxe Room at Hotel Nikko San Francisco using new Mastercard
+      properties:
+        property_id: {expr: "x == target['prop_id']"}
+        property_name: {any: true}
+        room_type_id: {any: true}
+        room_type_name: {eq: "Deluxe Room"}
+        check_in: {eq: "2026-10-20"}
+        check_out: {eq: "2026-10-24"}
+        nights: {eq: 4}
+        guests: {eq: 2}
+        rooms: {any: true}
+        price_per_night: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+        currency: {any: true}
+        status: {eq: confirmed}
+        booked_at: {any: true}
+        guest_info: {any: true}
+        payment_method_id: {any: true}
+        cancellation_policy: {any: true}
+        confirmation_number: {any: true}
+        is_genius_deal: {any: true}
+        genius_discount: {any: true}
+        meals_included: {any: true}
+        rating_submitted: {any: true}
+    - entity: Review
+      desc: Write review for completed stay at The Fairmont Chicago
+      properties:
+        property_id: {expr: "x == target['review_id']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 9.0}
+        scores: {any: true}
+        title: {eq: "Outstanding hospitality"}
+        positive: {expr: "'rooftop bar' in x.lower()"}
+        negative: {expr: "'parking' in x.lower()"}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: couple}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+  invariant:
+    - collection: state.payment_methods
+      filter: "a.last_four != '2222' or a.card_type != 'Mastercard'"
+      preserve: ALL
+    - collection: state.reservations
+      filter: "a.property_id != target['prop_id'] or a.check_in != '2026-10-20'"
+      preserve: ALL
+    - collection: state.reviews
+      filter: "a.property_id != target['review_id']"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent added the new Mastercard ending in 2222
+      ref: create[0]
+      severity: high
+    - name: Agent booked Deluxe Room at Hotel Nikko San Francisco
+      ref: create[1]
+      severity: critical
+    - name: Agent wrote review for The Fairmont Chicago with correct score
+      ref: create[2]
+      severity: high
+    - name: Agent did not remove or modify existing payment methods
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify other reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not create reviews for other properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

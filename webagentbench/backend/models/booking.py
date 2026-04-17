@@ -98,7 +98,14 @@ class Property(BaseEntity):
     # task directly agent-mutates room fields; if one ever does, either
     # promote RoomType to a top-level collection or use a canonical_diff
     # constraint against ``state.properties[...].room_types``.
-    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = ("room_types",)
+    # ``review_score``, ``review_score_label``, and ``review_count`` are
+    # similarly updated as side effects of ``add_review`` — hide them too.
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = (
+        "room_types",
+        "review_score",
+        "review_score_label",
+        "review_count",
+    )
 
     name: str
     property_type: str = "hotel"  # hotel, apartment, resort, hostel, villa, b&b, aparthotel

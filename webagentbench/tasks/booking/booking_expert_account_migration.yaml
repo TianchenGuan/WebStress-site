@@ -50,6 +50,96 @@ seed:
     alex_last_four: '5555'
     old_address: 456 Oak Avenue, Springfield, IL 62704
     new_address: 100 Lake Shore Dr, Chicago, IL 60611
+canonical_diff:
+  constraints:
+    - desc: Display name updated to Jordan A. Parker
+      expr: "state.owner_name == 'Jordan A. Parker'"
+      severity: high
+    - desc: Address updated to Lake Shore Dr
+      expr: "'100 Lake Shore Dr' in state.owner_address"
+      severity: high
+    - desc: Phone number updated
+      expr: "state.owner_phone == '+1-312-555-0199'"
+      severity: high
+    - desc: Email was not changed
+      expr: "state.owner_email == initial.owner_email"
+      severity: medium
+  delete:
+    - entity: PaymentMethod
+      desc: Remove Mastercard ending in 5555 held by Alex Parker
+      where:
+        id: {expr: "x == target['alex_pm_id']"}
+  update:
+    - entity: PaymentMethod
+      desc: Previous default card loses default status when Visa 6666 is set as default
+      where:
+        id: {expr: "x == next((pm.id for pm in initial.payment_methods if pm.is_default), '')"}
+      changes:
+        is_default: {eq: false}
+  create:
+    - entity: PaymentMethod
+      desc: Add American Express ending in 4444
+      properties:
+        card_type: {eq: "American Express"}
+        last_four: {eq: "4444"}
+        expiry: {eq: "09/29"}
+        holder_name: {eq: "Jordan A. Parker"}
+        is_default: {eq: false}
+    - entity: PaymentMethod
+      desc: Add Visa ending in 6666 set as default
+      properties:
+        card_type: {eq: Visa}
+        last_four: {eq: "6666"}
+        expiry: {eq: "03/30"}
+        holder_name: {eq: "Jordan A. Parker"}
+        is_default: {eq: true}
+  invariant:
+    - collection: state.payment_methods
+      filter: "not (a.last_four in ('4444', '6666')) and a.id != target['alex_pm_id'] and not (a.last_four == '4242' and a.card_type == 'Visa')"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent removed Alex Parker's Mastercard
+      ref: delete[0]
+      severity: high
+    - name: Agent added American Express card ending in 4444
+      ref: create[0]
+      severity: high
+    - name: Agent added Visa card ending in 6666 as default
+      ref: create[1]
+      severity: critical
+    - name: Agent did not remove or modify other payment methods
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

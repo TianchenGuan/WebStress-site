@@ -39,6 +39,86 @@ seed:
   targets:
     remove_last_four: '5555'
     remove_holder: Alex Parker
+    remove_pm_id: '{output.payment_method_id}'
+canonical_diff:
+  constraints:
+    - desc: Two-factor authentication is enabled
+      expr: "state.settings.two_factor_enabled == True"
+      severity: critical
+    - desc: Deal alerts are disabled
+      expr: "state.settings.deal_alerts == False"
+      severity: medium
+    - desc: SMS notifications are enabled
+      expr: "state.settings.sms_notifications == True"
+      severity: medium
+    - desc: Email notifications were not accidentally disabled
+      expr: "state.settings.email_notifications == initial.settings.email_notifications"
+      severity: medium
+  delete:
+    - entity: PaymentMethod
+      desc: Remove the Mastercard ending in 5555 held by Alex Parker
+      where:
+        id: {expr: "x == target['remove_pm_id']"}
+  update:
+    - entity: PaymentMethod
+      desc: Previous default card loses default status when new Visa is set as default
+      where:
+        id: {expr: "x == next((pm.id for pm in initial.payment_methods if pm.is_default), '')"}
+      changes:
+        is_default: {eq: false}
+  create:
+    - entity: PaymentMethod
+      desc: Add new Visa card ending in 3333 set as default
+      properties:
+        card_type: {eq: Visa}
+        last_four: {eq: "3333"}
+        expiry: {eq: "06/30"}
+        holder_name: {eq: "Jordan Parker"}
+        is_default: {eq: true}
+  invariant:
+    - collection: state.payment_methods
+      filter: "a.last_four != '3333' and not (a.last_four == '5555' and a.card_type == 'Mastercard') and not (a.last_four == '4242' and a.card_type == 'Visa')"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent removed the Mastercard ending in 5555
+      ref: delete[0]
+      severity: high
+    - name: Agent added the new Visa card ending in 3333 as default
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify other payment methods
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
