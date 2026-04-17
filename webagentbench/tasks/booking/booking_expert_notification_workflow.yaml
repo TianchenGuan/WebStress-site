@@ -182,6 +182,25 @@ canonical_diff:
           if n.id in (target['notif_id_1'], target['notif_id_2'], target['notif_id_3'])
         )
       severity: medium
+  update:
+    - entity: Notification
+      desc: Mark first price-drop notification as read
+      where:
+        id: {expr: "x == target['notif_id_1']"}
+      changes:
+        read: {eq: true}
+    - entity: Notification
+      desc: Mark second price-drop notification as read
+      where:
+        id: {expr: "x == target['notif_id_2']"}
+      changes:
+        read: {eq: true}
+    - entity: Notification
+      desc: Mark third price-drop notification as read
+      where:
+        id: {expr: "x == target['notif_id_3']"}
+      changes:
+        read: {eq: true}
   create:
     - entity: SavedList
       desc: Save cheapest property to Price Drop Picks list

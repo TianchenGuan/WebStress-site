@@ -145,6 +145,25 @@ canonical_diff:
           if m.id in (target['msg_id_1'], target['msg_id_2'], target['msg_id_3'])
         )
       severity: high
+  update:
+    - entity: Message
+      desc: Mark first original message as read
+      where:
+        id: {expr: "x == target['msg_id_1']"}
+      changes:
+        read: {eq: true}
+    - entity: Message
+      desc: Mark second original message as read
+      where:
+        id: {expr: "x == target['msg_id_2']"}
+      changes:
+        read: {eq: true}
+    - entity: Message
+      desc: Mark third original message as read
+      where:
+        id: {expr: "x == target['msg_id_3']"}
+      changes:
+        read: {eq: true}
   create:
     - entity: Message
       desc: Reply to hotel_1 about 3pm arrival
@@ -185,8 +204,9 @@ canonical_diff:
   invariant:
     - collection: state.messages
       filter: >-
-        a.sender == 'property' or
-        a.property_id not in (target['hotel_id_1'], target['hotel_id_2'], target['hotel_id_3'])
+        a.id not in (target['msg_id_1'], target['msg_id_2'], target['msg_id_3']) and
+        (a.sender == 'property' or
+        a.property_id not in (target['hotel_id_1'], target['hotel_id_2'], target['hotel_id_3']))
       preserve: ALL
     - collection: state.reservations
       preserve: ALL

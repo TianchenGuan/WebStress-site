@@ -156,13 +156,11 @@ canonical_diff:
     - desc: Halal added to dietary restrictions
       expr: "'halal' in state.travel_preferences.dietary_restrictions"
       severity: high
-  update:
+  delete:
     - entity: PaymentMethod
       desc: Remove Mastercard 5555
       where:
         id: {expr: "x == target['remove_pm_id']"}
-      changes:
-        _deleted: {eq: true}
   create:
     - entity: PaymentMethod
       desc: Add new Visa ending 3333 as default
@@ -224,7 +222,7 @@ canonical_diff:
       preserve: ALL
   named_invariants:
     - name: Agent removed old Mastercard 5555
-      ref: update[0]
+      ref: delete[0]
       severity: high
     - name: Agent added new Visa 3333 as default
       ref: create[0]

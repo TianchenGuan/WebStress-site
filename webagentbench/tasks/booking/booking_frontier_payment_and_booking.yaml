@@ -181,13 +181,11 @@ seed:
     review_prop_id: '{output.review_prop_id}'
     review_prop_name: '{output.review_prop_name}'
 canonical_diff:
-  update:
+  delete:
     - entity: PaymentMethod
       desc: Remove old Mastercard 5555
       where:
         id: {expr: "x == target['remove_pm_id']"}
-      changes:
-        _deleted: {eq: true}
   create:
     - entity: PaymentMethod
       desc: Add new Visa 6666 as default
@@ -343,7 +341,7 @@ canonical_diff:
       preserve: ALL
   named_invariants:
     - name: Agent removed old Mastercard 5555
-      ref: update[0]
+      ref: delete[0]
       severity: high
     - name: Agent added new Visa 6666 as default
       ref: create[0]
