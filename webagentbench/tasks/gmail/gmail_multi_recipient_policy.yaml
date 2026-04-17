@@ -89,7 +89,12 @@ eval:
   - expr: any(m.forwarded_from_id == '{target.thread_c_msg_id}' and '{target.delegate_email}'
       in m.to and 'Please review and sign by EOD Wednesday.' in m.body for m in state.sent)
     desc: Vendor email forwarded to delegate with correct body
+  - expr: len(state.sent) == 3
+    desc: Exactly three outbound emails were sent (two replies and one forward)
   negative_checks:
+  - expr: all(len(m.body) <= 2000 for m in state.sent)
+    desc: Outbound email bodies must stay under 2000 chars (stuffing guard)
+    penalty: 0.15
   - expr: not any(any(addr in m.to + m.cc + m.bcc for addr in {target.board_cc_emails})
       for m in state.sent if m.in_reply_to == '{target.thread_a_msg_id}')
     desc: Board reply does not include any board CC members

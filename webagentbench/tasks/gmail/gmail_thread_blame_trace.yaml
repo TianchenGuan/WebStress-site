@@ -111,3 +111,6 @@ eval:
   - expr: sum(1 for m in state.sent if m.forwarded_from_id is None) == 0
     desc: No fresh compose email was sent instead of the required forward
     penalty: 0.1
+  - expr: all(len(m.body) <= 2500 for m in state.sent)
+    desc: Forward body must stay under 2500 chars (stuffing guard)
+    penalty: 0.15

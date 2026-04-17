@@ -44,16 +44,17 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) > {target.initial_sent_count}
-    desc: At least one new email was sent
-  - expr: any('{target.client_email}' in m.to for m in state.sent if m.thread_id ==
-      '{target.unanswered_thread_id}')
-    desc: Reply sent to client in the correct unanswered thread
+  - expr: len(state.sent) == {target.initial_sent_count} + 1
+    desc: Exactly one new email was sent (baseline + 1)
+  - expr: any(m.in_reply_to == '{target.unanswered_msg_id}' and '{target.client_email}'
+      in m.to for m in state.sent)
+    desc: The new email is a proper reply in the unanswered thread (in_reply_to matches
+      the original message id)
   - expr: any(m.thread_id == '{target.unanswered_thread_id}' and ('apolog' in m.body.lower()
-      or 'sorry' in m.body.lower() or 'delay' in m.body.lower()) for m in state.sent)
-    desc: Reply contains apology language
-  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and any(kw in m.body.lower()
-      for kw in {target.question_keywords}) for m in state.sent)
+      or 'sorry' in m.body.lower()) for m in state.sent)
+    desc: Reply contains explicit apology language ('apolog' or 'sorry')
+  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and any(kw.lower() in
+      m.body.lower() for kw in {target.question_keywords}) for m in state.sent)
     desc: Reply addresses the client question with relevant keywords
   negative_checks:
   - expr: not any(m.thread_id in ['{target.thread_1_id}', '{target.thread_2_id}',
@@ -61,9 +62,12 @@ eval:
       state.sent)
     desc: No new reply sent to already-answered threads
     penalty: 0.3
-  - expr: len(state.sent) <= {target.initial_sent_count} + 2
-    desc: No excessive emails sent
+  - expr: len(state.sent) == {target.initial_sent_count} + 1
+    desc: Must send exactly one new email (extras are penalised)
     penalty: 0.2
+  - expr: all(len(m.body) <= 1500 for m in state.sent if m.thread_id == '{target.unanswered_thread_id}')
+    desc: Apology body must stay under 1500 chars (stuffing guard)
+    penalty: 0.15
   - expr: not any( '{target.client_email}' in m.to and m.thread_id not in ['{target.unanswered_thread_id}',
       '{target.thread_1_id}', '{target.thread_2_id}', '{target.thread_4_id}'] for
       m in state.sent)

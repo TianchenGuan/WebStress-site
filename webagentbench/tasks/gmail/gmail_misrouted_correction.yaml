@@ -121,7 +121,12 @@ eval:
   - expr: any(m.forwarded_from_id == '{target.email_c_id}' and '{target.carol_email}'
       in m.to for m in state.sent)
     desc: Email C forwarded to Carol
+  - expr: len(state.sent) == 4
+    desc: Exactly four outbound emails were sent (3 forwards + 1 correction compose)
   negative_checks:
+  - expr: all(len(m.body) <= 2500 for m in state.sent)
+    desc: Outbound email bodies must stay under 2500 chars (stuffing guard)
+    penalty: 0.15
   - expr: not any('{target.donna_email}' in m.to for m in state.sent)
     desc: No email sent or forwarded to Donna (similar-name wrong contact)
     penalty: 0.3

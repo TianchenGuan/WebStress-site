@@ -138,9 +138,14 @@ eval:
       in state.sent)
     desc: Body contains recommended resolution
   - expr: len([e for e in state.sent if e.in_reply_to is None and e.forwarded_from_id
-      is None]) >= 1
-    desc: Email is a compose (not reply or forward)
+      is None]) == 1
+    desc: Exactly one compose (not reply or forward) was sent
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent overall
   negative_checks:
+  - expr: all(len(m.body) <= 3000 for m in state.sent)
+    desc: Conflict-summary body must stay under 3000 chars (stuffing guard)
+    penalty: 0.15
   - expr: not any(e.thread_id == '{target.eng_thread_id}' and e.in_reply_to is not
       None for e in state.sent)
     desc: No reply in Engineering thread

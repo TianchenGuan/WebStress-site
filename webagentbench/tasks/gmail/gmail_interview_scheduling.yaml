@@ -52,8 +52,8 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
   - expr: 'any(''Confirmed: Wednesday, 2:00 PM'' in m.body for m in state.sent)'
     desc: Reply contains confirmed slot
   - expr: any(m.in_reply_to == '{target.hr_slots_email_id}' for m in state.sent)
@@ -86,3 +86,6 @@ eval:
   - expr: not any('{target.marco_santos_email}' in m.cc for m in state.sent)
     desc: Did not CC Marco Santos
     penalty: 0.18
+  - expr: all(len(m.body) <= 1500 for m in state.sent)
+    desc: Confirmation body must stay under 1500 chars (stuffing guard)
+    penalty: 0.15

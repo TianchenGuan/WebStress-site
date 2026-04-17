@@ -52,7 +52,10 @@ eval:
   - expr: not any(m.in_reply_to is not None for m in state.sent)
     desc: Must compose new, not reply
     penalty: 0.2
-  - expr: len(state.sent) <= 2
-    desc: No excessive replies sent
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
+    penalty: 0.15
+  - expr: all(len(m.body) <= 1500 for m in state.sent)
+    desc: Confirmation body must stay under 1500 chars (stuffing guard)
     penalty: 0.15
 secondary_primitives: []

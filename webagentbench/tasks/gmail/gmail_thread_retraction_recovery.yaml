@@ -95,8 +95,10 @@ eval:
   - expr: any('disregard my previous forward' in e.body and 'Option A' in e.body and
       'not Option B' in e.body for e in state.sent)
     desc: Correction body contains required disregard and correct decision text
-  - expr: len([e for e in state.sent if '{target.ravi_menon_email}' in e.to]) >= 2
-    desc: Both forward and correction sent (at least 2 emails to Ravi)
+  - expr: len([e for e in state.sent if '{target.ravi_menon_email}' in e.to]) == 2
+    desc: Exactly two emails sent to Ravi (one forward + one correction)
+  - expr: len(state.sent) == 2
+    desc: Exactly two emails were sent overall
   negative_checks:
   - expr: not any('Option B is the final decision' in e.body or 'Option B is correct'
       in e.body for e in state.sent if 'CORRECTION' in e.subject)
@@ -116,5 +118,8 @@ eval:
   - expr: 'not any( ''CORRECTION: Atlas decision'' in e.subject and (e.in_reply_to
       is not None or e.forwarded_from_id is not None) for e in state.sent)'
     desc: Correction was sent as a new email, not as a reply or forward
+    penalty: 0.15
+  - expr: all(len(m.body) <= 2000 for m in state.sent)
+    desc: Outbound email bodies must stay under 2000 chars (stuffing guard)
     penalty: 0.15
 secondary_primitives: []

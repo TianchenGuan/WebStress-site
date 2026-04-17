@@ -63,7 +63,14 @@ eval:
 
       '
     desc: Topic C latest email forwarded to CEO with topic name in body
+  - expr: len([m for m in state.sent if m.forwarded_from_id is not None]) == 3
+    desc: Exactly three forwards were sent (no more, no fewer)
+  - expr: len([m for m in state.sent if m.in_reply_to is not None]) == 0
+    desc: No replies were sent (forwards expected, not replies)
   negative_checks:
+  - expr: all(len(m.body) <= 3000 for m in state.sent)
+    desc: Forward bodies must stay under 3000 chars (stuffing guard)
+    penalty: 0.15
   - expr: 'not any(m.forwarded_from_id in {target.decoy_ids} for m in state.sent)
 
       '

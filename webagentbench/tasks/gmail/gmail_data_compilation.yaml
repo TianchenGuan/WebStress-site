@@ -49,13 +49,14 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
   - expr: 'any(''Q1 Budget Summary'' in m.subject and m.to == [''{target.exec_email}'']
       and all(addr in m.cc for addr in {target.dept_emails}) and ''{target.number_a}''
       in m.body and ''{target.number_b}'' in m.body and ''{target.number_c}'' in m.body
       and ''{target.dept_a_dept}'' in m.body and ''{target.dept_b_dept}'' in m.body
-      and ''{target.dept_c_dept}'' in m.body for m in state.sent)
+      and ''{target.dept_c_dept}'' in m.body and m.in_reply_to is None and m.forwarded_from_id
+      is None for m in state.sent)
 
       '
     desc: Single summary email sent to exec with all CCs, department names, and numbers
@@ -67,9 +68,12 @@ eval:
       and any(n in m.body for n in {target.wrong_numbers}) for m in state.sent)
 
       '
-    desc: Summary email does not include decoy numbers
+    desc: Summary email must not include decoy numbers
     penalty: 0.2
-  - expr: len(state.sent) <= 2
-    desc: No excessive emails sent
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
+    penalty: 0.15
+  - expr: all(len(m.body) <= 2000 for m in state.sent)
+    desc: Summary body must stay under 2000 chars (stuffing guard)
     penalty: 0.15
 secondary_primitives: []

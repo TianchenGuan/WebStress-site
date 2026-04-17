@@ -53,8 +53,8 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
   - expr: any('Disregard my previous confirmation' in m.body for m in state.sent)
     desc: Correction reply contains disregard text
   - expr: any('Thursday, 2:00 PM' in m.body for m in state.sent)
@@ -70,4 +70,7 @@ eval:
       m.body for m in state.sent)
     desc: Did not re-confirm Wednesday 10 AM
     penalty: 0.2
+  - expr: all(len(m.body) <= 1500 for m in state.sent)
+    desc: Correction body must stay under 1500 chars (stuffing guard)
+    penalty: 0.15
 secondary_primitives: []

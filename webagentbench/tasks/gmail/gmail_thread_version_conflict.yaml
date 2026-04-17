@@ -74,6 +74,8 @@ seed:
 eval:
   source: server_state
   checks:
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
   - expr: any(e.thread_id == '{target.target_thread_id}' and e.body.strip().startswith('{target.reply_text}')
       for e in state.sent)
     desc: Reply begins with the correct confirmation text in the correct thread
@@ -81,6 +83,8 @@ eval:
     desc: Reply is to Chen Wei's most recent message
   - expr: any('{target.chen_wei_email}' in e.to for e in state.sent)
     desc: Reply sent to Chen Wei
+  - expr: not any(e.forwarded_from_id is not None for e in state.sent)
+    desc: No forwards were sent (reply expected, not forward)
   negative_checks:
   - expr: not any(e.thread_id == '{target.decoy_thread_id}' for e in state.sent)
     desc: No reply in decoy thread
@@ -90,4 +94,7 @@ eval:
     penalty: 0.15
   - expr: not any('4.1.0' in e.body for e in state.sent)
     desc: Reply does not contain superseded version 4.1.0
+    penalty: 0.15
+  - expr: all(len(m.body) <= 1500 for m in state.sent)
+    desc: Reply body must stay under 1500 chars (stuffing guard)
     penalty: 0.15
