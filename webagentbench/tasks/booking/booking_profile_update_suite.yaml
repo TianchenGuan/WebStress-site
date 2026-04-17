@@ -29,6 +29,57 @@ seed:
     new_name: Jordan A. Parker
     new_phone: +1-312-555-0198
     new_nationality: GB
+canonical_diff:
+  constraints:
+    - desc: Display name was changed to Jordan A. Parker
+      expr: "state.owner_name == 'Jordan A. Parker'"
+      severity: critical
+    - desc: Phone number was changed to +1-312-555-0198
+      expr: "state.owner_phone == '+1-312-555-0198'"
+      severity: critical
+    - desc: Nationality was changed to GB
+      expr: "state.owner_nationality == 'GB'"
+      severity: critical
+    - desc: Email address was not changed
+      expr: "state.owner_email == initial.owner_email"
+      severity: high
+  invariant:
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent did not modify reservations
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
