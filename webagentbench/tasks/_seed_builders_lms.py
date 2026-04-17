@@ -1734,13 +1734,15 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
         if fa:
             final_exam_assignment_ids_list.append(fa["id"])
 
-    # ── lower_grade_course_id: course with lower weighted score ──
+    # ── lower_grade_course_id / lower_grade_enrollment_id ──
     lower_grade_course_id = ""
+    lower_grade_enrollment_id = ""
     if len(courses) >= 2:
         scored = [(cid, Decimal(s)) for cid, s in current_weighted_scores.items()]
         if scored:
             scored.sort(key=lambda x: x[1])
             lower_grade_course_id = scored[0][0]
+            lower_grade_enrollment_id = enrollment_by_course.get(lower_grade_course_id, "")
 
     # ── lowest_hw_id: lowest homework assignment in the target course (by grade record ratio) ──
     # Recompute from grade records (post victim-modification) so that the result matches
@@ -2116,6 +2118,7 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
         "final_exam_assignment_id": final_exam_assignment_id,
         "final_exam_assignment_ids": ",".join(final_exam_assignment_ids_list),
         "lower_grade_course_id": lower_grade_course_id,
+        "lower_grade_enrollment_id": lower_grade_enrollment_id,
         "lowest_hw_id": lowest_hw_id,
         "lowest_homework_id": lowest_hw_id,  # alias for YAML outputs that use this key
         "grade_below_80": grade_below_80,
