@@ -58,39 +58,89 @@ seed:
   targets:
     pcp_id: '{output.pcp_id}'
     upcoming_ids: '{output.upcoming_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([a for a in state.appointments\n     if a.status == 'scheduled'\n \
-      \    and a.id not in {target.upcoming_ids}]) >= 2"
-    desc: At least two new appointments were scheduled
-  - expr: "any(a.status == 'scheduled'\n    and a.provider_id == '{target.pcp_id}'\n\
-      \    and a.type == 'in-person'\n    and a.id not in {target.upcoming_ids}\n\
-      \    for a in state.appointments)"
-    desc: A new in-person PCP appointment (physical) was scheduled
-  - expr: "any(a.status == 'scheduled'\n    and a.type == 'in-person'\n    and a.id\
-      \ not in {target.upcoming_ids}\n    and any(word in a.reason.lower() for word\
-      \ in ('lab', 'blood', 'pre-visit'))\n    for a in state.appointments)"
-    desc: A lab work appointment was scheduled with appropriate reason
-  - expr: "all(a.type == 'in-person'\n    for a in state.appointments\n    if a.status\
-      \ == 'scheduled'\n    and a.id not in {target.upcoming_ids})"
-    desc: All new appointments are in-person
-  - expr: "(\n  lambda pcp_dt=next(\n    (a.datetime for a in state.appointments\n\
-      \    if a.status == 'scheduled'\n    and a.provider_id == '{target.pcp_id}'\n\
-      \    and a.id not in {target.upcoming_ids}\n    and not any(word in a.reason.lower()\
-      \ for word in ('lab', 'blood', 'pre-visit'))),\n    None,\n  ),\n  lab_dt=next(\n\
-      \    (a.datetime for a in state.appointments\n    if a.status == 'scheduled'\n\
-      \    and a.id not in {target.upcoming_ids}\n    and any(word in a.reason.lower()\
-      \ for word in ('lab', 'blood', 'pre-visit'))),\n    None,\n  ):\n  pcp_dt is\
-      \ not None and lab_dt is not None\n  and (pcp_dt - lab_dt).days >= 3\n)()"
-    desc: Lab work is scheduled at least 3 days before the physical
-  negative_checks:
-  - expr: "not any(a.type == 'telehealth'\n        and a.status == 'scheduled'\n \
-      \       and a.id not in {target.upcoming_ids}\n        for a in state.appointments)"
-    desc: Agent did not schedule telehealth visits instead of in-person
-    penalty: 0.2
-  - expr: "not any(a.status == 'cancelled'\n        and a.id in {target.upcoming_ids}\n\
-      \        for a in state.appointments)"
-    desc: Agent did not cancel existing appointments
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: Appointment
+      desc: "Schedule an in-person annual physical with the PCP"
+      properties:
+        status: {eq: "scheduled"}
+        type: {eq: "in-person"}
+        provider_id:
+          expr: "x == target['pcp_id']"
+        reason:
+          expr: "'physical' in x.lower() or 'annual' in x.lower()"
+    - entity: Appointment
+      desc: "Schedule an in-person pre-visit lab work appointment"
+      properties:
+        status: {eq: "scheduled"}
+        type: {eq: "in-person"}
+        reason:
+          expr: "any(w in x.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])"
+  constraints:
+    - desc: "Lab work is scheduled at least 3 days before the physical"
+      expr: >
+        all(
+          (pcp.datetime - lab.datetime).days >= 3
+          for pcp in state.appointments
+          if pcp.status == 'scheduled'
+          and pcp.provider_id == target['pcp_id']
+          and ('physical' in pcp.reason.lower() or 'annual' in pcp.reason.lower())
+          and pcp.id not in {x.id for x in initial.appointments}
+          for lab in state.appointments
+          if lab.status == 'scheduled'
+          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
+          and lab.id not in {x.id for x in initial.appointments}
+        )
+        and any(
+          pcp.status == 'scheduled'
+          and pcp.provider_id == target['pcp_id']
+          and ('physical' in pcp.reason.lower() or 'annual' in pcp.reason.lower())
+          and pcp.id not in {x.id for x in initial.appointments}
+          for pcp in state.appointments
+        )
+        and any(
+          lab.status == 'scheduled'
+          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
+          and lab.id not in {x.id for x in initial.appointments}
+          for lab in state.appointments
+        )
+      severity: high
+  invariant:
+    - collection: state.appointments
+      filter: "a.id in target['upcoming_ids']"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not cancel or modify pre-existing upcoming appointments"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not send unsolicited messages"
+      ref: invariant[2]
+      severity: medium
+    - name: "Agent did not modify immunization records"
+      ref: invariant[3]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
 secondary_primitives: []
