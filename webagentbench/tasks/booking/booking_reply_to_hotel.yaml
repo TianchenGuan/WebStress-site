@@ -88,6 +88,71 @@ seed:
     reservation_id: '{output.reservation_id}'
     message_subject: Pre-arrival Information
     message_id: '{output.message_id}'
+canonical_diff:
+  update:
+    - entity: Message
+      desc: Mark the incoming hotel message as read
+      where:
+        id: {expr: "x == target['message_id']"}
+      changes:
+        read: {eq: true}
+  create:
+    - entity: Message
+      desc: Send a reply to the hotel with the required subject and body content
+      properties:
+        property_id: {expr: "x == target['property_id']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {eq: "Re: Pre-arrival Information"}
+        body:
+          expr: "'3 PM' in x and 'quiet room' in x.lower() and 'higher floor' in x.lower() and 'thank you' in x.lower()"
+        sender: {eq: guest}
+        read: {eq: false}
+        created_at: {any: true}
+  invariant:
+    - collection: state.messages
+      filter: "a.id != target['message_id'] and not (a.sender == 'guest' and a.property_id == target['property_id'])"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent marked the incoming hotel message as read
+      ref: update[0]
+      severity: high
+    - name: Agent sent a reply with the required subject and body
+      ref: create[0]
+      severity: critical
+    - name: Agent did not modify other messages
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
