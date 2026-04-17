@@ -62,13 +62,6 @@ def p2_lms_mark_all_announcements():
     return evaluate("lms", sid, "lms_mark_all_announcements_read")
 
 
-def p2_lms_post_in_discussion():
-    sid, t = session("lms", "lms_post_in_discussion")
-    api("lms", "POST", f"discussions/{t['target_discussion_id']}/posts",
-        {"body": "This is a substantive post on the topic at hand."}, sid)
-    return evaluate("lms", sid, "lms_post_in_discussion")
-
-
 def p2_lms_complete_prereq_module():
     sid, t = session("lms", "lms_complete_prerequisite_module")
     mod_id = t["next_available_module_id"]
@@ -78,18 +71,6 @@ def p2_lms_complete_prereq_module():
         api("lms", "POST", f"modules/{mod_id}/items/{i}/complete", {}, sid)
     api("lms", "POST", f"modules/{mod_id}/complete", {}, sid)
     return evaluate("lms", sid, "lms_complete_prerequisite_module")
-
-
-def p2_lms_reply_discussion():
-    sid, t = session("lms", "lms_reply_discussion")
-    disc_id = t["target_discussion_id"]
-    # Get existing posts to reply to
-    disc_data = api("lms", "GET", f"discussions/{disc_id}", sid=sid)
-    posts = [p for p in disc_data["posts"] if p["parent_post_id"] is None]
-    for p in posts[:3]:
-        api("lms", "POST", f"discussions/{disc_id}/posts/{p['id']}/reply",
-            {"body": "Great point, I agree with your analysis."}, sid)
-    return evaluate("lms", sid, "lms_reply_discussion")
 
 
 def p2_lms_check_assignment_grade():
@@ -164,22 +145,6 @@ def p3_lms_submit_decoy():
     return score, score < 0.8, "decoy submission should be penalized"
 
 
-def p3_lms_wrong_discussion():
-    """Post in non-target discussion → negative should fire."""
-    sid, t = session("lms", "lms_post_in_discussion")
-    # Get all discussions, find a non-target one
-    courses = get_items("lms", sid, "courses")
-    for c in courses:
-        discs = get_items("lms", sid, f"courses/{c['id']}/discussions")
-        for d in discs:
-            if d["id"] != t["target_discussion_id"]:
-                api("lms", "POST", f"discussions/{d['id']}/posts",
-                    {"body": "Wrong discussion post"}, sid)
-                score, _ = evaluate("lms", sid, "lms_post_in_discussion")
-                return score, score < 0.9, "wrong-discussion should be penalized"
-    return 0, False, "no non-target discussion found"
-
-
 def p3_lms_collateral_drop():
     """Mark announcements (correct) + drop course (collateral)."""
     sid, _ = session("lms", "lms_mark_all_announcements_read")
@@ -233,9 +198,7 @@ def run_all():
         ("LMS submit_assignment", p2_lms_submit_assignment),
         ("LMS drop_course", p2_lms_drop_course),
         ("LMS mark_all_announcements", p2_lms_mark_all_announcements),
-        ("LMS post_in_discussion", p2_lms_post_in_discussion),
         ("LMS complete_prereq_module", p2_lms_complete_prereq_module),
-        ("LMS reply_discussion", p2_lms_reply_discussion),
         ("LMS check_assignment_grade", p2_lms_check_assignment_grade),
         ("PP update_phone", p2_pp_update_phone),
         ("PP mark_all_read", p2_pp_mark_all_read),
@@ -269,7 +232,6 @@ def run_all():
         ("LMS no-action drop", p3_lms_no_action_drop),
         ("LMS no-action submit", p3_lms_no_action_submit),
         ("LMS submit decoy", p3_lms_submit_decoy),
-        ("LMS wrong discussion", p3_lms_wrong_discussion),
         ("LMS collateral drop", p3_lms_collateral_drop),
         ("PP wrong field", p3_pp_wrong_field),
         ("PP no-action cancel", p3_pp_no_action_cancel),

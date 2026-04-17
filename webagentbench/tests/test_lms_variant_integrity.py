@@ -158,11 +158,11 @@ def test_lms_variant_corpus_has_diversity_floor() -> None:
 def test_lms_silent_fail_message_send_does_not_persist_message(client: TestClient) -> None:
     payload = create_session(
         SessionCreateRequest(
-            task_id="lms_comprehensive_discussion",
+            task_id="lms_discussion_participation_verify",
             seed=42,
             degradation={
-                "variant_id": "lms_comprehensive_discussion__message_silent_fail",
-                "base_task_id": "lms_comprehensive_discussion",
+                "variant_id": "lms_discussion_participation_verify__message_silent_fail",
+                "base_task_id": "lms_discussion_participation_verify",
                 "target_primitive": "verification",
                 "description": "test-only message send silent failure",
                 "injections": [
