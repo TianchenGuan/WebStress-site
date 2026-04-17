@@ -51,6 +51,7 @@ seed:
     - conflicting_course_ids
     - lower_grade_conflict_course_id
     - higher_grade_conflict_course_id
+    - lower_grade_conflict_enrollment_id
   - use: announcements_feed
     params:
       count: 4
@@ -61,6 +62,78 @@ seed:
     lower_grade_conflict_course_id: '{output.lower_grade_conflict_course_id}'
     higher_grade_conflict_course_id: '{output.higher_grade_conflict_course_id}'
     conflicting_course_ids: '{output.conflicting_course_ids}'
+    lower_grade_conflict_enrollment_id: '{output.lower_grade_conflict_enrollment_id}'
+canonical_diff:
+  update:
+  - entity: Enrollment
+    desc: Drop the lower-grade conflicting course enrollment
+    where:
+      id:
+        expr: "x == target['lower_grade_conflict_enrollment_id']"
+    changes:
+      status:
+        eq: dropped
+  invariant:
+  - collection: state.enrollments
+    filter: "a.course_id != target['lower_grade_conflict_course_id']"
+    preserve: ALL
+  - collection: state.courses
+    preserve: ALL
+  - collection: state.assignments
+    preserve: ALL
+  - collection: state.modules
+    preserve: ALL
+  - collection: state.discussions
+    preserve: ALL
+  - collection: state.discussion_posts
+    preserve: ALL
+  - collection: state.peer_reviews
+    preserve: ALL
+  - collection: state.announcements
+    preserve: ALL
+  - collection: state.grades
+    preserve: ALL
+  - collection: state.calendar_events
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  named_invariants:
+  - name: Agent dropped the lower-grade conflicting course enrollment
+    ref: update[0]
+    severity: high
+  - name: Agent did not modify other enrollments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify course records
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not modify assignments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify modules
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify discussions
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or edit discussion posts
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not alter peer reviews
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not modify announcements
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not modify grades
+    ref: invariant[8]
+    severity: high
+  - name: Agent did not modify calendar events
+    ref: invariant[9]
+    severity: low
+  - name: Agent did not send messages
+    ref: invariant[10]
+    severity: medium
 eval:
   source: server_state
   checks:

@@ -2700,6 +2700,7 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
     # ── lower/higher grade conflict course IDs ──
     lower_grade_conflict_course_id = ""
     higher_grade_conflict_course_id = ""
+    lower_grade_conflict_enrollment_id = ""
     if len(conflicting_cids) >= 2:
         current_scores = ctx.outputs.get("current_weighted_scores", {})
         scored_conflicts = []
@@ -2709,6 +2710,10 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
         scored_conflicts.sort(key=lambda x: x[1])
         lower_grade_conflict_course_id = scored_conflicts[0][0]
         higher_grade_conflict_course_id = scored_conflicts[-1][0]
+        for enrollment in ctx.base.get("enrollments", []):
+            if enrollment.get("course_id") == lower_grade_conflict_course_id:
+                lower_grade_conflict_enrollment_id = enrollment.get("id", "")
+                break
 
     return {
         "event_ids": event_ids,
@@ -2720,6 +2725,7 @@ def _build_calendar_events(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[
         "conflicting_course_ids": ",".join(conflicting_cids),
         "lower_grade_conflict_course_id": lower_grade_conflict_course_id,
         "higher_grade_conflict_course_id": higher_grade_conflict_course_id,
+        "lower_grade_conflict_enrollment_id": lower_grade_conflict_enrollment_id,
     }
 
 
