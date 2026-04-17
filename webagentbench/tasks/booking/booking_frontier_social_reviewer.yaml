@@ -182,6 +182,150 @@ seed:
     prop_name_3: '{output.prop_name_3}'
     prop_id_4: '{output.prop_id_4}'
     prop_name_4: '{output.prop_name_4}'
+canonical_diff:
+  constraints:
+    - desc: Preferred room type updated to suite
+      expr: "state.travel_preferences.preferred_room_type == 'suite'"
+      severity: critical
+  create:
+    - entity: Review
+      desc: Tokyo review score 9.5, outstanding in every way, no negative, leisure/family
+      properties:
+        property_id: {expr: "x == target['prop_id_1']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 9.5}
+        scores: {any: true}
+        title: {expr: "'Outstanding in every way' in x"}
+        positive: {expr: "'spa' in x.lower() or 'breakfast' in x.lower()"}
+        negative: {any: true}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: family}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Frankfurt review score 8.0, solid business choice, restaurant/room service negative, business/solo
+      properties:
+        property_id: {expr: "x == target['prop_id_2']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 8.0}
+        scores: {any: true}
+        title: {expr: "'Solid business choice' in x"}
+        positive: {expr: "'conference' in x.lower() or 'wifi' in x.lower() or 'business' in x.lower()"}
+        negative: {expr: "'restaurant' in x.lower() or 'room service' in x.lower()"}
+        room_type: {any: true}
+        travel_purpose: {eq: business}
+        traveled_with: {eq: solo}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Rome review score 6.5, below expectations, cleanliness negative, leisure/couple
+      properties:
+        property_id: {expr: "x == target['prop_id_3']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 6.5}
+        scores: {any: true}
+        title: {expr: "'Below expectations' in x"}
+        positive: {expr: "'location' in x.lower() or 'central' in x.lower()"}
+        negative: {expr: "'not clean' in x.lower() or 'dirty' in x.lower() or 'clean' in x.lower()"}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: couple}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Lisbon review score 7.5, good value, comfortable bed positive, walls negative, leisure/friends
+      properties:
+        property_id: {expr: "x == target['prop_id_4']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 7.5}
+        scores: {any: true}
+        title: {expr: "'Good value for money' in x"}
+        positive: {expr: "'comfortable bed' in x.lower() or 'affordable' in x.lower()"}
+        negative: {expr: "'walls' in x.lower() or 'room' in x.lower()"}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: friends}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: SavedList
+      desc: Create Top Stays list with the two highest-scored properties
+      properties:
+        name: {eq: "Top Stays"}
+        property_ids:
+          expr: "target['prop_id_1'] in x and target['prop_id_2'] in x"
+        created_at: {any: true}
+        updated_at: {any: true}
+  invariant:
+    - collection: state.reviews
+      filter: "a.property_id not in (target['prop_id_1'], target['prop_id_2'], target['prop_id_3'], target['prop_id_4'])"
+      preserve: ALL
+    - collection: state.saved_lists
+      filter: "a.name != 'Top Stays'"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent wrote Tokyo review with score 9.5
+      ref: create[0]
+      severity: critical
+    - name: Agent wrote Frankfurt review with score 8.0
+      ref: create[1]
+      severity: critical
+    - name: Agent wrote Rome review with score 6.5
+      ref: create[2]
+      severity: critical
+    - name: Agent wrote Lisbon review with score 7.5
+      ref: create[3]
+      severity: critical
+    - name: Agent created Top Stays list with two highest-scored properties
+      ref: create[4]
+      severity: critical
+    - name: Agent did not write reviews for other properties
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify other saved lists
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
