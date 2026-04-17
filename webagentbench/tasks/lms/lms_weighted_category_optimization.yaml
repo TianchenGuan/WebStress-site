@@ -50,6 +50,81 @@ seed:
     target_course_id: '{output.target_course_id}'
     worst_category_assignment_id: '{output.worst_category_assignment_id}'
     decoy_assignment_id: '{output.decoy_assignment_id}'
+canonical_diff:
+  update:
+  - entity: Assignment
+    desc: Submit the next assignment in the worst high-weight category with the required file
+    where:
+      id:
+        expr: "x == target['worst_category_assignment_id']"
+    changes:
+      submission_status:
+        in:
+        - submitted
+        - late
+      file_name:
+        eq: category_boost.pdf
+  invariant:
+  - collection: state.assignments
+    filter: "a.id != target['worst_category_assignment_id']"
+    preserve: ALL
+  - collection: state.courses
+    preserve: ALL
+  - collection: state.enrollments
+    preserve: ALL
+  - collection: state.modules
+    preserve: ALL
+  - collection: state.discussions
+    preserve: ALL
+  - collection: state.discussion_posts
+    preserve: ALL
+  - collection: state.peer_reviews
+    preserve: ALL
+  - collection: state.announcements
+    preserve: ALL
+  - collection: state.grades
+    preserve: ALL
+  - collection: state.calendar_events
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  named_invariants:
+  - name: Agent submitted the worst-category assignment
+    ref: update[0]
+    severity: high
+  - name: Agent did not modify other assignments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify course records
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not modify enrollments
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not modify modules
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify discussions
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or edit discussion posts
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not alter peer reviews
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not modify announcements
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not modify grades
+    ref: invariant[8]
+    severity: high
+  - name: Agent did not modify calendar events
+    ref: invariant[9]
+    severity: low
+  - name: Agent did not send messages
+    ref: invariant[10]
+    severity: medium
 eval:
   source: server_state
   checks:
