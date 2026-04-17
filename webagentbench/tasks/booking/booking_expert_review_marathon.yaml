@@ -189,6 +189,118 @@ seed:
     prop_name_3: '{output.prop_name_3}'
     distractor_prop_id: '{output.distractor_prop_id}'
     existing_review_id: '{output.existing_review_id}'
+canonical_diff:
+  create:
+    - entity: Review
+      desc: Write Rome review - score 9.5, title Absolutely magnificent
+      properties:
+        property_id: {expr: "x == target['prop_id_1']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 9.5}
+        scores: {any: true}
+        title: {eq: "Absolutely magnificent"}
+        positive:
+          expr: "'rooftop terrace' in x.lower()"
+        negative: {any: true}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: couple}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Write Berlin review - score 7.0, title Decent but disappointing
+      properties:
+        property_id: {expr: "x == target['prop_id_2']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 7.0}
+        scores: {any: true}
+        title: {eq: "Decent but disappointing"}
+        positive:
+          expr: "'location' in x.lower() or 'transport' in x.lower() or 'concierge' in x.lower()"
+        negative:
+          expr: "'bathroom' in x.lower() or 'breakfast' in x.lower()"
+        room_type: {any: true}
+        travel_purpose: {eq: business}
+        traveled_with: {eq: solo}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Write Barcelona review - score 8.0, title Solid choice for families
+      properties:
+        property_id: {expr: "x == target['prop_id_3']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 8.0}
+        scores: {any: true}
+        title: {eq: "Solid choice for families"}
+        positive:
+          expr: "'pool' in x.lower()"
+        negative:
+          expr: "'overpriced' in x.lower() or 'restaurant' in x.lower()"
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: family}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+  invariant:
+    - collection: state.reviews
+      filter: >-
+        a.property_id not in (target['prop_id_1'], target['prop_id_2'], target['prop_id_3'])
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent wrote Rome review with score 9.5 and correct title
+      ref: create[0]
+      severity: high
+    - name: Agent wrote Berlin review with score 7.0 and correct title
+      ref: create[1]
+      severity: high
+    - name: Agent wrote Barcelona review with score 8.0 and correct title
+      ref: create[2]
+      severity: high
+    - name: Agent did not write reviews for unrelated properties
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send unsolicited messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create spurious notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
