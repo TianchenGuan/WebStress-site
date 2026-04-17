@@ -51,24 +51,58 @@ seed:
     pcp_id: '{output.pcp_id}'
     upcoming_ids: '{output.upcoming_ids}'
     conflict_apt_ids: '{output.conflict_apt_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([a for a in state.appointments\n     if a.id in {target.conflict_apt_ids}\n\
-      \     and a.status == 'cancelled']) == 1"
-    desc: Exactly one of the conflicting appointments was cancelled
-  - expr: "len([a for a in state.appointments\n     if a.id in {target.conflict_apt_ids}\n\
-      \     and a.status == 'scheduled']) == 1"
-    desc: Exactly one of the conflicting appointments remains scheduled
-  - expr: "len([a for a in state.appointments\n     if a.id in {target.conflict_apt_ids}])\
-      \ == 2"
-    desc: Both original conflict appointments still exist in state
-  - expr: "max(\n  [a for a in state.appointments if a.id in {target.conflict_apt_ids}],\n\
-      \  key=lambda a: a.booked_at\n).status == 'cancelled'"
-    desc: The later-booked conflicting appointment was cancelled
-  negative_checks:
-  - expr: "not any(a.status == 'cancelled'\n        and a.id not in {target.conflict_apt_ids}\n\
-      \        and a.id in {target.upcoming_ids}\n        for a in state.appointments)"
-    desc: Agent did not cancel any non-conflicting appointments
-    penalty: 0.25
+    later_booked_apt_id: '{output.conflict_apt_ids.1}'
+
+canonical_diff:
+  update:
+    - entity: Appointment
+      desc: "Cancel the later-booked of the two conflicting appointments"
+      where:
+        id:
+          expr: >-
+            x == max(
+              target['conflict_apt_ids'],
+              key=lambda aid: (initial.get_appointment(aid).booked_at, aid),
+            )
+      changes:
+        status: {eq: cancelled}
+  invariant:
+    - collection: state.appointments
+      filter: "a.id != target['later_booked_apt_id']"
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not modify the earlier-booked conflict appointment or any other appointment"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[1]
+      severity: medium
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[2]
+      severity: high
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[3]
+      severity: high
+    - name: "Agent did not send unsolicited messages"
+      ref: invariant[4]
+      severity: medium
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
+
 secondary_primitives: []
