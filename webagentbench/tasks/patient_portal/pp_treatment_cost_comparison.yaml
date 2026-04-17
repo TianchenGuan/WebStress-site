@@ -86,50 +86,68 @@ seed:
     approved_claim_ids: '{output.approved_claim_ids}'
     denied_claim_ids: '{output.denied_claim_ids}'
     upcoming_ids: '{output.upcoming_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.id not in {target.upcoming_ids}\n]) == 1"
-    desc: Exactly one new appointment was scheduled
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.id not in {target.upcoming_ids}\n  and a.provider_id == '{target.pcp_id}'\n\
-      \  and a.reason == 'Treatment cost comparison review'\n]) == 1"
-    desc: Exactly one PCP treatment-cost review appointment was scheduled
-  - expr: "any(\n  a.status == 'scheduled'\n  and a.id not in {target.upcoming_ids}\n\
-      \  and a.provider_id == '{target.pcp_id}'\n  and a.reason == 'Treatment cost\
-      \ comparison review'\n  and a.datetime.isoformat() <= min(\n    slot.datetime.isoformat()\n\
-      \    for slot in state.get_provider(a.provider_id).available_slots\n  )\n  for\
-      \ a in state.appointments\n)"
-    desc: The PCP cost-review appointment used the next available PCP slot
-  - expr: state.get_referral('{target.prior_auth_ref_id}') is not None and state.get_referral('{target.prior_auth_ref_id}').status
-      == 'approved' and state.get_referral('{target.prior_auth_ref_id}').prior_auth_status
-      == 'approved'
-    desc: The procedure referral remained approved with approved prior authorization
-  - expr: "all(\n  c.status == state._initial_snapshot['claims'][c.id]['status']\n\
-      \  and c.patient_responsibility == state._initial_snapshot['claims'][c.id]['patient_responsibility']\n\
-      \  for c in state.claims\n  if c.id in state._initial_snapshot.get('claims',\
-      \ {})\n)"
-    desc: Claim statuses and balances were not modified
-  - expr: "all(\n  rx.status == state._initial_snapshot['prescriptions'][rx.id]['status']\n\
-      \  for rx in state.prescriptions\n  if rx.id in state._initial_snapshot.get('prescriptions',\
-      \ {})\n  and rx.id in {target.active_rx_ids}\n)"
-    desc: Active prescriptions were not modified
-  negative_checks:
-  - expr: "not any(\n  a.status == 'scheduled'\n  and a.id not in {target.upcoming_ids}\n\
-      \  and (\n    a.provider_id != '{target.pcp_id}'\n    or a.reason != 'Treatment\
-      \ cost comparison review'\n  )\n  for a in state.appointments\n)"
-    desc: No extra appointments were scheduled beyond the PCP cost-review visit
-    penalty: 0.2
-  - expr: "not any(\n  m.from_type == 'patient'\n  and m.id not in state._initial_snapshot.get('messages',\
-      \ {})\n  for m in state.messages\n)"
-    desc: No new patient messages were sent
-    penalty: 0.2
-  - expr: "all(\n  state.get_referral(rid) is not None\n  and state.get_referral(rid).status\
-      \ == state._initial_snapshot['referrals'][rid]['status']\n  and state.get_referral(rid).prior_auth_status\
-      \ == state._initial_snapshot['referrals'][rid]['prior_auth_status']\n  for rid\
-      \ in {target.approved_ref_ids}\n  if rid in state._initial_snapshot.get('referrals',\
-      \ {})\n)"
-    desc: Approved referrals were not modified
-    penalty: 0.2
+canonical_diff:
+  create:
+    - entity: Appointment
+      desc: "Schedule one PCP appointment at the next available slot for treatment cost comparison review"
+      properties:
+        status: {eq: "scheduled"}
+        provider_id:
+          expr: "x == target['pcp_id']"
+        reason: {eq: "Treatment cost comparison review"}
+        datetime:
+          expr: >
+            x == min(s.datetime for p in initial.providers
+                     if p.id == target['pcp_id'] for s in p.available_slots)
+  invariant:
+    - collection: state.appointments
+      filter: "a.id in target['upcoming_ids']"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.pharmacies
+      preserve: ALL
+    - collection: state.providers
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not cancel or modify pre-existing appointments"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[1]
+      severity: critical
+    - name: "Agent did not modify insurance claims (statuses or balances)"
+      ref: invariant[2]
+      severity: critical
+    - name: "Agent did not modify referrals (including the prior-auth referral)"
+      ref: invariant[3]
+      severity: critical
+    - name: "Agent did not send any messages"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[5]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[6]
+      severity: high
+    - name: "Agent did not modify pharmacies"
+      ref: invariant[7]
+      severity: medium
+    - name: "Agent did not modify providers"
+      ref: invariant[8]
+      severity: medium
+    - name: "Agent did not schedule more than one new PCP appointment"
+      ref: create[0]
+      severity: medium
 secondary_primitives: []
