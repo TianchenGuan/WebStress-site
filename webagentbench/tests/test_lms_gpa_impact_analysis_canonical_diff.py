@@ -103,10 +103,10 @@ def test_extra_mutation_fails():
         for announcement in state.announcements
         if announcement.id not in set(_csv_ids(targets["unread_announcement_ids"]))
     )
-    _mark_announcement_read(state, extra_announcement.id)
+    extra_announcement.is_read = False
 
     report = _report(initial, state, targets)
     assert report.passed is False, (
-        "marking an extra announcement read alongside the correct GPA action "
+        "mutating an extra announcement alongside the correct GPA action "
         "should violate the announcement invariant"
     )
