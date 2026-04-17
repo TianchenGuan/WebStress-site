@@ -22,7 +22,7 @@ function statusBadgeClass(status: string): string {
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T00:00");
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     year: "numeric",

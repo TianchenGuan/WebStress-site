@@ -20,7 +20,8 @@ function statusBadgeClass(status: string): string {
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  // Append T00:00 to avoid UTC midnight → previous-day-in-local-tz shift
+  const d = new Date(dateStr + "T00:00");
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     year: "numeric",

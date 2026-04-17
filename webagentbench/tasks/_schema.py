@@ -53,6 +53,7 @@ class PriceTrajectoryConfig:
 class SeedConfig:
     """The ``seed:`` section of a task YAML."""
     distractors: int = 20
+    skip_real_hotels: bool = False
     actors: dict[str, ActorSpec] = field(default_factory=dict)
     steps: list[StepSpec] = field(default_factory=list)
     targets: dict[str, str] = field(default_factory=dict)
@@ -159,6 +160,7 @@ class TaskDefinition:
             ]
             seed_cfg = SeedConfig(
                 distractors=seed_raw.get("distractors", 20),
+                skip_real_hotels=seed_raw.get("skip_real_hotels", False),
                 actors=actors,
                 steps=steps,
                 targets=seed_raw.get("targets") or {},

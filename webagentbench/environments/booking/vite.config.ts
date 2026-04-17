@@ -12,7 +12,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port: 4178,
+    port: Number(process.env.VITE_SERVER_PORT) || 8084,
     host: "127.0.0.1",
     proxy: {
       "/api": "http://127.0.0.1:8080",

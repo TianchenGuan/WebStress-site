@@ -209,7 +209,19 @@ export default function Home() {
           {/* ============ RECENT SEARCHES ============ */}
           {history.length > 0 && (
             <section className="bk-section" aria-label="Recent searches">
-              <h2 className="bk-section-title">Your recent searches</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 className="bk-section-title" style={{ margin: 0 }}>Your recent searches</h2>
+                <button
+                  className="bk-btn bk-btn--tertiary"
+                  style={{ fontSize: 14 }}
+                  onClick={async () => {
+                    await api.clearSearchHistory();
+                    setHistory([]);
+                  }}
+                >
+                  Clear all
+                </button>
+              </div>
               <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
                 {history.slice(0, 6).map((entry, idx) => (
                   <Link

@@ -55,7 +55,7 @@ export default function BookingConfirmation() {
   }
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-US", {
+    new Date(d + "T00:00").toLocaleDateString("en-US", {
       weekday: "short",
       year: "numeric",
       month: "short",

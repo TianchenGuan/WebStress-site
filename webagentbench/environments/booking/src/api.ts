@@ -36,6 +36,7 @@ export function createBookingApi(request: RequestFn) {
     // --- Properties ---
     searchProperties(params: {
       destination?: string;
+      name?: string;
       check_in?: string;
       check_out?: string;
       guests?: number;

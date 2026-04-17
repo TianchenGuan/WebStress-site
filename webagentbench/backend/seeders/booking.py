@@ -172,8 +172,9 @@ class BookingSeedRunner:
         for key, actor_spec in seed_cfg.actors.items():
             ctx.resolve_actor(key, domain=actor_spec.domain, is_vip=actor_spec.is_vip, name=actor_spec.name)
 
-        # 2. Load real hotel catalog
-        self._add_real_hotels(ctx)
+        # 2. Load real hotel catalog (skip if task disables it for clean test)
+        if not getattr(seed_cfg, "skip_real_hotels", False):
+            self._add_real_hotels(ctx)
 
         # 3. Add distractor properties
         self._add_distractor_properties(ctx, count=seed_cfg.distractors)
