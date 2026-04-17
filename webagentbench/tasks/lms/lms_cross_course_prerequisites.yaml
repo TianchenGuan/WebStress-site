@@ -178,20 +178,20 @@ canonical_diff:
 eval:
   source: server_state
   checks:
-  - expr: sum(1 for m in state.modules if m.status == 'completed') >= 3
-    desc: At least 3 modules total are completed (1 initial + 2 new)
-  - expr: "any(m.id == '{target.next_available_module_id}' and m.status == 'completed'\n\
-      \    for m in state.modules)"
-    desc: The next available module was completed
-  - expr: "any(m.status == 'completed'\n    and all(ci.completed for ci in m.content_items)\n\
-      \    for m in state.modules\n    if m.id == '{target.next_available_module_id}')"
-    desc: All content items in the completed module are marked done
+  - expr: sum(1 for m in state.modules if m.status == 'completed') >= 4
+    desc: At least 4 modules total are completed (2 initial + 2 new)
+  - expr: "all(any(m.id == mid and m.status == 'completed' for m in state.modules)\n\
+      \    for mid in ['{target.next_available_module_id_1}', '{target.next_available_module_id_2}'])"
+    desc: Both next available modules were completed
+  - expr: "all(any(m.id == mid and m.status == 'completed'\n    and all(ci.completed for ci in m.content_items)\n\
+      \    for m in state.modules)\n    for mid in ['{target.next_available_module_id_1}', '{target.next_available_module_id_2}'])"
+    desc: All content items in both completed modules are marked done
   - expr: "sum(1 for m in state.modules\n    if m.status == 'completed'\n    and all(ci.completed\
-      \ for ci in m.content_items)) >= 3"
-    desc: At least 3 modules have all content items completed
-  - expr: "any(m.id == '{target.first_locked_module_id}'\n    and m.status in ('available',\
-      \ 'completed')\n    for m in state.modules)"
-    desc: Previously locked module is now available or completed
+      \ for ci in m.content_items)) >= 4"
+    desc: At least 4 modules have all content items completed
+  - expr: "all(any(m.id == mid and m.status in ('available', 'completed')\n    for m in state.modules)\n\
+      \    for mid in ['{target.first_locked_module_id_1}', '{target.first_locked_module_id_2}'])"
+    desc: Both previously locked modules are now available or completed
   negative_checks:
   - expr: all(e.status != 'dropped' for e in state.enrollments)
     desc: No courses were dropped

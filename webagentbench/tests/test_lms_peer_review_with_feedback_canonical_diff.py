@@ -79,7 +79,7 @@ def test_correct_trajectory_passes():
     _apply_resubmission(
         state,
         targets["resubmit_assignment_id"],
-        file_name=targets["resubmit_file_name"],
+        file_name="revised_with_feedback.pdf",
         submitted_at=max(
             session_start + timedelta(minutes=5),
             state.get_assignment(targets["resubmit_assignment_id"]).due_at + timedelta(hours=1),
@@ -157,7 +157,7 @@ def test_extra_mutation_fails():
     _apply_resubmission(
         state,
         targets["resubmit_assignment_id"],
-        file_name=targets["resubmit_file_name"],
+        file_name="revised_with_feedback.pdf",
         submitted_at=max(
             session_start + timedelta(minutes=5),
             state.get_assignment(targets["resubmit_assignment_id"]).due_at + timedelta(hours=1),
