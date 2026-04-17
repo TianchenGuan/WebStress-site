@@ -28,10 +28,12 @@ from webagentbench.evaluator_diff import (
 )
 from webagentbench.tasks._registry import load_all_tasks
 from webagentbench.tasks.canonical_diff import (
+    Bijection,
     CanonicalDiff,
     Constraint,
     CreateEntry,
     InvariantEntry,
+    NamedInvariant,
     UpdateEntry,
 )
 
@@ -431,3 +433,299 @@ def test_matcher_does_not_mutate_agent_diff() -> None:
     _ = match_diff(diff, block, targets=targets, initial=initial, final=final)
     assert len(diff) == 1, "agent_diff list length mutated"
     assert diff[0].entity_id == "x", "agent_diff entry mutated"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Part C — Predicate-layer probes (targeted bug hypotheses)
+# ══════════════════════════════════════════════════════════════════════
+
+
+def test_expr_predicate_swallows_author_typos() -> None:
+    """Hypothesis: a malformed ``{expr: ...}`` predicate — e.g. referencing a
+    target key that doesn't exist — silently returns False instead of
+    surfacing the author error. Agents producing the right state would
+    unfairly fail, and the author gets no feedback on the typo.
+
+    Current behavior (:237-239): ``except Exception: return False``. This
+    is the silent-reject footgun. If this test starts failing, someone
+    made expr errors surface — good direction.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            # Typo: target doesn't have TYPO_KEY. Author meant something else.
+            "changes": {"status": {"expr": "x == target['TYPO_KEY_THAT_DOESNT_EXIST']"}},
+        }],
+    })
+    agent_did_right_thing = [Update(
+        entity="appointments",
+        entity_id="appt_x",
+        field_changes={"status": ("scheduled", "cancelled")},
+    )]
+
+    report = match_diff(agent_did_right_thing, block,
+                        targets=targets, initial=initial, final=final)
+
+    # Bug present: report.passed is False because the expr silently returns
+    # False on KeyError. The author should have gotten a loud signal instead.
+    # This test documents the current (buggy) behavior; flip the assertion
+    # when the matcher tightens.
+    assert not report.passed, (
+        "Author-typo expr no longer silently rejects — matcher tightened. "
+        "Update this test to assert the positive direction (loud error)."
+    )
+
+
+def test_contains_predicate_list_element_semantics() -> None:
+    """Hypothesis: ``contains: [elem1, elem2]`` uses Python ``in``, which on
+    a list value checks LIST-AS-ELEMENT, not SUBSET. Authors typically want
+    subset — this is a foot-gun.
+
+    Concretely: value = ``[1, 2, 3]``, predicate ``{contains: [1, 2]}``:
+      Python: ``[1, 2] in [1, 2, 3]`` → False
+      Intended: ``{1, 2} ⊆ {1, 2, 3]`` → True
+
+    For single-element: ``{contains: 1}`` on ``[1, 2, 3]`` works correctly.
+    The trap is specifically the list-argument form.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            "changes": {"notes": {"contains": ["alpha", "beta"]}},
+        }],
+    })
+    diff = [Update(
+        entity="appointments",
+        entity_id="appt_x",
+        field_changes={"notes": (["alpha"], ["alpha", "beta", "gamma"])},
+    )]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    # If predicate were subset-like, report.passed would be True (agent's
+    # list includes both "alpha" and "beta"). With current element-in
+    # semantics, ``["alpha", "beta"] in ["alpha", "beta", "gamma"]`` is
+    # False, so the predicate fails.
+    assert not report.passed, (
+        "`contains: [list]` started accepting subset-like matches. "
+        "Either rename predicate to `elem`/`subset` or this test needs updating. "
+        "See evaluator_diff.py:172 — current semantic is `arg in value` (element)."
+    )
+
+
+def test_length_predicate_does_not_crash_on_none_value() -> None:
+    """Hypothesis: ``{length: {eq: 0}}`` applied to a field whose value is
+    None raises TypeError (``len(None)`` unpropagated). The matcher should
+    return False gracefully instead of crashing.
+
+    This test fails loudly if a TypeError escapes. If the matcher is already
+    graceful, it passes.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            "changes": {"notes": {"length": {"eq": 0}}},
+        }],
+    })
+    diff = [Update(
+        entity="appointments",
+        entity_id="appt_x",
+        field_changes={"notes": ("something", None)},
+    )]
+
+    try:
+        report = match_diff(diff, block, targets=targets,
+                            initial=initial, final=final)
+    except TypeError as exc:
+        pytest.fail(
+            f"BUG: matcher crashed on len(None) instead of returning False. "
+            f"evaluator_diff.py:173-182 — wrap in try/except. {exc}"
+        )
+    assert isinstance(report.score, float)
+
+
+def test_named_invariant_with_update_ref_applies_label() -> None:
+    """Hypothesis: ``named_invariants: - ref: update[0]`` silently no-ops.
+
+    Reading evaluator_diff.py:1110-1136, the attribution loop explicitly
+    handles ``invariant`` and ``create`` refs. The ``update`` and ``delete``
+    branches have no corresponding code — the loop just iterates past them.
+
+    Impact: tasks with ``ref: update[0]  severity: high`` lose both the
+    custom display label AND the severity override. Present-day migrated
+    tasks rely on this for labeling (e.g. lms_end_of_semester_verification
+    uses ``ref: update[0]`` and ``ref: update[1]``).
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            "changes": {"status": {"eq": "cancelled"}},
+            "desc": "default update description",
+        }],
+        "named_invariants": [{
+            "name": "CUSTOM-LABEL-FOR-UPDATE-0",
+            "ref": "update[0]",
+            "severity": "high",
+        }],
+    })
+    diff = [Update(
+        entity="appointments",
+        entity_id="appt_x",
+        field_changes={"status": ("scheduled", "cancelled")},
+    )]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    relabeled = any(c.get("desc") == "CUSTOM-LABEL-FOR-UPDATE-0"
+                    for c in report.checks)
+    assert relabeled, (
+        "BUG: named_invariant with ref=update[N] silently no-ops. "
+        "Loop at evaluator_diff.py:1110 handles 'invariant' and 'create' only; "
+        "add a branch for 'update' and 'delete' that rewrites checks[idx].desc."
+    )
+
+
+def test_named_invariant_severity_override_applied_to_invariant() -> None:
+    """Regression: ``named_invariants: - ref: invariant[0]  severity: critical``
+    must override the default ``medium`` penalty on the invariant's
+    negative_check.
+
+    critical → 0.3 per _SEVERITY_PENALTY table. medium → 0.15.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "invariant": [{
+            "collection": "state.appointments",
+            "preserve": "ALL",
+        }],
+        "named_invariants": [{
+            "name": "Do not disturb existing appointments",
+            "ref": "invariant[0]",
+            "severity": "critical",
+        }],
+    })
+    # Trigger the invariant by mutating an appointment.
+    diff = [Update(
+        entity="appointments",
+        entity_id="appt_anything",
+        field_changes={"status": ("scheduled", "cancelled")},
+    )]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    nc = next(
+        (x for x in report.negative_checks
+         if x["desc"] == "Do not disturb existing appointments"),
+        None,
+    )
+    assert nc is not None, "named_invariant label was not applied to negative_check"
+    assert nc["penalty"] == 0.3, (
+        f"severity=critical should yield penalty 0.3, got {nc['penalty']}. "
+        "Check that NamedInvariant severity propagation at "
+        "evaluator_diff.py:1115-1122 is wired correctly."
+    )
+
+
+def test_matches_semantic_does_not_crash_on_plain_strings() -> None:
+    """Exercise ``matches_semantic`` with ordinary string inputs. Regardless
+    of whether an embedding model is available, the matcher must not crash.
+    If the backend fails to load, matches_semantic should return False
+    (conservative) rather than propagate the error.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            "changes": {"notes": {"matches_semantic": "meeting scheduled"}},
+        }],
+    })
+    diff = [Update(
+        entity="appointments",
+        entity_id="appt_x",
+        field_changes={"notes": ("", "scheduled a meeting")},
+    )]
+
+    # Just assert no exception escapes. Pass/fail score irrelevant.
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+    assert isinstance(report.score, float)
+
+
+def test_bijection_excess_tracked_when_empty_target() -> None:
+    """Class 9 fix kept ``bijection_excess`` tracking alive even for empty
+    targets, so ``named_invariants: - ref: create[N]`` can still flag
+    "agent scheduled N when 0 were needed."
+
+    This test verifies: empty-target bijection + agent-created entity +
+    ref=create[0] named_invariant → the named invariant FAILS (over-creation
+    detected).
+    """
+    from webagentbench.evaluator_diff import Create
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "create": [{
+            "entity": "Appointment",
+            "bijection": {"over": "target['NONEXISTENT_EMPTY_KEY']",
+                          "variable": "v"},
+            "properties": {"id": {"any": True}},
+        }],
+        "named_invariants": [{
+            "name": "Did not schedule more than required",
+            "ref": "create[0]",
+            "severity": "high",
+        }],
+    })
+    # Agent creates an appointment when 0 were needed.
+    diff = [Create(
+        entity="appointments",
+        entity_id="appt_x",
+        fields={"id": "appt_x"},
+    )]
+
+    # targets must include the bijection key so _eval_target_expr doesn't
+    # fail; give it an empty list.
+    targets_with_empty = dict(targets)
+    targets_with_empty["NONEXISTENT_EMPTY_KEY"] = []
+
+    report = match_diff(diff, block, targets=targets_with_empty,
+                        initial=initial, final=final)
+
+    excess_nc = next(
+        (x for x in report.negative_checks
+         if x["desc"] == "Did not schedule more than required"),
+        None,
+    )
+    assert excess_nc is not None, (
+        "BUG: Class 9 fix lost bijection_excess tracking for empty-target "
+        "bijections. Named invariant on create[0] should still fire when "
+        "agent creates entities that weren't needed."
+    )
+    assert not excess_nc["passed"], (
+        "Agent created 1 appointment when 0 were needed — "
+        "named_invariant on create[0] should FAIL, got passed={}.".format(excess_nc["passed"])
+    )

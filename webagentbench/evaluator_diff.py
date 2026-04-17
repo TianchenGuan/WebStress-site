@@ -171,8 +171,16 @@ def eval_predicate(pred: dict, scope: PredicateScope) -> bool:
     if key == "contains":
         return arg in value
     if key == "length":
+        # len() on None / int / other non-sized values would propagate a
+        # TypeError through the matcher. Conservatively return False so
+        # optional fields that happen to be None on a given trajectory
+        # don't crash the evaluator (Class 13).
+        try:
+            length_value = len(value)
+        except TypeError:
+            return False
         inner_scope = PredicateScope(
-            value=len(value),
+            value=length_value,
             target=scope.target,
             initial=scope.initial,
             state=scope.state,
@@ -1134,6 +1142,27 @@ def _match_single_block(
                 "passed": not has_excess,
                 "penalty": severity,
             })
+        elif kind == "update" and 0 <= idx < len(block.update):
+            # `ref: update[N]` relabels the positive check for an update
+            # entry with the author-provided human name (Class 14). The
+            # label is presentation-only — score and passed already come
+            # from the underlying update match via passed_weight.
+            entry = block.update[idx]
+            default_desc = entry.desc or f"Update {entry.entity} matching selector"
+            for check in checks:
+                # Match either the exact desc or the "— N of N updated"
+                # variant produced by bijection updates.
+                if check["desc"] == default_desc or check["desc"].startswith(f"{default_desc} "):
+                    check["desc"] = ni.name
+                    break
+        elif kind == "delete" and 0 <= idx < len(block.delete):
+            # `ref: delete[N]` — same idea for delete entries (Class 14).
+            entry = block.delete[idx]
+            default_desc = entry.desc or f"Delete {entry.entity} matching selector"
+            for check in checks:
+                if check["desc"] == default_desc:
+                    check["desc"] = ni.name
+                    break
 
     # 4. Penalty-adjusted score
     penalty = sum(

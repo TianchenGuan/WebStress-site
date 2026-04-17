@@ -540,3 +540,75 @@ scoring becomes orthodox. 3-YAML fix versus 1-matcher fix.
 
 **Regression guard.** The audit test above. Every future migration's
 PR should run it; if the xfail flips to xpass, the fix landed.
+
+---
+
+## Class 13 — `length` predicate crashes on None / non-sized values
+
+**Symptom.** Matcher raises `TypeError: object of type 'NoneType' has no
+len()` mid-evaluation. Agent's score is not computed — the entire
+`match_diff` call propagates the exception. Any task with a
+`{length: ...}` predicate on an optional field that happens to be None
+on the trajectory goes dark.
+
+**Root cause.** `eval_predicate` at `evaluator_diff.py:173-182` called
+`len(value)` unconditionally. Pydantic optional list fields (`list | None`)
+default to `None` rather than `[]` in some code paths, so a trajectory
+that leaves the field untouched hits `len(None)`.
+
+**Fix applied.** Wrap `len(value)` in `try/except TypeError` and return
+`False` on failure (conservative rejection rather than propagation).
+The predicate becomes graceful on any non-sized value (None, int, etc.).
+
+**Regression guard.** `tests/test_matcher_audit.py::test_length_predicate_does_not_crash_on_none_value`
+exercises the None path and asserts the matcher returns a float score
+rather than raising.
+
+**Audit tip.** Grep migrated YAMLs for `{length:` on optional fields —
+every one is a candidate for this bug pre-fix.
+
+---
+
+## Class 14 — `named_invariants` with `ref: update[N]` / `delete[N]` silently ignored
+
+**Symptom.** A task YAML declares:
+
+```yaml
+named_invariants:
+  - name: Resubmit discrepant assignments
+    ref: update[0]
+    severity: high
+```
+
+…and the matcher never applies the custom name or the severity. UI and
+trajectory logs show the generic `Update <Entity> matching selector`
+string; no human-readable label surfaces. Authors silently depend on
+something the matcher ignores.
+
+**Root cause.** The named-invariant attribution loop at
+`evaluator_diff.py:1110-1144` only branched on `kind == "invariant"`
+and `kind == "create"`. Refs of kind `update` or `delete` validated
+through the schema (they're allowed) but had no matching branch, so
+the loop iterated past them as no-ops.
+
+**Where this manifests.** 50 migrated tasks use `ref: update[N]` or
+`ref: delete[N]` — confirmed via
+`grep -rln "ref: update\[\|ref: delete\[" webagentbench/tasks/`.
+Every one of them has been running with default labels.
+
+**Fix applied.** Added `elif kind == "update"` and `elif kind == "delete"`
+branches to the attribution loop. Each rewrites the matching entry in
+`checks` with the author-provided name. Severity is presentation-only
+here (update/delete contribute to the positive pool, not negative
+penalties), so the fix is scoped to label propagation.
+
+**Regression guard.** `tests/test_matcher_audit.py::test_named_invariant_with_update_ref_applies_label`
+asserts the custom label appears in `report.checks` after running a
+canonical_diff with a `ref: update[0]` named_invariant.
+
+**Why this matters beyond aesthetics.** The default `Update Appointment
+matching selector` text is meaningless in trajectory replays and agent
+debugging UIs. Author-written names carry task-specific intent ("Resubmit
+discrepant assignments", "Mark announcements as read"). The audit found
+this by probing whether the label round-trips; the fix restores the
+round-trip across 50 affected tasks with zero YAML changes.
