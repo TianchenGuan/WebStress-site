@@ -132,6 +132,90 @@ seed:
     prop_name_2: '{output.prop_name_2}'
     prop_id_3: '{output.prop_id_3}'
     existing_review_id: '{output.existing_review_id}'
+canonical_diff:
+  create:
+    - entity: Review
+      desc: Write review for prop_name_1 with score 9.0, correct title, positive comment about outstanding service and beautiful rooms, leisure/couple
+      properties:
+        property_id: {expr: "x == target['prop_id_1']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 9.0}
+        scores: {any: true}
+        title: {expr: "'Exceptional experience' in x"}
+        positive: {expr: "'outstanding service' in x.lower() and 'beautiful' in x.lower()"}
+        negative: {any: true}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: couple}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+    - entity: Review
+      desc: Write review for prop_name_2 with score 7.5, correct title, positive about location and staff, negative about room size and noise, business/solo
+      properties:
+        property_id: {expr: "x == target['prop_id_2']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 7.5}
+        scores: {any: true}
+        title: {expr: "'Good but could improve' in x"}
+        positive: {expr: "'great location' in x.lower() and 'friendly staff' in x.lower()"}
+        negative: {expr: "'smaller' in x.lower() and ('noise' in x.lower() or 'walls' in x.lower())"}
+        room_type: {any: true}
+        travel_purpose: {eq: business}
+        traveled_with: {eq: solo}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+  invariant:
+    - collection: state.reviews
+      filter: "a.property_id not in (target['prop_id_1'], target['prop_id_2'])"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent wrote the Hotel Negresco review correctly
+      ref: create[0]
+      severity: critical
+    - name: Agent wrote the Berlin Mitte hotel review correctly
+      ref: create[1]
+      severity: critical
+    - name: Agent did not modify or create reviews for other properties
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
