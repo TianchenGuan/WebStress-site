@@ -56,17 +56,27 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'Check-in time inquiry'\
-      \ in m.subject and\n  m.sender != '{target.property_name}'\n  for m in state.messages\n\
-      )\n"
-    desc: A message with the correct subject was sent to the property
-  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  'earliest check-in\
-      \ time' in m.body.lower()\n  for m in state.messages\n)\n"
-    desc: The message body asks about check-in time
+  - expr: sum(1 for e in state.audit_log if e.action == 'message.send') == 1
+    desc: Exactly one message was sent
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.subject == 'Check-in\
+      \ time inquiry' and\n  m.sender == 'guest'\n  for m in state.messages\n)\n"
+    desc: New guest message has the exact required subject and correct property
+  - expr: "any(\n  m.property_id == '{target.property_id}' and\n  m.sender == 'guest'\
+      \ and\n  'earliest check-in time' in m.body.lower() and\n  'thank you' in m.body.lower()\n\
+      \  for m in state.messages\n)\n"
+    desc: Body asks about earliest check-in time and includes a polite closing
+  - expr: "not any(\n  m.sender == 'guest' and m.property_id != '{target.property_id}'\n\
+      \  for m in state.messages\n  if m.id not in state._initial_snapshot.get('messages',\
+      \ {})\n)\n"
+    desc: No new guest messages were sent to other properties
   negative_checks:
-  - expr: 'sum(1 for e in state.audit_log if e.action == ''message.send'') <= 1
+  - expr: 'sum(1 for e in state.audit_log if e.action == ''message.send'') == 1
 
       '
-    desc: Only one message was sent
-    penalty: 0.2
+    desc: Must send exactly one message (zero or extras are penalised)
+    penalty: 0.25
+  - expr: "not any(\n  m.sender == 'guest' and len(m.body) > 500\n  for m in state.messages\n\
+      \  if m.id not in state._initial_snapshot.get('messages', {})\n)\n"
+    desc: Guest message body must stay under 500 chars (stuffing guard)
+    penalty: 0.15
 secondary_primitives: []

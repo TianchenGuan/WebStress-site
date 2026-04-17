@@ -19,16 +19,20 @@ seed:
 eval:
   source: server_state
   checks:
+  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
+      == 1
+    desc: Exactly one new outbound message was composed
   - expr: any(m.to_user == "QuantumPanda" and m.subject == "Question about your AskReddit
-      post" for m in state.sent_messages)
-    desc: Message sent to correct user with correct subject
+      post" and m.parent_id is None for m in state.sent_messages)
+    desc: Message is a new compose (not a reply) to the correct user with correct
+      subject
   - expr: any(m.to_user == "QuantumPanda" and m.body == "Hey, I found your recent
       post really interesting. Could you share the source for that claim about honey?"
       for m in state.sent_messages)
     desc: Message has exact body text
   negative_checks:
-  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
-      <= 3
-    desc: No excessive messages sent
-    penalty: 0.2
+  - expr: not any(m.parent_id is not None and m.from_user == state.owner_username
+      for m in state.sent_messages)
+    desc: Did not reply to an existing message instead of composing a new one
+    penalty: 0.25
 secondary_primitives: []

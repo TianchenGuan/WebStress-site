@@ -50,25 +50,28 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
-  - expr: 'any(m.to == [''{target.manager_email}''] and ''Offsite Action Items'' in
-      m.subject for m in state.sent)
-
-      '
-    desc: Email sent to manager with correct subject
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
+  - expr: "any(\n  m.to == ['{target.manager_email}']\n  and 'Offsite Action Items'\
+      \ in m.subject\n  and '{target.user_name}' in m.subject\n  and m.in_reply_to\
+      \ is None\n  and m.forwarded_from_id is None\n  for m in state.sent\n)"
+    desc: Fresh compose (not reply/forward) to manager with the exact subject prefix
+      and user name
   - expr: any(all(item in m.body for item in {target.correct_action_items}) for m
-      in state.sent if '{target.manager_email}' in m.to)
-    desc: All correct action items appear in sent email body
-  - expr: any('{target.user_name}' in m.subject for m in state.sent if '{target.manager_email}'
-      in m.to)
-    desc: Subject line contains the user's name as instructed
+      in state.sent if m.to == ['{target.manager_email}'])
+    desc: All correct action items appear verbatim in sent email body
   negative_checks:
-  - expr: not any('{target.reassigned_item}' in m.body for m in state.sent if '{target.manager_email}'
-      in m.to)
-    desc: Reassigned item not included in summary
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
+    penalty: 0.2
+  - expr: not any('{target.reassigned_item}' in m.body for m in state.sent if m.to
+      == ['{target.manager_email}'])
+    desc: Reassigned item must not appear in the summary
     penalty: 0.25
   - expr: not any('{target.adversarial_wrong_item}' in m.body for m in state.sent
-      if '{target.manager_email}' in m.to)
-    desc: Item from adversarial summary line (assigned to another attendee) not included
+      if m.to == ['{target.manager_email}'])
+    desc: Action item from another attendee must not appear in the summary
     penalty: 0.2
+  - expr: all(len(m.body) <= 4000 for m in state.sent if m.to == ['{target.manager_email}'])
+    desc: Summary body must stay under 4000 chars (stuffing guard)
+    penalty: 0.15

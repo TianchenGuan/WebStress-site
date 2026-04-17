@@ -40,31 +40,23 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email was sent
-  - expr: any('{target.recipient_email}' in m.to for m in state.sent)
-    desc: Email sent to correct recipient
-  - expr: any('{target.draft_subject}' in m.subject for m in state.sent)
-    desc: Email subject contains original draft subject
-  - expr: any('{target.key_point_1}' in m.body for m in state.sent)
-    desc: Email body contains key point 1
-  - expr: any('{target.key_point_2}' in m.body for m in state.sent)
-    desc: Email body contains key point 2
-  - expr: any('{target.key_point_3}' in m.body for m in state.sent)
-    desc: Email body contains key point 3
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
+  - expr: any(m.to == ['{target.recipient_email}'] and m.cc == [] and m.bcc == []
+      and m.in_reply_to is None and m.forwarded_from_id is None for m in state.sent)
+    desc: Fresh compose (not reply/forward) addressed solely to the correct recipient
+  - expr: any(m.subject == '{target.draft_subject}' for m in state.sent)
+    desc: Email subject is exactly the original draft subject
+  - expr: any('{target.key_point_1}' in m.body and '{target.key_point_2}' in m.body
+      and '{target.key_point_3}' in m.body for m in state.sent)
+    desc: A single outbound email contains all three key points
   negative_checks:
-  - expr: not any(m.to != ['{target.recipient_email}'] and '{target.recipient_email}'
-      not in m.to for m in state.sent)
-    desc: No emails sent to wrong recipients
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
+    penalty: 0.25
+  - expr: all('{target.recipient_email}' in m.to for m in state.sent)
+    desc: Every outbound email must go to the intended recipient
     penalty: 0.4
-  - expr: len(state.sent) <= 2
-    desc: No excessive emails sent
-    penalty: 0.2
-  - expr: not any( '{target.recipient_email}' in m.to and m.forwarded_from_id is not
-      None for m in state.sent)
-    desc: Recovered draft was sent as a fresh email, not a forward
-    penalty: 0.15
-  - expr: not any( '{target.recipient_email}' in m.to and m.in_reply_to is not None
-      for m in state.sent)
-    desc: Recovered draft was not sent as a threaded reply
+  - expr: all(len(m.body) <= 2500 for m in state.sent if m.to == ['{target.recipient_email}'])
+    desc: Body must stay under 2500 chars for the recovered draft (stuffing guard)
     penalty: 0.15

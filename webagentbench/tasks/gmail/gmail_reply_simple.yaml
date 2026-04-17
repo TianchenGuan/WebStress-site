@@ -23,12 +23,23 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(m.in_reply_to == '{target.target_email_id}' for m in state.sent)
-    desc: Reply sent to Bob's email
-  - expr: any("I'll be there" in m.body for m in state.sent)
-    desc: Reply contains the required message
+  - expr: len(state.sent) == 1
+    desc: Exactly one email was sent
+  - expr: any(m.in_reply_to == '{target.target_email_id}' and m.thread_id == '{target.target_thread_id}'
+      for m in state.sent)
+    desc: The outbound email is a reply in Bob's original thread (correct in_reply_to
+      and thread_id)
+  - expr: any(m.in_reply_to == '{target.target_email_id}' and m.body.strip() == "I'll
+      be there. Thanks!" for m in state.sent)
+    desc: Reply body is exactly the required text
+  - expr: not any(m.forwarded_from_id is not None for m in state.sent)
+    desc: No forwards were sent (reply expected, not forward)
   negative_checks:
-  - expr: len(state.sent) <= 1
-    desc: Only one reply sent
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
     penalty: 0.2
+  - expr: all(len(m.body) <= 200 for m in state.sent if m.in_reply_to == '{target.target_email_id}')
+    desc: Reply body must stay under 200 chars for a one-line confirmation (stuffing
+      guard)
+    penalty: 0.15
 secondary_primitives: []

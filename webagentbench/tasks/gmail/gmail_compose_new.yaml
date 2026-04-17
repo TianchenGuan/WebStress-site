@@ -20,14 +20,23 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any('alice@thornton.com' in m.to for m in state.sent)
-    desc: Email sent to alice@thornton.com
-  - expr: any('Weekly Report' in m.subject for m in state.sent)
-    desc: Subject is 'Weekly Report'
-  - expr: any('weekly report' in m.body.lower() for m in state.sent)
-    desc: Body mentions weekly report
+  - expr: len(state.sent) == 1
+    desc: Exactly one email sent
+  - expr: any(m.to == ['alice@thornton.com'] and m.in_reply_to is None and m.forwarded_from_id
+      is None for m in state.sent)
+    desc: Fresh compose (not reply/forward) addressed solely to alice@thornton.com
+  - expr: any(m.subject == 'Weekly Report' for m in state.sent)
+    desc: Subject is exactly 'Weekly Report'
+  - expr: any('Hi Alice' in m.body and 'weekly report' in m.body.lower() and 'attached'
+      in m.body.lower() for m in state.sent)
+    desc: Body contains salutation, subject reference, and attachment note
+  - expr: all(m.cc == [] and m.bcc == [] for m in state.sent)
+    desc: No extra CC or BCC recipients added
   negative_checks:
-  - expr: len(state.sent) <= 1
-    desc: Only one email sent
+  - expr: len(state.sent) == 1
+    desc: Must send exactly one email (zero or extras are penalised)
     penalty: 0.2
+  - expr: all(len(m.body) <= 600 for m in state.sent)
+    desc: Message body must not exceed 600 chars (keyword-stuffing guard)
+    penalty: 0.15
 secondary_primitives: []

@@ -37,14 +37,18 @@ seed:
 eval:
   source: server_state
   checks:
+  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
+      == 1
+    desc: Exactly one new outbound message was composed
   - expr: any(m.to_user == "NebulaDrifter" and m.subject == "Your renewable energy
       post" and m.body == "Great post about Germany's renewable milestone! Do you
-      have a link to the original source data?" for m in state.sent_messages)
-    desc: Exact message sent to correct user
+      have a link to the original source data?" and m.parent_id is None for m in
+      state.sent_messages)
+    desc: Exact compose message sent to correct user (not a reply)
   negative_checks:
-  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
-      <= 3
-    desc: No messages to other users
+  - expr: not any(m.from_user == state.owner_username and m.parent_id is not None
+      for m in state.sent_messages)
+    desc: Must not reply to an existing message — compose a new one
     penalty: 0.2
   - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) ==
       0
