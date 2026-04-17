@@ -55,6 +55,164 @@ seed:
     target_course_id: '{output.target_course_id}'
     final_exam_assignment_id: '{output.final_exam_assignment_id}'
     min_score_achievable: '{output.min_score_achievable}'
+canonical_diff:
+  oneof:
+  - constraints:
+    - desc: The minimum final score for a B is achievable
+      expr: "target['min_score_achievable'] == 'true'"
+      severity: critical
+    update:
+    - entity: Assignment
+      desc: Submit study_plan.pdf for the final exam assignment
+      where:
+        id:
+          expr: "x == target['final_exam_assignment_id']"
+      changes:
+        submission_status:
+          in:
+          - submitted
+          - late
+        file_name:
+          eq: study_plan.pdf
+        attempt_count:
+          expr: "x == 1"
+        submitted_at:
+          expr: "x is not None and x >= session_start"
+    invariant:
+    - collection: state.assignments
+      filter: "a.id != target['final_exam_assignment_id']"
+      preserve: ALL
+    - collection: state.courses
+      preserve: ALL
+    - collection: state.enrollments
+      preserve: ALL
+    - collection: state.modules
+      preserve: ALL
+    - collection: state.discussions
+      preserve: ALL
+    - collection: state.discussion_posts
+      preserve: ALL
+    - collection: state.peer_reviews
+      preserve: ALL
+    - collection: state.announcements
+      preserve: ALL
+    - collection: state.grades
+      preserve: ALL
+    - collection: state.calendar_events
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    named_invariants:
+    - name: Agent submitted the final exam study plan
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify other assignments
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify course records
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify enrollments
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not modify modules
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not modify discussions
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not create or edit discussion posts
+      ref: invariant[5]
+      severity: medium
+    - name: Agent did not alter peer reviews
+      ref: invariant[6]
+      severity: medium
+    - name: Agent did not modify announcements
+      ref: invariant[7]
+      severity: medium
+    - name: Agent did not modify grades
+      ref: invariant[8]
+      severity: high
+    - name: Agent did not modify calendar events
+      ref: invariant[9]
+      severity: low
+    - name: Agent did not send messages
+      ref: invariant[10]
+      severity: medium
+  - constraints:
+    - desc: The minimum final score for a B is not achievable
+      expr: "target['min_score_achievable'] == 'false'"
+      severity: critical
+    update:
+    - entity: Enrollment
+      desc: Drop the target course
+      where:
+        course_id:
+          expr: "x == target['target_course_id']"
+      changes:
+        status:
+          eq: dropped
+    invariant:
+    - collection: state.assignments
+      preserve: ALL
+    - collection: state.courses
+      preserve: ALL
+    - collection: state.enrollments
+      filter: "a.course_id != target['target_course_id']"
+      preserve: ALL
+    - collection: state.modules
+      preserve: ALL
+    - collection: state.discussions
+      preserve: ALL
+    - collection: state.discussion_posts
+      preserve: ALL
+    - collection: state.peer_reviews
+      preserve: ALL
+    - collection: state.announcements
+      preserve: ALL
+    - collection: state.grades
+      preserve: ALL
+    - collection: state.calendar_events
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    named_invariants:
+    - name: Agent dropped the target course enrollment
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify assignments
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify course records
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify other enrollments
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not modify modules
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not modify discussions
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not create or edit discussion posts
+      ref: invariant[5]
+      severity: medium
+    - name: Agent did not alter peer reviews
+      ref: invariant[6]
+      severity: medium
+    - name: Agent did not modify announcements
+      ref: invariant[7]
+      severity: medium
+    - name: Agent did not modify grades
+      ref: invariant[8]
+      severity: high
+    - name: Agent did not modify calendar events
+      ref: invariant[9]
+      severity: low
+    - name: Agent did not send messages
+      ref: invariant[10]
+      severity: medium
 eval:
   source: server_state
   checks:
