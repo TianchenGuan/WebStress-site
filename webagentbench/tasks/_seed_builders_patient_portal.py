@@ -1514,6 +1514,11 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
     thread_ids: list[str] = []
     unread_msg_ids: list[str] = []
     all_msg_ids: list[str] = []
+    # Map of body_context type → the id of the first provider message in the
+    # thread seeded for that context. Downstream tasks (e.g.
+    # pp_respond_to_provider) use this to identify the specific incoming
+    # message the agent must read.
+    context_msg_ids: dict[str, str] = {}
     billing_thread_id: str | None = None
     rx_renewal_thread_id: str | None = None
     unread_assigned = 0
@@ -1575,6 +1580,12 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
             if is_last and from_type == "provider" and unread_assigned < unread_count:
                 is_read = False
                 unread_assigned += 1
+            # Force-unread the first provider message of a contextual thread
+            # (this is the seed carrier for the task's clinical content — if
+            # the task asks the agent to read it, it must actually be unread).
+            if thread_context and from_type == "provider" and m == 0 and is_read:
+                is_read = False
+                unread_assigned += 1
 
             # Inject contextual body for contextual threads; keep subsequent messages relevant
             if thread_context and from_type == "provider" and m == 0:
@@ -1601,6 +1612,12 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
             all_msg_ids.append(msg_id)
             if not is_read:
                 unread_msg_ids.append(msg_id)
+            # Record context-keyed id for the first provider message of
+            # contextual threads (e.g. bp_medication_adjustment → msg_X).
+            if thread_context and from_type == "provider" and m == 0:
+                ctx_type = str(thread_context.get("type", ""))
+                if ctx_type and ctx_type not in context_msg_ids:
+                    context_msg_ids[ctx_type] = msg_id
 
         if cat == "billing":
             billing_thread_id = thread_id
@@ -1613,6 +1630,10 @@ def build_message_threads(ctx: PatientPortalSeedContext, params: dict[str, Any])
         "billing_thread_id": billing_thread_id,
         "rx_renewal_thread_id": rx_renewal_thread_id,
         "all_msg_ids": all_msg_ids,
+        # Per-body-context-type id of the first provider message for that
+        # context (e.g. {"bp_medication_adjustment": "msg_1"}). Empty when
+        # no `body_context`/`body_contexts` was supplied.
+        "context_msg_ids": context_msg_ids,
     }
 
 

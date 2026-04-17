@@ -55,32 +55,79 @@ seed:
     - thread_ids
     - unread_msg_ids
     - all_msg_ids
+    - context_msg_ids
   targets:
     pcp_id: '{output.pcp_id}'
     all_msg_ids: '{output.all_msg_ids}'
     thread_ids: '{output.thread_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "any(\n  m.from_type == 'provider'\n  and m.provider_id == '{target.pcp_id}'\n\
-      \  and m.subject == 'Blood Pressure Medication Adjustment'\n  and m.id in {target.all_msg_ids}\n\
-      \  and state.get_message(m.id) is not None\n  and state.get_message(m.id).is_read\n\
-      \  for m in state.messages\n)"
-    desc: The PCP medication-adjustment message was read
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.provider_id == '{target.pcp_id}'\n  and a.reason == 'Blood pressure\
-      \ medication adjustment follow-up'\n  and a.id not in state._initial_snapshot.get('appointments',\
-      \ {})\n]) == 1"
-    desc: Exactly one PCP follow-up appointment was scheduled
-  - expr: "any(\n  a.status == 'scheduled'\n  and a.provider_id == '{target.pcp_id}'\n\
-      \  and a.reason == 'Blood pressure medication adjustment follow-up'\n  and a.datetime\
-      \ == min(\n    slot['datetime']\n    for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']\n\
-      \  )\n  and a.id not in state._initial_snapshot.get('appointments', {})\n  for\
-      \ a in state.appointments\n)"
-    desc: The PCP follow-up used the next available PCP slot
-  negative_checks:
-  - expr: "len([\n  m for m in state.messages\n  if m.from_type == 'patient'\n  and\
-      \ m.id not in {target.all_msg_ids}\n]) == 0"
-    desc: Agent did not send any patient replies or new messages
-    penalty: 0.2
+    bp_msg_id: '{output.context_msg_ids.bp_medication_adjustment}'
+canonical_diff:
+  # Positive signals:
+  #   (a) mark the PCP's "Blood Pressure Medication Adjustment" message
+  #       (identified by seed output target.bp_msg_id) as read;
+  #   (b) create a new PCP follow-up appointment at the earliest available PCP
+  #       slot with the exact required reason.
+  update:
+    - entity: ClinicalMessage
+      desc: "Mark the PCP's Blood Pressure Medication Adjustment message as read"
+      where:
+        # `where` only sees id + fields whose value changed, so match by id
+        # against the deterministic target emitted by the message_threads
+        # seed (the first provider message of the bp_medication_adjustment
+        # thread). Identity (from_type / provider_id / subject) is enforced
+        # at seed time and asserted by the end-to-end tests.
+        id:
+          expr: "x == target['bp_msg_id']"
+      changes:
+        is_read: {eq: true}
+  create:
+    - entity: Appointment
+      desc: "Schedule one PCP follow-up at the next available PCP slot"
+      properties:
+        status: {eq: "scheduled"}
+        provider_id:
+          expr: "x == target['pcp_id']"
+        reason: {eq: "Blood pressure medication adjustment follow-up"}
+        datetime:
+          expr: >
+            x == min(s.datetime for p in initial.providers
+                     if p.id == target['pcp_id'] for s in p.available_slots)
+  invariant:
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.appointments
+      filter: "a.id in {x.id for x in initial.appointments}"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not modify unrelated messages or send new ones"
+      ref: invariant[0]
+      severity: medium
+    - name: "Agent did not cancel or modify pre-existing appointments"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[2]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[3]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
 secondary_primitives: []
