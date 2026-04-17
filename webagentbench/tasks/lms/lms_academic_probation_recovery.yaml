@@ -57,6 +57,104 @@ seed:
     gpa: '{output.gpa}'
     course_codes: '{output.course_codes}'
     current_weighted_scores: '{output.current_weighted_scores}'
+canonical_diff:
+  update:
+  - entity: Assignment
+    desc: Submit the most critical missing assignment with recovery_priority.pdf
+    where:
+      id:
+        expr: >-
+          x == max(
+            (
+              a.id
+              for a in initial.assignments
+              if a.submission_status == 'not_submitted'
+            ),
+            key=lambda aid: (
+              initial.get_course(initial.get_assignment(aid).course_id).credits,
+              initial.get_course(initial.get_assignment(aid).course_id).syllabus.grading_policy[
+                initial.get_assignment(aid).weight_category
+              ].weight,
+              initial.get_assignment(aid).points_possible,
+              -initial.get_assignment(aid).due_at.timestamp(),
+            ),
+          )
+    changes:
+      submission_status:
+        in:
+        - submitted
+        - late
+      file_name:
+        eq: recovery_priority.pdf
+  invariant:
+  - collection: state.assignments
+    filter: "not (a.file_name == 'recovery_priority.pdf' and a.submission_status in ('submitted', 'late'))"
+    preserve: ALL
+  - collection: state.courses
+    preserve: ALL
+  - collection: state.enrollments
+    preserve: ALL
+  - collection: state.modules
+    preserve: ALL
+  - collection: state.discussions
+    preserve: ALL
+  - collection: state.discussion_posts
+    preserve: ALL
+  - collection: state.peer_reviews
+    preserve: ALL
+  - collection: state.announcements
+    preserve: ALL
+  - collection: state.grades
+    preserve: ALL
+  - collection: state.calendar_events
+    preserve: ALL
+  named_invariants:
+  - name: Agent submitted the most critical missing assignment
+    ref: update[0]
+    severity: high
+  - name: Agent did not modify other assignments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify course records
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not drop or alter enrollments
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not modify modules
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify discussions
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or edit discussion posts
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not alter peer reviews
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not modify announcements
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not modify grades
+    ref: invariant[8]
+    severity: high
+  - name: Agent did not modify calendar events
+    ref: invariant[9]
+    severity: low
+  constraints:
+  - desc: Agent sent at least one recovery plan message
+    expr: len(state.sent_messages) >= 1
+    severity: medium
+  - desc: Recovery message was addressed to the advisor
+    expr: "any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
+    severity: high
+  - desc: Agent did not send excessive messages
+    expr: len(state.sent_messages) <= 3
+    severity: low
+  - desc: Agent did not submit multiple recovery files
+    expr: "len([a for a in state.assignments if a.file_name == 'recovery_priority.pdf' and a.submission_status in ('submitted', 'late')]) <= 1"
+    severity: high
 eval:
   source: server_state
   checks:
