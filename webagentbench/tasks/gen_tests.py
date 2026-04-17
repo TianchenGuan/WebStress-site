@@ -1,18 +1,19 @@
-"""Per-task test generator — auto-creates the canonical_diff and adversarial
-test files from an already-authored canonical_diff block.
+"""Per-task test generator — auto-creates the canonical_diff test file
+from an already-authored canonical_diff block.
 
 Usage:
     python -m webagentbench.tasks.gen_tests <task_id>
     python -m webagentbench.tasks.gen_tests <task_id> --force   # overwrite
 
-Emits two files (if they don't already exist):
+Emits:
   webagentbench/tests/test_<task_id>_canonical_diff.py
-  webagentbench/tests/test_<task_id>_adversarial.py
 
-The adversarial file is fully automated. The canonical_diff file has
-~80% of the scaffolding and clearly marked TODO blocks for the author
-to complete the entity-construction specifics (things the generator
-can't infer without env/entity-class knowledge).
+Adversarial coverage is automatic: tests/test_adversarial_battery.py
+parametrizes ``synthesize_adversarial_cases`` over every task whose YAML
+contains a ``canonical_diff`` block — no per-task file needed. If a task
+needs hand-written adversarial cases (oneof-branch logic, bespoke
+mutations), add a ``test_<task_id>_adversarial.py`` file manually; the
+battery runs alongside it.
 """
 
 from __future__ import annotations
@@ -248,80 +249,10 @@ def test_excess_fails():
     return body
 
 
-def _adversarial_test_source(task_id: str, env_id: str) -> str:
-    return f'''"""Adversarial regression battery for {task_id}.
-
-Auto-generated — no manual TODO. The generator synthesizes violating
-final-states per predicate and asserts the matcher rejects every one.
-
-If this test FAILS, either:
-  (a) the matcher regressed and is accepting an obviously-wrong state, or
-  (b) the canonical_diff got looser and admits states it shouldn't.
-Both are regressions that must be fixed before the PR merges.
-"""
-
-from webagentbench.backend.state import SessionManager
-from webagentbench.evaluator_diff import compute_diff, match_diff
-from webagentbench.tasks._registry import get_task
-from webagentbench.tasks.adversarial import synthesize_adversarial_cases
-
-
-def _initial_state_as_dict(sm: SessionManager, sid: str) -> dict:
-    snap = sm.get_initial_snapshot(sid)
-    if hasattr(snap, "model_dump"):
-        return snap.model_dump()
-    return dict(snap) if snap else {{}}
-
-
-def test_all_adversarial_cases_fail():
-    sm = SessionManager()
-    sid, targets, _ = sm.create_session(
-        env_id={env_id!r},
-        task_id={task_id!r},
-        seed=42,
-    )
-    initial = _initial_state_as_dict(sm, sid)
-    task = get_task({task_id!r})
-    assert task.canonical_diff is not None, (
-        "canonical_diff missing — migrate the task first or run Tool B "
-        "to scaffold the authoring context."
-    )
-
-    cases = synthesize_adversarial_cases(
-        task.canonical_diff,
-        initial=initial,
-        targets=dict(targets),
-    )
-    assert len(cases) >= 1, (
-        f"adversarial generator produced no cases for {task_id} — "
-        "likely a canonical_diff with no negatable predicates."
-    )
-
-    unexpectedly_passed: list[str] = []
-    for case in cases:
-        final = case["final"]
-        agent_diff = compute_diff(initial, final)
-        report = match_diff(
-            agent_diff, task.canonical_diff,
-            targets=dict(targets),
-            initial=initial, final=final,
-        )
-        if report.passed:
-            unexpectedly_passed.append(
-                f"case {{case['description']!r}} passed when it should have been rejected"
-            )
-
-    assert not unexpectedly_passed, (
-        "Adversarial cases leaked through the matcher:\\n  "
-        + "\\n  ".join(unexpectedly_passed)
-    )
-'''
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("task_id")
-    parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing file")
     args = parser.parse_args()
 
     yaml_path = _find_task_yaml(args.task_id)
@@ -337,26 +268,21 @@ def main() -> int:
         return 1
 
     cd_file = _TESTS_DIR / f"test_{args.task_id}_canonical_diff.py"
-    adv_file = _TESTS_DIR / f"test_{args.task_id}_adversarial.py"
 
-    written = []
-    for path, content in [
-        (cd_file, _canonical_diff_test_source(args.task_id, env_id, cd)),
-        (adv_file, _adversarial_test_source(args.task_id, env_id)),
-    ]:
-        if path.exists() and not args.force:
-            print(f"[skip] {path.relative_to(_REPO_ROOT)} already exists (use --force to overwrite)")
-            continue
-        path.write_text(content)
-        written.append(path)
-        print(f"[write] {path.relative_to(_REPO_ROOT)}")
+    if cd_file.exists() and not args.force:
+        print(f"[skip] {cd_file.relative_to(_REPO_ROOT)} already exists (use --force to overwrite)")
+        return 0
 
-    if written:
-        print()
-        print("Next steps:")
-        print(f"  1. Open the canonical_diff test file and fill in the TODO blocks.")
-        print(f"  2. Run: python -m webagentbench.tasks.validate {args.task_id}")
-        print(f"  3. When all stages pass, commit both files with the task YAML.")
+    cd_file.write_text(_canonical_diff_test_source(args.task_id, env_id, cd))
+    print(f"[write] {cd_file.relative_to(_REPO_ROOT)}")
+    print()
+    print("Next steps:")
+    print("  1. Open the canonical_diff test file and fill in the TODO blocks.")
+    print(f"  2. Run: python -m webagentbench.tasks.validate {args.task_id}")
+    print("  3. Adversarial coverage is automatic via test_adversarial_battery.py;")
+    print("     only write a bespoke test_<task_id>_adversarial.py if the task needs")
+    print("     oneof-branch logic the generic synthesizer can't express.")
+    print("  4. When all stages pass, commit the YAML + canonical_diff test.")
     return 0
 
 

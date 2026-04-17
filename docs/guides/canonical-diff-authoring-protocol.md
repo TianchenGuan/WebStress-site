@@ -304,7 +304,7 @@ The tool applies the diff to seeded state → opens the env SPA at the canonical
 
 ## 9  Step 8 — Round-trip and adversarial self-test
 
-These tests are automatically generated from the diff; authors do not write them. They run in CI.
+These tests run automatically from the diff; authors do not write them. Adversarial coverage is parametrized across every migrated task in `webagentbench/tests/test_adversarial_battery.py` — a new task is picked up the moment its YAML gains a `canonical_diff` block. No per-task adversarial file is generated.
 
 1. **Positive round-trip:** apply diff → evaluate → must pass.
 2. **Per-field adversarial:** for each field predicate, synthesize a mutation that violates it → evaluate → must fail with the field name in the failure attribution.

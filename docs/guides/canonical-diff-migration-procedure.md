@@ -39,6 +39,20 @@ can be relaxed in Phase 4 (after full migration, during legacy-path removal).
   - **Phase B — Batch (parallel, ≤3 concurrent).** Remaining tasks in the env. LLM-drafts the diff, auto-pipeline validates, human reviews. Up to 3 concurrent PRs in flight per env (more risks merge-conflict churn on shared files like `_seed_builders_<env>.py`).
   - **Phase C — Sweep (sequential).** Run the full-env equivalence test against the legacy `eval.checks`, migrate any remaining stragglers, delete legacy blocks from migrated task YAMLs.
 
+### 2.1.1  Batch the pytest invocation, not the pipeline
+
+Per-task pytest invocations amortize poorly — most of the wall-clock cost is pytest startup + app import, not the tests themselves. Migrate a batch of N tasks (draft YAMLs + happy-path tests for all N), then validate them together in one invocation:
+
+```bash
+# after N canonical_diff YAMLs + test_<id>_canonical_diff.py files are in place:
+pytest webagentbench/tests/test_adversarial_battery.py \
+       webagentbench/tests/test_{id1,id2,id3,...}_canonical_diff.py
+```
+
+`test_adversarial_battery.py` parametrizes over every task with a `canonical_diff` block, so it picks up the whole batch automatically. One pytest startup, one import graph, one SessionManager warmup. The full LMS+PP suite (2,305 tests) runs in ~9s locally.
+
+**Don't use `-n auto` on this workload.** Each test is ~10ms; xdist worker spawn (~1s × N workers) dominates and the parallel run is ~20% *slower* than serial. Use xdist only for suites where individual tests exceed ~200ms.
+
 ### 2.2  Env ordering
 
 | Order | Env | Why this order |
@@ -53,7 +67,7 @@ can be relaxed in Phase 4 (after full migration, during legacy-path removal).
 All of:
 
 - Every task in the env has a `canonical_diff:` block in its YAML.
-- Every task has `test_<task>_canonical_diff.py` (correct + wrong + excess trajectories) and `test_<task>_adversarial.py` (auto-generated battery).
+- Every task has `test_<task>_canonical_diff.py` (correct + wrong + excess trajectories). Adversarial coverage is automatic via `test_adversarial_battery.py`; only write a bespoke `test_<task>_adversarial.py` if the task has oneof-branch logic the generic synthesizer can't express.
 - `scripts/canonical_diff_equivalence.py <task_id>` produces zero `(fail, pass)` quadrant entries (new not more lenient than legacy) across all tasks in the env.
 - Any new bug classes discovered during the env have been documented in `canonical-diff-migration-hazards.md` with a regression guard merged.
 - Full pytest suite green for the env's test directory.
@@ -139,9 +153,18 @@ pytest webagentbench/tests/test_<task>_canonical_diff.py::test_correct_trajector
 
 **Goal:** auto-generated wrong-state cases must all be rejected.
 
+No per-task file is needed. `tests/test_adversarial_battery.py` parametrizes
+`synthesize_adversarial_cases` over every task whose YAML has a
+`canonical_diff` block. Run only the parametrize slice for your task:
+
 ```bash
-pytest webagentbench/tests/test_<task>_adversarial.py -v
+pytest "webagentbench/tests/test_adversarial_battery.py::test_all_adversarial_cases_fail[<task_id>]" -v
 ```
+
+Only write a `test_<task_id>_adversarial.py` file if the task needs
+oneof-branch logic the generic synthesizer can't express (rare — fewer
+than 5% of migrated tasks). If you do, it runs alongside the battery, not
+instead of it.
 
 **Failure modes:**
 
