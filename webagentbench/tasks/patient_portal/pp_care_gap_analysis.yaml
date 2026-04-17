@@ -76,33 +76,86 @@ seed:
     cardio_provider_ids: '{output.providers_by_specialty.cardiology}'
     endo_provider_ids: '{output.providers_by_specialty.endocrinology}'
     active_rx_ids: '{output.active_rx_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.provider_id in {target.cardio_provider_ids}\n  and a.reason == 'Atrial\
-      \ fibrillation care gap'\n  and a.id not in state._initial_snapshot.get('appointments',\
-      \ {})\n]) == 1"
-    desc: Exactly one cardiology care-gap follow-up was scheduled
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.provider_id in {target.endo_provider_ids}\n  and a.reason == 'Diabetes\
-      \ care gap'\n  and a.id not in state._initial_snapshot.get('appointments', {})\n\
-      ]) == 1"
-    desc: Exactly one endocrinology care-gap follow-up was scheduled
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.provider_id == '{target.pcp_id}'\n  and a.reason == 'Abnormal lab follow-up'\n\
-      \  and a.id not in state._initial_snapshot.get('appointments', {})\n]) == 1"
-    desc: Exactly one PCP abnormal-lab follow-up was scheduled
-  - expr: "len([\n  a for a in state.appointments\n  if a.id not in state._initial_snapshot.get('appointments',\
-      \ {})\n]) == 3"
-    desc: Agent created exactly three new appointments
-  negative_checks:
-  - expr: "len([\n  m for m in state.messages\n  if m.from_type == 'patient'\n  and\
-      \ m.id not in state._initial_snapshot.get('messages', {})\n]) == 0"
-    desc: Agent did not send any patient messages
-    penalty: 0.2
-  - expr: "all(rx.status == 'active'\n    for rx in state.prescriptions\n    if rx.id\
-      \ in {target.active_rx_ids})"
-    desc: Agent did not modify any prescriptions
-    penalty: 0.25
+canonical_diff:
+  create:
+    - entity: Appointment
+      desc: "Schedule one cardiology follow-up for the Atrial Fibrillation care gap"
+      properties:
+        status: {eq: "scheduled"}
+        reason: {eq: "Atrial fibrillation care gap"}
+        provider_id:
+          expr: "x in target['cardio_provider_ids']"
+        datetime: {any: true}
+        type: {any: true}
+        notes: {any: true}
+        linked_referral_id: {any: true}
+        pre_auth_status: {any: true}
+        booked_at: {any: true}
+        location: {any: true}
+    - entity: Appointment
+      desc: "Schedule one endocrinology follow-up for the Diabetes care gap"
+      properties:
+        status: {eq: "scheduled"}
+        reason: {eq: "Diabetes care gap"}
+        provider_id:
+          expr: "x in target['endo_provider_ids']"
+        datetime: {any: true}
+        type: {any: true}
+        notes: {any: true}
+        linked_referral_id: {any: true}
+        pre_auth_status: {any: true}
+        booked_at: {any: true}
+        location: {any: true}
+    - entity: Appointment
+      desc: "Schedule one PCP follow-up for the abnormal-lab care gap"
+      properties:
+        status: {eq: "scheduled"}
+        reason: {eq: "Abnormal lab follow-up"}
+        provider_id:
+          expr: "x == target['pcp_id']"
+        datetime: {any: true}
+        type: {any: true}
+        notes: {any: true}
+        linked_referral_id: {any: true}
+        pre_auth_status: {any: true}
+        booked_at: {any: true}
+        location: {any: true}
+  invariant:
+    - collection: state.appointments
+      filter: "a.id in {x.id for x in initial.appointments}"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not cancel or modify pre-existing appointments"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[1]
+      severity: critical
+    - name: "Agent did not send any messages"
+      ref: invariant[2]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[3]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not create or modify referrals"
+      ref: invariant[6]
+      severity: high
 secondary_primitives: []
