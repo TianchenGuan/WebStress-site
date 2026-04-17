@@ -59,6 +59,103 @@ seed:
     impossible_course_ids: '{output.impossible_course_ids}'
     achievable_course_ids: '{output.achievable_course_ids}'
     next_unsubmitted_ids: '{output.next_unsubmitted_ids}'
+canonical_diff:
+  update:
+  - entity: Enrollment
+    desc: Drop every impossible course enrollment
+    bijection:
+      over: "target['impossible_course_ids'].split(',') if target['impossible_course_ids'] else []"
+      variable: v
+    where:
+      id:
+        expr: "x == initial.get_enrollment_for_course(v).id"
+    changes:
+      status:
+        eq: dropped
+  - entity: Assignment
+    desc: Submit priority_plan.pdf for the next unsubmitted assignment in each achievable course
+    bijection:
+      over: "target['next_unsubmitted_ids'].split(',') if target['next_unsubmitted_ids'] else []"
+      variable: v
+    where:
+      id:
+        expr: "x == v"
+    changes:
+      submission_status:
+        in:
+        - submitted
+        - late
+      file_name:
+        eq: priority_plan.pdf
+      attempt_count:
+        expr: "x == initial.get_assignment(v).attempt_count + 1"
+      submitted_at:
+        expr: "x is not None"
+  invariant:
+  - collection: state.enrollments
+    filter: "a.course_id not in (target['impossible_course_ids'].split(',') if target['impossible_course_ids'] else [])"
+    preserve: ALL
+  - collection: state.assignments
+    filter: "a.id not in (target['next_unsubmitted_ids'].split(',') if target['next_unsubmitted_ids'] else [])"
+    preserve: ALL
+  - collection: state.courses
+    preserve: ALL
+  - collection: state.modules
+    preserve: ALL
+  - collection: state.discussions
+    preserve: ALL
+  - collection: state.discussion_posts
+    preserve: ALL
+  - collection: state.peer_reviews
+    preserve: ALL
+  - collection: state.announcements
+    preserve: ALL
+  - collection: state.grades
+    preserve: ALL
+  - collection: state.calendar_events
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  named_invariants:
+  - name: Agent dropped every impossible course enrollment
+    ref: update[0]
+    severity: high
+  - name: Agent submitted priority_plan.pdf for every achievable course
+    ref: update[1]
+    severity: high
+  - name: Agent did not modify other enrollments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other assignments
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify course records
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify modules
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify discussions
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or edit discussion posts
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not alter peer reviews
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not modify announcements
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not modify grades
+    ref: invariant[8]
+    severity: high
+  - name: Agent did not modify calendar events
+    ref: invariant[9]
+    severity: low
+  - name: Agent did not send messages
+    ref: invariant[10]
+    severity: medium
 eval:
   source: server_state
   checks:
