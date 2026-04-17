@@ -1980,11 +1980,29 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
         ctx.base["claims"].append(claim)
         processing_claim_ids.append(claim["id"])
 
+    # Derived: the most-recent denied claim by service_date (cid tiebreaker).
+    # Canonical_diff filters need a scalar target id to narrow "all claims
+    # except the target one" without access to `initial` or lambdas inside
+    # the `filter:` scope (hazard: invariant filter only sees `a` + `target`).
+    def _claim_service_date(cid: str) -> str:
+        for c in ctx.base["claims"]:
+            if c["id"] == cid:
+                return c["service_date"]
+        return ""
+
+    most_recent_denied_claim_id: str | None = None
+    if denied_claim_ids:
+        most_recent_denied_claim_id = max(
+            denied_claim_ids,
+            key=lambda cid: (_claim_service_date(cid), cid),
+        )
+
     return {
         "approved_claim_ids": approved_claim_ids,
         "denied_claim_ids": denied_claim_ids,
         "processing_claim_ids": processing_claim_ids,
         "appealable_claim_id": appealable_claim_id,
+        "most_recent_denied_claim_id": most_recent_denied_claim_id,
         "total_patient_responsibility": str(total_patient_responsibility),
     }
 
