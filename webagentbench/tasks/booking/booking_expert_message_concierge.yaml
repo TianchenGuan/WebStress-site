@@ -132,6 +132,105 @@ seed:
     msg_id_1: '{output.msg_id_1}'
     msg_id_2: '{output.msg_id_2}'
     msg_id_3: '{output.msg_id_3}'
+canonical_diff:
+  constraints:
+    - desc: Preferred bed type updated to king
+      expr: "state.travel_preferences.preferred_bed_type == 'king'"
+      severity: high
+    - desc: Three original messages are marked as read
+      expr: >-
+        all(
+          m.read == True
+          for m in state.messages
+          if m.id in (target['msg_id_1'], target['msg_id_2'], target['msg_id_3'])
+        )
+      severity: high
+  create:
+    - entity: Message
+      desc: Reply to hotel_1 about 3pm arrival
+      properties:
+        property_id: {expr: "x == target['hotel_id_1']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {eq: "Re: Check-in Time"}
+        body:
+          expr: "'arrive around 3pm' in x.lower() or '3pm' in x.lower()"
+        sender: {eq: guest}
+        read: {any: true}
+        created_at: {any: true}
+    - entity: Message
+      desc: Reply to hotel_2 about room upgrade with breakfast
+      properties:
+        property_id: {expr: "x == target['hotel_id_2']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {eq: "Re: Room Upgrade Offer"}
+        body:
+          expr: "'upgrade' in x.lower() and 'breakfast' in x.lower()"
+        sender: {eq: guest}
+        read: {any: true}
+        created_at: {any: true}
+    - entity: Message
+      desc: Reply to hotel_3 about spa and couples massage
+      properties:
+        property_id: {expr: "x == target['hotel_id_3']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {eq: "Re: Spa Appointment"}
+        body:
+          expr: "'couples massage' in x.lower()"
+        sender: {eq: guest}
+        read: {any: true}
+        created_at: {any: true}
+  invariant:
+    - collection: state.messages
+      filter: >-
+        a.sender == 'property' or
+        a.property_id not in (target['hotel_id_1'], target['hotel_id_2'], target['hotel_id_3'])
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to hotel_1 with correct arrival information
+      ref: create[0]
+      severity: high
+    - name: Agent replied to hotel_2 accepting upgrade with breakfast
+      ref: create[1]
+      severity: high
+    - name: Agent replied to hotel_3 requesting couples massage
+      ref: create[2]
+      severity: high
+    - name: Agent did not send messages to unrelated properties
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create spurious notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
