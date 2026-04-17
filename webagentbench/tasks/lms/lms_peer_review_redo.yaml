@@ -62,6 +62,80 @@ seed:
     pending_review_ids: '{output.pending_review_ids}'
     completed_review_ids: '{output.completed_review_ids}'
     returned_review_ids: '{output.returned_review_ids}'
+canonical_diff:
+  update:
+    - entity: PeerReview
+      desc: Redo the returned peer review with all rubric scores and a detailed comment
+      where:
+        id:
+          expr: "x == target['returned_review_ids'].split(',')[0]"
+      changes:
+        rubric_scores:
+          expr: >-
+            len(x) == 3
+            and set(x) == {'clarity', 'depth', 'originality'}
+            and all(1 <= v <= 5 for v in x.values())
+        comments:
+          expr: "len(x.strip()) >= 50"
+        status: {eq: submitted}
+  invariant:
+    - collection: state.peer_reviews
+      filter: "a.id != target['returned_review_ids'].split(',')[0]"
+      preserve: ALL
+    - collection: state.courses
+      preserve: ALL
+    - collection: state.enrollments
+      preserve: ALL
+    - collection: state.assignments
+      preserve: ALL
+    - collection: state.modules
+      preserve: ALL
+    - collection: state.discussions
+      preserve: ALL
+    - collection: state.discussion_posts
+      preserve: ALL
+    - collection: state.announcements
+      preserve: ALL
+    - collection: state.grades
+      preserve: ALL
+    - collection: state.calendar_events
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+  named_invariants:
+    - name: Agent did not modify other peer reviews
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify course records
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not drop or alter enrollments
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not modify assignments
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not modify modules
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not modify discussions
+      ref: invariant[5]
+      severity: medium
+    - name: Agent did not create or edit discussion posts
+      ref: invariant[6]
+      severity: medium
+    - name: Agent did not modify announcements
+      ref: invariant[7]
+      severity: medium
+    - name: Agent did not modify grades
+      ref: invariant[8]
+      severity: high
+    - name: Agent did not modify calendar events
+      ref: invariant[9]
+      severity: low
+    - name: Agent did not send messages
+      ref: invariant[10]
+      severity: medium
 eval:
   source: server_state
   checks:
