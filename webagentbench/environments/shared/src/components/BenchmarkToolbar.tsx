@@ -619,38 +619,138 @@ if (typeof document !== "undefined" && !document.getElementById("wab-bench-keyfr
 }
 
 function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
-  // Pairing-table layout: each required slot shown next to its matched
-  // candidate (or a "missing" placeholder). Excess candidates listed
-  // separately below. No crisscrossing SVG edges — every row is a
-  // paired correspondence that reads left-to-right.
+  // True bipartite graph: two columns of rich node-boxes with SVG edges
+  // drawn between them. Each slot is one left-column row at a fixed
+  // y-coord; each candidate is one right-column row at a fixed y-coord;
+  // edges (matched = solid green; satisfiable-but-unused = dashed grey)
+  // connect left-y to right-y as real lines through a middle edge-layer.
+  //
+  // Layout is purely computed (no refs/measurements) so it's
+  // deterministic and scales to any slot/candidate count.
 
-  const matchedCount = graph.slots.filter(
+  const matchedSlotCount = graph.slots.filter(
     (s) => s.matched_candidate_index !== null,
   ).length;
   const nRequired = graph.slots.length;
-  const excessCandidates = graph.candidates.filter((c) => c.is_excess);
-  const unmatchedWrongCandidates = graph.candidates.filter(
+  const excessCount = graph.candidates.filter((c) => c.is_excess).length;
+  const invalidCount = graph.candidates.filter(
     (c) => c.matched_slot_index === null && !c.is_excess,
+  ).length;
+
+  // Layout constants
+  const ROW_H = 44;
+  const ROW_GAP = 6;
+  const TOP_PAD = 12;
+  const EDGE_COL_W = 56; // width of the center column where edges draw
+  const SIDE_COL_W = 170; // width of each left/right box column
+  const TOTAL_W = SIDE_COL_W * 2 + EDGE_COL_W;
+  const NODE_R = 5;
+
+  const rowCount = Math.max(graph.slots.length, graph.candidates.length, 1);
+  const totalHeight = TOP_PAD + rowCount * (ROW_H + ROW_GAP);
+
+  // Anchor y for slot i (left column)
+  const slotY = (i: number) => TOP_PAD + i * (ROW_H + ROW_GAP) + ROW_H / 2;
+  // Anchor y for candidate i (right column).
+  // To make the visualization read naturally, we order candidates so that
+  // matched ones appear at the same row as their matching slot, and
+  // unmatched/excess flow after.
+  const candOrder = useMemo(() => {
+    // Build desired order: for each slot index i (ordered), if it has a
+    // matched candidate index c, place c at position i. Remaining
+    // candidates (unmatched + excess) fill the tail in their original
+    // order, so excess stays visually grouped at the bottom.
+    const placed: (number | null)[] = Array(
+      Math.max(graph.slots.length, graph.candidates.length),
+    ).fill(null);
+    const used = new Set<number>();
+    graph.slots.forEach((slot, i) => {
+      if (slot.matched_candidate_index !== null) {
+        placed[i] = slot.matched_candidate_index;
+        used.add(slot.matched_candidate_index);
+      }
+    });
+    let tail = graph.slots.length;
+    graph.candidates.forEach((_, cj) => {
+      if (!used.has(cj)) {
+        while (tail < placed.length && placed[tail] !== null) tail++;
+        if (tail >= placed.length) placed.push(cj);
+        else placed[tail] = cj;
+        tail++;
+      }
+    });
+    return placed.filter((x): x is number => x !== null);
+  }, [graph.slots, graph.candidates]);
+
+  // reverse lookup: candidate j → row index in right column
+  const candRow = new Map<number, number>();
+  candOrder.forEach((cj, rowIdx) => candRow.set(cj, rowIdx));
+
+  const candY = (rowIdx: number) => TOP_PAD + rowIdx * (ROW_H + ROW_GAP) + ROW_H / 2;
+  const svgHeight = Math.max(
+    totalHeight,
+    TOP_PAD + candOrder.length * (ROW_H + ROW_GAP),
   );
 
+  // ---- Styles ------------------------------------------------------
+  const containerStyle: React.CSSProperties = {
+    marginBottom: 12,
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    background: "#ffffff",
+    overflow: "hidden",
+  };
+
+  const headerStyle: React.CSSProperties = {
+    padding: "8px 10px",
+    background: "#f8fafc",
+    borderBottom: "1px solid #e5e7eb",
+  };
+
+  const graphWrapStyle: React.CSSProperties = {
+    position: "relative",
+    width: TOTAL_W,
+    height: svgHeight,
+    margin: "0 auto",
+    padding: `${TOP_PAD / 2}px 0`,
+  };
+
+  const nodeBoxBase: React.CSSProperties = {
+    position: "absolute",
+    width: SIDE_COL_W,
+    height: ROW_H,
+    padding: "4px 8px",
+    border: "1px solid",
+    borderRadius: 6,
+    background: "#ffffff",
+    fontSize: 11,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  };
+
   const statusPill = (
-    kind: "ok" | "miss" | "warn",
+    kind: "ok" | "miss" | "warn" | "neutral",
     label: string,
   ) => {
     const styles: Record<typeof kind, React.CSSProperties> = {
       ok: { background: "#dcfce7", color: "#166534", borderColor: "#86efac" },
       miss: { background: "#fee2e2", color: "#991b1b", borderColor: "#fca5a5" },
       warn: { background: "#fef3c7", color: "#92400e", borderColor: "#fcd34d" },
+      neutral: { background: "#f1f5f9", color: "#475569", borderColor: "#cbd5e1" },
     };
     return (
       <span
         style={{
           display: "inline-block",
-          padding: "1px 7px",
-          fontSize: 10,
+          padding: "1px 6px",
+          fontSize: 9,
           fontWeight: 600,
-          borderRadius: 10,
+          borderRadius: 8,
           border: "1px solid",
+          letterSpacing: "0.02em",
           ...styles[kind],
         }}
       >
@@ -659,196 +759,261 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
     );
   };
 
-  const rowStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
-    gap: 8,
-    padding: "6px 8px",
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: 11,
-  };
-
-  const cellBase: React.CSSProperties = {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
+  // Edge anchoring relative to the wrapper
+  const leftAnchorX = SIDE_COL_W;
+  const rightAnchorX = SIDE_COL_W + EDGE_COL_W;
 
   return (
-    <div
-      className="wab-bipartite"
-      style={{
-        marginBottom: 12,
-        border: "1px solid #e5e7eb",
-        borderRadius: 6,
-        background: "#ffffff",
-        overflow: "hidden",
-      }}
-    >
-      {/* Header: title + summary */}
-      <div
-        style={{
-          padding: "8px 10px",
-          background: "#f8fafc",
-          borderBottom: "1px solid #e5e7eb",
-        }}
-      >
+    <div className="wab-bipartite" style={containerStyle}>
+      {/* Header: task desc + numeric summary */}
+      <div style={headerStyle}>
         <div style={{ fontWeight: 600, fontSize: 12, color: "#0f172a", marginBottom: 3 }}>
           {graph.desc}
         </div>
         <div style={{ fontSize: 11, color: "#475569", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span>
             <strong style={{ color: graph.saturated ? "#16a34a" : "#dc2626" }}>
-              {matchedCount}/{nRequired}
+              {matchedSlotCount}/{nRequired}
             </strong>{" "}
             matched
           </span>
-          {excessCandidates.length > 0 && (
+          {excessCount > 0 && (
             <span style={{ color: "#b45309" }}>
-              · <strong>{excessCandidates.length}</strong> excess
+              · <strong>{excessCount}</strong> excess
             </span>
           )}
-          {unmatchedWrongCandidates.length > 0 && (
+          {invalidCount > 0 && (
             <span style={{ color: "#64748b" }}>
-              · <strong>{unmatchedWrongCandidates.length}</strong> invalid
+              · <strong>{invalidCount}</strong> invalid
             </span>
           )}
         </div>
       </div>
 
-      {/* Column headers */}
+      {/* Column labels */}
       <div
         style={{
-          ...rowStyle,
+          display: "flex",
+          padding: "6px 0",
           background: "#f9fafb",
-          color: "#64748b",
+          borderBottom: "1px solid #e5e7eb",
           fontSize: 10,
-          fontWeight: 600,
+          fontWeight: 700,
+          color: "#64748b",
           textTransform: "uppercase",
-          letterSpacing: "0.03em",
+          letterSpacing: "0.04em",
+          justifyContent: "center",
         }}
       >
-        <div>Required</div>
-        <div style={{ color: "#cbd5e1" }}></div>
-        <div>Agent Produced</div>
+        <div style={{ width: SIDE_COL_W, textAlign: "center" }}>Required</div>
+        <div style={{ width: EDGE_COL_W, textAlign: "center" }}>↔</div>
+        <div style={{ width: SIDE_COL_W, textAlign: "center" }}>Agent Produced</div>
       </div>
 
-      {/* Each required slot, paired with its matched candidate (or a placeholder) */}
-      {graph.slots.map((slot, i) => {
-        const matched = slot.matched_candidate_index !== null;
-        const candidate =
-          matched && slot.matched_candidate_index !== null
-            ? graph.candidates[slot.matched_candidate_index]
-            : null;
-        return (
-          <div key={`row-${i}`} style={rowStyle}>
-            <div style={{ ...cellBase, color: "#0f172a" }} title={slot.label}>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: matched ? "#22c55e" : "#ef4444",
-                  marginRight: 6,
-                }}
+      {/* Main graph canvas */}
+      <div style={graphWrapStyle}>
+        {/* SVG edge layer — drawn first (behind the boxes) */}
+        <svg
+          width={TOTAL_W}
+          height={svgHeight}
+          style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
+        >
+          {/* Possible but not chosen edges — faint dashed */}
+          {graph.edges_possible.map(([li, cj], idx) => {
+            const inMatching = graph.slots[li]?.matched_candidate_index === cj;
+            if (inMatching) return null;
+            const cRow = candRow.get(cj);
+            if (cRow === undefined) return null;
+            const y1 = slotY(li);
+            const y2 = candY(cRow);
+            // Smooth horizontal curve between anchor points
+            const midX = (leftAnchorX + rightAnchorX) / 2;
+            return (
+              <path
+                key={`edge-poss-${idx}`}
+                d={`M ${leftAnchorX} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${rightAnchorX} ${y2}`}
+                stroke="#cbd5e1"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                fill="none"
               />
-              {slot.label}
-            </div>
-            <div style={{ color: matched ? "#22c55e" : "#cbd5e1", fontSize: 14, lineHeight: 1 }}>
-              {matched ? "→" : "···"}
-            </div>
-            <div style={{ ...cellBase }}>
-              {candidate ? (
-                <>
-                  <span style={{ color: "#0f172a", marginRight: 6 }} title={candidate.label}>
-                    {candidate.label}
-                  </span>
-                  {statusPill("ok", "matched")}
-                </>
-              ) : (
-                <>
-                  <span style={{ color: "#94a3b8", marginRight: 6 }}>— nothing —</span>
-                  {statusPill("miss", "missing")}
-                </>
-              )}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+          {/* Chosen matching edges — solid green */}
+          {graph.slots.map((slot, li) => {
+            if (slot.matched_candidate_index === null) return null;
+            const cRow = candRow.get(slot.matched_candidate_index);
+            if (cRow === undefined) return null;
+            const y1 = slotY(li);
+            const y2 = candY(cRow);
+            const midX = (leftAnchorX + rightAnchorX) / 2;
+            return (
+              <path
+                key={`edge-match-${li}`}
+                d={`M ${leftAnchorX} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${rightAnchorX} ${y2}`}
+                stroke="#22c55e"
+                strokeWidth={2}
+                fill="none"
+              />
+            );
+          })}
+          {/* Arrowhead markers at the right endpoint of each match */}
+          {graph.slots.map((slot, li) => {
+            if (slot.matched_candidate_index === null) return null;
+            const cRow = candRow.get(slot.matched_candidate_index);
+            if (cRow === undefined) return null;
+            const y = candY(cRow);
+            return (
+              <polygon
+                key={`arrow-${li}`}
+                points={`${rightAnchorX - 6},${y - 3} ${rightAnchorX},${y} ${rightAnchorX - 6},${y + 3}`}
+                fill="#22c55e"
+              />
+            );
+          })}
+          {/* Left-column anchor nodes */}
+          {graph.slots.map((slot, li) => {
+            const matched = slot.matched_candidate_index !== null;
+            return (
+              <circle
+                key={`ln-${li}`}
+                cx={leftAnchorX}
+                cy={slotY(li)}
+                r={NODE_R}
+                fill={matched ? "#22c55e" : "#ef4444"}
+                stroke="#ffffff"
+                strokeWidth={1.5}
+              />
+            );
+          })}
+          {/* Right-column anchor nodes */}
+          {candOrder.map((cj, rowIdx) => {
+            const cand = graph.candidates[cj];
+            const matched = cand.matched_slot_index !== null;
+            const excess = cand.is_excess;
+            const fill = matched ? "#22c55e" : excess ? "#f59e0b" : "#94a3b8";
+            return (
+              <circle
+                key={`rn-${rowIdx}`}
+                cx={rightAnchorX}
+                cy={candY(rowIdx)}
+                r={NODE_R}
+                fill={fill}
+                stroke="#ffffff"
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </svg>
 
-      {/* Excess candidates — agent created more than the task required */}
-      {excessCandidates.length > 0 && (
-        <div
-          style={{
-            padding: "6px 10px",
-            background: "#fffbeb",
-            borderTop: "1px solid #fde68a",
-            fontSize: 11,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#92400e",
-              textTransform: "uppercase",
-              letterSpacing: "0.03em",
-              marginBottom: 4,
-            }}
-          >
-            ⚠ Excess ({excessCandidates.length})
-          </div>
-          {excessCandidates.map((cand, i) => (
+        {/* Left-column boxes (required slots) */}
+        {graph.slots.map((slot, li) => {
+          const matched = slot.matched_candidate_index !== null;
+          return (
             <div
-              key={`excess-${i}`}
-              style={{ padding: "2px 0", color: "#78350f", display: "flex", justifyContent: "space-between" }}
+              key={`left-${li}`}
+              style={{
+                ...nodeBoxBase,
+                left: 0,
+                top: slotY(li) - ROW_H / 2,
+                borderColor: matched ? "#86efac" : "#fca5a5",
+                background: matched ? "#f0fdf4" : "#fef2f2",
+              }}
+              title={slot.label}
             >
-              <span title={cand.label} style={cellBase}>
-                {cand.label}
-              </span>
-              {statusPill("warn", "over-created")}
+              <div
+                style={{
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {slot.label}
+              </div>
+              <div style={{ marginTop: 2 }}>
+                {statusPill(matched ? "ok" : "miss", matched ? "matched" : "missing")}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
 
-      {/* Unmatched candidates that aren't excess — tried but predicates rejected them */}
-      {unmatchedWrongCandidates.length > 0 && (
-        <div
-          style={{
-            padding: "6px 10px",
-            background: "#f8fafc",
-            borderTop: "1px solid #e5e7eb",
-            fontSize: 11,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#64748b",
-              textTransform: "uppercase",
-              letterSpacing: "0.03em",
-              marginBottom: 4,
-            }}
-          >
-            ✗ Did not satisfy any slot ({unmatchedWrongCandidates.length})
-          </div>
-          {unmatchedWrongCandidates.map((cand, i) => (
+        {/* Right-column boxes (agent candidates, ordered to align with matches) */}
+        {candOrder.map((cj, rowIdx) => {
+          const cand = graph.candidates[cj];
+          const matched = cand.matched_slot_index !== null;
+          const excess = cand.is_excess;
+          const pillKind: "ok" | "warn" | "neutral" = matched
+            ? "ok"
+            : excess
+              ? "warn"
+              : "neutral";
+          const pillLabel = matched
+            ? "matched"
+            : excess
+              ? "over-created"
+              : "invalid";
+          const borderColor = matched
+            ? "#86efac"
+            : excess
+              ? "#fcd34d"
+              : "#cbd5e1";
+          const bg = matched ? "#f0fdf4" : excess ? "#fffbeb" : "#f8fafc";
+          return (
             <div
-              key={`invalid-${i}`}
-              style={{ padding: "2px 0", color: "#475569", display: "flex", justifyContent: "space-between" }}
+              key={`right-${rowIdx}`}
+              style={{
+                ...nodeBoxBase,
+                left: SIDE_COL_W + EDGE_COL_W,
+                top: candY(rowIdx) - ROW_H / 2,
+                borderColor,
+                background: bg,
+              }}
+              title={cand.label}
             >
-              <span title={cand.label} style={cellBase}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {cand.label}
-              </span>
-              {statusPill("miss", "invalid")}
+              </div>
+              <div style={{ marginTop: 2 }}>{statusPill(pillKind, pillLabel)}</div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+
+        {/* Ghost boxes for required slots with no candidate (visual placeholder) */}
+        {graph.slots.map((slot, li) => {
+          if (slot.matched_candidate_index !== null) return null;
+          // No matched candidate → show an empty placeholder on the right at the slot's row
+          const rowIdx = li;
+          // Only draw ghost if no real candidate occupies this row
+          if (rowIdx < candOrder.length) return null;
+          return (
+            <div
+              key={`ghost-${li}`}
+              style={{
+                ...nodeBoxBase,
+                left: SIDE_COL_W + EDGE_COL_W,
+                top: slotY(li) - ROW_H / 2,
+                borderColor: "#e5e7eb",
+                background: "#fafafa",
+                borderStyle: "dashed",
+                color: "#94a3b8",
+              }}
+            >
+              <div style={{ fontStyle: "italic", fontSize: 10 }}>nothing created</div>
+              <div style={{ marginTop: 2 }}>{statusPill("miss", "missing")}</div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Legend */}
       <div
@@ -858,12 +1023,66 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
           borderTop: "1px solid #e5e7eb",
           fontSize: 10,
           color: "#64748b",
-          lineHeight: 1.5,
+          lineHeight: 1.6,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "4px 12px",
         }}
       >
-        <span style={{ marginRight: 10 }}>🟢 matched · 🔴 missing · 🟡 excess · ⚪ invalid</span>
+        <LegendDot color="#22c55e" label="matched" />
+        <LegendDot color="#ef4444" label="missing" />
+        <LegendDot color="#f59e0b" label="excess" />
+        <LegendDot color="#94a3b8" label="invalid" />
+        <LegendEdge color="#22c55e" solid label="chosen match" />
+        <LegendEdge color="#cbd5e1" solid={false} label="possible (unused)" />
       </div>
     </div>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span
+        style={{
+          display: "inline-block",
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: color,
+          border: "1px solid #fff",
+          boxShadow: "0 0 0 1px #e5e7eb",
+        }}
+      />
+      {label}
+    </span>
+  );
+}
+
+function LegendEdge({
+  color,
+  solid,
+  label,
+}: {
+  color: string;
+  solid: boolean;
+  label: string;
+}) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <svg width={18} height={6}>
+        <line
+          x1={0}
+          y1={3}
+          x2={18}
+          y2={3}
+          stroke={color}
+          strokeWidth={solid ? 2 : 1}
+          strokeDasharray={solid ? "" : "3 2"}
+        />
+      </svg>
+      {label}
+    </span>
   );
 }
 
