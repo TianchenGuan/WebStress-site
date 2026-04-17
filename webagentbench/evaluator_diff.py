@@ -86,10 +86,13 @@ _SAFE_BUILTINS = {
     "max": max,
     "any": any,
     "all": all,
+    "next": next,
     "range": range,
     "abs": abs,
     "round": round,
     "sorted": sorted,
+    "enumerate": enumerate,
+    "zip": zip,
     "Decimal": Decimal,
     "datetime": datetime,
     "timedelta": timedelta,
@@ -331,10 +334,17 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
                         ignore = getattr(type(v), "DIFF_IGNORE_FIELDS", ())
                         if ignore:
                             entity_dict = _strip_ignored_fields(entity_dict, ignore)
-                    else:
+                    elif isinstance(v, dict):
                         entity_dict = dict(v)
+                    else:
+                        # Non-entity list element (e.g. list[str] of IDs).
+                        # Such collections can't be keyed by entity id and are
+                        # not tracked by the entity-level diff. Check them via
+                        # canonical_diff `constraints:` instead.
+                        continue
                     dumped.append(entity_dict)
-                out[name] = dumped
+                if dumped:
+                    out[name] = dumped
         return out
     raise TypeError(f"compute_diff: unsupported state type {type(state)!r}")
 
@@ -555,15 +565,31 @@ def _entity_dict_for_invariant(entry: "DiffEntry") -> dict[str, Any]:
 # ── Matcher (Task 5) ── Bijection helpers
 # ------------------------------------------------------------------
 
-def _eval_target_expr(expr_source: str, targets: dict) -> Any:
+def _eval_target_expr(
+    expr_source: str,
+    targets: dict,
+    initial: Any = None,
+    final: Any = None,
+) -> Any:
     """Evaluate a target-reference expression (e.g. ``target['due_ids']``).
 
     Uses the same restricted-eval pattern as ``{expr: ...}`` predicates —
-    only the safe-builtins allowlist is exposed, and ``target`` is bound
-    as a local. Source is author-controlled (task YAML).
+    only the safe-builtins allowlist is exposed. ``target``, ``initial``,
+    and ``state`` are bound as globals (comprehensions read from globals,
+    not locals — same reason as hazard Class 8). Source is author-
+    controlled (task YAML).
+
+    ``initial`` and ``state`` are optional so callers that don't have
+    them (e.g. the degenerate check in bijection evaluation) can still
+    call this with only targets.
     """
-    globs = {"__builtins__": _SAFE_BUILTINS}
-    return eval(expr_source, globs, {"target": targets})  # noqa: S307
+    globs = {
+        "__builtins__": _SAFE_BUILTINS,
+        "target": targets,
+        "initial": initial,
+        "state": final,
+    }
+    return eval(expr_source, globs, {})  # noqa: S307
 
 
 def _max_bipartite_matching(
@@ -667,7 +693,7 @@ def _match_single_block(
             # Bijection case (Task 5): one-to-one match between target slots
             # and agent-diff Create entries via maximum bipartite matching.
             try:
-                left = _eval_target_expr(entry.bijection.over, targets)
+                left = _eval_target_expr(entry.bijection.over, targets, initial=initial, final=final)
             except Exception as exc:
                 checks.append({
                     "desc": entry.desc or f"Create required {entry.entity}(s) (target lookup failed)",
@@ -861,7 +887,7 @@ def _match_single_block(
 
         if entry.bijection is not None:
             try:
-                left = _eval_target_expr(entry.bijection.over, targets)
+                left = _eval_target_expr(entry.bijection.over, targets, initial=initial, final=final)
             except Exception as exc:
                 checks.append({
                     "desc": f"{base_desc} (target lookup failed)",

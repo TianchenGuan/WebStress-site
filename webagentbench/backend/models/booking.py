@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -90,6 +90,23 @@ class RoomType(BaseEntity):
 
 
 class Property(BaseEntity):
+    # ``room_types`` contains per-room availability counters (``rooms_left``,
+    # ``is_available``) that the booking routes mutate as a side effect of
+    # reservation create/cancel. Hazard Class 6: hide those nested
+    # side-effect mutations from ``compute_diff`` so cancel/create tasks
+    # don't trip the "unaccounted update on property" sweep. No booking
+    # task directly agent-mutates room fields; if one ever does, either
+    # promote RoomType to a top-level collection or use a canonical_diff
+    # constraint against ``state.properties[...].room_types``.
+    # ``review_score``, ``review_score_label``, and ``review_count`` are
+    # similarly updated as side effects of ``add_review`` — hide them too.
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = (
+        "room_types",
+        "review_score",
+        "review_score_label",
+        "review_count",
+    )
+
     name: str
     property_type: str = "hotel"  # hotel, apartment, resort, hostel, villa, b&b, aparthotel
     star_rating: int = 4  # 1–5

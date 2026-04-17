@@ -140,6 +140,109 @@ seed:
     property_name: '{output.prop_name}'
     alt_id: '{output.alt_id}'
     alt_name: '{output.alt_name}'
+canonical_diff:
+  constraints:
+    - desc: Preferred room type updated to family
+      expr: "state.travel_preferences.preferred_room_type == 'family'"
+      severity: medium
+    - desc: Accessibility needs enabled
+      expr: "state.travel_preferences.accessibility_needs == True"
+      severity: medium
+  create:
+    - entity: Reservation
+      desc: Book Family Room at Hotel del Mar Barcelona for 4 guests, 7 nights
+      properties:
+        property_id: {expr: "x == target['prop_id']"}
+        property_name: {any: true}
+        room_type_id: {any: true}
+        room_type_name: {eq: "Family Room"}
+        check_in: {eq: "2026-08-01"}
+        check_out: {eq: "2026-08-08"}
+        nights: {eq: 7}
+        guests: {eq: 4}
+        rooms: {any: true}
+        price_per_night: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+        currency: {any: true}
+        status: {eq: confirmed}
+        booked_at: {any: true}
+        guest_info: {any: true}
+        payment_method_id: {any: true}
+        cancellation_policy: {any: true}
+        confirmation_number: {any: true}
+        is_genius_deal: {any: true}
+        genius_discount: {any: true}
+        meals_included: {any: true}
+        rating_submitted: {any: true}
+    - entity: SavedList
+      desc: Create Family Trips saved list with both the main and alternative hotels
+      properties:
+        name: {eq: "Family Trips"}
+        property_ids:
+          expr: "target['prop_id'] in x and target['alt_id'] in x"
+        created_at: {any: true}
+        updated_at: {any: true}
+    - entity: Message
+      desc: Send family requirements message to Hotel del Mar Barcelona
+      properties:
+        property_id: {expr: "x == target['prop_id']"}
+        property_name: {any: true}
+        reservation_id: {any: true}
+        subject: {expr: "'family requirements' in x.lower() or 'family' in x.lower()"}
+        body: {expr: "'children ages 5 and 8' in x.lower() or 'children' in x.lower()"}
+        sender: {eq: guest}
+        read: {eq: false}
+        created_at: {any: true}
+  invariant:
+    - collection: state.reservations
+      filter: "a.property_id != target['prop_id'] or a.check_in != '2026-08-01'"
+      preserve: ALL
+    - collection: state.saved_lists
+      filter: "a.name != 'Family Trips'"
+      preserve: ALL
+    - collection: state.messages
+      filter: "a.property_id != target['prop_id']"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent booked Family Room at Hotel del Mar for 4 guests
+      ref: create[0]
+      severity: critical
+    - name: Agent created Family Trips list with both hotels
+      ref: create[1]
+      severity: high
+    - name: Agent sent family requirements message to the hotel
+      ref: create[2]
+      severity: high
+    - name: Agent did not modify other reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify other saved lists
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify existing messages
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not create or modify reviews
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

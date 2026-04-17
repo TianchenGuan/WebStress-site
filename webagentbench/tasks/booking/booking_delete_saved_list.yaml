@@ -35,6 +35,53 @@ seed:
   targets:
     list_id: '{output.target_list_id}'
     list_name: Weekend Getaways
+canonical_diff:
+  delete:
+    - entity: SavedList
+      desc: Delete the Weekend Getaways saved list
+      where:
+        id: {expr: "x == target['list_id']"}
+  invariant:
+    - collection: state.saved_lists
+      filter: "a.id != target['list_id']"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent deleted the target saved list
+      ref: delete[0]
+      severity: critical
+    - name: Agent did not delete or modify other saved lists
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

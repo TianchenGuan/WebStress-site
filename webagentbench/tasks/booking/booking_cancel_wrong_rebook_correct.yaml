@@ -128,6 +128,66 @@ seed:
     correct_check_in: '2026-06-15'
     distractor_res_id: '{output.distractor_res_id}'
     city: London
+canonical_diff:
+  update:
+    - entity: Reservation
+      desc: Cancel the wrong-date reservation at The Connaught
+      where:
+        id: {expr: "x == target['wrong_res_id']"}
+      changes:
+        status: {eq: cancelled}
+    - entity: Reservation
+      desc: Modify the correct reservation to add special requests
+      where:
+        id: {expr: "x == target['correct_res_id']"}
+      changes:
+        status: {eq: modified}
+        guest_info:
+          expr: "'extra pillows' in (x.get('special_requests') or '').lower() and 'hypoallergenic' in (x.get('special_requests') or '').lower() and 'anniversary' in (x.get('special_requests') or '').lower()"
+  invariant:
+    - collection: state.reservations
+      filter: "a.id != target['wrong_res_id'] and a.id != target['correct_res_id']"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent cancelled the wrong-date reservation
+      ref: update[0]
+      severity: critical
+    - name: Agent modified the correct reservation with special requests
+      ref: update[1]
+      severity: critical
+    - name: Agent did not cancel or modify other reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
