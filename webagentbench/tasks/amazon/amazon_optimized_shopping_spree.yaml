@@ -140,44 +140,44 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
-  - expr: 'any(len(order.items) >= 5 for order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'any(len(order.items) >= 5 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: A new order contains at least 5 items
   - expr: 'any(any(item.product_id == ''{target.elec_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Electronics item is in the order
   - expr: 'any(any(item.product_id == ''{target.book_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Books item is in the order
   - expr: 'any(any(item.product_id == ''{target.home_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Home & Kitchen item is in the order
   - expr: 'any(any(item.product_id == ''{target.sport_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Sports & Outdoors item is in the order
   - expr: 'any(any(item.product_id == ''{target.office_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Office Supplies item is in the order
-  - expr: 'any(order.total < 500.0 for order in state.orders if not order.id.startswith(''order_initial_'')
+  - expr: 'any(order.total < 500.0 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {})
       and len(order.items) >= 5)
 
       '
     desc: Order total is under $500
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one new order placed for all items
     penalty: 0.15
@@ -185,7 +185,7 @@ eval:
     desc: Cart is empty after checkout
     penalty: 0.1
   - expr: 'any(len(set(next((p.category for p in state.products if p.id == item.product_id),
-      "unknown") for item in order.items)) >= 5 for order in state.orders if not order.id.startswith(''order_initial_'')
+      "unknown") for item in order.items)) >= 5 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {})
       and len(order.items) >= 5)
 
       '

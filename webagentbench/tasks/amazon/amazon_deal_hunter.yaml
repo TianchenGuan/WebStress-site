@@ -50,27 +50,27 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: "sum(\n  1 for order in state.orders\n  if not order.id.startswith('order_initial_')\n\
+  - expr: "sum(\n  1 for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders', {})\n\
       \  and order.status == 'confirmed'\n  and len(order.items) == 1\n  and order.items[0].product_id\
       \ == '{target.deal_product_id}'\n  and order.items[0].quantity == 1\n) == 1\n"
     desc: Exactly one confirmed order was placed for the best-discount item
-  - expr: "any(\n  not order.id.startswith('order_initial_')\n  and order.status ==\
+  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
       \ 'confirmed'\n  and len(order.items) == 1\n  and abs(order.items[0].unit_price\
       \ - {target.sale_price}) < 0.01\n  for order in state.orders\n)\n"
     desc: Order used the discounted sale price, not the list price
-  - expr: "any(\n  not order.id.startswith('order_initial_')\n  and order.status ==\
+  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
       \ 'confirmed'\n  and any(\n    addr.id == order.shipping_address_id\n    and\
       \ addr.full_name == '{target.shipping_name}'\n    and addr.street_address ==\
       \ '{target.shipping_street}'\n    for addr in state.addresses\n  )\n  for order\
       \ in state.orders\n)\n"
     desc: Order uses the required shipping address
-  - expr: "any(\n  not order.id.startswith('order_initial_')\n  and order.status ==\
+  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
       \ 'confirmed'\n  and any(\n    pm.id == order.payment_method_id\n    and pm.card_type\
       \ == '{target.payment_type}'\n    and pm.last_four == '{target.payment_last_four}'\n\
       \    for pm in state.payment_methods\n  )\n  for order in state.orders\n)\n"
     desc: Order uses the required Visa card ending in 4242
   negative_checks:
-  - expr: 'sum(1 for order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
       == 1
 
       '
@@ -80,7 +80,7 @@ eval:
     desc: Cart is empty after checkout
     penalty: 0.1
   - expr: "all(\n  len(order.items) == 1\n  and order.items[0].product_id == '{target.deal_product_id}'\n\
-      \  and order.items[0].quantity == 1\n  for order in state.orders\n  if not order.id.startswith('order_initial_')\n\
+      \  and order.items[0].quantity == 1\n  for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders', {})\n\
       )\n"
     desc: Only the target deal product was purchased, with no extras
     penalty: 0.3

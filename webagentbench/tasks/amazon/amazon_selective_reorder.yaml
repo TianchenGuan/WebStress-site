@@ -112,25 +112,25 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id_sel1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 1 reordered
   - expr: 'any(any(item.product_id == ''{target.product_id_sel3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 3 reordered
   - expr: 'any(any(item.product_id == ''{target.product_id_sel1}'' for item in o.items)
       and any(item.product_id == ''{target.product_id_sel3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Both products are in the same order
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: New order confirmed
@@ -143,19 +143,19 @@ eval:
     desc: Agent viewed at least one of the target orders
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.product_id_sel2}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 2 was NOT reordered
     penalty: 0.2
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
       <= 1
 
       '
     desc: Only one new order placed
     penalty: 0.1
   - expr: 'not any(any(item.product_id not in [''{target.product_id_sel1}'', ''{target.product_id_sel3}'']
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No extra products in the order

@@ -51,7 +51,7 @@ eval:
       == 'Jordan Lee')
     desc: Address has correct ZIP code
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) ==
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) ==
       0
     desc: No new order was accidentally placed
     penalty: 0.15

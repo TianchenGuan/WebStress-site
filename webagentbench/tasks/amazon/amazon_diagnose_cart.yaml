@@ -119,7 +119,7 @@ eval:
       '
     desc: Target cart item was corrected in place instead of duplicated or removed
     penalty: 0.3
-  - expr: 'not any(not order.id.startswith(''order_initial_'') for order in state.orders)
+  - expr: 'not any(order.id not in state._initial_snapshot.get(''orders'', {}) for order in state.orders)
 
       '
     desc: No checkout was started while fixing the cart

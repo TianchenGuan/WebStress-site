@@ -172,20 +172,20 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.e_cheap}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheap Electronics item purchased
   - expr: 'any(any(item.product_id == ''{target.h_cheap}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheap Home & Kitchen item purchased
   - expr: 'any(any(item.product_id == ''{target.s_cheap}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheap Sports item purchased
@@ -197,30 +197,30 @@ eval:
     desc: Expensive Sports item removed from wishlist
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order confirmed
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.e_exp}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Expensive Electronics not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.h_exp}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Expensive Home not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.s_exp}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Expensive Sports not purchased
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1

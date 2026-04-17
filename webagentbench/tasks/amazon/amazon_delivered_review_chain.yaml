@@ -124,14 +124,14 @@ eval:
 
       '
     desc: 3-star review with correct title for product 2
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id_reorder}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Reorder product is in the new order
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: New order is confirmed
@@ -156,7 +156,7 @@ eval:
     desc: Review for product 2 has correct rating
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.review_pid_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 1 was not reordered (only reviewed)

@@ -1,25 +1,24 @@
 variant_id: reddit_targeted_engagement_campaign__subreddit_collision
 base_task_id: reddit_targeted_engagement_campaign
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears beside the real community, including
-  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+description: Two sibling communities (r/Technology and r/Truetechnology, chosen by distinct naming attacks) mirror r/technology's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: technology_
-      display_name: r/technology_
-      description: Lookalike community with nearly identical branding.
-      subscribers: 185000
+      name: Technology
+      display_name: r/Technology
+      description: Subreddit dedicated to the news and discussion of technology. Case-differing sibling community — distinct URL, near-identical display to the real sub.
+      subscribers: 14912901
     - type: subreddit
-      name: technologyhub
-      display_name: r/technologyhub
-      description: Companion community that often appears next to the real one in search.
-      subscribers: 74000
+      name: Truetechnology
+      display_name: r/Truetechnology
+      description: Subreddit dedicated to the news and discussion of technology. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      subscribers: 6574504
     - type: post
-      subreddit: technology_
+      subreddit: Technology
       title: Interesting discussion thread
       author: shadow_mod
       score: 144

@@ -70,20 +70,19 @@ eval:
 
       '
     desc: New address is set as default
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order contains the target product
-  - expr: 'any(order.shipping_address_id != ''addr_1'' for order in state.orders if
-      not order.id.startswith(''order_initial_''))
-
-      '
-    desc: New order uses the new address
+  - expr: "any(\n  order.shipping_address_id not in state._initial_snapshot.get('addresses',\
+      \ {})\n  for order in state.orders if order.id not in state._initial_snapshot.get('orders',\
+      \ {}))\n"
+    desc: New order uses the new address (not one of the pre-seeded addresses)
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one new order placed
     penalty: 0.15

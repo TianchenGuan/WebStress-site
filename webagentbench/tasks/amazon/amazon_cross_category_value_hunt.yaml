@@ -105,47 +105,47 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.best_id_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Top-rated product 1 purchased
   - expr: 'any(any(item.product_id == ''{target.best_id_2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Top-rated product 2 purchased
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order is confirmed
-  - expr: 'any(len(o.items) == 2 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(len(o.items) == 2 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order contains exactly two items
   - expr: 'any(any(item.product_id == ''{target.best_id_1}'' for item in o.items)
       and any(item.product_id == ''{target.best_id_2}'' for item in o.items) for o
-      in state.orders if not o.id.startswith(''order_initial_''))
+      in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Both top-rated products are in the same order
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.third_id}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Third-ranked product was not purchased
     penalty: 0.2
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1
   - expr: 'all(all(item.unit_price < 40 for item in o.items) for o in state.orders
-      if not o.id.startswith(''order_initial_''))
+      if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: All purchased items are under $40

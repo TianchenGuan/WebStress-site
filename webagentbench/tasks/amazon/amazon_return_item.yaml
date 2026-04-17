@@ -66,7 +66,8 @@ eval:
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
     penalty: 0.1
-  - expr: len(state.orders) <= 3
-    desc: No excessive orders placed
+  - expr: "not any(o.id not in state._initial_snapshot.get('orders', {}) for o in\
+      \ state.orders)"
+    desc: No new orders placed (return task should not add orders)
     penalty: 0.15
 secondary_primitives: []

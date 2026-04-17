@@ -77,33 +77,32 @@ eval:
     desc: One-click ordering is enabled
   - expr: state.settings.deal_alerts_email == True
     desc: Deal-alert emails are turned on
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Target product was purchased
   - expr: 'any(any(''800 Corporate'' in addr.street_address for addr in state.addresses
-      if addr.id == order.shipping_address_id) for order in state.orders if not order.id.startswith(''order_initial_''))
+      if addr.id == order.shipping_address_id) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order shipped to the Office address
-  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order
-      in state.orders if not order.id.startswith(''order_initial_'') and any(item.product_id
-      == ''{target.product_id}'' for item in order.items))
-
-      '
+  - expr: "any(\n  order.payment_method_id not in state._initial_snapshot.get('payment_methods',\
+      \ {})\n  for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders',\
+      \ {})\n  and any(item.product_id == '{target.product_id}' for item in order.items))\n"
     desc: Order uses the new payment method, not any pre-loaded one
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: len(state.returns) == 0
+  - expr: 'not any(r.id not in state._initial_snapshot.get(''returns'', {}) for r in state.returns)'
     desc: No returns filed when none required
     penalty: 0.15
-  - expr: len(state.orders) <= 2
-    desc: No excessive orders placed
+  - expr: "sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders',\
+      \ {})) <= 2"
+    desc: No excessive new orders placed
     penalty: 0.15
   - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
     desc: No off-task returns were opened or updated

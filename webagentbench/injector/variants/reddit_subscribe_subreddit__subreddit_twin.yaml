@@ -1,27 +1,26 @@
 variant_id: reddit_subscribe_subreddit__subreddit_twin
 base_task_id: reddit_subscribe_subreddit
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears in search and navigation. The agent
-  must act in the exact community named in the task.
+description: Two sibling communities (r/TruePiracy and r/Piracy_, chosen by distinct naming attacks) mirror r/Piracy's subscriber count and description, plus a same-title post in the wrong place. The agent must subscribe to the exact r/Piracy named in the task, not a near-identical twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: MachineLearning_
-      display_name: r/MachineLearning_
-      description: Lookalike community with a confusingly similar name.
-      subscribers: 215000
+      name: TruePiracy
+      display_name: r/TruePiracy
+      description: Dedicated to the discussion of digital piracy, including ethical problems and legal advancements. Self-declared 'original' community that often appears in search beside the real sub.
+      subscribers: 2547168
     - type: subreddit
-      name: MachineLearninghelp
-      display_name: r/MachineLearninghelp
-      description: Meta/help community for a similarly named subreddit.
-      subscribers: 54000
+      name: Piracy_
+      display_name: r/Piracy_
+      description: Dedicated to the discussion of digital piracy, including ethical problems and legal advancements. Underscored sibling — distinct URL slug, same branding.
+      subscribers: 1122786
     - type: post
-      subreddit: MachineLearning_
+      subreddit: TruePiracy
       title: Helpful thread
       author: shadow_mod
       score: 92
       comments: 11
-      body: Same headline in the wrong, lookalike subreddit.
+      body: Same headline posted into the wrong, lookalike subreddit.

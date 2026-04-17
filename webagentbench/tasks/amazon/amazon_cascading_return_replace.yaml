@@ -118,14 +118,14 @@ eval:
 
       '
     desc: Return filed for order 2 with reason wrong_item
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.replace_pid}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Replacement product purchased
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Replacement order confirmed
@@ -146,7 +146,7 @@ eval:
       '
     desc: Order 2 return has correct reason
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one replacement order placed
     penalty: 0.1

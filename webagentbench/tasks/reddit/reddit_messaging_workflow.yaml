@@ -76,7 +76,7 @@ eval:
   - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}'
       and m.body == '{target.new_body}' for m in state.sent_messages)
     desc: New message sent with exact text
-  - expr: len(state.sent_messages) == 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) == 2
     desc: Exactly two messages were sent
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam message deleted

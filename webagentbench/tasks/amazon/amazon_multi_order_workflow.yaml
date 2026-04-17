@@ -116,18 +116,18 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) >=
       2
     desc: At least two new orders were placed
   - expr: 'any(any(item.product_id == ''{target.elec1_id}'' for item in order.items)
       and any(item.product_id == ''{target.elec2_id}'' for item in order.items) for
-      order in state.orders if not order.id.startswith(''order_initial_''))
+      order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: One order contains both electronics items
   - expr: 'any(any(item.product_id == ''{target.book1_id}'' for item in order.items)
       and any(item.product_id == ''{target.book2_id}'' for item in order.items) for
-      order in state.orders if not order.id.startswith(''order_initial_''))
+      order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: One order contains both books
@@ -135,17 +135,22 @@ eval:
       or any(item.product_id == ''{target.elec2_id}'' for item in order.items)) and
       (any(item.product_id == ''{target.book1_id}'' for item in order.items) or any(item.product_id
       == ''{target.book2_id}'' for item in order.items)) for order in state.orders
-      if not order.id.startswith(''order_initial_''))
+      if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No order contains both electronics and books items
+  - expr: "all(\n  len(order.items) == 2\n  and {item.product_id for item in order.items}\
+      \ in ({'{target.elec1_id}', '{target.elec2_id}'}, {'{target.book1_id}', '{target.book2_id}'})\n\
+      \  for order in state.orders if order.id not in state._initial_snapshot.get('orders',\
+      \ {}))\n"
+    desc: Each new order contains exactly the required 2-item set (no extras, no duplicates)
   - expr: "all( any(\n  addr.id == order.shipping_address_id\n  and addr.full_name\
       \ == 'Jordan Parker'\n  and addr.street_address == '742 Evergreen Terrace'\n\
-      \  for addr in state.addresses\n) for order in state.orders if not order.id.startswith('order_initial_'))\n"
+      \  for addr in state.addresses\n) for order in state.orders if order.id not in state._initial_snapshot.get('orders', {}))\n"
     desc: Both new orders use Jordan Parker's shipping address
   - expr: "all( any(\n  pm.id == order.payment_method_id\n  and pm.card_type == 'Visa'\n\
       \  and pm.last_four == '4242'\n  for pm in state.payment_methods\n) for order\
-      \ in state.orders if not order.id.startswith('order_initial_'))\n"
+      \ in state.orders if order.id not in state._initial_snapshot.get('orders', {}))\n"
     desc: Both new orders use the required Visa card ending in 4242
   negative_checks:
   - expr: len(state.cart_items) == 0
@@ -153,7 +158,7 @@ eval:
     penalty: 0.1
   - expr: 'not any( any(item.product_id not in [''{target.elec1_id}'', ''{target.elec2_id}'',
       ''{target.book1_id}'', ''{target.book2_id}''] for item in order.items) for order
-      in state.orders if not order.id.startswith(''order_initial_''))
+      in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No unrelated products were purchased in either order

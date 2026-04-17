@@ -109,15 +109,15 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Best product 1 purchased
   - expr: 'any(any(item.product_id == ''{target.best2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Best product 2 purchased
@@ -139,24 +139,24 @@ eval:
     desc: Cart empty after checkout
   - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) and
       any(item.product_id == ''{target.best2}'' for item in o.items) for o in state.orders
-      if not o.id.startswith(''order_initial_''))
+      if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Both best products in same order
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.low1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Low-rated product 1 not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.low2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Low-rated product 2 not purchased
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1

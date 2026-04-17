@@ -1,17 +1,29 @@
 variant_id: amazon_compare_and_buy_cheapest__product_shadow_v2
 base_task_id: amazon_compare_and_buy_cheapest
 target_primitive: grounding
-description: Search and comparison views include a near-identical sibling product with a slightly different
-  price-rating tradeoff. The agent must still pick the exact task target.
+description: Same-name speakers sold by third-party marketplace sellers sit beside the first-party listing. Price, rating, and thumbnail match, so the only way to pick the cheapest RATING-≥4.0 listing correctly is to select the exact product_id rather than any same-named sibling.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Basic Bluetooth Speaker Max
+      name: Basic Bluetooth Speaker - Amazon's Choice
       brand: AmazonBasics
+      seller: ElectroDeals Marketplace
       category: Electronics
-      price: 14.16
-      rating: 4.1
-      description: Lookalike product whose tradeoffs should not override the exact benchmark instruction.
+      price: 13.49
+      rating: 4.2
+      review_count: 1420
+      match_image_of: Basic Bluetooth Speaker
+      description: Marketplace reseller listing of the same-looking speaker at a slightly lower price; distinct SKU, not the first-party AmazonBasics target.
+    - type: product
+      name: Basic Bluetooth Speaker Certified
+      brand: AmazonBasics
+      seller: AudioHub Store
+      category: Electronics
+      price: 14.99
+      rating: 4.2
+      review_count: 980
+      match_image_of: Basic Bluetooth Speaker
+      description: Certified reseller sibling with matching branding and thumbnail — a different listing the cheapest-selection rule must reject.

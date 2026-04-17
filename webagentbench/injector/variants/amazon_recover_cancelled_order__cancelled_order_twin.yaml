@@ -1,24 +1,26 @@
 variant_id: amazon_recover_cancelled_order__cancelled_order_twin
 base_task_id: amazon_recover_cancelled_order
 target_primitive: state_tracking
-description: Order history contains another recently cancelled keyboard with a nearly identical name.
-  The agent must reorder the exact cancelled item, not the sibling model.
+description: A 60%-layout sibling keyboard was also recently cancelled and sits in order history next to the target. Same brand, rating, thumbnail — only the layout suffix distinguishes it. The agent must reorder the exact full-size target, not the 60% sibling.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Mechanical Keyboard with Cherry MX Switches TKL
+      name: Mechanical Keyboard with Cherry MX Switches 60% Layout
       brand: Keychron
+      seller: Keychron
       category: Electronics
-      price: 178.59
-      rating: 4.6
-      description: Tenkeyless sibling model that looks almost identical in search and order history.
+      price: 172.49
+      rating: 4.8
+      review_count: 880
+      match_image_of: Mechanical Keyboard with Cherry MX Switches
+      description: 60%-layout sibling of the cancelled full-size target — same brand, rating, thumbnail; distinct SKU that must not be reordered.
     - type: order
-      product_name: Mechanical Keyboard with Cherry MX Switches TKL
+      product_name: Mechanical Keyboard with Cherry MX Switches 60% Layout
       quantity: 1
-      unit_price: 178.59
+      unit_price: 172.49
       status: cancelled
       placed_hours_ago: 28
       estimated_delivery: Cancelled before shipping

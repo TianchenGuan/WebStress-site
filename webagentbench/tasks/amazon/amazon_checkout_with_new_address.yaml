@@ -40,24 +40,25 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: any(addr.full_name == 'Sam Rivera' and addr.street_address == '100 Main
       Street' and addr.city == 'Austin' and addr.state == 'TX' and addr.zip_code ==
       '78701' for addr in state.addresses)
     desc: New address added with all correct fields
   - expr: "any(\n  any(addr.full_name == 'Sam Rivera' and addr.id == order.shipping_address_id\
-      \ for addr in state.addresses)\n  for order in state.orders if not order.id.startswith('order_initial_')\n\
+      \ for addr in state.addresses)\n  for order in state.orders if order.id not in state._initial_snapshot.get('orders', {})\n\
       )\n"
     desc: New order uses the newly added address (Sam Rivera)
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: len(state.returns) == 0
+  - expr: 'not any(r.id not in state._initial_snapshot.get(''returns'', {}) for r in state.returns)'
     desc: No returns filed when none required
     penalty: 0.15
-  - expr: len(state.orders) <= 2
-    desc: No excessive orders placed
+  - expr: "sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders',\
+      \ {})) <= 2"
+    desc: No excessive new orders placed
     penalty: 0.15
 secondary_primitives: []

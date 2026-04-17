@@ -128,10 +128,10 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.best_pid}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Highest-rated speaker purchased
@@ -151,19 +151,19 @@ eval:
     desc: New address set as default
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order confirmed
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.mid_pid}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Mid-rated speaker not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.cheap_pid}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheapest speaker not purchased (only wishlisted)
@@ -171,7 +171,7 @@ eval:
   - expr: '''{target.best_pid}'' not in state.wishlist'
     desc: Best speaker not in wishlist (it was purchased)
     penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1

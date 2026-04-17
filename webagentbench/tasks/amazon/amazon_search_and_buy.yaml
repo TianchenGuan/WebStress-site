@@ -48,33 +48,35 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: any(any('{target.product_id}' == item.product_id for item in order.items)
-      for order in state.orders if not order.id.startswith('order_initial_'))
+      for order in state.orders if order.id not in state._initial_snapshot.get('orders',
+      {}))
     desc: Order contains the target product
   - expr: any(order.status == 'confirmed' and any(item.product_id == '{target.product_id}'
-      for item in order.items) for order in state.orders if not order.id.startswith('order_initial_'))
+      for item in order.items) for order in state.orders if order.id not in state._initial_snapshot.get('orders',
+      {}))
     desc: Order containing the target product is confirmed
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_') and
-      o.status == 'confirmed' and any(item.product_id == '{target.product_id}' for
-      item in o.items)) <= 1
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders',
+      {}) and o.status == 'confirmed' and any(item.product_id == '{target.product_id}'
+      for item in o.items)) <= 1
     desc: Target product ordered at most once
     penalty: 0.15
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: 'any(order.shipping_address_id == ''addr_1'' for order in state.orders if
-      not order.id.startswith(''order_initial_'') and order.status == ''confirmed'')
-
-      '
+  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and\
+      \ order.status == 'confirmed'\n  and any(\n    addr.id == order.shipping_address_id\n\
+      \    and addr.full_name == 'Jordan Parker'\n    and addr.street_address == '742\
+      \ Evergreen Terrace'\n    for addr in state.addresses\n  )\n  for order in state.orders)\n"
     desc: Order uses the correct shipping address (742 Evergreen Terrace)
     penalty: 0.15
-  - expr: 'any(order.payment_method_id == ''pm_1'' for order in state.orders if not
-      order.id.startswith(''order_initial_'') and order.status == ''confirmed'')
-
-      '
+  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and\
+      \ order.status == 'confirmed'\n  and any(\n    pm.id == order.payment_method_id\n\
+      \    and pm.card_type == 'Visa'\n    and pm.last_four == '4242'\n    for pm in\
+      \ state.payment_methods\n  )\n  for order in state.orders)\n"
     desc: Order uses the correct payment method (Visa ending in 4242)
     penalty: 0.15
 secondary_primitives: []

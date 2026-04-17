@@ -1,8 +1,7 @@
 variant_id: reddit_saved_audit_cleanup__post_collision
 base_task_id: reddit_saved_audit_cleanup
 target_primitive: grounding
-description: Feed and search results include near-duplicate posts with overlapping titles across similar
-  communities. The agent must engage with the exact target thread rather than the twin.
+description: A sibling r/Memes subreddit (chosen by a distinct naming attack) mirrors r/memes's subscriber count and description and carries a same-title post. The agent must engage with the exact target thread in r/memes, not the near-identical twin.
 injections:
 - layer: seed
   params:
@@ -17,12 +16,12 @@ injections:
       is_saved: true
       body: Follow-up thread with overlapping keywords but not the task target.
     - type: subreddit
-      name: memes_
-      display_name: r/memes_
-      description: Twin community used for crossposts.
-      subscribers: 66000
+      name: Memes
+      display_name: r/Memes
+      description: Memes! A way of describing cultural information being shared. Case-differing sibling community — distinct URL, near-identical display to the real sub.
+      subscribers: 33232884
     - type: post
-      subreddit: memes_
+      subreddit: Memes
       title: Interesting discussion thread
       author: crosspost_helper
       score: 178

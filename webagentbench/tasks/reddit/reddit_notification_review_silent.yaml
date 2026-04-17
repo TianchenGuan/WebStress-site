@@ -1,0 +1,90 @@
+task_id: reddit_notification_review_silent
+env_id: reddit
+title: Review Notifications Without Acting on Them
+instruction_template: 'Open each unread notification in your notification center and
+  mark it as read so your inbox is clear. Do NOT follow the linked posts/comments,
+  do NOT vote or reply on anything you find there, do NOT subscribe or unsubscribe
+  from any community, and do NOT send any messages.
+
+  '
+difficulty: easy
+time_limit_seconds: 150
+expected_steps: 10
+primary_primitives:
+- state_tracking
+secondary_primitives:
+- verification
+start_path: /notifications
+seed:
+  distractors: 0
+  actors: {}
+  steps:
+  - use: target_notification
+    params:
+      type: comment_reply
+      title: Reply to your comment
+      body: u/CuriousReader replied to your comment in r/programming.
+      from_user: CuriousReader
+      subreddit_name: programming
+      is_read: false
+    outputs:
+    - notif_a_id
+  - use: target_notification
+    params:
+      type: post_upvote
+      title: Your post reached 100 upvotes
+      body: Your post in r/learnpython has received 100 upvotes.
+      from_user: reddit
+      subreddit_name: learnpython
+      is_read: false
+    outputs:
+    - notif_b_id
+  - use: target_notification
+    params:
+      type: mention
+      title: You were mentioned
+      body: u/Helpful_Neighbor mentioned you in r/AskReddit.
+      from_user: Helpful_Neighbor
+      subreddit_name: AskReddit
+      is_read: false
+    outputs:
+    - notif_c_id
+  targets:
+    notif_a_id: '{output.notif_a_id}'
+    notif_b_id: '{output.notif_b_id}'
+    notif_c_id: '{output.notif_c_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: all(n.is_read for n in state.notifications)
+    desc: Every notification is marked as read
+  - expr: 'sum(1 for e in state.audit_log if e.action == ''reddit.notification.read'')
+      >= 3
+
+      '
+    desc: Agent opened at least three notifications individually (not via mark-all-read)
+  negative_checks:
+  - expr: 'not any(e.action == ''reddit.post.vote'' for e in state.audit_log)
+
+      '
+    desc: No post votes were cast
+    penalty: 0.3
+  - expr: 'not any(e.action == ''reddit.comment.vote'' for e in state.audit_log)
+
+      '
+    desc: No comment votes were cast
+    penalty: 0.2
+  - expr: 'not any(e.action == ''reddit.comment.create'' for e in state.audit_log)
+
+      '
+    desc: No new comments posted
+    penalty: 0.2
+  - expr: "not any(e.action in ('reddit.subreddit.subscribe', 'reddit.subreddit.unsubscribe')\
+      \ for e in state.audit_log)"
+    desc: No subscription changes
+    penalty: 0.2
+  - expr: 'not any(e.action == ''reddit.message.send'' for e in state.audit_log)
+
+      '
+    desc: No messages sent
+    penalty: 0.2

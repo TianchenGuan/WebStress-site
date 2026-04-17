@@ -172,7 +172,7 @@ eval:
   source: server_state
   checks:
   - expr: 'any(o.id == ''{target.order_id_pend}'' and o.status == ''cancelled'' for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Pending order cancelled
@@ -181,10 +181,10 @@ eval:
 
       '
     desc: Return filed for delivered order 2
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order placed
   - expr: 'any(any(item.product_id == ''{target.del3_pid}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product from order 3 reordered
@@ -193,7 +193,7 @@ eval:
 
       '
     desc: 5-star review for Ceramic Mug Set
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Reorder is confirmed
@@ -206,12 +206,12 @@ eval:
     desc: Reordered product was not returned
     penalty: 0.15
   - expr: 'not any(o.id == ''{target.order_id_pend}'' and o.status != ''cancelled''
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Pending order is actually cancelled
     penalty: 0.2
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one new order placed
     penalty: 0.1

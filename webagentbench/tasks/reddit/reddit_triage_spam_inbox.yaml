@@ -1,0 +1,111 @@
+task_id: reddit_triage_spam_inbox
+env_id: reddit
+title: Triage Inbox — Delete Spam, Keep Legitimate Messages
+instruction_template: "Triage your message inbox. Delete any message that is clearly\
+  \ spam from a stranger — typical tells are unfamiliar usernames with numeric suffixes\
+  \ or promotional handles (e.g. u/CryptoRewardsX), and bodies that push generic\
+  \ prizes, crypto giveaways, or suspicious external links with no reference to your\
+  \ actual activity. Leave every legitimate message untouched. A message is legitimate\
+  \ if the sender is a moderator account (such as u/ModTeam) or the body references\
+  \ a specific previous interaction of yours (a post, comment, or meeting you were\
+  \ part of). Do not block users, send replies, or mark messages read — just delete\
+  \ the spam and leave the rest alone.\n"
+difficulty: easy
+time_limit_seconds: 180
+expected_steps: 10
+primary_primitives:
+- grounding
+secondary_primitives:
+- verification
+start_path: /messages
+seed:
+  distractors: 0
+  actors: {}
+  steps:
+  - use: target_message
+    params:
+      from_user: ModTeam
+      subject: Welcome to the community
+      body: Thanks for joining! Please review our rules in the sidebar before posting.
+      is_read: false
+    outputs:
+    - legit1_id
+    - legit1_subject
+    - legit1_from
+  - use: target_message
+    params:
+      from_user: TechHelper
+      subject: 'Re: Build help request'
+      body: I'd recommend the Ryzen 7 5800X3D for your use case. Great price-to-performance
+        ratio — it matches what you described in the build thread you started last
+        week.
+      is_read: false
+    outputs:
+    - legit2_id
+    - legit2_subject
+    - legit2_from
+  - use: target_message
+    params:
+      from_user: CryptoRewardsX
+      subject: '🎉 CONGRATULATIONS! You''ve won 5 ETH'
+      body: 'Claim your prize today! Visit our secure portal at bit.ly/crypto-claim-2026
+        to verify your wallet and receive your 5 ETH reward. Limited time offer —
+        this link expires in 24 hours!'
+      is_read: false
+    outputs:
+    - spam1_id
+    - spam1_subject
+    - spam1_from
+  - use: target_message
+    params:
+      from_user: GiveAwayWinner_2025
+      subject: Your account was selected for our grand giveaway
+      body: 'You are one of 50 lucky users chosen for our exclusive $1,000 gift card
+        drawing. Simply reply with your PayPal email and phone number to receive
+        your prize. This offer is not affiliated with Reddit.'
+      is_read: false
+    outputs:
+    - spam2_id
+    - spam2_subject
+    - spam2_from
+  - use: target_message
+    params:
+      from_user: promoBot_9482
+      subject: Earn passive income with this one weird trick
+      body: Financial freedom is just 3 clicks away. Click http://earn-money-quick.ru/ref=123
+        to start earning $500/day working from home. No experience needed.
+      is_read: false
+    outputs:
+    - spam3_id
+    - spam3_subject
+    - spam3_from
+  targets:
+    legit1_id: '{output.legit1_id}'
+    legit2_id: '{output.legit2_id}'
+    spam1_id: '{output.spam1_id}'
+    spam2_id: '{output.spam2_id}'
+    spam3_id: '{output.spam3_id}'
+eval:
+  source: server_state
+  checks:
+  - expr: any(m.id == '{target.legit1_id}' for m in state.messages)
+    desc: ModTeam welcome message still in inbox
+  - expr: any(m.id == '{target.legit2_id}' for m in state.messages)
+    desc: TechHelper reply still in inbox (references the user's build thread)
+  - expr: not any(m.id == '{target.spam1_id}' for m in state.messages)
+    desc: CryptoRewardsX giveaway spam was deleted
+  - expr: not any(m.id == '{target.spam2_id}' for m in state.messages)
+    desc: GiveAwayWinner_2025 prize spam was deleted
+  - expr: not any(m.id == '{target.spam3_id}' for m in state.messages)
+    desc: promoBot_9482 earn-money spam was deleted
+  negative_checks:
+  - expr: not any(e.action == 'reddit.message.delete' and e.payload.get('message_id')
+      in ['{target.legit1_id}', '{target.legit2_id}'] for e in state.audit_log)
+    desc: No legitimate message was deleted
+    penalty: 0.5
+  - expr: len(state.blocked_users) == 0
+    desc: No users were blocked (task did not ask for it)
+    penalty: 0.15
+  - expr: not any(e.action == 'reddit.message.send' for e in state.audit_log)
+    desc: No replies were sent (including to spammers)
+    penalty: 0.15

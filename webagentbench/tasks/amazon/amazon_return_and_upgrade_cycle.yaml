@@ -142,21 +142,21 @@ eval:
 
       '
     desc: Return 2 filed with reason not_as_described
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order placed
   - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Upgrade 1 purchased
   - expr: 'any(any(item.product_id == ''{target.up_pid_2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Upgrade 2 purchased
   - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) and
       any(item.product_id == ''{target.up_pid_2}'' for item in o.items) for o in state.orders
-      if not o.id.startswith(''order_initial_''))
+      if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Both upgrades in same order
@@ -182,7 +182,7 @@ eval:
       '
     desc: No reviews for returned products
     penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one new order placed
     penalty: 0.1

@@ -1,0 +1,118 @@
+task_id: amazon_review_aggregation_read_only
+env_id: amazon
+title: Gather Review Evidence Across Coffee Makers
+instruction_template: 'You are evaluating three coffee makers for an office purchase
+  decision. Browse each of the following product pages so you can review their details
+  and ratings: "{target.coffee_a_name}", "{target.coffee_b_name}", "{target.coffee_c_name}".
+
+  Do NOT purchase anything, do NOT add to cart or wishlist, and do NOT submit any
+  reviews — your role is to gather information, not act.
+
+  '
+difficulty: medium
+time_limit_seconds: 210
+expected_steps: 12
+primary_primitives:
+- exploration
+secondary_primitives:
+- verification
+start_path: /
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: product_with_reviews
+    params:
+      product_name: Breville BES870XL Espresso Machine
+      brand: Breville
+      category: Home & Kitchen
+      price: 699.99
+      rating: 4.5
+      reviews:
+      - rating: 5
+        title: Cafe-quality espresso at home
+        body: Dial-in is quick once you understand the grind.
+      - rating: 4
+        title: Great machine but the hopper squeaks
+        body: Nothing a drop of food-grade lubricant can't fix.
+    outputs:
+    - coffee_a_id
+    - coffee_a_review_ids
+  - use: product_with_reviews
+    params:
+      product_name: Moccamaster KBGV Select Drip Coffee Maker
+      brand: Technivorm
+      category: Home & Kitchen
+      price: 359.0
+      rating: 4.8
+      reviews:
+      - rating: 5
+        title: Simple, durable, excellent
+        body: Replaced three other drip machines and this is the last one.
+      - rating: 5
+        title: Pro-grade brew with zero fuss
+        body: Consistent temp and timing straight out of the box.
+    outputs:
+    - coffee_b_id
+    - coffee_b_review_ids
+  - use: product_with_reviews
+    params:
+      product_name: OXO Brew 8-Cup Coffee Maker
+      brand: OXO
+      category: Home & Kitchen
+      price: 199.99
+      rating: 4.3
+      reviews:
+      - rating: 4
+        title: Mid-range workhorse
+        body: Not as pretty as the Moccamaster but brews close to the SCA standard.
+      - rating: 3
+        title: Warming plate runs hot
+        body: Coffee gets slightly burnt if left for over 30 minutes.
+    outputs:
+    - coffee_c_id
+    - coffee_c_review_ids
+  - use: product_catalog
+    params:
+      category: Home & Kitchen
+      count: 8
+      price_range:
+      - 50.0
+      - 800.0
+    outputs:
+    - catalog_ids
+  targets:
+    coffee_a_id: '{output.coffee_a_id}'
+    coffee_a_name: Breville BES870XL Espresso Machine
+    coffee_b_id: '{output.coffee_b_id}'
+    coffee_b_name: Moccamaster KBGV Select Drip Coffee Maker
+    coffee_c_id: '{output.coffee_c_id}'
+    coffee_c_name: OXO Brew 8-Cup Coffee Maker
+eval:
+  source: server_state
+  checks:
+  - expr: "'{target.coffee_a_id}' in state.recently_viewed"
+    desc: Breville product page was viewed
+  - expr: "'{target.coffee_b_id}' in state.recently_viewed"
+    desc: Moccamaster product page was viewed
+  - expr: "'{target.coffee_c_id}' in state.recently_viewed"
+    desc: OXO Brew product page was viewed
+  negative_checks:
+  - expr: len(state.cart_items) == 0
+    desc: Cart is empty (research only)
+    penalty: 0.4
+  - expr: 'all(o.id in state._initial_snapshot.get(''orders'', {}) for o in state.orders)
+
+      '
+    desc: No new orders were placed
+    penalty: 0.4
+  - expr: 'sorted(state.wishlist) == state._initial_snapshot.get(''wishlist'', [])
+
+      '
+    desc: Wishlist was not modified
+    penalty: 0.15
+  - expr: 'not any(e.action == ''amazon.review.add'' for e in state.audit_log)
+
+      '
+    desc: No reviews were submitted
+    penalty: 0.15

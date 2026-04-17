@@ -132,46 +132,52 @@ eval:
     desc: One-click ordering enabled
   - expr: state.settings.two_factor_enabled == True
     desc: Two-factor authentication enabled
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id_acct1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 1 purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_acct2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 2 purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_acct3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 3 purchased
   - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
-      == ''Alex Chen'' and a.city == ''Austin''), '''') for o in state.orders if not
-      o.id.startswith(''order_initial_''))
+      == ''Alex Chen'' and a.city == ''Austin''), '''') for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order shipped to Austin address
+  - expr: "all(\n  len(o.items) == 3\n  and {item.product_id for item in o.items} ==\
+      \ {'{target.product_id_acct1}', '{target.product_id_acct2}', '{target.product_id_acct3}'}\n\
+      \  for o in state.orders if o.id not in state._initial_snapshot.get('orders',\
+      \ {}))\n"
+    desc: New order contains exactly the three required products (no extras)
   negative_checks:
   - expr: not any(a.full_name == 'Morgan Blake' and a.is_default for a in state.addresses)
     desc: Denver address is not default
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1
   - expr: 'not any(o.shipping_address_id == next((a.id for a in state.addresses if
-      a.full_name == ''Morgan Blake''), '''') for o in state.orders if not o.id.startswith(''order_initial_''))
+      a.full_name == ''Morgan Blake''), '''') for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order not shipped to Denver address
     penalty: 0.15
-  - expr: "not any(\n  o.payment_method_id != 'pm_1'\n  for o in state.orders if not\
-      \ o.id.startswith('order_initial_'))\n"
-    desc: Order used the default Visa payment method
+  - expr: "all(\n  any(\n    pm.id == o.payment_method_id\n    and pm.card_type ==\
+      \ 'Visa' and pm.last_four == '4242'\n    for pm in state.payment_methods\n  )\n\
+      \  for o in state.orders if o.id not in state._initial_snapshot.get('orders',\
+      \ {}))\n"
+    desc: Order used the default Visa payment method (Visa ending in 4242)
     penalty: 0.15
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout

@@ -79,14 +79,14 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.best_pid}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: The superior competitor was purchased
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order confirmed
@@ -99,19 +99,19 @@ eval:
     desc: Agent searched or viewed the reference product
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.ref_pid}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Reference product was NOT purchased (competitor is better)
     penalty: 0.25
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
       <= 1
 
       '
     desc: Only one order placed
     penalty: 0.1
   - expr: 'all( len(o.items) == 1 and o.items[0].product_id == ''{target.best_pid}''
-      and o.items[0].quantity == 1 for o in state.orders if not o.id.startswith(''order_initial_''))
+      and o.items[0].quantity == 1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No extra items or non-target products were purchased with the competitor

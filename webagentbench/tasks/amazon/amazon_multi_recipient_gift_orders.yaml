@@ -124,67 +124,67 @@ eval:
 
       '
     desc: Taylor's address added
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) >=
       3
     desc: At least 3 orders placed
   - expr: 'any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 1 purchased
   - expr: 'any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 2 purchased
   - expr: 'any(any(item.product_id == ''{target.gift_pid_3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 3 purchased
   - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
       == ''Jamie Thompson''), '''') and any(item.product_id == ''{target.gift_pid_1}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 1 shipped to Jamie
   - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
       == ''Taylor Kim''), '''') and any(item.product_id == ''{target.gift_pid_2}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 2 shipped to Taylor
   - expr: 'any(o.shipping_address_id not in [next((a.id for a in state.addresses if
       a.full_name == ''Jamie Thompson''), ''''), next((a.id for a in state.addresses
       if a.full_name == ''Taylor Kim''), '''')] and any(item.product_id == ''{target.gift_pid_3}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift 3 shipped to existing address
   - expr: len(state.cart_items) == 0
     desc: Cart empty after all orders
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       3
     desc: No more than 3 orders
     penalty: 0.1
   - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
       and any(item.product_id == ''{target.gift_pid_2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gifts 1 and 2 are in separate orders
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
       and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gifts 2 and 3 are in separate orders
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
       and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gifts 1 and 3 are in separate orders

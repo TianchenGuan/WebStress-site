@@ -90,31 +90,31 @@ eval:
 
       '
     desc: New address was added correctly
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
       >= 2
 
       '
     desc: At least 2 new orders placed
   - expr: 'any(any(item.product_id == ''{target.product_id_dest1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 1 was ordered
   - expr: 'any(any(item.product_id == ''{target.product_id_dest2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Product 2 was ordered
   - expr: 'any(o.shipping_address_id == next(a.id for a in state.addresses if a.city
       == ''Portland'' and a.full_name == ''Sam Rivera'') for o in state.orders if
-      not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest1}''
+      o.id not in state._initial_snapshot.get(''orders'', {}) and any(item.product_id == ''{target.product_id_dest1}''
       for item in o.items))
 
       '
     desc: Product 1 shipped to Portland address
   - expr: 'any(o.shipping_address_id != next((a.id for a in state.addresses if a.city
       == ''Portland'' and a.full_name == ''Sam Rivera''), '''') for o in state.orders
-      if not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest2}''
+      if o.id not in state._initial_snapshot.get(''orders'', {}) and any(item.product_id == ''{target.product_id_dest2}''
       for item in o.items))
 
       '
@@ -124,12 +124,12 @@ eval:
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.product_id_dest1}'' for item in
       o.items) and any(item.product_id == ''{target.product_id_dest2}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Products are in separate orders, not combined
     penalty: 0.2
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
       <= 2
 
       '

@@ -84,19 +84,19 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
-  - expr: 'any(len(order.items) >= 3 for order in state.orders if not order.id.startswith(''order_initial_''))
+  - expr: 'any(len(order.items) >= 3 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order contains at least 3 different items
   - expr: 'any(sum(item.unit_price * item.quantity for item in order.items) < {target.budget}
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order total is under ${target.budget}
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one new order placed
     penalty: 0.15

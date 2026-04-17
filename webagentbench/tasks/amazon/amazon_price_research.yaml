@@ -1,0 +1,118 @@
+task_id: amazon_price_research
+env_id: amazon
+title: Research Wireless Earbuds Under $100
+instruction_template: "You are researching wireless earbuds under $100 for a future
+  purchase.\n1. Search Amazon for wireless earbuds.\n2. View the product pages of
+  at least three different wireless-earbud listings from at least two different brands,
+  all priced under $100.\n3. Do NOT add anything to your cart, your wishlist, or place
+  an order — this is research only.\n"
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 15
+primary_primitives:
+- exploration
+secondary_primitives:
+- verification
+start_path: /
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_product
+    params:
+      name: Bluetooth Earbuds Pro
+      brand: SoundCore
+      category: Electronics
+      price: 59.99
+      rating: 4.5
+      features:
+      - Active noise cancellation
+      - 32-hour battery
+      - IPX5 waterproof
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud1
+    - product_name_earbud1
+    - product_price_earbud1
+  - use: featured_product
+    params:
+      name: Wireless Earbuds Essential
+      brand: JLab
+      category: Electronics
+      price: 29.99
+      rating: 4.2
+      features:
+      - Touch controls
+      - USB-C charging
+      - 24-hour battery
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud2
+    - product_name_earbud2
+    - product_price_earbud2
+  - use: featured_product
+    params:
+      name: AirFlow Wireless Buds Sport
+      brand: Jabra
+      category: Electronics
+      price: 89.99
+      rating: 4.6
+      features:
+      - Secure fit for workouts
+      - Wind-noise reduction
+      - Multi-device pairing
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud3
+    - product_name_earbud3
+    - product_price_earbud3
+  - use: product_catalog
+    params:
+      category: Electronics
+      count: 8
+      price_range:
+      - 15.0
+      - 250.0
+    outputs:
+    - catalog_ids
+  targets:
+    earbud1_id: '{output.product_id_earbud1}'
+    earbud2_id: '{output.product_id_earbud2}'
+    earbud3_id: '{output.product_id_earbud3}'
+eval:
+  source: server_state
+  checks:
+  - expr: 'len([pid for pid in [''{target.earbud1_id}'', ''{target.earbud2_id}'', ''{target.earbud3_id}'']
+      if pid in state.recently_viewed]) >= 3
+
+      '
+    desc: Agent viewed all three earbud product pages
+  - expr: 'len({p.brand for p in state.products if p.id in state.recently_viewed and
+      p.category == ''Electronics'' and p.price < 100}) >= 2
+
+      '
+    desc: Viewed listings span at least two distinct brands under $100
+  - expr: 'len(state.search_history) >= 1
+
+      '
+    desc: Agent issued at least one product search
+  negative_checks:
+  - expr: len(state.cart_items) == 0
+    desc: Cart remains empty (no purchase intent expressed)
+    penalty: 0.4
+  - expr: 'all(o.id in state._initial_snapshot.get(''orders'', {}) for o in state.orders)
+
+      '
+    desc: No new orders were placed during research
+    penalty: 0.4
+  - expr: sorted(state.wishlist) == state._initial_snapshot.get('wishlist', [])
+    desc: Wishlist was not modified during research
+    penalty: 0.2
+  - expr: 'not any(e.action.startswith(''amazon.review.'') for e in state.audit_log)
+
+      '
+    desc: No reviews were submitted during research
+    penalty: 0.1

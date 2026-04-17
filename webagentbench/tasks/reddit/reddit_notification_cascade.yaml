@@ -189,10 +189,10 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: No existing subscriptions removed (instruction says do not unsubscribe)
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <=
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
       2
     desc: No excessive posts created
     penalty: 0.15

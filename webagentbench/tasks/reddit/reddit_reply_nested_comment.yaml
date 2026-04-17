@@ -64,7 +64,7 @@ eval:
       c.post_id == '{target.post_id}') <= 9
     desc: No excessive comments on the post
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 6
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 6
     desc: No excessive messages sent
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

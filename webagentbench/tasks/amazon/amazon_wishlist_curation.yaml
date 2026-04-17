@@ -144,30 +144,30 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.prod2_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Atomic Habits (cheapest) was purchased
   - expr: 'any(any(item.product_id == ''{target.prod4_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Foam Roller Recovery Set was purchased
   - expr: 'any(any(item.product_id == ''{target.prod5_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Desk Organizer Bamboo was purchased
   - expr: 'not any(any(item.product_id == ''{target.prod1_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Smart Watch (expensive) was NOT purchased
   - expr: 'not any(any(item.product_id == ''{target.prod3_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Air Purifier (most expensive) was NOT purchased
@@ -175,7 +175,7 @@ eval:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: All remaining items purchased in a single new order
     penalty: 0.15
@@ -188,7 +188,7 @@ eval:
     penalty: 0.2
   - expr: "not any(\n  any(item.product_id not in ['{target.prod2_id}', '{target.prod4_id}',\
       \ '{target.prod5_id}'] for item in order.items)\n  for order in state.orders\
-      \ if not order.id.startswith('order_initial_')\n)"
+      \ if order.id not in state._initial_snapshot.get('orders', {})\n)"
     desc: Only the three kept wishlist items were purchased
     penalty: 0.2
   - expr: sum(1 for e in state.audit_log if e.action == 'amazon.wishlist.add') ==

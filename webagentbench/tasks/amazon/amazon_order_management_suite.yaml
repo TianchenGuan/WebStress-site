@@ -101,43 +101,43 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) >=
       2
     desc: At least two new orders were placed
   - expr: 'any(any(item.product_id == ''{target.first_product_id}'' for item in order.items)
-      and order.status == ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+      and order.status == ''cancelled'' for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: First order with Portable SSD is cancelled
   - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items)
-      and order.status != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+      and order.status != ''cancelled'' for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Second order containing Mechanical Pencil Set is active
   - expr: 'any(any(item.product_id == ''{target.second_item2_id}'' for item in order.items)
-      and order.status != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
+      and order.status != ''cancelled'' for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Second order containing Notebook 5-Pack is active
   - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items)
       and any(item.product_id == ''{target.second_item2_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Both second-order items are in the same order
   - expr: "all( any(\n  addr.id == order.shipping_address_id\n  and addr.full_name\
       \ == 'Jordan Parker'\n  and addr.street_address == '742 Evergreen Terrace'\n\
-      \  for addr in state.addresses\n) for order in state.orders if not order.id.startswith('order_initial_'))\n"
+      \  for addr in state.addresses\n) for order in state.orders if order.id not in state._initial_snapshot.get('orders', {}))\n"
     desc: All new orders use Jordan Parker's shipping address
   - expr: "all( any(\n  pm.id == order.payment_method_id\n  and pm.card_type == 'Visa'\n\
       \  and pm.last_four == '4242'\n  for pm in state.payment_methods\n) for order\
-      \ in state.orders if not order.id.startswith('order_initial_'))\n"
+      \ in state.orders if order.id not in state._initial_snapshot.get('orders', {}))\n"
     desc: All new orders use the required Visa card ending in 4242
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after all operations
     penalty: 0.1
-  - expr: 'sum(1 for order in state.orders if not order.id.startswith(''order_initial_'')
+  - expr: 'sum(1 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {})
       and order.status == ''cancelled'') <= 1
 
       '
@@ -145,14 +145,14 @@ eval:
     penalty: 0.15
   - expr: 'not any( any(item.product_id not in [''{target.first_product_id}'', ''{target.second_item1_id}'',
       ''{target.second_item2_id}''] for item in order.items) for order in state.orders
-      if not order.id.startswith(''order_initial_''))
+      if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No unrelated products were purchased during the order-management workflow
     penalty: 0.15
   - expr: 'not any( order.status == ''cancelled'' and (any(item.product_id == ''{target.second_item1_id}''
       for item in order.items) or any(item.product_id == ''{target.second_item2_id}''
-      for item in order.items)) for order in state.orders if not order.id.startswith(''order_initial_''))
+      for item in order.items)) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Replacement office-supplies order was not cancelled by mistake

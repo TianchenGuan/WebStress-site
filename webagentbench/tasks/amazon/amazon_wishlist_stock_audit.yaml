@@ -148,20 +148,20 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.in1}'' for item in o.items) for o
-      in state.orders if not o.id.startswith(''order_initial_''))
+      in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: In-stock item 1 purchased
   - expr: 'any(any(item.product_id == ''{target.in2}'' for item in o.items) for o
-      in state.orders if not o.id.startswith(''order_initial_''))
+      in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: In-stock item 2 purchased
   - expr: 'any(any(item.product_id == ''{target.in3}'' for item in o.items) for o
-      in state.orders if not o.id.startswith(''order_initial_''))
+      in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: In-stock item 3 purchased
@@ -175,24 +175,24 @@ eval:
     desc: Cart empty after checkout
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.out1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Out-of-stock item 1 was not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.out2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Out-of-stock item 2 was not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.out3}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Out-of-stock item 3 was not purchased
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order was placed
     penalty: 0.1

@@ -120,40 +120,40 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity ==
-      3 for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      3 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Wireless Mouse Pro quantity is 3
   - expr: 'any(any(item.product_name == ''Glass Food Containers'' and item.quantity
-      == 2 for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      == 2 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Glass Food Containers quantity is 2
   - expr: 'any(any(item.product_name == ''Bamboo Notebook Stand'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Bamboo Notebook Stand kept
   - expr: 'any(any(item.product_name == ''Running Headband 3-Pack'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Running Headband kept
   - expr: 'any(any(item.product_name == ''LED Book Light'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: LED Book Light kept
   - expr: 'any(any(item.product_id == ''{target.new_pid_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: New product 1 added
   - expr: 'any(any(item.product_id == ''{target.new_pid_2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: New product 2 added
@@ -161,29 +161,29 @@ eval:
     desc: Cart empty after checkout
   negative_checks:
   - expr: 'not any(any(item.product_name == ''Cotton Bath Towel Set'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cotton Bath Towel Set removed
     penalty: 0.15
   - expr: 'not any(any(item.product_name == ''Yoga Strap Set'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Yoga Strap Set removed
     penalty: 0.15
   - expr: 'not any(any(item.product_name == ''Vitamin D3 Supplement'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Vitamin D3 Supplement removed
     penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.1
   - expr: 'not any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity
-      != 3 for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      != 3 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Mouse quantity is exactly 3

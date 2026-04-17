@@ -156,25 +156,25 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.cart1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Original cart item 1 in order
   - expr: 'any(any(item.product_id == ''{target.cart2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Original cart item 2 in order
   - expr: 'any(any(item.product_id == ''{target.cheap1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheap wishlist item 1 in order
   - expr: 'any(any(item.product_id == ''{target.cheap2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Cheap wishlist item 2 in order
@@ -186,18 +186,18 @@ eval:
     desc: Cart empty after checkout
   negative_checks:
   - expr: 'not any(any(item.product_id == ''{target.exp1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Expensive item 1 not purchased
     penalty: 0.15
   - expr: 'not any(any(item.product_id == ''{target.exp2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
+      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Expensive item 2 not purchased
     penalty: 0.15
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
       <= 1
 
       '

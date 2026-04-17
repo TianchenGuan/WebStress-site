@@ -75,33 +75,31 @@ eval:
 
       '
     desc: A new payment method was added (3 pre-loaded + at least 1 new)
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: A new order was placed
   - expr: 'any(any(item.product_id == ''{target.gift_product_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
+      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift product was purchased
   - expr: 'any(any(addr.full_name == ''Maria Chen'' for addr in state.addresses if
-      addr.id == order.shipping_address_id) for order in state.orders if not order.id.startswith(''order_initial_''))
+      addr.id == order.shipping_address_id) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order shipped to Maria Chen's address
-  - expr: 'any(order.payment_method_id not in (''pm_1'', ''pm_2'', ''pm_3'') for order
-      in state.orders if not order.id.startswith(''order_initial_'') and any(item.product_id
-      == ''{target.gift_product_id}'' for item in order.items))
-
-      '
+  - expr: "any(\n  order.payment_method_id not in state._initial_snapshot.get('payment_methods',\
+      \ {})\n  for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders',\
+      \ {})\n  and any(item.product_id == '{target.gift_product_id}' for item in order.items))\n"
     desc: Order uses the new payment method, not any pre-loaded one
   negative_checks:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: len(state.returns) == 0
+  - expr: 'not any(r.id not in state._initial_snapshot.get(''returns'', {}) for r in state.returns)'
     desc: No returns filed when none required
     penalty: 0.15
   - expr: 'all( len(order.items) == 1 and order.items[0].product_id == ''{target.gift_product_id}''
-      and order.items[0].quantity == 1 for order in state.orders if not order.id.startswith(''order_initial_''))
+      and order.items[0].quantity == 1 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Gift checkout purchased only the intended gift product

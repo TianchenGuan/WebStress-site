@@ -96,7 +96,7 @@ eval:
 
       '
     desc: Exact message sent to ByteRunner
-  - expr: len(state.sent_messages) == 1
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) == 1
     desc: Exactly one message was sent
   negative_checks:
   - expr: 'not any(pid in state.saved_post_ids for pid in {target.decoy_post_ids})
@@ -104,6 +104,6 @@ eval:
       '
     desc: No decoy posts were saved
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 1
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 1
     desc: No extra messages were sent
     penalty: 0.15

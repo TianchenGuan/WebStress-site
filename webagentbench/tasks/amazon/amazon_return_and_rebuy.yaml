@@ -90,13 +90,13 @@ eval:
 
       '
     desc: A new return was initiated for the correct product with reason wrong_item
-  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+  - expr: 'any(order.id != ''{target.original_order_id}'' and order.id not in state._initial_snapshot.get(''orders'', {})
       and len(order.items) == 1 and order.items[0].product_id == ''{target.replacement_id}''
       for order in state.orders)
 
       '
     desc: Replacement product was purchased in exactly one-item new order
-  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+  - expr: 'any(order.id != ''{target.original_order_id}'' and order.id not in state._initial_snapshot.get(''orders'', {})
       and order.items[0].product_id == ''{target.replacement_id}'' and any(a.id ==
       order.shipping_address_id and a.full_name == ''{target.shipping_name}'' and
       a.street_address == ''{target.shipping_street}'' for a in state.addresses) for
@@ -104,7 +104,7 @@ eval:
 
       '
     desc: Replacement order uses the required shipping address
-  - expr: 'any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+  - expr: 'any(order.id != ''{target.original_order_id}'' and order.id not in state._initial_snapshot.get(''orders'', {})
       and order.items[0].product_id == ''{target.replacement_id}'' and any(pm.id ==
       order.payment_method_id and pm.card_type == ''{target.payment_type}'' and pm.last_four
       == ''{target.payment_last_four}'' for pm in state.payment_methods) for order
@@ -123,12 +123,12 @@ eval:
     desc: Only one new return was initiated for the original order
     penalty: 0.15
   - expr: 'sum(1 for order in state.orders if order.id != ''{target.original_order_id}''
-      and not order.id.startswith(''order_initial_'')) == 1
+      and order.id not in state._initial_snapshot.get(''orders'', {})) == 1
 
       '
     desc: Only one new purchase order was placed
     penalty: 0.15
-  - expr: 'not any(order.id != ''{target.original_order_id}'' and not order.id.startswith(''order_initial_'')
+  - expr: 'not any(order.id != ''{target.original_order_id}'' and order.id not in state._initial_snapshot.get(''orders'', {})
       and any(item.product_id == ''{target.return_product_id}'' for item in order.items)
       for order in state.orders)
 

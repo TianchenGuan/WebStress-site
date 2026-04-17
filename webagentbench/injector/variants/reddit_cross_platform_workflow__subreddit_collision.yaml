@@ -1,25 +1,24 @@
 variant_id: reddit_cross_platform_workflow__subreddit_collision
 base_task_id: reddit_cross_platform_workflow
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears beside the real community, including
-  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+description: Two sibling communities (r/programming2 and r/programming2Plus, chosen by distinct naming attacks) mirror r/programming's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: programming_
-      display_name: r/programming_
-      description: Lookalike community with nearly identical branding.
-      subscribers: 185000
+      name: programming2
+      display_name: r/programming2
+      description: Computer programming news, articles, and discussion. 'v2' community claiming to be a cleaner rework of the main sub.
+      subscribers: 5394000
     - type: subreddit
-      name: programminghub
-      display_name: r/programminghub
-      description: Companion community that often appears next to the real one in search.
-      subscribers: 74000
+      name: programming2Plus
+      display_name: r/programming2Plus
+      description: Computer programming news, articles, and discussion. 'v2' community claiming to be a cleaner rework of the main sub.
+      subscribers: 2378000
     - type: post
-      subreddit: programming_
+      subreddit: programming2
       title: Interesting discussion thread
       author: shadow_mod
       score: 144

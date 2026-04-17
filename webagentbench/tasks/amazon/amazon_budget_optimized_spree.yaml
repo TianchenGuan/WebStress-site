@@ -161,60 +161,60 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
+  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
     desc: An order was placed
   - expr: 'any(any(item.product_id == ''{target.product_id_cat1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Electronics winner purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_cat2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Books winner purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_cat3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Home & Kitchen winner purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_cat4}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Clothing winner purchased
   - expr: 'any(any(item.product_id == ''{target.product_id_cat5}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
+      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Sports winner purchased
-  - expr: 'any(len(o.items) >= 5 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(len(o.items) >= 5 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order has at least 5 items
-  - expr: 'all(o.total < 250 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'all(o.total < 250 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: Order total under $250
   - expr: len(state.cart_items) == 0
     desc: Cart empty after checkout
   negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       1
     desc: Only one order placed
     penalty: 0.15
   - expr: 'all(all(item.unit_price < 60 for item in o.items) for o in state.orders
-      if not o.id.startswith(''order_initial_''))
+      if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: All items under $60
     penalty: 0.15
-  - expr: 'not any(len(o.items) > 6 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'not any(len(o.items) > 6 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: No extra items beyond the 5 winners
     penalty: 0.1
-  - expr: 'not any(len(o.items) < 5 for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'not any(len(o.items) < 5 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: At least 5 items in the order

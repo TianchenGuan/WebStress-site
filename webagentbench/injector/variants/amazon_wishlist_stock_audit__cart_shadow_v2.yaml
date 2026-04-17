@@ -1,21 +1,29 @@
 variant_id: amazon_wishlist_stock_audit__cart_shadow_v2
 base_task_id: amazon_wishlist_stock_audit
 target_primitive: state_tracking
-description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
-  and purchase the exact target products instead of the shadow items.
+description: Color-variant siblings of in-stock wishlist items share brand, rating, and thumbnail but are NOT on the wishlist. The agent must act only on the wishlist membership it already has, not on near-match listings surfaced during browsing.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Wireless Charging Pad Plus
+      name: Wireless Charging Pad - Midnight Black
       brand: ChargeMax
+      seller: ChargeMax
       category: Electronics
-      price: 32.09
+      price: 30.99
+      rating: 4.5
+      review_count: 310
+      match_image_of: Wireless Charging Pad
+      description: Color-variant sibling (Midnight Black) — identical branding and thumbnail as the in-stock wishlist pad, but a distinct SKU that is NOT on the wishlist.
+    - type: product
+      name: Yoga Resistance Band Set - Home Gym Edition
+      brand: Endurafit
+      seller: Endurafit
+      category: Sports & Outdoors
+      price: 19.49
       rating: 4.4
-      description: A closely named upsell variant that should stay out of the final cart.
-    - type: cart_item
-      product_name: Wireless Charging Pad Plus
-      quantity: 1
-      unit_price: 32.09
+      review_count: 195
+      match_image_of: Yoga Resistance Band Set
+      description: The 'Home Gym Edition' sibling of the resistance-band set — same brand/rating/thumbnail; not on the wishlist, so must not be purchased or added.

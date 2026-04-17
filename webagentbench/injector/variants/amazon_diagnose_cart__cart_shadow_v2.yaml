@@ -1,21 +1,34 @@
 variant_id: amazon_diagnose_cart__cart_shadow_v2
 base_task_id: amazon_diagnose_cart
 target_primitive: state_tracking
-description: The cart and wishlist include near-identical sibling items. The agent must move, remove,
-  and purchase the exact target products instead of the shadow items.
+description: "Composite degradation: (a) a sibling cart item ('Portable Bluetooth Speaker + Carrying Case') shares brand/rating/thumbnail with the mis-quantity target; (b) the first cart-update PUT returns 429 once. The agent must target the exact SKU for the quantity correction AND retry after the rate-limit error."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: '{target.product_name} Plus'
+      name: Portable Bluetooth Speaker + Carrying Case
       brand: JBL
+      seller: JBL
       category: Electronics
-      price: 74.89
-      rating: 4.5
-      description: A closely named upsell variant that should stay out of the final cart.
+      price: 79.99
+      rating: 4.6
+      review_count: 510
+      match_image_of: Portable Bluetooth Speaker
+      description: Speaker+case bundle — same brand, rating, thumbnail; the agent must not apply the quantity fix to this sibling listing.
     - type: cart_item
-      product_name: '{target.product_name} Plus'
+      product_name: Portable Bluetooth Speaker + Carrying Case
       quantity: 1
-      unit_price: 74.89
+      unit_price: 79.99
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/cart/*'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 429
+    error_message: Too many cart updates. Please wait a moment before retrying.
+    behavior:
+      mode: once

@@ -1,8 +1,7 @@
 variant_id: reddit_settings_and_content_creation__post_collision
 base_task_id: reddit_settings_and_content_creation
 target_primitive: grounding
-description: Feed and search results include near-duplicate posts with overlapping titles across similar
-  communities. The agent must engage with the exact target thread rather than the twin.
+description: A sibling r/NewMachineLearning subreddit (chosen by a distinct naming attack) mirrors r/MachineLearning's subscriber count and description and carries a same-title post. The agent must engage with the exact target thread in r/MachineLearning, not the near-identical twin.
 injections:
 - layer: seed
   params:
@@ -17,12 +16,12 @@ injections:
       is_saved: false
       body: Follow-up thread with overlapping keywords but not the task target.
     - type: subreddit
-      name: MachineLearning_
-      display_name: r/MachineLearning_
-      description: Twin community used for crossposts.
-      subscribers: 66000
+      name: NewMachineLearning
+      display_name: r/NewMachineLearning
+      description: Discussion of machine learning and related topics. Splinter community claiming to be the modern successor of the real sub.
+      subscribers: 2604000
     - type: post
-      subreddit: MachineLearning_
+      subreddit: NewMachineLearning
       title: Interesting discussion thread
       author: crosspost_helper
       score: 178

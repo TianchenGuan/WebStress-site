@@ -73,33 +73,33 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
       and o.status == ''confirmed'' and any(item.product_id == ''{target.product_id}''
       for item in o.items) for o in state.orders)
 
       '
     desc: A new confirmed order was placed for the target product
-  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
       and o.shipping_address_id == ''{target.address_id}'' and any(item.product_id
       == ''{target.product_id}'' for item in o.items) for o in state.orders)
 
       '
     desc: New order uses the correct shipping address (742 Evergreen Terrace)
-  - expr: 'any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
       and o.payment_method_id == ''{target.payment_id}'' and any(item.product_id ==
       ''{target.product_id}'' for item in o.items) for o in state.orders)
 
       '
     desc: New order uses the default Visa payment method
   negative_checks:
-  - expr: 'not any(not o.id.startswith(''order_initial_'') and o.id != ''{target.cancelled_order_id}''
+  - expr: 'not any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
       and o.status == ''confirmed'' and not any(item.product_id == ''{target.product_id}''
       for item in o.items) for o in state.orders)
 
       '
     desc: No orders placed for wrong products
     penalty: 0.3
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_'')
+  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {})
       and o.id != ''{target.cancelled_order_id}'' and o.status == ''confirmed'') <=
       1
 
@@ -109,7 +109,7 @@ eval:
   - expr: len(state.cart_items) == 0
     desc: Cart is empty after checkout
     penalty: 0.1
-  - expr: len(state.returns) == 0
+  - expr: 'not any(r.id not in state._initial_snapshot.get(''returns'', {}) for r in state.returns)'
     desc: No returns filed when none required
     penalty: 0.15
 secondary_primitives: []

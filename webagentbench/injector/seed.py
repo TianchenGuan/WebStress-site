@@ -431,6 +431,19 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
             product.subcategory = spec.get("subcategory", product.subcategory or product.category)
             product.description = spec.get("description", product.description)
             product.price = float(spec.get("price", product.price))
+            # Allow decoy to mirror another product's image (e.g. the task target's) so
+            # agents can't disambiguate by thumbnail alone. Falls back to spec.image_url,
+            # then to the template's image.
+            match_image_of = spec.get("match_image_of")
+            if match_image_of:
+                sibling = next(
+                    (p for p in state.products if p.name == match_image_of),
+                    None,
+                )
+                if sibling is not None:
+                    product.image_url = sibling.image_url
+            elif "image_url" in spec:
+                product.image_url = str(spec["image_url"])
             product.list_price = (
                 float(spec["list_price"])
                 if spec.get("list_price") is not None
@@ -1416,6 +1429,11 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                     active_users=int(spec.get("active_users", 100)),
                     created_at=created_at,
                 )
+            # Injected decoy subs are NOT joined by the user unless the spec says so.
+            # Copying from subreddit_template would otherwise inherit the template's
+            # is_subscribed flag (typically True on r/AskReddit) and pre-pollute the
+            # user's subscription list with communities they never touched.
+            sub.is_subscribed = bool(spec.get("is_subscribed", False))
             state.subreddits.append(sub)
             return sub
 

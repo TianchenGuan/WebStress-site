@@ -102,17 +102,17 @@ seed:
 eval:
   source: server_state
   checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) >=
       2
     desc: At least 2 orders placed
   - expr: 'any(o.status == ''cancelled'' and any(item.product_id == ''{target.cancel_pid}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
+      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: First order was cancelled
   - expr: 'any(any(item.product_id == ''{target.keep_pid}'' for item in o.items) and
       any(item.product_id == ''{target.return_pid}'' for item in o.items) for o in
-      state.orders if not o.id.startswith(''order_initial_'') and o.status != ''cancelled'')
+      state.orders if o.id not in state._initial_snapshot.get(''orders'', {}) and o.status != ''cancelled'')
 
       '
     desc: Second order contains both keep and return products
@@ -128,7 +128,7 @@ eval:
     desc: 5-star review for kept product
   - expr: len(state.cart_items) == 0
     desc: Cart empty after all transactions
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
+  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
 
       '
     desc: At least one order is confirmed (not cancelled)
@@ -147,7 +147,7 @@ eval:
       '
     desc: No review for cancelled product
     penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
+  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
       3
     desc: No more than 3 orders placed
     penalty: 0.1

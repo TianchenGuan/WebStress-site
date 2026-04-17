@@ -1,17 +1,31 @@
 variant_id: amazon_competitor_switchover__product_shadow_v2
 base_task_id: amazon_competitor_switchover
 target_primitive: grounding
-description: Search and comparison views include a near-identical sibling product with a slightly different
-  price-rating tradeoff. The agent must still pick the exact task target.
+description: Revision-tagged siblings of the reference mouse — a "v2" and a "2024 Edition" — share brand, rating, and thumbnail but fail the switchover rule (neither beats the reference on both price and rating). The agent must not be lured by the "newer-looking" labels.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Pro Wireless Mouse Max
+      name: Pro Wireless Mouse v2
       brand: Wavefront
+      seller: Wavefront
       category: Electronics
-      price: 50.13
-      rating: 4.1
-      description: Lookalike product whose tradeoffs should not override the exact benchmark instruction.
+      subcategory: Mice
+      price: 49.99
+      rating: 4.2
+      review_count: 640
+      match_image_of: Pro Wireless Mouse
+      description: The 'v2' revision label wears the reference's brand, rating, and thumbnail; price is higher than the reference so the switchover rule does not fire.
+    - type: product
+      name: Pro Wireless Mouse 2024 Edition
+      brand: Wavefront
+      seller: Wavefront
+      category: Electronics
+      subcategory: Mice
+      price: 47.99
+      rating: 4.2
+      review_count: 420
+      match_image_of: Pro Wireless Mouse
+      description: The '2024 Edition' year-tag sibling — same rating as the reference, not lower price with higher rating, so it does not replace the reference.

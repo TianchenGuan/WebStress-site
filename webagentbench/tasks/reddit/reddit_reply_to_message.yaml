@@ -53,6 +53,6 @@ eval:
         for m in state.sent_messages)
       desc: Reply has correct subject line
   negative_checks:
-    - expr: "len(state.sent_messages) <= 3"
+    - expr: "(len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3"
       desc: No excessive replies sent
       penalty: 0.2
