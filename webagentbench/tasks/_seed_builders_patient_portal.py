@@ -2113,6 +2113,15 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
     due_imm_ids: list[str] = []
     incomplete_series_imm_id: str | None = None
     due_vaccine_names: list[str] = []
+    # When series_incomplete is True, these describe the remaining doses the
+    # agent must schedule: one slot per dose (e.g. doses 2 and 3 of a 3-dose
+    # series ⇒ two slot labels). series_admin_provider_id is the provider
+    # who administered the first dose — the agent is expected to continue
+    # with the same administering provider for clinical continuity.
+    remaining_dose_slots: list[str] = []
+    series_admin_provider_id: str | None = None
+    series_vaccine_name: str | None = None
+    series_doses_total: int = 0
 
     # Completed immunizations. Constrain administered_at so that if the
     # vaccine has a recurring cadence (annual / interval_years), its computed
@@ -2212,6 +2221,21 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
         incomplete_series_imm_id = imm_id
         if series_vax["name"] not in due_vaccine_names:
             due_vaccine_names.append(series_vax["name"])
+        # Record series-level metadata for canonical_diff authoring. The
+        # patient has received exactly one dose (this record) — so
+        # remaining_doses = total_doses - 1. Emit one slot label per
+        # remaining dose so a bijection over remaining_dose_slots generates
+        # the right number of target slots. Each slot is distinct so the
+        # matcher's identity test doesn't degenerate (hazard Class 4).
+        series_admin_provider_id = admin_prov["id"]
+        series_vaccine_name = series_vax["name"]
+        series_doses_total = int(series_vax.get("doses", 3))
+        doses_received = 1
+        remaining = max(0, series_doses_total - doses_received)
+        remaining_dose_slots = [
+            f"{series_vax['name']} (dose {doses_received + i + 1} of {series_doses_total})"
+            for i in range(remaining)
+        ]
 
     # -- Extension: admin_providers + scheduling window ------------------
     # For each due immunization, look up the provider(s) who administered the
@@ -2248,6 +2272,18 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
     _window_start = ctx.now
     _window_end = _window_start + timedelta(days=30)
 
+    # Series window — needs to fit (doses_total - 1) consecutive slots with
+    # at least 1 month (30d) spacing. Add a generous buffer so the agent has
+    # some latitude in picking exact dates while still respecting spacing.
+    if series_doses_total > 0:
+        _series_window_start = ctx.now
+        _series_window_end = _series_window_start + timedelta(
+            days=30 * max(1, series_doses_total) + 60
+        )
+    else:
+        _series_window_start = ctx.now
+        _series_window_end = ctx.now + timedelta(days=180)
+
     return {
         "completed_imm_ids": completed_imm_ids,
         "due_imm_ids": due_imm_ids,
@@ -2256,4 +2292,10 @@ def build_immunization_record(ctx: PatientPortalSeedContext, params: dict[str, A
         "admin_providers": admin_providers,
         "window_start": _window_start.isoformat(),
         "window_end": _window_end.isoformat(),
+        "remaining_dose_slots": remaining_dose_slots,
+        "series_admin_provider_id": series_admin_provider_id,
+        "series_vaccine_name": series_vaccine_name,
+        "series_doses_total": series_doses_total,
+        "series_window_start": _series_window_start.isoformat(),
+        "series_window_end": _series_window_end.isoformat(),
     }

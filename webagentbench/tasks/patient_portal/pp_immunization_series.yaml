@@ -52,6 +52,12 @@ seed:
     - due_imm_ids
     - incomplete_series_imm_id
     - due_vaccine_names
+    - remaining_dose_slots
+    - series_admin_provider_id
+    - series_vaccine_name
+    - series_doses_total
+    - series_window_start
+    - series_window_end
   - use: appointment_history
     params:
       upcoming_count: 1
@@ -71,33 +77,99 @@ seed:
     incomplete_series_imm_id: '{output.incomplete_series_imm_id}'
     due_vaccine_names: '{output.due_vaccine_names}'
     upcoming_ids: '{output.upcoming_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([a for a in state.appointments\n     if a.status == 'scheduled'\n \
-      \    and a.id not in {target.upcoming_ids}\n     and ('hepatitis' in a.reason.lower()\
-      \ or 'vaccine' in a.reason.lower()\n          or 'immunization' in a.reason.lower())])\
-      \ >= 1"
-    desc: At least one vaccine dose appointment was scheduled
-  - expr: "any(a.status == 'scheduled'\n    and a.id not in {target.upcoming_ids}\n\
-      \    for a in state.appointments)"
-    desc: New appointments were created for remaining doses
-  - expr: "any(i.vaccine_name == 'Hepatitis B'\n    and not i.series_complete\n  \
-      \  for i in state.immunizations)"
-    desc: Incomplete Hepatitis B series is tracked in records
-  - expr: "all(\n  state.get_appointment(aid) is not None\n  and state.get_appointment(aid).status\
-      \ != 'cancelled'\n  for aid in {target.upcoming_ids}\n)"
-    desc: Existing appointments were preserved
-  - expr: "len([a for a in state.appointments\n     if a.status == 'scheduled'\n \
-      \    and a.id not in {target.upcoming_ids}]) >= 1"
-    desc: At least one new appointment was scheduled
-  negative_checks:
-  - expr: "not any(a.status == 'scheduled'\n        and a.id not in {target.upcoming_ids}\n\
-      \        and 'flu' in a.reason.lower()\n        for a in state.appointments)"
-    desc: Agent did not schedule wrong vaccine type
-    penalty: 0.25
-  - expr: "not any(\n  state.get_appointment(aid) is not None\n  and state.get_appointment(aid).status\
-      \ == 'cancelled'\n  for aid in {target.upcoming_ids}\n)"
-    desc: Existing appointments were not cancelled
-    penalty: 0.2
+    remaining_dose_slots: '{output.remaining_dose_slots}'
+    series_admin_provider_id: '{output.series_admin_provider_id}'
+    series_vaccine_name: '{output.series_vaccine_name}'
+    series_doses_total: '{output.series_doses_total}'
+    series_window_start: '{output.series_window_start}'
+    series_window_end: '{output.series_window_end}'
+canonical_diff:
+  create:
+    - entity: Appointment
+      desc: "Schedule one appointment per remaining Hepatitis B series dose"
+      bijection:
+        over: "target['remaining_dose_slots']"
+        variable: v
+      properties:
+        status: {eq: scheduled}
+        provider_id:
+          expr: "x == target['series_admin_provider_id']"
+        reason:
+          expr: "'hepatitis' in x.lower() or target['series_vaccine_name'].lower() in x.lower() or 'vaccine' in x.lower() or 'immunization' in x.lower()"
+        datetime:
+          expr: "str(x) >= target['series_window_start'] and str(x) <= target['series_window_end']"
+  invariant:
+    - collection: state.appointments
+      filter: "a.id in target['upcoming_ids']"
+      preserve: ALL
+    - collection: state.immunizations
+      filter: "a.id == target['incomplete_series_imm_id']"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+    - collection: state.pharmacies
+      preserve: ALL
+  constraints:
+    - desc: "Consecutive new series-dose appointments are at least 1 month (30 days) apart"
+      severity: medium
+      expr: >
+        (
+          lambda new_apts: (
+            len(new_apts) <= 1
+            or all(
+              (sorted_apts[i].datetime - sorted_apts[i-1].datetime).days >= 28
+              for sorted_apts in [sorted(new_apts, key=lambda a: a.datetime)]
+              for i in range(1, len(sorted_apts))
+            )
+          )
+        )(
+          [
+            a for a in state.appointments
+            if a.status == 'scheduled'
+            and a.id not in {x.id for x in initial.appointments}
+            and a.provider_id == target['series_admin_provider_id']
+            and (
+              'hepatitis' in (a.reason or '').lower()
+              or target['series_vaccine_name'].lower() in (a.reason or '').lower()
+              or 'vaccine' in (a.reason or '').lower()
+              or 'immunization' in (a.reason or '').lower()
+            )
+          ]
+        )
+  named_invariants:
+    - name: "Agent did not cancel or modify existing non-immunization appointments"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify the incomplete Hepatitis B immunization record"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[2]
+      severity: high
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[3]
+      severity: high
+    - name: "Agent did not send unsolicited messages"
+      ref: invariant[4]
+      severity: medium
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
+    - name: "Agent did not modify pharmacies"
+      ref: invariant[7]
+      severity: medium
+    - name: "Agent did not schedule more appointments than remaining doses"
+      ref: create[0]
+      severity: medium
 secondary_primitives: []
