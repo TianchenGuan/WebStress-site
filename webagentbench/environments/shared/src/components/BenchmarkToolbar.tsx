@@ -627,6 +627,40 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
   //
   // Layout is purely computed (no refs/measurements) so it's
   // deterministic and scales to any slot/candidate count.
+  //
+  // Interactivity: hovering a slot or candidate box highlights its
+  // incident edges and related partners; all other elements dim. Works
+  // for any many-to-many possible-edge pattern.
+
+  const [hoverSlot, setHoverSlot] = useState<number | null>(null);
+  const [hoverCand, setHoverCand] = useState<number | null>(null);
+  const isHovering = hoverSlot !== null || hoverCand !== null;
+
+  // Edge opacity: full when no hover, or when this edge is incident to the
+  // hovered node; dimmed otherwise. This lets users trace which candidates
+  // any given slot could legitimately match against in a busy graph.
+  const edgeOpacity = (li: number, cj: number): number => {
+    if (!isHovering) return 1;
+    if (hoverSlot !== null && hoverSlot !== li) return 0.08;
+    if (hoverCand !== null && hoverCand !== cj) return 0.08;
+    return 1;
+  };
+
+  // Node opacity: highlight hovered + any neighbor connected by a possible edge.
+  const isConnected = (li: number, cj: number): boolean =>
+    graph.edges_possible.some(([el, ec]) => el === li && ec === cj);
+  const slotOpacity = (li: number): number => {
+    if (!isHovering) return 1;
+    if (hoverSlot === li) return 1;
+    if (hoverCand !== null && isConnected(li, hoverCand)) return 1;
+    return 0.35;
+  };
+  const candOpacity = (cj: number): number => {
+    if (!isHovering) return 1;
+    if (hoverCand === cj) return 1;
+    if (hoverSlot !== null && isConnected(hoverSlot, cj)) return 1;
+    return 0.35;
+  };
 
   const matchedSlotCount = graph.slots.filter(
     (s) => s.matched_candidate_index !== null,
@@ -836,13 +870,16 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 strokeWidth={1}
                 strokeDasharray="3 3"
                 fill="none"
+                opacity={edgeOpacity(li, cj)}
+                style={{ transition: "opacity 120ms" }}
               />
             );
           })}
           {/* Chosen matching edges — solid green */}
           {graph.slots.map((slot, li) => {
             if (slot.matched_candidate_index === null) return null;
-            const cRow = candRow.get(slot.matched_candidate_index);
+            const cj = slot.matched_candidate_index;
+            const cRow = candRow.get(cj);
             if (cRow === undefined) return null;
             const y1 = slotY(li);
             const y2 = candY(cRow);
@@ -854,13 +891,16 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 stroke="#22c55e"
                 strokeWidth={2}
                 fill="none"
+                opacity={edgeOpacity(li, cj)}
+                style={{ transition: "opacity 120ms" }}
               />
             );
           })}
           {/* Arrowhead markers at the right endpoint of each match */}
           {graph.slots.map((slot, li) => {
             if (slot.matched_candidate_index === null) return null;
-            const cRow = candRow.get(slot.matched_candidate_index);
+            const cj = slot.matched_candidate_index;
+            const cRow = candRow.get(cj);
             if (cRow === undefined) return null;
             const y = candY(cRow);
             return (
@@ -868,6 +908,8 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 key={`arrow-${li}`}
                 points={`${rightAnchorX - 6},${y - 3} ${rightAnchorX},${y} ${rightAnchorX - 6},${y + 3}`}
                 fill="#22c55e"
+                opacity={edgeOpacity(li, cj)}
+                style={{ transition: "opacity 120ms" }}
               />
             );
           })}
@@ -883,6 +925,8 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 fill={matched ? "#22c55e" : "#ef4444"}
                 stroke="#ffffff"
                 strokeWidth={1.5}
+                opacity={slotOpacity(li)}
+                style={{ transition: "opacity 120ms" }}
               />
             );
           })}
@@ -901,6 +945,8 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 fill={fill}
                 stroke="#ffffff"
                 strokeWidth={1.5}
+                opacity={candOpacity(cj)}
+                style={{ transition: "opacity 120ms" }}
               />
             );
           })}
@@ -918,8 +964,14 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 top: slotY(li) - ROW_H / 2,
                 borderColor: matched ? "#86efac" : "#fca5a5",
                 background: matched ? "#f0fdf4" : "#fef2f2",
+                opacity: slotOpacity(li),
+                transition: "opacity 120ms, box-shadow 120ms",
+                boxShadow: hoverSlot === li ? "0 0 0 2px #3b82f6" : undefined,
+                cursor: "default",
               }}
               title={slot.label}
+              onMouseEnter={() => setHoverSlot(li)}
+              onMouseLeave={() => setHoverSlot(null)}
             >
               <div
                 style={{
@@ -969,8 +1021,14 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
                 top: candY(rowIdx) - ROW_H / 2,
                 borderColor,
                 background: bg,
+                opacity: candOpacity(cj),
+                transition: "opacity 120ms, box-shadow 120ms",
+                boxShadow: hoverCand === cj ? "0 0 0 2px #3b82f6" : undefined,
+                cursor: "default",
               }}
               title={cand.label}
+              onMouseEnter={() => setHoverCand(cj)}
+              onMouseLeave={() => setHoverCand(null)}
             >
               <div
                 style={{
@@ -1035,6 +1093,9 @@ function BipartiteGraphView({ graph }: { graph: BijectionGraph }) {
         <LegendDot color="#94a3b8" label="invalid" />
         <LegendEdge color="#22c55e" solid label="chosen match" />
         <LegendEdge color="#cbd5e1" solid={false} label="possible (unused)" />
+        <span style={{ marginLeft: "auto", fontStyle: "italic", color: "#94a3b8" }}>
+          hover a node to trace its edges
+        </span>
       </div>
     </div>
   );
