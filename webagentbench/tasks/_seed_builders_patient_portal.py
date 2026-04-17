@@ -2022,12 +2022,42 @@ def build_insurance_claims(ctx: PatientPortalSeedContext, params: dict[str, Any]
             key=lambda cid: (_claim_service_date(cid), cid),
         )
 
+    # Derived: the top-3 appealable denied claims by patient responsibility
+    # (highest first, claim-id tiebreaker ascending). "Appealable" means
+    # status=='denied' AND eob_available AND appeal_deadline >= ctx.now.
+    # Canonical_diff needs a scalar list target to drive a bijection update;
+    # computing it in the builder keeps the diff simple and avoids pushing
+    # date/filter math into the invariant/where scope (hazard: filter sees
+    # only a+target, where sees only id+changed fields).
+    def _claim_by_id(cid: str) -> dict[str, Any] | None:
+        for c in ctx.base["claims"]:
+            if c["id"] == cid:
+                return c
+        return None
+
+    ctx_now_iso = ctx.now.isoformat()
+    appealable_ids = [
+        cid for cid in denied_claim_ids
+        if (c := _claim_by_id(cid)) is not None
+        and c.get("eob_available")
+        and c.get("appeal_deadline", "") >= ctx_now_iso
+    ]
+    appealable_ids_sorted = sorted(
+        appealable_ids,
+        key=lambda cid: (
+            -float(_claim_by_id(cid)["patient_responsibility"]),
+            cid,
+        ),
+    )
+    top_3_appealable_claim_ids = appealable_ids_sorted[:3]
+
     return {
         "approved_claim_ids": approved_claim_ids,
         "denied_claim_ids": denied_claim_ids,
         "processing_claim_ids": processing_claim_ids,
         "appealable_claim_id": appealable_claim_id,
         "most_recent_denied_claim_id": most_recent_denied_claim_id,
+        "top_3_appealable_claim_ids": top_3_appealable_claim_ids,
         "total_patient_responsibility": str(total_patient_responsibility),
     }
 
