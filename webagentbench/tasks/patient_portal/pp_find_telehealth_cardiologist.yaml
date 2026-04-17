@@ -47,6 +47,8 @@ seed:
       approved_count: 2
       pending_count: 1
       with_prior_auth: false
+      must_have_specialties:
+      - cardiology
     outputs:
     - approved_ref_ids
     - pending_ref_ids
@@ -61,6 +63,58 @@ seed:
     providers_by_specialty: '{output.providers_by_specialty}'
     approved_ref_ids: '{output.approved_ref_ids}'
     upcoming_ids: '{output.upcoming_ids}'
+canonical_diff:
+  create:
+    - entity: Appointment
+      desc: "Schedule one telehealth appointment with a cardiologist at the next available slot across the cardiology pool"
+      properties:
+        status: {eq: "scheduled"}
+        type: {eq: "telehealth"}
+        provider_id:
+          expr: "x in target['providers_by_specialty'].get('cardiology', [])"
+        datetime:
+          expr: >
+            x == min(s.datetime for p in initial.providers
+                     if p.id in target['providers_by_specialty'].get('cardiology', [])
+                     for s in p.available_slots)
+  invariant:
+    - collection: state.appointments
+      filter: "a.id in {x.id for x in initial.appointments}"
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not cancel or modify pre-existing appointments"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not send any messages"
+      ref: invariant[2]
+      severity: medium
+    - name: "Agent did not modify immunization records"
+      ref: invariant[3]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not modify referrals"
+      ref: invariant[6]
+      severity: high
 eval:
   source: server_state
   checks:
