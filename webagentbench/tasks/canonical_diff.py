@@ -167,8 +167,9 @@ class UpdateEntry(BaseModel):
     entity: str
     where: dict[str, dict[str, Any]]
     changes: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    bijection: Bijection | None = None
     weight: float = Field(default=1.0, ge=0.0)
-    desc: str | None = None  # optional human-readable check label
+    desc: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 

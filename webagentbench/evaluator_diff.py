@@ -447,12 +447,44 @@ def _candidate_label(cand: Any) -> str:
     return str(getattr(cand, "entity_id", "?"))
 
 
-def _collection_for(entity_type: str) -> str:
+def _build_collection_map(state: Any) -> dict[str, str]:
+    """Return ``{entity_type_name: collection_field_name}`` by introspecting
+    a pydantic state model.
+
+    Handles irregular pluralisation (e.g. ``ClinicalMessage`` → ``messages``)
+    where the naive ``lower() + 's'`` heuristic would produce the wrong name.
+    Returns an empty mapping if ``state`` isn't a pydantic model (e.g. dict
+    snapshots used in unit tests).
+    """
+    import typing as _typing
+
+    from pydantic import BaseModel
+
+    mapping: dict[str, str] = {}
+    if not isinstance(state, BaseModel):
+        return mapping
+    for name, field_info in type(state).model_fields.items():
+        ann = field_info.annotation
+        if _typing.get_origin(ann) is list:
+            args = _typing.get_args(ann)
+            if args and hasattr(args[0], "__name__"):
+                mapping[args[0].__name__] = name
+    return mapping
+
+
+def _collection_for(
+    entity_type: str,
+    collection_map: dict[str, str] | None = None,
+) -> str:
     """Map entity TYPE (e.g. ``'Appointment'``) to collection name (``'appointments'``).
 
-    Default pluralisation: lowercase + ``'s'``. Names that already end in
-    ``'s'`` pass through unchanged (e.g. ``'emails'`` -> ``'emails'``).
+    When ``collection_map`` is provided (built from the state model via
+    :func:`_build_collection_map`), irregular plurals resolve correctly.
+    Otherwise, fall back to lowercase + ``'s'`` (which happens to work for
+    most regular entities and for the test-dict snapshot shape).
     """
+    if collection_map is not None and entity_type in collection_map:
+        return collection_map[entity_type]
     lower = entity_type.lower()
     return lower if lower.endswith("s") else lower + "s"
 
@@ -617,6 +649,9 @@ def _match_single_block(
     negative_checks: list[dict] = []
     passed_weight = 0.0
     total_weight = 0.0
+    # Map entity type → collection field name using the live state model so
+    # irregular plurals (e.g. ClinicalMessage → messages) resolve correctly.
+    collection_map = _build_collection_map(final)
     # Track excess candidates per bijection create[i] so named_invariants with
     # ref=create[i] can distinguish "under-saturation" (too few) from "excess"
     # (too many). The "did not schedule more than due" label is only about
@@ -653,7 +688,7 @@ def _match_single_block(
                 # Any existing Create candidates on this entity become
                 # "excess" (the agent scheduled N>0 appointments when 0
                 # were needed). Detect and flag accordingly.
-                collection_name = _collection_for(entry.entity)
+                collection_name = _collection_for(entry.entity, collection_map)
                 excess_candidates = [
                     c for c in agent_diff
                     if isinstance(c, Create) and c.entity == collection_name
@@ -670,7 +705,7 @@ def _match_single_block(
                 continue
 
             # Candidates: unmatched Create entries of the right entity type.
-            collection_name = _collection_for(entry.entity)
+            collection_name = _collection_for(entry.entity, collection_map)
             candidates = [
                 c for c in agent_diff
                 if isinstance(c, Create)
@@ -769,7 +804,7 @@ def _match_single_block(
 
         # Non-bijection: find one unmatched Create candidate satisfying all predicates.
         passed = False
-        collection_name = _collection_for(entry.entity)
+        collection_name = _collection_for(entry.entity, collection_map)
         for candidate in agent_diff:
             if not isinstance(candidate, Create):
                 continue
@@ -801,44 +836,95 @@ def _match_single_block(
             ))
 
     # 1.5 Update entries — mutation to an existing entity.
-    # Each update has a `where` selector (predicates on entity fields) and
-    # `changes` predicates (predicates on new field values after mutation).
+    # Each update has an optional `where` selector and `changes` predicates.
+    # When a bijection is specified, we do a bipartite match between target
+    # slots and Update candidates (same mechanics as create bijection).
+    def _update_predicates_hold(entry_obj, candidate, bv=None):
+        entity_dict = {"id": candidate.entity_id}
+        for f, (_before, after) in candidate.field_changes.items():
+            entity_dict[f] = after
+        for fname, pred in entry_obj.where.items():
+            local = _build_scope(targets, initial, final, bijection_var=bv, session_start=session_start)
+            if not _predicate_holds(pred, entity_dict.get(fname), local):
+                return False
+        for fname, pred in entry_obj.changes.items():
+            after_value = candidate.field_changes.get(fname, (None, entity_dict.get(fname)))[1]
+            local = _build_scope(targets, initial, final, bijection_var=bv, session_start=session_start)
+            if not _predicate_holds(pred, after_value, local):
+                return False
+        return True
+
     for i, entry in enumerate(block.update):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity)
+        collection_name = _collection_for(entry.entity, collection_map)
         base_desc = entry.desc or f"Update {entry.entity} matching selector"
+
+        if entry.bijection is not None:
+            try:
+                left = _eval_target_expr(entry.bijection.over, targets)
+            except Exception as exc:
+                checks.append({
+                    "desc": f"{base_desc} (target lookup failed)",
+                    "passed": False, "error": f"target expression failed: {exc}",
+                })
+                failures.append(Failure(
+                    kind="missing_update", description=base_desc,
+                    details={"entry_index": i, "error": str(exc)},
+                ))
+                continue
+            n_left = len(left) if hasattr(left, "__len__") else 0
+            if n_left == 0:
+                passed_weight += entry.weight
+                checks.append({
+                    "desc": f"{base_desc} (empty target set)",
+                    "passed": True, "error": None,
+                })
+                continue
+            candidates = [
+                c for c in agent_diff
+                if isinstance(c, Update) and c.entity == collection_name
+                and (c.entity, c.entity_id) not in matched_ids
+            ]
+            edges: dict[int, set[int]] = {li: set() for li in range(n_left)}
+            for li, lv in enumerate(left):
+                for cj, cand in enumerate(candidates):
+                    if _update_predicates_hold(entry, cand, bv=lv):
+                        edges[li].add(cj)
+            matching = _max_bipartite_matching(edges, n_left, len(candidates))
+            saturated = len(matching) == n_left
+            for _li, cj in matching.items():
+                cand = candidates[cj]
+                matched_ids.add((cand.entity, cand.entity_id))
+            if saturated:
+                passed_weight += entry.weight
+                checks.append({
+                    "desc": f"{base_desc} — {n_left} of {n_left} updated",
+                    "passed": True, "error": None,
+                })
+            else:
+                passed_weight += entry.weight * (len(matching) / n_left if n_left else 0.0)
+                checks.append({
+                    "desc": f"{base_desc} — {len(matching)} of {n_left} updated",
+                    "passed": False,
+                    "error": f"matched {len(matching)} of {n_left}",
+                })
+                failures.append(Failure(
+                    kind="missing_update",
+                    description=f"update bijection unsaturated: {len(matching)} of {n_left}",
+                    details={"entry_index": i, "matched": len(matching), "needed": n_left},
+                ))
+            continue
+
+        # Non-bijection update: match a single Update candidate.
         matched = False
         for candidate in agent_diff:
-            from_cand = isinstance(candidate, Update)
-            if not from_cand:
+            if not isinstance(candidate, Update):
                 continue
             if candidate.entity != collection_name:
                 continue
             if (candidate.entity, candidate.entity_id) in matched_ids:
                 continue
-            # Evaluate `where` against a synthesised entity dict (the updated
-            # entity's state: id + changed fields' new values, fallback to old).
-            entity_dict = {"id": candidate.entity_id}
-            for f, (_before, after) in candidate.field_changes.items():
-                entity_dict[f] = after
-            # `where` predicates read the entity's field values, not field_changes.
-            where_ok = True
-            for fname, pred in entry.where.items():
-                scope = _build_scope(targets, initial, final, session_start=session_start)
-                if not _predicate_holds(pred, entity_dict.get(fname), scope):
-                    where_ok = False
-                    break
-            if not where_ok:
-                continue
-            # `changes` predicates test the new (after) values of mutated fields.
-            changes_ok = True
-            for fname, pred in entry.changes.items():
-                after_value = candidate.field_changes.get(fname, (None, entity_dict.get(fname)))[1]
-                scope = _build_scope(targets, initial, final, session_start=session_start)
-                if not _predicate_holds(pred, after_value, scope):
-                    changes_ok = False
-                    break
-            if where_ok and changes_ok:
+            if _update_predicates_hold(entry, candidate):
                 matched_ids.add((candidate.entity, candidate.entity_id))
                 matched = True
                 break
@@ -858,7 +944,7 @@ def _match_single_block(
     # 1.6 Delete entries.
     for i, entry in enumerate(block.delete):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity)
+        collection_name = _collection_for(entry.entity, collection_map)
         base_desc = entry.desc or f"Delete {entry.entity} matching selector"
         matched = False
         for candidate in agent_diff:
@@ -960,7 +1046,7 @@ def _match_single_block(
     # here (e.g. newly-created appointments when the invariant guards only
     # existing upcoming appointments).
     positive_cols = {
-        _collection_for(e.entity)
+        _collection_for(e.entity, collection_map)
         for e in list(block.create) + list(block.update) + list(block.delete)
     }
     # Only UNFILTERED invariants fully cover their collection.

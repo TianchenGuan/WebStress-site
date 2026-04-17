@@ -46,6 +46,57 @@ seed:
     - thread_ids
   targets:
     unread_count: '4'
+    unread_msg_ids: '{output.unread_msg_ids}'
+canonical_diff:
+  update:
+    - entity: ClinicalMessage
+      desc: "Mark each unread message as read"
+      bijection:
+        over: "target['unread_msg_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_read: {eq: true}
+  invariant:
+    - collection: state.messages
+      filter: "a.id not in target['unread_msg_ids']"
+      preserve: ALL
+    - collection: state.appointments
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.prescriptions
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not modify read messages or send new ones"
+      ref: invariant[0]
+      severity: medium
+    - name: "Agent did not create, cancel, or modify appointments"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[2]
+      severity: medium
+    - name: "Agent did not modify prescriptions"
+      ref: invariant[3]
+      severity: high
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[4]
+      severity: high
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
 eval:
   source: server_state
   checks:
