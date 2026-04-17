@@ -75,6 +75,120 @@ seed:
     property_id: '{output.property_id}'
     property_name: '{output.property_name}'
     city: New Orleans
+canonical_diff:
+  constraints:
+    - desc: Visa card ending in 9999 is added and set as default payment method
+      expr: "any(pm.card_type == 'Visa' and pm.last_four == '9999' and pm.is_default for pm in state.payment_methods)"
+      severity: critical
+    - desc: Mastercard ending in 7777 is added
+      expr: "any(pm.card_type == 'Mastercard' and pm.last_four == '7777' for pm in state.payment_methods)"
+      severity: critical
+    - desc: Preferred bed type updated to queen
+      expr: "state.travel_preferences.preferred_bed_type == 'queen'"
+      severity: high
+    - desc: Floor preference updated to low
+      expr: "state.travel_preferences.floor_preference == 'low'"
+      severity: high
+    - desc: Gluten-free added to dietary restrictions
+      expr: "'gluten-free' in state.travel_preferences.dietary_restrictions"
+      severity: high
+    - desc: Two-factor authentication is enabled
+      expr: "state.settings.two_factor_enabled == True"
+      severity: critical
+    - desc: Mastercard was not set as default payment method
+      expr: "not any(pm.card_type == 'Mastercard' and pm.last_four == '7777' and pm.is_default for pm in state.payment_methods)"
+      severity: medium
+  create:
+    - entity: PaymentMethod
+      desc: Add the new Visa card ending in 9999 as default payment method
+      properties:
+        card_type: {eq: "Visa"}
+        last_four: {eq: "9999"}
+        expiry: {any: true}
+        holder_name: {any: true}
+        is_default: {eq: true}
+    - entity: PaymentMethod
+      desc: Add the new Mastercard ending in 7777
+      properties:
+        card_type: {eq: "Mastercard"}
+        last_four: {eq: "7777"}
+        expiry: {any: true}
+        holder_name: {any: true}
+        is_default: {eq: false}
+    - entity: Reservation
+      desc: Book the Standard Double Room at Hotel Monteleone for 4 nights using the new default Visa card
+      properties:
+        property_id: {expr: "x == target['property_id']"}
+        property_name: {any: true}
+        room_type_id: {any: true}
+        room_type_name: {eq: "Standard Double Room"}
+        check_in: {eq: "2026-07-10"}
+        check_out: {eq: "2026-07-14"}
+        nights: {eq: 4}
+        guests: {eq: 2}
+        rooms: {any: true}
+        price_per_night: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+        currency: {any: true}
+        status: {eq: confirmed}
+        booked_at: {any: true}
+        guest_info: {any: true}
+        payment_method_id: {any: true}
+        cancellation_policy: {any: true}
+        confirmation_number: {any: true}
+        is_genius_deal: {any: true}
+        genius_discount: {any: true}
+        meals_included: {any: true}
+        rating_submitted: {any: true}
+  invariant:
+    - collection: state.reservations
+      filter: "not (a.property_id == target['property_id'] and a.check_in == '2026-07-10' and a.check_out == '2026-07-14')"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.payment_methods
+      filter: "a.last_four not in ('9999', '7777')"
+      preserve: ALL
+  named_invariants:
+    - name: Agent added the Visa card ending in 9999 as default
+      ref: create[0]
+      severity: critical
+    - name: Agent added the Mastercard ending in 7777
+      ref: create[1]
+      severity: critical
+    - name: Agent booked the Standard Double Room at the target property with correct dates
+      ref: create[2]
+      severity: critical
+    - name: Agent did not modify existing reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not create or modify notifications
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not modify existing payment methods
+      ref: invariant[6]
+      severity: medium
 eval:
   source: server_state
   checks:

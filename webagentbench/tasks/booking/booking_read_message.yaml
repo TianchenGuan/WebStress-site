@@ -40,6 +40,55 @@ seed:
     message_id: "{output.message_id}"
     message_subject: "Your upcoming stay - important information"
     property_name: "{output.property_name}"
+canonical_diff:
+  update:
+    - entity: Message
+      desc: Mark the target unread message as read
+      where:
+        id: {expr: "x == target['message_id']"}
+      changes:
+        read: {eq: true}
+  invariant:
+    - collection: state.messages
+      filter: "a.id != target['message_id']"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent marked the target message as read
+      ref: update[0]
+      severity: critical
+    - name: Agent did not modify other messages
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

@@ -15,6 +15,46 @@ seed:
   actors: {}
   steps: []
   targets: {}
+canonical_diff:
+  constraints:
+    - desc: The default payment method is now the Amex card ending in 1234
+      expr: "any(pm.id == state.settings.default_payment_id and pm.card_type == 'Amex' and pm.last_four == '1234' for pm in state.payment_methods)"
+      severity: critical
+    - desc: No payment method was deleted
+      expr: "len(state.payment_methods) >= len(initial.payment_methods)"
+      severity: high
+  invariant:
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent did not modify reservations
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not create or modify notifications
+      ref: invariant[5]
+      severity: low
 eval:
   source: server_state
   checks:

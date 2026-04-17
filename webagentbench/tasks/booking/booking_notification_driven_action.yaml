@@ -80,6 +80,67 @@ seed:
     list_id: '{output.list_id}'
     list_name: '{output.list_name}'
     city: Copenhagen
+canonical_diff:
+  update:
+    - entity: Notification
+      desc: Mark the price drop notification as read
+      where:
+        id: {expr: "x == target['notification_id']"}
+      changes:
+        read: {eq: true}
+    - entity: SavedList
+      desc: Add the target property to the Nordic Getaway saved list
+      where:
+        id: {expr: "x == target['list_id']"}
+      changes:
+        property_ids:
+          expr: "target['property_id'] in x"
+        updated_at: {any: true}
+  invariant:
+    - collection: state.notifications
+      filter: "a.id != target['notification_id']"
+      preserve: ALL
+    - collection: state.saved_lists
+      filter: "a.id != target['list_id']"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+  named_invariants:
+    - name: Agent marked the price drop notification as read
+      ref: update[0]
+      severity: critical
+    - name: Agent added the property to the correct saved list
+      ref: update[1]
+      severity: critical
+    - name: Agent did not modify other notifications
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify other saved lists
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[6]
+      severity: high
 eval:
   source: server_state
   checks:

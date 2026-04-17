@@ -113,6 +113,57 @@ seed:
     property1_name: '{output.prop1_name}'
     property2_id: '{output.prop2_id}'
     property2_name: '{output.prop2_name}'
+canonical_diff:
+  create:
+    - entity: SavedList
+      desc: Create a saved list named Italy Summer Trip containing both target properties
+      properties:
+        name: {eq: "Italy Summer Trip"}
+        property_ids:
+          expr: "target['property1_id'] in x and target['property2_id'] in x"
+        created_at: {any: true}
+        updated_at: {any: true}
+  invariant:
+    - collection: state.saved_lists
+      filter: "a.name != 'Italy Summer Trip'"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent created Italy Summer Trip list with both target properties
+      ref: create[0]
+      severity: critical
+    - name: Agent did not modify other saved lists
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

@@ -68,6 +68,48 @@ seed:
     reservation_id: '{output.early_res_id}'
     property_name: '{output.early_prop_name}'
     check_in: '2026-04-16'
+canonical_diff:
+  constraints:
+    - desc: Target reservation was viewed
+      expr: "any(e.action == 'reservation.view' and e.payload.get('reservation_id') == target['reservation_id'] for e in state.audit_log)"
+      severity: critical
+  invariant:
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent did not modify reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

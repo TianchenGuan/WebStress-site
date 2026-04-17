@@ -106,6 +106,78 @@ seed:
     notification_id: '{output.target_notif_id}'
     notif_title: Booking Confirmed - The Savoy London
     distractor_res_id: '{output.distractor_res_id}'
+canonical_diff:
+  update:
+    - entity: Reservation
+      desc: Cancel the target reservation found via the booking confirmation notification
+      where:
+        id: {expr: "x == target['reservation_id']"}
+      changes:
+        status: {eq: cancelled}
+    - entity: Notification
+      desc: Mark the booking confirmation notification as read
+      where:
+        id: {expr: "x == target['notification_id']"}
+      changes:
+        read: {eq: true}
+  create:
+    - entity: SavedList
+      desc: Create a new saved list named Revisit Later and add the cancelled property to it
+      properties:
+        name: {eq: "Revisit Later"}
+        property_ids:
+          expr: "target['property_id'] in x"
+        created_at: {any: true}
+        updated_at: {any: true}
+  invariant:
+    - collection: state.reservations
+      filter: "a.id != target['reservation_id']"
+      preserve: ALL
+    - collection: state.notifications
+      filter: "a.id != target['notification_id']"
+      preserve: ALL
+    - collection: state.saved_lists
+      filter: "a.name != 'Revisit Later'"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+  named_invariants:
+    - name: Agent cancelled the target reservation found via notification
+      ref: update[0]
+      severity: critical
+    - name: Agent marked the booking confirmation notification as read
+      ref: update[1]
+      severity: high
+    - name: Agent created Revisit Later list with target property
+      ref: create[0]
+      severity: critical
+    - name: Agent did not cancel or modify other reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify other notifications
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not modify other saved lists
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify properties
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[6]
+      severity: high
 eval:
   source: server_state
   checks:

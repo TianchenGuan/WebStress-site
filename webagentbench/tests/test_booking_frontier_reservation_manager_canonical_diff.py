@@ -1,9 +1,14 @@
-"""End-to-end tests for booking_frontier_reservation_manager canonical_diff."""
+"""End-to-end tests for booking_frontier_reservation_manager canonical_diff.
+
+Complex task: 3 reservation updates + 3 messages + 1 saved list + 2 reviews.
+"""
 
 from datetime import datetime, timezone
 
-from webagentbench.backend.models.booking import Message, Review, SavedList
 from webagentbench.backend.state import SessionManager
+from webagentbench.backend.models.booking import (
+    Review, ReviewBreakdown, Message, SavedList
+)
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
 
@@ -13,130 +18,116 @@ TASK_ID = 'booking_frontier_reservation_manager'
 def _setup_session(seed: int = 42):
     sm = SessionManager()
     sid, targets, _ = sm.create_session(env_id='booking', task_id=TASK_ID, seed=seed)
-    initial = sm.get_initial_snapshot(sid)
+    initial_snap = sm.get_initial_snapshot(sid)
+    initial_dict = initial_snap.model_dump()
     state = sm.get_state(sid)
-    return sm, sid, dict(targets), initial, state
+    return dict(targets), initial_snap, initial_dict, state
 
 
-def _apply_correct_state(targets, state):
+def _run(targets, initial_snap, initial_dict, state):
+    task = get_task(TASK_ID)
+    agent_diff = compute_diff(initial_dict, state.model_dump())
+    return match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial_snap, final=state)
+
+
+def _apply_all_mutations(state, targets, suffix=""):
     now = datetime.now(timezone.utc)
-    # Cancel 2 reservations
-    for res in state.reservations:
-        if res.id == targets['cancel1_res_id']:
-            res.status = 'cancelled'
-        elif res.id == targets['cancel2_res_id']:
-            res.status = 'cancelled'
-        elif res.id == targets['modify_res_id']:
-            res.check_in = '2026-09-10'
-            res.check_out = '2026-09-14'
-    # Create messages
+
+    # Cancel both reservations
+    cancel1 = next(r for r in state.reservations if r.id == targets['cancel1_res_id'])
+    cancel1.status = 'cancelled'
+    cancel2 = next(r for r in state.reservations if r.id == targets['cancel2_res_id'])
+    cancel2.status = 'cancelled'
+
+    # Modify third reservation
+    modify = next(r for r in state.reservations if r.id == targets['modify_res_id'])
+    modify.check_in = '2026-09-10'
+    modify.check_out = '2026-09-14'
+    modify.status = 'modified'
+
+    # Send cancellation messages
     state.messages.append(Message(
-        id="msg_rome",
-        property_id=targets['cancel1_prop_id'],
-        property_name="Hotel Athena Rome",
-        subject="Cancellation notice",
-        body="I need to cancel my reservation due to schedule changes",
-        sender="guest",
-        created_at=now,
+        id=f"msg_cancel1{suffix}", property_id=targets['cancel1_prop_id'],
+        property_name=targets['cancel1_name'], reservation_id=targets['cancel1_res_id'],
+        subject="Cancellation of reservation", body="I need to cancel my reservation.",
+        sender="guest", read=False, created_at=now,
     ))
     state.messages.append(Message(
-        id="msg_berlin",
-        property_id=targets['cancel2_prop_id'],
-        property_name="Berlin Tiergarten Boutique",
-        subject="Cancellation inquiry",
-        body="Please process the refund for my cancellation",
-        sender="guest",
-        created_at=now,
+        id=f"msg_cancel2{suffix}", property_id=targets['cancel2_prop_id'],
+        property_name=targets['cancel2_name'], reservation_id=targets['cancel2_res_id'],
+        subject="Cancellation inquiry and refund",
+        body="I need to cancel and request a refund if possible.",
+        sender="guest", read=False, created_at=now,
     ))
     state.messages.append(Message(
-        id="msg_vienna",
-        property_id=targets['modify_prop_id'],
-        property_name="Grand Hotel Vienna",
-        subject="Date change request",
-        body="I would like to change my dates if they are still available",
-        sender="guest",
-        created_at=now,
+        id=f"msg_modify{suffix}", property_id=targets['modify_prop_id'],
+        property_name=targets['modify_name'], reservation_id=targets['modify_res_id'],
+        subject="Date change for reservation",
+        body="I have updated my dates for the reservation.",
+        sender="guest", read=False, created_at=now,
     ))
+
+    # Create Cancelled - Revisit saved list
     state.saved_lists.append(SavedList(
-        id="sl_revisit",
+        id=f"list_cancel{suffix}",
         name="Cancelled - Revisit",
         property_ids=[targets['cancel1_prop_id'], targets['cancel2_prop_id']],
-        created_at=now,
-        updated_at=now,
+        created_at=now, updated_at=now,
     ))
+
+    # Write review for first completed stay
     state.reviews.append(Review(
-        id="rev_copenhagen",
-        property_id=targets['review1_prop_id'],
-        author_name="Jordan Parker",
-        overall_score=8.5,
-        title="Very comfortable",
-        positive="Very quiet and comfortable beds",
-        negative="",
-        travel_purpose="leisure",
-        traveled_with="couple",
-        created_at=now,
+        id=f"rev1{suffix}", property_id=targets['review1_prop_id'], reservation_id="",
+        author_name="Test User", author_country="US",
+        overall_score=8.5, scores=ReviewBreakdown(),
+        title="Very comfortable and relaxing stay",
+        positive="The beds were incredibly comfortable and the hotel was very quiet.",
+        negative="", room_type="Deluxe", travel_purpose="leisure", traveled_with="couple",
+        stay_date="2026-02", created_at=now,
     ))
+
+    # Write review for second completed stay
     state.reviews.append(Review(
-        id="rev_amsterdam",
-        property_id=targets['review2_prop_id'],
-        author_name="Jordan Parker",
-        overall_score=7.0,
-        title="Decent stay",
-        positive="Great location in Amsterdam",
-        negative="Slow room service",
-        travel_purpose="business",
-        traveled_with="solo",
-        created_at=now,
+        id=f"rev2{suffix}", property_id=targets['review2_prop_id'], reservation_id="",
+        author_name="Test User", author_country="US",
+        overall_score=7.0, scores=ReviewBreakdown(),
+        title="Decent stay for business travel",
+        positive="Great location for the conference.",
+        negative="Room service was very slow and disappointing.",
+        room_type="Standard", travel_purpose="business", traveled_with="solo",
+        stay_date="2026-03", created_at=now,
     ))
 
 
 def test_correct_trajectory_passes():
     for seed in (0, 3, 42):
-        sm, sid, targets, initial, state = _setup_session(seed=seed)
-        _apply_correct_state(targets, state)
-
-        task = get_task(TASK_ID)
-        agent_diff = compute_diff(initial, state)
-        report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
+        targets, initial_snap, initial_dict, state = _setup_session(seed=seed)
+        _apply_all_mutations(state, targets, suffix=f"_{seed}")
+        report = _run(targets, initial_snap, initial_dict, state)
         assert report.passed is True, f"seed={seed} failures: {report.failures}"
-        assert report.score == 1.0
-
-
-def test_no_mutation_fails():
-    sm, sid, targets, initial, state = _setup_session()
-    task = get_task(TASK_ID)
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
-    assert report.passed is False
-    assert report.score == 0.0
+        assert report.score == 1.0, f"seed={seed} expected 1.0, got {report.score}"
 
 
 def test_missing_cancellation_fails():
-    sm, sid, targets, initial, state = _setup_session()
-    _apply_correct_state(targets, state)
-    # Undo one cancellation
-    for res in state.reservations:
-        if res.id == targets['cancel1_res_id']:
-            res.status = 'confirmed'
-            break
-
-    task = get_task(TASK_ID)
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
-    assert report.passed is False
+    targets, initial_snap, initial_dict, state = _setup_session()
+    _apply_all_mutations(state, targets)
+    # Undo cancellation of cancel1
+    cancel1 = next(r for r in state.reservations if r.id == targets['cancel1_res_id'])
+    cancel1.status = 'confirmed'  # not cancelled
+    report = _run(targets, initial_snap, initial_dict, state)
+    assert report.passed is False, "not cancelling cancel1 should fail"
 
 
-def test_wrong_dates_fails():
-    sm, sid, targets, initial, state = _setup_session()
-    _apply_correct_state(targets, state)
-    # Wrong modification dates
-    for res in state.reservations:
-        if res.id == targets['modify_res_id']:
-            res.check_in = '2026-10-01'
-            res.check_out = '2026-10-05'
-            break
+def test_wrong_review_score_fails():
+    targets, initial_snap, initial_dict, state = _setup_session()
+    _apply_all_mutations(state, targets)
+    # Find last 2 reviews and change first one's score
+    state.reviews[-2].overall_score = 9.0  # wrong score for review1
+    report = _run(targets, initial_snap, initial_dict, state)
+    assert report.passed is False, "wrong review score should fail"
 
-    task = get_task(TASK_ID)
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
-    assert report.passed is False
+
+def test_no_mutation_fails():
+    targets, initial_snap, initial_dict, state = _setup_session()
+    report = _run(targets, initial_snap, initial_dict, state)
+    assert report.passed is False, "no mutation should fail"

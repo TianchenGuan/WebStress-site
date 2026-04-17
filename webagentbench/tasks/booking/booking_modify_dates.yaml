@@ -78,6 +78,61 @@ seed:
     old_check_out: '2026-05-24'
     new_check_in: '2026-05-25'
     new_check_out: '2026-05-29'
+canonical_diff:
+  update:
+    - entity: Reservation
+      desc: Modify the target reservation check-in and check-out dates while preserving guest count
+      where:
+        id: {expr: "x == target['reservation_id']"}
+      changes:
+        check_in: {eq: "2026-05-25"}
+        check_out: {eq: "2026-05-29"}
+        nights: {any: true}
+        status: {any: true}
+        guests: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+  invariant:
+    - collection: state.reservations
+      filter: "a.id != target['reservation_id']"
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.reviews
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent changed the reservation dates to the new check-in and check-out
+      ref: update[0]
+      severity: critical
+    - name: Agent did not modify other reservations
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not create or modify reviews
+      ref: invariant[2]
+      severity: low
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

@@ -211,20 +211,15 @@ canonical_diff:
       properties:
         name: {eq: "Beach Getaways"}
         property_ids:
-          expr: >-
-            target['beach1_id'] in x and
-            target['beach2_id'] in x
+          expr: "target['beach1_id'] in x and target['beach2_id'] in x"
         created_at: {any: true}
         updated_at: {any: true}
     - entity: SavedList
-      desc: Create City Breaks list with three city properties
+      desc: Create City Breaks list with all three city properties
       properties:
         name: {eq: "City Breaks"}
         property_ids:
-          expr: >-
-            target['city1_id'] in x and
-            target['city2_id'] in x and
-            target['city3_id'] in x
+          expr: "target['city1_id'] in x and target['city2_id'] in x and target['city3_id'] in x"
         created_at: {any: true}
         updated_at: {any: true}
     - entity: SavedList
@@ -232,13 +227,11 @@ canonical_diff:
       properties:
         name: {eq: "Mountain Retreats"}
         property_ids:
-          expr: >-
-            target['mtn1_id'] in x and
-            target['mtn2_id'] in x
+          expr: "target['mtn1_id'] in x and target['mtn2_id'] in x"
         created_at: {any: true}
         updated_at: {any: true}
     - entity: Reservation
-      desc: Book Istanbul Grand Bazaar Hotel cheapest room for 4 nights
+      desc: Book the cheapest property for 4 nights
       properties:
         property_id: {expr: "x == target['cheapest_id']"}
         property_name: {any: true}
@@ -264,20 +257,18 @@ canonical_diff:
         meals_included: {any: true}
         rating_submitted: {any: true}
     - entity: Message
-      desc: Send airport pickup request to booked property
+      desc: Send message to booked property about airport pickup
       properties:
         property_id: {expr: "x == target['cheapest_id']"}
         property_name: {any: true}
         reservation_id: {any: true}
-        subject:
-          expr: "'upcoming' in x.lower() or 'reservation' in x.lower()"
-        body:
-          expr: "'airport' in x.lower()"
+        subject: {expr: "'upcoming' in x.lower() or 'reservation' in x.lower()"}
+        body: {expr: "'airport' in x.lower()"}
         sender: {eq: guest}
-        read: {any: true}
+        read: {eq: false}
         created_at: {any: true}
     - entity: Review
-      desc: Write review for completed Swiss Alps Lodge stay
+      desc: Write review for completed mountain stay with score 8.5 and correct title/positive
       properties:
         property_id: {expr: "x == target['review_id']"}
         reservation_id: {any: true}
@@ -285,9 +276,8 @@ canonical_diff:
         author_country: {any: true}
         overall_score: {eq: 8.5}
         scores: {any: true}
-        title: {eq: "Great mountain escape"}
-        positive:
-          expr: "'fireplace' in x.lower() or 'views' in x.lower()"
+        title: {expr: "'Great mountain escape' in x"}
+        positive: {expr: "'fireplace' in x.lower() or 'views' in x.lower()"}
         negative: {any: true}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
@@ -297,64 +287,62 @@ canonical_diff:
         helpful_count: {any: true}
         property_response: {any: true}
   invariant:
-    - collection: state.reservations
-      filter: "a.property_id != target['cheapest_id']"
+    - collection: state.saved_lists
+      filter: "a.name not in ('Beach Getaways', 'City Breaks', 'Mountain Retreats')"
       preserve: ALL
-    - collection: state.properties
+    - collection: state.reservations
+      filter: "not (a.property_id == target['cheapest_id'] and a.check_in == '2026-10-15')"
+      preserve: ALL
+    - collection: state.messages
+      filter: "not (a.sender == 'guest' and a.property_id == target['cheapest_id'])"
       preserve: ALL
     - collection: state.reviews
       filter: "a.property_id != target['review_id']"
       preserve: ALL
-    - collection: state.saved_lists
-      filter: "a.name not in ('Beach Getaways', 'City Breaks', 'Mountain Retreats')"
-      preserve: ALL
-    - collection: state.messages
-      filter: >-
-        a.sender == 'property' or
-        a.property_id != target['cheapest_id']
+    - collection: state.properties
       preserve: ALL
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
   named_invariants:
-    - name: Agent created Beach Getaways list
+    - name: Agent created Beach Getaways list with correct properties
       ref: create[0]
-      severity: high
-    - name: Agent created City Breaks list
+      severity: critical
+    - name: Agent created City Breaks list with correct properties
       ref: create[1]
-      severity: high
-    - name: Agent created Mountain Retreats list
+      severity: critical
+    - name: Agent created Mountain Retreats list with correct properties
       ref: create[2]
-      severity: high
-    - name: Agent booked cheapest property Istanbul Grand Bazaar Hotel
+      severity: critical
+    - name: Agent booked the cheapest property with correct dates
       ref: create[3]
       severity: critical
-    - name: Agent sent airport pickup request to booked property
+    - name: Agent sent airport pickup message to booked property
       ref: create[4]
-      severity: medium
-    - name: Agent wrote review for completed Swiss Alps stay
+      severity: high
+    - name: Agent wrote mountain escape review correctly
       ref: create[5]
-      severity: high
-    - name: Agent did not modify other reservations
+      severity: critical
+    - name: Agent did not modify other saved lists
       ref: invariant[0]
-      severity: high
-    - name: Agent did not modify properties
-      ref: invariant[1]
       severity: medium
-    - name: Agent did not write reviews for other properties
+    - name: Agent did not modify other reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify other messages
       ref: invariant[2]
       severity: medium
-    - name: Agent did not modify other saved lists
+    - name: Agent did not modify reviews for other properties
       ref: invariant[3]
       severity: medium
-    - name: Agent only messaged the booked property
+    - name: Agent did not modify properties
       ref: invariant[4]
       severity: medium
     - name: Agent did not modify payment methods
       ref: invariant[5]
       severity: high
-    - name: Agent did not create spurious notifications
+    - name: Agent did not create or modify notifications
       ref: invariant[6]
       severity: low
 eval:

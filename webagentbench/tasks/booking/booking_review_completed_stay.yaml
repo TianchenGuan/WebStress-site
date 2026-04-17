@@ -75,6 +75,68 @@ seed:
     property_name: '{output.property_name}'
     reservation_id: '{output.reservation_id}'
     confirmation_number: '{output.confirmation_number}'
+canonical_diff:
+  create:
+    - entity: Review
+      desc: Write a review with score 8.5, title Wonderful experience, and specified positive/negative comments
+      properties:
+        property_id: {expr: "x == target['property_id']"}
+        reservation_id: {any: true}
+        author_name: {any: true}
+        author_country: {any: true}
+        overall_score: {eq: 8.5}
+        scores: {any: true}
+        title: {expr: "'Wonderful experience' in x"}
+        positive: {expr: "'staff' in x.lower() and 'location' in x.lower()"}
+        negative: {expr: "'room' in x.lower()"}
+        room_type: {any: true}
+        travel_purpose: {eq: leisure}
+        traveled_with: {eq: couple}
+        stay_date: {any: true}
+        created_at: {any: true}
+        helpful_count: {any: true}
+        property_response: {any: true}
+  invariant:
+    - collection: state.reviews
+      filter: "a.property_id != target['property_id']"
+      preserve: ALL
+    - collection: state.reservations
+      preserve: ALL
+    - collection: state.properties
+      preserve: ALL
+    - collection: state.saved_lists
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.payment_methods
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+  named_invariants:
+    - name: Agent wrote the review with correct score, title, positive comment about staff and location, and negative about room
+      ref: create[0]
+      severity: critical
+    - name: Agent did not modify or delete reviews for other properties
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify reservations
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify properties
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not modify saved lists
+      ref: invariant[3]
+      severity: low
+    - name: Agent did not send or modify messages
+      ref: invariant[4]
+      severity: low
+    - name: Agent did not modify payment methods
+      ref: invariant[5]
+      severity: high
+    - name: Agent did not create or modify notifications
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:
