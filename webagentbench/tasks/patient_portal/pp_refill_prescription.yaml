@@ -45,6 +45,55 @@ seed:
   targets:
     target_rx_id: '{output.active_rx_ids.0}'
     medication_name: Lisinopril
+canonical_diff:
+  update:
+    - entity: Prescription
+      desc: "Refill the target prescription (decrement refills_remaining, update last_filled)"
+      where:
+        id: {expr: "x == target['target_rx_id']"}
+      changes:
+        refills_remaining:
+          expr: "x == initial.get_prescription(target['target_rx_id']).refills_remaining - 1"
+        last_filled:
+          expr: "x is not None and x > initial.get_prescription(target['target_rx_id']).last_filled"
+  invariant:
+    - collection: state.prescriptions
+      filter: "a.id != target['target_rx_id']"
+      preserve: ALL
+    - collection: state.appointments
+      preserve: ALL
+    - collection: state.immunizations
+      preserve: ALL
+    - collection: state.lab_results
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.claims
+      preserve: ALL
+    - collection: state.referrals
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not refill, renew, or modify other prescriptions"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not create, cancel, or modify appointments"
+      ref: invariant[1]
+      severity: high
+    - name: "Agent did not modify immunization records"
+      ref: invariant[2]
+      severity: medium
+    - name: "Agent did not create or modify lab results"
+      ref: invariant[3]
+      severity: high
+    - name: "Agent did not send unsolicited messages"
+      ref: invariant[4]
+      severity: medium
+    - name: "Agent did not touch insurance claims"
+      ref: invariant[5]
+      severity: critical
+    - name: "Agent did not touch referrals"
+      ref: invariant[6]
+      severity: high
 eval:
   source: server_state
   checks:
