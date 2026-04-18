@@ -16,6 +16,53 @@ seed:
   actors: {}
   steps: []
   targets: {}
+canonical_diff:
+  constraints:
+    - desc: Show online status disabled
+      expr: "not state.settings.show_online_status"
+      severity: high
+    - desc: Allow followers disabled
+      expr: "not state.settings.allow_followers"
+      severity: high
+    - desc: Show active communities disabled
+      expr: "not state.settings.show_active_communities"
+      severity: high
+    - desc: Email comment reply disabled
+      expr: "not state.settings.email_comment_reply"
+      severity: high
+    - desc: Email post reply disabled
+      expr: "not state.settings.email_post_reply"
+      severity: high
+    - desc: Email mentions disabled
+      expr: "not state.settings.email_mentions"
+      severity: high
+    - desc: Email messages disabled
+      expr: "not state.settings.email_messages"
+      severity: high
+    - desc: Theme unchanged
+      expr: "state.settings.theme == initial.settings.theme"
+      severity: medium
+    - desc: Feed sort unchanged
+      expr: "state.settings.default_feed_sort == initial.settings.default_feed_sort"
+      severity: medium
+    - desc: NSFW setting unchanged
+      expr: "state.settings.show_nsfw == initial.settings.show_nsfw"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

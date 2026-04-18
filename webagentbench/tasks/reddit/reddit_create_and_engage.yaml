@@ -82,6 +82,22 @@ seed:
       to lower altitudes.
     initial_subscriptions: '{output.subscriptions}'
     decoy_post_ids: '{output.decoy_post_ids}'
+canonical_diff:
+  # learnpython subreddit isn't pre-seeded; constraint form checks the
+  # final state regardless of how the agent creates/subscribes.
+  constraints:
+    - desc: Subscribed to r/learnpython
+      expr: "any(s.name == target['join_sub'] and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Created the learnpython post
+      expr: "any(p.subreddit_name == target['join_sub'] and p.title == target['post_title'] and p.author_name == state.owner_username for p in state.posts)"
+      severity: high
+    - desc: Upvoted the target science post
+      expr: "state.get_post(target['engage_post_id']).vote_direction == 1"
+      severity: high
+    - desc: Posted the exact comment on the science post
+      expr: "any(c.post_id == target['engage_post_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username for c in state.comments)"
+      severity: high
 eval:
   source: server_state
   checks:

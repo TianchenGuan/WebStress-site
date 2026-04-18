@@ -144,6 +144,7 @@ class CreateEntry(BaseModel):
     """One entry in ``canonical_diff.create``."""
 
     entity: str
+    collection: str | None = None
     bijection: Bijection | None = None
     count: int = Field(default=1, ge=1)
     weight: float = Field(default=1.0, ge=0.0)
@@ -195,6 +196,7 @@ class DeleteEntry(BaseModel):
     """One entry in ``canonical_diff.delete``."""
 
     entity: str
+    collection: str | None = None
     where: dict[str, dict[str, Any]]
     weight: float = Field(default=1.0, ge=0.0)
     desc: str | None = None  # optional human-readable check label

@@ -719,7 +719,7 @@ def _match_single_block(
                 # named_invariants can still flag over-creation (agent
                 # scheduled N>0 when 0 were needed).
                 total_weight -= entry.weight
-                collection_name = _collection_for(entry.entity, collection_map)
+                collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
                 excess_candidates = [
                     c for c in agent_diff
                     if isinstance(c, Create) and c.entity == collection_name
@@ -735,7 +735,7 @@ def _match_single_block(
                 continue
 
             # Candidates: unmatched Create entries of the right entity type.
-            collection_name = _collection_for(entry.entity, collection_map)
+            collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
             candidates = [
                 c for c in agent_diff
                 if isinstance(c, Create)
@@ -834,7 +834,7 @@ def _match_single_block(
 
         # Non-bijection: find one unmatched Create candidate satisfying all predicates.
         passed = False
-        collection_name = _collection_for(entry.entity, collection_map)
+        collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
         for candidate in agent_diff:
             if not isinstance(candidate, Create):
                 continue
@@ -888,10 +888,7 @@ def _match_single_block(
         total_weight += entry.weight
         # Honor explicit collection override (Class 17: envs with multiple
         # collections per entity type like Reddit's messages/sent_messages).
-        if entry.collection:
-            collection_name = entry.collection.removeprefix("state.")
-        else:
-            collection_name = _collection_for(entry.entity, collection_map)
+        collection_name = (entry.collection.removeprefix("state.") if entry.collection else _collection_for(entry.entity, collection_map))
         base_desc = entry.desc or f"Update {entry.entity} matching selector"
 
         if entry.bijection is not None:
@@ -982,7 +979,7 @@ def _match_single_block(
     # 1.6 Delete entries.
     for i, entry in enumerate(block.delete):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity, collection_map)
+        collection_name = (entry.collection.removeprefix("state.") if entry.collection else _collection_for(entry.entity, collection_map))
         base_desc = entry.desc or f"Delete {entry.entity} matching selector"
         matched = False
         for candidate in agent_diff:
