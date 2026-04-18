@@ -19,7 +19,7 @@ def _setup_session(seed: int = 42):
 
 def test_correct_trajectory_passes():
     _, _, targets, initial, state = _setup_session()
-    target_sr = next(s for s in state.subreddits if s.name == targets["subreddit_name"])
+    target_sr = next(s for s in state.subreddits if s.name == "memes")
     target_sr.is_subscribed = False
     if target_sr.id in state.subscriptions:
         state.subscriptions.remove(target_sr.id)
@@ -45,7 +45,7 @@ def test_no_mutation_fails():
 def test_wrong_subreddit_unsubscribed_fails():
     _, _, targets, initial, state = _setup_session()
     other = next(s for s in state.subreddits
-                 if s.is_subscribed and s.name != targets["subreddit_name"])
+                 if s.is_subscribed and s.name != "memes")
     other.is_subscribed = False
     task = get_task("reddit_unsubscribe")
     report = match_diff(

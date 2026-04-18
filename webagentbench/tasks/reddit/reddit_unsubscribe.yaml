@@ -21,14 +21,13 @@ seed:
     - subscriptions
   targets:
     initial_subscriptions: '{output.subscriptions}'
-    subreddit_name: memes
 canonical_diff:
   update:
     - entity: Subreddit
       desc: Unsubscribe from r/memes
       where:
         id:
-          expr: "state.get_subreddit(x).name == target['subreddit_name']"
+          expr: "state.get_subreddit(x).name == 'memes'"
       changes:
         is_subscribed:
           eq: false
