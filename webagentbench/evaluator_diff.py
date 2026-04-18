@@ -548,10 +548,39 @@ class _DotObj:
     to each candidate entity and lets authors write ``a.id in target.upcoming_ids``.
     We mirror that here so migrated tasks can reuse their existing filter
     expressions verbatim.
+
+    Also supports dict-like lookup (``x['id']``, ``x.get('id')``, ``'id' in x``,
+    ``x.keys()``) so that authors who started with dict-style access aren't
+    broken when the same value flows through ``_expr_scope`` with
+    auto-wrapping. Adding dict-like access is safe because ``_DotObj`` is
+    read-only semantically — ``__init__`` just copies the backing dict's
+    entries into ``__dict__``.
     """
 
     def __init__(self, d: dict[str, Any]) -> None:
+        self._data = dict(d)
         self.__dict__.update(d)
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._data
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
 
 
 def _entity_dict_for_invariant(entry: "DiffEntry") -> dict[str, Any]:
