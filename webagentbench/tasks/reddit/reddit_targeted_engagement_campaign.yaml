@@ -69,7 +69,7 @@ seed:
 canonical_diff:
   update:
   - entity: Post
-    desc: Tech post upvoted
+    desc: Upvoted the tech target post
     where:
       id:
         expr: x == target['tech_id']
@@ -77,46 +77,87 @@ canonical_diff:
       vote_direction:
         eq: 1
   - entity: Post
-    desc: Gaming post saved
+    desc: Saved the gaming target post
     where:
       id:
         expr: x == target['game_id']
     changes:
       is_saved:
         eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment on the science target post
+    properties:
+      post_id:
+        expr: x == target['sci_id']
+      body:
+        expr: x == target['sci_comment']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact message sent to NebulaDrifter about xenotransplantation
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Science comment
-    expr: any(c.post_id == target['sci_id'] and "immunosuppression protocol" in c.body for c in state.comments)
-    severity: high
-  - desc: Message sent
-    expr: any(m.to_user == "NebulaDrifter" and "kidney transplant" in m.body for m in state.sent_messages)
-    severity: high
-  - desc: Theme dark
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
+  - desc: Gaming post not voted on (save-only instruction)
+    expr: state.get_post(target['game_id']).vote_direction == 0
+    severity: medium
+  - desc: Science post not voted on (comment-only instruction)
+    expr: state.get_post(target['sci_id']).vote_direction == 0
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == 0
+    severity: medium
   invariant:
   - collection: state.subreddits
     preserve: ALL
   - collection: state.posts
-    filter: 'True'
+    filter: "a.id != target['tech_id'] and a.id != target['game_id']"
     preserve: ALL
   - collection: state.comments
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
     preserve: ALL
   - collection: state.sent_messages
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Tech post upvoted
+  - name: Agent upvoted the tech target post
     ref: update[0]
     severity: high
-  - name: Gaming post saved
+  - name: Agent saved the gaming target post
     ref: update[1]
     severity: high
+  - name: Agent posted the exact comment on the science target post
+    ref: create[0]
+    severity: high
+  - name: Agent sent the exact message to NebulaDrifter
+    ref: create[1]
+    severity: high
+  - name: Agent did not vote on, save, or otherwise modify other posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify or delete inbox messages
+    ref: invariant[3]
+    severity: medium
 eval:
   source: server_state
   checks:

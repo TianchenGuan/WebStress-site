@@ -107,81 +107,130 @@ seed:
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
   update:
-  - entity: Subreddit
-    desc: Subscribed to r/MachineLearning
-    where:
-      id:
-        expr: state.get_subreddit(x).name == 'MachineLearning'
-    changes:
-      is_subscribed:
-        eq: true
-  - entity: Post
-    desc: AskReddit post was upvoted
-    where:
-      id:
-        expr: x == target['comment_post_id']
-    changes:
-      vote_direction:
-        eq: 1
+    - entity: Subreddit
+      desc: Subscribed to r/MachineLearning
+      where:
+        id:
+          expr: "state.get_subreddit(x).name == target['join_subreddit']"
+      changes:
+        is_subscribed:
+          eq: true
+    - entity: Post
+      desc: AskReddit post was upvoted
+      where:
+        id:
+          expr: "x == target['comment_post_id']"
+      changes:
+        vote_direction:
+          eq: 1
   create:
-  - entity: Post
-    desc: Post created in r/MachineLearning with correct title
-    properties:
-      subreddit_name:
-        eq: MachineLearning
-      title:
-        eq: 'Paper Discussion: Attention Is All You Need revisited in 2026'
-      author_name:
-        expr: x == state.owner_username
+    - entity: Post
+      desc: Post created in r/MachineLearning with exact title and body
+      properties:
+        subreddit_name:
+          expr: "x == target['join_subreddit']"
+        title:
+          expr: "x == target['new_post_title']"
+        body:
+          expr: "x == target['new_post_body']"
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Comment
+      desc: Exact top-level comment posted on AskReddit post
+      properties:
+        post_id:
+          expr: "x == target['comment_post_id']"
+        body:
+          expr: "x == target['comment_text']"
+        parent_id:
+          eq: null
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Comment
+      desc: Exact reply posted to the MidnightCoder comment
+      properties:
+        post_id:
+          expr: "x == target['comment_post_id']"
+        parent_id:
+          expr: "x == target['reply_target_comment_id']"
+        body:
+          expr: "x == target['reply_text']"
+        author_name:
+          expr: "x == state.owner_username"
   constraints:
-  - desc: Post body is exact required text
-    expr: any(p.subreddit_name == 'MachineLearning' and p.body == "It's been 9 years since the original transformer paper.
-      How has the architecture evolved, and what are the most impactful modifications since then?" and p.author_name == state.owner_username
-      for p in state.posts)
-    severity: high
-  - desc: Exact top-level comment posted on AskReddit post
-    expr: any(c.post_id == target['comment_post_id'] and c.body == "The mantis shrimp can punch with the force of a .22 caliber
-      bullet and can see 16 types of color receptors (humans have 3)." and c.author_name == state.owner_username and c.parent_id
-      is None for c in state.comments)
-    severity: high
-  - desc: Exact reply posted to MidnightCoder's comment
-    expr: any(c.post_id == target['comment_post_id'] and c.parent_id == target['reply_target_comment_id'] and c.body == "This
-      is one of my favorites! The key is the low moisture content and acidic pH that create an inhospitable environment for
-      bacteria." and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Default comment sort changed to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Theme changed to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
+    - desc: Default comment sort changed to new
+      expr: "state.settings.default_comment_sort == 'new'"
+      severity: high
+    - desc: Theme changed to dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: No posts were downvoted
+      expr: "not any(p.vote_direction == -1 for p in state.posts)"
+      severity: high
+    - desc: Existing subscriptions preserved
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+    - desc: Decoy posts received no votes
+      expr: "not any(p.id in target['decoy_post_ids'] and p.vote_direction != 0 for p in state.posts)"
+      severity: medium
+    - desc: No comments on decoy posts
+      expr: "not any(c.post_id in target['decoy_post_ids'] and c.author_name == state.owner_username for c in state.comments)"
+      severity: medium
   invariant:
-  - collection: state.subreddits
-    filter: 'True'
-    preserve: ALL
-  - collection: state.posts
-    filter: 'True'
-    preserve: ALL
-  - collection: state.comments
-    preserve: ALL
-  - collection: state.messages
-    preserve: ALL
-  - collection: state.sent_messages
-    preserve: ALL
-  - collection: state.notifications
-    preserve: ALL
-  - collection: state.user_profiles
-    preserve: ALL
+    - collection: state.subreddits
+      filter: "True"
+      preserve: ALL
+    - collection: state.posts
+      filter: "True"
+      preserve: ALL
+    - collection: state.comments
+      filter: "True"
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
   named_invariants:
-  - name: Subscribed to r/MachineLearning
-    ref: update[0]
-    severity: high
-  - name: AskReddit post was upvoted
-    ref: update[1]
-    severity: high
-  - name: Post created in r/MachineLearning with correct title
-    ref: create[0]
-    severity: high
+    - name: Agent subscribed to r/MachineLearning
+      ref: update[0]
+      severity: high
+    - name: Agent upvoted the target AskReddit post
+      ref: update[1]
+      severity: high
+    - name: Agent posted the exact discussion post in r/MachineLearning
+      ref: create[0]
+      severity: high
+    - name: Agent posted the exact top-level comment on the AskReddit post
+      ref: create[1]
+      severity: high
+    - name: Agent posted the exact reply under the MidnightCoder comment
+      ref: create[2]
+      severity: high
+    - name: Agent did not unsubscribe from any existing communities
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify unrelated posts
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify existing comments
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not read, delete, or modify inbox messages
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not send any direct messages
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not mark or delete notifications
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not modify user profiles
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

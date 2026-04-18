@@ -107,6 +107,16 @@ seed:
     - block_post_id
     - block_post_title
     - block_post_sub
+  - use: capture_notification_ids
+    params: {}
+    outputs:
+    - all_notification_ids
+    - unread_notification_ids
+  - use: capture_message_ids
+    params: {}
+    outputs:
+    - all_message_ids
+    - unread_message_ids
   targets:
     initial_subscriptions: '{output.subscriptions}'
     initial_saved_ids: '{output.saved_ids}'
@@ -152,10 +162,12 @@ seed:
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
     block_user: CryptoSkeptic
+    unread_notification_ids: '{output.unread_notification_ids}'
+    unread_message_ids: '{output.unread_message_ids}'
 canonical_diff:
   update:
   - entity: Subreddit
-    desc: Joined r/MachineLearning
+    desc: Subscribed to r/MachineLearning
     where:
       id:
         expr: state.get_subreddit(x).name == target['join']
@@ -163,7 +175,7 @@ canonical_diff:
       is_subscribed:
         eq: true
   - entity: Post
-    desc: Exact worldnews target post was upvoted
+    desc: Worldnews target post was upvoted
     where:
       id:
         expr: x == target['wn_id']
@@ -171,17 +183,81 @@ canonical_diff:
       vote_direction:
         eq: 1
   - entity: Post
-    desc: Exact programming target post was saved
+    desc: Programming target post was saved
     where:
       id:
         expr: x == target['prog_id']
     changes:
       is_saved:
         eq: true
+  - entity: Post
+    desc: CryptoSkeptic's technology post was hidden
+    where:
+      id:
+        expr: x == target['block_post_id']
+    changes:
+      is_hidden:
+        eq: true
+  - entity: Notification
+    desc: All unread notifications marked as read
+    bijection:
+      over: target['unread_notification_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Message
+    collection: state.messages
+    desc: All unread inbox messages marked as read
+    bijection:
+      over: target['unread_message_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
   create:
+  - entity: Post
+    desc: New post created in r/MachineLearning
+    properties:
+      subreddit_name:
+        expr: x == target['join']
+      title:
+        expr: x == target['pt']
+      body:
+        expr: x == target['pb']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Top-level comment on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: x == target['ct']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Reply to DeepDiver on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      parent_id:
+        expr: x == target['reply_id']
+      body:
+        expr: x == target['rt']
+      author_name:
+        expr: x == state.owner_username
   - entity: Message
     collection: state.sent_messages
-    desc: Exact direct message sent to CompileError
+    desc: Direct message sent to CompileError
     properties:
       to_user:
         expr: x == target['mt']
@@ -192,25 +268,19 @@ canonical_diff:
       body:
         expr: x == target['mb']
   constraints:
-  - desc: Exact post created in r/MachineLearning
-    expr: any(p.subreddit_name == target['join'] and p.title == target['pt'] and p.body == target['pb'] and p.author_name
-      == state.owner_username for p in state.posts)
-    severity: high
-  - desc: Exact top-level comment posted on the programming target
-    expr: any(c.post_id == target['prog_id'] and c.parent_id is None and c.body == target['ct'] and c.author_name == state.owner_username
-      for c in state.comments)
-    severity: high
-  - desc: Exact reply posted to DeepDiver on the correct comment
-    expr: any(c.post_id == target['prog_id'] and c.parent_id == target['reply_id'] and c.body == target['rt'] and c.author_name
-      == state.owner_username for c in state.comments)
-    severity: high
   - desc: CryptoSkeptic was blocked
-    expr: target['block_user'] in state.blocked_users
+    expr: "target['block_user'] in state.blocked_users"
     severity: high
-  - desc: All CryptoSkeptic posts were hidden
-    expr: all(p.is_hidden for p in state.posts if p.author_name == target['block_user'])
+  - desc: Only CryptoSkeptic was blocked
+    expr: "state.blocked_users == [target['block_user']]"
+    severity: medium
+  - desc: CryptoSkeptic's post was added to hidden_post_ids
+    expr: "target['block_post_id'] in state.hidden_post_ids"
     severity: high
-  - desc: Theme dark
+  - desc: Programming post was added to saved_post_ids
+    expr: "target['prog_id'] in state.saved_post_ids"
+    severity: high
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
   - desc: Compact view enabled
@@ -219,51 +289,91 @@ canonical_diff:
   - desc: Comment sort set to new
     expr: state.settings.default_comment_sort == 'new'
     severity: high
-  - desc: Online status disabled
-    expr: not state.settings.show_online_status
+  - desc: Show online status disabled
+    expr: state.settings.show_online_status == False
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
-      and not state.settings.email_messages and not state.settings.email_digest
+    expr: "not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages and not state.settings.email_digest"
     severity: high
-  - desc: Messages read
-    expr: state.unread_message_count() == 0
-    severity: high
-  - desc: Notifications read
-    expr: state.unread_notification_count() == 0
-    severity: high
+  - desc: Existing subscriptions preserved
+    expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+    severity: medium
+  - desc: Existing saved posts preserved
+    expr: "all(pid in state.saved_post_ids for pid in target['initial_saved_ids'])"
+    severity: medium
   invariant:
   - collection: state.subreddits
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.posts
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.comments
+    filter: "True"
     preserve: ALL
   - collection: state.messages
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.sent_messages
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.notifications
+    filter: "True"
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Joined r/MachineLearning
+  - name: Subscribed to r/MachineLearning
     ref: update[0]
     severity: high
-  - name: Exact worldnews target post was upvoted
+  - name: Worldnews target post was upvoted
     ref: update[1]
     severity: high
-  - name: Exact programming target post was saved
+  - name: Programming target post was saved
     ref: update[2]
     severity: high
-  - name: Exact direct message sent to CompileError
+  - name: CryptoSkeptic's technology post was hidden
+    ref: update[3]
+    severity: high
+  - name: All unread notifications marked as read
+    ref: update[4]
+    severity: high
+  - name: All unread inbox messages marked as read
+    ref: update[5]
+    severity: high
+  - name: New post created in r/MachineLearning
     ref: create[0]
     severity: high
+  - name: Top-level comment on programming post
+    ref: create[1]
+    severity: high
+  - name: Reply to DeepDiver on programming post
+    ref: create[2]
+    severity: high
+  - name: Direct message sent to CompileError
+    ref: create[3]
+    severity: high
+  - name: Agent did not subscribe to or unsubscribe from unrelated subreddits
+    ref: invariant[0]
+    severity: medium
+  - name: Agent did not mutate unrelated posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not touch unrelated comments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not delete inbox messages
+    ref: invariant[3]
+    severity: high
+  - name: Agent did not send extra outbound messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not delete or re-read already-read notifications
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not edit user profiles
+    ref: invariant[6]
+    severity: low
 eval:
   source: server_state
   checks:

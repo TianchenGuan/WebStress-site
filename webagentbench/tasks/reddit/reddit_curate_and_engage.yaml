@@ -100,28 +100,34 @@ canonical_diff:
         eq: 1
   create:
   - entity: Comment
-    desc: Comment on ELI5 post
+    desc: Comment on ELI5 post with exact text
     properties:
       post_id:
         expr: x == target['upvote_id']
       body:
-        substring: smaller fraction
+        expr: x == target['comment_text']
       parent_id:
-        any: true
+        eq: null
       author_name:
         expr: x == state.owner_username
   constraints:
   - desc: Compact view enabled
-    expr: state.settings.compact_view
+    expr: state.settings.compact_view == True
+    severity: high
+  - desc: Mildlyinfuriating post recorded in hidden_post_ids
+    expr: "target['hide_id'] in state.hidden_post_ids"
+    severity: high
+  - desc: DataIsBeautiful post recorded in saved_post_ids
+    expr: "target['save_id'] in state.saved_post_ids"
     severity: high
   invariant:
   - collection: state.subreddits
     preserve: ALL
   - collection: state.posts
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.comments
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.messages
     preserve: ALL
@@ -141,9 +147,30 @@ canonical_diff:
   - name: ELI5 post upvoted
     ref: update[2]
     severity: high
-  - name: Comment on ELI5 post
+  - name: Comment on ELI5 post with exact text
     ref: create[0]
     severity: high
+  - name: Agent did not touch other posts beyond the three targets
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not edit or delete existing comments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify subreddits
+    ref: invariant[0]
+    severity: low
+  - name: Agent did not read or alter inbox messages
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not send messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not touch notifications
+    ref: invariant[5]
+    severity: low
+  - name: Agent did not edit user profiles
+    ref: invariant[6]
+    severity: low
 eval:
   source: server_state
   checks:

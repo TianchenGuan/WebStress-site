@@ -58,6 +58,18 @@ seed:
     - del_id
     - del_sub
     - del_from
+  - use: capture_notification_ids
+    params: {}
+    outputs:
+    - all_notification_ids
+    - unread_notification_ids
+  - use: capture_message_ids
+    params:
+      exclude:
+      - '{output.del_id}'
+    outputs:
+    - all_message_ids
+    - unread_message_ids
   targets:
     reply1_id: '{output.r1_id}'
     reply1_from: '{output.r1_from}'
@@ -73,11 +85,61 @@ seed:
     new_subject: Weekend coding session
     new_body: Want to pair program on the database migration library this weekend?
       I have some ideas for the retry logic.
+    unread_notification_ids: '{output.unread_notification_ids}'
+    unread_message_ids: '{output.unread_message_ids}'
 canonical_diff:
+  update:
+  - entity: Notification
+    desc: All unread notifications marked as read
+    bijection:
+      over: target['unread_notification_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Message
+    collection: state.messages
+    desc: All unread inbox messages marked as read
+    bijection:
+      over: target['unread_message_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
   create:
   - entity: Message
     collection: state.sent_messages
-    desc: New message sent with exact subject and body
+    desc: Reply 1 sent to reply1_from
+    properties:
+      to_user:
+        expr: x == target['reply1_from']
+      subject:
+        expr: "x == 'Re: ' + target['reply1_sub']"
+      from_user:
+        expr: x == state.owner_username
+      body:
+        expr: x == target['reply1_body']
+  - entity: Message
+    collection: state.sent_messages
+    desc: Reply 2 sent to reply2_from
+    properties:
+      to_user:
+        expr: x == target['reply2_from']
+      subject:
+        expr: "x == 'Re: ' + target['reply2_sub']"
+      from_user:
+        expr: x == state.owner_username
+      body:
+        expr: x == target['reply2_body']
+  - entity: Message
+    collection: state.sent_messages
+    desc: New composed message sent to new_to
     properties:
       to_user:
         expr: x == target['new_to']
@@ -87,29 +149,22 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['new_body']
+  delete:
+  - entity: Message
+    collection: state.messages
+    desc: Spam message was deleted from inbox
+    where:
+      id:
+        expr: x == target['delete_id']
   constraints:
-  - desc: Notifications cleared
-    expr: state.unread_notification_count() == 0
-    severity: high
-  - desc: Messages cleared
-    expr: state.unread_message_count() == 0
-    severity: high
-  - desc: Reply 1 sent with the exact required subject and body
-    expr: 'any(m.to_user == target[''reply1_from''] and m.subject == ''Re: target[''reply1_sub'']'' and m.body == target[''reply1_body'']
-      for m in state.sent_messages)'
-    severity: high
-  - desc: Reply 2 sent with the exact required subject and body
-    expr: 'any(m.to_user == target[''reply2_from''] and m.subject == ''Re: target[''reply2_sub'']'' and m.body == target[''reply2_body'']
-      for m in state.sent_messages)'
-    severity: high
-  - desc: Spam deleted
-    expr: not any(m.id == target['delete_id'] for m in state.messages)
-    severity: high
-  - desc: Theme dark
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
-  - desc: Message and mention emails disabled
-    expr: not state.settings.email_messages and not state.settings.email_mentions
+  - desc: Email message notifications disabled
+    expr: "not state.settings.email_messages"
+    severity: high
+  - desc: Email mention notifications disabled
+    expr: "not state.settings.email_mentions"
     severity: high
   invariant:
   - collection: state.subreddits
@@ -119,19 +174,56 @@ canonical_diff:
   - collection: state.comments
     preserve: ALL
   - collection: state.messages
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.sent_messages
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.notifications
+    filter: "True"
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: New message sent with exact subject and body
+  - name: All unread notifications marked as read
+    ref: update[0]
+    severity: high
+  - name: All unread inbox messages marked as read
+    ref: update[1]
+    severity: high
+  - name: Reply 1 sent to reply1_from
     ref: create[0]
     severity: high
+  - name: Reply 2 sent to reply2_from
+    ref: create[1]
+    severity: high
+  - name: New composed message sent to new_to
+    ref: create[2]
+    severity: high
+  - name: Spam message was deleted from inbox
+    ref: delete[0]
+    severity: high
+  - name: Agent did not modify subreddit memberships
+    ref: invariant[0]
+    severity: medium
+  - name: Agent did not mutate posts
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not create or edit comments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not delete other inbox messages
+    ref: invariant[3]
+    severity: high
+  - name: Agent did not send extra outbound messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not re-read or delete already-read notifications
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not edit user profiles
+    ref: invariant[6]
+    severity: low
 eval:
   source: server_state
   checks:

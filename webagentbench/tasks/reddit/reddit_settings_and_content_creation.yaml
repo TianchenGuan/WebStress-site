@@ -38,42 +38,62 @@ seed:
 canonical_diff:
   update:
   - entity: Subreddit
-    desc: Subscribed to Piracy
+    desc: Subscribed to the join_sub
     where:
       id:
-        expr: state.get_subreddit(x).name == 'Piracy'
+        expr: state.get_subreddit(x).name == target['join_sub']
     changes:
       is_subscribed:
         eq: true
+  create:
+  - entity: Post
+    desc: Exact Python post created with required title and body
+    properties:
+      subreddit_name:
+        eq: Python
+      title:
+        expr: x == target['post_title']
+      body:
+        expr: x == target['post_body']
+      author_name:
+        expr: x == state.owner_username
   constraints:
-  - desc: Theme dark
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
-  - desc: Compact on
-    expr: state.settings.compact_view
+  - desc: Compact view enabled
+    expr: state.settings.compact_view == True
     severity: high
-  - desc: Online status off
-    expr: not state.settings.show_online_status
+  - desc: Show online status disabled
+    expr: state.settings.show_online_status == False
     severity: high
-  - desc: Feed sort top
+  - desc: Default feed sort set to top
     expr: state.settings.default_feed_sort == 'top'
     severity: high
-  - desc: Comment sort controversial
+  - desc: Default comment sort set to controversial
     expr: state.settings.default_comment_sort == 'controversial'
     severity: high
-  - desc: Email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
-      and not state.settings.email_messages
+  - desc: All four email notification toggles disabled
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages
     severity: high
-  - desc: Python post created
-    expr: any(p.subreddit_name == "Python" and "Type hints" in p.title and p.author_name == state.owner_username for p in
-      state.posts)
-    severity: high
+  - desc: NSFW content settings unchanged
+    expr: state.settings.show_nsfw == initial.settings.show_nsfw
+    severity: medium
+  - desc: Language settings unchanged
+    expr: state.settings.language == initial.settings.language
+    severity: medium
+  - desc: Country settings unchanged
+    expr: state.settings.country == initial.settings.country
+    severity: medium
+  - desc: Existing subscriptions preserved
+    expr: all(sid in state.subscriptions for sid in target['initial_subscriptions'])
+    severity: medium
   invariant:
   - collection: state.subreddits
     filter: 'True'
     preserve: ALL
   - collection: state.posts
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
     preserve: ALL
@@ -86,9 +106,18 @@ canonical_diff:
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Subscribed to Piracy
+  - name: Agent subscribed to r/Piracy
     ref: update[0]
     severity: high
+  - name: Agent created the exact Python post about type hints in 3.13
+    ref: create[0]
+    severity: high
+  - name: Agent did not subscribe to or unsubscribe from any other subreddit
+    ref: invariant[0]
+    severity: medium
+  - name: Agent did not modify existing posts beyond creating the required one
+    ref: invariant[1]
+    severity: medium
 eval:
   source: server_state
   checks:

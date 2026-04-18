@@ -69,7 +69,7 @@ seed:
 canonical_diff:
   update:
   - entity: Post
-    desc: Mars post saved
+    desc: Saved the Mars search-result post
     where:
       id:
         expr: x == target['search_id']
@@ -78,41 +78,42 @@ canonical_diff:
         eq: true
   create:
   - entity: Comment
-    desc: Comment on Mars post
+    desc: Exact comment on the Mars post
     properties:
       post_id:
         expr: x == target['search_id']
       body:
-        substring: most significant discovery
+        expr: x == target['search_comment']
       parent_id:
-        any: true
+        eq: null
       author_name:
         expr: x == state.owner_username
   - entity: Message
     collection: state.sent_messages
-    desc: Message sent to PhotonWave
+    desc: Exact message sent to PhotonWave about quantum error correction
     properties:
       to_user:
-        eq: PhotonWave
+        expr: x == target['msg_author']
       subject:
-        eq: Question about quantum error correction
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
   constraints:
-  - desc: Feed sort changed
+  - desc: Default feed sort set to new
     expr: state.settings.default_feed_sort == 'new'
     severity: high
   invariant:
   - collection: state.subreddits
     preserve: ALL
   - collection: state.posts
-    filter: 'True'
+    filter: "a.id != target['search_id']"
     preserve: ALL
   - collection: state.comments
     filter: 'True'
     preserve: ALL
   - collection: state.messages
-    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
     filter: 'True'
@@ -122,15 +123,21 @@ canonical_diff:
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Mars post saved
+  - name: Agent saved the Mars search-result post
     ref: update[0]
     severity: high
-  - name: Comment on Mars post
+  - name: Agent posted the exact comment on the Mars post
     ref: create[0]
     severity: high
-  - name: Message sent to PhotonWave
+  - name: Agent sent the exact message to PhotonWave
     ref: create[1]
     severity: high
+  - name: Agent did not save, unsave, vote on, or otherwise modify other posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify or delete inbox messages
+    ref: invariant[4]
+    severity: medium
 eval:
   source: server_state
   checks:

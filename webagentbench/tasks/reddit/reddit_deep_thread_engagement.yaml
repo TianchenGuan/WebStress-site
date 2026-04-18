@@ -103,6 +103,11 @@ seed:
     - block_post_id
     - block_post_title
     - block_post_sub
+  - use: capture_notification_ids
+    params: {}
+    outputs:
+    - all_notification_ids
+    - unread_notification_ids
   targets:
     initial_subscriptions: '{output.subscriptions}'
     join: MachineLearning
@@ -146,43 +151,187 @@ seed:
     ms: Your CI/CD post
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
+    unread_notification_ids: '{output.unread_notification_ids}'
+    all_notification_ids: '{output.all_notification_ids}'
 canonical_diff:
   update:
   - entity: Subreddit
-    desc: Joined ML
+    desc: Subscribed to r/MachineLearning
     where:
       id:
         expr: state.get_subreddit(x).name == 'MachineLearning'
     changes:
       is_subscribed:
         eq: true
+  - entity: Post
+    desc: Worldnews post upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Programming post saved
+    where:
+      id:
+        expr: x == target['prog_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Notification
+    desc: All unread notifications marked as read
+    bijection:
+      over: target['unread_notification_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Top-level comment on worldnews post
+    properties:
+      post_id:
+        expr: x == target['wn_id']
+      body:
+        expr: x == target['c1']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Reply to DeepDiver on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      parent_id:
+        expr: x == target['reply_id']
+      body:
+        expr: x == target['r1_text']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Top-level comment on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: x == target['c2']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Post
+    desc: New Python post created
+    properties:
+      subreddit_name:
+        expr: x == 'Python'
+      title:
+        expr: x == target['pt']
+      body:
+        expr: x == target['pb']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Direct message sent to CompileError
+    properties:
+      to_user:
+        expr: x == target['mt']
+      subject:
+        expr: x == target['ms']
+      from_user:
+        expr: x == state.owner_username
+      body:
+        expr: x == target['mb']
   constraints:
-  - desc: Theme dark
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
-  - desc: Notifications read
-    expr: state.unread_notification_count() == 0
+  - desc: Comment sort set to new
+    expr: state.settings.default_comment_sort == 'new'
+    severity: high
+  - desc: Existing subscriptions preserved
+    expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+    severity: medium
+  - desc: No downvotes cast on any post
+    expr: "not any(p.vote_direction == -1 for p in state.posts)"
+    severity: high
+  - desc: No downvotes cast on any comment
+    expr: "not any(c.vote_direction == -1 for c in state.comments)"
     severity: high
   invariant:
   - collection: state.subreddits
-    filter: 'True'
+    filter: "True"
     preserve: ALL
   - collection: state.posts
+    filter: "True"
     preserve: ALL
   - collection: state.comments
+    filter: "True"
     preserve: ALL
   - collection: state.messages
     preserve: ALL
   - collection: state.sent_messages
+    filter: "True"
     preserve: ALL
   - collection: state.notifications
+    filter: "True"
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Joined ML
+  - name: Subscribed to r/MachineLearning
     ref: update[0]
     severity: high
+  - name: Worldnews post upvoted
+    ref: update[1]
+    severity: high
+  - name: Programming post saved
+    ref: update[2]
+    severity: high
+  - name: All unread notifications marked as read
+    ref: update[3]
+    severity: high
+  - name: Top-level comment on worldnews post
+    ref: create[0]
+    severity: high
+  - name: Reply to DeepDiver on programming post
+    ref: create[1]
+    severity: high
+  - name: Top-level comment on programming post
+    ref: create[2]
+    severity: high
+  - name: New Python post created
+    ref: create[3]
+    severity: high
+  - name: Direct message sent to CompileError
+    ref: create[4]
+    severity: high
+  - name: Agent did not touch unrelated subreddit memberships
+    ref: invariant[0]
+    severity: medium
+  - name: Agent did not mutate unrelated posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not mutate unrelated comments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not read or delete inbox messages
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not send any extra outbound messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not delete or re-read already-read notifications
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not edit user profiles
+    ref: invariant[6]
+    severity: low
 eval:
   source: server_state
   checks:

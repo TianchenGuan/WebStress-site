@@ -58,137 +58,77 @@ seed:
       models and contributing to the community.
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
-  update:
-  - entity: Subreddit
-    desc: Subscribed to r/MachineLearning
-    where:
-      id:
-        expr: state.get_subreddit(x).name == 'MachineLearning'
-    changes:
-      is_subscribed:
-        eq: true
-  - entity: Subreddit
-    desc: Subscribed to r/Piracy
-    where:
-      id:
-        expr: state.get_subreddit(x).name == 'Piracy'
-    changes:
-      is_subscribed:
-        eq: true
-  - entity: Subreddit
-    desc: Subscribed to r/dataisbeautiful
-    where:
-      id:
-        expr: state.get_subreddit(x).name == 'dataisbeautiful'
-    changes:
-      is_subscribed:
-        eq: true
-  - entity: Post
-    desc: WN post upvoted
-    where:
-      id:
-        expr: x == target['wn_id']
-    changes:
-      vote_direction:
-        eq: 1
-  - entity: Post
-    desc: WN post saved
-    where:
-      id:
-        expr: x == target['wn_id']
-    changes:
-      is_saved:
-        eq: true
-  create:
-  - entity: Comment
-    desc: Exact worldnews comment posted
-    properties:
-      post_id:
-        expr: x == target['wn_id']
-      body:
-        expr: x == target['wn_comment']
-      parent_id:
-        any: true
-      author_name:
-        expr: x == state.owner_username
-  - entity: Message
-    collection: state.sent_messages
-    desc: Welcome message sent with exact body
-    properties:
-      to_user:
-        expr: x == target['msg_to']
-      subject:
-        expr: x == target['msg_sub']
-      from_user:
-        expr: x == state.owner_username
-      body:
-        expr: x == target['msg_body']
+  # Constraint-only form. This task mixes per-entity ops (subscribe,
+  # post, vote, save, comment, message) with two aggregate mark-all-read
+  # bulk mutations (inbox messages + notifications); the latter cannot
+  # be expressed as positive update bijections without exposing initial
+  # message/notification ids through targets. The constraint-only path
+  # skips the unaccounted sweep so legitimate aggregate mutations
+  # aren't double-flagged.
   constraints:
-  - desc: Exact post created in r/MachineLearning
-    expr: any(p.subreddit_name == 'MachineLearning' and p.title == target['post_title'] and p.body == target['post_body']
-      and p.author_name == state.owner_username for p in state.posts)
-    severity: high
-  - desc: Theme dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Compact view enabled
-    expr: state.settings.compact_view == True
-    severity: high
-  - desc: Feed sort set to top
-    expr: state.settings.default_feed_sort == 'top'
-    severity: high
-  - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
-      and not state.settings.email_messages
-    severity: high
-  - desc: Messages cleared
-    expr: state.unread_message_count() == 0
-    severity: high
-  - desc: Notifications cleared
-    expr: state.unread_notification_count() == 0
-    severity: high
+    - desc: Agent subscribed to r/MachineLearning
+      expr: "any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent subscribed to r/Piracy
+      expr: "any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent subscribed to r/dataisbeautiful
+      expr: "any(s.name == 'dataisbeautiful' and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent created the exact required post in r/MachineLearning
+      expr: "any(p.subreddit_name == 'MachineLearning' and p.title == target['post_title'] and p.body == target['post_body'] and p.author_name == state.owner_username for p in state.posts)"
+      severity: high
+    - desc: Agent upvoted the worldnews post
+      expr: "state.get_post(target['wn_id']).vote_direction == 1"
+      severity: high
+    - desc: Agent saved the worldnews post
+      expr: "target['wn_id'] in state.saved_post_ids"
+      severity: high
+    - desc: Agent posted the exact worldnews comment
+      expr: "any(c.post_id == target['wn_id'] and c.body == target['wn_comment'] and c.author_name == state.owner_username for c in state.comments)"
+      severity: high
+    - desc: Agent sent the welcome message with the exact subject and body
+      expr: "any(m.to_user == target['msg_to'] and m.subject == target['msg_sub'] and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: Theme set to dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: Compact view enabled
+      expr: "state.settings.compact_view == True"
+      severity: high
+    - desc: Default feed sort set to top
+      expr: "state.settings.default_feed_sort == 'top'"
+      severity: high
+    - desc: All email notifications disabled
+      expr: "not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages"
+      severity: high
+    - desc: All inbox messages marked as read
+      expr: "state.unread_message_count() == 0"
+      severity: high
+    - desc: No inbox messages were deleted
+      expr: "len(state.messages) == len(initial.messages)"
+      severity: high
+    - desc: All notifications marked as read
+      expr: "state.unread_notification_count() == 0"
+      severity: high
+    - desc: No notifications were deleted
+      expr: "len(state.notifications) == len(initial.notifications)"
+      severity: high
+    - desc: Existing subscriptions preserved (do not unsubscribe)
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+    - desc: No excessive outbound messages sent beyond the required welcome note
+      expr: "len(state.sent_messages) <= len(initial.sent_messages) + 1"
+      severity: medium
+    - desc: No excessive posts created by the owner
+      expr: "sum(1 for p in state.posts if p.author_name == state.owner_username) <= sum(1 for p in initial.posts if p.author_name == state.owner_username) + 1"
+      severity: medium
+    - desc: No users blocked during the workflow
+      expr: "len(state.blocked_users) == len(initial.blocked_users)"
+      severity: medium
   invariant:
-  - collection: state.subreddits
-    filter: 'True'
-    preserve: ALL
-  - collection: state.posts
-    filter: 'True'
-    preserve: ALL
-  - collection: state.comments
-    filter: 'True'
-    preserve: ALL
-  - collection: state.messages
-    filter: 'True'
-    preserve: ALL
-  - collection: state.sent_messages
-    filter: 'True'
-    preserve: ALL
-  - collection: state.notifications
-    preserve: ALL
-  - collection: state.user_profiles
-    preserve: ALL
-  named_invariants:
-  - name: Subscribed to r/MachineLearning
-    ref: update[0]
-    severity: high
-  - name: Subscribed to r/Piracy
-    ref: update[1]
-    severity: high
-  - name: Subscribed to r/dataisbeautiful
-    ref: update[2]
-    severity: high
-  - name: WN post upvoted
-    ref: update[3]
-    severity: high
-  - name: WN post saved
-    ref: update[4]
-    severity: high
-  - name: Exact worldnews comment posted
-    ref: create[0]
-    severity: high
-  - name: Welcome message sent with exact body
-    ref: create[1]
-    severity: high
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:
