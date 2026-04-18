@@ -81,11 +81,11 @@ canonical_diff:
         eq: ByteRunner
       subject:
         eq: Great Postgres migrations post
+      from_user:
+        expr: x == state.owner_username
       body:
         eq: Hey, loved your post about zero-downtime migrations. The advisory lock approach is elegant. Would you consider
           open-sourcing the library?
-      from_user:
-        expr: x == state.owner_username
   constraints:
   - desc: Cloudflare post was saved
     expr: any(p.title == 'Cloudflare Launches Free AI Bot Detection for All Websites' and p.id in state.saved_post_ids for

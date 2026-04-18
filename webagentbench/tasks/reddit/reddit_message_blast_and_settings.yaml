@@ -28,16 +28,38 @@ seed:
       EST. Topics include fine-tuning techniques and deployment best practices. RSVP
       by replying to this message.
 canonical_diff:
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: Msg to NeuralNexus
+    properties:
+      to_user:
+        eq: NeuralNexus
+      subject:
+        eq: ML meetup
+      from_user:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Msg to ByteRunner
+    properties:
+      to_user:
+        eq: ByteRunner
+      subject:
+        eq: ML meetup
+      from_user:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Msg to DataWizard42
+    properties:
+      to_user:
+        eq: DataWizard42
+      subject:
+        eq: ML meetup
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Msg to NeuralNexus
-    expr: any(m.to_user == "NeuralNexus" and m.subject == "ML meetup" for m in state.sent_messages)
-    severity: high
-  - desc: Msg to ByteRunner
-    expr: any(m.to_user == "ByteRunner" and m.subject == "ML meetup" for m in state.sent_messages)
-    severity: high
-  - desc: Msg to DataWizard42
-    expr: any(m.to_user == "DataWizard42" and m.subject == "ML meetup" for m in state.sent_messages)
-    severity: high
   - desc: Notifications read
     expr: state.unread_notification_count() == 0
     severity: high
@@ -58,13 +80,25 @@ canonical_diff:
   - collection: state.comments
     preserve: ALL
   - collection: state.messages
+    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  named_invariants:
+  - name: Msg to NeuralNexus
+    ref: create[0]
+    severity: high
+  - name: Msg to ByteRunner
+    ref: create[1]
+    severity: high
+  - name: Msg to DataWizard42
+    ref: create[2]
+    severity: high
 eval:
   source: server_state
   checks:

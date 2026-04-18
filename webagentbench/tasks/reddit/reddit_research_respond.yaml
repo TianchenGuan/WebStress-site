@@ -88,10 +88,17 @@ canonical_diff:
         any: true
       author_name:
         expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent to PhotonWave
+    properties:
+      to_user:
+        eq: PhotonWave
+      subject:
+        eq: Question about quantum error correction
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Message sent to PhotonWave
-    expr: any(m.to_user == "PhotonWave" and m.subject == "Question about quantum error correction" for m in state.sent_messages)
-    severity: high
   - desc: Feed sort changed
     expr: state.settings.default_feed_sort == 'new'
     severity: high
@@ -105,8 +112,10 @@ canonical_diff:
     filter: 'True'
     preserve: ALL
   - collection: state.messages
+    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
@@ -118,6 +127,9 @@ canonical_diff:
     severity: high
   - name: Comment on Mars post
     ref: create[0]
+    severity: high
+  - name: Message sent to PhotonWave
+    ref: create[1]
     severity: high
 eval:
   source: server_state

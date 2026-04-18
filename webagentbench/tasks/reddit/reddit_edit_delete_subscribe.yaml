@@ -68,20 +68,34 @@ seed:
 canonical_diff:
   update:
   - entity: Subreddit
-    desc: Subscribed
+    desc: Subscribe to r/Piracy
     where:
       id:
         expr: state.get_subreddit(x).name == 'Piracy'
     changes:
       is_subscribed:
         eq: true
+  - entity: Post
+    desc: Edit the target post body
+    where:
+      id:
+        expr: "x == target['edit_id']"
+    changes:
+      body:
+        expr: "'After 6 months' in (x or '')"
+      is_edited:
+        eq: true
+  - entity: Comment
+    desc: Delete the target comment
+    where:
+      id:
+        expr: "x == target['del_comment_id']"
+    changes:
+      is_removed:
+        eq: true
+      body:
+        eq: "[deleted]"
   constraints:
-  - desc: Post edited
-    expr: '''After 6 months'' in state.get_post(target[''edit_id'']).body'
-    severity: high
-  - desc: Comment deleted
-    expr: state.get_comment(target['del_comment_id']).is_removed
-    severity: high
   - desc: Comment sort new
     expr: state.settings.default_comment_sort == 'new'
     severity: high
@@ -90,8 +104,10 @@ canonical_diff:
     filter: 'True'
     preserve: ALL
   - collection: state.posts
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
     preserve: ALL
@@ -102,8 +118,14 @@ canonical_diff:
   - collection: state.user_profiles
     preserve: ALL
   named_invariants:
-  - name: Subscribed
+  - name: Subscribed to r/Piracy
     ref: update[0]
+    severity: high
+  - name: Post body edited
+    ref: update[1]
+    severity: high
+  - name: Comment deleted (soft-delete)
+    ref: update[2]
     severity: high
 eval:
   source: server_state

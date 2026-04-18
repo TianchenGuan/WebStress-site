@@ -104,10 +104,10 @@ canonical_diff:
         expr: x == target['msg_to']
       subject:
         expr: x == target['msg_subject']
-      body:
-        expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
+      body:
+        expr: x == target['msg_body']
   constraints:
   - desc: Python post created with exact body
     expr: any(p.subreddit_name == target['create_sub'] and p.title == target['create_title'] and p.body == target['create_body']

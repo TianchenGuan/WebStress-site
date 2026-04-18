@@ -176,6 +176,16 @@ canonical_diff:
         any: true
       author_name:
         expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent to u/{target.m_to}
+    properties:
+      to_user:
+        expr: x == target['m_to']
+      subject:
+        expr: x == target['ms']
+      from_user:
+        expr: x == state.owner_username
   constraints:
   - desc: Saved a post in r/gaming
     expr: any(p.subreddit_name == 'gaming' and p.id in state.saved_post_ids for p in state.posts)
@@ -187,9 +197,6 @@ canonical_diff:
   - desc: Post created in r/{target.join}
     expr: any(p.subreddit_name == target['join'] and target['pt'] in p.title and p.author_name == state.owner_username for
       p in state.posts)
-    severity: high
-  - desc: Message sent to u/{target.m_to}
-    expr: any(m.to_user == target['m_to'] and m.subject == target['ms'] for m in state.sent_messages)
     severity: high
   - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
@@ -213,8 +220,10 @@ canonical_diff:
     filter: 'True'
     preserve: ALL
   - collection: state.messages
+    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
@@ -226,6 +235,9 @@ canonical_diff:
     severity: high
   - name: Commented on programming post
     ref: create[0]
+    severity: high
+  - name: Message sent to u/{target.m_to}
+    ref: create[1]
     severity: high
 eval:
   source: server_state

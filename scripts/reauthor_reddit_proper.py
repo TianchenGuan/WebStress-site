@@ -259,20 +259,22 @@ def translate(check: dict, diff: Diff) -> None:
         diff.touched_collections.add("comments")
         return
 
-    # Pattern: any(m.to_user == <ref|lit> and m.subject == <ref|lit> and m.body == <ref|lit>
-    #              [and m.parent_id is None] for m in state.sent_messages)
-    # → create Message (sent_messages)
+    # Pattern: any(m.to_user == <ref|lit> and m.subject == <ref|lit>
+    #              [and m.body == <ref|lit>] [and m.parent_id is None]
+    #              for m in state.sent_messages) → create Message (sent_messages)
+    # Body is optional — some tasks only spec to/subject.
     m = re.search(
-        rf"any\(\s*m\.to_user == {_ref_or_literal()}\s*and\s*m\.subject == {_ref_or_literal()}\s*and\s*m\.body == {_ref_or_literal()}\s*(?:and\s*m\.parent_id is None)?\s+for\s+m\s+in\s+state\.sent_messages\)",
+        rf"any\(\s*m\.to_user == {_ref_or_literal()}\s*and\s*m\.subject == {_ref_or_literal()}(?:\s*and\s*m\.body == {_ref_or_literal()})?\s*(?:and\s*m\.parent_id is None)?\s+for\s+m\s+in\s+state\.sent_messages\)",
         expr)
     if m:
         to_token, subj_token, body_token = m.group(1), m.group(2), m.group(3)
         props = {
             "to_user": _val_to_pred(to_token),
             "subject": _val_to_pred(subj_token),
-            "body": _val_to_pred(body_token),
             "from_user": {"expr": "x == state.owner_username"},
         }
+        if body_token is not None:
+            props["body"] = _val_to_pred(body_token)
         if "parent_id is None" in expr:
             props["parent_id"] = {"eq": None}
         diff.creates.append({

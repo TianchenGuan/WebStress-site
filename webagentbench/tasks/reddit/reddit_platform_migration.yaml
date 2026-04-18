@@ -216,10 +216,10 @@ canonical_diff:
         expr: x == target['msg_to']
       subject:
         expr: x == target['msg_sub']
-      body:
-        expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
+      body:
+        expr: x == target['msg_body']
   constraints:
   - desc: Saved posts from r/{target.leave_sub} and r/funny were cleared
     expr: not any(p.subreddit_name in (target['leave_sub'], 'funny') and p.id in state.saved_post_ids for p in state.posts)
