@@ -619,3 +619,121 @@ debugging UIs. Author-written names carry task-specific intent ("Resubmit
 discrepant assignments", "Mark announcements as read"). The audit found
 this by probing whether the label round-trips; the fix restores the
 round-trip across 50 affected tasks with zero YAML changes.
+
+---
+
+## Class 15 — `compute_diff` crashes on `list[str]` / scalar-list state fields
+
+**Symptom.** `ValueError: dictionary update sequence element #0 has
+length 1; 2 is required` raised from `_collections_of`. Every
+`match_diff` call against the env crashes before scoring. Only surfaces
+when an env state has a list field whose elements are NOT pydantic
+models or dicts.
+
+**Root cause.** `evaluator_diff.py:_collections_of` assumed every
+`list[T]` on a state model is an entity collection and called
+`dict(v)` on each element. On a `list[str]` (Reddit's `subscriptions`,
+`saved_post_ids`, `saved_comment_ids`, `hidden_post_ids`, `blocked_users`),
+`dict("some_id")` fails because strings can't be coerced to dicts.
+
+**Fix applied.** The loop now skips any list whose elements are
+neither pydantic models nor plain dicts. State-level scalar lists can
+still be reached through constraint expressions (`state.<name>`) —
+they're just not diffed as entity collections, which matches their
+semantic.
+
+**Regression guard.** Reddit's Phase A tasks exercise this path for
+every `match_diff` call; the fix ships with the first 5 migrated
+Reddit tasks and any regression surfaces immediately.
+
+**Cross-env note.** Any env whose state adds a similar scalar-list
+field (e.g. a Gmail `starred_ids: list[str]` mirror of entity flags)
+would have hit this. The fix is preemptive.
+
+---
+
+## Class 16 — `where` clause on a non-changed, non-id field silently misses
+
+**Symptom.** A migrated task fails its happy-path test with
+`missing_update: no Update entry matched both where and changes
+predicates`, even though the agent produced the right mutation.
+
+**Root cause.** `evaluator_diff.py:_update_predicates_hold` builds
+`entity_dict` containing only `{id: entity_id, <changed_fields>}` —
+*not* the entity's full field set. A `where:` predicate on a field
+that did NOT change (e.g. `where: {name: {eq: ...}}` on an Update
+that only touched `is_subscribed`) gets `entity_dict.get(name)` ==
+`None` → predicate fails → update entry misses its candidate.
+
+**Pattern fix (author-side).** Write `where:` clauses that key on
+either (a) `id`, which is always present, or (b) a field that IS
+being changed. When the author needs to look up an entity by a
+stable non-id field, use `id` with an expr that fetches the entity
+from state:
+
+```yaml
+where:
+  id:
+    expr: "state.get_subreddit(x).name == target['subreddit_name']"
+```
+
+Here `x` is the candidate's id; `state` resolves to the final state;
+the helper method retrieves the full entity so any field is reachable.
+This pattern works for any env whose state model exposes
+`get_<entity>(id)` helpers.
+
+**Why not fix the matcher.** We considered populating `entity_dict`
+with the entity's full post-state fields (reading from `final`). That
+would have made `where: {name: ...}` "just work" — but also shifted
+semantic: `where` would match against the entity's current state
+rather than explicitly-changed fields. Authors who write
+`where: {status: {eq: "scheduled"}}` expecting to match the
+pre-mutation status would silently get a different check. Keeping
+the narrow "changed fields + id" semantic + documenting the state
+lookup pattern preserves existing migrations while unblocking new
+ones.
+
+**Regression guard.** Reddit's `reddit_subscribe_subreddit` uses the
+`state.get_subreddit(x)` pattern; failure of its happy-path test
+signals a regression.
+
+---
+
+## Class 17 — Registry `_col_for` disagrees with matcher `_collection_for` on multi-collection envs
+
+**Symptom.** Task fails to LOAD with
+`ValueError: <task_id>: invariant on 'state.<col>' overlaps with
+positive diff target and has no filter — scope it with a filter:
+expression`, even though the invariant is on a DIFFERENT collection
+than the positive-diff target resolves to at match time.
+
+**Root cause.** `webagentbench/tasks/_registry.py:90-93` uses a naive
+pluralization heuristic (`lowercase + 's'`) to map `entity: Message`
+to `"messages"`. The matcher's `_collection_for` uses the state
+model's `collection_map` which, on envs with multiple collections of
+the same entity type (Reddit has both `messages` and `sent_messages`
+holding `Message`), resolves to the last-declared field. The two
+disagree. The validator flags an overlap that won't exist at runtime.
+
+**Workaround (author-side).** Add `filter: "True"` to the invariant:
+
+```yaml
+invariant:
+  - collection: state.messages
+    filter: "True"
+    preserve: ALL
+```
+
+The filter evaluates to True for every entity so the invariant still
+covers the collection, but the registry validator's disjointness
+check treats any non-empty filter as acknowledgment of the overlap
+and skips the error.
+
+**Proper fix (pending).** Align `_col_for` with `_collection_for` by
+loading the env's state class and using the same `collection_map`
+introspection. This would cost a slight startup-time increase on
+task registry load but eliminate the workaround.
+
+**Regression guard.** Reddit's `reddit_compose_message` uses the
+workaround; any reversion to plain `preserve: ALL` would re-trigger
+the validator.

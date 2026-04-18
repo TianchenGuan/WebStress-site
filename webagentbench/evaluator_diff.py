@@ -331,18 +331,38 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
         for name in type(state).model_fields:
             val = getattr(state, name)
-            if isinstance(val, list):
-                dumped = []
-                for v in val:
-                    if hasattr(v, "model_dump"):
-                        entity_dict = v.model_dump()
-                        ignore = getattr(type(v), "DIFF_IGNORE_FIELDS", ())
-                        if ignore:
-                            entity_dict = _strip_ignored_fields(entity_dict, ignore)
-                    else:
-                        entity_dict = dict(v)
+            if not isinstance(val, list):
+                continue
+            # Entity-collection lists hold pydantic models (list[SomeEntity]).
+            # State-level data lists (e.g. reddit's list[str] for
+            # subscriptions, saved_post_ids, blocked_users) hold scalars
+            # or non-entity dicts. compute_diff only tracks entity
+            # collections — state-level lists should be asserted via
+            # constraint expressions in the canonical_diff, not diffed
+            # here. Skip any list whose elements aren't pydantic models
+            # or plain dicts-with-id.
+            dumped: list[dict] = []
+            for v in val:
+                if hasattr(v, "model_dump"):
+                    entity_dict = v.model_dump()
+                    ignore = getattr(type(v), "DIFF_IGNORE_FIELDS", ())
+                    if ignore:
+                        entity_dict = _strip_ignored_fields(entity_dict, ignore)
                     dumped.append(entity_dict)
+                elif isinstance(v, dict):
+                    dumped.append(dict(v))
+                else:
+                    # Scalar or non-dict element — whole list is a
+                    # state-level scalar list. Drop the collection and
+                    # move on; constraints can still reach it via
+                    # `state.<name>`.
+                    dumped = []
+                    break
+            else:
                 out[name] = dumped
+                continue
+            # If we broke out of the loop because of a scalar element,
+            # the for/else above didn't run — skip this field.
         return out
     raise TypeError(f"compute_diff: unsupported state type {type(state)!r}")
 
