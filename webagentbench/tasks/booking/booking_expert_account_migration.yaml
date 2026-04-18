@@ -64,6 +64,9 @@ canonical_diff:
     - desc: Email was not changed
       expr: "state.owner_email == initial.owner_email"
       severity: medium
+    - desc: Did not delete any payment method other than Alex Parker's Mastercard
+      expr: "not any(e.action == 'payment.remove' and e.payload.get('pm_id') != target['alex_pm_id'] for e in state.audit_log)"
+      severity: high
   delete:
     - entity: PaymentMethod
       desc: Remove Mastercard ending in 5555 held by Alex Parker
