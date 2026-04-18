@@ -58,6 +58,51 @@ seed:
     comment_text: Corvids in general are incredibly intelligent. New Caledonian crows
       even craft and use tools.
     leave_sub: memes
+canonical_diff:
+  # Constraint-only form. Mark-all-notifications/messages-read cannot be
+  # expressed as a positive bijection without exposing initial ids through
+  # targets, so the whole block scores via constraints and skips the
+  # unaccounted sweep.
+  constraints:
+  - desc: All notifications marked read
+    expr: state.unread_notification_count() == 0
+    severity: high
+  - desc: All messages marked read
+    expr: state.unread_message_count() == 0
+    severity: high
+  - desc: WHO post upvoted
+    expr: state.get_post(target['post1_id']).vote_direction == 1
+    severity: high
+  - desc: WHO post saved
+    expr: target['post1_id'] in state.saved_post_ids
+    severity: high
+  - desc: TIL comment posted with required text
+    expr: any(c.post_id == target['post2_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username for c in state.comments)
+    severity: high
+  - desc: Unsubscribed from r/{target.leave_sub}
+    expr: not any(s.name == target['leave_sub'] and s.is_subscribed for s in state.subreddits)
+    severity: high
+  - desc: Theme set to dark
+    expr: state.settings.theme == 'dark'
+    severity: high
+  - desc: TIL post not voted (no extra voting)
+    expr: state.get_post(target['post2_id']).vote_direction == 0
+    severity: medium
+  - desc: No new posts created by the owner
+    expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == sum(1 for p in initial.posts if p.author_name == state.owner_username)
+    severity: medium
+  - desc: No excessive outbound messages
+    expr: len(state.sent_messages) <= len(initial.sent_messages) + 1
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == len(initial.blocked_users)
+    severity: medium
+  - desc: No messages deleted
+    expr: len(state.messages) == len(initial.messages)
+    severity: medium
+  invariant:
+  - collection: state.user_profiles
+    preserve: ALL
 eval:
   source: server_state
   checks:

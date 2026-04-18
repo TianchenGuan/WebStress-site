@@ -65,6 +65,8 @@ SUBREDDIT_DATA = [
     {"name": "programming", "display": "Programming", "desc": "Computer programming news, articles, and discussion.", "subs": 5_800_000},
     {"name": "Python", "display": "Python", "desc": "News about the programming language Python.", "subs": 1_400_000},
     {"name": "MachineLearning", "display": "Machine Learning", "desc": "Discussion of machine learning and related topics.", "subs": 2_800_000},
+    {"name": "dataisbeautiful", "display": "Data Is Beautiful", "desc": "A place for visual representations of data: graphs, charts, maps, etc.", "subs": 22_154_981},
+    {"name": "science", "display": "Science", "desc": "A community for sharing and discussing science news, research, and discoveries.", "subs": 34_186_770},
 ]
 
 # Real post titles from Reddit's public API (April 2026)

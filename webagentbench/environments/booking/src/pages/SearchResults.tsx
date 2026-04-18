@@ -104,11 +104,19 @@ export default function SearchResults() {
   });
   const [freeCancellation, setFreeCancellation] = useState(searchParams.get("free_cancellation") === "true");
   const [mealsIncluded, setMealsIncluded] = useState<string>(searchParams.get("meals_included") || "");
+  const [nameFilter, setNameFilter] = useState("");
 
   /* --- data state --- */
   const [results, setResults] = useState<SearchResultsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /* --- debounced name filter --- */
+  const [debouncedName, setDebouncedName] = useState(nameFilter);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedName(nameFilter), 350);
+    return () => clearTimeout(timer);
+  }, [nameFilter]);
 
   /* --- fetch data --- */
   const fetchResults = useCallback(
@@ -118,6 +126,7 @@ export default function SearchResults() {
       try {
         const data = await api.searchProperties({
           destination: destination || undefined,
+          name: debouncedName || undefined,
           check_in: checkIn || undefined,
           check_out: checkOut || undefined,
           guests,
@@ -144,6 +153,7 @@ export default function SearchResults() {
       api,
       sessionId,
       destination,
+      debouncedName,
       checkIn,
       checkOut,
       guests,
@@ -254,6 +264,19 @@ export default function SearchResults() {
             )}
           </div>
         )}
+
+        {/* Property name search */}
+        <div className="bk-filter-group">
+          <h3>Search by property name</h3>
+          <input
+            type="text"
+            className="bk-input"
+            placeholder="e.g. Kensington Hotel"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            aria-label="Filter by property name"
+          />
+        </div>
 
         {/* Price range */}
         <div className="bk-filter-group">

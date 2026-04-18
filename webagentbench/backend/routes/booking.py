@@ -46,6 +46,7 @@ class SessionScopedRequest(BaseModel):
 
 class SearchRequest(SessionScopedRequest):
     destination: str = ""
+    name: str = ""
     check_in: str = ""
     check_out: str = ""
     guests: int = 2
@@ -425,6 +426,11 @@ async def search_properties(
         meals_included=body.meals_included,
         sort_by=body.sort_by,
     )
+
+    # Filter by property name (fuzzy: match if all words appear in name)
+    if body.name:
+        words = body.name.lower().split()
+        results = [p for p in results if all(w in p.name.lower() for w in words)]
 
     # Paginate
     total = len(results)

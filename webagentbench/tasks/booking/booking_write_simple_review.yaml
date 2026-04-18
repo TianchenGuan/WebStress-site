@@ -58,8 +58,8 @@ eval:
       \  for r in state.reviews\n)\n"
     desc: The review has a positive comment
   negative_checks:
-  - expr: 'sum(1 for r in state.reviews if r.property_id == ''{target.property_id}''
-      and r.author_name == state.owner_name) <= 1
+  - expr: 'sum(1 for e in state.audit_log if e.action == ''review.submit''
+      and e.payload.get(''property_id'') == ''{target.property_id}'') <= 1
 
       '
     desc: Only one review was written for this property

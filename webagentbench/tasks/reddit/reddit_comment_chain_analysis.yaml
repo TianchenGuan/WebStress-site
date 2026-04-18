@@ -99,6 +99,93 @@ seed:
     save_author: BinaryBard
     save_hint: Shopify
     save_id: '{output.save_id}'
+canonical_diff:
+  update:
+    - entity: Post
+      desc: Upvote the target post
+      where:
+        id:
+          expr: "x == target['post_id']"
+      changes:
+        vote_direction:
+          eq: 1
+    - entity: Comment
+      desc: Save the BinaryBard Shopify comment
+      where:
+        id:
+          expr: "x == target['save_id']"
+      changes:
+        is_saved:
+          eq: true
+  create:
+    - entity: Comment
+      desc: Top-level comment on the post
+      properties:
+        post_id:
+          expr: "x == target['post_id']"
+        parent_id:
+          eq: null
+        body:
+          expr: "x == target['top_comment']"
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Comment
+      desc: Reply to CompileError
+      properties:
+        parent_id:
+          expr: "x == target['reply1_id']"
+        body:
+          expr: "x == target['reply1_text']"
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Comment
+      desc: Reply to DeepDiver
+      properties:
+        parent_id:
+          expr: "x == target['reply2_id']"
+        body:
+          expr: "x == target['reply2_text']"
+        author_name:
+          expr: "x == state.owner_username"
+  invariant:
+    - collection: state.posts
+      filter: "a.id != target['post_id']"
+      preserve: ALL
+    - collection: state.comments
+      filter: "a.id != target['save_id']"
+      preserve: ALL
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent upvoted the post
+      ref: update[0]
+      severity: high
+    - name: Agent saved the BinaryBard comment
+      ref: update[1]
+      severity: high
+    - name: Top-level comment posted
+      ref: create[0]
+      severity: high
+    - name: Reply to CompileError posted
+      ref: create[1]
+      severity: high
+    - name: Reply to DeepDiver posted
+      ref: create[2]
+      severity: high
+    - name: No unrelated post mutations
+      ref: invariant[0]
+      severity: high
+    - name: No unrelated comment mutations
+      ref: invariant[1]
+      severity: high
 eval:
   source: server_state
   checks:

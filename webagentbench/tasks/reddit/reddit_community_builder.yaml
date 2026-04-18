@@ -150,6 +150,71 @@ seed:
     m_to: CompileError
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
+canonical_diff:
+  # Constraint-only form. This task mixes per-entity ops (subscribe,
+  # post, comment, messages) with the aggregate mark-all-notifications-
+  # read bulk mutation; the latter cannot be expressed as a positive
+  # update bijection without exposing initial notification ids through
+  # targets. The constraint-only path skips the unaccounted sweep so
+  # legitimate aggregate mutations aren't double-flagged.
+  constraints:
+    - desc: Agent subscribed to r/MachineLearning
+      expr: "any(s.name == target['j1'] and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent subscribed to r/Piracy
+      expr: "any(s.name == target['j2'] and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent subscribed to r/dataisbeautiful
+      expr: "any(s.name == target['j3'] and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Agent upvoted the programming post
+      expr: "state.get_post(target['prog_id']).vote_direction == 1"
+      severity: high
+    - desc: Agent posted exact title and body in r/MachineLearning
+      expr: "any(p.subreddit_name == target['j1'] and p.title == target['p1_title'] and p.body == target['p1_body'] and p.author_name == state.owner_username for p in state.posts)"
+      severity: high
+    - desc: Agent commented "Great CI/CD improvements." on the programming post
+      expr: "any(c.post_id == target['prog_id'] and target['cc'] in c.body and c.author_name == state.owner_username for c in state.comments)"
+      severity: high
+    - desc: Agent sent the exact announcement to u/NeuralNexus
+      expr: "any(m.to_user == 'NeuralNexus' and m.subject == target['ms'] and m.body == target['mb'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: Agent sent the exact announcement to u/ByteRunner
+      expr: "any(m.to_user == 'ByteRunner' and m.subject == target['ms'] and m.body == target['mb'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: Agent sent the exact announcement to u/DataWizard42
+      expr: "any(m.to_user == 'DataWizard42' and m.subject == target['ms'] and m.body == target['mb'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: All notifications marked as read
+      expr: "state.unread_notification_count() == 0"
+      severity: high
+    - desc: No notifications were deleted while clearing
+      expr: "len(state.notifications) == len(initial.notifications)"
+      severity: high
+    - desc: Theme set to dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: Default comment sort set to new
+      expr: "state.settings.default_comment_sort == 'new'"
+      severity: high
+    - desc: Show active communities disabled
+      expr: "state.settings.show_active_communities == False"
+      severity: high
+    - desc: Existing subscriptions preserved (do not unsubscribe)
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+    - desc: No excessive outbound messages sent beyond the three required
+      expr: "len(state.sent_messages) <= len(initial.sent_messages) + 3"
+      severity: medium
+    - desc: No excessive posts created by the owner
+      expr: "sum(1 for p in state.posts if p.author_name == state.owner_username) <= sum(1 for p in initial.posts if p.author_name == state.owner_username) + 1"
+      severity: medium
+    - desc: No users blocked during the workflow
+      expr: "len(state.blocked_users) == len(initial.blocked_users)"
+      severity: medium
+  invariant:
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

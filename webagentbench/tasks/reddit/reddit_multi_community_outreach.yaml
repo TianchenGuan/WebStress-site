@@ -60,6 +60,132 @@ seed:
     msg_body: Just published a comprehensive guide on fine-tuning LLMs in r/MachineLearning.
       Would love your feedback.
     initial_subscriptions: '{output.subscriptions}'
+canonical_diff:
+  update:
+    - entity: Subreddit
+      desc: Subscribed to r/MachineLearning
+      where:
+        id:
+          expr: "state.get_subreddit(x).name == target['join1']"
+      changes:
+        is_subscribed:
+          eq: true
+    - entity: Subreddit
+      desc: Subscribed to r/Piracy
+      where:
+        id:
+          expr: "state.get_subreddit(x).name == target['join2']"
+      changes:
+        is_subscribed:
+          eq: true
+  create:
+    - entity: Post
+      desc: Created the MachineLearning post with exact title and body
+      properties:
+        subreddit_name:
+          expr: "x == target['join1']"
+        title:
+          expr: "x == target['post1_title']"
+        body:
+          expr: "x == target['post1_body']"
+        author_name:
+          expr: "x == state.owner_username"
+        post_type:
+          eq: "text"
+        url:
+          any: true
+        flair_text:
+          any: true
+        is_spoiler:
+          any: true
+        is_nsfw:
+          any: true
+    - entity: Comment
+      desc: Posted the exact comment on the AskReddit post
+      properties:
+        post_id:
+          expr: "x == target['comment_post_id']"
+        body:
+          expr: "x == target['comment_text']"
+        parent_id:
+          eq: null
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Message
+      collection: state.sent_messages
+      desc: Sent the outreach message to u/NeuralNexus with exact subject/body
+      properties:
+        to_user:
+          expr: "x == target['msg1_to']"
+        subject:
+          expr: "x == target['msg_subject']"
+        body:
+          expr: "x == target['msg_body']"
+        from_user:
+          expr: "x == state.owner_username"
+    - entity: Message
+      collection: state.sent_messages
+      desc: Sent the outreach message to u/ByteRunner with exact subject/body
+      properties:
+        to_user:
+          expr: "x == target['msg2_to']"
+        subject:
+          expr: "x == target['msg_subject']"
+        body:
+          expr: "x == target['msg_body']"
+        from_user:
+          expr: "x == state.owner_username"
+  constraints:
+    - desc: No existing subreddit unsubscribed
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+    - desc: No posts created outside of r/{target.join1}
+      expr: "all(p.subreddit_name == target['join1'] for p in state.posts if p.author_name == state.owner_username and p.id not in {ip.id for ip in initial.posts})"
+      severity: medium
+    - desc: No users blocked
+      expr: "len(state.blocked_users) == 0"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      filter: "state.get_subreddit(a.id) is None or state.get_subreddit(a.id).name not in (target['join1'], target['join2'])"
+      preserve: ALL
+    - collection: state.posts
+      filter: "True"
+      preserve: ALL
+    - collection: state.comments
+      filter: "True"
+      preserve: ALL
+    - collection: state.sent_messages
+      filter: "True"
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent subscribed to r/{target.join1}
+      ref: update[0]
+      severity: high
+    - name: Agent subscribed to r/{target.join2}
+      ref: update[1]
+      severity: high
+    - name: Agent created the MachineLearning post with exact content
+      ref: create[0]
+      severity: high
+    - name: Agent posted the exact AskReddit comment
+      ref: create[1]
+      severity: high
+    - name: Agent sent the outreach message to u/NeuralNexus
+      ref: create[2]
+      severity: high
+    - name: Agent sent the outreach message to u/ByteRunner
+      ref: create[3]
+      severity: high
+    - name: Agent did not subscribe or unsubscribe other subreddits
+      ref: invariant[0]
+      severity: high
 eval:
   source: server_state
   checks:

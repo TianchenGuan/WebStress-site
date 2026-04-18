@@ -442,6 +442,41 @@ def build_saved_posts(ctx: RedditSeedContext, params: dict[str, Any]) -> dict[st
     return {"saved_post_ids": list(ctx.base["saved_post_ids"])}
 
 
+@_register("capture_notification_ids")
+def build_capture_notification_ids(ctx: RedditSeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Capture current notification IDs (typically used AFTER other seed steps).
+
+    Returns ids of all currently-present notifications, plus the subset that
+    are currently unread. Optional ``exclude`` param removes specific ids
+    from the returned lists.
+
+    Params: exclude (list[str], optional)
+    """
+    exclude = set(params.get("exclude", []))
+    ids = [n.id for n in ctx.base["notifications"] if n.id not in exclude]
+    unread_ids = [n.id for n in ctx.base["notifications"]
+                  if not n.is_read and n.id not in exclude]
+    return {"notification_ids": ids, "unread_notification_ids": unread_ids}
+
+
+@_register("capture_message_ids")
+def build_capture_message_ids(ctx: RedditSeedContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Capture current inbox message IDs (typically used AFTER seed mutations).
+
+    Returns ids of all currently-present inbox messages, plus the subset that
+    are currently unread. Optional ``exclude`` param removes specific ids
+    from the returned lists (useful when a subsequent task step will delete
+    one of the captured messages).
+
+    Params: exclude (list[str], optional)
+    """
+    exclude = set(params.get("exclude", []))
+    ids = [m.id for m in ctx.base["messages"] if m.id not in exclude]
+    unread_ids = [m.id for m in ctx.base["messages"]
+                  if not m.is_read and m.id not in exclude]
+    return {"message_ids": ids, "unread_message_ids": unread_ids}
+
+
 @_register("filler_posts")
 def build_filler_posts(ctx: RedditSeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Generate N filler posts in a subreddit.

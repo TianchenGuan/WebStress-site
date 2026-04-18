@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { preserveQueryParams } from "@webagentbench/shared";
-import type { Property, RoomType, Review } from "../types";
+import type { Property, RoomType, Review, SavedList } from "../types";
 import { useBookingLayout } from "../context";
 
 /* ------------------------------------------------------------------ */
@@ -63,12 +63,14 @@ export default function PropertyDetail() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
+  const [savedLists, setSavedLists] = useState<SavedList[]>([]);
+  const [saveDropdownOpen, setSaveDropdownOpen] = useState(false);
 
   // Parse search params for date/guest context
   const searchParams = new URLSearchParams(location.search);
-  const checkIn = searchParams.get("check_in") || "";
-  const checkOut = searchParams.get("check_out") || "";
-  const guests = searchParams.get("guests") || "2";
+  const [checkIn, setCheckIn] = useState(searchParams.get("check_in") || "");
+  const [checkOut, setCheckOut] = useState(searchParams.get("check_out") || "");
+  const [guests, setGuests] = useState(searchParams.get("guests") || "2");
   const rooms = searchParams.get("rooms") || "1";
 
   useEffect(() => {
@@ -95,6 +97,11 @@ export default function PropertyDetail() {
           setLoading(false);
         }
       });
+
+    // Also load saved lists for the "Save to list" dropdown
+    api.listSavedLists().then((res) => {
+      if (!cancelled) setSavedLists(res.lists ?? []);
+    }).catch(() => {});
 
     return () => {
       cancelled = true;
@@ -152,7 +159,7 @@ export default function PropertyDetail() {
       {/*  1. Property Header                                          */}
       {/* ============================================================ */}
       <section className="bk-section">
-        <div className="bk-property-header">
+        <div className="bk-property-header" style={{ position: "relative" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Stars count={property.star_rating} />
@@ -172,7 +179,7 @@ export default function PropertyDetail() {
             </p>
           </div>
 
-          {/* 2. Review score section */}
+          {/* 2. Review score + Save to list */}
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div className="bk-score" style={{ justifyContent: "flex-end", marginBottom: 4 }}>
               <div>
@@ -184,12 +191,102 @@ export default function PropertyDetail() {
               </div>
               <ScoreBadge score={property.review_score} />
             </div>
-            <a
-              href="#reviews"
-              style={{ fontSize: 13, color: "var(--bk-blue-light)", cursor: "pointer" }}
-            >
-              See all reviews
-            </a>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", alignItems: "center", marginTop: 4 }}>
+              <a
+                href="#reviews"
+                style={{ fontSize: 13, color: "var(--bk-blue-light)", cursor: "pointer" }}
+              >
+                See all reviews
+              </a>
+              <button
+                className="bk-btn bk-btn--secondary"
+                style={{ fontSize: 13, padding: "4px 12px" }}
+                onClick={() => setSaveDropdownOpen(!saveDropdownOpen)}
+              >
+                ♥ Save to list
+              </button>
+            </div>
+            {saveDropdownOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  marginTop: 4,
+                  background: "#fff",
+                  border: "1px solid var(--bk-gray-200)",
+                  borderRadius: 8,
+                  boxShadow: "0 4px 12px rgba(0,0,0,.12)",
+                  padding: 12,
+                  minWidth: 220,
+                  zIndex: 100,
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Save to a list</div>
+                {savedLists.length === 0 && (
+                  <p style={{ fontSize: 13, color: "var(--bk-gray-400)" }}>No lists yet. Create one below.</p>
+                )}
+                {savedLists.map((list) => {
+                  const alreadySaved = list.property_ids.includes(property.id);
+                  return (
+                    <button
+                      key={list.id}
+                      className="bk-btn bk-btn--tertiary"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        fontSize: 13,
+                        color: alreadySaved ? "var(--bk-gray-400)" : undefined,
+                      }}
+                      disabled={alreadySaved}
+                      onClick={async () => {
+                        await api.addToSavedList(list.id, property.id);
+                        setSavedLists((prev) =>
+                          prev.map((l) =>
+                            l.id === list.id
+                              ? { ...l, property_ids: [...l.property_ids, property.id] }
+                              : l
+                          )
+                        );
+                        setSaveDropdownOpen(false);
+                      }}
+                    >
+                      {list.name} {alreadySaved ? "(saved)" : ""}
+                    </button>
+                  );
+                })}
+                <hr style={{ margin: "8px 0", border: "none", borderTop: "1px solid var(--bk-gray-200)" }} />
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const input = (e.target as HTMLFormElement).elements.namedItem("newListName") as HTMLInputElement;
+                    const name = input.value.trim();
+                    if (!name) return;
+                    const created = await api.createSavedList(name);
+                    // Add the property to the newly created list
+                    const updated = await api.addToSavedList(created.id, property.id);
+                    setSavedLists((prev) => [...prev, updated]);
+                    input.value = "";
+                    setSaveDropdownOpen(false);
+                  }}
+                  style={{ display: "flex", gap: 6 }}
+                >
+                  <input
+                    name="newListName"
+                    type="text"
+                    placeholder="New list name"
+                    className="bk-input"
+                    style={{ flex: 1, fontSize: 13, padding: "4px 8px" }}
+                  />
+                  <button type="submit" className="bk-btn bk-btn--primary" style={{ fontSize: 12, padding: "4px 10px" }}>
+                    Create &amp; save
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -235,11 +332,27 @@ export default function PropertyDetail() {
       {/* ============================================================ */}
       <section className="bk-section" id="rooms">
         <h2 className="bk-section-title">Availability</h2>
-        {checkIn && checkOut && (
-          <p className="bk-section-subtitle">
-            {checkIn} &mdash; {checkOut} &middot; {guests} guest{Number(guests) !== 1 ? "s" : ""} &middot; {rooms} room{Number(rooms) !== 1 ? "s" : ""}
-          </p>
-        )}
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Check-in</label>
+            <input type="date" className="bk-input" value={checkIn}
+              onChange={(e) => setCheckIn(e.target.value)} style={{ width: 150 }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Check-out</label>
+            <input type="date" className="bk-input" value={checkOut}
+              onChange={(e) => setCheckOut(e.target.value)} style={{ width: 150 }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Guests</label>
+            <select className="bk-input" value={guests}
+              onChange={(e) => setGuests(e.target.value)} style={{ width: 80 }}>
+              {[1,2,3,4,5,6,7,8].map((n) => (
+                <option key={n} value={String(n)}>{n}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div style={{ overflowX: "auto" }}>
           <table className="bk-room-table">

@@ -66,6 +66,60 @@ seed:
     original_body: I ran both libraries on 12 Kaggle datasets with default hyperparameters.
       LightGBM was faster in 10 out of 12 cases, but XGBoost had slightly better AUC
       on 7 datasets. Full results and code in the comments.
+canonical_diff:
+  create:
+  - entity: Post
+    desc: Resubmitted post in r/{target.sub} with required flair and [Resubmitted] prefix
+    properties:
+      subreddit_name:
+        eq: datascience
+      title:
+        expr: x == target['original_title']
+      body:
+        expr: x.startswith('[Resubmitted]') and target['original_body'] in x
+      author_name:
+        expr: x == state.owner_username
+      flair_text:
+        expr: x == target['required_flair']
+  constraints:
+  - desc: No post created in a wrong subreddit
+    expr: not any(p.author_name == state.owner_username and p.id != target['original_post_id'] and p.subreddit_name != 'datascience' and p.id not in [ip.id for ip in initial.posts] for p in state.posts)
+    severity: high
+  - desc: No unrelated posts created during resubmission
+    expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in [ip.id for ip in initial.posts]) == 1
+    severity: medium
+  - desc: No messages sent during resubmission
+    expr: len(state.sent_messages) == len(initial.sent_messages)
+    severity: medium
+  - desc: No comments created during resubmission
+    expr: len(state.comments) == len(initial.comments)
+    severity: medium
+  - desc: No users blocked during resubmission
+    expr: len(state.blocked_users) == len(initial.blocked_users)
+    severity: medium
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: "a.id in [p.id for p in initial.posts]"
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Resubmitted post with correct flair and preserved body
+    ref: create[0]
+    severity: high
+  - name: Existing posts (including original removed post) not modified
+    ref: invariant[1]
+    severity: high
 eval:
   source: server_state
   checks:

@@ -71,6 +71,81 @@ seed:
     message_body: Hey, loved your post about zero-downtime migrations. The advisory
       lock approach is elegant. Would you consider open-sourcing the library?
     decoy_post_ids: '{output.decoy_post_ids}'
+canonical_diff:
+  update:
+  - entity: Post
+    desc: Saved the Cloudflare target post
+    where:
+      id:
+        expr: x == target['target_post_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact top-level comment on the Cloudflare target post
+    properties:
+      post_id:
+        expr: x == target['target_post_id']
+      body:
+        expr: x == target['comment_text']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact message sent to ByteRunner about the Postgres post
+    properties:
+      to_user:
+        expr: x == target['message_post_author']
+      subject:
+        expr: x == target['message_subject']
+      body:
+        expr: x == target['message_body']
+      from_user:
+        expr: x == state.owner_username
+  constraints:
+  - desc: No decoy posts saved
+    expr: not any(pid in state.saved_post_ids for pid in target['decoy_post_ids'])
+    severity: high
+  - desc: No messages sent to anyone other than ByteRunner
+    expr: all(m.to_user == target['message_post_author'] for m in state.sent_messages if m.id not in {mm.id for mm in initial.sent_messages})
+    severity: medium
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['target_post_id']"
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Agent saved the Cloudflare target post
+    ref: update[0]
+    severity: high
+  - name: Agent posted the exact top-level comment on the Cloudflare post
+    ref: create[0]
+    severity: high
+  - name: Agent sent the exact message to ByteRunner
+    ref: create[1]
+    severity: high
+  - name: Agent did not save, vote on, or otherwise modify other posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify or delete inbox messages
+    ref: invariant[3]
+    severity: medium
 eval:
   source: server_state
   checks:

@@ -66,6 +66,98 @@ seed:
     msg_subject: Xenotransplantation breakthrough
     msg_body: Did you see the kidney transplant milestone post in r/science? The one-year
       survival is groundbreaking.
+canonical_diff:
+  update:
+  - entity: Post
+    desc: Upvoted the tech target post
+    where:
+      id:
+        expr: x == target['tech_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Saved the gaming target post
+    where:
+      id:
+        expr: x == target['game_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment on the science target post
+    properties:
+      post_id:
+        expr: x == target['sci_id']
+      body:
+        expr: x == target['sci_comment']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact message sent to NebulaDrifter about xenotransplantation
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
+  constraints:
+  - desc: Theme set to dark
+    expr: state.settings.theme == 'dark'
+    severity: high
+  - desc: Gaming post not voted on (save-only instruction)
+    expr: state.get_post(target['game_id']).vote_direction == 0
+    severity: medium
+  - desc: Science post not voted on (comment-only instruction)
+    expr: state.get_post(target['sci_id']).vote_direction == 0
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == 0
+    severity: medium
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['tech_id'] and a.id != target['game_id']"
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Agent upvoted the tech target post
+    ref: update[0]
+    severity: high
+  - name: Agent saved the gaming target post
+    ref: update[1]
+    severity: high
+  - name: Agent posted the exact comment on the science target post
+    ref: create[0]
+    severity: high
+  - name: Agent sent the exact message to NebulaDrifter
+    ref: create[1]
+    severity: high
+  - name: Agent did not vote on, save, or otherwise modify other posts
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify or delete inbox messages
+    ref: invariant[3]
+    severity: medium
 eval:
   source: server_state
   checks:

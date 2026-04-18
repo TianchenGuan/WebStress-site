@@ -48,6 +48,76 @@ seed:
     msg_subject: Your Central Park bird photography
     msg_body: Stunning work! Would you consider licensing some images for a nature
       conservation newsletter I edit?
+canonical_diff:
+  update:
+    - entity: Post
+      desc: Target post upvoted
+      where:
+        id:
+          expr: "x == target['post_id']"
+      changes:
+        vote_direction:
+          eq: 1
+        is_saved:
+          eq: true
+  create:
+    - entity: Comment
+      desc: Exact comment posted on target post
+      properties:
+        post_id:
+          expr: "x == target['post_id']"
+        body:
+          expr: "x == target['comment_text']"
+        parent_id:
+          eq: null
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Message
+      collection: state.sent_messages
+      desc: Private message sent to target user with exact body
+      properties:
+        to_user:
+          expr: "x == target['target_user']"
+        subject:
+          expr: "x == target['msg_subject']"
+        from_user:
+          expr: "x == state.owner_username"
+        body:
+          expr: "x == target['msg_body']"
+  invariant:
+    - collection: state.posts
+      filter: "a.id != target['post_id']"
+      preserve: ALL
+    - collection: state.comments
+      filter: "True"
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      filter: "True"
+      preserve: ALL
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent upvoted and saved the target post
+      ref: update[0]
+      severity: high
+    - name: Agent posted the exact comment on the target post
+      ref: create[0]
+      severity: high
+    - name: Agent sent the exact private message to the target user
+      ref: create[1]
+      severity: high
+    - name: Agent did not vote on, save, or modify any other post
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not modify inbox messages
+      ref: invariant[2]
+      severity: medium
 eval:
   source: server_state
   checks:

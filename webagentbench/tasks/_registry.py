@@ -93,7 +93,13 @@ def _validate_canonical_diff_refs(task) -> None:
 
         positive_cols: set[str] = set()
         for e in list(block.create) + list(block.update) + list(block.delete):
-            positive_cols.add(_col_for(e.entity))
+            # Honor explicit collection override on update entries
+            # (Class 17: multi-collection-per-entity envs like Reddit).
+            explicit = getattr(e, "collection", None)
+            if explicit:
+                positive_cols.add(explicit.removeprefix("state."))
+            else:
+                positive_cols.add(_col_for(e.entity))
         for inv in block.invariant:
             inv_col = inv.collection.removeprefix("state.")
             if inv_col in positive_cols and not inv.filter:

@@ -55,6 +55,27 @@ seed:
     msg1_id: '{output.msg1_id}'
     msg2_id: '{output.msg2_id}'
     msg3_id: '{output.msg3_id}'
+canonical_diff:
+  constraints:
+    - desc: All three seeded messages still exist in the inbox
+      expr: "all(any(m.id == mid for m in state.messages) for mid in [target['msg1_id'], target['msg2_id'], target['msg3_id']])"
+      severity: high
+    - desc: No users were blocked
+      expr: "len(state.blocked_users) == 0"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

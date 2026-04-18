@@ -50,6 +50,101 @@ seed:
     msg_body: Would you be open to sharing the raw dataset? I would love to build
       on your analysis.
     join: MachineLearning
+canonical_diff:
+  update:
+  - entity: Post
+    desc: Target post upvoted and saved
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      vote_direction:
+        eq: 1
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.join}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment posted on target post
+    properties:
+      post_id:
+        expr: x == target['post_id']
+      body:
+        expr: x == target['comment']
+      author_name:
+        expr: x == state.owner_username
+      parent_id:
+        any: true
+  - entity: Message
+    collection: state.sent_messages
+    desc: Outreach message sent to u/{target.user} with exact subject and body
+    properties:
+      to_user:
+        expr: x == target['user']
+      subject:
+        expr: x == target['msg_sub']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
+  constraints:
+  - desc: Theme set to dark
+    expr: state.settings.theme == 'dark'
+    severity: high
+  - desc: Exactly one outreach message sent
+    expr: len(state.sent_messages) == len(initial.sent_messages) + 1
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == len(initial.blocked_users)
+    severity: medium
+  - desc: No extra posts created by the owner
+    expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == sum(1 for p in initial.posts if p.author_name == state.owner_username)
+    severity: medium
+  invariant:
+  - collection: state.subreddits
+    filter: "a.id != state.get_subreddit_by_name(target['join']).id"
+    preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['post_id']"
+    preserve: ALL
+  - collection: state.comments
+    filter: "a.id in [c.id for c in initial.comments]"
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Target post upvoted and saved
+    ref: update[0]
+    severity: high
+  - name: Subscribed to r/{target.join}
+    ref: update[1]
+    severity: high
+  - name: Exact comment posted on target post
+    ref: create[0]
+    severity: high
+  - name: Outreach message sent to u/{target.user}
+    ref: create[1]
+    severity: high
+  - name: Other subreddits not resubscribed or unsubscribed
+    ref: invariant[0]
+    severity: high
+  - name: Other posts not modified or voted on
+    ref: invariant[1]
+    severity: high
+  - name: Existing comments not altered or deleted
+    ref: invariant[2]
+    severity: medium
 eval:
   source: server_state
   checks:

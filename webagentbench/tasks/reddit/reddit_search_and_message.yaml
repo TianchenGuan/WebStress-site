@@ -34,6 +34,39 @@ seed:
     msg_subject: Your renewable energy post
     msg_body: Great post about Germany's renewable milestone! Do you have a link to
       the original source data?
+canonical_diff:
+  create:
+    - entity: Message
+      desc: Compose the private message to the post author
+      properties:
+        to_user:
+          expr: "x == target['post_author']"
+        subject:
+          expr: "x == target['msg_subject']"
+        body:
+          expr: "x == target['msg_body']"
+        parent_id:
+          eq: null
+        from_user:
+          expr: "x == state.owner_username"
+  invariant:
+    - collection: state.messages
+      filter: "True"
+      preserve: ALL
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed the exact private message to the post author
+      ref: create[0]
+      severity: high
 eval:
   source: server_state
   checks:

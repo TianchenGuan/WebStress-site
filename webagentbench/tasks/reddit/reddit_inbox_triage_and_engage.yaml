@@ -65,6 +65,49 @@ seed:
     post_id: '{output.post_id}'
     comment_text: This is a great explainer. The relationship between ISO and noise
       is something beginners always struggle with.
+canonical_diff:
+  # Constraint-only form: the task's "read all unread messages" step
+  # mutates each inbox Message entity's is_read, plus there is a single
+  # targeted deletion. A constraint-only block avoids needing to
+  # enumerate each per-message update and scores purely on constraint
+  # satisfaction. Entity-level post/comment mutations also fold into
+  # constraints for uniformity (spec §3.6 / Class 10).
+  constraints:
+    - desc: Target post upvoted
+      expr: "state.get_post(target['post_id']).vote_direction == 1"
+      severity: high
+    - desc: Target post saved
+      expr: "state.get_post(target['post_id']).is_saved and target['post_id'] in state.saved_post_ids"
+      severity: high
+    - desc: Exact comment posted on target post
+      expr: "any(c.post_id == target['post_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username for c in state.comments)"
+      severity: high
+    - desc: Reply sent with exact body and Re-subject to reply_from
+      expr: "any(m.to_user == target['reply_from'] and m.subject == 'Re: ' + target['reply_subject'] and m.body == target['reply_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: Spam message deleted from inbox
+      expr: "not any(m.id == target['delete_msg_id'] for m in state.messages)"
+      severity: high
+    - desc: All notifications marked read
+      expr: "state.unread_notification_count() == 0"
+      severity: high
+    - desc: All inbox messages marked read
+      expr: "state.unread_message_count() == 0"
+      severity: high
+    - desc: Only the spam message was deleted
+      expr: "len(state.messages) == len(initial.messages) - 1"
+      severity: medium
+    - desc: No new posts authored by the owner
+      expr: "len([p for p in state.posts if p.author_name == state.owner_username]) == len([p for p in initial.posts if p.author_name == state.owner_username])"
+      severity: medium
+    - desc: No users blocked
+      expr: "len(state.blocked_users) == 0"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

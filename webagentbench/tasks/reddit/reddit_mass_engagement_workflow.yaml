@@ -154,6 +154,58 @@ seed:
     m_to: CompileError
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
+canonical_diff:
+  # Constraint-only form. The task chains many heterogeneous per-subreddit
+  # actions ("upvote any post in r/technology", etc.) that the legacy eval
+  # expressed as subreddit-level predicates rather than specific post ids.
+  # Plus an aggregate notifications-read sweep. A constraint-only block
+  # captures this semantics cleanly (spec §3.6 / Class 10).
+  constraints:
+    - desc: Upvoted a post in r/technology
+      expr: "any(p.subreddit_name == 'technology' and p.vote_direction == 1 for p in state.posts)"
+      severity: high
+    - desc: Saved a post in r/gaming
+      expr: "any(p.subreddit_name == 'gaming' and p.id in state.saved_post_ids for p in state.posts)"
+      severity: high
+    - desc: Commented on a post in r/science
+      expr: "any(c.author_name == state.owner_username and any(p.id == c.post_id and p.subreddit_name == 'science' for p in state.posts) for c in state.comments)"
+      severity: high
+    - desc: Upvoted and commented on a post in r/programming
+      expr: "any(p.subreddit_name == 'programming' and p.vote_direction == 1 and any(c.author_name == state.owner_username and c.post_id == p.id for c in state.comments) for p in state.posts)"
+      severity: high
+    - desc: Subscribed to r/{target.join}
+      expr: "any(s.name == target['join'] and s.is_subscribed for s in state.subreddits)"
+      severity: high
+    - desc: Created post in r/{target.join}
+      expr: "any(p.subreddit_name == target['join'] and target['pt'] in p.title and p.author_name == state.owner_username for p in state.posts)"
+      severity: high
+    - desc: Message sent to u/{target.m_to} with required subject
+      expr: "any(m.to_user == target['m_to'] and m.subject == target['ms'] and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: All notifications marked read
+      expr: "state.unread_notification_count() == 0"
+      severity: high
+    - desc: Theme set to dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: Feed sort set to top
+      expr: "state.settings.default_feed_sort == 'top'"
+      severity: high
+    - desc: Comment sort set to new
+      expr: "state.settings.default_comment_sort == 'new'"
+      severity: high
+    - desc: No existing subscriptions removed (do not unsubscribe)
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+    - desc: No downvotes on posts
+      expr: "not any(p.vote_direction == -1 for p in state.posts)"
+      severity: medium
+    - desc: No users blocked
+      expr: "len(state.blocked_users) == 0"
+      severity: medium
+  invariant:
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

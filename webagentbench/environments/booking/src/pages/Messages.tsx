@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { preserveQueryParams } from "@webagentbench/shared";
 
-import type { Message } from "../types";
+import type { Message, Reservation } from "../types";
 import { useBookingLayout } from "../context";
 
 export default function Messages() {
@@ -19,6 +19,13 @@ export default function Messages() {
   const [replySubject, setReplySubject] = useState("");
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
+
+  // New message compose state
+  const [composing, setComposing] = useState(false);
+  const [composePropertyId, setComposePropertyId] = useState("");
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [composeSending, setComposeSending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,6 +94,41 @@ export default function Messages() {
     }
   };
 
+  const handleSendNew = async () => {
+    if (!composePropertyId || !composeSubject.trim() || !composeBody.trim()) return;
+    setComposeSending(true);
+    try {
+      await api.sendMessage({
+        property_id: composePropertyId,
+        subject: composeSubject.trim(),
+        body: composeBody.trim(),
+      });
+      setComposing(false);
+      setComposePropertyId("");
+      setComposeSubject("");
+      setComposeBody("");
+      notify("Sent", "Your message has been sent.");
+      void load();
+    } catch {
+      notify("Error", "Failed to send message.");
+    } finally {
+      setComposeSending(false);
+    }
+  };
+
+  // Get unique properties from messages + reservations for the compose dropdown
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  useEffect(() => {
+    api.listReservations().then((data) => setReservations(data.reservations ?? [])).catch(() => {});
+  }, [api, sessionId]);
+
+  const knownProperties = Array.from(
+    new Map([
+      ...messages.map((m) => [m.property_id, m.property_name || m.property_id] as [string, string]),
+      ...reservations.map((r) => [r.property_id, r.property_name || r.property_id] as [string, string]),
+    ]).entries()
+  );
+
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("en-US", {
       month: "short",
@@ -129,7 +171,68 @@ export default function Messages() {
             </span>
           )}
         </h1>
+        <button
+          className="bk-btn bk-btn--primary"
+          onClick={() => setComposing(!composing)}
+        >
+          {composing ? "Cancel" : "New Message"}
+        </button>
       </div>
+
+      {/* Compose new message form */}
+      {composing && (
+        <div className="bk-card" style={{ padding: 20, marginBottom: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>New Message</h2>
+          <div className="bk-form-group">
+            <label htmlFor="compose-property">To (Property)</label>
+            <select
+              id="compose-property"
+              className="bk-input"
+              value={composePropertyId}
+              onChange={(e) => setComposePropertyId(e.target.value)}
+            >
+              <option value="">Select a property...</option>
+              {knownProperties.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="bk-form-group">
+            <label htmlFor="compose-subject">Subject</label>
+            <input
+              id="compose-subject"
+              type="text"
+              className="bk-input"
+              value={composeSubject}
+              onChange={(e) => setComposeSubject(e.target.value)}
+              placeholder="Enter subject..."
+            />
+          </div>
+          <div className="bk-form-group">
+            <label htmlFor="compose-body">Message</label>
+            <textarea
+              id="compose-body"
+              className="bk-textarea"
+              rows={4}
+              value={composeBody}
+              onChange={(e) => setComposeBody(e.target.value)}
+              placeholder="Type your message..."
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button className="bk-btn bk-btn--ghost" onClick={() => setComposing(false)}>
+              Cancel
+            </button>
+            <button
+              className="bk-btn bk-btn--primary"
+              onClick={() => void handleSendNew()}
+              disabled={composeSending || !composePropertyId || !composeSubject.trim() || !composeBody.trim()}
+            >
+              {composeSending ? "Sending..." : "Send Message"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {messages.length === 0 ? (
         <div className="bk-empty">

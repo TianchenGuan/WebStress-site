@@ -66,6 +66,122 @@ seed:
       projects. Would you be open to co-authoring a blog post about SQLite best practices?
     join_sub: Piracy
     initial_subscriptions: '{output.subscriptions}'
+canonical_diff:
+  update:
+    - entity: Post
+      desc: SQLite post saved
+      where:
+        id:
+          expr: "x == target['search_id']"
+      changes:
+        is_saved:
+          eq: true
+    - entity: Subreddit
+      desc: Subscribed to r/Piracy
+      where:
+        id:
+          expr: "state.get_subreddit(x).name == target['join_sub']"
+      changes:
+        is_subscribed:
+          eq: true
+  create:
+    - entity: Post
+      desc: Post created in r/Python with exact title and body
+      properties:
+        subreddit_name:
+          expr: "x == target['create_sub']"
+        title:
+          expr: "x == target['create_title']"
+        body:
+          expr: "x == target['create_body']"
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Comment
+      desc: Exact SQLite comment posted
+      properties:
+        post_id:
+          expr: "x == target['search_id']"
+        body:
+          expr: "x == target['search_comment']"
+        parent_id:
+          eq: null
+        author_name:
+          expr: "x == state.owner_username"
+    - entity: Message
+      collection: state.sent_messages
+      desc: Outreach message sent with exact subject and body
+      properties:
+        to_user:
+          expr: "x == target['msg_to']"
+        subject:
+          expr: "x == target['msg_subject']"
+        body:
+          expr: "x == target['msg_body']"
+        from_user:
+          expr: "x == state.owner_username"
+  constraints:
+    - desc: Only the SQLite post was newly saved
+      expr: "all(pid in initial.saved_post_ids or pid == target['search_id'] for pid in state.saved_post_ids)"
+      severity: high
+    - desc: Existing subscriptions preserved
+      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
+      severity: high
+  invariant:
+    - collection: state.subreddits
+      filter: "True"
+      preserve: ALL
+    - collection: state.posts
+      filter: "True"
+      preserve: ALL
+    - collection: state.comments
+      filter: "True"
+      preserve: ALL
+    - collection: state.sent_messages
+      filter: "True"
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent saved the SQLite post
+      ref: update[0]
+      severity: high
+    - name: Agent subscribed to r/Piracy
+      ref: update[1]
+      severity: high
+    - name: Agent posted the exact Python write-up in r/Python
+      ref: create[0]
+      severity: high
+    - name: Agent posted the exact SQLite comment
+      ref: create[1]
+      severity: high
+    - name: Agent sent the exact outreach message to u/drunksandman
+      ref: create[2]
+      severity: high
+    - name: Agent did not touch unrelated subreddits
+      ref: invariant[0]
+      severity: medium
+    - name: Agent did not modify unrelated posts
+      ref: invariant[1]
+      severity: high
+    - name: Agent did not modify unrelated comments
+      ref: invariant[2]
+      severity: medium
+    - name: Agent did not send extra outbound messages beyond the target
+      ref: invariant[3]
+      severity: medium
+    - name: Agent did not read, delete, or modify inbox messages
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not touch notifications
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not modify user profiles
+      ref: invariant[6]
+      severity: low
 eval:
   source: server_state
   checks:

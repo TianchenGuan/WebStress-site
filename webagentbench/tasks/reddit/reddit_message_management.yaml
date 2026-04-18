@@ -33,6 +33,24 @@ seed:
     new_msg_subject: Quick question about data pipelines
     new_msg_body: Hi! I saw you work with data pipelines. What tool do you recommend
       for orchestrating ETL jobs - Airflow or Prefect?
+canonical_diff:
+  # Constraint-only form (no positive entries): aggregate inbox mutations
+  # (mark-all-read + delete one) can't be enumerated by the matcher's
+  # positive-diff grammar, so the constraint-only path skips the
+  # unaccounted sweep and scores purely on constraint satisfaction.
+  constraints:
+    - desc: Spam message was deleted
+      expr: "not any(m.id == target['delete_msg_id'] for m in state.messages)"
+      severity: high
+    - desc: All remaining inbox messages are read
+      expr: "all(m.is_read for m in state.messages)"
+      severity: high
+    - desc: Composed new data-pipelines message
+      expr: "any(m.to_user == target['new_msg_to'] and m.subject == target['new_msg_subject'] and m.body == target['new_msg_body'] and m.parent_id is None and m.from_user == state.owner_username for m in state.sent_messages)"
+      severity: high
+    - desc: No non-spam messages deleted
+      expr: "len(state.messages) >= len(initial.messages) - 1"
+      severity: medium
 eval:
   source: server_state
   checks:

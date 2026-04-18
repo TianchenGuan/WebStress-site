@@ -30,6 +30,41 @@ seed:
     target_user: PhotonWave
     user_post_title: '{output.post_title}'
     post_id: '{output.post_id}'
+canonical_diff:
+  update:
+    - entity: Post
+      desc: Upvote and save the target user's post
+      where:
+        id:
+          expr: "x == target['post_id']"
+      changes:
+        vote_direction:
+          eq: 1
+        is_saved:
+          eq: true
+  invariant:
+    - collection: state.posts
+      filter: "a.id != target['post_id']"
+      preserve: ALL
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent upvoted and saved the target post
+      ref: update[0]
+      severity: high
+    - name: Agent did not vote on or save other posts
+      ref: invariant[0]
+      severity: high
 eval:
   source: server_state
   checks:

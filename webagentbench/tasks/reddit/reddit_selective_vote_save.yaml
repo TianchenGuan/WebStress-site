@@ -72,6 +72,47 @@ seed:
     comment_id: '{output.comment_id}'
     comment_text: 500 hours is dedication. The Consort Radahn fight alone took me
       40 attempts.
+canonical_diff:
+  # Constraint-only form: the task includes "mark all messages as read", an
+  # aggregate sweep that mutates every unread inbox message entity. Listing
+  # them positively would require enumerating each. A constraint-only block
+  # bypasses the unaccounted sweep entirely and scores on constraint
+  # satisfaction (spec §3.6 / Class 10 fix).
+  constraints:
+  - desc: EU post upvoted
+    expr: state.get_post(target['up_id']).vote_direction == 1
+    severity: high
+  - desc: AI startup post downvoted
+    expr: state.get_post(target['down_id']).vote_direction == -1
+    severity: high
+  - desc: Viking post saved
+    expr: target['save_id'] in state.saved_post_ids and state.get_post(target['save_id']).is_saved
+    severity: high
+  - desc: Exact comment on Elden Ring post
+    expr: any(c.post_id == target['comment_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username for c in state.comments)
+    severity: high
+  - desc: All inbox messages marked as read
+    expr: state.unread_message_count() == 0
+    severity: high
+  - desc: Default comment sort set to top
+    expr: state.settings.default_comment_sort == 'top'
+    severity: high
+  - desc: Viking post not voted on (save-only instruction)
+    expr: state.get_post(target['save_id']).vote_direction == 0
+    severity: medium
+  - desc: No inbox messages deleted
+    expr: len(state.messages) == len(initial.messages)
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == 0
+    severity: medium
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
 eval:
   source: server_state
   checks:

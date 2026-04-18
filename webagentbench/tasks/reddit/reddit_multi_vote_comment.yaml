@@ -66,6 +66,74 @@ seed:
     til_id: '{output.til_id}'
     til_comment: The honey badger truly does not care. They have incredibly thick
       skin that most predators cannot penetrate.
+canonical_diff:
+  update:
+  - entity: Post
+    desc: Gaming post upvoted
+    where:
+      id:
+        expr: x == target['game_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Movie post downvoted
+    where:
+      id:
+        expr: x == target['movie_id']
+    changes:
+      vote_direction:
+        eq: -1
+  - entity: Post
+    desc: TIL post saved
+    where:
+      id:
+        expr: x == target['til_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: TIL comment posted
+    properties:
+      post_id:
+        expr: x == target['til_id']
+      body:
+        substring: thick skin
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Gaming post upvoted
+    ref: update[0]
+    severity: high
+  - name: Movie post downvoted
+    ref: update[1]
+    severity: high
+  - name: TIL post saved
+    ref: update[2]
+    severity: high
+  - name: TIL comment posted
+    ref: create[0]
+    severity: high
 eval:
   source: server_state
   checks:

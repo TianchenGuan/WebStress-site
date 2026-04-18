@@ -144,6 +144,7 @@ class CreateEntry(BaseModel):
     """One entry in ``canonical_diff.create``."""
 
     entity: str
+    collection: str | None = None
     bijection: Bijection | None = None
     count: int = Field(default=1, ge=1)
     weight: float = Field(default=1.0, ge=0.0)
@@ -162,9 +163,16 @@ class UpdateEntry(BaseModel):
     """One entry in ``canonical_diff.update``.
 
     ``where`` is required (a task cannot update records without selecting them).
+
+    ``collection`` optionally overrides the entity→collection mapping. Useful
+    on envs where multiple state collections hold the same entity type
+    (e.g. Reddit's ``messages`` and ``sent_messages`` both hold ``Message``);
+    without the override, the matcher's ``collection_map`` last-one-wins
+    can route an update at the wrong collection.
     """
 
     entity: str
+    collection: str | None = None
     where: dict[str, dict[str, Any]]
     changes: dict[str, dict[str, Any]] = Field(default_factory=dict)
     bijection: Bijection | None = None
@@ -188,6 +196,7 @@ class DeleteEntry(BaseModel):
     """One entry in ``canonical_diff.delete``."""
 
     entity: str
+    collection: str | None = None
     where: dict[str, dict[str, Any]]
     weight: float = Field(default=1.0, ge=0.0)
     desc: str | None = None  # optional human-readable check label

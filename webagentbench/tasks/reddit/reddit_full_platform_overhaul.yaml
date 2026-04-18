@@ -149,6 +149,72 @@ seed:
     ms: Your CI/CD post
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
+canonical_diff:
+  # Constraint-only: aggregate mark-all-read operations combined with
+  # per-entity mutations hit the unaccounted-sweep conflict documented
+  # in canonical-diff-migration-hazards.md. Constraint-only path skips
+  # the sweep cleanly.
+  constraints:
+  - desc: Subscribed to r/{target.join}
+    expr: "any(s.name == target['join'] and s.is_subscribed for s in state.subreddits)"
+    severity: high
+  - desc: Subscribed to r/Piracy
+    expr: "any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)"
+    severity: high
+  - desc: Subscribed to r/dataisbeautiful
+    expr: "any(s.name == 'dataisbeautiful' and s.is_subscribed for s in state.subreddits)"
+    severity: high
+  - desc: Unsubscribed from r/memes
+    expr: "any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)"
+    severity: high
+  - desc: CryptoSkeptic blocked
+    expr: "'CryptoSkeptic' in state.blocked_users"
+    severity: high
+  - desc: No memes posts remain saved
+    expr: "not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)"
+    severity: high
+  - desc: Post created in r/{target.join} with correct title
+    expr: "any(p.subreddit_name == target['join'] and p.title == target['post_title'] and p.author_name == state.owner_username for p in state.posts)"
+    severity: high
+  - desc: Worldnews post upvoted
+    expr: "state.get_post(target['wn_id']).vote_direction == 1"
+    severity: high
+  - desc: Worldnews post saved
+    expr: "target['wn_id'] in state.saved_post_ids"
+    severity: high
+  - desc: Comment on worldnews post
+    expr: "any(c.post_id == target['wn_id'] and c.body == target['wn_comment'] and c.author_name == state.owner_username for c in state.comments)"
+    severity: high
+  - desc: Programming post saved
+    expr: "target['prog_id'] in state.saved_post_ids"
+    severity: high
+  - desc: Message sent to target recipient
+    expr: "any(m.to_user == target['msg_to'] and m.subject == target['msg_sub'] and m.body == target['mb'] and m.from_user == state.owner_username for m in state.sent_messages)"
+    severity: high
+  - desc: Theme set to dark
+    expr: "state.settings.theme == 'dark'"
+    severity: high
+  - desc: Compact view enabled
+    expr: "state.settings.compact_view == True"
+    severity: high
+  - desc: Feed sort set to top
+    expr: "state.settings.default_feed_sort == 'top'"
+    severity: high
+  - desc: Comment sort set to new
+    expr: "state.settings.default_comment_sort == 'new'"
+    severity: high
+  - desc: All email notifications disabled
+    expr: "not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages and not state.settings.email_digest"
+    severity: high
+  - desc: Online status hidden
+    expr: "not state.settings.show_online_status"
+    severity: high
+  - desc: All messages read
+    expr: "all(m.is_read for m in state.messages)"
+    severity: high
+  - desc: All notifications read
+    expr: "all(n.is_read for n in state.notifications)"
+    severity: high
 eval:
   source: server_state
   checks:

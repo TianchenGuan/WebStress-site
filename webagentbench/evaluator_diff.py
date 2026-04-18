@@ -171,8 +171,16 @@ def eval_predicate(pred: dict, scope: PredicateScope) -> bool:
     if key == "contains":
         return arg in value
     if key == "length":
+        # len() on None / int / other non-sized values would propagate a
+        # TypeError through the matcher. Conservatively return False so
+        # optional fields that happen to be None on a given trajectory
+        # don't crash the evaluator (Class 13).
+        try:
+            length_value = len(value)
+        except TypeError:
+            return False
         inner_scope = PredicateScope(
-            value=len(value),
+            value=length_value,
             target=scope.target,
             initial=scope.initial,
             state=scope.state,
@@ -323,18 +331,38 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
         for name in type(state).model_fields:
             val = getattr(state, name)
-            if isinstance(val, list):
-                dumped = []
-                for v in val:
-                    if hasattr(v, "model_dump"):
-                        entity_dict = v.model_dump()
-                        ignore = getattr(type(v), "DIFF_IGNORE_FIELDS", ())
-                        if ignore:
-                            entity_dict = _strip_ignored_fields(entity_dict, ignore)
-                    else:
-                        entity_dict = dict(v)
+            if not isinstance(val, list):
+                continue
+            # Entity-collection lists hold pydantic models (list[SomeEntity]).
+            # State-level data lists (e.g. reddit's list[str] for
+            # subscriptions, saved_post_ids, blocked_users) hold scalars
+            # or non-entity dicts. compute_diff only tracks entity
+            # collections — state-level lists should be asserted via
+            # constraint expressions in the canonical_diff, not diffed
+            # here. Skip any list whose elements aren't pydantic models
+            # or plain dicts-with-id.
+            dumped: list[dict] = []
+            for v in val:
+                if hasattr(v, "model_dump"):
+                    entity_dict = v.model_dump()
+                    ignore = getattr(type(v), "DIFF_IGNORE_FIELDS", ())
+                    if ignore:
+                        entity_dict = _strip_ignored_fields(entity_dict, ignore)
                     dumped.append(entity_dict)
+                elif isinstance(v, dict):
+                    dumped.append(dict(v))
+                else:
+                    # Scalar or non-dict element — whole list is a
+                    # state-level scalar list. Drop the collection and
+                    # move on; constraints can still reach it via
+                    # `state.<name>`.
+                    dumped = []
+                    break
+            else:
                 out[name] = dumped
+                continue
+            # If we broke out of the loop because of a scalar element,
+            # the for/else above didn't run — skip this field.
         return out
     raise TypeError(f"compute_diff: unsupported state type {type(state)!r}")
 
@@ -684,28 +712,30 @@ def _match_single_block(
             n_left = len(left) if hasattr(left, "__len__") else 0
 
             if n_left == 0:
-                # Degenerate case — zero slots required.
-                # Any existing Create candidates on this entity become
-                # "excess" (the agent scheduled N>0 appointments when 0
-                # were needed). Detect and flag accordingly.
-                collection_name = _collection_for(entry.entity, collection_map)
+                # Empty target set for this seed — entry is not applicable.
+                # Make it neutral: neither pool counts it, so score emerges
+                # from the actually-applicable entries rather than being
+                # inflated by vacuous satisfaction. Keep excess tracking so
+                # named_invariants can still flag over-creation (agent
+                # scheduled N>0 when 0 were needed).
+                total_weight -= entry.weight
+                collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
                 excess_candidates = [
                     c for c in agent_diff
                     if isinstance(c, Create) and c.entity == collection_name
                     and (c.entity, c.entity_id) not in matched_ids
                 ]
                 bijection_excess[i] = len(excess_candidates) > 0
-                passed_weight += entry.weight
                 base_desc = entry.desc or f"Create {entry.entity}(s) — 0 required"
                 checks.append({
-                    "desc": f"{base_desc} (trivially satisfied — nothing required)",
+                    "desc": f"{base_desc} (not applicable for this seed)",
                     "passed": True,
                     "error": None,
                 })
                 continue
 
             # Candidates: unmatched Create entries of the right entity type.
-            collection_name = _collection_for(entry.entity, collection_map)
+            collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
             candidates = [
                 c for c in agent_diff
                 if isinstance(c, Create)
@@ -804,7 +834,7 @@ def _match_single_block(
 
         # Non-bijection: find one unmatched Create candidate satisfying all predicates.
         passed = False
-        collection_name = _collection_for(entry.entity, collection_map)
+        collection_name = (entry.collection.removeprefix("state.") if getattr(entry, "collection", None) else _collection_for(entry.entity, collection_map))
         for candidate in agent_diff:
             if not isinstance(candidate, Create):
                 continue
@@ -856,7 +886,9 @@ def _match_single_block(
 
     for i, entry in enumerate(block.update):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity, collection_map)
+        # Honor explicit collection override (Class 17: envs with multiple
+        # collections per entity type like Reddit's messages/sent_messages).
+        collection_name = (entry.collection.removeprefix("state.") if entry.collection else _collection_for(entry.entity, collection_map))
         base_desc = entry.desc or f"Update {entry.entity} matching selector"
 
         if entry.bijection is not None:
@@ -874,9 +906,12 @@ def _match_single_block(
                 continue
             n_left = len(left) if hasattr(left, "__len__") else 0
             if n_left == 0:
-                passed_weight += entry.weight
+                # Empty target set — entry not applicable for this seed.
+                # Neutralize both pools so score reflects actually-applicable
+                # entries (see Class 9 hazard).
+                total_weight -= entry.weight
                 checks.append({
-                    "desc": f"{base_desc} (empty target set)",
+                    "desc": f"{base_desc} (not applicable for this seed)",
                     "passed": True, "error": None,
                 })
                 continue
@@ -944,7 +979,7 @@ def _match_single_block(
     # 1.6 Delete entries.
     for i, entry in enumerate(block.delete):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity, collection_map)
+        collection_name = (entry.collection.removeprefix("state.") if entry.collection else _collection_for(entry.entity, collection_map))
         base_desc = entry.desc or f"Delete {entry.entity} matching selector"
         matched = False
         for candidate in agent_diff:
@@ -1016,8 +1051,13 @@ def _match_single_block(
                 details={"entry_index": i},
             ))
 
-    # 2.5 Constraints — state-level aggregates (spec §3.6). Also penalty-only
-    # on the negative side; do not contribute to positive score.
+    # 2.5 Constraints — state-level aggregates (spec §3.6). Penalty-only
+    # on the negative side *unless* the block has no positive entries, in
+    # which case constraints are promoted to the positive pool (Class 10
+    # fix). Track per-constraint pass count so the promotion path can
+    # compute score_raw = n_passed / n_total.
+    constraints_total = 0
+    constraints_passed = 0
     for i, c in enumerate(block.constraints):
         # Merge scope vars into GLOBALS (not locals) so list/gen
         # comprehensions and lambdas can see `state`, `initial`, `target`.
@@ -1041,6 +1081,9 @@ def _match_single_block(
             "passed": ok,
             "penalty": _SEVERITY_PENALTY.get(c.severity, _SEVERITY_PENALTY["medium"]),
         })
+        constraints_total += 1
+        if ok:
+            constraints_passed += 1
         if not ok:
             failures.append(Failure(
                 kind="constraint",
@@ -1055,10 +1098,20 @@ def _match_single_block(
     # same collection but outside the filter still need to be accounted for
     # here (e.g. newly-created appointments when the invariant guards only
     # existing upcoming appointments).
+    #
+    # Skip the sweep entirely for constraint-only blocks (no positive
+    # entries). Such blocks express success purely via constraint
+    # expressions; the sweep can't know which entity mutations are
+    # "expected" in service of the constraints, so flagging any of them
+    # as collateral would contradict the constraint-driven scoring path
+    # (Class 10 + Reddit aggregate tasks like clear_notifications,
+    # mark_messages_read). Collections the author DOES want to protect
+    # stay in the invariant list and fire normally.
     positive_cols = {
         _collection_for(e.entity, collection_map)
         for e in list(block.create) + list(block.update) + list(block.delete)
     }
+    constraint_only = not positive_cols and bool(block.constraints)
     # Only UNFILTERED invariants fully cover their collection.
     invariant_cols_full = {
         inv.collection.removeprefix("state.")
@@ -1066,6 +1119,8 @@ def _match_single_block(
         if not inv.filter
     }
     for entry in agent_diff:
+        if constraint_only:
+            break  # constraint-only blocks skip the sweep entirely
         if (entry.entity, entry.entity_id) in matched_ids:
             continue
         if entry.entity in invariant_cols_full:
@@ -1129,12 +1184,53 @@ def _match_single_block(
                 "passed": not has_excess,
                 "penalty": severity,
             })
+        elif kind == "update" and 0 <= idx < len(block.update):
+            # `ref: update[N]` relabels the positive check for an update
+            # entry with the author-provided human name (Class 14). The
+            # label is presentation-only — score and passed already come
+            # from the underlying update match via passed_weight.
+            entry = block.update[idx]
+            default_desc = entry.desc or f"Update {entry.entity} matching selector"
+            for check in checks:
+                # Match either the exact desc or the "— N of N updated"
+                # variant produced by bijection updates.
+                if check["desc"] == default_desc or check["desc"].startswith(f"{default_desc} "):
+                    check["desc"] = ni.name
+                    break
+        elif kind == "delete" and 0 <= idx < len(block.delete):
+            # `ref: delete[N]` — same idea for delete entries (Class 14).
+            entry = block.delete[idx]
+            default_desc = entry.desc or f"Delete {entry.entity} matching selector"
+            for check in checks:
+                if check["desc"] == default_desc:
+                    check["desc"] = ni.name
+                    break
 
     # 4. Penalty-adjusted score
+    #
+    # Normal path: positive pool = passed_weight / total_weight.
+    # Constraint-only path (Class 10 fix): when a block has no positive
+    # entries but has constraints, promote constraints to the positive
+    # pool so the score reflects constraint satisfaction instead of
+    # defaulting to 1.0 and clipping downward by penalties. Constraints
+    # stay in `negative_checks` for presentation, but their pass count
+    # becomes the numerator. Invariants remain pure penalties.
     penalty = sum(
         nc["penalty"] for nc in negative_checks if not nc["passed"]
     )
-    score_raw = (passed_weight / total_weight) if total_weight > 0 else 1.0
+    if total_weight > 0:
+        score_raw = passed_weight / total_weight
+    elif constraints_total > 0:
+        score_raw = constraints_passed / constraints_total
+        # Don't double-count: in the promoted path, failed constraints
+        # already reduce the numerator, so remove their penalty from the
+        # separate deduction to avoid two-for-one.
+        penalty = sum(
+            nc["penalty"] for nc in negative_checks
+            if not nc["passed"] and nc["desc"] not in {c.desc for c in block.constraints}
+        )
+    else:
+        score_raw = 1.0
     score = max(0.0, min(1.0, score_raw - penalty))
     passed = len(failures) == 0
 

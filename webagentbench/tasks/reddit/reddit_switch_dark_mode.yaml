@@ -14,6 +14,35 @@ seed:
   actors: {}
   steps: []
   targets: {}
+canonical_diff:
+  constraints:
+    - desc: Theme changed to dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: Feed sort unchanged
+      expr: "state.settings.default_feed_sort == initial.settings.default_feed_sort"
+      severity: medium
+    - desc: Compact view unchanged
+      expr: "state.settings.compact_view == initial.settings.compact_view"
+      severity: medium
+    - desc: Privacy settings unchanged
+      expr: "state.settings.show_online_status == initial.settings.show_online_status"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:
