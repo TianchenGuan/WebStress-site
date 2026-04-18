@@ -97,27 +97,56 @@ seed:
     decoy_ids: '{output.decoy_ids}'
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Joined ML
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Joined Piracy
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'Piracy'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: AskReddit post upvoted
+    where:
+      id:
+        expr: x == target['ask_id']
+    changes:
+      vote_direction:
+        eq: 1
+  create:
+  - entity: Comment
+    desc: Top comment on AskReddit
+    properties:
+      post_id:
+        expr: x == target['ask_id']
+      body:
+        substring: Negotiation
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Reply to MidnightCoder
+    properties:
+      parent_id:
+        expr: x == target['reply_id']
+      body:
+        substring: financial literacy
+      author_name:
+        expr: x == state.owner_username
   constraints:
-  - desc: Joined ML
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Joined Piracy
-    expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
-    severity: high
   - desc: ML post created
-    expr: any(p.subreddit_name == "MachineLearning" and "open-source LLMs" in p.title
-      and p.author_name == state.owner_username for p in state.posts)
-    severity: high
-  - desc: AskReddit post upvoted
-    expr: state.get_post('target['ask_id']').vote_direction == 1
-    severity: high
-  - desc: Top comment on AskReddit
-    expr: any(c.post_id == 'target['ask_id']' and "Negotiation" in c.body and c.parent_id
-      is None and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Reply to MidnightCoder
-    expr: any(c.parent_id == 'target['reply_id']' and "financial literacy" in c.body
-      and c.author_name == state.owner_username for c in state.comments)
+    expr: any(p.subreddit_name == "MachineLearning" and "open-source LLMs" in p.title and p.author_name == state.owner_username
+      for p in state.posts)
     severity: high
   - desc: Msg to NeuralNexus
     expr: any(m.to_user == "NeuralNexus" and "LLM benchmark" in m.body for m in state.sent_messages)
@@ -139,6 +168,40 @@ canonical_diff:
     severity: high
   - desc: Email mentions off
     expr: not state.settings.email_mentions
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Joined ML
+    ref: update[0]
+    severity: high
+  - name: Joined Piracy
+    ref: update[1]
+    severity: high
+  - name: AskReddit post upvoted
+    ref: update[2]
+    severity: high
+  - name: Top comment on AskReddit
+    ref: create[0]
+    severity: high
+  - name: Reply to MidnightCoder
+    ref: create[1]
     severity: high
 eval:
   source: server_state

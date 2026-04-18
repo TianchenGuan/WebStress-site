@@ -65,27 +65,56 @@ seed:
     new_body: A few of us are organizing a virtual meetup for open source maintainers.
       Would you like to join? It is scheduled for next Saturday at 3pm EST.
 canonical_diff:
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: New message sent with exact text
+    properties:
+      to_user:
+        expr: x == target['new_to']
+      subject:
+        expr: x == target['new_subject']
+      body:
+        expr: x == target['new_body']
+      from_user:
+        expr: x == state.owner_username
   constraints:
   - desc: All messages marked read
     expr: state.unread_message_count() == 0
     severity: high
   - desc: Reply sent with exact text
-    expr: any(m.to_user == 'target['reply_from']' and m.body == "Absolutely! I have
-      experience with evaluation frameworks. Let me know how to get started." for
-      m in state.sent_messages)
-    severity: high
-  - desc: New message sent with exact text
-    expr: any(m.to_user == 'target['new_to']' and m.subject == 'target['new_subject']'
-      and m.body == 'target['new_body']' for m in state.sent_messages)
+    expr: any(m.to_user == target['reply_from'] and m.body == "Absolutely! I have experience with evaluation frameworks. Let
+      me know how to get started." for m in state.sent_messages)
     severity: high
   - desc: Exactly two messages were sent
     expr: len(state.sent_messages) == 2
     severity: high
   - desc: Spam message deleted
-    expr: not any(m.id == 'target['delete_msg_id']' for m in state.messages)
+    expr: not any(m.id == target['delete_msg_id'] for m in state.messages)
     severity: high
   - desc: Email messages notifications disabled
     expr: not state.settings.email_messages
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: New message sent with exact text
+    ref: create[0]
     severity: high
 eval:
   source: server_state

@@ -57,25 +57,70 @@ seed:
     save_id: '{output.save_id}'
     hide_id: '{output.hide_id}'
 canonical_diff:
+  update:
+    - entity: Post
+      desc: Hide the CryptoSkeptic post
+      where:
+        id:
+          expr: "x == target['hide_id']"
+      changes:
+        is_hidden:
+          eq: true
+    - entity: Post
+      desc: Save the personal-finance post
+      where:
+        id:
+          expr: "x == target['save_id']"
+      changes:
+        is_saved:
+          eq: true
+  delete:
+    - entity: Message
+      collection: state.messages
+      desc: Delete the harassment message
+      where:
+        id:
+          expr: "x == target['delete_msg_id']"
   constraints:
-  - desc: User blocked
-    expr: '''CryptoSkeptic'' in state.blocked_users'
-    severity: high
-  - desc: Their post hidden
-    expr: state.get_post('target['hide_id']').is_hidden
-    severity: high
-  - desc: Message deleted
-    expr: not any(m.id == 'target['delete_msg_id']' for m in state.messages)
-    severity: high
-  - desc: Followers disabled
-    expr: not state.settings.allow_followers
-    severity: high
-  - desc: Online status hidden
-    expr: not state.settings.show_online_status
-    severity: high
-  - desc: PF post saved
-    expr: '''target[''save_id'']'' in state.saved_post_ids'
-    severity: high
+    - desc: Target user blocked
+      expr: "target['block_user'] in state.blocked_users"
+      severity: high
+    - desc: Allow followers disabled
+      expr: "not state.settings.allow_followers"
+      severity: high
+    - desc: Show online status disabled
+      expr: "not state.settings.show_online_status"
+      severity: high
+    - desc: Only the target user was blocked
+      expr: "set(state.blocked_users) - set(initial.blocked_users) == {target['block_user']}"
+      severity: high
+  invariant:
+    - collection: state.posts
+      filter: "a.id != target['hide_id'] and a.id != target['save_id']"
+      preserve: ALL
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent hid the target user's post
+      ref: update[0]
+      severity: high
+    - name: Agent saved the PF post
+      ref: update[1]
+      severity: high
+    - name: Agent deleted the harassment message
+      ref: delete[0]
+      severity: high
+    - name: Agent did not modify unrelated posts
+      ref: invariant[0]
+      severity: high
 eval:
   source: server_state
   checks:

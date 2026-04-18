@@ -58,34 +58,75 @@ seed:
       models and contributing to the community.
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed to r/MachineLearning
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/Piracy
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'Piracy'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/dataisbeautiful
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'dataisbeautiful'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: WN post upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: WN post saved
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact worldnews comment posted
+    properties:
+      post_id:
+        expr: x == target['wn_id']
+      body:
+        expr: x == target['wn_comment']
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Welcome message sent with exact body
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_sub']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Subscribed to r/MachineLearning
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/Piracy
-    expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/dataisbeautiful
-    expr: any(s.name == 'dataisbeautiful' and s.is_subscribed for s in state.subreddits)
-    severity: high
   - desc: Exact post created in r/MachineLearning
-    expr: any(p.subreddit_name == 'MachineLearning' and p.title == 'target['post_title']'
-      and p.body == 'target['post_body']' and p.author_name == state.owner_username
-      for p in state.posts)
-    severity: high
-  - desc: WN post upvoted
-    expr: state.get_post('target['wn_id']').vote_direction == 1
-    severity: high
-  - desc: WN post saved
-    expr: '''target[''wn_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Exact worldnews comment posted
-    expr: any(c.post_id == 'target['wn_id']' and c.body == 'target['wn_comment']'
-      and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Welcome message sent with exact body
-    expr: any(m.to_user == 'target['msg_to']' and m.subject == 'target['msg_sub']'
-      and m.body == 'target['msg_body']' for m in state.sent_messages)
+    expr: any(p.subreddit_name == 'MachineLearning' and p.title == target['post_title'] and p.body == target['post_body']
+      and p.author_name == state.owner_username for p in state.posts)
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
@@ -97,14 +138,56 @@ canonical_diff:
     expr: state.settings.default_feed_sort == 'top'
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages
     severity: high
   - desc: Messages cleared
     expr: state.unread_message_count() == 0
     severity: high
   - desc: Notifications cleared
     expr: state.unread_notification_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed to r/MachineLearning
+    ref: update[0]
+    severity: high
+  - name: Subscribed to r/Piracy
+    ref: update[1]
+    severity: high
+  - name: Subscribed to r/dataisbeautiful
+    ref: update[2]
+    severity: high
+  - name: WN post upvoted
+    ref: update[3]
+    severity: high
+  - name: WN post saved
+    ref: update[4]
+    severity: high
+  - name: Exact worldnews comment posted
+    ref: create[0]
+    severity: high
+  - name: Welcome message sent with exact body
+    ref: create[1]
     severity: high
 eval:
   source: server_state

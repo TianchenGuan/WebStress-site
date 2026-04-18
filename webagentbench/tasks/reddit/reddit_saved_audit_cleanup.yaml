@@ -67,19 +67,34 @@ seed:
     msg_body: Found two great posts today - one on Intel 18A and one on walking and
       longevity. Check them out!
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Intel post saved
+    where:
+      id:
+        expr: x == target['save1_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Walking post saved
+    where:
+      id:
+        expr: x == target['save2_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Walking post upvoted
+    where:
+      id:
+        expr: x == target['save2_id']
+    changes:
+      vote_direction:
+        eq: 1
   constraints:
   - desc: Memes posts unsaved
-    expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for
-      p in state.posts)
-    severity: high
-  - desc: Intel post saved
-    expr: '''target[''save1_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Walking post saved
-    expr: '''target[''save2_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Walking post upvoted
-    expr: state.get_post('target['save2_id']').vote_direction == 1
+    expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)
     severity: high
   - desc: Feed sort top
     expr: state.settings.default_feed_sort == 'top'
@@ -89,6 +104,32 @@ canonical_diff:
     severity: high
   - desc: Message sent
     expr: any(m.to_user == "NeuralNexus" and "Intel 18A" in m.body for m in state.sent_messages)
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Intel post saved
+    ref: update[0]
+    severity: high
+  - name: Walking post saved
+    ref: update[1]
+    severity: high
+  - name: Walking post upvoted
+    ref: update[2]
     severity: high
 eval:
   source: server_state

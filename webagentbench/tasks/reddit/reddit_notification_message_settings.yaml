@@ -59,20 +59,34 @@ canonical_diff:
     expr: state.unread_notification_count() == 0
     severity: high
   - desc: Exact reply sent
-    expr: any(m.to_user == 'target['reply_from']' and m.body == "Yes, fully compatible
-      with Python 3.12 and 3.13. Let me know if you hit any issues." for m in state.sent_messages)
+    expr: any(m.to_user == target['reply_from'] and m.body == "Yes, fully compatible with Python 3.12 and 3.13. Let me know
+      if you hit any issues." for m in state.sent_messages)
     severity: high
   - desc: Spam deleted
-    expr: not any(m.id == 'target['delete_msg_id']' for m in state.messages)
+    expr: not any(m.id == target['delete_msg_id'] for m in state.messages)
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
-      and not state.settings.email_digest
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages and not state.settings.email_digest
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
     severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
 eval:
   source: server_state
   checks:

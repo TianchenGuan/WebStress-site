@@ -67,19 +67,72 @@ seed:
     til_comment: The honey badger truly does not care. They have incredibly thick
       skin that most predators cannot penetrate.
 canonical_diff:
-  constraints:
-  - desc: Gaming post upvoted
-    expr: state.get_post('target['game_id']').vote_direction == 1
+  update:
+  - entity: Post
+    desc: Gaming post upvoted
+    where:
+      id:
+        expr: x == target['game_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Movie post downvoted
+    where:
+      id:
+        expr: x == target['movie_id']
+    changes:
+      vote_direction:
+        eq: -1
+  - entity: Post
+    desc: TIL post saved
+    where:
+      id:
+        expr: x == target['til_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: TIL comment posted
+    properties:
+      post_id:
+        expr: x == target['til_id']
+      body:
+        substring: thick skin
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Gaming post upvoted
+    ref: update[0]
     severity: high
-  - desc: Movie post downvoted
-    expr: state.get_post('target['movie_id']').vote_direction == -1
+  - name: Movie post downvoted
+    ref: update[1]
     severity: high
-  - desc: TIL comment posted
-    expr: any(c.post_id == 'target['til_id']' and "thick skin" in c.body and c.author_name
-      == state.owner_username for c in state.comments)
+  - name: TIL post saved
+    ref: update[2]
     severity: high
-  - desc: TIL post saved
-    expr: '''target[''til_id'']'' in state.saved_post_ids'
+  - name: TIL comment posted
+    ref: create[0]
     severity: high
 eval:
   source: server_state

@@ -102,36 +102,76 @@ seed:
       template you used? I want to implement the same system at my company.
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join_sub']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: Post upvoted
+    where:
+      id:
+        expr: x == target['vote_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Post saved
+    where:
+      id:
+        expr: x == target['save_id']
+    changes:
+      is_saved:
+        eq: true
   constraints:
   - desc: Comment posted
-    expr: any(c.post_id == 'target['comment_id']' and c.author_name == state.owner_username
-      for c in state.comments)
+    expr: any(c.post_id == target['comment_id'] and c.author_name == state.owner_username for c in state.comments)
     severity: high
   - desc: Post created
-    expr: any(p.title == 'target['post_title']' and p.author_name == state.owner_username
-      for p in state.posts)
-    severity: high
-  - desc: Subscribed
-    expr: any(s.name == 'target['join_sub']' and s.is_subscribed for s in state.subreddits)
+    expr: any(p.title == target['post_title'] and p.author_name == state.owner_username for p in state.posts)
     severity: high
   - desc: Message sent
-    expr: any(m.to_user == 'target['msg_to']' for m in state.sent_messages)
-    severity: high
-  - desc: Post upvoted
-    expr: state.get_post('target['vote_id']').vote_direction == 1
-    severity: high
-  - desc: Post saved
-    expr: '''target[''save_id'']'' in state.saved_post_ids'
+    expr: any(m.to_user == target['msg_to'] for m in state.sent_messages)
     severity: high
   - desc: Reply posted
-    expr: any(c.parent_id == 'target['reply_id']' and c.author_name == state.owner_username
-      for c in state.comments)
+    expr: any(c.parent_id == target['reply_id'] and c.author_name == state.owner_username for c in state.comments)
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
     severity: high
   - desc: Notifications cleared
     expr: state.unread_notification_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed
+    ref: update[0]
+    severity: high
+  - name: Post upvoted
+    ref: update[1]
+    severity: high
+  - name: Post saved
+    ref: update[2]
     severity: high
 eval:
   source: server_state

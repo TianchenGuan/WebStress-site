@@ -72,29 +72,56 @@ seed:
       lock approach is elegant. Would you consider open-sourcing the library?
     decoy_post_ids: '{output.decoy_post_ids}'
 canonical_diff:
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact message sent to ByteRunner
+    properties:
+      to_user:
+        eq: ByteRunner
+      subject:
+        eq: Great Postgres migrations post
+      body:
+        eq: Hey, loved your post about zero-downtime migrations. The advisory lock approach is elegant. Would you consider
+          open-sourcing the library?
+      from_user:
+        expr: x == state.owner_username
   constraints:
   - desc: Cloudflare post was saved
-    expr: any(p.title == 'Cloudflare Launches Free AI Bot Detection for All Websites'
-      and p.id in state.saved_post_ids for p in state.posts)
+    expr: any(p.title == 'Cloudflare Launches Free AI Bot Detection for All Websites' and p.id in state.saved_post_ids for
+      p in state.posts)
     severity: high
   - desc: Exact comment posted on target post
-    expr: any(c.post_id == 'target['target_post_id']' and c.parent_id is None and
-      c.body == "This is huge for small site owners who can't afford enterprise bot
-      protection. Great move by Cloudflare." and c.author_name == state.owner_username
-      for c in state.comments)
+    expr: any(c.post_id == target['target_post_id'] and c.parent_id is None and c.body == "This is huge for small site owners
+      who can't afford enterprise bot protection. Great move by Cloudflare." and c.author_name == state.owner_username for
+      c in state.comments)
     severity: high
   - desc: Exactly one comment was created
-    expr: sum(1 for c in state.comments if c.author_name == state.owner_username)
-      == 1
-    severity: high
-  - desc: Exact message sent to ByteRunner
-    expr: any(m.to_user == 'ByteRunner' and m.subject == 'Great Postgres migrations
-      post' and m.body == "Hey, loved your post about zero-downtime migrations. The
-      advisory lock approach is elegant. Would you consider open-sourcing the library?"
-      for m in state.sent_messages)
+    expr: sum(1 for c in state.comments if c.author_name == state.owner_username) == 1
     severity: high
   - desc: Exactly one message was sent
     expr: len(state.sent_messages) == 1
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Exact message sent to ByteRunner
+    ref: create[0]
     severity: high
 eval:
   source: server_state

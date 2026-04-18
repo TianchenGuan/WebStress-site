@@ -51,26 +51,68 @@ seed:
       on your analysis.
     join: MachineLearning
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Post upvoted
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Post saved
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed ML
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
   constraints:
-  - desc: Post upvoted
-    expr: state.get_post('target['post_id']').vote_direction == 1
-    severity: high
-  - desc: Post saved
-    expr: '''target[''post_id'']'' in state.saved_post_ids'
-    severity: high
   - desc: Comment posted
-    expr: any(c.post_id == 'target['post_id']' and c.body == 'target['comment']' for
-      c in state.comments)
+    expr: any(c.post_id == target['post_id'] and c.body == target['comment'] for c in state.comments)
     severity: high
   - desc: Message sent
-    expr: "any(\n  m.to_user == 'target['user']'\n  and m.subject == 'target['msg_sub']'\n\
-      \  and m.body == 'target['msg_body']'\n  for m in state.sent_messages\n)"
-    severity: high
-  - desc: Subscribed ML
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
+    expr: "any(\n  m.to_user == target['user']\n  and m.subject == target['msg_sub']\n  and m.body == target['msg_body']\n\
+      \  for m in state.sent_messages\n)"
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Post upvoted
+    ref: update[0]
+    severity: high
+  - name: Post saved
+    ref: update[1]
+    severity: high
+  - name: Subscribed ML
+    ref: update[2]
     severity: high
 eval:
   source: server_state

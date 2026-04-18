@@ -67,23 +67,55 @@ seed:
     msg_body: Did you see the kidney transplant milestone post in r/science? The one-year
       survival is groundbreaking.
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Tech post upvoted
+    where:
+      id:
+        expr: x == target['tech_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Gaming post saved
+    where:
+      id:
+        expr: x == target['game_id']
+    changes:
+      is_saved:
+        eq: true
   constraints:
-  - desc: Tech post upvoted
-    expr: state.get_post('target['tech_id']').vote_direction == 1
-    severity: high
-  - desc: Gaming post saved
-    expr: '''target[''game_id'']'' in state.saved_post_ids'
-    severity: high
   - desc: Science comment
-    expr: any(c.post_id == 'target['sci_id']' and "immunosuppression protocol" in
-      c.body for c in state.comments)
+    expr: any(c.post_id == target['sci_id'] and "immunosuppression protocol" in c.body for c in state.comments)
     severity: high
   - desc: Message sent
-    expr: any(m.to_user == "NebulaDrifter" and "kidney transplant" in m.body for m
-      in state.sent_messages)
+    expr: any(m.to_user == "NebulaDrifter" and "kidney transplant" in m.body for m in state.sent_messages)
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Tech post upvoted
+    ref: update[0]
+    severity: high
+  - name: Gaming post saved
+    ref: update[1]
     severity: high
 eval:
   source: server_state

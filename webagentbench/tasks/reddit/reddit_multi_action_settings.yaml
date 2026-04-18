@@ -51,30 +51,71 @@ seed:
     wn_id: '{output.wn_id}'
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Joined Piracy
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'Piracy'
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Left memes
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'memes'
+    changes:
+      is_subscribed:
+        eq: false
+  - entity: Post
+    desc: WN post upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
   constraints:
-  - desc: Joined Piracy
-    expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Left memes
-    expr: any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)
-    severity: high
   - desc: Python post created
-    expr: any(p.subreddit_name == "Python" and "packaging" in p.title and p.author_name
-      == state.owner_username for p in state.posts)
-    severity: high
-  - desc: WN post upvoted
-    expr: state.get_post('target['wn_id']').vote_direction == 1
+    expr: any(p.subreddit_name == "Python" and "packaging" in p.title and p.author_name == state.owner_username for p in state.posts)
     severity: high
   - desc: User blocked
     expr: '''CryptoSkeptic'' in state.blocked_users'
     severity: high
   - desc: Settings updated
-    expr: state.settings.theme == 'dark' and state.settings.compact_view and not state.settings.show_online_status
-      and not state.settings.allow_followers
+    expr: state.settings.theme == 'dark' and state.settings.compact_view and not state.settings.show_online_status and not
+      state.settings.allow_followers
     severity: high
   - desc: Sort settings updated
-    expr: state.settings.default_feed_sort == 'new' and state.settings.default_comment_sort
-      == 'top'
+    expr: state.settings.default_feed_sort == 'new' and state.settings.default_comment_sort == 'top'
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Joined Piracy
+    ref: update[0]
+    severity: high
+  - name: Left memes
+    ref: update[1]
+    severity: high
+  - name: WN post upvoted
+    ref: update[2]
     severity: high
 eval:
   source: server_state

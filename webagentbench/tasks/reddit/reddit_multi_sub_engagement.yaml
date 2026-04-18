@@ -80,22 +80,77 @@ seed:
     join_sub: MachineLearning
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Worldnews post upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Gaming post saved
+    where:
+      id:
+        expr: x == target['gm_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/ML
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment on PF post
+    properties:
+      post_id:
+        expr: x == target['pf_id']
+      body:
+        expr: x == target['pf_comment']
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
   constraints:
-  - desc: Worldnews post upvoted
-    expr: state.get_post('target['wn_id']').vote_direction == 1
-    severity: high
-  - desc: Exact comment on PF post
-    expr: any(c.post_id == 'target['pf_id']' and c.body == 'target['pf_comment']'
-      and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Gaming post saved
-    expr: '''target[''gm_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Subscribed to r/ML
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
-    severity: high
   - desc: Feed sort set to top
     expr: state.settings.default_feed_sort == 'top'
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Worldnews post upvoted
+    ref: update[0]
+    severity: high
+  - name: Gaming post saved
+    ref: update[1]
+    severity: high
+  - name: Subscribed to r/ML
+    ref: update[2]
+    severity: high
+  - name: Exact comment on PF post
+    ref: create[0]
     severity: high
 eval:
   source: server_state

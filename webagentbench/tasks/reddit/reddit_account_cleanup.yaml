@@ -62,28 +62,65 @@ seed:
     comment_text: This is a landmark decision. Digital privacy has been in a legal
       gray area for far too long.
 canonical_diff:
+  update:
+    - entity: Subreddit
+      desc: Unsubscribe from r/memes
+      where:
+        id:
+          expr: "state.get_subreddit(x).name == target['leave_sub']"
+      changes:
+        is_subscribed:
+          eq: false
+  create:
+    - entity: Comment
+      desc: Post the exact comment on the news post
+      properties:
+        post_id:
+          expr: "x == target['comment_post_id']"
+        body:
+          expr: "x == target['comment_text']"
+        parent_id:
+          eq: null
+        author_name:
+          expr: "x == state.owner_username"
   constraints:
-  - desc: All memes posts unsaved
-    expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for
-      p in state.posts)
-    severity: high
-  - desc: Theme dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Online status hidden
-    expr: not state.settings.show_online_status
-    severity: high
-  - desc: Comment sort new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Left r/memes
-    expr: any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Exact comment on news post
-    expr: any(c.post_id == 'target['comment_post_id']' and c.body == "This is a landmark
-      decision. Digital privacy has been in a legal gray area for far too long." and
-      c.author_name == state.owner_username for c in state.comments)
-    severity: high
+    - desc: All memes posts unsaved
+      expr: "not any(p.subreddit_name == target['unsave_sub'] and p.id in state.saved_post_ids for p in state.posts)"
+      severity: high
+    - desc: Theme dark
+      expr: "state.settings.theme == 'dark'"
+      severity: high
+    - desc: Online status hidden
+      expr: "not state.settings.show_online_status"
+      severity: high
+    - desc: Comment sort new
+      expr: "state.settings.default_comment_sort == 'new'"
+      severity: high
+    - desc: Notification settings unchanged
+      expr: "state.settings.email_comment_reply == initial.settings.email_comment_reply"
+      severity: medium
+  invariant:
+    - collection: state.posts
+      filter: "True"
+      preserve: ALL
+    - collection: state.subreddits
+      filter: "True"
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
+  named_invariants:
+    - name: Agent unsubscribed from r/memes
+      ref: update[0]
+      severity: high
+    - name: Agent posted the exact comment on the news post
+      ref: create[0]
+      severity: high
 eval:
   source: server_state
   checks:

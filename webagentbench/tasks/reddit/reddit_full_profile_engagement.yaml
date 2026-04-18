@@ -49,20 +49,78 @@ seed:
     msg_body: Stunning work! Would you consider licensing some images for a nature
       conservation newsletter I edit?
 canonical_diff:
-  constraints:
-  - desc: Post upvoted
-    expr: state.get_post('target['post_id']').vote_direction == 1
+  update:
+  - entity: Post
+    desc: Post upvoted
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Post saved
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment posted
+    properties:
+      post_id:
+        expr: x == target['post_id']
+      body:
+        expr: x == target['comment_text']
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent with exact body
+    properties:
+      to_user:
+        expr: x == target['target_user']
+      subject:
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Post upvoted
+    ref: update[0]
     severity: high
-  - desc: Exact comment posted
-    expr: any(c.post_id == 'target['post_id']' and c.body == 'target['comment_text']'
-      and c.author_name == state.owner_username for c in state.comments)
+  - name: Post saved
+    ref: update[1]
     severity: high
-  - desc: Post saved
-    expr: '''target[''post_id'']'' in state.saved_post_ids'
+  - name: Exact comment posted
+    ref: create[0]
     severity: high
-  - desc: Message sent with exact body
-    expr: any(m.to_user == 'target['target_user']' and m.subject == 'target['msg_subject']'
-      and m.body == 'target['msg_body']' for m in state.sent_messages)
+  - name: Message sent with exact body
+    ref: create[1]
     severity: high
 eval:
   source: server_state

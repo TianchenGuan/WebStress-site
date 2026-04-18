@@ -67,25 +67,84 @@ seed:
     join_sub: Piracy
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Post
+    desc: SQLite post saved
+    where:
+      id:
+        expr: x == target['search_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/Piracy
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'Piracy'
+    changes:
+      is_subscribed:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Comment on SQLite post
+    properties:
+      post_id:
+        expr: x == target['search_id']
+      body:
+        substring: 100 million test cases
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent with exact body
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: SQLite post saved
-    expr: '''target[''search_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Comment on SQLite post
-    expr: any(c.post_id == 'target['search_id']' and "100 million test cases" in c.body
-      and c.author_name == state.owner_username for c in state.comments)
-    severity: high
   - desc: Python post created with exact body
-    expr: any(p.subreddit_name == 'target['create_sub']' and p.title == 'target['create_title']'
-      and p.body == 'target['create_body']' and p.author_name == state.owner_username
-      for p in state.posts)
+    expr: any(p.subreddit_name == target['create_sub'] and p.title == target['create_title'] and p.body == target['create_body']
+      and p.author_name == state.owner_username for p in state.posts)
     severity: high
-  - desc: Message sent with exact body
-    expr: any(m.to_user == 'target['msg_to']' and m.subject == 'target['msg_subject']'
-      and m.body == 'target['msg_body']' for m in state.sent_messages)
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: SQLite post saved
+    ref: update[0]
     severity: high
-  - desc: Subscribed to r/Piracy
-    expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
+  - name: Subscribed to r/Piracy
+    ref: update[1]
+    severity: high
+  - name: Comment on SQLite post
+    ref: create[0]
+    severity: high
+  - name: Message sent with exact body
+    ref: create[1]
     severity: high
 eval:
   source: server_state

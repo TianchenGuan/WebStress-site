@@ -151,39 +151,97 @@ seed:
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed to r/{target.j1}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['j1']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.j2}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['j2']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.j3}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['j3']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: Programming post upvoted
+    where:
+      id:
+        expr: x == target['prog_id']
+    changes:
+      vote_direction:
+        eq: 1
+  create:
+  - entity: Post
+    desc: Post created in r/{target.j1} with correct title
+    properties:
+      subreddit_name:
+        expr: x == target['j1']
+      title:
+        expr: x == target['p1_title']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Commented on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: target['cc'] in (x or '')
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent to u/NeuralNexus
+    properties:
+      to_user:
+        eq: NeuralNexus
+      subject:
+        expr: x == target['ms']
+      body:
+        expr: x == target['mb']
+      from_user:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent to u/ByteRunner
+    properties:
+      to_user:
+        eq: ByteRunner
+      subject:
+        expr: x == target['ms']
+      body:
+        expr: x == target['mb']
+      from_user:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Message sent to u/DataWizard42
+    properties:
+      to_user:
+        eq: DataWizard42
+      subject:
+        expr: x == target['ms']
+      body:
+        expr: x == target['mb']
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Subscribed to r/{target.j1}
-    expr: any(s.name == 'target['j1']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/{target.j2}
-    expr: any(s.name == 'target['j2']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/{target.j3}
-    expr: any(s.name == 'target['j3']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Post created in r/{target.j1} with correct title
-    expr: any(p.subreddit_name == 'target['j1']' and p.title == 'target['p1_title']'
-      and p.author_name == state.owner_username for p in state.posts)
-    severity: high
-  - desc: Programming post upvoted
-    expr: state.get_post('target['prog_id']').vote_direction == 1
-    severity: high
-  - desc: Commented on programming post
-    expr: any(c.post_id == 'target['prog_id']' and 'target['cc']' in c.body and c.author_name
-      == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Message sent to u/NeuralNexus
-    expr: any(m.to_user == 'NeuralNexus' and m.subject == 'target['ms']' and m.body
-      == 'target['mb']' for m in state.sent_messages)
-    severity: high
-  - desc: Message sent to u/ByteRunner
-    expr: any(m.to_user == 'ByteRunner' and m.subject == 'target['ms']' and m.body
-      == 'target['mb']' for m in state.sent_messages)
-    severity: high
-  - desc: Message sent to u/DataWizard42
-    expr: any(m.to_user == 'DataWizard42' and m.subject == 'target['ms']' and m.body
-      == 'target['mb']' for m in state.sent_messages)
-    severity: high
   - desc: All notifications read
     expr: state.unread_notification_count() == 0
     severity: high
@@ -195,6 +253,54 @@ canonical_diff:
     severity: high
   - desc: Show active communities disabled
     expr: state.settings.show_active_communities == False
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed to r/{target.j1}
+    ref: update[0]
+    severity: high
+  - name: Subscribed to r/{target.j2}
+    ref: update[1]
+    severity: high
+  - name: Subscribed to r/{target.j3}
+    ref: update[2]
+    severity: high
+  - name: Programming post upvoted
+    ref: update[3]
+    severity: high
+  - name: Post created in r/{target.j1} with correct title
+    ref: create[0]
+    severity: high
+  - name: Commented on programming post
+    ref: create[1]
+    severity: high
+  - name: Message sent to u/NeuralNexus
+    ref: create[2]
+    severity: high
+  - name: Message sent to u/ByteRunner
+    ref: create[3]
+    severity: high
+  - name: Message sent to u/DataWizard42
+    ref: create[4]
     severity: high
 eval:
   source: server_state

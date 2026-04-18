@@ -147,6 +147,15 @@ seed:
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Joined ML
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
   constraints:
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
@@ -154,8 +163,25 @@ canonical_diff:
   - desc: Notifications read
     expr: state.unread_notification_count() == 0
     severity: high
-  - desc: Joined ML
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Joined ML
+    ref: update[0]
     severity: high
 eval:
   source: server_state

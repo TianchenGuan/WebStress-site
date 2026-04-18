@@ -36,6 +36,15 @@ seed:
     join_sub: Piracy
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed to Piracy
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'Piracy'
+    changes:
+      is_subscribed:
+        eq: true
   constraints:
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
@@ -53,15 +62,32 @@ canonical_diff:
     expr: state.settings.default_comment_sort == 'controversial'
     severity: high
   - desc: Email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages
     severity: high
   - desc: Python post created
-    expr: any(p.subreddit_name == "Python" and "Type hints" in p.title and p.author_name
-      == state.owner_username for p in state.posts)
+    expr: any(p.subreddit_name == "Python" and "Type hints" in p.title and p.author_name == state.owner_username for p in
+      state.posts)
     severity: high
-  - desc: Subscribed to Piracy
-    expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed to Piracy
+    ref: update[0]
     severity: high
 eval:
   source: server_state

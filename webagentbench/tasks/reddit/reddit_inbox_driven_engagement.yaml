@@ -151,6 +151,43 @@ seed:
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Worldnews post upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Worldnews post saved
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Joined r/MachineLearning
+    where:
+      id:
+        expr: state.get_subreddit(x).name == 'MachineLearning'
+    changes:
+      is_subscribed:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact programming comment posted
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: x == target['c2']
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
   constraints:
   - desc: Notifications read
     expr: state.unread_notification_count() == 0
@@ -159,29 +196,15 @@ canonical_diff:
     expr: state.unread_message_count() == 0
     severity: high
   - desc: Inbox reply sent with the exact required subject and body
-    expr: 'any(m.to_user == ''target[''r_from'']'' and m.subject == ''Re: target[''r_sub'']''
-      and m.body == ''target[''r_body'']'' for m in state.sent_messages)'
+    expr: 'any(m.to_user == target[''r_from''] and m.subject == ''Re: target[''r_sub'']'' and m.body == target[''r_body'']
+      for m in state.sent_messages)'
     severity: high
   - desc: Spam message deleted
-    expr: not any(m.id == 'target['del_id']' for m in state.messages)
-    severity: high
-  - desc: Worldnews post upvoted
-    expr: state.get_post('target['wn_id']').vote_direction == 1
-    severity: high
-  - desc: Worldnews post saved
-    expr: '''target[''wn_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Exact programming comment posted
-    expr: any(c.post_id == 'target['prog_id']' and c.body == 'target['c2']' and c.author_name
-      == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Joined r/MachineLearning
-    expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
+    expr: not any(m.id == target['del_id'] for m in state.messages)
     severity: high
   - desc: Exact MachineLearning post created
-    expr: any(p.subreddit_name == 'MachineLearning' and p.title == 'target['post_title']'
-      and p.body == 'target['post_body']' and p.author_name == state.owner_username
-      for p in state.posts)
+    expr: any(p.subreddit_name == 'MachineLearning' and p.title == target['post_title'] and p.body == target['post_body']
+      and p.author_name == state.owner_username for p in state.posts)
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
@@ -191,6 +214,37 @@ canonical_diff:
     severity: high
   - desc: Message emails disabled
     expr: not state.settings.email_messages
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Worldnews post upvoted
+    ref: update[0]
+    severity: high
+  - name: Worldnews post saved
+    ref: update[1]
+    severity: high
+  - name: Joined r/MachineLearning
+    ref: update[2]
+    severity: high
+  - name: Exact programming comment posted
+    ref: create[0]
     severity: high
 eval:
   source: server_state

@@ -153,39 +153,62 @@ seed:
     block_post_id: '{output.block_post_id}'
     block_user: CryptoSkeptic
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Joined r/MachineLearning
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: Exact worldnews target post was upvoted
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Exact programming target post was saved
+    where:
+      id:
+        expr: x == target['prog_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact direct message sent to CompileError
+    properties:
+      to_user:
+        expr: x == target['mt']
+      subject:
+        expr: x == target['ms']
+      body:
+        expr: x == target['mb']
+      from_user:
+        expr: x == state.owner_username
   constraints:
-  - desc: Joined r/MachineLearning
-    expr: any(s.name == 'target['join']' and s.is_subscribed for s in state.subreddits)
-    severity: high
   - desc: Exact post created in r/MachineLearning
-    expr: any(p.subreddit_name == 'target['join']' and p.title == 'target['pt']' and
-      p.body == 'target['pb']' and p.author_name == state.owner_username for p in
-      state.posts)
-    severity: high
-  - desc: Exact worldnews target post was upvoted
-    expr: state.get_post('target['wn_id']').vote_direction == 1
-    severity: high
-  - desc: Exact programming target post was saved
-    expr: '''target[''prog_id'']'' in state.saved_post_ids'
+    expr: any(p.subreddit_name == target['join'] and p.title == target['pt'] and p.body == target['pb'] and p.author_name
+      == state.owner_username for p in state.posts)
     severity: high
   - desc: Exact top-level comment posted on the programming target
-    expr: any(c.post_id == 'target['prog_id']' and c.parent_id is None and c.body
-      == 'target['ct']' and c.author_name == state.owner_username for c in state.comments)
+    expr: any(c.post_id == target['prog_id'] and c.parent_id is None and c.body == target['ct'] and c.author_name == state.owner_username
+      for c in state.comments)
     severity: high
   - desc: Exact reply posted to DeepDiver on the correct comment
-    expr: any(c.post_id == 'target['prog_id']' and c.parent_id == 'target['reply_id']'
-      and c.body == 'target['rt']' and c.author_name == state.owner_username for c
-      in state.comments)
-    severity: high
-  - desc: Exact direct message sent to CompileError
-    expr: any(m.to_user == 'target['mt']' and m.subject == 'target['ms']' and m.body
-      == 'target['mb']' for m in state.sent_messages)
+    expr: any(c.post_id == target['prog_id'] and c.parent_id == target['reply_id'] and c.body == target['rt'] and c.author_name
+      == state.owner_username for c in state.comments)
     severity: high
   - desc: CryptoSkeptic was blocked
-    expr: '''target[''block_user'']'' in state.blocked_users'
+    expr: target['block_user'] in state.blocked_users
     severity: high
   - desc: All CryptoSkeptic posts were hidden
-    expr: all(p.is_hidden for p in state.posts if p.author_name == 'target['block_user']')
+    expr: all(p.is_hidden for p in state.posts if p.author_name == target['block_user'])
     severity: high
   - desc: Theme dark
     expr: state.settings.theme == 'dark'
@@ -200,15 +223,46 @@ canonical_diff:
     expr: not state.settings.show_online_status
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
-      and not state.settings.email_digest
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages and not state.settings.email_digest
     severity: high
   - desc: Messages read
     expr: state.unread_message_count() == 0
     severity: high
   - desc: Notifications read
     expr: state.unread_notification_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Joined r/MachineLearning
+    ref: update[0]
+    severity: high
+  - name: Exact worldnews target post was upvoted
+    ref: update[1]
+    severity: high
+  - name: Exact programming target post was saved
+    ref: update[2]
+    severity: high
+  - name: Exact direct message sent to CompileError
+    ref: create[0]
     severity: high
 eval:
   source: server_state

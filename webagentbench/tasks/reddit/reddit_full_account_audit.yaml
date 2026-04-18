@@ -152,12 +152,21 @@ seed:
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Target post saved
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      is_saved:
+        eq: true
   constraints:
   - desc: Blocked u/{target.block_user}
-    expr: '''target[''block_user'']'' in state.blocked_users'
+    expr: target['block_user'] in state.blocked_users
     severity: high
   - desc: Message from blocked user deleted
-    expr: not any(m.id == 'target['del_id']' for m in state.messages)
+    expr: not any(m.id == target['del_id'] for m in state.messages)
     severity: high
   - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
@@ -172,17 +181,34 @@ canonical_diff:
     expr: state.settings.show_active_communities == False
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages
     severity: high
   - desc: Unsubscribed from r/{target.leave_sub}
-    expr: not any(s.name == 'target['leave_sub']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Target post saved
-    expr: '''target[''wn_id'']'' in state.saved_post_ids'
+    expr: not any(s.name == target['leave_sub'] and s.is_subscribed for s in state.subreddits)
     severity: high
   - desc: All notifications read
     expr: state.unread_notification_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Target post saved
+    ref: update[0]
     severity: high
 eval:
   source: server_state

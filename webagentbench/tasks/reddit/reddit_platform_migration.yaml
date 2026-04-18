@@ -163,38 +163,73 @@ seed:
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed to r/{target.join}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.j2}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['j2']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.j3}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['j3']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: Post
+    desc: Worldnews post saved
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      is_saved:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Exact comment posted on worldnews thread
+    properties:
+      post_id:
+        expr: x == target['wn_id']
+      body:
+        expr: x == target['wn_comment']
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact message sent to u/{target.msg_to}
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_sub']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   constraints:
   - desc: Saved posts from r/{target.leave_sub} and r/funny were cleared
-    expr: not any(p.subreddit_name in ('target['leave_sub']', 'funny') and p.id in
-      state.saved_post_ids for p in state.posts)
+    expr: not any(p.subreddit_name in (target['leave_sub'], 'funny') and p.id in state.saved_post_ids for p in state.posts)
     severity: high
   - desc: Unsubscribed from r/{target.leave_sub}
-    expr: not any(s.name == 'target['leave_sub']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/{target.join}
-    expr: any(s.name == 'target['join']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/{target.j2}
-    expr: any(s.name == 'target['j2']' and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Subscribed to r/{target.j3}
-    expr: any(s.name == 'target['j3']' and s.is_subscribed for s in state.subreddits)
+    expr: not any(s.name == target['leave_sub'] and s.is_subscribed for s in state.subreddits)
     severity: high
   - desc: Exact post created in r/{target.join}
-    expr: any(p.subreddit_name == 'target['join']' and p.title == 'target['post_title']'
-      and p.body == 'target['post_body']' and p.author_name == state.owner_username
-      for p in state.posts)
-    severity: high
-  - desc: Worldnews post saved
-    expr: '''target[''wn_id'']'' in state.saved_post_ids'
-    severity: high
-  - desc: Exact comment posted on worldnews thread
-    expr: any(c.post_id == 'target['wn_id']' and c.body == 'target['wn_comment']'
-      and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Exact message sent to u/{target.msg_to}
-    expr: any(m.to_user == 'target['msg_to']' and m.subject == 'target['msg_sub']'
-      and m.body == 'target['msg_body']' for m in state.sent_messages)
+    expr: any(p.subreddit_name == target['join'] and p.title == target['post_title'] and p.body == target['post_body'] and
+      p.author_name == state.owner_username for p in state.posts)
     severity: high
   - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
@@ -206,14 +241,53 @@ canonical_diff:
     expr: state.settings.compact_view == True
     severity: high
   - desc: All email notifications disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
+    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions
+      and not state.settings.email_messages
     severity: high
   - desc: All notifications read
     expr: state.unread_notification_count() == 0
     severity: high
   - desc: All messages read
     expr: state.unread_message_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: 'True'
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed to r/{target.join}
+    ref: update[0]
+    severity: high
+  - name: Subscribed to r/{target.j2}
+    ref: update[1]
+    severity: high
+  - name: Subscribed to r/{target.j3}
+    ref: update[2]
+    severity: high
+  - name: Worldnews post saved
+    ref: update[3]
+    severity: high
+  - name: Exact comment posted on worldnews thread
+    ref: create[0]
+    severity: high
+  - name: Exact message sent to u/{target.msg_to}
+    ref: create[1]
     severity: high
 eval:
   source: server_state

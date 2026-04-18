@@ -69,22 +69,42 @@ seed:
     msg_body: Best SSH explanation I have ever seen. Would you mind if I reference
       it in a training doc I am writing?
 canonical_diff:
+  update:
+  - entity: Post
+    desc: Off-topic post hidden
+    where:
+      id:
+        expr: x == target['hide_id']
+    changes:
+      is_hidden:
+        eq: true
+  - entity: Post
+    desc: Science post upvoted
+    where:
+      id:
+        expr: x == target['sci_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    desc: Science post saved
+    where:
+      id:
+        expr: x == target['sci_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Prog post saved
+    where:
+      id:
+        expr: x == target['prog_id']
+    changes:
+      is_saved:
+        eq: true
   constraints:
-  - desc: Off-topic post hidden
-    expr: state.get_post('target['hide_id']').is_hidden
-    severity: high
-  - desc: Science post upvoted
-    expr: state.get_post('target['sci_id']').vote_direction == 1
-    severity: high
-  - desc: Science post saved
-    expr: '''target[''sci_id'']'' in state.saved_post_ids'
-    severity: high
   - desc: Science comment
-    expr: any(c.post_id == 'target['sci_id']' and "targeted delivery" in c.body for
-      c in state.comments)
-    severity: high
-  - desc: Prog post saved
-    expr: '''target[''prog_id'']'' in state.saved_post_ids'
+    expr: any(c.post_id == target['sci_id'] and "targeted delivery" in c.body for c in state.comments)
     severity: high
   - desc: Message sent
     expr: any(m.to_user == "SilentObserver" and "SSH" in m.body for m in state.sent_messages)
@@ -94,6 +114,35 @@ canonical_diff:
     severity: high
   - desc: Feed sort top
     expr: state.settings.default_feed_sort == 'top'
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Off-topic post hidden
+    ref: update[0]
+    severity: high
+  - name: Science post upvoted
+    ref: update[1]
+    severity: high
+  - name: Science post saved
+    ref: update[2]
+    severity: high
+  - name: Prog post saved
+    ref: update[3]
     severity: high
 eval:
   source: server_state

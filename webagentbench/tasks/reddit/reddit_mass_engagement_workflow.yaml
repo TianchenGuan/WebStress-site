@@ -155,29 +155,41 @@ seed:
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
 canonical_diff:
+  update:
+  - entity: Subreddit
+    desc: Subscribed to r/{target.join}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  create:
+  - entity: Comment
+    desc: Commented on programming post
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: target['c4'] in (x or '')
+      parent_id:
+        any: true
+      author_name:
+        expr: x == state.owner_username
   constraints:
   - desc: Saved a post in r/gaming
-    expr: any(p.subreddit_name == 'gaming' and p.id in state.saved_post_ids for p
-      in state.posts)
+    expr: any(p.subreddit_name == 'gaming' and p.id in state.saved_post_ids for p in state.posts)
     severity: high
   - desc: Commented on science post
-    expr: any(c.author_name == state.owner_username and any(p.id == c.post_id and
-      p.subreddit_name == 'science' for p in state.posts) for c in state.comments)
-    severity: high
-  - desc: Commented on programming post
-    expr: any(c.post_id == 'target['prog_id']' and 'target['c4']' in c.body and c.author_name
-      == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Subscribed to r/{target.join}
-    expr: any(s.name == 'target['join']' and s.is_subscribed for s in state.subreddits)
+    expr: any(c.author_name == state.owner_username and any(p.id == c.post_id and p.subreddit_name == 'science' for p in state.posts)
+      for c in state.comments)
     severity: high
   - desc: Post created in r/{target.join}
-    expr: any(p.subreddit_name == 'target['join']' and 'target['pt']' in p.title and
-      p.author_name == state.owner_username for p in state.posts)
+    expr: any(p.subreddit_name == target['join'] and target['pt'] in p.title and p.author_name == state.owner_username for
+      p in state.posts)
     severity: high
   - desc: Message sent to u/{target.m_to}
-    expr: any(m.to_user == 'target['m_to']' and m.subject == 'target['ms']' for m
-      in state.sent_messages)
+    expr: any(m.to_user == target['m_to'] and m.subject == target['ms'] for m in state.sent_messages)
     severity: high
   - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
@@ -190,6 +202,30 @@ canonical_diff:
     severity: high
   - desc: All notifications read
     expr: state.unread_notification_count() == 0
+    severity: high
+  invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  named_invariants:
+  - name: Subscribed to r/{target.join}
+    ref: update[0]
+    severity: high
+  - name: Commented on programming post
+    ref: create[0]
     severity: high
 eval:
   source: server_state
