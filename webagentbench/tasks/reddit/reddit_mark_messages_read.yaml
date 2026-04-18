@@ -14,6 +14,28 @@ seed:
   actors: {}
   steps: []
   targets: {}
+canonical_diff:
+  constraints:
+    - desc: All inbox messages are marked as read
+      expr: "all(m.is_read for m in state.messages)"
+      severity: high
+    - desc: No inbox messages were deleted
+      expr: "len(state.messages) == len(initial.messages)"
+      severity: high
+    - desc: No outbound messages were sent
+      expr: "len(state.sent_messages) == len(initial.sent_messages)"
+      severity: medium
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.notifications
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:

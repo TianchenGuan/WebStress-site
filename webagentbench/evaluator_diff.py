@@ -886,7 +886,12 @@ def _match_single_block(
 
     for i, entry in enumerate(block.update):
         total_weight += entry.weight
-        collection_name = _collection_for(entry.entity, collection_map)
+        # Honor explicit collection override (Class 17: envs with multiple
+        # collections per entity type like Reddit's messages/sent_messages).
+        if entry.collection:
+            collection_name = entry.collection.removeprefix("state.")
+        else:
+            collection_name = _collection_for(entry.entity, collection_map)
         base_desc = entry.desc or f"Update {entry.entity} matching selector"
 
         if entry.bijection is not None:
@@ -1096,10 +1101,20 @@ def _match_single_block(
     # same collection but outside the filter still need to be accounted for
     # here (e.g. newly-created appointments when the invariant guards only
     # existing upcoming appointments).
+    #
+    # Skip the sweep entirely for constraint-only blocks (no positive
+    # entries). Such blocks express success purely via constraint
+    # expressions; the sweep can't know which entity mutations are
+    # "expected" in service of the constraints, so flagging any of them
+    # as collateral would contradict the constraint-driven scoring path
+    # (Class 10 + Reddit aggregate tasks like clear_notifications,
+    # mark_messages_read). Collections the author DOES want to protect
+    # stay in the invariant list and fire normally.
     positive_cols = {
         _collection_for(e.entity, collection_map)
         for e in list(block.create) + list(block.update) + list(block.delete)
     }
+    constraint_only = not positive_cols and bool(block.constraints)
     # Only UNFILTERED invariants fully cover their collection.
     invariant_cols_full = {
         inv.collection.removeprefix("state.")
@@ -1107,6 +1122,8 @@ def _match_single_block(
         if not inv.filter
     }
     for entry in agent_diff:
+        if constraint_only:
+            break  # constraint-only blocks skip the sweep entirely
         if (entry.entity, entry.entity_id) in matched_ids:
             continue
         if entry.entity in invariant_cols_full:

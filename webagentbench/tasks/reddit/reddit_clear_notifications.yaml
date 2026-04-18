@@ -23,6 +23,27 @@ seed:
     outputs:
     - notification_id
   targets: {}
+canonical_diff:
+  constraints:
+    - desc: All notifications are marked as read
+      expr: "all(n.is_read for n in state.notifications)"
+      severity: high
+    - desc: No notifications were deleted
+      expr: "len(state.notifications) == len(initial.notifications)"
+      severity: high
+  invariant:
+    - collection: state.subreddits
+      preserve: ALL
+    - collection: state.posts
+      preserve: ALL
+    - collection: state.comments
+      preserve: ALL
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.user_profiles
+      preserve: ALL
 eval:
   source: server_state
   checks:
