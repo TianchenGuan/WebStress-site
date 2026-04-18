@@ -59,71 +59,50 @@ seed:
       even craft and use tools.
     leave_sub: memes
 canonical_diff:
-  update:
-  - entity: Post
-    desc: WHO post upvoted
-    where:
-      id:
-        expr: x == target['post1_id']
-    changes:
-      vote_direction:
-        eq: 1
-  - entity: Post
-    desc: WHO post saved
-    where:
-      id:
-        expr: x == target['post1_id']
-    changes:
-      is_saved:
-        eq: true
-  - entity: Subreddit
-    desc: Left r/memes
-    where:
-      id:
-        expr: state.get_subreddit(x).name == 'memes'
-    changes:
-      is_subscribed:
-        eq: false
+  # Constraint-only form. Mark-all-notifications/messages-read cannot be
+  # expressed as a positive bijection without exposing initial ids through
+  # targets, so the whole block scores via constraints and skips the
+  # unaccounted sweep.
   constraints:
-  - desc: Notifications cleared
+  - desc: All notifications marked read
     expr: state.unread_notification_count() == 0
     severity: high
-  - desc: Messages read
+  - desc: All messages marked read
     expr: state.unread_message_count() == 0
     severity: high
-  - desc: TIL comment
-    expr: any(c.post_id == target['post2_id'] and "New Caledonian crows" in c.body for c in state.comments)
+  - desc: WHO post upvoted
+    expr: state.get_post(target['post1_id']).vote_direction == 1
     severity: high
-  - desc: Theme dark
+  - desc: WHO post saved
+    expr: target['post1_id'] in state.saved_post_ids
+    severity: high
+  - desc: TIL comment posted with required text
+    expr: any(c.post_id == target['post2_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username for c in state.comments)
+    severity: high
+  - desc: Unsubscribed from r/{target.leave_sub}
+    expr: not any(s.name == target['leave_sub'] and s.is_subscribed for s in state.subreddits)
+    severity: high
+  - desc: Theme set to dark
     expr: state.settings.theme == 'dark'
     severity: high
+  - desc: TIL post not voted (no extra voting)
+    expr: state.get_post(target['post2_id']).vote_direction == 0
+    severity: medium
+  - desc: No new posts created by the owner
+    expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == sum(1 for p in initial.posts if p.author_name == state.owner_username)
+    severity: medium
+  - desc: No excessive outbound messages
+    expr: len(state.sent_messages) <= len(initial.sent_messages) + 1
+    severity: medium
+  - desc: No users blocked
+    expr: len(state.blocked_users) == len(initial.blocked_users)
+    severity: medium
+  - desc: No messages deleted
+    expr: len(state.messages) == len(initial.messages)
+    severity: medium
   invariant:
-  - collection: state.subreddits
-    filter: 'True'
-    preserve: ALL
-  - collection: state.posts
-    filter: 'True'
-    preserve: ALL
-  - collection: state.comments
-    preserve: ALL
-  - collection: state.messages
-    preserve: ALL
-  - collection: state.sent_messages
-    preserve: ALL
-  - collection: state.notifications
-    preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
-  named_invariants:
-  - name: WHO post upvoted
-    ref: update[0]
-    severity: high
-  - name: WHO post saved
-    ref: update[1]
-    severity: high
-  - name: Left r/memes
-    ref: update[2]
-    severity: high
 eval:
   source: server_state
   checks:
