@@ -1029,8 +1029,13 @@ def _match_single_block(
                 details={"entry_index": i},
             ))
 
-    # 2.5 Constraints — state-level aggregates (spec §3.6). Also penalty-only
-    # on the negative side; do not contribute to positive score.
+    # 2.5 Constraints — state-level aggregates (spec §3.6). Penalty-only
+    # on the negative side *unless* the block has no positive entries, in
+    # which case constraints are promoted to the positive pool (Class 10
+    # fix). Track per-constraint pass count so the promotion path can
+    # compute score_raw = n_passed / n_total.
+    constraints_total = 0
+    constraints_passed = 0
     for i, c in enumerate(block.constraints):
         # Merge scope vars into GLOBALS (not locals) so list/gen
         # comprehensions and lambdas can see `state`, `initial`, `target`.
@@ -1054,6 +1059,9 @@ def _match_single_block(
             "passed": ok,
             "penalty": _SEVERITY_PENALTY.get(c.severity, _SEVERITY_PENALTY["medium"]),
         })
+        constraints_total += 1
+        if ok:
+            constraints_passed += 1
         if not ok:
             failures.append(Failure(
                 kind="constraint",
@@ -1165,10 +1173,30 @@ def _match_single_block(
                     break
 
     # 4. Penalty-adjusted score
+    #
+    # Normal path: positive pool = passed_weight / total_weight.
+    # Constraint-only path (Class 10 fix): when a block has no positive
+    # entries but has constraints, promote constraints to the positive
+    # pool so the score reflects constraint satisfaction instead of
+    # defaulting to 1.0 and clipping downward by penalties. Constraints
+    # stay in `negative_checks` for presentation, but their pass count
+    # becomes the numerator. Invariants remain pure penalties.
     penalty = sum(
         nc["penalty"] for nc in negative_checks if not nc["passed"]
     )
-    score_raw = (passed_weight / total_weight) if total_weight > 0 else 1.0
+    if total_weight > 0:
+        score_raw = passed_weight / total_weight
+    elif constraints_total > 0:
+        score_raw = constraints_passed / constraints_total
+        # Don't double-count: in the promoted path, failed constraints
+        # already reduce the numerator, so remove their penalty from the
+        # separate deduction to avoid two-for-one.
+        penalty = sum(
+            nc["penalty"] for nc in negative_checks
+            if not nc["passed"] and nc["desc"] not in {c.desc for c in block.constraints}
+        )
+    else:
+        score_raw = 1.0
     score = max(0.0, min(1.0, score_raw - penalty))
     passed = len(failures) == 0
 

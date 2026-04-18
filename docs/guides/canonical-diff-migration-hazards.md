@@ -512,34 +512,41 @@ enumerates offenders. Currently marked `xfail` pending the matcher fix
 **Known offenders (as of this doc).** `lms_waitlist_strategy`,
 `pp_update_insurance`, `pp_update_phone`.
 
-**Proposed fix (not yet applied).** When a block has no positive
-entries but has `constraints:`, promote constraints to the positive
-pool's numerator:
+**Fix applied.** When a block has no positive entries but has
+`constraints:`, constraints are promoted to the positive pool's
+numerator. `evaluator_diff.py:1150-1175`:
 
 ```python
 if total_weight > 0:
     score_raw = passed_weight / total_weight
-elif block.constraints:
-    n_total = len(block.constraints)
-    n_passed = sum(1 for nc in negative_checks
-                   if nc["passed"] and _is_constraint(nc))
-    score_raw = n_passed / n_total
+elif constraints_total > 0:
+    score_raw = constraints_passed / constraints_total
+    # Avoid double-counting: in the promoted path, failed constraints
+    # already reduce the numerator, so strip their entries from the
+    # penalty deduction.
+    penalty = sum(nc["penalty"] for nc in negative_checks
+                  if not nc["passed"] and nc["desc"] not in {c.desc for c in block.constraints})
 else:
     score_raw = 1.0
 ```
 
-Tradeoff: this shifts constraint semantics — they'd stop being pure
-penalties and start contributing to the positive pool when they're the
-only signal. Authors who want pure-penalty constraints on a task with
-positive entries are unaffected.
+Constraint semantics are unchanged for tasks with positive entries
+(they stay pure penalties). For constraint-only tasks, constraints
+become the positive pool while still appearing in `negative_checks`
+for presentation.
 
-**Alternative (YAML-side).** Convert each constraint-only task into a
-proper positive-pool task: promote the constraint expressions to
-`update` entries on the patient/user singleton. The YAML grows, but
-scoring becomes orthodox. 3-YAML fix versus 1-matcher fix.
+**Regression guard.**
+`tests/test_matcher_audit.py::test_constraint_only_task_score_reflects_constraint_pass_ratio`
+builds a synthetic constraint-only block with 1 passing + 1 failing
+constraint and asserts score == 0.5. Any regression to 1.0 (old
+fallback) or to penalty-clipping math flips the assertion.
 
-**Regression guard.** The audit test above. Every future migration's
-PR should run it; if the xfail flips to xpass, the fix landed.
+**YAML-side alternative (not taken, documented for completeness).**
+Convert each constraint-only task to a positive-pool task by promoting
+constraint expressions to `update` entries on the patient/user
+singleton. The matcher-side fix was 1-file and generalizes to any
+future constraint-only task; the YAML fix would have been 3-file and
+required a re-authoring pass each time.
 
 ---
 

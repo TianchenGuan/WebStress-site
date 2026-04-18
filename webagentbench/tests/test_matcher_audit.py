@@ -86,13 +86,14 @@ def test_do_nothing_score_is_boundary(task_id: str) -> None:
     Any score strictly between is the Class 9 signature — vacuously-satisfied
     bijections contributing full credit, or a vacuous invariant not firing.
 
-    Tasks with NO positive entries (constraint-only canonical_diffs) are
-    intentionally excluded here and surfaced separately by
-    ``test_no_constraint_only_canonical_diffs`` as a Class 10 design smell.
+    Tasks with NO positive entries (constraint-only canonical_diffs) follow
+    a different scoring path post-Class-10 (constraints promoted to the
+    positive pool → score = n_passed / n_total, not 0/1). They're
+    covered by ``test_constraint_only_task_score_reflects_constraint_pass_ratio``.
     """
     task = load_all_tasks()[task_id]
     if not _has_positive_entries(task):
-        pytest.skip(f"{task_id} has no positive entries; see Class 10 test")
+        pytest.skip(f"{task_id} is constraint-only; see Class 10 test")
 
     report = _match_do_nothing(task_id)
     in_between = 0.0001 < report.score < 0.9999
@@ -105,27 +106,39 @@ def test_do_nothing_score_is_boundary(task_id: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="Class 10 not yet fixed — 3 constraint-only canonical_diffs "
-           "documented here will keep this xfailing until the matcher "
-           "promotes constraints to the positive pool when no create/update/"
-           "delete exists.",
-)
-def test_no_constraint_only_canonical_diffs() -> None:
-    """Class 10: a canonical_diff with zero positive entries (no create,
-    update, or delete) is a design smell. Score falls back to 1.0 when
-    total_weight == 0 and is then clipped downward by penalty deductions,
-    so do-nothing scores whatever ``1.0 - Σ penalties_that_fire_on_initial``
-    happens to be. That's an inverted scoring model where the matcher
-    measures constraint violations from an assumed-correct baseline
-    instead of agent accomplishments.
+def test_constraint_only_task_score_reflects_constraint_pass_ratio() -> None:
+    """Class 10 fix: when a canonical_diff has no create/update/delete,
+    the matcher now promotes constraints to the positive pool (n_passed
+    / n_total) instead of defaulting to 1.0 minus penalties. A do-nothing
+    trajectory on a constraint-only task should score exactly the
+    fraction of constraints that hold on the initial state.
+    """
+    initial, final, targets = _task_with_real_initial()
 
-    This test enumerates offenders rather than asserting clean. The
-    proper fix is matcher-side: when a block has no positive entries,
-    treat satisfied constraints as the positive pool's numerator.
-    When that lands, remove the xfail marker; this test will xpass and
-    make the fix visible in CI.
+    block = CanonicalDiff.model_validate({
+        "constraints": [
+            {"desc": "always true", "expr": "True", "severity": "medium"},
+            {"desc": "always false", "expr": "False", "severity": "medium"},
+        ],
+    })
+    report = match_diff([], block, targets=targets,
+                        initial=initial, final=final)
+
+    # 1 of 2 constraints passes → score should be 0.5 (no double-count
+    # penalty deduction on the promoted path).
+    assert abs(report.score - 0.5) < 1e-6, (
+        f"Constraint-only score should reflect pass ratio; got {report.score}"
+    )
+    assert report.passed is False, (
+        "failing constraint should yield passed=False"
+    )
+
+
+def test_constraint_only_offender_catalog() -> None:
+    """Informational: enumerate tasks whose canonical_diff has no positive
+    entries. Post Class 10 fix these now score correctly, but authors
+    should still consider whether the constraint-only pattern is right
+    for the task or whether positive entries would be clearer.
     """
     offenders: list[str] = []
     for task_id, task in load_all_tasks().items():
@@ -134,7 +147,9 @@ def test_no_constraint_only_canonical_diffs() -> None:
         if not _has_positive_entries(task):
             offenders.append(task_id)
 
-    assert not offenders, (
+    # After the fix this is informational, not a hard failure.
+    # We only flag if the count grows unexpectedly.
+    assert len(offenders) <= 5, (
         f"Constraint-only canonical_diffs (Class 10): {len(offenders)} tasks. "
         f"These rely on 1.0-fallback minus penalties, producing arbitrary "
         f"do-nothing scores. Offenders: {offenders}"
@@ -728,4 +743,274 @@ def test_bijection_excess_tracked_when_empty_target() -> None:
     assert not excess_nc["passed"], (
         "Agent created 1 appointment when 0 were needed — "
         "named_invariant on create[0] should FAIL, got passed={}.".format(excess_nc["passed"])
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Part D — Diff-layer & structural probes
+# ══════════════════════════════════════════════════════════════════════
+
+
+def test_non_bijection_update_matches_at_most_one_candidate() -> None:
+    """A non-bijection update with a where-clause that matches N agent
+    mutations claims only ONE via the ``break`` in the inner loop at
+    evaluator_diff.py:928-938. The remaining matches fall through to the
+    invariant sweep / unaccounted check.
+
+    This is correct behavior for "the task asks for one specific update",
+    but authors should know: if you want "all matching", use a bijection
+    over the target set.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    # `where` reads the AFTER value of the field (evaluator_diff.py:854-858),
+    # so we select on the post-mutation state.
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"status": {"eq": "cancelled"}},
+            "changes": {"status": {"eq": "cancelled"}},
+        }],
+    })
+
+    # Two agent mutations, both satisfying the after-state where-clause.
+    diff = [
+        Update(entity="appointments", entity_id="a1",
+               field_changes={"status": ("scheduled", "cancelled")}),
+        Update(entity="appointments", entity_id="a2",
+               field_changes={"status": ("scheduled", "cancelled")}),
+    ]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    # Expected: one update check passes (the first matching candidate is
+    # claimed). The other is collateral.
+    update_checks = [c for c in report.checks
+                     if "Appointment" in (c.get("desc") or "")]
+    assert any(c["passed"] for c in update_checks), (
+        f"No update check passed despite matching candidates. checks={report.checks}"
+    )
+    # The unclaimed second update should surface as an unaccounted failure.
+    unaccounted = any(f.kind == "unaccounted" for f in report.failures)
+    assert unaccounted, (
+        "Unclaimed mutation should be flagged as collateral, but the "
+        "unaccounted sweep didn't fire. Agent could sneak extra mutations "
+        "under the radar of a non-bijection update."
+    )
+
+
+def test_update_with_empty_changes_dict_matches_any_mutation() -> None:
+    """An update entry with ``changes: {}`` currently accepts any field
+    change on the selected entity. That's because ``_all_predicates_hold``
+    on an empty dict returns True vacuously.
+
+    Is this a bug? For "any mutation to X counts" it's intentional. For
+    "I forgot to specify what must change" it's a silent acceptance. The
+    schema already forbids forgetting the `where:` key (Pydantic default
+    is not allowed there) but tolerates empty `changes:`.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",
+            "where": {"id": {"eq": "appt_x"}},
+            "changes": {},  # intentionally empty
+        }],
+    })
+
+    # Agent mutates an unrelated field. Empty changes → should still match.
+    diff = [Update(entity="appointments", entity_id="appt_x",
+                   field_changes={"notes": ("a", "b")})]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+    assert report.passed, (
+        "Empty changes dict no longer matches any mutation — "
+        "if this is intentional schema-tightening, update test + hazards doc."
+    )
+
+
+def test_out_of_range_named_invariant_ref_caught_at_registry() -> None:
+    """``named_invariants[*].ref`` like ``invariant[99]`` when only 2
+    invariants exist should be rejected at task-load time by
+    ``_validate_canonical_diff_refs`` at _registry.py:54-86 — not silently
+    no-op at match time.
+
+    This test asserts the validator catches the out-of-range case. If it
+    starts failing, out-of-range refs slip through and become silent
+    no-ops in the matcher.
+    """
+    from webagentbench.tasks._registry import _validate_canonical_diff_refs
+    from webagentbench.tasks._schema import TaskDefinition
+
+    task_raw = {
+        "task_id": "synthetic_out_of_range_ref",
+        "env_id": "patient_portal",
+        "title": "Synthetic",
+        "instruction_template": "n/a",
+        "difficulty": "easy",
+        "time_limit_seconds": 60,
+        "expected_steps": 1,
+        "primary_primitives": ["grounding"],
+        "start_path": "/",
+        "canonical_diff": {
+            "invariant": [
+                {"collection": "state.appointments", "preserve": "ALL"},
+            ],
+            "named_invariants": [
+                {"name": "Out of range", "ref": "invariant[99]",
+                 "severity": "medium"},
+            ],
+        },
+    }
+    task = TaskDefinition.model_validate(task_raw)
+
+    with pytest.raises(ValueError, match="references invariant\\[99\\]"):
+        _validate_canonical_diff_refs(task)
+
+
+def test_compute_diff_detects_duplicate_ids_cleanly() -> None:
+    """compute_diff uses ``_index_by_id`` (line 342) which silently collapses
+    entries with the same id. If a state ever gets two entities with the
+    same id in the same collection (seed bug, concurrent insert, etc.),
+    only the last one is visible.
+
+    Document the current behavior — quiet collapse — as a known corner
+    case. A stricter version would raise on duplicate ids.
+    """
+    from webagentbench.evaluator_diff import compute_diff
+
+    # Dict-of-lists fast path is allowed by _collections_of (line 326).
+    initial = {"widgets": [{"id": "w1", "val": 1}]}
+    final = {"widgets": [
+        {"id": "w1", "val": 2},
+        {"id": "w1", "val": 99},  # duplicate id; last-write-wins
+    ]}
+
+    diff = compute_diff(initial, final)
+    # Only one Update should be produced, for the last occurrence of w1.
+    widget_updates = [d for d in diff
+                      if d.entity == "widgets" and d.entity_id == "w1"]
+    assert len(widget_updates) == 1, (
+        f"Expected exactly 1 Update despite duplicate ids, got {len(widget_updates)}"
+    )
+
+
+def test_compute_diff_decimal_round_trip() -> None:
+    """Pydantic ``model_dump()`` on a Decimal field emits a Decimal (not a
+    string) in default mode. compute_diff's dict-comparison must treat
+    equal Decimals as equal.
+
+    Regression: if a state with Decimal fields round-trips through
+    model_dump, comparing Decimal('3.45') == Decimal('3.45') should be
+    True, not False (e.g., through a stringification path).
+    """
+    from decimal import Decimal
+
+    from webagentbench.evaluator_diff import compute_diff
+
+    initial = {"widgets": [{"id": "w1", "gpa": Decimal("3.45")}]}
+    final = {"widgets": [{"id": "w1", "gpa": Decimal("3.45")}]}
+    diff = compute_diff(initial, final)
+    assert diff == [], (
+        f"compute_diff saw a spurious change despite identical Decimals. "
+        f"diff={diff}"
+    )
+
+    # And a genuine Decimal change IS detected.
+    changed = {"widgets": [{"id": "w1", "gpa": Decimal("3.50")}]}
+    diff2 = compute_diff(initial, changed)
+    assert len(diff2) == 1 and diff2[0].__class__.__name__ == "Update", (
+        f"Decimal change missed: {diff2}"
+    )
+
+
+def test_diff_ignore_fields_makes_field_invisible_to_invariants() -> None:
+    """If an entity class declares a field in ``DIFF_IGNORE_FIELDS``,
+    mutations to that field do NOT surface in compute_diff, and therefore
+    cannot fire an invariant. This is by design (Class 6 pattern) — the
+    ignore list escapes invariant checks.
+
+    Lock in the behavior so changes to the ignore pipeline don't
+    accidentally change invariant semantics.
+    """
+    from typing import ClassVar
+
+    from pydantic import BaseModel
+
+    from webagentbench.evaluator_diff import compute_diff
+
+    class Thing(BaseModel):
+        id: str
+        public: str = ""
+        audit_trail: str = ""  # should be ignored
+        DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = ("audit_trail",)
+
+    class MiniState(BaseModel):
+        things: list[Thing] = []
+
+    initial = MiniState(things=[Thing(id="t1", public="A", audit_trail="x")])
+    final = MiniState(things=[Thing(id="t1", public="A", audit_trail="y")])
+    diff = compute_diff(initial, final)
+    assert diff == [], (
+        f"DIFF_IGNORE_FIELDS did not suppress 'audit_trail' change. diff={diff}"
+    )
+
+
+def test_multiple_update_entries_do_not_double_claim() -> None:
+    """Two canonical update entries with overlapping selectors must not
+    claim the same agent-diff candidate twice. ``matched_ids`` exclusion
+    in the inner loop (evaluator_diff.py:925) should prevent this.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "update": [
+            {"entity": "Appointment",
+             "where": {"id": {"eq": "appt_x"}},
+             "changes": {"status": {"eq": "cancelled"}}},
+            # Second entry with an overlapping selector — must NOT double-claim.
+            {"entity": "Appointment",
+             "where": {"id": {"eq": "appt_x"}},
+             "changes": {"status": {"eq": "cancelled"}}},
+        ],
+    })
+    # Agent produces ONE update that could satisfy either entry.
+    diff = [Update(entity="appointments", entity_id="appt_x",
+                   field_changes={"status": ("scheduled", "cancelled")})]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    # One entry matches, one does not. Expected score: 0.5 (1 of 2 claimed).
+    # If double-claiming allowed, we'd see 1.0.
+    assert report.score < 1.0, (
+        f"Double-claim allowed: two update entries both matched the same "
+        f"candidate. score={report.score}"
+    )
+
+
+def test_read_only_canonical_diff_documented_behavior() -> None:
+    """A canonical_diff with NO entries at all (empty block) scores 1.0 on
+    do-nothing — that's the 1.0 fallback at evaluator_diff.py:1150. This
+    is correct for truly read-only tasks (no state change expected) and
+    locked in by ``test_empty_canonical_diff_scores_one`` above.
+
+    This test is the paired version: author INTENDED constraints but
+    wrote none → vacuous pass. Document so authors know to add at least
+    one constraint to prevent accidental do-nothing success.
+    """
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({})  # totally empty
+    report = match_diff([], block, targets=targets,
+                        initial=initial, final=final)
+    assert report.passed and report.score == 1.0, (
+        f"Empty canonical_diff no longer trivially passes on do-nothing — "
+        f"{report.score}, {report.passed}. Update the hazard doc."
     )
