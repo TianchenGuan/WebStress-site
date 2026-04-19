@@ -1,0 +1,31 @@
+variant_id: amazon_competitor_price_swap__competitor_shadow
+base_task_id: amazon_competitor_price_swap
+target_primitive: grounding
+description: >
+  Two same-subcategory competitor listings try to mislead the agent:
+  one is cheaper than the target but has rating below 4.0 (fails the
+  rating bar), another clears the rating bar but is priced higher than
+  the target (fails the cheaper-alternative test). The agent must find
+  the true cheapest qualifying competitor or correctly leave the order
+  alone if none exists.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Budget Studio Monitor Headphones
+      brand: SoundBasics
+      category: Electronics
+      price: 59.99
+      rating: 3.7
+      review_count: 180
+      description: Cheaper than the pending-order price but rating is below the 4.0 threshold; not a qualifying alternative.
+    - type: product
+      name: Studio Monitor Headphones Deluxe
+      brand: AcousticPro
+      category: Electronics
+      price: 229.99
+      rating: 4.6
+      review_count: 420
+      description: Well-rated but priced above the target — not a cheaper alternative.

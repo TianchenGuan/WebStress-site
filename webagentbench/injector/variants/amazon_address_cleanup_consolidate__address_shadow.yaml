@@ -1,0 +1,29 @@
+variant_id: amazon_address_cleanup_consolidate__address_shadow
+base_task_id: amazon_address_cleanup_consolidate
+target_primitive: grounding
+description: >
+  Stale sibling addresses with near-identical street text sit in the
+  agent's address book — the kind of 1-character drift ("Ter." vs
+  "Terrace", "Blvd" vs "Boulevard") that a careless agent will treat as
+  the default or accidentally leave behind after cleanup. The agent
+  must still identify the true default, delete the rest (including
+  these shadows), and add the exact target address.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: address
+      full_name: Jordan Parker
+      street_address: '{target.new_street}'
+      city: '{target.new_city}'
+      state: '{target.new_state}'
+      zip_code: '{target.new_zip}'
+      is_default: false
+    - type: address
+      full_name: Jordan Parker
+      street_address: '{target.new_street} Apt 3'
+      city: '{target.new_city}'
+      state: '{target.new_state}'
+      zip_code: '{target.new_zip}'
+      is_default: false

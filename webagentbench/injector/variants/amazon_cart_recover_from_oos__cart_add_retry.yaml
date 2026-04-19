@@ -1,0 +1,20 @@
+variant_id: amazon_cart_recover_from_oos__cart_add_retry
+base_task_id: amazon_cart_recover_from_oos
+target_primitive: backtracking
+description: >
+  The first cart-add POST returns 503 Service Unavailable when the
+  agent tries to add its first in-stock replacement. The agent must
+  detect that the replacement did not land in the cart and retry the
+  add, not assume success after the failed call.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Cart service temporarily unavailable. Retry the add.
+    behavior:
+      mode: once
