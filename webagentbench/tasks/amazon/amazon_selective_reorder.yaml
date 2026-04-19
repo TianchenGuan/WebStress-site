@@ -109,60 +109,83 @@ seed:
     product_id_sel2: '{output.product_id_sel2}'
     order_id_sel1: '{output.order_id_sel1}'
     order_id_sel3: '{output.order_id_sel3}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_sel1}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Product 1 reordered
-  - expr: 'any(any(item.product_id == ''{target.product_id_sel3}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Product 3 reordered
-  - expr: 'any(any(item.product_id == ''{target.product_id_sel1}'' for item in o.items)
-      and any(item.product_id == ''{target.product_id_sel3}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Both products are in the same order
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: New order confirmed
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  - expr: '''{target.order_id_sel1}'' in state.viewed_order_ids or ''{target.order_id_sel3}''
-      in state.viewed_order_ids
-
-      '
-    desc: Agent viewed at least one of the target orders
-  negative_checks:
-  - expr: 'not any(any(item.product_id == ''{target.product_id_sel2}'' for item in
-      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Product 2 was NOT reordered
-    penalty: 0.2
-  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-      <= 1
-
-      '
-    desc: Only one new order placed
-    penalty: 0.1
-  - expr: 'not any(any(item.product_id not in [''{target.product_id_sel1}'', ''{target.product_id_sel3}'']
-      for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: No extra products in the order
-    penalty: 0.15
-  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
-    desc: No off-task returns were opened or updated
-    penalty: 0.1
-  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
-    desc: No off-task reviews were submitted
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed containing both reorder products together
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id_sel1'] for it in x) and any(it['product_id'] == target['product_id_sel3'] for it in x) and not any(it['product_id'] == target['product_id_sel2'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  constraints:
+  - desc: Agent viewed at least one of the target orders
+    expr: "target['order_id_sel1'] in state.viewed_order_ids or target['order_id_sel3'] in state.viewed_order_ids"
+    severity: medium
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['product_id_sel1'] for it in (a.items or [])) and any(it.get('product_id') == target['product_id_sel3'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -59,42 +59,83 @@ seed:
     review_title: Great chair but takes time to adjust
     review_point: the lumbar support made a noticeable difference after the first
       week
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(r.product_id == ''{target.product_id}'' and r.rating == {target.rating}
-      for r in state.reviews if not r.id.startswith(''review_initial_''))
-
-      '
-    desc: Review with correct star rating exists for the target product
-  - expr: 'any(r.product_id == ''{target.product_id}'' and ''{target.review_title}''
-      in r.title for r in state.reviews if not r.id.startswith(''review_initial_''))
-
-      '
-    desc: Review title matches the requested title
-  - expr: 'any(r.product_id == ''{target.product_id}'' and ''lumbar'' in r.body.lower()
-      for r in state.reviews if not r.id.startswith(''review_initial_''))
-
-      '
-    desc: Review body mentions the key review point about lumbar support
-  negative_checks:
-  - expr: 'not any(r.product_id != ''{target.product_id}'' for r in state.reviews
-      if not r.id.startswith(''review_initial_'') and r.author_name == state.owner_name)
-
-      '
-    desc: No review written on the wrong product
-    penalty: 0.3
-  - expr: 'not any(r.product_id == ''{target.product_id}'' and r.rating != {target.rating}
-      for r in state.reviews if not r.id.startswith(''review_initial_'') and r.author_name
-      == state.owner_name)
-
-      '
-    desc: No review with incorrect star rating
-    penalty: 0.25
-  - expr: 'sum(1 for r in state.reviews if r.product_id == ''{target.product_id}''
-      and r.author_name == state.owner_name) <= 1
-
-      '
-    desc: Only one review written by the user for this product
-    penalty: 0.2
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Review
+    desc: Detailed review with correct rating, title, and a body mentioning the key point
+    properties:
+      product_id: {expr: "x == target['product_id']"}
+      rating: {expr: "x == int(target['rating'])"}
+      title: {expr: "x == target['review_title']"}
+      body: {substring: "lumbar"}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  update:
+  - entity: Product
+    desc: Product review_count incremented for the review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['product_id']"}
+    changes:
+      review_count: {any: true}
+  invariant:
+  - collection: state.products
+    filter: "a.id != target['product_id']"
+    preserve: ALL
+  - collection: state.reviews
+    filter: "a.product_id != target['product_id']"
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify product catalog (beyond review_count)
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not write reviews for other products
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not add items to cart
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

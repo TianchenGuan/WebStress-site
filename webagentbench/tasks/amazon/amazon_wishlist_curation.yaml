@@ -141,75 +141,84 @@ seed:
     prod5_name: Desk Organizer Bamboo
     prod5_id: '{output.product_id_5}'
     prod5_price: '27.99'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.prod2_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Atomic Habits (cheapest) was purchased
-  - expr: 'any(any(item.product_id == ''{target.prod4_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Foam Roller Recovery Set was purchased
-  - expr: 'any(any(item.product_id == ''{target.prod5_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Desk Organizer Bamboo was purchased
-  - expr: 'not any(any(item.product_id == ''{target.prod1_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Smart Watch (expensive) was NOT purchased
-  - expr: 'not any(any(item.product_id == ''{target.prod3_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Air Purifier (most expensive) was NOT purchased
-  negative_checks:
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
-      1
-    desc: All remaining items purchased in a single new order
-    penalty: 0.15
-  - expr: 'len([pid for pid in state.wishlist]) >= 2 or any(''{target.prod1_id}''
-      == pid for pid in state.wishlist) or any(''{target.prod3_id}'' == pid for pid
-      in state.wishlist)
-
-      '
-    desc: Expensive items remain on wishlist (wishlist was used in the workflow)
-    penalty: 0.2
-  - expr: "not any(\n  any(item.product_id not in ['{target.prod2_id}', '{target.prod4_id}',\
-      \ '{target.prod5_id}'] for item in order.items)\n  for order in state.orders\
-      \ if order.id not in state._initial_snapshot.get('orders', {})\n)"
-    desc: Only the three kept wishlist items were purchased
-    penalty: 0.2
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.wishlist.add') ==
-      5
-    desc: Exactly five products were added to the wishlist before curation
-    penalty: 0.1
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.wishlist.remove')
-      == 2
-    desc: Exactly two wishlist removals were used for the expensive items
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'amazon.wishlist.remove'\n  and e.payload.get('product_id')\
-      \ not in ['{target.prod1_id}', '{target.prod3_id}']\n  for e in state.audit_log\n\
-      )"
-    desc: Only the two expensive wishlist items were removed
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
-    desc: The final purchase was completed in one checkout
-    penalty: 0.1
-  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n\
-      \    'amazon.address.remove',\n    'amazon.payment.add',\n    'amazon.payment.remove'\n\
-      \  ]\n  for e in state.audit_log\n)"
-    desc: No address or payment profile edits were needed during wishlist curation
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed containing the three cheapest curated wishlist items
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['prod2_id'] for it in x) and any(it['product_id'] == target['prod4_id'] for it in x) and any(it['product_id'] == target['prod5_id'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['prod2_id'] for it in (a.items or [])) and any(it.get('product_id') == target['prod4_id'] for it in (a.items or [])) and any(it.get('product_id') == target['prod5_id'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Most expensive item (Smart Watch) was not purchased
+    expr: "not any(any(it.product_id == target['prod1_id'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Most expensive item (Air Purifier) was not purchased
+    expr: "not any(any(it.product_id == target['prod3_id'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[9]
+    severity: low

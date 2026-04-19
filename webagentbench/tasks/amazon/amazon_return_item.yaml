@@ -45,29 +45,75 @@ seed:
     product_name: '{output.product_name}'
     order_id: '{output.order_id}'
     product_id: '{output.product_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(r.order_id == ''{target.order_id}'' and ''defective'' in r.reason.lower()
-      for r in state.returns)
-
-      '
-    desc: A return with reason "defective" was filed for the correct order
-  - expr: any(state.get_order(r.order_id) is not None and state.get_order(r.order_id).status
-      in ('delivered', 'returned') for r in state.returns if r.order_id == '{target.order_id}')
-    desc: Return was filed against a delivered order
-  negative_checks:
-  - expr: 'sum(1 for r in state.returns if r.order_id == ''{target.order_id}'') <=
-      1
-
-      '
-    desc: Only one return was filed for the target order
-    penalty: 0.15
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-    penalty: 0.1
-  - expr: "not any(o.id not in state._initial_snapshot.get('orders', {}) for o in\
-      \ state.orders)"
-    desc: No new orders placed (return task should not add orders)
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: ReturnRequest
+    desc: Return request filed for the target order and product with a defective-style reason
+    properties:
+      order_id: {expr: "x == target['order_id']"}
+      product_id: {expr: "x == target['product_id']"}
+      reason: {substring: "defective"}
+      status: {any: true}
+      refund_amount: {any: true}
+      order_item_index: {any: true}
+      product_name: {any: true}
+      created_at: {any: true}
+      resolution_note: {any: true}
+  invariant:
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    filter: "a.order_id != target['order_id']"
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not place new orders or modify existing orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not add items to cart
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not modify other return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -117,74 +117,119 @@ seed:
     new_pid_1: '{output.product_id_new1}'
     new_2: '{output.product_name_new2}'
     new_pid_2: '{output.product_id_new2}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: An order was placed
-  - expr: 'any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity ==
-      3 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Wireless Mouse Pro quantity is 3
-  - expr: 'any(any(item.product_name == ''Glass Food Containers'' and item.quantity
-      == 2 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Glass Food Containers quantity is 2
-  - expr: 'any(any(item.product_name == ''Bamboo Notebook Stand'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Bamboo Notebook Stand kept
-  - expr: 'any(any(item.product_name == ''Running Headband 3-Pack'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Running Headband kept
-  - expr: 'any(any(item.product_name == ''LED Book Light'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: LED Book Light kept
-  - expr: 'any(any(item.product_id == ''{target.new_pid_1}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: New product 1 added
-  - expr: 'any(any(item.product_id == ''{target.new_pid_2}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: New product 2 added
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  negative_checks:
-  - expr: 'not any(any(item.product_name == ''Cotton Bath Towel Set'' for item in
-      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Cotton Bath Towel Set removed
-    penalty: 0.15
-  - expr: 'not any(any(item.product_name == ''Yoga Strap Set'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Yoga Strap Set removed
-    penalty: 0.15
-  - expr: 'not any(any(item.product_name == ''Vitamin D3 Supplement'' for item in
-      o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Vitamin D3 Supplement removed
-    penalty: 0.15
-  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
-      1
-    desc: Only one order placed
-    penalty: 0.1
-  - expr: 'not any(any(item.product_name == ''Wireless Mouse Pro'' and item.quantity
-      != 3 for item in o.items) for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Mouse quantity is exactly 3
-    penalty: 0.15
+canonical_diff:
+  create:
+  - entity: Order
+    desc: Order has the required rebuilt cart contents
+    properties:
+      items:
+        expr: "any(it['product_name'] == 'Wireless Mouse Pro' and it['quantity'] == 3 for it in x) and any(it['product_name'] == 'Glass Food Containers' and it['quantity'] == 2 for it in x) and any(it['product_name'] == 'Bamboo Notebook Stand' for it in x) and any(it['product_name'] == 'Running Headband 3-Pack' for it in x) and any(it['product_name'] == 'LED Book Light' for it in x) and any(it['product_id'] == target['new_pid_1'] for it in x) and any(it['product_id'] == target['new_pid_2'] for it in x) and all(it['product_name'] not in ['Cotton Bath Towel Set', 'Yoga Strap Set', 'Vitamin D3 Supplement'] for it in x)"
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  delete:
+  - entity: CartItem
+    desc: Cotton Bath Towel Set removed before checkout (weight 0)
+    weight: 0.0
+    where:
+      product_name: {eq: Cotton Bath Towel Set}
+  - entity: CartItem
+    desc: Yoga Strap Set removed before checkout (weight 0)
+    weight: 0.0
+    where:
+      product_name: {eq: Yoga Strap Set}
+  - entity: CartItem
+    desc: Vitamin D3 Supplement removed before checkout (weight 0)
+    weight: 0.0
+    where:
+      product_name: {eq: Vitamin D3 Supplement}
+  - entity: CartItem
+    desc: Kept cart item 1 cleared on checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  - entity: CartItem
+    desc: Kept cart item 2 cleared on checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  - entity: CartItem
+    desc: Kept cart item 3 cleared on checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  - entity: CartItem
+    desc: Kept cart item 4 cleared on checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  - entity: CartItem
+    desc: Kept cart item 5 cleared on checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "a.id.startswith('order_initial_')"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[9]
+    severity: low

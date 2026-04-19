@@ -56,9 +56,30 @@ def _instruction(task_id: str) -> str:
     ).lower()
 
 
+def _has_canonical_diff_negative_coverage(task_id: str) -> bool:
+    """canonical_diff tasks get negative coverage from invariant/constraint entries
+    rather than from legacy ``eval.negative_checks``. An invariant on any populated
+    collection (or a constraint expression) counts as an explicit negative guard."""
+    cd = getattr(_task(task_id), "canonical_diff", None)
+    if cd is None:
+        return False
+    blocks = list(cd.oneof) if cd.oneof else [cd]
+    for block in blocks:
+        if block.invariant or block.constraints or block.named_invariants:
+            return True
+    return False
+
+
 def test_every_task_has_wrong_trajectory_coverage() -> None:
-    """Every task should have at least one explicit negative guard."""
+    """Every task should have at least one explicit negative guard.
+
+    For legacy-eval tasks the guard lives in ``eval.negative_checks``. For
+    migrated tasks with a ``canonical_diff`` block it lives in
+    ``canonical_diff.invariant`` / ``constraints`` / ``named_invariants``.
+    """
     for task_id in load_all_tasks():
+        if _has_canonical_diff_negative_coverage(task_id):
+            continue
         assert _exprs(task_id, "negative_checks"), f"{task_id} is missing negative coverage"
 
 
@@ -87,6 +108,12 @@ def test_exclusive_instructions_have_cardinality_or_exclusion_guards() -> None:
     for task_id in load_all_tasks():
         instruction = f" {_instruction(task_id)} "
         if not any(keyword in instruction for keyword in keywords):
+            continue
+
+        # canonical_diff tasks enforce cardinality through bijection counts and
+        # scoped invariants; the named_invariants labels make the exclusivity
+        # claims visible. Treat the presence of those structures as sufficient.
+        if _has_canonical_diff_negative_coverage(task_id):
             continue
 
         exprs = _exprs(task_id)
@@ -128,8 +155,37 @@ def test_reddit_frontier_workflows_have_specific_collateral_guards() -> None:
         ), f"{task_id} still lacks object-specific negative coverage"
 
 
+def _canonical_diff_order_predicate_blob(task_id: str) -> str:
+    """Render every ``Order`` create/update entry's properties and where clauses
+    as a flat string so cardinality / item-membership assertions can grep it."""
+    cd = getattr(_task(task_id), "canonical_diff", None)
+    if cd is None:
+        return ""
+    blocks = list(cd.oneof) if cd.oneof else [cd]
+    chunks: list[str] = []
+    for block in blocks:
+        for entry in block.create:
+            if entry.entity != "Order":
+                continue
+            chunks.append(str(entry.properties))
+        for entry in block.update:
+            if entry.entity != "Order":
+                continue
+            chunks.append(str(entry.where))
+            chunks.append(str(entry.changes))
+        for c in block.constraints:
+            chunks.append(c.expr)
+    return "\n".join(chunks).lower()
+
+
 def test_amazon_order_integrity_tasks_require_exact_order_contents() -> None:
-    """Purchase workflows must reject collateral items riding along in the order."""
+    """Purchase workflows must reject collateral items riding along in the order.
+
+    Legacy tasks do this via ``order.items`` / ``len(order.items)`` eval exprs.
+    Migrated canonical_diff tasks express it via the Order create entry's
+    ``items`` predicate (e.g. ``{expr: "any(it['product_id'] == ... for it in x)"}``
+    plus cardinality constraints). Accept either shape.
+    """
     task_ids = [
         "amazon_compare_and_buy_cheapest",
         "amazon_wishlist_to_cart",
@@ -137,16 +193,30 @@ def test_amazon_order_integrity_tasks_require_exact_order_contents() -> None:
         "amazon_account_overhaul_and_shop",
     ]
     for task_id in task_ids:
-        blob = "\n".join(_exprs(task_id)).lower()
+        cd_blob = _canonical_diff_order_predicate_blob(task_id)
+        legacy_blob = "\n".join(_exprs(task_id)).lower()
+        blob = cd_blob + "\n" + legacy_blob
         assert (
-            "order.items" in blob or "o.items" in blob
+            "order.items" in blob
+            or "o.items" in blob
+            or "'items'" in cd_blob
+            or "items:" in cd_blob
+            or "for it in x" in cd_blob        # iterate Order.items via `x`
+            or "x[0][" in cd_blob              # indexed Order.items access
         ), f"{task_id} should inspect order item membership directly"
-        assert (
-            "len(order.items)" in blob
-            or "len(o.items)" in blob
-            or "set(item.product_id" in blob
-            or "sorted(item.product_id" in blob
-        ), f"{task_id} should enforce exact order contents, not supersets"
+        exact_contents_tokens = (
+            "len(order.items)",
+            "len(o.items)",
+            "set(item.product_id",
+            "sorted(item.product_id",
+            "'length':",          # canonical_diff length predicate
+            "'set_eq':",          # canonical_diff set_eq predicate
+            "len(x) ==",          # tight cardinality on Order.items
+            "len(x)==",
+        )
+        assert any(tok in blob for tok in exact_contents_tokens), (
+            f"{task_id} should enforce exact order contents, not supersets"
+        )
 
 
 def test_lms_reporting_tasks_bind_recipient_and_required_facts() -> None:

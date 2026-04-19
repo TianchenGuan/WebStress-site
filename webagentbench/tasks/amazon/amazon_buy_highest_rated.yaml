@@ -40,36 +40,88 @@ seed:
     category: Sports & Outdoors
     best_product_id: '{output.product_id}'
     best_product_name: '{output.product_name}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.best_product_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Order contains the highest-rated product
-  - expr: any(order.status == 'confirmed' and any(item.product_id == '{target.best_product_id}'
-      for item in order.items) for order in state.orders if order.id not in state._initial_snapshot.get('orders', {}))
-    desc: Order containing the target product is confirmed
-  - expr: 'any(any(next((p.rating for p in state.products if p.id == item.product_id),
-      0) >= 4.5 for item in order.items) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Purchased product has a rating of at least 4.5 stars
-  negative_checks:
-  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
-      1
-    desc: Only one new order placed
-    penalty: 0.15
-  - expr: 'all(any(item.product_id == ''{target.best_product_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Purchased product matches the target highest-rated product
-    penalty: 0.3
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: Order placed for the highest-rated product
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['best_product_id'] for it in x)"
+      status: {eq: confirmed}
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"
+      payment_method_id:
+        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods)"
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['best_product_id'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  - desc: Purchased product has rating at least 4.5
+    expr: "any(p.id == target['best_product_id'] and p.rating >= 4.5 for p in state.products)"
+    severity: high
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -76,56 +76,79 @@ seed:
     ref_pid: '{output.product_id_ref}'
     best_name: '{output.product_name_best}'
     best_pid: '{output.product_id_best}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: An order was placed
-  - expr: 'any(any(item.product_id == ''{target.best_pid}'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: The superior competitor was purchased
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Order confirmed
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  - expr: '''{target.ref_pid}'' in [p for p in state.recently_viewed] or len(state.search_history)
-      > 0
-
-      '
-    desc: Agent searched or viewed the reference product
-  negative_checks:
-  - expr: 'not any(any(item.product_id == ''{target.ref_pid}'' for item in o.items)
-      for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Reference product was NOT purchased (competitor is better)
-    penalty: 0.25
-  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-      <= 1
-
-      '
-    desc: Only one order placed
-    penalty: 0.1
-  - expr: 'all( len(o.items) == 1 and o.items[0].product_id == ''{target.best_pid}''
-      and o.items[0].quantity == 1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: No extra items or non-target products were purchased with the competitor
-      order
-    penalty: 0.2
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
-    desc: Competitor-switchover workflow used a single checkout flow
-    penalty: 0.1
-  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n\
-      \    'amazon.address.remove',\n    'amazon.payment.add',\n    'amazon.payment.remove'\n\
-      \  ]\n  for e in state.audit_log)"
-    desc: Competitor-switchover reused existing account checkout details
-    penalty: 0.1
-  - expr: "not any(\n  e.action in ['amazon.return.create', 'amazon.review.add']\n\
-      \  for e in state.audit_log)"
-    desc: Competitor-switchover did not create unrelated returns or reviews
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New one-item order for the superior competitor product
+    properties:
+      items:
+        expr: "len(x) == 1 and x[0]['product_id'] == target['best_pid'] and x[0]['quantity'] == 1"
+      status: {eq: confirmed}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['best_pid'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

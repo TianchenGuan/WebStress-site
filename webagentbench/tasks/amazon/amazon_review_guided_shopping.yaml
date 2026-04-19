@@ -106,67 +106,131 @@ seed:
     low2: '{output.product_id_low2}'
     review_title_1: Fantastic Home Addition
     review_title_2: Great Everyday Essential
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: An order was placed
-  - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Best product 1 purchased
-  - expr: 'any(any(item.product_id == ''{target.best2}'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Best product 2 purchased
-  - expr: 'any(r.product_id == ''{target.best1}'' and r.rating == 5 and r.title ==
-      ''{target.review_title_1}'' for r in state.reviews)
-
-      '
-    desc: 5-star review for best product 1
-  - expr: 'any(r.product_id == ''{target.best2}'' and r.rating == 4 and r.title ==
-      ''{target.review_title_2}'' for r in state.reviews)
-
-      '
-    desc: 4-star review for best product 2
-  - expr: '''{target.low1}'' in state.wishlist'
-    desc: Low-rated product 1 added to wishlist
-  - expr: '''{target.low2}'' in state.wishlist'
-    desc: Low-rated product 2 added to wishlist
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  - expr: 'any(any(item.product_id == ''{target.best1}'' for item in o.items) and
-      any(item.product_id == ''{target.best2}'' for item in o.items) for o in state.orders
-      if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Both best products in same order
-  negative_checks:
-  - expr: 'not any(any(item.product_id == ''{target.low1}'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Low-rated product 1 not purchased
-    penalty: 0.15
-  - expr: 'not any(any(item.product_id == ''{target.low2}'' for item in o.items) for
-      o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Low-rated product 2 not purchased
-    penalty: 0.15
-  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
-      1
-    desc: Only one order placed
-    penalty: 0.1
-  - expr: 'not any(r.product_id == ''{target.low1}'' for r in state.reviews if r.title
-      in [''{target.review_title_1}'', ''{target.review_title_2}''])
-
-      '
-    desc: No reviews written for low-rated products
-    penalty: 0.1
-  - expr: '''{target.best1}'' not in state.wishlist and ''{target.best2}'' not in
-      state.wishlist'
-    desc: Best products not left on wishlist (they should be purchased)
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed containing both best products together
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['best1'] for it in x) and any(it['product_id'] == target['best2'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Review
+    desc: 5-star review for best product 1 with target title
+    properties:
+      product_id: {expr: "x == target['best1']"}
+      rating: {eq: 5}
+      title: {expr: "x == target['review_title_1']"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  - entity: Review
+    desc: 4-star review for best product 2 with target title
+    properties:
+      product_id: {expr: "x == target['best2']"}
+      rating: {eq: 4}
+      title: {expr: "x == target['review_title_2']"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  update:
+  - entity: Product
+    desc: Product review_count incremented for best1 review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['best1']"}
+    changes:
+      review_count: {any: true}
+  - entity: Product
+    desc: Product review_count incremented for best2 review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['best2']"}
+    changes:
+      review_count: {any: true}
+  constraints:
+  - desc: Low-rated product 1 is on the wishlist
+    expr: "target['low1'] in state.wishlist"
+    severity: high
+  - desc: Low-rated product 2 is on the wishlist
+    expr: "target['low2'] in state.wishlist"
+    severity: high
+  - desc: Best products are not on the wishlist (they should be purchased)
+    expr: "target['best1'] not in state.wishlist and target['best2'] not in state.wishlist"
+    severity: medium
+  - desc: No extra products added to the wishlist beyond the two low-rated ones
+    expr: "len(state.wishlist) <= len(initial.wishlist) + 2"
+    severity: medium
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['best1'] for it in (a.items or [])) and any(it.get('product_id') == target['best2'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    filter: "a.id != target['best1'] and a.id != target['best2']"
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    filter: "a.product_id != target['best1'] and a.product_id != target['best2']"
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog (beyond review_count)
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write reviews for other products
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

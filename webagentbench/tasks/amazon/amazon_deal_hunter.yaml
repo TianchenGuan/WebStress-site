@@ -47,53 +47,85 @@ seed:
     shipping_street: 742 Evergreen Terrace
     payment_type: Visa
     payment_last_four: '4242'
-eval:
-  source: server_state
-  checks:
-  - expr: "sum(\n  1 for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders', {})\n\
-      \  and order.status == 'confirmed'\n  and len(order.items) == 1\n  and order.items[0].product_id\
-      \ == '{target.deal_product_id}'\n  and order.items[0].quantity == 1\n) == 1\n"
-    desc: Exactly one confirmed order was placed for the best-discount item
-  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
-      \ 'confirmed'\n  and len(order.items) == 1\n  and abs(order.items[0].unit_price\
-      \ - {target.sale_price}) < 0.01\n  for order in state.orders\n)\n"
-    desc: Order used the discounted sale price, not the list price
-  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
-      \ 'confirmed'\n  and any(\n    addr.id == order.shipping_address_id\n    and\
-      \ addr.full_name == '{target.shipping_name}'\n    and addr.street_address ==\
-      \ '{target.shipping_street}'\n    for addr in state.addresses\n  )\n  for order\
-      \ in state.orders\n)\n"
-    desc: Order uses the required shipping address
-  - expr: "any(\n  order.id not in state._initial_snapshot.get('orders', {})\n  and order.status ==\
-      \ 'confirmed'\n  and any(\n    pm.id == order.payment_method_id\n    and pm.card_type\
-      \ == '{target.payment_type}'\n    and pm.last_four == '{target.payment_last_four}'\n\
-      \    for pm in state.payment_methods\n  )\n  for order in state.orders\n)\n"
-    desc: Order uses the required Visa card ending in 4242
-  negative_checks:
-  - expr: 'sum(1 for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-      == 1
-
-      '
-    desc: Only one new order was created
-    penalty: 0.2
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-  - expr: "all(\n  len(order.items) == 1\n  and order.items[0].product_id == '{target.deal_product_id}'\n\
-      \  and order.items[0].quantity == 1\n  for order in state.orders\n  if order.id not in state._initial_snapshot.get('orders', {})\n\
-      )\n"
-    desc: Only the target deal product was purchased, with no extras
-    penalty: 0.3
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.checkout') == 1
-    desc: Deal-hunter workflow used a single checkout flow
-    penalty: 0.1
-  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n\
-      \    'amazon.address.remove',\n    'amazon.payment.add',\n    'amazon.payment.remove'\n\
-      \  ]\n  for e in state.audit_log)"
-    desc: Deal-hunter workflow reused existing address and payment details
-    penalty: 0.1
-  - expr: "not any(\n  e.action in ['amazon.return.create', 'amazon.review.add']\n\
-      \  for e in state.audit_log)"
-    desc: Deal-hunter workflow did not create unrelated returns or reviews
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: Order placed for the biggest-discount deal product (single item, qty 1)
+    properties:
+      items:
+        expr: "len(x) == 1 and x[0]['product_id'] == target['deal_product_id'] and x[0]['quantity'] == 1 and abs(x[0]['unit_price'] - target['sale_price']) < 0.01"
+      status: {eq: confirmed}
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name == target['shipping_name'] and a.street_address == target['shipping_street'] for a in state.addresses)"
+      payment_method_id:
+        expr: "any(p.id == x and p.card_type == target['payment_type'] and p.last_four == target['payment_last_four'] for p in state.payment_methods)"
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['deal_product_id'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

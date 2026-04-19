@@ -50,59 +50,115 @@ seed:
     qty1: '3'
     qty_item2: LED Monitor Light Bar
     qty2: '2'
-eval:
-  source: server_state
-  checks:
-  - expr: 'not any(item.product_name == ''{target.remove_item1}'' for item in state.cart_items)
-
-      '
-    desc: '{target.remove_item1} removed from cart'
-  - expr: 'not any(item.product_name == ''{target.remove_item2}'' for item in state.cart_items)
-
-      '
-    desc: '{target.remove_item2} removed from cart'
-  - expr: 'any(item.product_name == ''{target.qty_item1}'' and item.quantity == {target.qty1}
-      for item in state.cart_items) or any(any(item.product_name == ''{target.qty_item1}''
-      and item.quantity == {target.qty1} for item in order.items) for order in state.orders
-      if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: '{target.qty_item1} quantity changed to {target.qty1}'
-  - expr: 'any(item.product_name == ''{target.qty_item2}'' and item.quantity == {target.qty2}
-      for item in state.cart_items) or any(any(item.product_name == ''{target.qty_item2}''
-      and item.quantity == {target.qty2} for item in order.items) for order in state.orders
-      if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: '{target.qty_item2} quantity changed to {target.qty2}'
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: Checkout was completed
-  negative_checks:
-  - expr: 'not any(any(item.product_name == ''{target.remove_item1}'' for item in
-      order.items) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Removed item ({target.remove_item1}) not in any new order
-    penalty: 0.2
-  - expr: 'not any(any(item.product_name == ''{target.remove_item2}'' for item in
-      order.items) for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Removed item ({target.remove_item2}) not in any new order
-    penalty: 0.2
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-  - expr: 'any(any(item.product_name == ''Wireless Gaming Mouse'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Wireless Gaming Mouse is in the final order
-    penalty: 0.15
-  - expr: 'any(any(item.product_name == ''Cable Management Kit'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Cable Management Kit is in the final order
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed with the four kept cart items (removed items absent, updated quantities correct)
+    properties:
+      items:
+        expr: "any(it['product_name'] == target['qty_item1'] and it['quantity'] == int(target['qty1']) for it in x) and any(it['product_name'] == target['qty_item2'] and it['quantity'] == int(target['qty2']) for it in x) and any(it['product_name'] == 'Wireless Gaming Mouse' for it in x) and any(it['product_name'] == 'Cable Management Kit' for it in x) and not any(it['product_name'] == target['remove_item1'] for it in x) and not any(it['product_name'] == target['remove_item2'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  delete:
+  - entity: CartItem
+    desc: Mechanical Gaming Keyboard removed from cart (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {expr: "x == target['remove_item1']"}
+  - entity: CartItem
+    desc: 4K Webcam Pro removed from cart (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {expr: "x == target['remove_item2']"}
+  - entity: CartItem
+    desc: USB Desk Fan consumed by checkout (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {expr: "x == target['qty_item1']"}
+  - entity: CartItem
+    desc: LED Monitor Light Bar consumed by checkout (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {expr: "x == target['qty_item2']"}
+  - entity: CartItem
+    desc: Wireless Gaming Mouse consumed by checkout (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {eq: Wireless Gaming Mouse}
+  - entity: CartItem
+    desc: Cable Management Kit consumed by checkout (weight 0 side effect)
+    weight: 0.0
+    where:
+      product_name: {eq: Cable Management Kit}
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_name') == target['qty_item1'] for it in (a.items or [])) and any(it.get('product_name') == target['qty_item2'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Removed item 1 is not in the new order
+    expr: "not any(any(it.product_name == target['remove_item1'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Removed item 2 is not in the new order
+    expr: "not any(any(it.product_name == target['remove_item2'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[9]
+    severity: low

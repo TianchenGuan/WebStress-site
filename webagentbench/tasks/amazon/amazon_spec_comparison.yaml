@@ -69,26 +69,80 @@ seed:
     monitor_a_id: '{output.product_id_monitor_a}'
     monitor_b_name: '{output.product_name_monitor_b}'
     monitor_b_id: '{output.product_id_monitor_b}'
-eval:
-  source: server_state
-  checks:
-  - expr: '''{target.monitor_a_id}'' in state.recently_viewed'
-    desc: Monitor A product page was viewed
-  - expr: '''{target.monitor_b_id}'' in state.recently_viewed'
-    desc: Monitor B product page was viewed
-  negative_checks:
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty (no purchase)
-    penalty: 0.4
-  - expr: 'all(o.id in state._initial_snapshot.get(''orders'', {}) for o in state.orders)
-
-      '
-    desc: No new orders placed
-    penalty: 0.4
-  - expr: "'{target.monitor_a_id}' not in state.wishlist and '{target.monitor_b_id}'\
-      \ not in state.wishlist"
-    desc: Neither monitor was added to the wishlist
-    penalty: 0.2
-  - expr: sorted(state.wishlist) == state._initial_snapshot.get('wishlist', [])
-    desc: Wishlist was not modified at all
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Monitor A product page was viewed
+    expr: "target['monitor_a_id'] in state.recently_viewed"
+    severity: critical
+  - desc: Monitor B product page was viewed
+    expr: "target['monitor_b_id'] in state.recently_viewed"
+    severity: critical
+  - desc: Cart is empty (no purchase)
+    expr: "len(state.cart_items) == 0"
+    severity: high
+  - desc: No new orders were placed
+    expr: "len(state.orders) <= len(initial.orders)"
+    severity: high
+  - desc: Neither monitor was added to the wishlist
+    expr: "target['monitor_a_id'] not in state.wishlist and target['monitor_b_id'] not in state.wishlist"
+    severity: medium
+  - desc: Wishlist was not modified at all
+    expr: "sorted(state.wishlist) == sorted(initial.wishlist)"
+    severity: low
+  invariant:
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify product catalog
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not add items to cart
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -95,50 +95,81 @@ seed:
     extra_product_name: Wireless Charging Pad
     extra_product_id: '{output.extra_product_id}'
     extra_product_qty: 1
-eval:
-  source: server_state
-  checks:
-  - expr: 'not any(item.product_id == ''{target.oos_product_id}'' for item in state.cart_items)
-
-      '
-    desc: Out-of-stock item (USB-C Charging Cable) removed from cart
-  - expr: 'any(item.product_id == ''{target.product_id}'' and item.quantity == {target.correct_qty}
-      for item in state.cart_items)
-
-      '
+canonical_diff:
+  update:
+  - entity: CartItem
     desc: Target product quantity corrected to the specified amount
-  - expr: 'any(item.product_id == ''{target.extra_product_id}'' and item.quantity
-      == {target.extra_product_qty} for item in state.cart_items)
-
-      '
-    desc: In-stock comparison item remains in the cart at its original quantity
-  negative_checks:
-  - expr: 'sum(1 for item in state.cart_items if item.product_id == ''{target.product_id}'')
-      == 1
-
-      '
-    desc: Target cart item was corrected in place instead of duplicated or removed
-    penalty: 0.3
-  - expr: 'not any(order.id not in state._initial_snapshot.get(''orders'', {}) for order in state.orders)
-
-      '
-    desc: No checkout was started while fixing the cart
-    penalty: 0.15
-  - expr: 'not any(not return_request.id.startswith(''return_initial_'') for return_request
-      in state.returns)
-
-      '
-    desc: No return request was filed while fixing the cart
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.cart.add') == 0
-    desc: Cart diagnosis did not add any new products
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'amazon.cart.remove') == 1
-    desc: Cart diagnosis removed only the out-of-stock item
-    penalty: 0.15
-  - expr: "not any(\n  e.action in [\n    'amazon.address.add',\n    'amazon.address.update',\n\
-      \    'amazon.address.remove',\n    'amazon.payment.add',\n    'amazon.payment.remove'\n\
-      \  ]\n  for e in state.audit_log)"
-    desc: Cart diagnosis did not mutate address or payment settings
-    penalty: 0.1
-secondary_primitives: []
+    where:
+      id: {expr: "any(it.product_id == target['product_id'] and it.id == x for it in state.cart_items)"}
+    changes:
+      quantity: {expr: "x == target['correct_qty']"}
+  delete:
+  - entity: CartItem
+    desc: Out-of-stock cart item removed
+    where:
+      product_id: {expr: "x == target['oos_product_id']"}
+  invariant:
+  - collection: state.cart_items
+    filter: "a.product_id not in (target['product_id'], target['oos_product_id'])"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: In-stock comparison item remains in the cart at its original quantity
+    expr: "any(item.product_id == target['extra_product_id'] and item.quantity == target['extra_product_qty'] for item in state.cart_items)"
+    severity: medium
+  - desc: No new orders placed while fixing the cart
+    expr: "len(state.orders) <= len(initial.orders)"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other cart items (e.g. the kept comparison item)
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

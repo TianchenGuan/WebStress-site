@@ -52,41 +52,101 @@ seed:
     city: Denver
     state_code: CO
     zip: '80202'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(addr.full_name == ''Jordan Lee'' and ''55 Elm'' in addr.street_address
-      for addr in state.addresses)
-
-      '
-    desc: New address was added with correct details
-  - expr: any(addr.full_name == 'Jordan Lee' and addr.state == 'CO' for addr in state.addresses)
-    desc: Address has correct state (CO)
-  - expr: any(addr.full_name == 'Jordan Lee' and addr.zip_code == '80202' for addr
-      in state.addresses)
-    desc: Address has correct ZIP code
-  - expr: 'state.settings.default_address_id is not None and any(addr.id == state.settings.default_address_id
-      and addr.full_name == ''Jordan Lee'' for addr in state.addresses)
-
-      '
-    desc: New address is set as default
-  - expr: any(o.id not in state._initial_snapshot.get('orders', {}) for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items)
-      for order in state.orders if order.id not in state._initial_snapshot.get(''orders'', {}))
-
-      '
-    desc: Order contains the target product
-  - expr: "any(\n  order.shipping_address_id not in state._initial_snapshot.get('addresses',\
-      \ {})\n  for order in state.orders if order.id not in state._initial_snapshot.get('orders',\
-      \ {}))\n"
-    desc: New order uses the new address (not one of the pre-seeded addresses)
-  negative_checks:
-  - expr: sum(1 for o in state.orders if o.id not in state._initial_snapshot.get('orders', {})) <=
-      1
-    desc: Only one new order placed
-    penalty: 0.15
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Address
+    desc: New default shipping address created with target details
+    properties:
+      full_name: {expr: "x == target['recipient_name']"}
+      street_address: {expr: "target['street'] in x"}
+      city: {expr: "x == target['city']"}
+      state: {expr: "x == target['state_code']"}
+      zip_code: {expr: "x == target['zip']"}
+      is_default: {eq: true}
+      apt_suite: {any: true}
+      country: {any: true}
+      phone: {any: true}
+  - entity: Order
+    desc: New order placed for target product using the new default address
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+      shipping_address_id:
+        expr: "state.settings.default_address_id == x and any(a.full_name == target['recipient_name'] for a in state.addresses if a.id == x)"
+      status: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  update:
+  - entity: Address
+    desc: Prior default address demoted as a side effect of setting a new default (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+    changes:
+      is_default: {eq: false}
+  invariant:
+  - collection: state.addresses
+    filter: "a.full_name != target['recipient_name']"
+    preserve: ALL
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other saved addresses
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other orders
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -70,46 +70,85 @@ seed:
     address_id: '{output.address_id}'
     payment_id: '{output.payment_id}'
     address_line: 742 Evergreen Terrace
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
-      and o.status == ''confirmed'' and any(item.product_id == ''{target.product_id}''
-      for item in o.items) for o in state.orders)
-
-      '
-    desc: A new confirmed order was placed for the target product
-  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
-      and o.shipping_address_id == ''{target.address_id}'' and any(item.product_id
-      == ''{target.product_id}'' for item in o.items) for o in state.orders)
-
-      '
-    desc: New order uses the correct shipping address (742 Evergreen Terrace)
-  - expr: 'any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
-      and o.payment_method_id == ''{target.payment_id}'' and any(item.product_id ==
-      ''{target.product_id}'' for item in o.items) for o in state.orders)
-
-      '
-    desc: New order uses the default Visa payment method
-  negative_checks:
-  - expr: 'not any(o.id not in state._initial_snapshot.get(''orders'', {}) and o.id != ''{target.cancelled_order_id}''
-      and o.status == ''confirmed'' and not any(item.product_id == ''{target.product_id}''
-      for item in o.items) for o in state.orders)
-
-      '
-    desc: No orders placed for wrong products
-    penalty: 0.3
-  - expr: 'sum(1 for o in state.orders if o.id not in state._initial_snapshot.get(''orders'', {})
-      and o.id != ''{target.cancelled_order_id}'' and o.status == ''confirmed'') <=
-      1
-
-      '
-    desc: Only one new order was placed
-    penalty: 0.2
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-  - expr: 'not any(r.id not in state._initial_snapshot.get(''returns'', {}) for r in state.returns)'
-    desc: No returns filed when none required
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New confirmed order for the target product, using the correct address and payment
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+      status: {eq: confirmed}
+      shipping_address_id: {expr: "x == target['address_id']"}
+      payment_method_id: {expr: "x == target['payment_id']"}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  delete:
+  - entity: CartItem
+    desc: Pre-loaded cart items cleared as a side effect of checkout (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "a.id == target['cancelled_order_id'] or not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify the cancelled order or other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

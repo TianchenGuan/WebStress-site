@@ -40,6 +40,29 @@ def test_amazon_session_create_succeeds(task_id: str) -> None:
     assert "seed" not in payload
 
 
+# Errors that canonical_diff's match_diff surfaces when a check fails on the
+# initial (empty-trajectory) state. These are logical mismatches, not Python
+# exceptions — the evaluator ran cleanly, the seeded state simply doesn't
+# satisfy the create/update/delete predicates. Distinguishing these from real
+# expression-level errors keeps the test honest about what it's guarding.
+_CANONICAL_DIFF_LOGICAL_ERRORS = (
+    "no candidate satisfied predicates",
+    "no Update entry matched both where and changes predicates",
+    "no Delete entry matched the where selector",
+)
+
+
+def _is_real_expression_error(error: str | None) -> bool:
+    if not error:
+        return False
+    if error in _CANONICAL_DIFF_LOGICAL_ERRORS:
+        return False
+    # Bijection partial match is a logical outcome, not a crash.
+    if error.startswith("matched ") and " of " in error:
+        return False
+    return True
+
+
 @pytest.mark.parametrize("task_id", _AMAZON_TASK_IDS)
 def test_amazon_seeded_evaluator_has_no_expression_errors(task_id: str) -> None:
     session_manager = SessionManager()
@@ -56,8 +79,14 @@ def test_amazon_seeded_evaluator_has_no_expression_errors(task_id: str) -> None:
         trajectory=[],
     )
 
-    assert not [check for check in result["checks"] if check.get("error")]
-    assert not [check for check in result["negative_checks"] if check.get("error")]
+    assert not [
+        check for check in result["checks"]
+        if _is_real_expression_error(check.get("error"))
+    ]
+    assert not [
+        check for check in result["negative_checks"]
+        if _is_real_expression_error(check.get("error"))
+    ]
 
 
 

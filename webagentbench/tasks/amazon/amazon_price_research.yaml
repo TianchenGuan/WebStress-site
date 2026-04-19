@@ -82,37 +82,77 @@ seed:
     earbud1_id: '{output.product_id_earbud1}'
     earbud2_id: '{output.product_id_earbud2}'
     earbud3_id: '{output.product_id_earbud3}'
-eval:
-  source: server_state
-  checks:
-  - expr: 'len([pid for pid in [''{target.earbud1_id}'', ''{target.earbud2_id}'', ''{target.earbud3_id}'']
-      if pid in state.recently_viewed]) >= 3
-
-      '
-    desc: Agent viewed all three earbud product pages
-  - expr: 'len({p.brand for p in state.products if p.id in state.recently_viewed and
-      p.category == ''Electronics'' and p.price < 100}) >= 2
-
-      '
-    desc: Viewed listings span at least two distinct brands under $100
-  - expr: 'len(state.search_history) >= 1
-
-      '
-    desc: Agent issued at least one product search
-  negative_checks:
-  - expr: len(state.cart_items) == 0
-    desc: Cart remains empty (no purchase intent expressed)
-    penalty: 0.4
-  - expr: 'all(o.id in state._initial_snapshot.get(''orders'', {}) for o in state.orders)
-
-      '
-    desc: No new orders were placed during research
-    penalty: 0.4
-  - expr: sorted(state.wishlist) == state._initial_snapshot.get('wishlist', [])
-    desc: Wishlist was not modified during research
-    penalty: 0.2
-  - expr: 'not any(e.action.startswith(''amazon.review.'') for e in state.audit_log)
-
-      '
-    desc: No reviews were submitted during research
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Agent viewed all three target earbud product pages
+    expr: "target['earbud1_id'] in state.recently_viewed and target['earbud2_id'] in state.recently_viewed and target['earbud3_id'] in state.recently_viewed"
+    severity: critical
+  - desc: Viewed listings span at least two distinct brands under $100
+    expr: "len({p.brand for p in state.products if p.id in state.recently_viewed and p.category == 'Electronics' and p.price < 100}) >= 2"
+    severity: high
+  - desc: Cart remains empty (research only)
+    expr: "len(state.cart_items) == 0"
+    severity: high
+  - desc: No new orders were placed during research
+    expr: "len(state.orders) <= len(initial.orders)"
+    severity: high
+  - desc: Wishlist was not modified during research
+    expr: "sorted(state.wishlist) == sorted(initial.wishlist)"
+    severity: medium
+  invariant:
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify product catalog
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not add items to cart
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low
