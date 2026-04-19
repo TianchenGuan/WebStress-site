@@ -111,59 +111,118 @@ seed:
     product_id_reorder: '{output.product_id_reorder}'
     review_title_1: Impressive Sound Quality
     review_title_2: Solid Kitchen Essential
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(r.product_id == ''{target.review_pid_1}'' and r.rating == 5 and r.title
-      == ''{target.review_title_1}'' for r in state.reviews)
-
-      '
-    desc: 5-star review with correct title for product 1
-  - expr: 'any(r.product_id == ''{target.review_pid_2}'' and r.rating == 3 and r.title
-      == ''{target.review_title_2}'' for r in state.reviews)
-
-      '
-    desc: 3-star review with correct title for product 2
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_reorder}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Reorder product is in the new order
-  - expr: 'any(o.status == ''confirmed'' for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: New order is confirmed
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  - expr: 'sum(1 for r in state.reviews if r.product_id == ''{target.review_pid_1}'')
-      >= 1
-
-      '
-    desc: At least one review exists for product 1
-  negative_checks:
-  - expr: 'not any(r.product_id == ''{target.review_pid_1}'' and r.rating != 5 for
-      r in state.reviews if r.title == ''{target.review_title_1}'')
-
-      '
-    desc: Review for product 1 has correct rating
-    penalty: 0.15
-  - expr: 'not any(r.product_id == ''{target.review_pid_2}'' and r.rating != 3 for
-      r in state.reviews if r.title == ''{target.review_title_2}'')
-
-      '
-    desc: Review for product 2 has correct rating
-    penalty: 0.15
-  - expr: 'not any(any(item.product_id == ''{target.review_pid_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 1 was not reordered (only reviewed)
-    penalty: 0.1
-  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
-    desc: No off-task returns were opened or updated
-    penalty: 0.1
-  - expr: not any(e.action.startswith('amazon.wishlist.') for e in state.audit_log)
-    desc: No off-task wishlist mutations were made
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Review
+    desc: 5-star review for product 1 with correct title
+    properties:
+      product_id: {expr: "x == target['review_pid_1']"}
+      rating: {eq: 5}
+      title: {expr: "x == target['review_title_1']"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  - entity: Review
+    desc: 3-star review for product 2 with correct title
+    properties:
+      product_id: {expr: "x == target['review_pid_2']"}
+      rating: {eq: 3}
+      title: {expr: "x == target['review_title_2']"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  - entity: Order
+    desc: New confirmed order for the reorder product
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id_reorder'] for it in x)"
+      status: {eq: confirmed}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  update:
+  - entity: Product
+    desc: Product review_count incremented for product 1 review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['review_pid_1']"}
+    changes:
+      review_count: {any: true}
+  - entity: Product
+    desc: Product review_count incremented for product 2 review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['review_pid_2']"}
+    changes:
+      review_count: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['product_id_reorder'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.reviews
+    filter: "a.product_id != target['review_pid_1'] and a.product_id != target['review_pid_2']"
+    preserve: ALL
+  - collection: state.products
+    filter: "a.id != target['review_pid_1'] and a.id != target['review_pid_2']"
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not write reviews for other products
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not modify product catalog (beyond review_count)
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

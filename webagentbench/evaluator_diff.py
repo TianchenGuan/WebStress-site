@@ -331,25 +331,48 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
     stripped before comparison — this is how side-effect fields (e.g.
     ``Provider.available_slots`` consumed by appointment booking) become
     invisible to the collateral-damage sweep.
+
+    List fields whose element type is a primitive (``list[str]``, ``list[int]``,
+    etc. — e.g. ``AmazonState.wishlist``) are skipped: they aren't entity
+    collections and ``compute_diff`` can't attribute changes to a stable id.
+    Tasks that need to assert on such fields should use ``constraints:``.
     """
-    if isinstance(state, dict):
-        return {k: list(v) for k, v in state.items() if isinstance(v, list)}
+    import typing as _typing
 
     from pydantic import BaseModel
+
+    if isinstance(state, dict):
+        out_dict: dict[str, list[dict]] = {}
+        for k, v in state.items():
+            if not isinstance(v, list):
+                continue
+            # Skip list-of-primitives — no id to diff on.
+            if v and not isinstance(v[0], dict):
+                continue
+            out_dict[k] = list(v)
+        return out_dict
+
     if isinstance(state, BaseModel):
         out: dict[str, list[dict]] = {}
-        for name in type(state).model_fields:
+        for name, field_info in type(state).model_fields.items():
+            ann = field_info.annotation
+            if _typing.get_origin(ann) is not list:
+                continue
+            args = _typing.get_args(ann)
+            if not args:
+                continue
+            inner = args[0]
+            if not (isinstance(inner, type) and issubclass(inner, BaseModel)):
+                # list[str] / list[int] / etc. — not an entity collection.
+                continue
             val = getattr(state, name)
             if not isinstance(val, list):
                 continue
-            # Entity-collection lists hold pydantic models (list[SomeEntity]).
-            # State-level data lists (e.g. reddit's list[str] for
-            # subscriptions, saved_post_ids, blocked_users) hold scalars
-            # or non-entity dicts. compute_diff only tracks entity
-            # collections — state-level lists should be asserted via
-            # constraint expressions in the canonical_diff, not diffed
-            # here. Skip any list whose elements aren't pydantic models
-            # or plain dicts-with-id.
+            # Defensive runtime check (belt + suspenders alongside the
+            # annotation-based pre-filter above): if elements aren't
+            # pydantic models or plain dicts, treat the field as a
+            # state-level scalar list and skip it. State-level lists
+            # should be asserted via `constraints:`, not the diff.
             dumped: list[dict] = []
             for v in val:
                 if hasattr(v, "model_dump"):
@@ -361,17 +384,12 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
                 elif isinstance(v, dict):
                     dumped.append(dict(v))
                 else:
-                    # Scalar or non-dict element — whole list is a
-                    # state-level scalar list. Drop the collection and
-                    # move on; constraints can still reach it via
-                    # `state.<name>`.
                     dumped = []
                     break
             else:
                 out[name] = dumped
                 continue
-            # If we broke out of the loop because of a scalar element,
-            # the for/else above didn't run — skip this field.
+            # for/else didn't run — loop broke on a scalar element. Skip.
         return out
     raise TypeError(f"compute_diff: unsupported state type {type(state)!r}")
 

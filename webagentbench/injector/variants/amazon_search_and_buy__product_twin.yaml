@@ -1,24 +1,49 @@
 variant_id: amazon_search_and_buy__product_twin
 base_task_id: amazon_search_and_buy
 target_primitive: grounding
-description: Renewed and plus listings with nearly identical names sit beside the target item. The agent
-  must match the exact product before acting.
+description: "Composite degradation: (a) generation-drift decoys (XM4 and a fake XM5s revision) share the target's brand, rating, and thumbnail; (b) the first cart-add call silently fails and the first checkout call returns 503 once. The agent must ground on the exact XM5 SKU AND verify each mutation actually landed."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Sony WH-1000XM5 Wireless Headphones Plus
-      brand: Sony Direct
+      name: Sony WH-1000XM4 Wireless Headphones
+      brand: Sony
+      seller: Sony
       category: Electronics
-      price: 400.2
-      rating: 4.6
-      description: Lookalike listing with slightly different packaging and model copy.
+      price: 298.0
+      rating: 4.7
+      review_count: 1240
+      match_image_of: Sony WH-1000XM5 Wireless Headphones
+      description: Previous-generation XM4 in matching packaging and brand; the XM4 is NOT the model specified in the task.
     - type: product
-      name: Sony WH-1000XM5 Wireless Headphones (Renewed)
-      brand: Sony Outlet
+      name: Sony WH-1000XM5s Wireless Headphones
+      brand: Sony
+      seller: Sony
       category: Electronics
-      price: 285.36
-      rating: 4.3
-      description: Refurbished lookalike listing that is not the exact requested item.
+      price: 359.0
+      rating: 4.7
+      review_count: 210
+      match_image_of: Sony WH-1000XM5 Wireless Headphones
+      description: "'Refresh' revision suffix (XM5s) that looks newer than XM5 but is a separate listing from the task's target SKU."
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods:
+    - POST
+    fail_count: 1
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/checkout'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Checkout service is temporarily unavailable. Please retry the checkout.
+    behavior:
+      mode: once

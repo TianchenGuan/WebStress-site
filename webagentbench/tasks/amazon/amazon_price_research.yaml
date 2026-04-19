@@ -1,0 +1,158 @@
+task_id: amazon_price_research
+env_id: amazon
+title: Research Wireless Earbuds Under $100
+instruction_template: "You are researching wireless earbuds under $100 for a future
+  purchase.\n1. Search Amazon for wireless earbuds.\n2. View the product pages of
+  at least three different wireless-earbud listings from at least two different brands,
+  all priced under $100.\n3. Do NOT add anything to your cart, your wishlist, or place
+  an order — this is research only.\n"
+difficulty: medium
+time_limit_seconds: 240
+expected_steps: 15
+primary_primitives:
+- exploration
+secondary_primitives:
+- verification
+start_path: /
+seed:
+  distractors: 10
+  actors: {}
+  steps:
+  - use: featured_product
+    params:
+      name: Bluetooth Earbuds Pro
+      brand: SoundCore
+      category: Electronics
+      price: 59.99
+      rating: 4.5
+      features:
+      - Active noise cancellation
+      - 32-hour battery
+      - IPX5 waterproof
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud1
+    - product_name_earbud1
+    - product_price_earbud1
+  - use: featured_product
+    params:
+      name: Wireless Earbuds Essential
+      brand: JLab
+      category: Electronics
+      price: 29.99
+      rating: 4.2
+      features:
+      - Touch controls
+      - USB-C charging
+      - 24-hour battery
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud2
+    - product_name_earbud2
+    - product_price_earbud2
+  - use: featured_product
+    params:
+      name: AirFlow Wireless Buds Sport
+      brand: Jabra
+      category: Electronics
+      price: 89.99
+      rating: 4.6
+      features:
+      - Secure fit for workouts
+      - Wind-noise reduction
+      - Multi-device pairing
+      variants: []
+      in_stock: true
+    outputs:
+    - product_id_earbud3
+    - product_name_earbud3
+    - product_price_earbud3
+  - use: product_catalog
+    params:
+      category: Electronics
+      count: 8
+      price_range:
+      - 15.0
+      - 250.0
+    outputs:
+    - catalog_ids
+  targets:
+    earbud1_id: '{output.product_id_earbud1}'
+    earbud2_id: '{output.product_id_earbud2}'
+    earbud3_id: '{output.product_id_earbud3}'
+canonical_diff:
+  constraints:
+  - desc: Agent viewed all three target earbud product pages
+    expr: "target['earbud1_id'] in state.recently_viewed and target['earbud2_id'] in state.recently_viewed and target['earbud3_id'] in state.recently_viewed"
+    severity: critical
+  - desc: Viewed listings span at least two distinct brands under $100
+    expr: "len({p.brand for p in state.products if p.id in state.recently_viewed and p.category == 'Electronics' and p.price < 100}) >= 2"
+    severity: high
+  - desc: Cart remains empty (research only)
+    expr: "len(state.cart_items) == 0"
+    severity: high
+  - desc: No new orders were placed during research
+    expr: "len(state.orders) <= len(initial.orders)"
+    severity: high
+  - desc: Wishlist was not modified during research
+    expr: "sorted(state.wishlist) == sorted(initial.wishlist)"
+    severity: medium
+  invariant:
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify product catalog
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not add items to cart
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

@@ -101,37 +101,84 @@ seed:
     expensive_id_2: '{output.product_id_expensive2}'
     cheap_id_1: '{output.product_id_cheap1}'
     cheap_id_2: '{output.product_id_cheap2}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: A new order was placed
-  - expr: 'not any(any(item.product_id == ''{target.expensive_id_1}'' for item in
-      order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Expensive Mechanical Keyboard was not purchased
-  - expr: 'not any(any(item.product_id == ''{target.expensive_id_2}'' for item in
-      order.items) for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Expensive Premium Webcam was not purchased
-  - expr: 'any(any(item.product_id == ''{target.cheap_id_1}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Desk Cable Organizer was purchased
-  - expr: 'any(any(item.product_id == ''{target.cheap_id_2}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: LED Desk Lamp was purchased
-  negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      1
-    desc: Only one new order placed
-    penalty: 0.15
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after checkout
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed containing only the two cheap wishlist items
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['cheap_id_1'] for it in x) and any(it['product_id'] == target['cheap_id_2'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['cheap_id_1'] for it in (a.items or [])) and any(it.get('product_id') == target['cheap_id_2'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Expensive item 1 (Mechanical Keyboard) was not purchased
+    expr: "not any(any(it.product_id == target['expensive_id_1'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Expensive item 2 (Premium Webcam) was not purchased
+    expr: "not any(any(it.product_id == target['expensive_id_2'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
+    severity: high
+  - desc: Cart is empty after checkout
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[9]
+    severity: low

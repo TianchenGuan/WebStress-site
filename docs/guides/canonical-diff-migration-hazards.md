@@ -370,6 +370,102 @@ against any seed-derived list/dict target:
 
 ---
 
+## Class 14 — Address.is_default side-effect on "set as default"
+
+**Symptom.** `test_correct_trajectory_passes` fails with
+`Unaccounted update in addresses (id=addr_1)` — score is right (1.0), but
+`passed=False`.
+
+**Root cause.** `AmazonState.add_address` (and `update_address` with
+`is_default=True`) flips every *existing* address's `is_default` to `False` as
+a documented side effect of setting a new default. A filtered invariant that
+excludes the new address doesn't cover the demotion Update on the old default,
+and the unaccounted sweep flags it.
+
+**Where.** `webagentbench/backend/models/amazon.py::AmazonState.add_address`
+(lines ~438-445) and `update_address` (lines ~447-463).
+
+**Fix pattern.** Absorb the side effect via a weight-zero `update:` entry that
+matches any Address whose `is_default` changed to False. Weight zero keeps it
+out of the positive score numerator, but matched addresses join `matched_ids`
+so the unaccounted sweep skips them:
+
+```yaml
+update:
+- entity: Address
+  desc: Prior default address demoted (side effect of setting a new default)
+  weight: 0.0
+  where:
+    id: {any: true}
+  changes:
+    is_default: {eq: false}
+```
+
+Use this whenever the canonical task creates a new address with
+`is_default=True`, or updates an existing address to be the default.
+
+**Prevention.** When the task instruction includes "set as default" (or
+"make default"), scan `add_address`/`update_address` for side-effect loops
+and add the weight-zero update entry up front. Same pattern applies in
+principle to `add_payment_method` (flips is_default on existing cards).
+
+---
+
+## Class 13 — `list[str]` / primitive-valued state fields break compute_diff
+
+**Symptom.** Calling `compute_diff(initial, final)` on a pydantic state that
+contains a primitive-valued list field (e.g. `AmazonState.wishlist: list[str]`,
+`state.recently_viewed: list[str]`, `state.search_history: list[str]`) raises:
+
+```
+ValueError: dictionary update sequence element #0 has length 1; 2 is required
+```
+
+**Root cause.** `webagentbench/evaluator_diff.py::_collections_of` iterated every
+`list[*]`-typed field and, for any element without a `model_dump` method, fell
+through to `dict(v)` — which on a plain string like `"product_318"` tries to
+treat each character as a `(key, value)` pair and fails.
+
+Without a stable `id` field, primitive-list entries can't be attributed to a
+`Create`/`Update`/`Delete` diff entry anyway. They aren't entity collections;
+they're scalar container state. The matcher can't diff them meaningfully.
+
+**Where.** `webagentbench/evaluator_diff.py::_collections_of`. The same shape
+of bug would hit `booking.Property.amenities: list[str]`,
+`gmail.Draft.to: list[str]`, and any other primitive-list field — but only if
+those are top-level state fields, not nested inside an entity (nested fields
+are handled by the parent `model_dump()`).
+
+**Fix applied.** `_collections_of` now only emits list fields whose inner type
+is a `BaseModel` subclass (for pydantic states) or whose first element is a
+`dict` (for dict snapshots in tests). Primitive-list fields are silently
+skipped — they're invisible to the diff pipeline.
+
+**Prevention.** Tasks that need to assert on a primitive-list field
+(e.g. "the target product id must be in `state.wishlist`") must express that
+via a `constraints:` expression referring to the live state:
+
+```yaml
+canonical_diff:
+  constraints:
+    - desc: Target product is in the wishlist
+      expr: "target['product_id'] in state.wishlist"
+      severity: critical
+```
+
+The expression runs against the pydantic state in production and against
+a dict snapshot in the adversarial battery; attribute-access fails safely on
+dicts (caught by the constraint eval's bare `except Exception: ok = False`),
+which is the correct behavior for the battery's mutated-final dicts (the
+case should not pass).
+
+**Regression guard.** Added tests in
+`webagentbench/tests/test_compute_diff_primitive_lists.py` that seed amazon
+sessions and assert `compute_diff` runs clean on states with list[str]
+fields.
+
+---
+
 ## Class 12 — Shared-tree parallel authoring pollution
 
 **Symptom.** A task-local validation or full-suite checkpoint fails on a task
@@ -546,6 +642,79 @@ still in place.
 collection X and an invariant on X needs a filter. The filter
 expression should be `False` on the shape the positive entry creates
 and `True` on everything else.
+---
+
+## Class 16 — Multiple cart_item Delete entries on checkout with pre-seeded cart
+
+**Symptom.** `test_correct_trajectory_passes` fails with
+`Unaccounted delete in cart_items (id=cart_N)` for some cart ids but not all,
+even after adding a weight-0 `delete:` entry. Exactly one cart item gets
+absorbed; the rest fall through to the unaccounted sweep.
+
+**Root cause.** `place_order` clears `state.cart_items` entirely. When the seed
+pre-populates the cart with N items, `compute_diff` emits N `Delete` entries on
+`cart_items`. The matcher's Delete handling only matches ONE candidate per
+`delete:` block entry (it early-exits after the first match). A single
+`delete: CartItem, weight: 0, where: {id: {any: true}}` only absorbs one of
+the N entries; the rest are flagged as unaccounted.
+
+Adding an unfiltered invariant on `state.cart_items` doesn't help either:
+unfiltered invariants are treated as covering the whole collection by the
+unaccounted sweep (via `invariant_cols_full`), but the invariant sweep will
+still flag unmatched Delete entries on `cart_items` as violations.
+
+**Where.** `webagentbench/evaluator_diff.py:_match_single_block` (Delete
+section, around line 972-1006). The `for candidate in agent_diff:` loop breaks
+after the first match.
+
+**Fix pattern.** Emit N weight-0 `delete:` entries, one per expected seed cart
+item. For example, `amazon_checkout_with_new_address` seeds 2 cart items, so:
+
+```yaml
+delete:
+- entity: CartItem
+  desc: Pre-seeded cart item 1 cleared on checkout (side effect, weight 0)
+  weight: 0.0
+  where:
+    id: {any: true}
+- entity: CartItem
+  desc: Pre-seeded cart item 2 cleared on checkout (side effect, weight 0)
+  weight: 0.0
+  where:
+    id: {any: true}
+```
+
+For tasks where the agent also adds new items and THEN checks out (like
+`amazon_strategic_cart_overhaul` or `amazon_precision_cart_rebuild`), count
+both the kept-but-checked-out items AND the explicitly-removed items:
+
+- `amazon_strategic_cart_overhaul`: 3 expensive removed + 3 budget kept = 6
+  total Delete entries on cart_items. 3 of them are "explicit remove" (where
+  `product_name` matches the expensive name); 3 are "cleared on checkout"
+  (where id: any).
+- `amazon_precision_cart_rebuild`: 3 explicit removes + 5 kept items = 8
+  total. Three are `product_name: {eq: ...}`; five are `id: {any: true}`.
+
+The explicit-remove entries double as a correctness assertion (the expensive
+items WERE removed before checkout), even when weight is 0 — because if the
+agent forgot to remove an expensive item, there wouldn't be a matching Delete
+for that product_name and the entry would fail as missing.
+
+**Prevention.** For every task with `use: checkout_ready` in the seed that
+also ends with `place_order`:
+
+1. Inspect the seed to count pre-populated cart items (via
+   `SessionManager().create_session(...); len(state.cart_items)`).
+2. Emit exactly that many `delete: CartItem` entries with weight 0.
+3. Use `product_name: {eq: ...}` predicates on the entries corresponding to
+   items the task REQUIRES the agent to remove; use `id: {any: true}` for the
+   rest.
+
+**Regression guard.** After authoring, the correct-trajectory test must pass
+with `passed=True`. If `Unaccounted delete in cart_items` fires, count the
+Delete diff entries (`[e for e in agent_diff if isinstance(e, Delete) and
+e.entity == 'cart_items']`) and confirm the `delete:` block has an equal
+number of entries.
 
 ---
 

@@ -129,66 +129,125 @@ seed:
     up_pid_2: '{output.product_id_up2}'
     order_id: '{output.order_id_ret}'
     review_title: Major Upgrade Worth Every Penny
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(r.product_id == ''{target.ret_pid_1}'' and r.reason == ''defective''
-      for r in state.returns)
-
-      '
-    desc: Return 1 filed with reason defective
-  - expr: 'any(r.product_id == ''{target.ret_pid_2}'' and r.reason == ''not_as_described''
-      for r in state.returns)
-
-      '
-    desc: Return 2 filed with reason not_as_described
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: A new order placed
-  - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Upgrade 1 purchased
-  - expr: 'any(any(item.product_id == ''{target.up_pid_2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Upgrade 2 purchased
-  - expr: 'any(any(item.product_id == ''{target.up_pid_1}'' for item in o.items) and
-      any(item.product_id == ''{target.up_pid_2}'' for item in o.items) for o in state.orders
-      if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Both upgrades in same order
-  - expr: 'any(r.product_id == ''{target.up_pid_1}'' and r.rating == 5 and r.title
-      == ''{target.review_title}'' for r in state.reviews)
-
-      '
-    desc: 5-star review for upgrade 1
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  - expr: 'len([r for r in state.returns if r.order_id == ''{target.order_id}''])
-      >= 2
-
-      '
-    desc: Both returns filed against the correct order
-  negative_checks:
-  - expr: not any(r.product_id == '{target.up_pid_2}' for r in state.reviews)
-    desc: No review for upgrade 2 (only upgrade 1 should be reviewed)
-    penalty: 0.1
-  - expr: 'not any(r.product_id == ''{target.ret_pid_1}'' or r.product_id == ''{target.ret_pid_2}''
-      for r in state.reviews)
-
-      '
-    desc: No reviews for returned products
-    penalty: 0.1
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      1
-    desc: Only one new order placed
-    penalty: 0.1
-  - expr: 'not any(r.reason != ''defective'' for r in state.returns if r.product_id
-      == ''{target.ret_pid_1}'')
-
-      '
-    desc: Return 1 reason is exactly defective
-    penalty: 0.15
+canonical_diff:
+  create:
+  - entity: ReturnRequest
+    desc: Return request 1 for ret_pid_1 with reason defective
+    properties:
+      order_id: {expr: "x == target['order_id']"}
+      product_id: {expr: "x == target['ret_pid_1']"}
+      reason: {eq: defective}
+      status: {any: true}
+      refund_amount: {any: true}
+      order_item_index: {any: true}
+      product_name: {any: true}
+      created_at: {any: true}
+      resolution_note: {any: true}
+  - entity: ReturnRequest
+    desc: Return request 2 for ret_pid_2 with reason not_as_described
+    properties:
+      order_id: {expr: "x == target['order_id']"}
+      product_id: {expr: "x == target['ret_pid_2']"}
+      reason: {eq: not_as_described}
+      status: {any: true}
+      refund_amount: {any: true}
+      order_item_index: {any: true}
+      product_name: {any: true}
+      created_at: {any: true}
+      resolution_note: {any: true}
+  - entity: Order
+    desc: New order containing both upgrade products
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['up_pid_1'] for it in x) and any(it['product_id'] == target['up_pid_2'] for it in x)"
+      status: {any: true}
+      shipping_address_id: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Review
+    desc: 5-star review for upgrade product 1
+    properties:
+      product_id: {expr: "x == target['up_pid_1']"}
+      rating: {eq: 5}
+      title: {expr: "x == target['review_title']"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  update:
+  - entity: Product
+    desc: Product review_count incremented for upgrade 1 review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['up_pid_1']"}
+    changes:
+      review_count: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['up_pid_1'] for it in (a.items or [])) and any(it.get('product_id') == target['up_pid_2'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.returns
+    filter: "a.order_id != target['order_id']"
+    preserve: ALL
+  - collection: state.reviews
+    filter: "a.product_id != target['up_pid_1']"
+    preserve: ALL
+  - collection: state.products
+    filter: "a.id != target['up_pid_1']"
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other return requests
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not write reviews for other products
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify product catalog (beyond review_count)
+    ref: invariant[3]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

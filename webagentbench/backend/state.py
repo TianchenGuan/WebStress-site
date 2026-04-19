@@ -101,6 +101,13 @@ class SessionManager:
                             if cost_total != 0 else _Dec("0")
                         )
 
+        # Capture baseline snapshot for evaluator filters (e.g. ``o.id not in
+        # state._initial_snapshot.get('orders', {})``). REST session routes may
+        # re-capture this after applying degradation; this default makes the
+        # snapshot available to tests and callers that skip degradation.
+        if hasattr(state, "state_snapshot"):
+            state._initial_snapshot = state.state_snapshot()
+
         session_id = f"{env_id}_{task_id}_{uuid.uuid4().hex[:10]}"
         # Take a post-seed snapshot of the state so the canonical_diff
         # evaluator can compute a net diff later. Deep-copy isolates the

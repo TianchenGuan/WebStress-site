@@ -1,25 +1,24 @@
 variant_id: reddit_full_profile_engagement__subreddit_collision
 base_task_id: reddit_full_profile_engagement
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears beside the real community, including
-  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+description: Two sibling communities (r/photography2 and r/Truephotography, chosen by distinct naming attacks) mirror r/photography's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: photography_
-      display_name: r/photography_
-      description: Lookalike community with nearly identical branding.
-      subscribers: 185000
+      name: photography2
+      display_name: r/photography2
+      description: A community for questions, discussion, and sharing about photography. 'v2' community claiming to be a cleaner rework of the main sub.
+      subscribers: 4836000
     - type: subreddit
-      name: photographyhub
-      display_name: r/photographyhub
-      description: Companion community that often appears next to the real one in search.
-      subscribers: 74000
+      name: Truephotography
+      display_name: r/Truephotography
+      description: A community for questions, discussion, and sharing about photography. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      subscribers: 2132000
     - type: post
-      subreddit: photography_
+      subreddit: photography2
       title: Interesting discussion thread
       author: shadow_mod
       score: 144

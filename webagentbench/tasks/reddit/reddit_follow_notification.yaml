@@ -101,7 +101,7 @@ eval:
       c.post_id != '{target.related_post_id}') <= 8
     desc: No comments on unrelated posts
     penalty: 0.2
-  - expr: len(state.sent_messages) == 0
+  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
     desc: No messages sent when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

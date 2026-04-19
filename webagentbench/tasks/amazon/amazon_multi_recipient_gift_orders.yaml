@@ -111,81 +111,143 @@ seed:
     recip_2_city: San Francisco
     recip_2_state: CA
     recip_2_zip: '94102'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(a.full_name == ''Jamie Thompson'' and a.city == ''Seattle'' for a in
-      state.addresses)
-
-      '
-    desc: Jamie's address added
-  - expr: 'any(a.full_name == ''Taylor Kim'' and a.city == ''San Francisco'' for a
-      in state.addresses)
-
-      '
-    desc: Taylor's address added
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
-      3
-    desc: At least 3 orders placed
-  - expr: 'any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gift 1 purchased
-  - expr: 'any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gift 2 purchased
-  - expr: 'any(any(item.product_id == ''{target.gift_pid_3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gift 3 purchased
-  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
-      == ''Jamie Thompson''), '''') and any(item.product_id == ''{target.gift_pid_1}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
+canonical_diff:
+  create:
+  - entity: Address
+    desc: Recipient 1 address created (Jamie)
+    properties:
+      full_name: {expr: "x == target['recip_1_name']"}
+      street_address: {expr: "target['recip_1_street'] in x"}
+      city: {expr: "x == target['recip_1_city']"}
+      state: {expr: "x == target['recip_1_state']"}
+      zip_code: {expr: "x == target['recip_1_zip']"}
+      apt_suite: {any: true}
+      country: {any: true}
+      is_default: {eq: false}
+      phone: {any: true}
+  - entity: Address
+    desc: Recipient 2 address created (Taylor)
+    properties:
+      full_name: {expr: "x == target['recip_2_name']"}
+      street_address: {expr: "target['recip_2_street'] in x"}
+      city: {expr: "x == target['recip_2_city']"}
+      state: {expr: "x == target['recip_2_state']"}
+      zip_code: {expr: "x == target['recip_2_zip']"}
+      apt_suite: {any: true}
+      country: {any: true}
+      is_default: {eq: false}
+      phone: {any: true}
+  - entity: Order
     desc: Gift 1 shipped to Jamie
-  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
-      == ''Taylor Kim''), '''') and any(item.product_id == ''{target.gift_pid_2}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['gift_pid_1'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name == target['recip_1_name'] for a in state.addresses)"
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Order
     desc: Gift 2 shipped to Taylor
-  - expr: 'any(o.shipping_address_id not in [next((a.id for a in state.addresses if
-      a.full_name == ''Jamie Thompson''), ''''), next((a.id for a in state.addresses
-      if a.full_name == ''Taylor Kim''), '''')] and any(item.product_id == ''{target.gift_pid_3}''
-      for item in o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gift 3 shipped to existing address
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after all orders
-  negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      3
-    desc: No more than 3 orders
-    penalty: 0.1
-  - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
-      and any(item.product_id == ''{target.gift_pid_2}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gifts 1 and 2 are in separate orders
-    penalty: 0.15
-  - expr: 'not any(any(item.product_id == ''{target.gift_pid_2}'' for item in o.items)
-      and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gifts 2 and 3 are in separate orders
-    penalty: 0.15
-  - expr: 'not any(any(item.product_id == ''{target.gift_pid_1}'' for item in o.items)
-      and any(item.product_id == ''{target.gift_pid_3}'' for item in o.items) for
-      o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Gifts 1 and 3 are in separate orders
-    penalty: 0.15
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['gift_pid_2'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name == target['recip_2_name'] for a in state.addresses)"
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Order
+    desc: Gift 3 shipped to an existing (non-Jamie, non-Taylor) address
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['gift_pid_3'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name not in [target['recip_1_name'], target['recip_2_name']] for a in state.addresses)"
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.addresses
+    filter: "a.full_name not in [target['recip_1_name'], target['recip_2_name']]"
+    preserve: ALL
+  - collection: state.orders
+    filter: "a.id.startswith('order_initial_')"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Cart is empty after all checkouts
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other saved addresses
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other orders
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

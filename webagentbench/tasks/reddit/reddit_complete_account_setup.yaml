@@ -169,10 +169,10 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: len(state.sent_messages) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
     desc: No extra messages sent beyond the required welcome note
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <=
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
       4
     desc: No extra posts created beyond the required MachineLearning post
     penalty: 0.15

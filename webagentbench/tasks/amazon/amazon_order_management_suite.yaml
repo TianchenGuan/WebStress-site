@@ -98,69 +98,99 @@ seed:
     second_item1_id: '{output.product_id_second1}'
     second_item2: Notebook 5-Pack Lined
     second_item2_id: '{output.product_id_second2}'
-eval:
-  source: server_state
-  checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) >=
-      2
-    desc: At least two new orders were placed
-  - expr: 'any(any(item.product_id == ''{target.first_product_id}'' for item in order.items)
-      and order.status == ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: First order with Portable SSD is cancelled
-  - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items)
-      and order.status != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Second order containing Mechanical Pencil Set is active
-  - expr: 'any(any(item.product_id == ''{target.second_item2_id}'' for item in order.items)
-      and order.status != ''cancelled'' for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Second order containing Notebook 5-Pack is active
-  - expr: 'any(any(item.product_id == ''{target.second_item1_id}'' for item in order.items)
-      and any(item.product_id == ''{target.second_item2_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Both second-order items are in the same order
-  - expr: "all( any(\n  addr.id == order.shipping_address_id\n  and addr.full_name\
-      \ == 'Jordan Parker'\n  and addr.street_address == '742 Evergreen Terrace'\n\
-      \  for addr in state.addresses\n) for order in state.orders if not order.id.startswith('order_initial_'))\n"
-    desc: All new orders use Jordan Parker's shipping address
-  - expr: "all( any(\n  pm.id == order.payment_method_id\n  and pm.card_type == 'Visa'\n\
-      \  and pm.last_four == '4242'\n  for pm in state.payment_methods\n) for order\
-      \ in state.orders if not order.id.startswith('order_initial_'))\n"
-    desc: All new orders use the required Visa card ending in 4242
-  negative_checks:
-  - expr: len(state.cart_items) == 0
-    desc: Cart is empty after all operations
-    penalty: 0.1
-  - expr: 'sum(1 for order in state.orders if not order.id.startswith(''order_initial_'')
-      and order.status == ''cancelled'') <= 1
-
-      '
-    desc: Only one new order was cancelled
-    penalty: 0.15
-  - expr: 'not any( any(item.product_id not in [''{target.first_product_id}'', ''{target.second_item1_id}'',
-      ''{target.second_item2_id}''] for item in order.items) for order in state.orders
-      if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: No unrelated products were purchased during the order-management workflow
-    penalty: 0.15
-  - expr: 'not any( order.status == ''cancelled'' and (any(item.product_id == ''{target.second_item1_id}''
-      for item in order.items) or any(item.product_id == ''{target.second_item2_id}''
-      for item in order.items)) for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: Replacement office-supplies order was not cancelled by mistake
-    penalty: 0.2
-  - expr: "not any( e.action in [\n  'amazon.address.add',\n  'amazon.address.update',\n\
-      \  'amazon.address.remove',\n  'amazon.payment.add',\n  'amazon.payment.remove',\n\
-      \  'amazon.return.create'\n] for e in state.audit_log)"
-    desc: Workflow did not mutate account details or create returns outside the required
-      lifecycle
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: First order containing the first product, cancelled
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['first_product_id'] for it in x)"
+      status: {eq: cancelled}
+      shipping_address_id:
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+      payment_method_id:
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Order
+    desc: Second order containing both second-order items, not cancelled
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['second_item1_id'] for it in x) and any(it['product_id'] == target['second_item2_id'] for it in x)"
+      status: {in: [confirmed, shipped, delivered, pending]}
+      shipping_address_id:
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+      payment_method_id:
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') in [target['first_product_id'], target['second_item1_id'], target['second_item2_id']] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

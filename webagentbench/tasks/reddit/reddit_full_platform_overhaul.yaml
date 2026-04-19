@@ -261,10 +261,10 @@ eval:
   - expr: state.unread_message_count() == 0
     desc: All messages read
   negative_checks:
-  - expr: len(state.sent_messages) <= 1
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 1
     desc: No extra messages were sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <=
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
       1
     desc: No extra posts were created
     penalty: 0.15

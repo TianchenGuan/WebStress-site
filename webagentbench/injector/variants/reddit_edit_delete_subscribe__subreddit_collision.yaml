@@ -1,25 +1,24 @@
 variant_id: reddit_edit_delete_subscribe__subreddit_collision
 base_task_id: reddit_edit_delete_subscribe
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears beside the real community, including
-  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+description: Two sibling communities (r/Py_thon and r/NewPython, chosen by distinct naming attacks) mirror r/Python's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: Python_
-      display_name: r/Python_
-      description: Lookalike community with nearly identical branding.
-      subscribers: 185000
+      name: Py_thon
+      display_name: r/Py_thon
+      description: News about the programming language Python. Underscored sibling — distinct URL slug, same branding.
+      subscribers: 1302000
     - type: subreddit
-      name: Pythonhub
-      display_name: r/Pythonhub
-      description: Companion community that often appears next to the real one in search.
-      subscribers: 74000
+      name: NewPython
+      display_name: r/NewPython
+      description: News about the programming language Python. Splinter community claiming to be the modern successor of the real sub.
+      subscribers: 574000
     - type: post
-      subreddit: Python_
+      subreddit: Py_thon
       title: Interesting discussion thread
       author: shadow_mod
       score: 144

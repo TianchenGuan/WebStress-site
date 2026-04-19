@@ -48,35 +48,102 @@ seed:
     product_name: '{output.product_name}'
     product_id: '{output.product_id}'
     review_title: Absolutely love these earbuds
-eval:
-  source: server_state
-  checks:
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: A new order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id}'' for item in order.items)
-      for order in state.orders if not order.id.startswith(''order_initial_''))
-
-      '
-    desc: The target product was purchased
-  - expr: 'any(r.product_id == ''{target.product_id}'' and r.rating == 5 for r in
-      state.reviews)
-
-      '
-    desc: A 5-star review was written for the product
-  - expr: 'any(r.product_id == ''{target.product_id}'' and ''Absolutely love'' in
-      r.title for r in state.reviews)
-
-      '
-    desc: Review title matches expected title
-  negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      1
-    desc: Only one new order placed
-    penalty: 0.15
-  - expr: 'sum(1 for r in state.reviews if r.product_id == ''{target.product_id}''
-      and r.author_name == state.owner_name) <= 1
-
-      '
-    desc: Only one review written by the user
-    penalty: 0.2
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Order
+    desc: New order placed for the target product using the required address and payment
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+      payment_method_id:
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Review
+    desc: 5-star review for the purchased product with the requested title
+    properties:
+      product_id: {expr: "x == target['product_id']"}
+      rating: {eq: 5}
+      title: {substring: "Absolutely love"}
+      body: {any: true}
+      author_name: {any: true}
+      helpful_count: {any: true}
+      verified_purchase: {any: true}
+      created_at: {any: true}
+  update:
+  - entity: Product
+    desc: Product review_count incremented for the review (weight 0)
+    weight: 0.0
+    where:
+      id: {expr: "x == target['product_id']"}
+    changes:
+      review_count: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    preserve: ALL
+  - collection: state.products
+    filter: "a.id != target['product_id']"
+    preserve: ALL
+  - collection: state.reviews
+    filter: "a.product_id != target['product_id']"
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other orders
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog (beyond review_count)
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not write reviews for other products
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

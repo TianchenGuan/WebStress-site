@@ -1,24 +1,26 @@
 variant_id: amazon_reorder_past_item__order_twin
 base_task_id: amazon_reorder_past_item
 target_primitive: state_tracking
-description: Order history includes a similarly named recent purchase alongside the real target order.
-  The agent must inspect the exact item before reordering or leaving it alone.
+description: A flavor-variant sibling ("Matcha Blend") of the past tea order sits in history with matching brand, rating, and thumbnail. The agent must reorder the exact flavor the instruction names (standard green tea), not the near-match.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Organic Green Tea 100-Pack Travel Edition
-      brand: Bigelow Travel
+      name: Organic Green Tea 100-Pack Matcha Blend
+      brand: Bigelow
+      seller: Bigelow
       category: Home & Kitchen
-      price: 24.29
-      rating: 4.4
-      description: Closely named travel edition that is not the original item.
+      price: 23.99
+      rating: 4.6
+      review_count: 480
+      match_image_of: Organic Green Tea 100-Pack
+      description: Matcha-blend flavor sibling with matching packaging and brand — a different SKU the reorder instruction does not cover.
     - type: order
-      product_name: Organic Green Tea 100-Pack Travel Edition
+      product_name: Organic Green Tea 100-Pack Matcha Blend
       quantity: 1
-      unit_price: 24.29
+      unit_price: 23.99
       status: confirmed
       placed_hours_ago: 6
       estimated_delivery: Arriving tomorrow

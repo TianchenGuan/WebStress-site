@@ -110,69 +110,120 @@ seed:
     addr2_city: Denver
     addr2_state: CO
     addr2_zip: '80201'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.state ==
-      ''TX'' for a in state.addresses)
-
-      '
-    desc: Austin address added
-  - expr: 'any(a.full_name == ''Morgan Blake'' and a.city == ''Denver'' and a.state
-      == ''CO'' for a in state.addresses)
-
-      '
-    desc: Denver address added
-  - expr: 'any(a.full_name == ''Alex Chen'' and a.city == ''Austin'' and a.is_default
-      for a in state.addresses)
-
-      '
-    desc: Austin address set as default
-  - expr: state.settings.one_click_enabled == True
-    desc: One-click ordering enabled
-  - expr: state.settings.two_factor_enabled == True
-    desc: Two-factor authentication enabled
-  - expr: any(not o.id.startswith('order_initial_') for o in state.orders)
-    desc: An order was placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 1 purchased
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 2 purchased
-  - expr: 'any(any(item.product_id == ''{target.product_id_acct3}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 3 purchased
-  - expr: 'any(o.shipping_address_id == next((a.id for a in state.addresses if a.full_name
-      == ''Alex Chen'' and a.city == ''Austin''), '''') for o in state.orders if not
-      o.id.startswith(''order_initial_''))
-
-      '
-    desc: Order shipped to Austin address
-  negative_checks:
-  - expr: not any(a.full_name == 'Morgan Blake' and a.is_default for a in state.addresses)
-    desc: Denver address is not default
-    penalty: 0.15
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) <=
-      1
-    desc: Only one order placed
-    penalty: 0.1
-  - expr: 'not any(o.shipping_address_id == next((a.id for a in state.addresses if
-      a.full_name == ''Morgan Blake''), '''') for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Order not shipped to Denver address
-    penalty: 0.15
-  - expr: "not any(\n  o.payment_method_id != 'pm_1'\n  for o in state.orders if not\
-      \ o.id.startswith('order_initial_'))\n"
-    desc: Order used the default Visa payment method
-    penalty: 0.15
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Address
+    desc: Austin address for addr1 (set as default)
+    properties:
+      full_name: {expr: "x == target['addr1_name']"}
+      street_address: {expr: "target['addr1_street'] in x"}
+      city: {expr: "x == target['addr1_city']"}
+      state: {expr: "x == target['addr1_state']"}
+      zip_code: {expr: "x == target['addr1_zip']"}
+      is_default: {eq: true}
+      apt_suite: {any: true}
+      country: {any: true}
+      phone: {any: true}
+  - entity: Address
+    desc: Denver address for addr2
+    properties:
+      full_name: {expr: "x == target['addr2_name']"}
+      street_address: {expr: "target['addr2_street'] in x"}
+      city: {expr: "x == target['addr2_city']"}
+      state: {expr: "x == target['addr2_state']"}
+      zip_code: {expr: "x == target['addr2_zip']"}
+      is_default: {eq: false}
+      apt_suite: {any: true}
+      country: {any: true}
+      phone: {any: true}
+  - entity: Order
+    desc: New order placed containing all three products, shipping to the Austin address
+    properties:
+      items:
+        expr: "len(x) == 3 and any(it['product_id'] == target['product_id_acct1'] for it in x) and any(it['product_id'] == target['product_id_acct2'] for it in x) and any(it['product_id'] == target['product_id_acct3'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.full_name == target['addr1_name'] and a.city == target['addr1_city'] for a in state.addresses if a.id == x)"
+      status: {any: true}
+      payment_method_id: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  update:
+  - entity: Address
+    desc: Prior default address demoted as a side effect of setting the Austin address as default (weight 0)
+    weight: 0.0
+    where:
+      id: {any: true}
+    changes:
+      is_default: {eq: false}
+  constraints:
+  - desc: One-click ordering is enabled
+    expr: "state.settings.one_click_enabled == True"
+    severity: high
+  - desc: Two-factor authentication is enabled
+    expr: "state.settings.two_factor_enabled == True"
+    severity: high
+  invariant:
+  - collection: state.addresses
+    filter: "a.full_name != target['addr1_name'] and a.full_name != target['addr2_name']"
+    preserve: ALL
+  - collection: state.orders
+    filter: "not (any(it.get('product_id') == target['product_id_acct1'] for it in (a.items or [])) and any(it.get('product_id') == target['product_id_acct2'] for it in (a.items or [])) and any(it.get('product_id') == target['product_id_acct3'] for it in (a.items or [])))"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other saved addresses
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other orders
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

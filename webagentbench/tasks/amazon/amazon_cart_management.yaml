@@ -37,22 +37,74 @@ seed:
     remove_product: Desk Lamp
     update_product: Wireless Keyboard
     new_quantity: '3'
-eval:
-  source: server_state
-  checks:
-  - expr: not any(item.product_name == 'Desk Lamp' for item in state.cart_items)
-    desc: Desk Lamp removed from cart
-  - expr: any(item.product_name == 'Wireless Keyboard' and item.quantity == 3 for
-      item in state.cart_items)
-    desc: Wireless Keyboard quantity updated to 3
-  - expr: any(item.product_name == 'Laptop Stand' for item in state.cart_items)
-    desc: Laptop Stand still in cart
-  negative_checks:
-  - expr: not any(item.product_name == 'Laptop Stand' and item.quantity != 1 for item
-      in state.cart_items)
-    desc: Laptop Stand quantity was not accidentally changed
-    penalty: 0.15
-  - expr: len(state.cart_items) == 2
-    desc: Exactly 2 items remain in cart after removal
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  update:
+  - entity: CartItem
+    desc: Target product quantity updated to the new value
+    where:
+      id: {expr: "any(it.product_name == target['update_product'] and it.id == x for it in state.cart_items)"}
+    changes:
+      quantity: {expr: "x == int(target['new_quantity'])"}
+  delete:
+  - entity: CartItem
+    desc: Remove-product removed from cart
+    where:
+      product_name: {expr: "x == target['remove_product']"}
+  invariant:
+  - collection: state.cart_items
+    filter: "a.product_name not in (target['update_product'], target['remove_product'])"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other cart items
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify saved addresses
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

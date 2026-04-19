@@ -228,6 +228,7 @@ class RedditSeedRunner:
         ctx.counters["comment"] = base.get("id_counters", {}).get("comment", 0)
         ctx.counters["msg"] = base.get("id_counters", {}).get("msg", 0)
         ctx.counters["sub"] = base.get("id_counters", {}).get("sub", 0)
+        ctx.counters["notif"] = base.get("id_counters", {}).get("notif", 0)
 
         seed_cfg = task.seed
         if seed_cfg is None:
@@ -764,5 +765,11 @@ class RedditSeedRunner:
             "hidden_post_ids": [],
             "blocked_users": [],
             "settings": settings,
-            "id_counters": {"post": post_counter, "comment": comment_counter, "msg": 7, "sub": len(subreddits)},
+            "id_counters": {
+                "post": post_counter,
+                "comment": comment_counter,
+                "msg": 7,
+                "sub": len(subreddits),
+                "notif": len(notifications),
+            },
         }

@@ -1,24 +1,29 @@
 variant_id: amazon_add_to_wishlist__product_twin
 base_task_id: amazon_add_to_wishlist
 target_primitive: grounding
-description: Renewed and plus listings with nearly identical names sit beside the target item. The agent
-  must match the exact product before acting.
+description: Bundle and accessory-pack decoys share the target's brand, rating, and thumbnail. The agent must wishlist the exact standalone listing rather than a bundle or value pack that nominally contains the same item.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Noise Cancelling Headphones Plus
-      brand: AudioPeak Direct
+      name: Noise Cancelling Headphones with Carrying Case Bundle
+      brand: AudioPeak
+      seller: AudioPeak
       category: Electronics
-      price: 172.49
-      rating: 4.5
-      description: Lookalike listing with slightly different packaging and model copy.
+      price: 169.99
+      rating: 4.6
+      review_count: 340
+      match_image_of: Noise Cancelling Headphones
+      description: Bundle that packages the target headphones with accessories — same brand and thumbnail but a distinct listing from the standalone SKU.
     - type: product
-      name: Noise Cancelling Headphones (Renewed)
-      brand: AudioPeak Outlet
+      name: Noise Cancelling Headphones Essentials Pack
+      brand: AudioPeak
+      seller: AudioPeak
       category: Electronics
-      price: 122.99
-      rating: 4.2
-      description: Refurbished lookalike listing that is not the exact requested item.
+      price: 164.49
+      rating: 4.6
+      review_count: 190
+      match_image_of: Noise Cancelling Headphones
+      description: Essentials pack marketing variant — identical branding but a different listing intended to upsell the standalone target.

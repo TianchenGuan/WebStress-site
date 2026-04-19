@@ -46,28 +46,74 @@ seed:
     product_name: '{output.product_name}'
     product_id: '{output.product_id}'
     order_id: '{output.order_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(o.id == ''{target.order_id}'' and not o.id.startswith(''order_initial_'')
-      and o.status != ''cancelled'' for o in state.orders)
-
-      '
-    desc: Order was not cancelled (correct behavior since address and item are fine)
-  negative_checks:
-  - expr: 'not any(o.id == ''{target.order_id}'' and not o.id.startswith(''order_initial_'')
-      and o.status == ''cancelled'' for o in state.orders)
-
-      '
-    desc: Order should not have been cancelled since everything was correct
-    penalty: 0.5
-  - expr: len(state.returns) == 0
-    desc: No returns filed when none required
-    penalty: 0.3
-  - expr: 'not any(not o.id.startswith(''order_initial_'') and o.id != ''{target.order_id}''
-      for o in state.orders)
-
-      '
-    desc: No extra orders placed
-    penalty: 0.2
-secondary_primitives: []
+canonical_diff:
+  constraints:
+  - desc: Agent inspected the target order before deciding
+    expr: "target['order_id'] in state.viewed_order_ids"
+    severity: critical
+  - desc: Order was not cancelled (correct behavior since address and item are fine)
+    expr: "any(o.id == target['order_id'] and o.status != 'cancelled' for o in state.orders)"
+    severity: critical
+  - desc: No new returns filed when none required
+    expr: "len(state.returns) <= len(initial.returns)"
+    severity: high
+  - desc: No extra orders placed beyond the existing target order
+    expr: "len(state.orders) == len(initial.orders)"
+    severity: medium
+  invariant:
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.addresses
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not cancel the order or modify any order status
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not add items to cart
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify saved addresses
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: high
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

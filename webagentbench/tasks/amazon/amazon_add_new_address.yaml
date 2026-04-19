@@ -33,26 +33,75 @@ seed:
     city: Portland
     state_code: OR
     zip: '97201'
-eval:
-  source: server_state
-  checks:
-  - expr: any(addr.full_name == 'Jordan Lee' for addr in state.addresses)
-    desc: New address with correct name exists
-  - expr: any('742 Evergreen' in addr.street_address and addr.full_name == 'Jordan
-      Lee' for addr in state.addresses)
-    desc: Street address matches
-  - expr: any(addr.full_name == 'Jordan Lee' and addr.city == 'Portland' for addr
-      in state.addresses)
-    desc: City matches
-  - expr: any(addr.state == 'OR' for addr in state.addresses if addr.full_name ==
-      'Jordan Lee')
-    desc: Address has correct state (OR)
-  - expr: any(addr.zip_code == '97201' for addr in state.addresses if addr.full_name
-      == 'Jordan Lee')
-    desc: Address has correct ZIP code
-  negative_checks:
-  - expr: sum(1 for o in state.orders if not o.id.startswith('order_initial_')) ==
-      0
-    desc: No new order was accidentally placed
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+  - entity: Address
+    desc: New address with target full_name, street, city, state, and ZIP
+    properties:
+      full_name: {expr: "x == target['full_name']"}
+      street_address: {expr: "target['street'] in x"}
+      city: {expr: "x == target['city']"}
+      state: {expr: "x == target['state_code']"}
+      zip_code: {expr: "x == target['zip']"}
+      apt_suite: {any: true}
+      country: {any: true}
+      is_default: {any: true}
+      phone: {any: true}
+  invariant:
+  - collection: state.addresses
+    filter: "a.full_name != target['full_name']"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other saved addresses
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify cart
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not place orders
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

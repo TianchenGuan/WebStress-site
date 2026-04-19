@@ -81,69 +81,114 @@ seed:
     new_city: Portland
     new_state: OR
     new_zip: '97201'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(a.full_name == ''Sam Rivera'' and ''742 Maple'' in a.street_address
-      and a.city == ''Portland'' and a.state == ''OR'' and a.zip_code == ''97201''
-      for a in state.addresses)
-
-      '
-    desc: New address was added correctly
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
-      >= 2
-
-      '
-    desc: At least 2 new orders placed
-  - expr: 'any(any(item.product_id == ''{target.product_id_dest1}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 1 was ordered
-  - expr: 'any(any(item.product_id == ''{target.product_id_dest2}'' for item in o.items)
-      for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Product 2 was ordered
-  - expr: 'any(o.shipping_address_id == next(a.id for a in state.addresses if a.city
-      == ''Portland'' and a.full_name == ''Sam Rivera'') for o in state.orders if
-      not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest1}''
-      for item in o.items))
-
-      '
-    desc: Product 1 shipped to Portland address
-  - expr: 'any(o.shipping_address_id != next((a.id for a in state.addresses if a.city
-      == ''Portland'' and a.full_name == ''Sam Rivera''), '''') for o in state.orders
-      if not o.id.startswith(''order_initial_'') and any(item.product_id == ''{target.product_id_dest2}''
-      for item in o.items))
-
-      '
-    desc: Product 2 shipped to a different address
-  - expr: len(state.cart_items) == 0
-    desc: Cart empty after checkout
-  negative_checks:
-  - expr: 'not any(any(item.product_id == ''{target.product_id_dest1}'' for item in
-      o.items) and any(item.product_id == ''{target.product_id_dest2}'' for item in
-      o.items) for o in state.orders if not o.id.startswith(''order_initial_''))
-
-      '
-    desc: Products are in separate orders, not combined
-    penalty: 0.2
-  - expr: 'sum(1 for o in state.orders if not o.id.startswith(''order_initial_''))
-      <= 2
-
-      '
-    desc: No more than 2 new orders placed
-    penalty: 0.1
-  - expr: 'not any(a.full_name == ''Sam Rivera'' and a.city != ''Portland'' for a
-      in state.addresses)
-
-      '
-    desc: New address city is correctly Portland
-    penalty: 0.1
-  - expr: not any(e.action.startswith('amazon.return.') for e in state.audit_log)
-    desc: No off-task returns were opened or updated
-    penalty: 0.1
-  - expr: not any(e.action == 'amazon.review.add' for e in state.audit_log)
-    desc: No off-task reviews were submitted
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: Address
+    desc: New shipping address created with target details
+    properties:
+      full_name: {expr: "x == target['new_name']"}
+      street_address: {expr: "target['new_street'] in x"}
+      city: {expr: "x == target['new_city']"}
+      state: {expr: "x == target['new_state']"}
+      zip_code: {expr: "x == target['new_zip']"}
+      apt_suite: {any: true}
+      country: {any: true}
+      is_default: {eq: false}
+      phone: {any: true}
+  - entity: Order
+    desc: Order 1 ships target product 1 to the new Portland address
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id_dest1'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.id == x and a.full_name == target['new_name'] and a.city == target['new_city'] for a in state.addresses)"
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  - entity: Order
+    desc: Order 2 ships target product 2 to a different (existing) address
+    properties:
+      items:
+        expr: "any(it['product_id'] == target['product_id_dest2'] for it in x)"
+      shipping_address_id:
+        expr: "any(a.id == x and not (a.full_name == target['new_name'] and a.city == target['new_city']) for a in state.addresses)"
+      payment_method_id: {any: true}
+      status: {any: true}
+      subtotal: {any: true}
+      shipping_cost: {any: true}
+      tax: {any: true}
+      total: {any: true}
+      placed_at: {any: true}
+      estimated_delivery: {any: true}
+      promo_code: {any: true}
+      discount: {any: true}
+  invariant:
+  - collection: state.addresses
+    filter: "a.full_name != target['new_name']"
+    preserve: ALL
+  - collection: state.orders
+    filter: "a.id.startswith('order_initial_')"
+    preserve: ALL
+  - collection: state.products
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.returns
+    preserve: ALL
+  - collection: state.promo_codes
+    preserve: ALL
+  - collection: state.questions
+    preserve: ALL
+  - collection: state.gift_cards
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  constraints:
+  - desc: Cart is empty after checkouts
+    expr: "len(state.cart_items) == 0"
+    severity: medium
+  named_invariants:
+  - name: Agent did not modify other saved addresses
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify other orders
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify product catalog
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify payment methods
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not write product reviews
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create return requests
+    ref: invariant[6]
+    severity: medium
+  - name: Agent did not apply or modify promo codes
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not create Q&A posts
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not create or modify gift cards
+    ref: invariant[9]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[10]
+    severity: low

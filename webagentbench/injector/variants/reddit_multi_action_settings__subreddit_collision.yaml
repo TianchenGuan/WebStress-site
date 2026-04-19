@@ -1,27 +1,37 @@
 variant_id: reddit_multi_action_settings__subreddit_collision
 base_task_id: reddit_multi_action_settings
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears beside the real community, including
-  a same-title post in the wrong place. The agent must act in the exact subreddit named in the task.
+description: "Composite degradation: (a) r/Trueworldnews and r/Worldnews (case-diff) sit beside the real r/worldnews with near-matching subscriber counts; (b) the first settings-save PUT returns 500 once. The agent must act in the correct sub AND verify the settings change persisted."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: worldnews_
-      display_name: r/worldnews_
-      description: Lookalike community with nearly identical branding.
-      subscribers: 185000
+      name: Trueworldnews
+      display_name: r/Trueworldnews
+      description: A place for major news from around the world, excluding US-internal news. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      subscribers: 43937120
     - type: subreddit
-      name: worldnewshub
-      display_name: r/worldnewshub
-      description: Companion community that often appears next to the real one in search.
-      subscribers: 74000
+      name: Worldnews
+      display_name: r/Worldnews
+      description: A place for major news from around the world, excluding US-internal news. Case-differing sibling community — distinct URL, near-identical display to the real sub.
+      subscribers: 19370128
     - type: post
-      subreddit: worldnews_
+      subreddit: Trueworldnews
       title: Interesting discussion thread
       author: shadow_mod
       score: 144
       comments: 21
       body: Same headline posted into the wrong, lookalike subreddit.
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/reddit/settings'
+    methods:
+    - PUT
+    error_count: 1
+    error_status: 500
+    error_message: Settings service returned an internal error. Please retry saving your settings.
+    behavior:
+      mode: once

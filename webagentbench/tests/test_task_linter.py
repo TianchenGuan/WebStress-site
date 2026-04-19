@@ -678,18 +678,29 @@ def test_report_all_unnamed_actors() -> None:
 
 def test_amazon_order_evals_filter_initial_orders() -> None:
     """Amazon eval expressions that iterate over state.orders must exclude
-    seeded 'order_initial_*' orders so pre-populated history does not
-    contaminate pass/fail checks."""
+    pre-seeded orders so seeded history does not contaminate pass/fail checks.
+
+    Accepted filter patterns:
+    * legacy magic-string filter ``order_initial_``
+    * attribute-based filter via ``state._initial_snapshot.get('orders', ...)``
+    * specific-id pin ``X.id == '{target.*_id}'`` — when the expression
+      constrains to one explicit order, seeded history cannot contaminate the
+      check so the history filter is unnecessary.
+    """
     violations: list[str] = []
     # Matches patterns like "for o in state.orders" or "for order in state.orders"
     order_iter_re = re.compile(r"for\s+\w+\s+in\s+state\.orders")
-    initial_filter_re = re.compile(r"order_initial_")
+    initial_filter_re = re.compile(
+        r"order_initial_"
+        r"|_initial_snapshot\.get\(\s*['\"]orders['\"]"
+        r"|\.id\s*==\s*'?\{target\.[a-z_]*order[a-z_]*_id\}"
+    )
     for tid, kind, expr in ALL_EXPRS:
         if not tid.startswith("amazon_"):
             continue
         if order_iter_re.search(expr) and not initial_filter_re.search(expr):
             violations.append(
                 f"[{tid}] {kind}: iterates state.orders without filtering "
-                f"'order_initial_*' — seeded history may contaminate checks"
+                f"seeded history — pre-seeded orders may contaminate checks"
             )
     assert not violations, "\n".join(violations)

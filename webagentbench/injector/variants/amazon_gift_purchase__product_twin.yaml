@@ -1,24 +1,29 @@
 variant_id: amazon_gift_purchase__product_twin
 base_task_id: amazon_gift_purchase
 target_primitive: grounding
-description: Renewed and plus listings with nearly identical names sit beside the target item. The agent
-  must match the exact product before acting.
+description: International-edition and UK-variant decoys sit beside the target Kindle. Same brand, rating, thumbnail — only the region suffix distinguishes them. The agent must gift the exact standard-edition SKU.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Kindle Paperwhite E-Reader Plus
-      brand: Amazon Direct
+      name: Kindle Paperwhite E-Reader (International Edition)
+      brand: Amazon
+      seller: Amazon
       category: Electronics
-      price: 160.99
-      rating: 4.6
-      description: Lookalike listing with slightly different packaging and model copy.
+      price: 144.99
+      rating: 4.7
+      review_count: 215
+      match_image_of: Kindle Paperwhite E-Reader
+      description: International-edition Kindle — different region pricing and connectivity bands, but identical thumbnail and brand.
     - type: product
-      name: Kindle Paperwhite E-Reader (Renewed)
-      brand: Amazon Outlet
+      name: Kindle Paperwhite E-Reader UK Variant
+      brand: Amazon
+      seller: Amazon
       category: Electronics
-      price: 114.79
-      rating: 4.3
-      description: Refurbished lookalike listing that is not the exact requested item.
+      price: 142.49
+      rating: 4.7
+      review_count: 180
+      match_image_of: Kindle Paperwhite E-Reader
+      description: UK-localised variant with the same packaging photo; a distinct SKU from the standard US edition the gift task targets.

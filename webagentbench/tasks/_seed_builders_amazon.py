@@ -1082,6 +1082,277 @@ def build_checkout_ready(
     }
 
 
+@_register("user_reviews_batch")
+def build_user_reviews_batch(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Create products, seed delivered orders, and attach owner reviews to each.
+
+    Each item in ``specs`` becomes a (product, delivered order, owner review) triple
+    so downstream tasks can filter reviews by rating without juggling three builders.
+
+    Params
+    ------
+    specs : list[dict]          -- each dict: {name, category, price, rating,
+                                               title?, body?, brand?}
+
+    Outputs
+    -------
+    product_ids : list[str]      -- ids in the same order as specs
+    review_ratings : list[int]   -- parallel ratings list, for downstream filters
+    high_rated_product_ids : list[str]  -- subset where rating >= 4
+    order_ids : list[str]        -- ids of the generated delivered orders
+    """
+    specs: list[dict[str, Any]] = params["specs"]
+
+    # Ensure at least one address and payment method exist — these power
+    # the delivered-order scaffolding below.
+    if not ctx.base["addresses"]:
+        ctx.base["addresses"].append(ctx.address(is_default=True))
+    if not ctx.base["payment_methods"]:
+        ctx.base["payment_methods"].append(ctx.payment_method(is_default=True))
+    addr_id = ctx.base["addresses"][0].id
+    pay_id = ctx.base["payment_methods"][0].id
+
+    product_ids: list[str] = []
+    review_ratings: list[int] = []
+    high_rated_product_ids: list[str] = []
+    order_ids: list[str] = []
+
+    for idx, spec in enumerate(specs):
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=spec.get("category", "Electronics"),
+            price=spec["price"],
+            rating=spec.get("product_rating", 4.5),
+            features=spec.get("features"),
+        )
+        ctx.base["products"].append(p)
+        product_ids.append(p.id)
+
+        # One delivered order per product, stretched through the past year so
+        # ordering by placed_at stays deterministic.
+        order_item = OrderItem(
+            product_id=p.id,
+            product_name=p.name,
+            quantity=1,
+            unit_price=p.price,
+        )
+        order = ctx.order(
+            items=[order_item],
+            shipping_address_id=addr_id,
+            payment_method_id=pay_id,
+            status="delivered",
+            days_ago=30 + idx * 15,
+        )
+        ctx.base["orders"].append(order)
+        order_ids.append(order.id)
+
+        # Owner review with the specified rating / title / body.
+        rating = int(spec["rating"])
+        review = ctx.review(
+            p.id,
+            author_name=ctx.owner_name,
+            rating=rating,
+            title=spec.get("title"),
+            body=spec.get("body"),
+            days_ago=10 + idx * 5,
+        )
+        ctx.base["reviews"].append(review)
+        # Mirror AmazonState.add_review side-effect: increment review_count.
+        p.review_count += 1
+        review_ratings.append(rating)
+        if rating >= 4:
+            high_rated_product_ids.append(p.id)
+
+    return {
+        "product_ids": product_ids,
+        "review_ratings": review_ratings,
+        "high_rated_product_ids": high_rated_product_ids,
+        "order_ids": order_ids,
+    }
+
+
+_ADDRESS_BATCH_SAMPLES = [
+    {
+        "street_address": "215 Willowbrook Lane",
+        "city": "Austin",
+        "state": "TX",
+        "zip_code": "78704",
+        "phone": "512-555-0134",
+    },
+    {
+        "street_address": "1140 Copperfield Road",
+        "city": "Columbus",
+        "state": "OH",
+        "zip_code": "43215",
+        "phone": "614-555-0177",
+    },
+    {
+        "street_address": "78 Glacier Bay Court",
+        "city": "Seattle",
+        "state": "WA",
+        "zip_code": "98101",
+        "phone": "206-555-0188",
+    },
+    {
+        "street_address": "399 Meadowlark Drive",
+        "city": "Raleigh",
+        "state": "NC",
+        "zip_code": "27603",
+        "phone": "919-555-0162",
+    },
+]
+
+
+@_register("address_batch")
+def build_address_batch(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Create several addresses with explicit default/non-default flags.
+
+    Uses fixed sample address data rather than ``ctx.address()`` so the
+    builder works even if the :class:`FakeDataGenerator` lacks address
+    helpers (it currently exposes only ``name`` / ``email`` / business text).
+
+    Params
+    ------
+    entries : list[dict]        -- each dict: {full_name, is_default?,
+                                               street_address?, city?,
+                                               state?, zip_code?}
+
+    Outputs
+    -------
+    address_ids : list[str]             -- ids parallel to entries
+    default_addr_id : str | None        -- id of the first is_default entry
+    non_default_addr_ids : list[str]    -- ids of entries with is_default=False
+    """
+    entries: list[dict[str, Any]] = params["entries"]
+
+    # The base skeleton pre-seeds several addresses (e.g. addr_1..addr_3).
+    # ``ctx.next_id`` starts from a defaultdict(int) and would collide with
+    # those pre-seeded ids. Align the counter with the highest existing id
+    # so we append deterministically without overlap.
+    existing_addr_count = len(ctx.base.get("addresses", []))
+    if ctx.counters.get("addr", 0) < existing_addr_count:
+        ctx.counters["addr"] = existing_addr_count
+
+    addr_ids: list[str] = []
+    default_addr_id: str | None = None
+    non_default_addr_ids: list[str] = []
+    for idx, entry in enumerate(entries):
+        sample = _ADDRESS_BATCH_SAMPLES[idx % len(_ADDRESS_BATCH_SAMPLES)]
+        is_default = bool(entry.get("is_default", False))
+        addr = Address(
+            id=ctx.next_id("addr"),
+            full_name=entry.get("full_name") or ctx.owner_name,
+            street_address=entry.get("street_address", sample["street_address"]),
+            apt_suite=entry.get("apt_suite", ""),
+            city=entry.get("city", sample["city"]),
+            state=entry.get("state", sample["state"]),
+            zip_code=entry.get("zip_code", sample["zip_code"]),
+            country=entry.get("country", "United States"),
+            is_default=is_default,
+            phone=entry.get("phone", sample["phone"]),
+        )
+        ctx.base["addresses"].append(addr)
+        addr_ids.append(addr.id)
+        if addr.is_default and default_addr_id is None:
+            default_addr_id = addr.id
+        else:
+            non_default_addr_ids.append(addr.id)
+
+    return {
+        "address_ids": addr_ids,
+        "default_addr_id": default_addr_id,
+        "non_default_addr_ids": non_default_addr_ids,
+    }
+
+
+@_register("duplicate_orders")
+def build_duplicate_orders(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Create two orders for the same product placed at different times.
+
+    Used by duplicate-cleanup tasks where the agent must identify which of
+    two accidental-duplicate orders is the newer one and cancel it.
+
+    Params
+    ------
+    product_name : str
+    product_category : str      -- default "Electronics"
+    product_price : float       -- default 49.99
+    older_days_ago : int        -- default 2
+    newer_days_ago : int        -- default 1
+    status : str                -- default "confirmed"
+
+    Outputs
+    -------
+    duplicate_product_id : str
+    duplicate_product_name : str
+    older_order_id : str        -- the older of the two duplicates
+    newer_order_id : str        -- the newer of the two duplicates
+    """
+    product_name = params["product_name"]
+    category = params.get("product_category", "Electronics")
+    price = params.get("product_price", 49.99)
+    older_days = params.get("older_days_ago", 2)
+    newer_days = params.get("newer_days_ago", 1)
+    status = params.get("status", "confirmed")
+
+    if not ctx.base["addresses"]:
+        ctx.base["addresses"].append(ctx.address(is_default=True))
+    if not ctx.base["payment_methods"]:
+        ctx.base["payment_methods"].append(ctx.payment_method(is_default=True))
+    addr_id = ctx.base["addresses"][0].id
+    pay_id = ctx.base["payment_methods"][0].id
+
+    p = ctx.product(
+        name=product_name,
+        category=category,
+        price=price,
+        brand=params.get("product_brand"),
+    )
+    ctx.base["products"].append(p)
+
+    older_order = ctx.order(
+        items=[OrderItem(
+            product_id=p.id,
+            product_name=p.name,
+            quantity=1,
+            unit_price=p.price,
+        )],
+        shipping_address_id=addr_id,
+        payment_method_id=pay_id,
+        status=status,
+        days_ago=older_days,
+    )
+    ctx.base["orders"].append(older_order)
+
+    newer_order = ctx.order(
+        items=[OrderItem(
+            product_id=p.id,
+            product_name=p.name,
+            quantity=1,
+            unit_price=p.price,
+        )],
+        shipping_address_id=addr_id,
+        payment_method_id=pay_id,
+        status=status,
+        days_ago=newer_days,
+    )
+    ctx.base["orders"].append(newer_order)
+
+    return {
+        "duplicate_product_id": p.id,
+        "duplicate_product_name": p.name,
+        "older_order_id": older_order.id,
+        "newer_order_id": newer_order.id,
+    }
+
+
 @_register("competitor_products")
 def build_competitor_products(
     ctx: AmazonSeedContext, params: dict[str, Any]
@@ -1128,3 +1399,440 @@ def build_competitor_products(
         competitor_ids.append(p.id)
 
     return {"competitor_ids": competitor_ids}
+
+
+@_register("settings_override")
+def build_settings_override(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Override specific fields on the (already-initialized) settings object.
+
+    The base skeleton seeds ``AmazonSettings`` with ``prime_member=True``. Some
+    tasks need to flip that (or other defaults) off so the agent has a
+    non-trivial settings mutation to perform.
+
+    Params
+    ------
+    prime_member : bool | None
+    one_click_enabled : bool | None
+    email_notifications : bool | None
+    two_factor_enabled : bool | None
+    order_updates_email : bool | None
+    deal_alerts_email : bool | None
+    """
+    settings = ctx.base["settings"]
+    for key in (
+        "prime_member",
+        "one_click_enabled",
+        "email_notifications",
+        "two_factor_enabled",
+        "order_updates_email",
+        "deal_alerts_email",
+    ):
+        if key in params:
+            setattr(settings, key, params[key])
+    return {}
+
+
+@_register("existing_order_with_product")
+def build_existing_order_with_product(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Create a past order containing a single featured product.
+
+    Unlike ``existing_order`` which takes pre-existing product ids, this
+    builder creates both the product AND the order in one step so the caller
+    can control the exact price of the resulting order (used for tasks where
+    the agent must find the "most expensive" order).
+
+    Params
+    ------
+    product_name : str
+    product_brand : str
+    product_category : str
+    product_price : float
+    product_rating : float      -- default 4.5
+    features : list[str]        -- default []
+    status : str                -- default "delivered"
+    days_ago : int              -- default 10
+    """
+    p = ctx.product(
+        name=params["product_name"],
+        brand=params["product_brand"],
+        category=params["product_category"],
+        price=params["product_price"],
+        rating=params.get("product_rating", 4.5),
+        features=params.get("features", []),
+    )
+    ctx.base["products"].append(p)
+
+    if not ctx.base["addresses"]:
+        addr = ctx.address(is_default=True)
+        ctx.base["addresses"].append(addr)
+    if not ctx.base["payment_methods"]:
+        pm = ctx.payment_method(is_default=True)
+        ctx.base["payment_methods"].append(pm)
+
+    addr_id = ctx.base["addresses"][0].id
+    pay_id = ctx.base["payment_methods"][0].id
+
+    items = [
+        OrderItem(
+            product_id=p.id,
+            product_name=p.name,
+            quantity=1,
+            unit_price=p.price,
+        )
+    ]
+    o = ctx.order(
+        items=items,
+        shipping_address_id=addr_id,
+        payment_method_id=pay_id,
+        status=params.get("status", "delivered"),
+        days_ago=params.get("days_ago", 10),
+    )
+    ctx.base["orders"].append(o)
+    return {
+        "product_id": p.id,
+        "product_name": p.name,
+        "product_price": p.price,
+        "order_id": o.id,
+    }
+
+
+@_register("named_address")
+def build_named_address(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Add a non-default shipping address with exact name/street/city/state/zip.
+
+    Used by tasks that require placing orders to specific named recipients
+    (gift orders, multi-destination checkouts). The address is added as
+    non-default so no existing defaults are demoted.
+
+    Params
+    ------
+    full_name : str
+    street_address : str
+    city : str
+    state : str
+    zip_code : str
+    apt_suite : str             -- default ""
+    phone : str | None          -- deterministic default if None
+    """
+    phone = params.get("phone")
+    if phone is None:
+        # Deterministic 10-digit phone based on rng so tests stay stable.
+        a = ctx.rng.randint(200, 989)
+        c = ctx.rng.randint(1000, 9999)
+        phone = f"{a}-555-{c:04d}"
+    # Align counter with the base skeleton's pre-seeded addresses to avoid
+    # id collisions (base reserves addr_1..addr_3).
+    existing_addr_count = len(ctx.base.get("addresses", []))
+    if ctx.counters.get("addr", 0) < existing_addr_count:
+        ctx.counters["addr"] = existing_addr_count
+    addr = Address(
+        id=ctx.next_id("addr"),
+        full_name=params["full_name"],
+        street_address=params["street_address"],
+        apt_suite=params.get("apt_suite", ""),
+        city=params["city"],
+        state=params["state"],
+        zip_code=params["zip_code"],
+        country="United States",
+        is_default=False,
+        phone=phone,
+    )
+    ctx.base["addresses"].append(addr)
+    return {
+        "address_id": addr.id,
+        "full_name": addr.full_name,
+        "street_address": addr.street_address,
+        "city": addr.city,
+    }
+
+
+@_register("reviewed_orders_batch")
+def build_reviewed_orders_batch(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Create N (product, delivered order, owner review) triples and expose rating-bucketed outputs.
+
+    Every spec becomes a brand-new product, a delivered order for that product
+    by the account owner, and a verified owner review with the given rating.
+    The task then has per-rating slice outputs so canonical_diff authors can
+    bijection over "products I reviewed below 3 stars" without any server-side
+    filtering.
+
+    Params
+    ------
+    specs : list[dict]          -- each dict: {name, category, price, rating,
+                                               title?, body?, brand?, features?,
+                                               product_rating?}
+
+    Outputs
+    -------
+    product_ids : list[str]     -- ids in the same order as specs
+    order_ids : list[str]       -- parallel delivered-order ids
+    review_ratings : list[int]  -- parallel ratings given by the owner
+    negative_product_ids : list[str]    -- subset where owner rating < 3
+    negative_order_ids : list[str]      -- parallel order ids for negative_product_ids
+    positive_product_ids : list[str]    -- subset where owner rating >= 3
+    """
+    specs: list[dict[str, Any]] = params["specs"]
+
+    if not ctx.base["addresses"]:
+        ctx.base["addresses"].append(ctx.address(is_default=True))
+    if not ctx.base["payment_methods"]:
+        ctx.base["payment_methods"].append(ctx.payment_method(is_default=True))
+    addr_id = ctx.base["addresses"][0].id
+    pay_id = ctx.base["payment_methods"][0].id
+
+    product_ids: list[str] = []
+    order_ids: list[str] = []
+    review_ratings: list[int] = []
+    negative_product_ids: list[str] = []
+    negative_order_ids: list[str] = []
+    positive_product_ids: list[str] = []
+
+    for idx, spec in enumerate(specs):
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=spec.get("category", "Electronics"),
+            price=spec["price"],
+            rating=spec.get("product_rating", 4.5),
+            features=spec.get("features"),
+        )
+        ctx.base["products"].append(p)
+        product_ids.append(p.id)
+
+        order_item = OrderItem(
+            product_id=p.id,
+            product_name=p.name,
+            quantity=1,
+            unit_price=p.price,
+        )
+        order = ctx.order(
+            items=[order_item],
+            shipping_address_id=addr_id,
+            payment_method_id=pay_id,
+            status="delivered",
+            days_ago=30 + idx * 15,
+        )
+        ctx.base["orders"].append(order)
+        order_ids.append(order.id)
+
+        rating = int(spec["rating"])
+        review = ctx.review(
+            p.id,
+            author_name=ctx.owner_name,
+            rating=rating,
+            title=spec.get("title"),
+            body=spec.get("body"),
+            days_ago=10 + idx * 5,
+        )
+        ctx.base["reviews"].append(review)
+        # Mirror AmazonState.add_review side-effect: increment review_count.
+        p.review_count += 1
+        review_ratings.append(rating)
+        if rating < 3:
+            negative_product_ids.append(p.id)
+            negative_order_ids.append(order.id)
+        else:
+            positive_product_ids.append(p.id)
+
+    return {
+        "product_ids": product_ids,
+        "order_ids": order_ids,
+        "review_ratings": review_ratings,
+        "negative_product_ids": negative_product_ids,
+        "negative_order_ids": negative_order_ids,
+        "positive_product_ids": positive_product_ids,
+    }
+
+
+@_register("wishlist_stock_mix")
+def build_wishlist_stock_mix(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Populate wishlist with a known mix of OOS and in-stock products.
+
+    Creates one product per spec, marks it in/out of stock, adds each to the
+    wishlist, and seeds ``alternatives_per_category`` additional in-stock
+    replacements in each OOS category so tasks can ask the agent to swap
+    out-of-stock wishlist items for in-stock alternatives.
+
+    Params
+    ------
+    oos_specs : list[dict]              -- each dict: {name, category, price, brand?}
+    in_stock_specs : list[dict]         -- each dict: {name, category, price, brand?}
+    alternatives_per_category : int     -- number of spare in-stock items to
+                                           seed per OOS category (default 2)
+
+    Outputs
+    -------
+    oos_product_ids : list[str]              -- wishlist items that are OOS
+    in_stock_product_ids : list[str]         -- wishlist items that are in stock
+    alternative_product_ids : list[str]      -- spare in-stock candidates
+    oos_category : str                       -- the category every OOS item shares
+    """
+    oos_specs: list[dict[str, Any]] = params["oos_specs"]
+    in_stock_specs: list[dict[str, Any]] = params.get("in_stock_specs", [])
+    alt_per_cat: int = params.get("alternatives_per_category", 2)
+
+    if not oos_specs:
+        raise ValueError("wishlist_stock_mix requires at least one OOS spec")
+
+    oos_product_ids: list[str] = []
+    in_stock_product_ids: list[str] = []
+    alternative_product_ids: list[str] = []
+    oos_categories: set[str] = set()
+
+    for spec in oos_specs:
+        cat = spec.get("category", "Electronics")
+        oos_categories.add(cat)
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=cat,
+            price=spec["price"],
+            rating=spec.get("rating", 4.3),
+            in_stock=False,
+        )
+        ctx.base["products"].append(p)
+        oos_product_ids.append(p.id)
+        if p.id not in ctx.base["wishlist"]:
+            ctx.base["wishlist"].append(p.id)
+
+    for spec in in_stock_specs:
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=spec.get("category", "Electronics"),
+            price=spec["price"],
+            rating=spec.get("rating", 4.4),
+            in_stock=True,
+        )
+        ctx.base["products"].append(p)
+        in_stock_product_ids.append(p.id)
+        if p.id not in ctx.base["wishlist"]:
+            ctx.base["wishlist"].append(p.id)
+
+    # Seed spare in-stock alternatives in each OOS category so the agent has
+    # legitimate replacement candidates to add to the wishlist.
+    for cat in sorted(oos_categories):
+        for _ in range(alt_per_cat):
+            p = ctx.product(
+                name=None,
+                category=cat,
+                price=round(ctx.rng.uniform(25.0, 75.0), 2),
+                rating=round(ctx.rng.uniform(4.0, 4.6), 1),
+                in_stock=True,
+            )
+            ctx.base["products"].append(p)
+            alternative_product_ids.append(p.id)
+
+    single_cat = next(iter(sorted(oos_categories)))
+
+    return {
+        "oos_product_ids": oos_product_ids,
+        "in_stock_product_ids": in_stock_product_ids,
+        "alternative_product_ids": alternative_product_ids,
+        "oos_category": single_cat,
+    }
+
+
+@_register("cart_stock_mix")
+def build_cart_stock_mix(
+    ctx: AmazonSeedContext, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Pre-fill the cart with a known mix of OOS and in-stock products.
+
+    Creates products, appends cart items (bypassing ``add_to_cart``'s OOS
+    rejection by using ``ctx.cart_item`` directly), and seeds spare in-stock
+    replacements in each OOS category. Used for "recover from out-of-stock
+    cart" tasks — the agent must remove every OOS cart item and add a fresh
+    cart item for an in-stock alternative in the same category.
+
+    Params
+    ------
+    oos_specs : list[dict]          -- each dict: {name, category, price, brand?,
+                                                    quantity?}
+    kept_specs : list[dict]         -- each dict: {name, category, price, brand?,
+                                                    quantity?}
+    alternatives_per_category : int -- spare in-stock candidates per OOS category
+
+    Outputs
+    -------
+    oos_cart_item_ids : list[str]       -- cart item ids whose product is OOS
+    oos_product_ids : list[str]         -- parallel product ids (same order)
+    kept_cart_item_ids : list[str]      -- cart item ids that stay in the cart
+    alternative_product_ids : list[str] -- spare in-stock candidates
+    oos_category : str                  -- the OOS items' shared category
+    """
+    oos_specs: list[dict[str, Any]] = params["oos_specs"]
+    kept_specs: list[dict[str, Any]] = params.get("kept_specs", [])
+    alt_per_cat: int = params.get("alternatives_per_category", 2)
+
+    if not oos_specs:
+        raise ValueError("cart_stock_mix requires at least one OOS spec")
+
+    oos_cart_item_ids: list[str] = []
+    oos_product_ids: list[str] = []
+    kept_cart_item_ids: list[str] = []
+    alternative_product_ids: list[str] = []
+    oos_categories: set[str] = set()
+
+    for spec in oos_specs:
+        cat = spec.get("category", "Electronics")
+        oos_categories.add(cat)
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=cat,
+            price=spec["price"],
+            rating=spec.get("rating", 4.3),
+            in_stock=False,
+        )
+        ctx.base["products"].append(p)
+        oos_product_ids.append(p.id)
+        item = ctx.cart_item(p, quantity=spec.get("quantity", 1))
+        ctx.base["cart_items"].append(item)
+        oos_cart_item_ids.append(item.id)
+
+    for spec in kept_specs:
+        p = ctx.product(
+            name=spec["name"],
+            brand=spec.get("brand"),
+            category=spec.get("category", "Electronics"),
+            price=spec["price"],
+            rating=spec.get("rating", 4.5),
+            in_stock=True,
+        )
+        ctx.base["products"].append(p)
+        item = ctx.cart_item(p, quantity=spec.get("quantity", 1))
+        ctx.base["cart_items"].append(item)
+        kept_cart_item_ids.append(item.id)
+
+    for cat in sorted(oos_categories):
+        for _ in range(alt_per_cat):
+            p = ctx.product(
+                name=None,
+                category=cat,
+                price=round(ctx.rng.uniform(25.0, 75.0), 2),
+                rating=round(ctx.rng.uniform(4.0, 4.6), 1),
+                in_stock=True,
+            )
+            ctx.base["products"].append(p)
+            alternative_product_ids.append(p.id)
+
+    single_cat = next(iter(sorted(oos_categories)))
+
+    return {
+        "oos_cart_item_ids": oos_cart_item_ids,
+        "oos_product_ids": oos_product_ids,
+        "kept_cart_item_ids": kept_cart_item_ids,
+        "alternative_product_ids": alternative_product_ids,
+        "oos_category": single_cat,
+    }

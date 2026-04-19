@@ -44,7 +44,12 @@ class TaskStatus:
 
     @property
     def state(self) -> str:
-        if self.has_canonical_diff and self.has_canonical_diff_test and self.has_adversarial_test:
+        # The parametrized battery in test_adversarial_battery.py covers every
+        # task with a canonical_diff block; per-task adversarial files are only
+        # required for oneof-branch logic the generic synthesizer can't express
+        # (see docs/guides/canonical-diff-migration-procedure.md §2.3). So the
+        # canonical_diff test is the only per-task test we require.
+        if self.has_canonical_diff and self.has_canonical_diff_test:
             return "migrated"
         if self.has_canonical_diff:
             return "partial"
@@ -168,13 +173,11 @@ def print_report(statuses: list[TaskStatus], env_filter: str | None = None) -> N
     # Partial-state detail — users often want to know what's blocking
     partials = [s for s in filtered if s.state == "partial"]
     if partials:
-        print(f"\n  {len(partials)} partial task(s) (canonical_diff present but tests missing):")
+        print(f"\n  {len(partials)} partial task(s) (canonical_diff present but canonical_diff_test missing):")
         for s in partials:
             missing = []
             if not s.has_canonical_diff_test:
                 missing.append("canonical_diff_test")
-            if not s.has_adversarial_test:
-                missing.append("adversarial_test")
             print(f"    {s.env_id:<16} {s.task_id:<40} missing: {', '.join(missing)}")
 
     # Migrated without legacy removed — Phase C sweep candidates
