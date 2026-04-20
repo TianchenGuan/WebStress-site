@@ -718,6 +718,348 @@ number of entries.
 
 ---
 
+## Class 16 — Multi-collection entity-type ambiguity in `_build_collection_map`
+
+**Symptom.** A canonical diff `update:` or `create:` entry for an `Email` entity
+matches zero candidates even though `compute_diff` shows the correct mutation in the
+agent diff. Stage 4 fails with "no Update / Create entry matched". Inspecting the
+collection map reveals `_collection_for("Email", ...)` returns `"deleted"` instead of
+`"emails"`.
+
+**Root cause.** `_build_collection_map` iterates over pydantic `model_fields` in
+definition order and stores `{class_name: field_name}` for every `list[ClassName]`
+field. When the same class appears in multiple fields (e.g. `GmailState` has
+`emails: list[Email]`, `sent: list[Email]`, `deleted: list[Email]`), each iteration
+overwrites the previous entry. Last write wins, so `Email` → `"deleted"`. The naive
+fallback in `_collection_for` (lowercase + "s") also fails for irregular collection
+names like `"sent"` → `"sents"` and `"deleted"` → `"deleteds"`.
+
+**Where.** `webagentbench/evaluator_diff.py:_build_collection_map` — only Gmail
+is currently affected (three `list[Email]` fields), but any env with a shared entity
+class across multiple collections would hit the same issue.
+
+**Fix applied.** Two-part fix in `evaluator_diff.py`:
+
+1. `_build_collection_map` now keeps the **first** class-name → collection-name entry
+   (so `Email` → `"emails"`, not `"deleted"`).
+2. A direct **collection-name → collection-name** entry is added for every list field
+   (`"sent" → "sent"`, `"deleted" → "deleted"`, `"emails" → "emails"`, etc.), so task
+   authors can also use exact collection names as the `entity:` value when the class
+   name is ambiguous.
+
+**How to use after the fix.** For gmail tasks:
+
+| Action | Entity type to use | Collection resolved |
+|---|---|---|
+| Update/delete an inbox email | `entity: emails` or `entity: Email` | `emails` |
+| Create/match a sent email | `entity: sent` | `sent` |
+| Create/match a deleted email | `entity: deleted` | `deleted` |
+| Update a draft | `entity: Draft` or `entity: drafts` | `drafts` |
+| Create/update a label | `entity: Label` or `entity: labels` | `labels` |
+| Create/update a contact | `entity: Contact` or `entity: contacts` | `contacts` |
+| Create/update a filter rule | `entity: FilterRule` or `entity: filters` | `filters` |
+
+**Regression guard.** Added assertion in `test_evaluator_diff_match.py`:
+
+```python
+def test_gmail_collection_map_no_overwrite():
+    """Email → emails, not deleted; sent and deleted are reachable directly."""
+    from webagentbench.backend.models.gmail import GmailState
+    from webagentbench.evaluator_diff import _build_collection_map, _collection_for
+    # Build map via a minimal GmailState instance (settings required field)
+    # -- use the mapping logic directly on model_fields instead.
+    import typing as t
+    mapping = {}
+    for name, fi in GmailState.model_fields.items():
+        ann = fi.annotation
+        if t.get_origin(ann) is list:
+            args = t.get_args(ann)
+            if args and hasattr(args[0], "__name__"):
+                if args[0].__name__ not in mapping:
+                    mapping[args[0].__name__] = name
+            mapping[name] = name
+    assert mapping["Email"] == "emails", f"Email should map to emails, got {mapping['Email']}"
+    assert _collection_for("sent", mapping) == "sent"
+    assert _collection_for("deleted", mapping) == "deleted"
+    assert _collection_for("emails", mapping) == "emails"
+    assert _collection_for("Email", mapping) == "emails"
+```
+
+**Why this matters for migrations.** Any gmail task that creates a sent email or
+updates an inbox email will silently fail Stage 4 if the wrong entity type is used.
+Every gmail migration PR must verify that `entity:` values match the table above.
+
+---
+
+## Class 17 — Net-diff entity merging: two specs consuming the same Update event
+
+**Symptom.** A canonical diff has two separate update entries targeting the same
+email/contact entity (e.g., one to star it and one to archive it). The correct
+trajectory test fails even though the agent called both `toggle_star()` and
+`archive_email()`.
+
+**Root cause.** `compute_diff` computes the **net** state delta. When both
+mutations touch the same entity, the diff produces ONE `Update` entry with both
+`is_starred` and `archived` in `field_changes`. The matcher's `matched_ids` set
+consumes this Update event for the first spec. The second spec finds no unmatched
+Update event and fails.
+
+**Concrete example.** `gmail_access_review_audit` originally had:
+```yaml
+update:
+  - entity: emails
+    where: {id: {expr: "x == target['it_email_id']"}}
+    changes: {is_starred: {eq: true}}
+  - entity: emails
+    where: {id: {expr: "x == target['it_email_id']"}}
+    changes: {archived: {eq: true}}
+```
+The second spec always fails because the single Update event is consumed by the
+first spec.
+
+**Fix.** Merge all changes to the same entity into ONE update spec with multiple
+`changes:` keys:
+```yaml
+update:
+  - entity: emails
+    where: {id: {expr: "x == target['it_email_id']"}}
+    changes:
+      is_starred: {eq: true}
+      archived: {eq: true}
+```
+
+**Where.** `evaluator_diff.py:_match_single_block` — the `matched_ids` set at
+line 658 is the mechanism. Any non-bijection update that selects by ID will
+consume the matching Update event.
+
+**Regression guard.** For any task requiring two state changes on the same entity:
+verify the correct-trajectory test passes AFTER the merge. Run a partial-work test
+that applies only one change — it should fail.
+
+---
+
+## Class 18 — Bijection overlap: two bijections whose target sets intersect
+
+**Symptom.** One of two bijection update specs partially matches but the
+bipartite matcher doesn't saturate, even though all entities were correctly
+mutated.
+
+**Root cause.** Two bijections over overlapping target sets (e.g., `dept_ids ⊂
+all_budget_ids`) compete for the same Update events. The first bijection consumes
+the Update events for dept emails, leaving none for the second bijection over the
+larger set.
+
+**Concrete example.** `gmail_budget_reconciliation`:
+- `all_budget_ids` = [dept_1, dept_2, dept_3, summary_email]
+- `dept_ids` = [dept_1, dept_2, dept_3]
+
+A bijection over `all_budget_ids` (label check) and a bijection over `dept_ids`
+(starring check) compete: the dept emails' Update events are consumed by whichever
+bijection runs first.
+
+**Fix.** Express only ONE bijection (the larger one, over `all_budget_ids`) and
+use a `constraints:` expression for the subset check:
+```yaml
+update:
+  - entity: emails
+    bijection:
+      over: "target['all_budget_ids']"
+      variable: v
+    where: {id: {expr: "x == v"}}
+    changes:
+      labels: {superset: [Budget Verified]}
+constraints:
+  - desc: All department emails are starred
+    expr: "all(state.get_email(eid) is not None and state.get_email(eid).is_starred for eid in target['dept_ids'])"
+    severity: high
+```
+
+**Where.** `evaluator_diff.py:_match_single_block` — bijections are evaluated in
+list order; matched_ids prevents a candidate from being consumed twice.
+
+**Regression guard.** For any task with multiple bijections: check that the
+`over` sets are disjoint. If they overlap, use a constraint instead for the
+overlapping subset.
+
+---
+
+## Class 19 — `superset` predicate with dynamic values (expr-inside-superset antipattern)
+
+**Symptom.** A `changes:` or `properties:` field uses `superset: [- expr: "..."]`
+(a list item that is an expr dict). Schema validation raises a `ValidationError`
+at task load time: `predicate must be a dict, got str`.
+
+**Root cause.** The `superset` predicate expects a list of literal strings.
+It is a collection predicate that checks `set(value).issuperset(set(arg))`.
+The `arg` items must be plain strings; they are not evaluated as expressions.
+Wrapping an expression inside a superset list is not valid schema.
+
+**Concrete example.** In `gmail_ambiguous_inbox_cleanup`:
+```yaml
+# WRONG:
+changes:
+  labels:
+    superset:
+      - expr: "f\"Project/{target['project_name']}\""
+```
+
+**Fix.** Use an `expr` predicate at the field level when the expected value
+is dynamic:
+```yaml
+# CORRECT:
+changes:
+  labels:
+    expr: "f\"Project/{target['project_name']}\" in x"
+```
+
+**Where.** `canonical_diff.py:_validate_predicate_map` validates each property
+as a single-key dict. The `superset` value is a list of literals, not a list of
+predicates.
+
+**Regression guard.** Schema validation catches this at load time. Run
+`get_task('<task_id>')` for every migrated task; any ValidationError on `superset`
+contents indicates this pattern.
+
+---
+
+## Class 20 — Labels invariant incorrectly excludes new labels created by correct actions
+
+**Symptom.** The correct-trajectory test fails with "invariant violated" on
+`state.labels` even though the agent created the required label before applying it.
+
+**Root cause.** A `state.labels: preserve: ALL` invariant (unfiltered) blocks
+any new label creation. The unaccounted sweep catches the label Create in the
+diff and flags it. However, if the task requires the agent to apply an existing
+label that auto-creates a new system label entry, the Create would be flagged
+even if it's from a legitimate action.
+
+**Fix.** Add a filter to the labels invariant that excludes the labels the task
+creates:
+```yaml
+invariant:
+  - collection: state.labels
+    filter: "a.name not in ['Budget Verified']"
+    preserve: ALL
+```
+
+Or omit the labels invariant entirely if the task explicitly creates labels
+(the create spec covers the positive side, and the unaccounted sweep flags
+excess label creation).
+
+**Where.** `evaluator_diff.py:_match_single_block` lines 1150-1188 (unaccounted
+sweep). Any Create in `labels` that isn't matched by a `create: [{entity:
+labels}]` spec AND is in an unfiltered invariant collection will flag a failure.
+
+**Regression guard.** For every task that creates a label: verify the labels
+invariant filter excludes that label name. Correct-trajectory test must pass
+with `score == 1.0 and passed == True`.
+
+---
+
+## Class 21 — Bijection on `delete` not supported (schema gap)
+
+**Symptom.** Task has N spam/junk emails to delete in one batch and the agent
+wrote `delete: [{entity: emails, bijection: {...}, where: {...}}]`. Schema
+validation fails: `Extra inputs are not permitted` on `DeleteEntry`.
+
+**Root cause.** `DeleteEntry` in `canonical_diff.py` did not originally have a
+`bijection` field. The `bijection` parameter was only on `CreateEntry` and
+`UpdateEntry`.
+
+**Fix.** Add `bijection: Bijection | None = None` to `DeleteEntry`, and add
+bijection-aware matching to the delete loop in `evaluator_diff.py`
+(using the same `_max_bipartite_matching` helper as create/update).
+
+**Where.** `webagentbench/tasks/canonical_diff.py` `DeleteEntry` class;
+`evaluator_diff.py` delete-matching loop.
+
+**Regression guard.** For every task whose canonical_diff uses a bijection
+on the `delete` block, run the correct-trajectory test and verify `score==1.0`.
+
+---
+
+## Class 22 — YAML duplicate `create:` keys (last writer wins)
+
+**Symptom.** A task with multiple flavors of creates (e.g. `entity: sent` AND
+`entity: deleted`) was authored with two separate `create:` blocks inside the
+same `canonical_diff:` mapping. The YAML parser silently discards the first
+block; only the second block's entries are seen by the evaluator. Named
+invariants referencing `create[2]` or higher from the first block raise
+`IndexError`.
+
+**Root cause.** YAML mappings enforce unique keys. Writing `create:` twice in
+the same mapping is a duplicate key; the second occurrence overwrites the first.
+
+**Fix.** Merge all create entries into a single `create:` list.
+
+**Where.** Any task YAML. Detected at PR review or when a `named_invariants`
+ref resolves to the wrong entry.
+
+**Regression guard.** Search the authored YAML for two consecutive `create:` keys at the same indentation level. Run `python3 -c "import yaml; yaml.safe_load(open('...').read())"` and count create entries: should equal the union of both blocks.
+
+---
+
+## Class 23 — `None`-safe collection predicates (`superset`, `subset`, etc.)
+
+**Symptom.** Adversarial-battery test fails with `TypeError: 'NoneType' object
+is not iterable` when an adversarial candidate is missing a list field (e.g.
+`cc`, `bcc`, `labels`, `add_labels`).
+
+**Root cause.** The predicate helpers for `superset`, `subset`, `set_eq`, and
+`contains` called `set(value)` where `value` could be `None` when the field was
+absent from the diff entry.
+
+**Fix.** Add `or []` fallback in each predicate:
+```python
+if key == "superset":
+    return set(value or []).issuperset(set(arg))
+if key == "subset":
+    return set(value or []).issubset(set(arg))
+if key == "set_eq":
+    return set(value or []) == set(arg)
+if key == "contains":
+    return arg in (value or [])
+```
+
+**Where.** `evaluator_diff.py` `_check_predicate` / `_eval_predicate` function.
+
+**Regression guard.** Run `test_adversarial_battery.py` for the env in question.
+If collection-type predicates are exercised, no `TypeError` should surface.
+
+---
+
+## Class 24 — Pre-existing label in seed mistakenly authored as `create`
+
+**Symptom.** `test_correct_trajectory_passes` fails with `missing_create` for a
+label entry even though the correct trajectory calls `state.ensure_label(...)` or
+`state.apply_label(...)`. The diff contains no label creation because the label
+already existed in the initial seed state.
+
+**Root cause.** The task's seed always creates certain labels (e.g. "Action
+Item", "VIP") as part of the environment setup. `ensure_label` is idempotent —
+if the label exists, it's a no-op, so no Create appears in compute_diff.
+Authoring a `create: [{entity: labels, ...}]` entry for a pre-existing label
+produces a `missing_create` failure.
+
+**Fix.** Remove the `create` entry for any label that is guaranteed to be
+present in the initial seed state. Update the labels invariant accordingly
+(remove the filter exclusion that was added to accommodate the creation).
+
+**Where.** Any gmail task YAML that authors a label create entry for "Action
+Item", "VIP", or other seed-injected labels.
+
+**Regression guard.** Before adding `create: [{entity: labels}]`, verify the
+label is NOT already in the initial seed: 
+```python
+from webagentbench.backend.state import SessionManager
+sm = SessionManager()
+sid, targets, _ = sm.create_session(env_id='gmail', task_id='<task_id>', seed=42)
+initial = sm.get_initial_snapshot(sid)
+print([l.name for l in initial.labels])
+```
+
+---
+
 ## Migration pre-flight checklist
 
 Before opening a task migration PR, run through these for that specific task:
@@ -743,6 +1085,33 @@ Before opening a task migration PR, run through these for that specific task:
       whose `over:` expression could resolve to `[]` on some seed, verify
       that empty-target bijections don't inflate score (they should be
       neutral, not trivially-satisfied).
+
+- [ ] Class 13 — Grep the env's `state.py` for `list[str]`, `list[int]`, or
+      other primitive-list fields. Tasks touching those fields must use
+      `constraints:` rather than `invariant:` entries.
+- [ ] Class 14 — For tasks whose only mutation target is a single-instance
+      state field (settings, profile, wallet), use `constraints:` only and
+      assert `passed is False` (not `score == 0.0`) in the do-nothing test.
+- [ ] Class 15 — Verify every `create`/`update`/`delete` entry whose collection
+      also appears in `invariant:` has a scoped `filter:` expression on that
+      invariant entry.
+- [ ] Class 17 — For every entity that requires multiple state mutations (star +
+      archive, or note + vip_flag), merge them into ONE update spec. Run
+      correct-trajectory test after merging to verify.
+- [ ] Class 18 — Check that all bijection `over:` target sets are pairwise
+      disjoint. If two bijections overlap, move the subset check to `constraints:`.
+- [ ] Class 19 — Audit all `superset:` lists in `properties:` and `changes:`;
+      every list item must be a plain string literal, not an `expr` dict.
+- [ ] Class 20 — For every task that creates a label, add a filter to the
+      `state.labels` invariant that excludes that label name, or omit the
+      labels invariant entirely.
+- [ ] Class 21 — For tasks that delete N emails in a batch, use `bijection:`
+      on the `delete` entry (requires evaluator support — see Class 21).
+- [ ] Class 22 — Search the YAML for duplicate `create:` keys. Merge into one list.
+- [ ] Class 23 — Run `test_adversarial_battery.py` after each migration to catch
+      `None`-value `TypeError` in collection predicates.
+- [ ] Class 24 — Before adding `create: [{entity: labels}]`, verify the label
+      is not pre-seeded by checking `initial.labels` for seed=42.
 
 These are in addition to the positive/adversarial tests the authoring
 protocol already prescribes.
@@ -861,7 +1230,7 @@ required a re-authoring pass each time.
 
 ---
 
-## Class 13 — `length` predicate crashes on None / non-sized values
+## Class 25 — `length` predicate crashes on None / non-sized values
 
 **Symptom.** Matcher raises `TypeError: object of type 'NoneType' has no
 len()` mid-evaluation. Agent's score is not computed — the entire
@@ -887,7 +1256,7 @@ every one is a candidate for this bug pre-fix.
 
 ---
 
-## Class 14 — `named_invariants` with `ref: update[N]` / `delete[N]` silently ignored
+## Class 26 — `named_invariants` with `ref: update[N]` / `delete[N]` silently ignored
 
 **Symptom.** A task YAML declares:
 
@@ -933,7 +1302,7 @@ round-trip across 50 affected tasks with zero YAML changes.
 
 ---
 
-## Class 15 — `compute_diff` crashes on `list[str]` / scalar-list state fields
+## Class 27 — `compute_diff` crashes on `list[str]` / scalar-list state fields
 
 **Symptom.** `ValueError: dictionary update sequence element #0 has
 length 1; 2 is required` raised from `_collections_of`. Every
@@ -963,7 +1332,7 @@ would have hit this. The fix is preemptive.
 
 ---
 
-## Class 16 — `where` clause on a non-changed, non-id field silently misses
+## Class 28 — `where` clause on a non-changed, non-id field silently misses
 
 **Symptom.** A migrated task fails its happy-path test with
 `missing_update: no Update entry matched both where and changes
@@ -1010,7 +1379,7 @@ signals a regression.
 
 ---
 
-## Class 17 — Registry `_col_for` disagrees with matcher `_collection_for` on multi-collection envs
+## Class 29 — Registry `_col_for` disagrees with matcher `_collection_for` on multi-collection envs
 
 **Symptom.** Task fails to LOAD with
 `ValueError: <task_id>: invariant on 'state.<col>' overlaps with

@@ -55,37 +55,102 @@ seed:
     thomas_reeve_id: '{output.thomas_reeve_id}'
     roster_email_id: '{output.roster_email_id}'
     congrats_email_id: '{output.congrats_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(c.email == 'j.morales@engteam.co' and c.note == 'Added from Q1 roster'
-      for c in state.contacts)
-    desc: Javier Morales added with roster note
-  - expr: any(c.email == 'a.pham@engteam.co' and c.note == 'Added from Q1 roster'
-      for c in state.contacts)
-    desc: Anika Pham added with roster note
-  - expr: any(c.email == 'l.fischer@engteam.co' and c.note == 'Added from Q1 roster'
-      for c in state.contacts)
-    desc: Leo Fischer added with roster note
-  - expr: all(c.id != '{target.tom_reeves_id}' for c in state.contacts)
-    desc: Tom Reeves contact deleted
-  - expr: all(c.id != '{target.carla_diaz_id}' for c in state.contacts)
-    desc: Carla Diaz contact deleted
-  - expr: any(c.id == '{target.marcus_webb_id}' and c.note == 'Promoted to Senior
-      Engineer — Q1 2026' for c in state.contacts)
-    desc: Marcus Webb note updated with promotion
-  - expr: any(c.id == '{target.sana_hussain_id}' and c.is_starred for c in state.contacts)
-    desc: Sana Hussain contact starred
-  negative_checks:
-  - expr: any(c.id == '{target.carlos_dm_id}' for c in state.contacts)
-    desc: Decoy Carlos Diaz-Mendez preserved
-    penalty: 0.15
-  - expr: any(c.id == '{target.thomas_reeve_id}' for c in state.contacts)
-    desc: Decoy Thomas Reeve preserved
-    penalty: 0.15
-  - expr: not any(c.email == 'j.morales-mgr@company.com' for c in state.contacts)
-    desc: CC'd manager not added as contact
-    penalty: 0.2
-  - expr: any(c.id == '{target.sana_hussain_id}' for c in state.contacts)
-    desc: Sana Hussain contact not deleted
-    penalty: 0.2
+canonical_diff:
+  create:
+    - entity: contacts
+      desc: Add Javier Morales with roster note
+      count: 1
+      properties:
+        email:
+          eq: j.morales@engteam.co
+        note:
+          eq: "Added from Q1 roster"
+    - entity: contacts
+      desc: Add Anika Pham with roster note
+      count: 1
+      properties:
+        email:
+          eq: a.pham@engteam.co
+        note:
+          eq: "Added from Q1 roster"
+    - entity: contacts
+      desc: Add Leo Fischer with roster note
+      count: 1
+      properties:
+        email:
+          eq: l.fischer@engteam.co
+        note:
+          eq: "Added from Q1 roster"
+  delete:
+    - entity: contacts
+      desc: Delete Tom Reeves contact
+      where:
+        id:
+          expr: "x == target['tom_reeves_id']"
+    - entity: contacts
+      desc: Delete Carla Diaz contact
+      where:
+        id:
+          expr: "x == target['carla_diaz_id']"
+  update:
+    - entity: contacts
+      desc: Update Marcus Webb note with promotion
+      where:
+        id:
+          expr: "x == target['marcus_webb_id']"
+      changes:
+        note:
+          eq: "Promoted to Senior Engineer — Q1 2026"
+    - entity: contacts
+      desc: Star Sana Hussain contact (team lead)
+      where:
+        id:
+          expr: "x == target['sana_hussain_id']"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: >-
+        a.id != target['tom_reeves_id']
+        and a.id != target['carla_diaz_id']
+        and a.id != target['marcus_webb_id']
+        and a.id != target['sana_hussain_id']
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent added Javier Morales from roster
+      ref: create[0]
+      severity: high
+    - name: Agent added Anika Pham from roster
+      ref: create[1]
+      severity: high
+    - name: Agent added Leo Fischer from roster
+      ref: create[2]
+      severity: high
+    - name: Agent deleted Tom Reeves
+      ref: delete[0]
+      severity: high
+    - name: Agent deleted Carla Diaz
+      ref: delete[1]
+      severity: high
+    - name: Agent updated Marcus Webb promotion note
+      ref: update[0]
+      severity: high
+    - name: Agent starred Sana Hussain as team lead
+      ref: update[1]
+      severity: medium
+    - name: Agent did not modify unrelated contacts
+      ref: invariant[4]
+      severity: high

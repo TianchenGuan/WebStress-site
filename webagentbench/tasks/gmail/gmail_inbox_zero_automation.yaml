@@ -61,69 +61,200 @@ seed:
     non_matching_old_email_ids: '{output.non_matching_old_email_ids}'
     archive_target_ids: '{output.archive_target_ids}'
     star_target_ids: '{output.star_target_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(l.name == 'Auto/Vendor' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'hide' for l in state.labels)
-    desc: Auto/Vendor label exists with correct visibility
-  - expr: any(l.name == 'Auto/CI-CD' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'show' for l in state.labels)
-    desc: Auto/CI-CD label exists with correct visibility
-  - expr: any(l.name == 'Auto/Newsletters' and l.show_in_label_list == 'hide' and
-      l.show_in_message_list == 'hide' for l in state.labels)
-    desc: Auto/Newsletters label exists with correct visibility
-  - expr: any(l.name == 'Auto/Billing' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'show' for l in state.labels)
-    desc: Auto/Billing label exists with correct visibility
-  - expr: any(l.name == 'Auto/Social' and l.show_in_label_list == 'hide' and l.show_in_message_list
-      == 'hide' for l in state.labels)
-    desc: Auto/Social label exists with correct visibility
-  - expr: any('*@vendors.blueridge.dev' in r.from_addresses and 'Auto/Vendor' in r.add_labels
-      and r.archive and r.mark_read for r in state.filters)
-    desc: Vendor filter exists with correct actions
-  - expr: any('ci@github.com' in r.from_addresses and 'build' in [kw.lower() for kw
-      in r.subject_keywords] and 'Auto/CI-CD' in r.add_labels and r.archive for r
-      in state.filters)
-    desc: CI-CD filter exists with correct actions
-  - expr: any('*@newsletter.blueridge.dev' in r.from_addresses and 'Auto/Newsletters'
-      in r.add_labels and r.archive and r.mark_read for r in state.filters)
-    desc: Newsletter filter exists with correct actions
-  - expr: any('billing@stripe.com' in r.from_addresses and 'Auto/Billing' in r.add_labels
-      and r.star for r in state.filters)
-    desc: Billing Stripe filter exists with correct actions
-  - expr: any('billing@aws.amazon.com' in r.from_addresses and 'Auto/Billing' in r.add_labels
-      and r.star for r in state.filters)
-    desc: Billing AWS filter exists with correct actions
-  - expr: any('*@social.blueridge.dev' in r.from_addresses and 'Auto/Social' in r.add_labels
-      and r.archive for r in state.filters)
-    desc: Social filter exists with correct actions
-  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.archive_target_ids})
-    desc: All filter-matching emails archived
-  - expr: '''inbox'' in state.get_email(''{target.cicd_non_matching_email_id}'').labels'
-    desc: CI-CD non-matching email (release, no build) NOT archived
-  - expr: '''inbox'' in state.get_email(''{target.billing_decoy_email_id}'').labels'
-    desc: Billing decoy email (stripe-invoices.com) NOT archived
-  - expr: '''inbox'' in state.get_email(''{target.domain_decoy_email_id}'').labels'
-    desc: Domain decoy email (news@blueridge.dev) NOT archived
-  - expr: all(state.get_email(eid).is_starred for eid in {target.star_target_ids})
-    desc: All recent non-matching emails starred
-  - expr: state.get_email('{target.cicd_non_matching_email_id}').is_starred
-    desc: CI-CD release email (recent, non-matching) is starred
-  - expr: all(state.get_email(eid).is_starred for eid in {target.billing_email_ids})
-    desc: Billing emails starred per filter action
-  - expr: '''inbox'' in state.get_email(''{target.directive_email_id}'').labels'
-    desc: Priya directive email NOT archived
-  negative_checks:
-  - expr: not any(l.name == 'Automated/Vendor' for l in state.labels)
-    desc: Draft policy label names not used
-    penalty: 0.15
-  - expr: all(not state.get_email(eid).is_starred for eid in {target.non_matching_old_email_ids})
-    desc: Non-matching old emails not newly starred
-    penalty: 0.1
-  - expr: '''Auto/Billing'' not in state.get_email(''{target.billing_decoy_email_id}'').labels'
-    desc: Billing decoy not labeled Auto/Billing
-    penalty: 0.15
-  - expr: '''Auto/Newsletters'' not in state.get_email(''{target.domain_decoy_email_id}'').labels'
-    desc: Domain decoy not labeled Auto/Newsletters
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create Auto/Vendor label (show in label list, hide in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Auto/Vendor"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "hide"
+    - entity: labels
+      desc: Create Auto/CI-CD label (show in label list, show in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Auto/CI-CD"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "show"
+    - entity: labels
+      desc: Create Auto/Newsletters label (hide in label list, hide in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Auto/Newsletters"
+        show_in_label_list:
+          eq: "hide"
+        show_in_message_list:
+          eq: "hide"
+    - entity: labels
+      desc: Create Auto/Billing label (show in label list, show in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Auto/Billing"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "show"
+    - entity: labels
+      desc: Create Auto/Social label (hide in label list, hide in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Auto/Social"
+        show_in_label_list:
+          eq: "hide"
+        show_in_message_list:
+          eq: "hide"
+    - entity: filters
+      desc: Vendor filter - archive, mark read, label Auto/Vendor
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "*@vendors.blueridge.dev"
+        add_labels:
+          superset:
+            - "Auto/Vendor"
+        archive:
+          eq: true
+        mark_read:
+          eq: true
+    - entity: filters
+      desc: CI-CD filter - archive, label Auto/CI-CD, subject build
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "ci@github.com"
+        subject_keywords:
+          superset:
+            - build
+        add_labels:
+          superset:
+            - "Auto/CI-CD"
+        archive:
+          eq: true
+    - entity: filters
+      desc: Newsletter filter - archive, mark read, label Auto/Newsletters
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "*@newsletter.blueridge.dev"
+        add_labels:
+          superset:
+            - "Auto/Newsletters"
+        archive:
+          eq: true
+        mark_read:
+          eq: true
+    - entity: filters
+      desc: Billing Stripe filter - star, label Auto/Billing
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "billing@stripe.com"
+        add_labels:
+          superset:
+            - "Auto/Billing"
+        star:
+          eq: true
+    - entity: filters
+      desc: Billing AWS filter - star, label Auto/Billing
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "billing@aws.amazon.com"
+        add_labels:
+          superset:
+            - "Auto/Billing"
+        star:
+          eq: true
+    - entity: filters
+      desc: Social filter - archive, label Auto/Social
+      count: 1
+      properties:
+        from_addresses:
+          superset:
+            - "*@social.blueridge.dev"
+        add_labels:
+          superset:
+            - "Auto/Social"
+        archive:
+          eq: true
+  update:
+    - entity: emails
+      desc: Archive all filter-matching emails
+      bijection:
+        over: "target['archive_target_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        archived:
+          eq: true
+    - entity: emails
+      desc: Star all recent non-matching emails
+      bijection:
+        over: "target['star_target_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['archive_target_ids'] and a.id not in target['star_target_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Auto/Vendor', 'Auto/CI-CD', 'Auto/Newsletters', 'Auto/Billing', 'Auto/Social']"
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent created Auto/Vendor label
+      ref: create[0]
+      severity: high
+    - name: Agent created Auto/CI-CD label
+      ref: create[1]
+      severity: high
+    - name: Agent created Auto/Newsletters label
+      ref: create[2]
+      severity: high
+    - name: Agent created Auto/Billing label
+      ref: create[3]
+      severity: high
+    - name: Agent created Auto/Social label
+      ref: create[4]
+      severity: high
+    - name: Agent created all 6 filters
+      ref: create[5]
+      severity: high
+    - name: Agent archived filter-matching emails
+      ref: update[0]
+      severity: high
+    - name: Agent starred recent non-matching emails
+      ref: update[1]
+      severity: high

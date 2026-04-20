@@ -37,26 +37,48 @@ seed:
     key_point_2: '{output.key_point_2}'
     key_point_3: '{output.key_point_3}'
     trash_noise_ids: '{output.trash_noise_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: any(m.to == ['{target.recipient_email}'] and m.cc == [] and m.bcc == []
-      and m.in_reply_to is None and m.forwarded_from_id is None for m in state.sent)
-    desc: Fresh compose (not reply/forward) addressed solely to the correct recipient
-  - expr: any(m.subject == '{target.draft_subject}' for m in state.sent)
-    desc: Email subject is exactly the original draft subject
-  - expr: any('{target.key_point_1}' in m.body and '{target.key_point_2}' in m.body
-      and '{target.key_point_3}' in m.body for m in state.sent)
-    desc: A single outbound email contains all three key points
-  negative_checks:
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.25
-  - expr: all('{target.recipient_email}' in m.to for m in state.sent)
-    desc: Every outbound email must go to the intended recipient
-    penalty: 0.4
-  - expr: all(len(m.body) <= 2500 for m in state.sent if m.to == ['{target.recipient_email}'])
-    desc: Body must stay under 2500 chars for the recovered draft (stuffing guard)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose and send new email to recipient with draft subject and key points
+      count: 1
+      properties:
+        to:
+          expr: "x == [target['recipient_email']]"
+        subject:
+          expr: "x == target['draft_subject']"
+        body:
+          expr: >-
+            target['key_point_1'] in x
+            and target['key_point_2'] in x
+            and target['key_point_3'] in x
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed and sent the recovered draft email
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

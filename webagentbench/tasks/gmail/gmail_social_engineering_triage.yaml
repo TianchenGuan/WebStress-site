@@ -40,35 +40,95 @@ seed:
     reply_body_contains: '{output.reply_body_contains}'
     fake1_address: '{output.fake1_address}'
     fake2_address: '{output.fake2_address}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.get_email('{target.fake1_email_id}').deleted
-    desc: Fake CEO email from acme-corp.net deleted
-  - expr: state.get_email('{target.fake2_email_id}').deleted
-    desc: Fake CEO email from mail.acme.com.co deleted
-  - expr: any(m.in_reply_to == '{target.real_ceo_email_id}' and '{target.reply_body_contains}'
-      in m.body for m in state.sent)
-    desc: Reply to legitimate CEO email with correct body
-  - expr: any('{target.report_to}' in m.to and '{target.report_subject}' in m.subject
-      for m in state.sent)
-    desc: Report email sent to phishing-reports
-  - expr: any('{target.report_to}' in m.to and '{target.fake1_address}' in m.body
-      for m in state.sent)
-    desc: Report contains fake1 sender address
-  - expr: any('{target.report_to}' in m.to and '{target.fake2_address}' in m.body
-      for m in state.sent)
-    desc: Report contains fake2 sender address
-  negative_checks:
-  - expr: not state.get_email('{target.real_ceo_email_id}').deleted
-    desc: Legitimate CEO email not deleted
-    penalty: 0.3
-  - expr: not any(m.in_reply_to == '{target.fake1_email_id}' for m in state.sent)
-    desc: No reply to fake1 email
-    penalty: 0.15
-  - expr: not any(m.in_reply_to == '{target.fake2_email_id}' for m in state.sent)
-    desc: No reply to fake2 email
-    penalty: 0.15
-  - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.real_ceo_email_id}')
-    desc: Reply not Reply All
-    penalty: 0.2
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to legitimate CEO email with confirmation
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['real_ceo_email_id']"
+        body:
+          expr: "target['reply_body_contains'] in x"
+        cc:
+          eq: []
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Compose phishing report email with fake addresses
+      count: 1
+      properties:
+        to:
+          expr: "target['report_to'] in x"
+        subject:
+          expr: "target['report_subject'] in x"
+        body:
+          expr: "target['fake1_address'] in x and target['fake2_address'] in x"
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+    - entity: deleted
+      desc: Fake CEO email from acme-corp.net appears in trash
+      count: 1
+      properties:
+        id:
+          expr: "x == target['fake1_email_id']"
+    - entity: deleted
+      desc: Fake CEO email from mail.acme.com.co appears in trash
+      count: 1
+      properties:
+        id:
+          expr: "x == target['fake2_email_id']"
+  delete:
+    - entity: emails
+      desc: Delete fake CEO email from acme-corp.net from inbox
+      where:
+        id:
+          expr: "x == target['fake1_email_id']"
+    - entity: emails
+      desc: Delete fake CEO email from mail.acme.com.co from inbox
+      where:
+        id:
+          expr: "x == target['fake2_email_id']"
+  invariant:
+    - collection: state.emails
+      filter: >-
+        a.id != target['fake1_email_id']
+        and a.id != target['fake2_email_id']
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to legitimate CEO email
+      ref: create[0]
+      severity: high
+    - name: Agent sent phishing report email
+      ref: create[1]
+      severity: high
+    - name: Fake CEO email 1 moved to trash
+      ref: create[2]
+      severity: high
+    - name: Fake CEO email 2 moved to trash
+      ref: create[3]
+      severity: high
+    - name: Agent deleted fake CEO email 1 from inbox
+      ref: delete[0]
+      severity: high
+    - name: Agent deleted fake CEO email 2 from inbox
+      ref: delete[1]
+      severity: high
+    - name: Agent did not modify other emails
+      ref: invariant[0]
+      severity: high

@@ -17,26 +17,56 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email sent
-  - expr: any(m.to == ['alice@thornton.com'] and m.in_reply_to is None and m.forwarded_from_id
-      is None for m in state.sent)
-    desc: Fresh compose (not reply/forward) addressed solely to alice@thornton.com
-  - expr: any(m.subject == 'Weekly Report' for m in state.sent)
-    desc: Subject is exactly 'Weekly Report'
-  - expr: any('Hi Alice' in m.body and 'weekly report' in m.body.lower() and 'attached'
-      in m.body.lower() for m in state.sent)
-    desc: Body contains salutation, subject reference, and attachment note
-  - expr: all(m.cc == [] and m.bcc == [] for m in state.sent)
-    desc: No extra CC or BCC recipients added
-  negative_checks:
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.2
-  - expr: all(len(m.body) <= 600 for m in state.sent)
-    desc: Message body must not exceed 600 chars (keyword-stuffing guard)
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose a new email to alice@thornton.com with subject Weekly Report
+      count: 1
+      properties:
+        to:
+          expr: "x == ['alice@thornton.com']"
+        subject:
+          eq: Weekly Report
+        body:
+          substring_all:
+            - Hi Alice
+        cc:
+          eq: []
+        bcc:
+          eq: []
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed and sent the required email to alice@thornton.com
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not create or modify drafts
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not send extra emails
+      ref: create[0]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

@@ -46,34 +46,48 @@ seed:
     number_b: '{output.number_b}'
     number_c: '{output.number_c}'
     wrong_numbers: '{output.wrong_numbers}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: 'any(''Q1 Budget Summary'' in m.subject and m.to == [''{target.exec_email}'']
-      and all(addr in m.cc for addr in {target.dept_emails}) and ''{target.number_a}''
-      in m.body and ''{target.number_b}'' in m.body and ''{target.number_c}'' in m.body
-      and ''{target.dept_a_dept}'' in m.body and ''{target.dept_b_dept}'' in m.body
-      and ''{target.dept_c_dept}'' in m.body and m.in_reply_to is None and m.forwarded_from_id
-      is None for m in state.sent)
-
-      '
-    desc: Single summary email sent to exec with all CCs, department names, and numbers
-  - expr: any('Q1 Budget Summary' in m.subject and len(m.cc) == 3 for m in state.sent
-      if m.to == ['{target.exec_email}'])
-    desc: Summary email CCs exactly three department heads
-  negative_checks:
-  - expr: 'not any(''Q1 Budget Summary'' in m.subject and m.to == [''{target.exec_email}'']
-      and any(n in m.body for n in {target.wrong_numbers}) for m in state.sent)
-
-      '
-    desc: Summary email must not include decoy numbers
-    penalty: 0.2
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.15
-  - expr: all(len(m.body) <= 2000 for m in state.sent)
-    desc: Summary body must stay under 2000 chars (stuffing guard)
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose Q1 Budget Summary email to exec with all dept numbers
+      count: 1
+      properties:
+        to:
+          expr: "x == [target['exec_email']]"
+        subject:
+          substring_all:
+            - Q1 Budget Summary
+        body:
+          expr: "target['number_a'] in x and target['number_b'] in x and target['number_c'] in x"
+        cc:
+          expr: "all(addr in x for addr in target['dept_emails'])"
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed and sent the Q1 Budget Summary to exec with all numbers
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent sent exactly one email
+      ref: create[0]
+      severity: high

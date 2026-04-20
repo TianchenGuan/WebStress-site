@@ -377,6 +377,13 @@ for env_id in KNOWN_ENV_IDS:
     )
 
 
+@app.get("/control/{env_id}/{session_id}", response_class=HTMLResponse)
+async def control_panel(env_id: str, session_id: str) -> HTMLResponse:
+    """Human-facing control panel for a session: task description, record, evaluate, reset."""
+    path = STATIC_DIR / "control.html"
+    return HTMLResponse(content=path.read_text())
+
+
 @app.get("/", response_class=HTMLResponse)
 @app.get("/launch", response_class=HTMLResponse)
 async def index():
@@ -791,7 +798,19 @@ async def index():
             var baseUrl = envBaseUrls[envId] || ('/env/' + envId);
             var startPath = data.start_path || '/';
             var sep = startPath.indexOf('?') >= 0 ? '&' : '?';
-            window.location.href = baseUrl.replace(/\\/+$/, '') + startPath + sep + 'session=' + encodeURIComponent(data.session_id);
+            var benchUrl = baseUrl.replace(/\\/+$/, '') + startPath + sep + 'session=' + encodeURIComponent(data.session_id) + '&control=on';
+            var controlUrl = '/control/' + envId + '/' + encodeURIComponent(data.session_id);
+            // Open the benchmark tab first (user-gesture) then the control tab
+            // Env-scoped window names so reset navigates the same tabs instead of orphaning them.
+            var benchTab = window.open(benchUrl, 'wab-bench-' + envId);
+            var controlTab = window.open(controlUrl, 'wab-control-' + envId);
+            if (!benchTab || !controlTab) {{
+                status.innerHTML = 'Popups blocked. <a href="' + controlUrl + '" target="_blank">Open control</a> &middot; <a href="' + benchUrl + '" target="_blank">Open benchmark</a>';
+                btn.disabled = false;
+                return;
+            }}
+            status.textContent = 'Launched. Use the control tab to record and evaluate.';
+            btn.disabled = false;
         }} catch(e) {{
             status.textContent = 'Error: ' + e.message;
             btn.disabled = false;

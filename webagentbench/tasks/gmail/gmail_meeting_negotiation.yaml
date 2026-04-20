@@ -31,31 +31,40 @@ seed:
     attendee_emails: '{output.attendee_emails}'
     correct_time: '{output.correct_time}'
     room_name: '{output.room_name}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email sent
-  - expr: 'any(m.to == [''{target.organizer_email}''] and all(addr in m.cc for addr
-      in {target.attendee_emails}) and ''{target.correct_time}'' in m.body and ''{target.room_name}''
-      in m.body and m.in_reply_to is None for m in state.sent)
-
-      '
-    desc: Single confirmation email sent to organizer with all attendees CC'd, correct
-      time, and room name
-  - expr: any(m.to == ['{target.organizer_email}'] and len(m.cc) == 5 for m in state.sent)
-    desc: Confirmation email CCs exactly five attendees
-  - expr: any('{target.meeting_name}' in m.subject or '{target.meeting_name}' in m.body
-      for m in state.sent if m.to == ['{target.organizer_email}'])
-    desc: Email references the meeting name
-  negative_checks:
-  - expr: not any(m.in_reply_to is not None for m in state.sent)
-    desc: Must compose new, not reply
-    penalty: 0.2
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.15
-  - expr: all(len(m.body) <= 1500 for m in state.sent)
-    desc: Confirmation body must stay under 1500 chars (stuffing guard)
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose confirmation email to organizer with correct time, room and all attendees CC'd
+      count: 1
+      properties:
+        to:
+          expr: "x == [target['organizer_email']]"
+        body:
+          expr: "target['correct_time'] in x and target['room_name'] in x"
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed confirmation email to organizer
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox
+      ref: invariant[0]
+      severity: high

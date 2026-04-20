@@ -41,38 +41,98 @@ seed:
     invoice_decoy_email_id: '{output.invoice_decoy_email_id}'
     security_followup_email_id: '{output.security_followup_email_id}'
     travel_decoy_email_id: '{output.travel_decoy_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.get_email('{target.invoice_email_id}') is not None and state.get_email('{target.invoice_email_id}').is_starred
-      and 'Finance Review' in state.get_email('{target.invoice_email_id}').labels
-    desc: Invoice email was starred and labeled correctly
-  - expr: state.get_email('{target.promo_email_id}') is not None and 'inbox' not in
-      state.get_email('{target.promo_email_id}').labels
-    desc: Promotion email was archived out of the inbox
-  - expr: any(message.forwarded_from_id == '{target.security_email_id}' and '{target.escalation_email}'
-      in message.to for message in state.sent)
-    desc: Security alert was forwarded to the escalation address
-  - expr: state.get_email('{target.travel_email_id}') is not None and 'Travel Follow-up'
-      in state.get_email('{target.travel_email_id}').labels
-    desc: Travel request received the correct follow-up label
-  - expr: any(message.in_reply_to == '{target.onboarding_email_id}' and '{target.confirmation_phrase}'
-      in message.body for message in state.sent)
-    desc: Onboarding message received the requested confirmation reply
-  negative_checks:
-  - expr: state.get_email('{target.invoice_decoy_email_id}') is not None and not state.get_email('{target.invoice_decoy_email_id}').is_starred
-    desc: Decoy invoice was not starred
-    penalty: 0.15
-  - expr: not any(message.forwarded_from_id == '{target.security_followup_email_id}'
-      for message in state.sent)
-    desc: Resolved security follow-up was not forwarded
-    penalty: 0.15
-  - expr: state.get_email('{target.travel_decoy_email_id}') is not None and 'Travel
-      Follow-up' not in state.get_email('{target.travel_decoy_email_id}').labels
-    desc: Dinner travel decoy was not labeled with Travel Follow-up
-    penalty: 0.15
-  - expr: all(len(message.cc) == 0 for message in state.sent if message.in_reply_to
-      == '{target.onboarding_email_id}')
-    desc: Onboarding reply was not sent via Reply All
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create Finance Review label
+      count: 1
+      properties:
+        name:
+          eq: "Finance Review"
+    - entity: labels
+      desc: Create Travel Follow-up label
+      count: 1
+      properties:
+        name:
+          eq: "Travel Follow-up"
+    - entity: sent
+      desc: Forward security alert to escalation email
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['security_email_id']"
+        to:
+          expr: "target['escalation_email'] in x"
+    - entity: sent
+      desc: Reply to onboarding email with confirmation phrase
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['onboarding_email_id']"
+        body:
+          expr: "target['confirmation_phrase'] in x"
+        forwarded_from_id:
+          eq: null
+  update:
+    - entity: emails
+      desc: Star and label Finance Review on the invoice email
+      where:
+        id:
+          expr: "x == target['invoice_email_id']"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - "Finance Review"
+    - entity: emails
+      desc: Archive the promotional offer email
+      where:
+        id:
+          expr: "x == target['promo_email_id']"
+      changes:
+        archived:
+          eq: true
+    - entity: emails
+      desc: Apply Travel Follow-up label to travel request email
+      where:
+        id:
+          expr: "x == target['travel_email_id']"
+      changes:
+        labels:
+          superset:
+            - "Travel Follow-up"
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in [target['invoice_email_id'], target['promo_email_id'], target['travel_email_id']]"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Finance Review', 'Travel Follow-up']"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded security alert
+      ref: create[2]
+      severity: high
+    - name: Agent replied to onboarding email
+      ref: create[3]
+      severity: high
+    - name: Agent starred and labeled invoice email
+      ref: update[0]
+      severity: high
+    - name: Agent archived promo email
+      ref: update[1]
+      severity: high
+    - name: Agent labeled travel request
+      ref: update[2]
+      severity: high

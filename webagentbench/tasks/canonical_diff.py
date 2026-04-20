@@ -198,6 +198,7 @@ class DeleteEntry(BaseModel):
     entity: str
     collection: str | None = None
     where: dict[str, dict[str, Any]]
+    bijection: Bijection | None = None
     weight: float = Field(default=1.0, ge=0.0)
     desc: str | None = None  # optional human-readable check label
 

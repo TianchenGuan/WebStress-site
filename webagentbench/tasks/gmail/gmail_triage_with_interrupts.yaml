@@ -127,40 +127,83 @@ seed:
     email_9_subject: '{output.email_9_subject}'
     email_10_sender: '{output.email_10_sender}'
     email_10_subject: '{output.email_10_subject}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(state.get_email(eid).is_starred for eid in {target.client_ids})
-    desc: All 4 client emails starred
-  - expr: all('inbox' in state.get_email(eid).labels for eid in {target.client_ids})
-    desc: All client emails still in inbox
-  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.newsletter_ids})
-    desc: All 3 newsletter emails archived
-  - expr: all(not state.get_email(eid).deleted for eid in {target.newsletter_ids})
-    desc: Newsletter emails not deleted
-  - expr: all(any(m.forwarded_from_id == eid and '{target.team_lead_email}' in m.to
-      for m in state.sent) for eid in {target.escalation_ids})
-    desc: All 3 escalation emails forwarded to team lead
-  - expr: state.get_email('{target.boss_email_id}').is_starred
-    desc: Boss email starred for follow-up
-  - expr: '''inbox'' in state.get_email(''{target.boss_email_id}'').labels'
-    desc: Boss email still in inbox
-  negative_checks:
-  - expr: not any(m.in_reply_to == '{target.boss_email_id}' for m in state.sent)
-    desc: Boss email must not be replied to
-    penalty: 0.25
-  - expr: not any(m.forwarded_from_id == '{target.boss_email_id}' for m in state.sent)
-    desc: Boss email must not be forwarded
-    penalty: 0.25
-  - expr: not state.get_email('{target.urgent_newsletter_id}').is_starred
-    desc: URGENT newsletter must not be starred (must be archived)
-    penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.urgent_newsletter_id}' for m in
-      state.sent)
-    desc: URGENT newsletter must not be forwarded
-    penalty: 0.15
-  - expr: all('inbox' in state.get_email(eid).labels and not state.get_email(eid).is_starred
-      for eid in {target.other_ids})
-    desc: Non-rubric emails must remain untouched
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward each escalation email to team lead
+      bijection:
+        over: "target['escalation_ids']"
+        variable: v
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == v"
+        to:
+          expr: "target['team_lead_email'] in x"
+  update:
+    - entity: emails
+      desc: Star all client emails
+      bijection:
+        over: "target['client_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+    - entity: emails
+      desc: Archive all newsletter emails
+      bijection:
+        over: "target['newsletter_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        archived:
+          eq: true
+    - entity: emails
+      desc: Star boss email for follow-up
+      where:
+        id:
+          expr: "x == target['boss_email_id']"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: >-
+        a.id not in target['client_ids']
+        and a.id not in target['newsletter_ids']
+        and a.id != target['boss_email_id']
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded escalation emails to team lead
+      ref: create[0]
+      severity: high
+    - name: Agent starred all client emails
+      ref: update[0]
+      severity: high
+    - name: Agent archived all newsletter emails
+      ref: update[1]
+      severity: high
+    - name: Agent starred boss email
+      ref: update[2]
+      severity: high
+    - name: Agent did not modify other emails
+      ref: invariant[0]
+      severity: high

@@ -47,31 +47,46 @@ seed:
     adversarial_wrong_item: '{output.adversarial_wrong_item}'
     decoy_dinner_id: '{output.decoy_dinner_id}'
     decoy_old_offsite_id: '{output.decoy_old_offsite_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: "any(\n  m.to == ['{target.manager_email}']\n  and 'Offsite Action Items'\
-      \ in m.subject\n  and '{target.user_name}' in m.subject\n  and m.in_reply_to\
-      \ is None\n  and m.forwarded_from_id is None\n  for m in state.sent\n)"
-    desc: Fresh compose (not reply/forward) to manager with the exact subject prefix
-      and user name
-  - expr: any(all(item in m.body for item in {target.correct_action_items}) for m
-      in state.sent if m.to == ['{target.manager_email}'])
-    desc: All correct action items appear verbatim in sent email body
-  negative_checks:
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.2
-  - expr: not any('{target.reassigned_item}' in m.body for m in state.sent if m.to
-      == ['{target.manager_email}'])
-    desc: Reassigned item must not appear in the summary
-    penalty: 0.25
-  - expr: not any('{target.adversarial_wrong_item}' in m.body for m in state.sent
-      if m.to == ['{target.manager_email}'])
-    desc: Action item from another attendee must not appear in the summary
-    penalty: 0.2
-  - expr: all(len(m.body) <= 4000 for m in state.sent if m.to == ['{target.manager_email}'])
-    desc: Summary body must stay under 4000 chars (stuffing guard)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose email to manager listing action items assigned to user
+      count: 1
+      properties:
+        to:
+          expr: "target['manager_email'] in x"
+        subject:
+          substring_all:
+            - Offsite Action Items
+        body:
+          expr: "all(item in x for item in target['correct_action_items'])"
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed and sent the action item summary to the manager
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not send extra emails
+      ref: create[0]
+      severity: high

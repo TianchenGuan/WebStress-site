@@ -40,24 +40,53 @@ seed:
     keep_contact_id: '{output.keep_contact_id}'
     near_threshold_contact_id: '{output.near_threshold_contact_id}'
     near_threshold_contact_b_id: '{output.near_threshold_contact_b_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(contact.id != '{target.stale_contact_id_a}' for contact in state.contacts)
-    desc: First stale contact was removed
-  - expr: all(contact.id != '{target.stale_contact_id_b}' for contact in state.contacts)
-    desc: Second stale contact was removed
-  - expr: any(contact.email == '{target.missing_contact_email}' and '{target.contact_note}'
-      in (contact.note or '') for contact in state.contacts)
-    desc: Missing contact was added with the required note
-  - expr: any(contact.id == '{target.keep_contact_id}' for contact in state.contacts)
-    desc: Active contact was preserved
-  negative_checks:
-  - expr: any(contact.id == '{target.near_threshold_contact_id}' for contact in state.contacts)
-    desc: Near-threshold contact A preserved
-    penalty: 0.15
-  - expr: any(contact.id == '{target.near_threshold_contact_b_id}' for contact in
-      state.contacts)
-    desc: Near-threshold contact B preserved
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: contacts
+      desc: Add missing contact with required note
+      count: 1
+      properties:
+        email:
+          expr: "x == target['missing_contact_email']"
+        note:
+          expr: "target['contact_note'] in (x or '')"
+  delete:
+    - entity: contacts
+      desc: Delete first stale contact
+      where:
+        id:
+          expr: "x == target['stale_contact_id_a']"
+    - entity: contacts
+      desc: Delete second stale contact
+      where:
+        id:
+          expr: "x == target['stale_contact_id_b']"
+  invariant:
+    - collection: state.contacts
+      filter: "a.id not in [target['stale_contact_id_a'], target['stale_contact_id_b']]"
+      preserve: ALL
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent added the missing contact with required note
+      ref: create[0]
+      severity: high
+    - name: Agent deleted first stale contact
+      ref: delete[0]
+      severity: high
+    - name: Agent deleted second stale contact
+      ref: delete[1]
+      severity: high
+    - name: Agent did not modify other contacts
+      ref: invariant[0]
+      severity: high

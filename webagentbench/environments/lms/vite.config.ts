@@ -18,6 +18,7 @@ export default defineConfig({
       "/manifest": backendUrl,
       "/static": backendUrl,
       "/launch": backendUrl,
+      "/control": backendUrl,
     },
   },
 });

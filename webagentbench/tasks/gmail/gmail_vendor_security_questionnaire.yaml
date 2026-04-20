@@ -109,74 +109,118 @@ seed:
     dana_note: '{output.dana_note}'
     frank_note: '{output.frank_note}'
     grace_note: '{output.grace_note}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' for m in state.sent)
-    desc: Reply exists on vendor thread
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q1_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q1 answer (AES-256)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q2_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q2 answer (AWS KMS)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q3_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q3 answer (US-East and EU-West)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q4_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q4 answer (SOC 2 Type II and ISO 27001)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q5_correct}'
-      in m.body for m in state.sent)
-    desc: Reply contains updated Q5 answer (OAuth 2.0 + mTLS)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q6_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q6 answer (72 hours)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q7_answer}'
-      in m.body for m in state.sent)
-    desc: Reply contains Q7 answer (semi-annually)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q8_correct}'
-      in m.body for m in state.sent)
-    desc: Reply contains correct Q8 answer (daily incremental)
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.dana_park_email}'
-      in m.cc for m in state.sent)
-    desc: Reply CCs Dana Park
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.frank_osei_email}'
-      in m.cc for m in state.sent)
-    desc: Reply CCs Frank Osei
-  - expr: any(m.in_reply_to == '{target.vendor_email_id}' and '{target.grace_liu_email}'
-      in m.cc for m in state.sent)
-    desc: Reply CCs Grace Liu
-  - expr: all(state.get_email(eid).is_starred for eid in {target.internal_email_ids})
-    desc: All 6 internal source emails starred
-  - expr: any(c.email == '{target.dana_park_email}' and c.note == '{target.dana_note}'
-      for c in state.contacts)
-    desc: Dana Park contact note updated
-  - expr: any(c.email == '{target.frank_osei_email}' and c.note == '{target.frank_note}'
-      for c in state.contacts)
-    desc: Frank Osei contact note updated
-  - expr: any(c.email == '{target.grace_liu_email}' and c.note == '{target.grace_note}'
-      for c in state.contacts)
-    desc: Grace Liu contact note updated
-  - expr: any(m.forwarded_from_id == '{target.vendor_email_id}' and '{target.forward_to}'
-      in m.to for m in state.sent)
-    desc: Vendor questionnaire forwarded to coordinator
-  negative_checks:
-  - expr: not any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q5_wrong}'
-      in m.body for m in state.sent)
-    desc: Reply does not contain outdated Q5 answer (API keys)
-    penalty: 0.2
-  - expr: not any(m.in_reply_to == '{target.vendor_email_id}' and '{target.q8_wrong}'
-      in m.body for m in state.sent)
-    desc: Reply does not contain outdated Q8 answer (30-day retention)
-    penalty: 0.2
-  - expr: not state.get_email('{target.decoy_vendor_id}').is_starred
-    desc: Decoy vendor email not starred
-    penalty: 0.1
-  - expr: not state.get_email('{target.decoy_digest_id}').is_starred
-    desc: Decoy compliance digest not starred
-    penalty: 0.1
-  - expr: not any(m.in_reply_to == '{target.vendor_email_id}' and '{target.wrong_cc}'
-      in m.cc for m in state.sent)
-    desc: Wrong Grace (Lin vs Liu) not CC'd
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to vendor questionnaire with all 8 answers and CCs
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['vendor_email_id']"
+        body:
+          expr: >-
+            target['q1_answer'] in x
+            and target['q2_answer'] in x
+            and target['q3_answer'] in x
+            and target['q4_answer'] in x
+            and target['q5_correct'] in x
+            and target['q6_answer'] in x
+            and target['q7_answer'] in x
+            and target['q8_correct'] in x
+        cc:
+          expr: >-
+            target['dana_park_email'] in x
+            and target['frank_osei_email'] in x
+            and target['grace_liu_email'] in x
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Forward vendor questionnaire to coordinator
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['vendor_email_id']"
+        to:
+          expr: "target['forward_to'] in x"
+        body:
+          substring_all:
+            - All 8 answers submitted
+  update:
+    - entity: emails
+      desc: Star all 6 internal source emails
+      bijection:
+        over: "target['internal_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+    - entity: contacts
+      desc: Update Dana Park contact note
+      where:
+        email:
+          expr: "x == target['dana_park_email']"
+      changes:
+        note:
+          expr: "x == target['dana_note']"
+    - entity: contacts
+      desc: Update Frank Osei contact note
+      where:
+        email:
+          expr: "x == target['frank_osei_email']"
+      changes:
+        note:
+          expr: "x == target['frank_note']"
+    - entity: contacts
+      desc: Update Grace Liu contact note
+      where:
+        email:
+          expr: "x == target['grace_liu_email']"
+      changes:
+        note:
+          expr: "x == target['grace_note']"
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['internal_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: >-
+        a.email != target['dana_park_email']
+        and a.email != target['frank_osei_email']
+        and a.email != target['grace_liu_email']
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to vendor with all 8 answers and correct CCs
+      ref: create[0]
+      severity: high
+    - name: Agent forwarded vendor questionnaire to coordinator
+      ref: create[1]
+      severity: high
+    - name: Agent starred all 6 internal source emails
+      ref: update[0]
+      severity: high
+    - name: Agent updated Dana Park note
+      ref: update[1]
+      severity: medium
+    - name: Agent updated Frank Osei note
+      ref: update[2]
+      severity: medium
+    - name: Agent updated Grace Liu note
+      ref: update[3]
+      severity: medium
+    - name: Agent did not modify unrelated contacts
+      ref: invariant[4]
+      severity: high

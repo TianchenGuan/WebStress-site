@@ -71,30 +71,43 @@ seed:
     dana_okafor_name: '{actor.dana_okafor.name}'
     agreed_version: '{output.agreed_version}'
     reply_text: '{output.reply_text}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: any(e.thread_id == '{target.target_thread_id}' and e.body.strip().startswith('{target.reply_text}')
-      for e in state.sent)
-    desc: Reply begins with the correct confirmation text in the correct thread
-  - expr: any(e.in_reply_to == '{target.chen_wei_latest_email_id}' for e in state.sent)
-    desc: Reply is to Chen Wei's most recent message
-  - expr: any('{target.chen_wei_email}' in e.to for e in state.sent)
-    desc: Reply sent to Chen Wei
-  - expr: not any(e.forwarded_from_id is not None for e in state.sent)
-    desc: No forwards were sent (reply expected, not forward)
-  negative_checks:
-  - expr: not any(e.thread_id == '{target.decoy_thread_id}' for e in state.sent)
-    desc: No reply in decoy thread
-    penalty: 0.15
-  - expr: not any('4.3.0' in e.body for e in state.sent)
-    desc: Reply does not contain wrong version 4.3.0
-    penalty: 0.15
-  - expr: not any('4.1.0' in e.body for e in state.sent)
-    desc: Reply does not contain superseded version 4.1.0
-    penalty: 0.15
-  - expr: all(len(m.body) <= 1500 for m in state.sent)
-    desc: Reply body must stay under 1500 chars (stuffing guard)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to Chen Wei confirming the agreed version number
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['chen_wei_latest_email_id']"
+        to:
+          expr: "target['chen_wei_email'] in x"
+        body:
+          expr: "x.strip().startswith(target['reply_text'])"
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to Chen Wei with correct version confirmation
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

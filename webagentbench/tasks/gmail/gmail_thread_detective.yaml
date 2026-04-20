@@ -64,40 +64,45 @@ seed:
     correct_time: '{output.correct_time}'
     wrong_times: '{output.wrong_times}'
     most_recent_thread_id: '{output.most_recent_thread_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: 'any(m.to == [''{target.sender_email}''] and m.in_reply_to is not None and
-      m.thread_id == ''{target.most_recent_thread_id}'' for m in state.sent)
-
-      '
-    desc: Reply was threaded to the correct sender in the most recent scheduling thread
-  - expr: 'any(m.to == [''{target.sender_email}''] and m.in_reply_to is not None and
-      m.thread_id == ''{target.most_recent_thread_id}'' and ''{target.correct_time}''
-      in m.body.split(''\n\nOn '', 1)[0] for m in state.sent)
-
-      '
-    desc: Reply contains the correct non-conflicting time in authored text
-  - expr: state.get_email('{target.calendar_email_id}').is_read
-    desc: Calendar conflict email was read to identify conflicts
-  negative_checks:
-  - expr: not any(any(t in m.body.split('\n\nOn ', 1)[0] for t in {target.wrong_times})
-      for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
-    desc: Reply does not mention any conflicting times
-    penalty: 0.25
-  - expr: not any(len(m.to) > 1 for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
-    desc: Reply was sent only to the sender (not Reply All)
-    penalty: 0.2
-  - expr: not any( '{target.other_sender_email}' in m.to for m in state.sent)
-    desc: Calendar conflict email was not replied to directly
-    penalty: 0.15
-  - expr: all( m.in_reply_to is not None for m in state.sent if m.thread_id == '{target.most_recent_thread_id}')
-    desc: Confirmation was sent as an in-thread reply, not a new compose
-    penalty: 0.15
-  - expr: len([m for m in state.sent if m.thread_id == '{target.most_recent_thread_id}'])
-      == 1
-    desc: Only one confirmation email was sent in the scheduling thread
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to sender confirming the non-conflicting meeting time
+      count: 1
+      properties:
+        to:
+          expr: "x == [target['sender_email']]"
+        in_reply_to:
+          expr: "x is not None"
+        body:
+          expr: "target['correct_time'] in x.split('\\n\\nOn ', 1)[0]"
+        cc:
+          eq: []
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied with the correct non-conflicting time
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

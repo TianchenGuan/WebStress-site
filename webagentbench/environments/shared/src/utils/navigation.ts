@@ -1,4 +1,4 @@
-const DEFAULT_PRESERVED_KEYS = ["session", "agent_mode"];
+const DEFAULT_PRESERVED_KEYS = ["session", "agent_mode", "control"];
 
 export function preserveQueryParams(
   to: string,

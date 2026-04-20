@@ -45,29 +45,77 @@ seed:
     deadline_email_ids: '{output.deadline_email_ids}'
     non_deadline_email_ids: '{output.non_deadline_email_ids}'
     filler_email_ids: '{output.filler_email_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(l.name == 'Project/{target.project_name}' for l in state.labels)
-    desc: Label Project/{target.project_name} exists
-  - expr: all('Project/{target.project_name}' in state.get_email(eid).labels for eid
-      in {target.project_email_ids})
-    desc: All project emails have the project label applied
-  - expr: all(state.get_email(eid).is_starred for eid in {target.deadline_email_ids})
-    desc: Manager emails with deadlines are starred
-  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.newsletter_ids})
-    desc: All newsletters archived out of inbox
-  negative_checks:
-  - expr: len(state.deleted) == 0
-    desc: No emails were deleted
-    penalty: 0.4
-  - expr: all('Project/{target.project_name}' not in state.get_email(eid).labels for
-      eid in {target.filler_email_ids})
-    desc: Non-project filler emails do not have the project label
-    penalty: 0.2
-  - expr: all(not state.get_email(eid).is_starred for eid in {target.non_deadline_email_ids})
-    desc: Manager emails without deadlines are not starred
-    penalty: 0.15
-  - expr: all('inbox' in state.get_email(eid).labels for eid in {target.project_email_ids})
-    desc: Project emails are still in inbox (not archived)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create the Project/<project_name> label
+      count: 1
+      properties:
+        name:
+          expr: "x == f\"Project/{target['project_name']}\""
+        system:
+          eq: false
+  update:
+    - entity: emails
+      desc: Apply project label to all project emails
+      bijection:
+        over: "target['project_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          expr: "f\"Project/{target['project_name']}\" in x"
+    - entity: emails
+      desc: Star deadline emails from manager
+      bijection:
+        over: "target['deadline_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+    - entity: emails
+      desc: Archive all newsletters
+      bijection:
+        over: "target['newsletter_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        archived:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['project_email_ids'] and a.id not in target['deadline_email_ids'] and a.id not in target['newsletter_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent created the project label
+      ref: create[0]
+      severity: high
+    - name: Agent applied the project label to project emails
+      ref: update[0]
+      severity: high
+    - name: Agent starred deadline emails from manager
+      ref: update[1]
+      severity: high
+    - name: Agent archived all newsletters
+      ref: update[2]
+      severity: high
+    - name: Agent did not delete any emails
+      ref: invariant[3]
+      severity: high

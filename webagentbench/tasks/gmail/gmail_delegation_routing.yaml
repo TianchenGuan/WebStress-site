@@ -38,33 +38,104 @@ seed:
     support_lead_email: '{output.support_lead_email}'
     manager_email: '{output.manager_email}'
     all_ids: '{output.all_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(m.forwarded_from_id == '{target.budget_id}' and '{target.cfo_email}'
-      in m.to for m in state.sent)
-    desc: Budget email forwarded to CFO
-  - expr: any(m.forwarded_from_id == '{target.tech_id}' and '{target.cto_email}' in
-      m.to for m in state.sent)
-    desc: Tech email forwarded to CTO
-  - expr: any(m.forwarded_from_id == '{target.complaint_id}' and '{target.support_lead_email}'
-      in m.to for m in state.sent)
-    desc: Complaint forwarded to support lead
-  - expr: any(m.forwarded_from_id == '{target.complaint_id}' and '{target.manager_email}'
-      in m.bcc for m in state.sent)
-    desc: Manager BCC'd on complaint
-  - expr: state.get_email('{target.complaint_id}').is_starred
-    desc: Complaint starred
-  - expr: all('Delegated' in state.get_email(eid).labels for eid in {target.all_ids})
-    desc: Delegated label applied
-  negative_checks:
-  - expr: not any(m.forwarded_from_id == '{target.decoy_id}' for m in state.sent)
-    desc: Decoy not forwarded
-    penalty: 0.15
-  - expr: len(state.sent) <= 4
-    desc: No more than expected forwards sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward budget email to CFO
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['budget_id']"
+        to:
+          expr: "target['cfo_email'] in x"
+    - entity: sent
+      desc: Forward tech email to CTO
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['tech_id']"
+        to:
+          expr: "target['cto_email'] in x"
+    - entity: sent
+      desc: Forward complaint email to support lead with manager BCC
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['complaint_id']"
+        to:
+          expr: "target['support_lead_email'] in x"
+        bcc:
+          expr: "target['manager_email'] in x"
+    - entity: labels
+      desc: Create the Delegated label
+      count: 1
+      properties:
+        name:
+          eq: Delegated
+  update:
+    - entity: emails
+      desc: Apply Delegated label to budget email
+      where:
+        id:
+          expr: "x == target['budget_id']"
+      changes:
+        labels:
+          superset:
+            - Delegated
+    - entity: emails
+      desc: Apply Delegated label to tech email
+      where:
+        id:
+          expr: "x == target['tech_id']"
+      changes:
+        labels:
+          superset:
+            - Delegated
+    - entity: emails
+      desc: Star complaint and apply Delegated label
+      where:
+        id:
+          expr: "x == target['complaint_id']"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - Delegated
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['all_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'Delegated'"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded budget email to CFO
+      ref: create[0]
+      severity: high
+    - name: Agent forwarded tech email to CTO
+      ref: create[1]
+      severity: high
+    - name: Agent forwarded complaint to support lead with manager BCC
+      ref: create[2]
+      severity: high
+    - name: Agent created the Delegated label
+      ref: create[3]
+      severity: high
+    - name: Agent starred complaint and labeled it Delegated
+      ref: update[2]
+      severity: high
+    - name: Agent did not modify unrelated inbox emails
+      ref: invariant[0]
+      severity: high

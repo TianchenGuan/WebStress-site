@@ -42,44 +42,68 @@ seed:
     conference_email_id: '{output.conference_email_id}'
     decoy_summary_email_id: '{output.decoy_summary_email_id}'
     jordan_name: '{output.jordan_name}'
-eval:
-  source: server_state
-  checks:
-  - expr: sum(1 for m in state.sent if 'travel.assistant@ops.thornton.com' in m.to
-      and m.forwarded_from_id) == 2
-    desc: Exactly 2 forwards sent to travel assistant
-  - expr: any(m.forwarded_from_id == '{target.flight_rebooked_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Rebooked flight forwarded to travel assistant
-  - expr: any(m.forwarded_from_id == '{target.hotel_denver_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Denver hotel forwarded to travel assistant
-  - expr: any('{target.airline_sender}' in f.from_addresses and 'Travel' in f.add_labels
-      for f in state.filters)
-    desc: Filter created for airline sender with Travel label
-  negative_checks:
-  - expr: not any(m.forwarded_from_id == '{target.flight_original_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Did not forward superseded flight
-    penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.hotel_boulder_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Did not forward Boulder hotel
-    penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.decoy_summary_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Did not forward decoy itinerary summary
-    penalty: 0.25
-  - expr: not any(m.forwarded_from_id == '{target.conference_email_id}' and 'travel.assistant@ops.thornton.com'
-      in m.to for m in state.sent)
-    desc: Did not forward the conference logistics email instead of an itinerary document
-    penalty: 0.15
-  - expr: "all(\n  m.to == ['travel.assistant@ops.thornton.com']\n  and len(m.cc)\
-      \ == 0\n  and len(m.bcc) == 0\n  for m in state.sent\n  if m.forwarded_from_id\
-      \ is not None)"
-    desc: Travel forwards went only to the travel assistant
-    penalty: 0.1
-  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.filter.create') ==
-      1
-    desc: Travel resolution created only the single requested airline filter
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward rebooked flight confirmation to travel assistant
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['flight_rebooked_email_id']"
+        to:
+          expr: "'travel.assistant@ops.thornton.com' in x"
+        cc:
+          eq: []
+        bcc:
+          eq: []
+    - entity: sent
+      desc: Forward Denver hotel confirmation to travel assistant
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['hotel_denver_email_id']"
+        to:
+          expr: "'travel.assistant@ops.thornton.com' in x"
+        cc:
+          eq: []
+        bcc:
+          eq: []
+    - entity: filters
+      desc: Create filter for airline sender with Travel label
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['airline_sender'] in x"
+        add_labels:
+          superset:
+            - Travel
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded rebooked flight to travel assistant
+      ref: create[0]
+      severity: high
+    - name: Agent forwarded Denver hotel to travel assistant
+      ref: create[1]
+      severity: high
+    - name: Agent created airline filter with Travel label
+      ref: create[2]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high

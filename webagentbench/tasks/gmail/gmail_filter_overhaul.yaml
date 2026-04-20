@@ -47,39 +47,84 @@ seed:
     forward_to: '{output.forward_to}'
     good_filter_a_id: '{output.good_filter_a_id}'
     good_filter_b_id: '{output.good_filter_b_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(r.id != '{target.broken_filter_id}' for r in state.filters)
-    desc: Broken filter deleted
-  - expr: any(r.archive and '*@{target.correct_domain}' in r.from_addresses and '{target.billing_label}'
-      in r.add_labels for r in state.filters)
-    desc: Fixed filter created with correct domain
-  - expr: any(r.star and '{target.keyword}' in r.subject_keywords and '{target.keyword_label}'
-      in r.add_labels for r in state.filters)
-    desc: Keyword filter created
-  - expr: any(r.archive and r.mark_read and '*@{target.archive_domain}' in r.from_addresses
-      for r in state.filters)
-    desc: Archive filter created
-  - expr: any(r.forward_to == '{target.forward_to}' and '{target.forward_sender}'
-      in r.from_addresses for r in state.filters)
-    desc: Forward filter created
-  - expr: any(r.id == '{target.good_filter_a_id}' for r in state.filters)
-    desc: Good filter A preserved
-  - expr: any(r.id == '{target.good_filter_b_id}' for r in state.filters)
-    desc: Good filter B preserved
-  negative_checks:
-  - expr: len([r for r in state.filters if r.archive and '*@{target.wrong_domain}'
-      in r.from_addresses]) == 0
-    desc: Broken filter not left in place
-    penalty: 0.2
-  - expr: len(state.sent) <= 6
-    desc: No excessive emails sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.1
-  - expr: not any(e.action.startswith('gmail.contact.') for e in state.audit_log)
-    desc: No off-task contact edits were made
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: filters
+      desc: Recreated billing filter with correct domain, archive and label
+      count: 1
+      properties:
+        from_addresses:
+          expr: "any(target['correct_domain'] in a for a in x)"
+        add_labels:
+          expr: "target['billing_label'] in x"
+        archive:
+          eq: true
+    - entity: filters
+      desc: Keyword filter that stars and labels matching subjects
+      count: 1
+      properties:
+        subject_keywords:
+          expr: "target['keyword'] in x"
+        add_labels:
+          expr: "target['keyword_label'] in x"
+        star:
+          eq: true
+    - entity: filters
+      desc: Archive filter for archive_domain emails marked as read
+      count: 1
+      properties:
+        from_addresses:
+          expr: "any(target['archive_domain'] in a for a in x)"
+        archive:
+          eq: true
+        mark_read:
+          eq: true
+    - entity: filters
+      desc: Forward filter from forward_sender to forward_to
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['forward_sender'] in x"
+        forward_to:
+          expr: "x == target['forward_to']"
+  delete:
+    - entity: filters
+      desc: Delete the broken filter with wrong domain
+      where:
+        id:
+          expr: "x == target['broken_filter_id']"
+  invariant:
+    - collection: state.filters
+      filter: "a.id not in [target['broken_filter_id']]"
+      preserve: ALL
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+  named_invariants:
+    - name: Agent created fixed billing filter
+      ref: create[0]
+      severity: high
+    - name: Agent created keyword filter
+      ref: create[1]
+      severity: high
+    - name: Agent created archive filter
+      ref: create[2]
+      severity: high
+    - name: Agent created forward filter
+      ref: create[3]
+      severity: high
+    - name: Agent deleted broken filter
+      ref: delete[0]
+      severity: high
+    - name: Agent preserved good filters
+      ref: invariant[0]
+      severity: high

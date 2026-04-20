@@ -1164,6 +1164,82 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     [location.search],
   );
 
+  const controlMode = useMemo(
+    () => new URLSearchParams(location.search).get("control") === "on",
+    [location.search],
+  );
+
+  // When control=on, poll the backend for recording state and start/stop
+  // the in-page recorder accordingly. The control tab sets the flag; we
+  // just respond to it. No visible UI on this page.
+  useEffect(() => {
+    if (!controlMode || agentMode) return;
+    ensureRecorderScript();
+
+    let active = false;
+    let heartbeat: number | null = null;
+
+    // Always-on connection heartbeat so the control tab can show
+    // "connected". Independent of recording state.
+    const connHeartbeat = window.setInterval(() => {
+      void fetch(`/api/control/${encodeURIComponent(sessionId)}/record/heartbeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_count: window.__WAB_RECORDER?.events?.length ?? 0 }),
+      }).catch(() => {});
+    }, 2000);
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/control/${encodeURIComponent(sessionId)}/record-state`);
+        if (!res.ok) return;
+        const state = await res.json() as { recording: boolean };
+        const rec = window.__WAB_RECORDER;
+        if (!rec) return;
+
+        if (state.recording && !active) {
+          rec.start(sessionId, envId);
+          active = true;
+          // Start heartbeat to report event count back
+          heartbeat = window.setInterval(() => {
+            void fetch(`/api/control/${encodeURIComponent(sessionId)}/record/heartbeat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ event_count: rec.events?.length ?? 0 }),
+            }).catch(() => {});
+          }, 1000);
+        } else if (!state.recording && active) {
+          const events = rec.events ?? [];
+          rec.stop();
+          active = false;
+          if (heartbeat) { window.clearInterval(heartbeat); heartbeat = null; }
+          // Submit trajectory via the existing endpoint
+          if (events.length > 0) {
+            void fetch(`/api/env/${envId}/trajectory`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ session_id: sessionId, events, evaluation: {} }),
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // ignore poll errors
+      }
+    };
+
+    const poll = window.setInterval(tick, 400);
+    void tick();
+
+    return () => {
+      window.clearInterval(poll);
+      window.clearInterval(connHeartbeat);
+      if (heartbeat) window.clearInterval(heartbeat);
+      if (active && window.__WAB_RECORDER) {
+        window.__WAB_RECORDER.stop();
+      }
+    };
+  }, [controlMode, agentMode, envId, sessionId]);
+
   useEffect(() => {
     if (agentMode) {
       return;
@@ -1245,7 +1321,7 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     return () => window.clearInterval(interval);
   }, [recording]);
 
-  if (agentMode || adapter?.mode === "static") {
+  if (agentMode || controlMode || adapter?.mode === "static") {
     return null;
   }
 

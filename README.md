@@ -22,6 +22,17 @@ pnpm -C webagentbench/environments install
 
 The launcher is served at `http://localhost:8080/launch` by default.
 
+### Human recording UI: split control / benchmark tabs
+
+Launching a task from the launcher now opens **two tabs**:
+
+- **Benchmark tab** (e.g. `/env/booking/home?session=...&control=on`) — the clean simulated site. No toolbar, no WAB overlay. This is what an agent sees.
+- **Control tab** (`/control/{env_id}/{session_id}`) — human-facing panel with the full task instruction, a big Record button, Evaluate, Reset, and live step/time counters.
+
+The two tabs coordinate via polling endpoints under `/api/control/{session_id}/*`. The benchmark page runs an invisible shim that auto-starts/stops the in-page JS recorder based on the backend flag; a 2-second heartbeat tells the control tab whether the benchmark tab is still open. Reset navigates both tabs to the new session in place (no orphaned tabs).
+
+Agent evaluation is unchanged: agents drive the benchmark URL directly and POST to `/api/env/.../evaluate`; they never open a control tab.
+
 If you want the optional `browser-use` harness, install its extra on Python 3.11+:
 
 ```bash

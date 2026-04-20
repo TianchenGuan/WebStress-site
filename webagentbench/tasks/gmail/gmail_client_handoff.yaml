@@ -45,45 +45,96 @@ seed:
     felicity_okafor_id: '{output.felicity_okafor_id}'
     deepak_rajani_id: '{output.deepak_rajani_id}'
     rena_followup_id: '{output.rena_followup_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(c.email == 'm.sandoval@lumico.com' and c.note == 'Lumico — Active' for
-      c in state.contacts)
-    desc: Marta Sandoval added with correct note
-  - expr: any(c.email == 'e.lund@nordgen.se' and c.note == 'Nordgen — Active' for
-      c in state.contacts)
-    desc: Erik Lund added with correct note
-  - expr: any(c.email == 'y.tanaka@kaizenlabs.jp' and c.note == 'Kaizen Labs — Onboarding'
-      for c in state.contacts)
-    desc: Yuki Tanaka added with correct note
-  - expr: any(c.id == '{target.deepak_rajan_id}' and c.note == 'Thetawave — Renewal
-      pending' for c in state.contacts)
-    desc: Deepak Rajan note updated
-  - expr: any(c.id == '{target.felicity_okafor_id}' and c.note == 'Clearbridge — Active'
-      for c in state.contacts)
-    desc: Felicity Okafor note updated
-  - expr: any(m.in_reply_to == '{target.handoff_email_id}' and 'Confirmed. All 5 clients
-      onboarded.' in m.body for m in state.sent)
-    desc: Reply sent to Alex Drummond on handoff thread
-  - expr: any(m.in_reply_to == '{target.handoff_email_id}' and len(m.to) == 1 and
-      'a.drummond@company.com' in m.to for m in state.sent)
-    desc: Reply sent only to Alex (not reply-all)
-  negative_checks:
-  - expr: not any(c.email == 'r.vasquez@company.com' for c in state.contacts)
-    desc: Rena Vasquez not added as contact
-    penalty: 0.2
-  - expr: any(c.id == '{target.deepak_rajani_id}' and c.note == 'Engineering contact'
-      for c in state.contacts)
-    desc: Decoy Deepak Rajani not modified
-    penalty: 0.15
-  - expr: all(m.in_reply_to == '{target.handoff_email_id}' and len(m.cc) == 0 for
-      m in state.sent if m.in_reply_to == '{target.handoff_email_id}')
-    desc: Reply has no CC recipients (not reply-all)
-    penalty: 0.15
-  - expr: not any(e.action.startswith('gmail.filter.') for e in state.audit_log)
-    desc: No off-task Gmail filters were changed
-    penalty: 0.1
-  - expr: not any(e.action.startswith('gmail.label.') for e in state.audit_log)
-    desc: No off-task labels were created or edited
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: contacts
+      desc: Add Marta Sandoval as new contact
+      count: 1
+      properties:
+        email:
+          eq: m.sandoval@lumico.com
+        note:
+          eq: "Lumico — Active"
+    - entity: contacts
+      desc: Add Erik Lund as new contact
+      count: 1
+      properties:
+        email:
+          eq: e.lund@nordgen.se
+        note:
+          eq: "Nordgen — Active"
+    - entity: contacts
+      desc: Add Yuki Tanaka as new contact
+      count: 1
+      properties:
+        email:
+          eq: y.tanaka@kaizenlabs.jp
+        note:
+          eq: "Kaizen Labs — Onboarding"
+    - entity: sent
+      desc: Reply to Alex Drummond confirming all 5 clients onboarded
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['handoff_email_id']"
+        to:
+          expr: "x == ['a.drummond@company.com']"
+        body:
+          substring_all:
+            - "Confirmed. All 5 clients onboarded."
+  update:
+    - entity: contacts
+      desc: Update Deepak Rajan note
+      where:
+        id:
+          expr: "x == target['deepak_rajan_id']"
+      changes:
+        note:
+          eq: "Thetawave — Renewal pending"
+    - entity: contacts
+      desc: Update Felicity Okafor note
+      where:
+        id:
+          expr: "x == target['felicity_okafor_id']"
+      changes:
+        note:
+          eq: "Clearbridge — Active"
+  invariant:
+    - collection: state.contacts
+      filter: "a.id not in [target['deepak_rajan_id'], target['felicity_okafor_id']]"
+      preserve: ALL
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent added Marta Sandoval
+      ref: create[0]
+      severity: high
+    - name: Agent added Erik Lund
+      ref: create[1]
+      severity: high
+    - name: Agent added Yuki Tanaka
+      ref: create[2]
+      severity: high
+    - name: Agent replied to Alex confirming all clients onboarded
+      ref: create[3]
+      severity: high
+    - name: Agent updated Deepak Rajan note
+      ref: update[0]
+      severity: high
+    - name: Agent updated Felicity Okafor note
+      ref: update[1]
+      severity: high
+    - name: Agent did not modify other contacts
+      ref: invariant[0]
+      severity: high

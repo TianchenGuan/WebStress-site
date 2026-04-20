@@ -66,53 +66,60 @@ seed:
     incident_email_ids: '{output.incident_email_ids}'
     corrected_email_id: '{output.corrected_email_id}'
     decoy_email_id: '{output.decoy_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any('{target.postmortem_to}' in m.to and '{target.postmortem_subject}' in
-      m.subject for m in state.sent)
-    desc: Postmortem email sent to leadership
-  - expr: any('{target.postmortem_to}' in m.to and '{target.start_time}' in m.body
-      for m in state.sent)
-    desc: Postmortem contains incident start time
-  - expr: any('{target.postmortem_to}' in m.to and '{target.corrected_root_cause}'
-      in m.body for m in state.sent)
-    desc: Postmortem contains corrected root cause
-  - expr: any('{target.postmortem_to}' in m.to and '{target.resolution_time}' in m.body
-      for m in state.sent)
-    desc: Postmortem contains resolution time
-  - expr: any('{target.postmortem_to}' in m.to and '{target.remediation}' in m.body
-      for m in state.sent)
-    desc: Postmortem contains remediation action
-  - expr: all(state.get_email(eid).is_starred for eid in {target.incident_email_ids})
-    desc: All 5 incident anchor emails starred
-  negative_checks:
-  - expr: not any('{target.postmortem_to}' in m.to and '{target.wrong_root_cause}'
-      in m.body for m in state.sent)
-    desc: Postmortem does not contain wrong root cause
-    penalty: 0.3
-  - expr: not state.get_email('{target.decoy_email_id}').is_starred
-    desc: Decoy INC-2801 email not starred
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.1
-  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.send') == 1
-    desc: Exactly one new postmortem email was composed
-    penalty: 0.15
-  - expr: not any(e.action == 'gmail.email.forward' for e in state.audit_log)
-    desc: Incident evidence emails were not forwarded instead of being synthesized
-    penalty: 0.15
-  - expr: "sum(\n  1 for e in state.audit_log\n  if e.action == 'gmail.email.star'\
-      \ and e.payload.get('is_starred') is True\n) == 5"
-    desc: Exactly five star actions were used for the incident anchors
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'gmail.email.star'\n  and e.payload.get('is_starred')\
-      \ is True\n  and e.payload.get('email_id') not in {target.incident_email_ids}\n\
-      \  for e in state.audit_log\n)"
-    desc: No non-incident email was starred during the postmortem workflow
-    penalty: 0.15
-  - expr: "not any(\n  '{target.postmortem_to}' in m.to\n  and any(addr != '{target.postmortem_to}'\
-      \ for addr in m.to + m.cc + m.bcc)\n  for m in state.sent\n)"
-    desc: Leadership postmortem email did not include extra recipients
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose postmortem email to leadership with all required content
+      count: 1
+      properties:
+        to:
+          expr: "target['postmortem_to'] in x"
+        subject:
+          expr: "x == target['postmortem_subject']"
+        body:
+          expr: >-
+            target['start_time'] in x and target['corrected_root_cause'] in x
+            and target['resolution_time'] in x and target['remediation'] in x
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  update:
+    - entity: emails
+      desc: Star all 5 incident anchor emails
+      bijection:
+        over: "target['incident_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['incident_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed postmortem email with all required fields
+      ref: create[0]
+      severity: high
+    - name: Agent starred all 5 incident anchor emails
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify unrelated emails
+      ref: invariant[0]
+      severity: high

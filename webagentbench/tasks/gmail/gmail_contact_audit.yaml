@@ -45,29 +45,78 @@ seed:
     new_contact_b_name: '{output.new_contact_b_name}'
     new_a_email: '{output.new_a_email}'
     new_b_email: '{output.new_b_email}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(c.id != '{target.stale_1_id}' for c in state.contacts)
-    desc: First stale contact deleted
-  - expr: all(c.id != '{target.stale_2_id}' for c in state.contacts)
-    desc: Second stale contact deleted
-  - expr: all(c.id != '{target.stale_3_id}' for c in state.contacts)
-    desc: Third stale contact deleted
-  - expr: all(c.id != '{target.stale_4_id}' for c in state.contacts)
-    desc: Fourth stale contact deleted
-  - expr: any(c.email == '{target.new_a_email}' and c.is_vip for c in state.contacts)
-    desc: Contact A added as VIP
-  - expr: any(c.email == '{target.new_b_email}' for c in state.contacts)
-    desc: Contact B added
-  negative_checks:
-  - expr: any(c.id == '{target.near_id}' for c in state.contacts)
-    desc: Near-threshold contact A preserved
-    penalty: 0.15
-  - expr: any(c.id == '{target.near_b_id}' for c in state.contacts)
-    desc: Near-threshold contact B preserved
-    penalty: 0.15
-  - expr: any(c.id == '{target.keep_contact_id}' for c in state.contacts)
-    desc: Named keep-contact preserved
-    penalty: 0.2
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: contacts
+      desc: Add new contact A as VIP
+      count: 1
+      properties:
+        email:
+          expr: "x == target['new_a_email']"
+        is_vip:
+          eq: true
+    - entity: contacts
+      desc: Add new contact B
+      count: 1
+      properties:
+        email:
+          expr: "x == target['new_b_email']"
+  delete:
+    - entity: contacts
+      desc: Delete first stale contact
+      where:
+        id:
+          expr: "x == target['stale_1_id']"
+    - entity: contacts
+      desc: Delete second stale contact
+      where:
+        id:
+          expr: "x == target['stale_2_id']"
+    - entity: contacts
+      desc: Delete third stale contact
+      where:
+        id:
+          expr: "x == target['stale_3_id']"
+    - entity: contacts
+      desc: Delete fourth stale contact
+      where:
+        id:
+          expr: "x == target['stale_4_id']"
+  invariant:
+    - collection: state.contacts
+      filter: "a.id not in [target['stale_1_id'], target['stale_2_id'], target['stale_3_id'], target['stale_4_id']]"
+      preserve: ALL
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent added new contact A as VIP
+      ref: create[0]
+      severity: high
+    - name: Agent added new contact B
+      ref: create[1]
+      severity: high
+    - name: Agent deleted first stale contact
+      ref: delete[0]
+      severity: high
+    - name: Agent deleted second stale contact
+      ref: delete[1]
+      severity: high
+    - name: Agent deleted third stale contact
+      ref: delete[2]
+      severity: high
+    - name: Agent deleted fourth stale contact
+      ref: delete[3]
+      severity: high
+    - name: Agent did not modify other contacts
+      ref: invariant[0]
+      severity: high

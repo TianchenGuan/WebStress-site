@@ -73,66 +73,187 @@ seed:
     vendor_domain: '{output.vendor_domain}'
     vendor_label: '{output.vendor_label}'
     active_contact_id: '{output.active_contact_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.get_email('{target.star_a_id}').is_starred
-    desc: Star A
-  - expr: state.get_email('{target.star_b_id}').is_starred
-    desc: Star B
-  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.fyi_ids})
-    desc: FYI archived
-  - expr: all('inbox' not in state.get_email(eid).labels for eid in {target.promo_ids})
-    desc: Promos archived
-  - expr: state.get_email('{target.spam_id}') is not None and state.get_email('{target.spam_id}').deleted
-    desc: Spam deleted
-  - expr: all(any(m.forwarded_from_id == eid and '{target.team_digest_email}' in m.to
-      for m in state.sent) for eid in {target.update_ids})
-    desc: Updates forwarded
-  - expr: any(l.name == 'Q1 Active' for l in state.labels)
-    desc: Q1 Active label created
-  - expr: any(l.name == 'Q1 Archive' for l in state.labels)
-    desc: Q1 Archive label created
-  - expr: all('Q1 Active' in state.get_email(eid).labels for eid in ['{target.star_a_id}',
-      '{target.star_b_id}'])
-    desc: Q1 Active applied
-  - expr: all(c.id != '{target.stale_a_id}' for c in state.contacts)
-    desc: Stale contact A deleted
-  - expr: all(c.id != '{target.stale_b_id}' for c in state.contacts)
-    desc: Stale contact B deleted
-  - expr: any(c.email == '{target.update_contact_email}' and '{target.new_note}' in
-      (c.note or '') for c in state.contacts)
-    desc: Contact note updated
-  - expr: any(r.archive and '*@{target.vendor_domain}' in r.from_addresses and '{target.vendor_label}'
-      in r.add_labels for r in state.filters)
-    desc: Vendor filter created
-  - expr: state.settings.max_page_size == 25
-    desc: Page size changed
-  negative_checks:
-  - expr: any(c.id == '{target.active_contact_id}' for c in state.contacts)
-    desc: Active contact preserved
-    penalty: 0.15
-  - expr: not any(m.forwarded_from_id == '{target.spam_id}' for m in state.sent)
-    desc: Spam not forwarded
-    penalty: 0.2
-  - expr: all(e.id == '{target.spam_id}' for e in state.deleted)
-    desc: Only the spam email was moved to trash
-    penalty: 0.1
-  - expr: all(m.forwarded_from_id in {target.update_ids} and m.to == ['{target.team_digest_email}']
-      and len(m.cc) == 0 and len(m.bcc) == 0 for m in state.sent)
-    desc: Only the two update forwards went to the digest inbox
-    penalty: 0.15
-  - expr: not any(e.action == 'gmail.contact.delete' and e.payload.get('contact_id')
-      not in ['{target.stale_a_id}', '{target.stale_b_id}'] for e in state.audit_log)
-    desc: No non-stale contacts were deleted
-    penalty: 0.1
-  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.label.create') == 2
-      and not any(e.action in {'gmail.label.update', 'gmail.label.delete'} for e in
-      state.audit_log)
-    desc: Only the two requested labels were created
-    penalty: 0.1
-  - expr: sum(1 for e in state.audit_log if e.action == 'gmail.filter.create') ==
-      1 and not any(e.action == 'gmail.filter.delete' for e in state.audit_log)
-    desc: Only the vendor filter was added
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward update email A to team digest
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['update_ids'][0]"
+        to:
+          expr: "target['team_digest_email'] in x"
+    - entity: sent
+      desc: Forward update email B to team digest
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['update_ids'][1]"
+        to:
+          expr: "target['team_digest_email'] in x"
+    - entity: labels
+      desc: Create Q1 Active label
+      count: 1
+      properties:
+        name:
+          eq: Q1 Active
+    - entity: labels
+      desc: Create Q1 Archive label
+      count: 1
+      properties:
+        name:
+          eq: Q1 Archive
+    - entity: filters
+      desc: Create filter archiving emails from vendor domain with vendor label
+      count: 1
+      properties:
+        from_addresses:
+          expr: "f\"*@{target['vendor_domain']}\" in x"
+        add_labels:
+          expr: "target['vendor_label'] in x"
+        archive:
+          eq: true
+    - entity: deleted
+      desc: Spam email appears in trash
+      count: 1
+      properties:
+        id:
+          expr: "x == target['spam_id']"
+  update:
+    - entity: emails
+      desc: Star email A
+      where:
+        id:
+          expr: "x == target['star_a_id']"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - Q1 Active
+    - entity: emails
+      desc: Star email B
+      where:
+        id:
+          expr: "x == target['star_b_id']"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - Q1 Active
+    - entity: emails
+      desc: Archive FYI emails from fyi sender
+      bijection:
+        over: "target['fyi_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        archived:
+          eq: true
+    - entity: emails
+      desc: Archive promo newsletter emails
+      bijection:
+        over: "target['promo_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        archived:
+          eq: true
+    - entity: contacts
+      desc: Update contact note for update_contact_name
+      where:
+        email:
+          expr: "x == target['update_contact_email']"
+      changes:
+        note:
+          expr: "x == target['new_note']"
+  delete:
+    - entity: emails
+      desc: Delete spam email from inbox
+      where:
+        id:
+          expr: "x == target['spam_id']"
+    - entity: contacts
+      desc: Delete stale contact A
+      where:
+        id:
+          expr: "x == target['stale_a_id']"
+    - entity: contacts
+      desc: Delete stale contact B
+      where:
+        id:
+          expr: "x == target['stale_b_id']"
+  constraints:
+    - desc: Maximum page size changed to 25
+      expr: "state.settings.max_page_size == 25"
+      severity: high
+  invariant:
+    - collection: state.emails
+      filter: >-
+        a.id != target['star_a_id']
+        and a.id != target['star_b_id']
+        and a.id not in target['fyi_ids']
+        and a.id not in target['promo_ids']
+        and a.id != target['spam_id']
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: >-
+        a.id != target['stale_a_id']
+        and a.id != target['stale_b_id']
+        and a.email != target['update_contact_email']
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Q1 Active', 'Q1 Archive']"
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded update emails to team digest
+      ref: create[0]
+      severity: high
+    - name: Agent created Q1 Active label
+      ref: create[2]
+      severity: high
+    - name: Agent created Q1 Archive label
+      ref: create[3]
+      severity: high
+    - name: Agent starred and labeled email A
+      ref: update[0]
+      severity: high
+    - name: Agent starred and labeled email B
+      ref: update[1]
+      severity: high
+    - name: Agent archived FYI emails
+      ref: update[2]
+      severity: high
+    - name: Agent updated contact note
+      ref: update[4]
+      severity: high
+    - name: Spam email appears in trash
+      ref: create[5]
+      severity: high
+    - name: Agent deleted spam email from inbox
+      ref: delete[0]
+      severity: high
+    - name: Agent deleted stale contact A
+      ref: delete[1]
+      severity: high
+    - name: Agent deleted stale contact B
+      ref: delete[2]
+      severity: high
+    - name: Agent did not modify other emails
+      ref: invariant[0]
+      severity: high

@@ -34,27 +34,84 @@ seed:
     sam_email: '{output.sam_email}'
     kenji_email: '{output.kenji_email}'
     dana_email: '{output.dana_email}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(l.name == 'Platform/Incidents' for l in state.labels)
-    desc: Platform/Incidents label created
-  - expr: any(l.name == 'Platform/Deploys' for l in state.labels)
-    desc: Platform/Deploys label created
-  - expr: not any(l.name == 'Growth/Experiments' for l in state.labels)
-    desc: Growth/Experiments label deleted
-  - expr: state.settings.display_density == 'comfortable'
-    desc: Display density set to comfortable
-  - expr: any(c.email == '{target.priya_email}' for c in state.contacts)
-    desc: Priya Nair added as contact
-  - expr: any(c.email == '{target.sam_email}' for c in state.contacts)
-    desc: Sam Whitfield added as contact
-  - expr: any(c.email == '{target.kenji_email}' for c in state.contacts)
-    desc: Kenji Ota added as contact
-  negative_checks:
-  - expr: not any(c.email == '{target.dana_email}' for c in state.contacts)
-    desc: Dana Cross (decoy) not added as contact
-    penalty: 0.3
-  - expr: any(l.name == 'Growth/Analytics' for l in state.labels)
-    desc: Growth/Analytics label not deleted (must remain)
-    penalty: 0.2
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create Platform/Incidents label
+      count: 1
+      properties:
+        name:
+          eq: Platform/Incidents
+    - entity: labels
+      desc: Create Platform/Deploys label
+      count: 1
+      properties:
+        name:
+          eq: Platform/Deploys
+    - entity: contacts
+      desc: Add Priya Nair as contact
+      count: 1
+      properties:
+        email:
+          expr: "x == target['priya_email']"
+    - entity: contacts
+      desc: Add Sam Whitfield as contact
+      count: 1
+      properties:
+        email:
+          expr: "x == target['sam_email']"
+    - entity: contacts
+      desc: Add Kenji Ota as contact
+      count: 1
+      properties:
+        email:
+          expr: "x == target['kenji_email']"
+  delete:
+    - entity: labels
+      desc: Delete Growth/Experiments label
+      where:
+        name:
+          eq: Growth/Experiments
+  constraints:
+    - desc: Display density changed to comfortable
+      expr: "state.settings.display_density == 'comfortable'"
+      severity: high
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: "True"
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'Growth/Experiments' and a.name != 'Platform/Incidents' and a.name != 'Platform/Deploys'"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent created Platform/Incidents label
+      ref: create[0]
+      severity: high
+    - name: Agent created Platform/Deploys label
+      ref: create[1]
+      severity: high
+    - name: Agent added Priya Nair as contact
+      ref: create[2]
+      severity: high
+    - name: Agent added Sam Whitfield as contact
+      ref: create[3]
+      severity: high
+    - name: Agent added Kenji Ota as contact
+      ref: create[4]
+      severity: high
+    - name: Agent deleted Growth/Experiments label
+      ref: delete[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high

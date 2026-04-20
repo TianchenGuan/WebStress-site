@@ -40,46 +40,75 @@ seed:
     sam_id: '{output.sam_id}'
     hannah_id: '{output.hannah_id}'
     davi_id: '{output.davi_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(c.id == '{target.omar_id}' and c.note == 'Operations Director at Crescent
-      Logistics' for c in state.contacts)
-    desc: Omar Farouk note enriched correctly
-  - expr: any(c.id == '{target.ling_id}' and c.note == 'Lead Data Scientist at Apex
-      Data' for c in state.contacts)
-    desc: Ling Zhou note enriched correctly
-  - expr: any(c.id == '{target.beatrice_id}' and c.note == 'VP of Partnerships at
-      RheinTech' for c in state.contacts)
-    desc: Beatrice Muller note enriched correctly
-  - expr: any(c.id == '{target.sam_id}' and c.note == 'Co-founder at BrightHorizon'
-      for c in state.contacts)
-    desc: Sam Okoye note enriched correctly
-  - expr: any(c.id == '{target.omar_id}' and c.is_starred for c in state.contacts)
-    desc: Omar Farouk starred as VIP
-  - expr: any(c.id == '{target.ling_id}' and c.is_starred for c in state.contacts)
-    desc: Ling Zhou starred as VIP
-  - expr: any(c.id == '{target.sam_id}' and c.is_starred for c in state.contacts)
-    desc: Sam Okoye starred as VIP
-  negative_checks:
-  - expr: any(c.id == '{target.hannah_id}' and c.note is None for c in state.contacts)
-    desc: Hannah Kessler contact not modified (no email thread)
-    penalty: 0.15
-  - expr: any(c.id == '{target.davi_id}' and c.note is None for c in state.contacts)
-    desc: Davi Costa contact not modified (no email thread)
-    penalty: 0.15
-  - expr: any(c.id == '{target.beatrice_id}' and not c.is_starred for c in state.contacts)
-    desc: Beatrice Muller not incorrectly starred
-    penalty: 0.1
-  - expr: not any(c.id == '{target.omar_id}' and c.note == 'Logistics Coordinator
-      at Crescent Logistics' for c in state.contacts)
-    desc: Omar not enriched with forwarded colleague role
-    penalty: 0.15
-  - expr: not any(c.id == '{target.beatrice_id}' and c.note == 'Director of Sales
-      at RheinTech' for c in state.contacts)
-    desc: Beatrice not enriched with outdated role
-    penalty: 0.15
-  - expr: not any(c.id == '{target.sam_id}' and c.note == 'Program Director at BrightHorizon
-      Education' for c in state.contacts)
-    desc: Sam not confused with Sam Okafor decoy
-    penalty: 0.15
+canonical_diff:
+  update:
+    - entity: contacts
+      desc: Enrich Omar Farouk note and mark as VIP
+      where:
+        id:
+          expr: "x == target['omar_id']"
+      changes:
+        note:
+          eq: "Operations Director at Crescent Logistics"
+        is_vip:
+          eq: true
+    - entity: contacts
+      desc: Enrich Ling Zhou note and mark as VIP
+      where:
+        id:
+          expr: "x == target['ling_id']"
+      changes:
+        note:
+          eq: "Lead Data Scientist at Apex Data"
+        is_vip:
+          eq: true
+    - entity: contacts
+      desc: Enrich Beatrice Muller note
+      where:
+        id:
+          expr: "x == target['beatrice_id']"
+      changes:
+        note:
+          eq: "VP of Partnerships at RheinTech"
+    - entity: contacts
+      desc: Enrich Sam Okoye note and mark as VIP
+      where:
+        id:
+          expr: "x == target['sam_id']"
+      changes:
+        note:
+          eq: "Co-founder at BrightHorizon"
+        is_vip:
+          eq: true
+  invariant:
+    - collection: state.contacts
+      filter: "a.id not in [target['omar_id'], target['ling_id'], target['beatrice_id'], target['sam_id']]"
+      preserve: ALL
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent enriched Omar Farouk and marked as VIP
+      ref: update[0]
+      severity: high
+    - name: Agent enriched Ling Zhou and marked as VIP
+      ref: update[1]
+      severity: high
+    - name: Agent enriched Beatrice Muller
+      ref: update[2]
+      severity: high
+    - name: Agent enriched Sam Okoye and marked as VIP
+      ref: update[3]
+      severity: high
+    - name: Agent did not modify Hannah Kessler or Davi Costa
+      ref: invariant[0]
+      severity: medium

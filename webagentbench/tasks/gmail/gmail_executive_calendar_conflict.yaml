@@ -63,47 +63,106 @@ seed:
     decoy_recap_id: '{output.decoy_recap_id}'
     board_member_emails: '{output.board_member_emails}'
     week: '{output.week}'
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(m.in_reply_to in {target.all_request_ids} and m.to == [''{target.conflicting_vp_email}'']
-      and ''decline'' in m.body.lower() for m in state.sent)
-
-      '
-    desc: Decline reply sent to conflicting VP only
-  - expr: 'all(any(m.in_reply_to == rid and ''accept'' in m.body.lower() for m in
-      state.sent) for rid in {target.non_conflicting_request_ids})
-
-      '
-    desc: Accept replies sent to both non-conflicting VPs
-  - expr: 'all(any(m.forwarded_from_id == rid and ''{target.ea_email}'' in m.to for
-      m in state.sent) for rid in {target.all_request_ids})
-
-      '
-    desc: All three meeting requests forwarded to EA
-  - expr: state.get_email('{target.conflicting_vp_request_id}').is_starred
-    desc: Conflicting VP's email is starred
-  negative_checks:
-  - expr: 'not any(m.in_reply_to in {target.all_request_ids} and any(addr in m.to
-      or addr in m.cc for addr in {target.board_member_emails}) and ''decline'' in
-      m.body.lower() for m in state.sent)
-
-      '
-    desc: Decline reply not sent to board members (no Reply All)
-    penalty: 0.3
-  - expr: 'not any(m.in_reply_to in {target.non_conflicting_request_ids} and ''decline''
-      in m.body.lower() for m in state.sent)
-
-      '
-    desc: Non-conflicting meetings not declined
-    penalty: 0.25
-  - expr: 'not any(m.in_reply_to == ''{target.impersonation_email_id}'' for m in state.sent)
-
-      '
-    desc: Impersonation email not replied to
-    penalty: 0.2
-  - expr: 'not any(m.forwarded_from_id == ''{target.decoy_recap_id}'' for m in state.sent)
-
-      '
-    desc: Meeting recap decoy not forwarded
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Decline reply to conflicting VP only
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x in target['all_request_ids']"
+        to:
+          expr: "x == [target['conflicting_vp_email']]"
+        body:
+          substring: decline
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Accept reply to first non-conflicting VP
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x in target['non_conflicting_request_ids']"
+        body:
+          substring: accept
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Accept reply to second non-conflicting VP
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x in target['non_conflicting_request_ids']"
+        body:
+          substring: accept
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Forward all three meeting requests to EA (first)
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x in target['all_request_ids']"
+        to:
+          expr: "target['ea_email'] in x"
+    - entity: sent
+      desc: Forward all three meeting requests to EA (second)
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x in target['all_request_ids']"
+        to:
+          expr: "target['ea_email'] in x"
+    - entity: sent
+      desc: Forward all three meeting requests to EA (third)
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x in target['all_request_ids']"
+        to:
+          expr: "target['ea_email'] in x"
+  update:
+    - entity: emails
+      desc: Star the conflicting VP's email
+      where:
+        id:
+          expr: "x == target['conflicting_vp_request_id']"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id != target['conflicting_vp_request_id']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent declined conflicting VP
+      ref: create[0]
+      severity: high
+    - name: Agent accepted non-conflicting VP 1
+      ref: create[1]
+      severity: high
+    - name: Agent accepted non-conflicting VP 2
+      ref: create[2]
+      severity: high
+    - name: Agent forwarded all requests to EA
+      ref: create[3]
+      severity: high
+    - name: Agent starred conflicting VP email
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify unrelated emails
+      ref: invariant[0]
+      severity: high

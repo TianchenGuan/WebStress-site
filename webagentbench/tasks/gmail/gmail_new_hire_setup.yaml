@@ -51,48 +51,121 @@ seed:
     welcome_sender_name: '{output.welcome_sender_name}'
     welcome_id: '{output.welcome_id}'
     new_contact_emails: '{output.new_contact_emails}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.settings.display_density == 'comfortable'
-    desc: Density set
-  - expr: state.settings.undo_send_seconds == 30
-    desc: Undo send set
-  - expr: state.settings.default_reply_behavior == 'reply'
-    desc: Default reply set
-  - expr: state.settings.send_and_archive
-    desc: Send and archive enabled
-  - expr: any(l.name == 'Engineering' for l in state.labels)
-    desc: Engineering label created
-  - expr: any(l.name == 'Design' for l in state.labels)
-    desc: Design label created
-  - expr: any(l.name == 'Product' for l in state.labels)
-    desc: Product label created
-  - expr: any(r.star and '{target.team_list_email}' in r.from_addresses and 'Engineering'
-      in r.add_labels for r in state.filters)
-    desc: Team filter created
-  - expr: any(r.star and '{target.manager_email}' in r.from_addresses for r in state.filters)
-    desc: Manager filter created
-  - expr: len([c for c in state.contacts if c.email in {target.new_contact_emails}])
-      >= 3
-    desc: 3 contacts added
-  - expr: any(m.in_reply_to == '{target.welcome_id}' and '{target.intro_phrase}' in
-      m.body for m in state.sent)
-    desc: Welcome reply with phrase
-  - expr: any('{target.hiring_manager_email}' in m.cc for m in state.sent if m.in_reply_to
-      == '{target.welcome_id}')
-    desc: Hiring manager CC'd
-  negative_checks:
-  - expr: not any(len(m.to) > 1 for m in state.sent if m.in_reply_to == '{target.welcome_id}')
-    desc: Reply not Reply All
-    penalty: 0.2
-  - expr: len(state.sent) <= 3
-    desc: No excessive emails sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.1
-  - expr: not any(e.action == 'gmail.email.forward' for e in state.audit_log)
-    desc: No off-task forwards were sent
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create Engineering label
+      count: 1
+      properties:
+        name:
+          eq: "Engineering"
+    - entity: labels
+      desc: Create Design label
+      count: 1
+      properties:
+        name:
+          eq: "Design"
+    - entity: labels
+      desc: Create Product label
+      count: 1
+      properties:
+        name:
+          eq: "Product"
+    - entity: filters
+      desc: Create filter for team list email that stars and labels Engineering
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['team_list_email'] in x"
+        star:
+          eq: true
+        add_labels:
+          superset:
+            - "Engineering"
+    - entity: filters
+      desc: Create filter for manager email that stars matching messages
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['manager_email'] in x"
+        star:
+          eq: true
+    - entity: sent
+      desc: Reply to welcome email with intro phrase and CC hiring manager
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['welcome_id']"
+        body:
+          expr: "target['intro_phrase'] in x"
+        forwarded_from_id:
+          eq: null
+    - entity: contacts
+      desc: Add first team lead as contact
+      count: 1
+      properties:
+        email:
+          expr: "x in target['new_contact_emails']"
+    - entity: contacts
+      desc: Add second team lead as contact
+      count: 1
+      properties:
+        email:
+          expr: "x in target['new_contact_emails']"
+    - entity: contacts
+      desc: Add third team lead as contact
+      count: 1
+      properties:
+        email:
+          expr: "x in target['new_contact_emails']"
+  constraints:
+    - desc: Display density set to comfortable
+      expr: "state.settings.display_density == 'comfortable'"
+      severity: high
+    - desc: Undo send set to 30 seconds
+      expr: "state.settings.undo_send_seconds == 30"
+      severity: high
+    - desc: Default reply behavior set to reply
+      expr: "state.settings.default_reply_behavior == 'reply'"
+      severity: high
+    - desc: Send and archive enabled
+      expr: "state.settings.send_and_archive == True"
+      severity: high
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: "True"
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Engineering', 'Design', 'Product']"
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent created Engineering label
+      ref: create[0]
+      severity: high
+    - name: Agent created Design label
+      ref: create[1]
+      severity: high
+    - name: Agent created Product label
+      ref: create[2]
+      severity: high
+    - name: Agent created team list filter
+      ref: create[3]
+      severity: high
+    - name: Agent created manager filter
+      ref: create[4]
+      severity: high
+    - name: Agent replied to welcome email
+      ref: create[5]
+      severity: high

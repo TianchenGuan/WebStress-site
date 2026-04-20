@@ -46,44 +46,111 @@ seed:
     pending_c_sender: '{output.pending_c_sender}'
     pending_c_id: '{output.pending_c_id}'
     return_ids: '{output.return_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.settings.vacation_responder_enabled
-    desc: Vacation responder enabled
-  - expr: '''{target.vacation_message}'' in state.settings.vacation_responder_message'
-    desc: Vacation message set correctly
-  - expr: '''{target.ooo_note}'' in state.settings.signature'
-    desc: Signature updated with OOO note
-  - expr: state.settings.undo_send_seconds == 30
-    desc: Undo send set to 30 seconds
-  - expr: any(r.forward_to == '{target.backup_email}' and r.star and '{target.boss_email}'
-      in r.from_addresses for r in state.filters)
-    desc: Boss email filter created with forward and star
-  - expr: any(m.in_reply_to == '{target.pending_a_id}' for m in state.sent)
-    desc: Vendor proposal replied to
-  - expr: any(m.in_reply_to == '{target.pending_b_id}' for m in state.sent)
-    desc: Timeline email replied to
-  - expr: any(m.in_reply_to == '{target.pending_c_id}' for m in state.sent)
-    desc: Attendance confirmation replied to
-  - expr: all(state.get_email(eid).is_starred for eid in {target.return_ids})
-    desc: Return emails starred
-  - expr: all('Return Attention' in state.get_email(eid).labels for eid in {target.return_ids})
-    desc: Return Attention label applied to return emails
-  negative_checks:
-  - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.pending_b_id}')
-    desc: Timeline reply was not Reply All
-    penalty: 0.15
-  - expr: len(state.sent) <= 5
-    desc: No excessive emails sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.15
-  - expr: not any(e.action.startswith('gmail.contact.') for e in state.audit_log)
-    desc: No off-task contact edits were made
-    penalty: 0.1
-  - expr: not any(e.action == 'gmail.email.archive' for e in state.audit_log)
-    desc: No off-task emails were archived
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to pending vendor proposal email
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['pending_a_id']"
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Reply to pending timeline email
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['pending_b_id']"
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Reply to pending attendance confirmation email
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['pending_c_id']"
+        forwarded_from_id:
+          eq: null
+    - entity: labels
+      desc: Create Return Attention label
+      count: 1
+      properties:
+        name:
+          eq: Return Attention
+    - entity: filters
+      desc: Create filter forwarding boss emails to backup and starring them
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['boss_email'] in x"
+        forward_to:
+          expr: "x == target['backup_email']"
+        star:
+          eq: true
+  update:
+    - entity: emails
+      desc: Star and label return-attention emails
+      bijection:
+        over: "target['return_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - Return Attention
+  constraints:
+    - desc: Vacation responder is enabled
+      expr: "state.settings.vacation_responder_enabled == True"
+      severity: high
+    - desc: Vacation responder message set correctly
+      expr: "target['vacation_message'] in state.settings.vacation_responder_message"
+      severity: high
+    - desc: Signature updated with OOO note
+      expr: "target['ooo_note'] in state.settings.signature"
+      severity: high
+    - desc: Undo send changed to 30 seconds
+      expr: "state.settings.undo_send_seconds == 30"
+      severity: high
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['return_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'Return Attention'"
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to pending vendor proposal email
+      ref: create[0]
+      severity: high
+    - name: Agent replied to pending timeline email
+      ref: create[1]
+      severity: high
+    - name: Agent replied to attendance confirmation email
+      ref: create[2]
+      severity: high
+    - name: Agent created Return Attention label
+      ref: create[3]
+      severity: medium
+    - name: Agent starred and labeled return emails
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify other inbox emails
+      ref: invariant[0]
+      severity: high

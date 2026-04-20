@@ -50,27 +50,46 @@ seed:
     max_suggestion_email_id: '{output.max_suggestion_email_id}'
     standup_email_id: '{output.standup_email_id}'
     decoy_priya_email_id: '{output.decoy_priya_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: any('Disregard my previous confirmation' in m.body for m in state.sent)
-    desc: Correction reply contains disregard text
-  - expr: any('Thursday, 2:00 PM' in m.body for m in state.sent)
-    desc: Correction reply contains Thursday 2 PM
-  - expr: any(m.in_reply_to == '{target.proposal_email_id}' or m.in_reply_to == '{target.cancellation_email_id}'
-      or m.in_reply_to == '{target.user_confirmation_email_id}' for m in state.sent)
-    desc: Reply is in original thread
-  negative_checks:
-  - expr: not any('Friday' in m.body and '4:00 PM' in m.body for m in state.sent)
-    desc: Did not confirm Friday 4 PM
-    penalty: 0.25
-  - expr: not any('Confirmed' in m.body and 'Wednesday' in m.body and '10:00 AM' in
-      m.body for m in state.sent)
-    desc: Did not re-confirm Wednesday 10 AM
-    penalty: 0.2
-  - expr: all(len(m.body) <= 1500 for m in state.sent)
-    desc: Correction body must stay under 1500 chars (stuffing guard)
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Send correction reply in the Q2 Planning Sync thread
+      count: 1
+      properties:
+        in_reply_to:
+          expr: >-
+            x in [target['proposal_email_id'],
+                  target['cancellation_email_id'],
+                  target['user_confirmation_email_id']]
+        body:
+          substring_all:
+            - Disregard my previous confirmation
+            - "Thursday, 2:00 PM"
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent sent the correction reply with correct text
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

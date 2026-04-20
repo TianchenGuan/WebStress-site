@@ -42,63 +42,71 @@ seed:
     liability_cap_concern: '{output.liability_cap_concern}'
     renewal_pricing_concern: '{output.renewal_pricing_concern}'
     support_response_concern: '{output.support_response_concern}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
-  - expr: any('nora.zhang@ops.thornton.com' in m.to for m in state.sent)
-    desc: Email sent to project lead
-  - expr: any(m.subject == 'Contract Status — Lattice Works' for m in state.sent)
-    desc: Correct subject line
-  - expr: any('Open items:' in m.body for m in state.sent)
-    desc: Open items section present
-  - expr: any('liability cap' in m.body.lower() for m in state.sent)
-    desc: Liability cap listed as open
-  - expr: any('renewal pricing' in m.body.lower() for m in state.sent)
-    desc: Renewal pricing listed as open
-  - expr: any('support response time' in m.body.lower() for m in state.sent)
-    desc: Support response time listed as open
-  - expr: any('{target.liability_cap_concern}' in m.body for m in state.sent)
-    desc: Liability cap concern quoted
-  - expr: any('{target.renewal_pricing_concern}' in m.body for m in state.sent)
-    desc: Renewal pricing concern quoted
-  - expr: any('{target.support_response_concern}' in m.body for m in state.sent)
-    desc: Support response time concern quoted
-  - expr: all('Lattice Works Contract' in state.get_email(eid).labels for eid in {target.all_negotiation_email_ids})
-    desc: Label applied to all negotiation emails
-  negative_checks:
-  - expr: '''Lattice Works Contract'' not in state.get_email(''{target.intern_summary_email_id}'').labels'
-    desc: Label not applied to intern summary
-    penalty: 0.13
-  - expr: '''Lattice Works Contract'' not in state.get_email(''{target.vendor_pressure_email_id}'').labels'
-    desc: Label not applied to vendor pressure email
-    penalty: 0.13
-  - expr: not any('payment schedule' in m.body.lower() and 'open' in m.body.lower()
-      for m in state.sent)
-    desc: Payment schedule not listed as open
-    penalty: 0.09
-  - expr: not any('IP ownership' in m.body.lower() and 'open' in m.body.lower() for
-      m in state.sent)
-    desc: IP ownership not listed as open
-    penalty: 0.09
-  - expr: not any('termination clause' in m.body.lower() and 'open' in m.body.lower()
-      for m in state.sent)
-    desc: Termination clause not listed as open
-    penalty: 0.09
-  - expr: not any('SLA uptime' in m.body.lower() and 'open' in m.body.lower() for
-      m in state.sent)
-    desc: SLA uptime not listed as open
-    penalty: 0.09
-  - expr: not any('data residency' in m.body.lower() and 'open' in m.body.lower()
-      for m in state.sent)
-    desc: Data residency not listed as open
-    penalty: 0.09
-  - expr: not any('audit rights' in m.body.lower() and 'open' in m.body.lower() for
-      m in state.sent)
-    desc: Audit rights not listed as open
-    penalty: 0.09
-  - expr: not any(m.to and any('@latticeworks.io' in addr for addr in m.to) for m
-      in state.sent)
-    desc: No email sent to vendor
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose contract status email with open items to Nora Zhang
+      count: 1
+      properties:
+        to:
+          expr: "'nora.zhang@ops.thornton.com' in x"
+        subject:
+          eq: "Contract Status — Lattice Works"
+        body:
+          substring_all:
+            - "Open items:"
+            - liability cap
+            - renewal pricing
+            - support response time
+        in_reply_to:
+          eq: null
+    - entity: labels
+      desc: Create Lattice Works Contract label
+      count: 1
+      properties:
+        name:
+          eq: Lattice Works Contract
+  update:
+    - entity: emails
+      desc: Apply Lattice Works Contract label to all negotiation emails
+      bijection:
+        over: "target['all_negotiation_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - Lattice Works Contract
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['all_negotiation_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'Lattice Works Contract'"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent sent contract status email to Nora Zhang
+      ref: create[0]
+      severity: high
+    - name: Agent created the Lattice Works Contract label
+      ref: create[1]
+      severity: high
+    - name: Agent applied the label to all negotiation emails
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify non-negotiation emails
+      ref: invariant[0]
+      severity: high

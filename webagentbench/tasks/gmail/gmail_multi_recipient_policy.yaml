@@ -68,52 +68,66 @@ seed:
     board_cc_emails: '{output.board_cc_emails}'
     eng_cc_emails: '{output.eng_cc_emails}'
     decoy_thread_id: '{output.decoy_thread_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(m.in_reply_to == '{target.thread_a_msg_id}' and 'Acknowledged, will
-      prepare the revised deck by Friday.' in m.body for m in state.sent)
-    desc: Board thread replied with correct phrase
-  - expr: any(m.in_reply_to == '{target.thread_a_msg_id}' and len(m.to) == 1 and '{target.sender_email}'
-      in m.to for m in state.sent)
-    desc: Board thread reply sent only to sender
-  - expr: any(m.in_reply_to == '{target.thread_b_msg_id}' and 'Adding capacity planning
-      to next sprint scope.' in m.body for m in state.sent)
-    desc: Sprint retro replied with correct phrase
-  - expr: any(m.in_reply_to == '{target.thread_b_msg_id}' and all(e in m.to + m.cc
-      for e in {target.eng_cc_emails}) for m in state.sent)
-    desc: Sprint retro reply-all includes all engineers
-  - expr: any(m.in_reply_to == '{target.thread_b_msg_id}' and '{target.sender_email}'
-      in m.to + m.cc for m in state.sent)
-    desc: Sprint retro reply-all also includes the original sender
-  - expr: any(m.forwarded_from_id == '{target.thread_c_msg_id}' and '{target.delegate_email}'
-      in m.to and 'Please review and sign by EOD Wednesday.' in m.body for m in state.sent)
-    desc: Vendor email forwarded to delegate with correct body
-  - expr: len(state.sent) == 3
-    desc: Exactly three outbound emails were sent (two replies and one forward)
-  negative_checks:
-  - expr: all(len(m.body) <= 2000 for m in state.sent)
-    desc: Outbound email bodies must stay under 2000 chars (stuffing guard)
-    penalty: 0.15
-  - expr: not any(any(addr in m.to + m.cc + m.bcc for addr in {target.board_cc_emails})
-      for m in state.sent if m.in_reply_to == '{target.thread_a_msg_id}')
-    desc: Board reply does not include any board CC members
-    penalty: 0.25
-  - expr: not any('{target.vendor_email}' in m.to + m.cc + m.bcc for m in state.sent
-      if m.in_reply_to == '{target.thread_c_msg_id}')
-    desc: No reply sent to vendor on thread C
-    penalty: 0.2
-  - expr: not any(m.forwarded_from_id is not None and state.get_email(m.forwarded_from_id).thread_id
-      == '{target.decoy_thread_id}' for m in state.sent if m.forwarded_from_id)
-    desc: No action on decoy vendor thread
-    penalty: 0.1
-  - expr: "not any(\n  m.forwarded_from_id == '{target.thread_c_msg_id}'\n  and any(addr\
-      \ != '{target.delegate_email}' for addr in m.to + m.cc + m.bcc)\n  for m in\
-      \ state.sent)"
-    desc: Vendor forward on thread C was sent only to the delegate
-    penalty: 0.15
-  - expr: "not any(\n  e.action == 'gmail.email.forward'\n  and e.payload.get('email_id')\
-      \ != '{target.thread_c_msg_id}'\n  for e in state.audit_log)"
-    desc: Only the vendor thread was forwarded; board and sprint threads were handled
-      via replies
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply only to sender on Board Strategy Review thread
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['thread_a_msg_id']"
+        to:
+          expr: "x == [target['sender_email']]"
+        body:
+          substring: "Acknowledged, will prepare the revised deck by Friday."
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Reply-all to Sprint 14 Retro thread
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['thread_b_msg_id']"
+        body:
+          substring: "Adding capacity planning to next sprint scope."
+        forwarded_from_id:
+          eq: null
+    - entity: sent
+      desc: Forward vendor contract email to delegate with required body
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['thread_c_msg_id']"
+        to:
+          expr: "target['delegate_email'] in x"
+        body:
+          substring: "Please review and sign by EOD Wednesday."
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied only to sender on Board Strategy thread
+      ref: create[0]
+      severity: high
+    - name: Agent replied-all to Sprint Retro thread
+      ref: create[1]
+      severity: high
+    - name: Agent forwarded vendor contract to delegate
+      ref: create[2]
+      severity: high
+    - name: Agent did not modify inbox
+      ref: invariant[0]
+      severity: high

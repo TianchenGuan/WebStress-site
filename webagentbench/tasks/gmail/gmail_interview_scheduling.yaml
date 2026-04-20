@@ -49,43 +49,38 @@ seed:
     marco_santos_email: '{output.marco_santos_email}'
     hr_slots_email_id: '{output.hr_slots_email_id}'
     hr_frontend_decoy_email_id: '{output.hr_frontend_decoy_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: 'any(''Confirmed: Wednesday, 2:00 PM'' in m.body for m in state.sent)'
-    desc: Reply contains confirmed slot
-  - expr: any(m.in_reply_to == '{target.hr_slots_email_id}' for m in state.sent)
-    desc: Reply is in Lisa's thread
-  - expr: any('{target.marco_singh_email}' in m.cc for m in state.sent)
-    desc: CC includes Marco Singh
-  - expr: any('{target.priya_email}' in m.cc for m in state.sent)
-    desc: CC includes Priya Chen
-  - expr: any('{target.avery_email}' in m.cc for m in state.sent)
-    desc: CC includes Avery Brooks
-  - expr: any(len(m.cc) == 3 for m in state.sent if 'Confirmed' in m.body)
-    desc: Exactly 3 CC recipients
-  negative_checks:
-  - expr: not any(m.in_reply_to == '{target.hr_frontend_decoy_email_id}' for m in
-      state.sent)
-    desc: Did not reply to Frontend Designer thread
-    penalty: 0.21
-  - expr: not any('Monday' in m.body and 'Confirmed' in m.body for m in state.sent)
-    desc: Did not confirm Monday
-    penalty: 0.14
-  - expr: not any('Tuesday' in m.body and 'Confirmed' in m.body for m in state.sent)
-    desc: Did not confirm Tuesday
-    penalty: 0.14
-  - expr: not any('Thursday' in m.body and 'Confirmed' in m.body for m in state.sent)
-    desc: Did not confirm Thursday
-    penalty: 0.14
-  - expr: not any('Friday' in m.body and 'Confirmed' in m.body for m in state.sent)
-    desc: Did not confirm Friday
-    penalty: 0.14
-  - expr: not any('{target.marco_santos_email}' in m.cc for m in state.sent)
-    desc: Did not CC Marco Santos
-    penalty: 0.18
-  - expr: all(len(m.body) <= 1500 for m in state.sent)
-    desc: Confirmation body must stay under 1500 chars (stuffing guard)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to Lisa's slots email confirming Wednesday 2PM with all interviewers CC'd
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['hr_slots_email_id']"
+        body:
+          substring: "Confirmed: Wednesday, 2:00 PM"
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to Lisa with confirmed slot and CC'd all interviewers
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox
+      ref: invariant[0]
+      severity: high

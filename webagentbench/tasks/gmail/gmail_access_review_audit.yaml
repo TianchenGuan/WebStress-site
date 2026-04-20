@@ -40,34 +40,72 @@ seed:
     decoy_username: '{output.decoy_username}'
     compose_to: '{output.compose_to}'
     compose_subject: '{output.compose_subject}'
-eval:
-  source: server_state
-  checks:
-  - expr: any('{target.compose_to}' in m.to and '{target.compose_subject}' in m.subject
-      for m in state.sent)
-    desc: Access removal email sent to IT admin
-  - expr: any('{target.compose_to}' in m.to and 'rbrown' in m.body for m in state.sent)
-    desc: Removal email includes rbrown
-  - expr: any('{target.compose_to}' in m.to and 'tjones' in m.body for m in state.sent)
-    desc: Removal email includes tjones
-  - expr: state.get_email('{target.it_email_id}').is_starred
-    desc: IT email starred
-  - expr: state.get_email('{target.hr_email_id}').is_starred
-    desc: HR email starred
-  - expr: state.get_email('{target.it_email_id}').archived
-    desc: IT email archived
-  - expr: state.get_email('{target.hr_email_id}').archived
-    desc: HR email archived
-  negative_checks:
-  - expr: not any('{target.compose_to}' in m.to and 'klee' in m.body for m in state.sent)
-    desc: klee not included in removal (role change only)
-    penalty: 0.25
-  - expr: not any('{target.compose_to}' in m.to and 'jsmith' in m.body for m in state.sent)
-    desc: jsmith not included in removal (active employee)
-    penalty: 0.15
-  - expr: not any('{target.compose_to}' in m.to and 'mwong' in m.body for m in state.sent)
-    desc: mwong not included in removal (active employee)
-    penalty: 0.15
-  - expr: not any('{target.compose_to}' in m.to and 'pgarcia' in m.body for m in state.sent)
-    desc: pgarcia not included in removal (active employee)
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Compose access removal email listing departed employee usernames
+      count: 1
+      properties:
+        to:
+          expr: "target['compose_to'] in x"
+        subject:
+          expr: "target['compose_subject'] in x"
+        body:
+          substring_all:
+            - rbrown
+            - tjones
+        in_reply_to:
+          eq: null
+        forwarded_from_id:
+          eq: null
+  update:
+    - entity: emails
+      desc: Star and archive the IT access review email
+      where:
+        id:
+          expr: "x == target['it_email_id']"
+      changes:
+        is_starred:
+          eq: true
+        archived:
+          eq: true
+    - entity: emails
+      desc: Star and archive the HR personnel changes email
+      where:
+        id:
+          expr: "x == target['hr_email_id']"
+      changes:
+        is_starred:
+          eq: true
+        archived:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in [target['it_email_id'], target['hr_email_id']]"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent sent the access removal email listing departed usernames
+      ref: create[0]
+      severity: high
+    - name: Agent starred and archived the IT email
+      ref: update[0]
+      severity: high
+    - name: Agent starred and archived the HR email
+      ref: update[1]
+      severity: high
+    - name: Agent did not modify other emails
+      ref: invariant[0]
+      severity: high

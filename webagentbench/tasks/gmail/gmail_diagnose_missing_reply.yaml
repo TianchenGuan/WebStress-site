@@ -41,43 +41,44 @@ seed:
     thread_2_id: '{output.thread_2_id}'
     thread_4_id: '{output.thread_4_id}'
     initial_sent_count: '{output.initial_sent_count}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == {target.initial_sent_count} + 1
-    desc: Exactly one new email was sent (baseline + 1)
-  - expr: any(m.in_reply_to == '{target.unanswered_msg_id}' and '{target.client_email}'
-      in m.to for m in state.sent)
-    desc: The new email is a proper reply in the unanswered thread (in_reply_to matches
-      the original message id)
-  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and ('apolog' in m.body.lower()
-      or 'sorry' in m.body.lower()) for m in state.sent)
-    desc: Reply contains explicit apology language ('apolog' or 'sorry')
-  - expr: any(m.thread_id == '{target.unanswered_thread_id}' and any(kw.lower() in
-      m.body.lower() for kw in {target.question_keywords}) for m in state.sent)
-    desc: Reply addresses the client question with relevant keywords
-  negative_checks:
-  - expr: not any(m.thread_id in ['{target.thread_1_id}', '{target.thread_2_id}',
-      '{target.thread_4_id}'] and m.from_addr != '{target.client_email}' for m in
-      state.sent)
-    desc: No new reply sent to already-answered threads
-    penalty: 0.3
-  - expr: len(state.sent) == {target.initial_sent_count} + 1
-    desc: Must send exactly one new email (extras are penalised)
-    penalty: 0.2
-  - expr: all(len(m.body) <= 1500 for m in state.sent if m.thread_id == '{target.unanswered_thread_id}')
-    desc: Apology body must stay under 1500 chars (stuffing guard)
-    penalty: 0.15
-  - expr: not any( '{target.client_email}' in m.to and m.thread_id not in ['{target.unanswered_thread_id}',
-      '{target.thread_1_id}', '{target.thread_2_id}', '{target.thread_4_id}'] for
-      m in state.sent)
-    desc: Did not compose a fresh wrong thread to the client instead of replying in-thread
-    penalty: 0.2
-  - expr: len([ m for m in state.sent if m.thread_id == '{target.unanswered_thread_id}'
-      and '{target.client_email}' in m.to ]) <= 1
-    desc: Unanswered client thread received only one corrective reply
-    penalty: 0.15
-  - expr: all( len(m.cc) == 0 and len(m.bcc) == 0 for m in state.sent if m.thread_id
-      == '{target.unanswered_thread_id}')
-    desc: Client apology reply did not add extra recipients
-    penalty: 0.1
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply sent to client in the unanswered thread with apology and address of their question
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['unanswered_msg_id']"
+        to:
+          expr: "target['client_email'] in x"
+        body:
+          substring_all:
+            - apolog
+        forwarded_from_id:
+          eq: null
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent composed and sent the required reply
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not send extra emails
+      ref: create[0]
+      severity: medium

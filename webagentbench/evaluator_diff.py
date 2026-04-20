@@ -172,13 +172,13 @@ def eval_predicate(pred: dict, scope: PredicateScope) -> bool:
 
     # ── collection ────────────────────────────────────────────────
     if key == "set_eq":
-        return set(value) == set(arg)
+        return set(value or []) == set(arg)
     if key == "subset":
-        return set(value).issubset(set(arg))
+        return set(value or []).issubset(set(arg))
     if key == "superset":
-        return set(value).issuperset(set(arg))
+        return set(value or []).issuperset(set(arg))
     if key == "contains":
-        return arg in value
+        return arg in (value or [])
     if key == "length":
         # len() on None / int / other non-sized values would propagate a
         # TypeError through the matcher. Conservatively return False so
@@ -510,6 +510,12 @@ def _build_collection_map(state: Any) -> dict[str, str]:
     where the naive ``lower() + 's'`` heuristic would produce the wrong name.
     Returns an empty mapping if ``state`` isn't a pydantic model (e.g. dict
     snapshots used in unit tests).
+
+    Class-name entries use the FIRST list field of that class (so ``Email``
+    maps to ``"emails"`` in GmailState, not ``"deleted"`` which comes last).
+    Direct collection-name entries (``"sent" → "sent"``, ``"emails" → "emails"``)
+    are also added so task authors can reference collection names directly in
+    ``entity:`` fields when a class appears in multiple collections (Class 13).
     """
     import typing as _typing
 
@@ -523,7 +529,13 @@ def _build_collection_map(state: Any) -> dict[str, str]:
         if _typing.get_origin(ann) is list:
             args = _typing.get_args(ann)
             if args and hasattr(args[0], "__name__"):
-                mapping[args[0].__name__] = name
+                # Keep first assignment per class name so Email → emails
+                # (not the last list[Email] field which may be "deleted").
+                if args[0].__name__ not in mapping:
+                    mapping[args[0].__name__] = name
+            # Always add direct collection-name → collection-name so
+            # authors can use e.g. entity: sent, entity: deleted directly.
+            mapping[name] = name
     return mapping
 
 
@@ -942,12 +954,31 @@ def _match_single_block(
     # When a bijection is specified, we do a bipartite match between target
     # slots and Update candidates (same mechanics as create bijection).
     def _update_predicates_hold(entry_obj, candidate, bv=None):
+        # where uses BEFORE values so renames like {name: {eq: "OldName"}} work
+        where_dict = {"id": candidate.entity_id}
+        for f, (before, _after) in candidate.field_changes.items():
+            where_dict[f] = before
+        i_cols = _collections_of(initial)
+        initial_idx = _index_by_id(i_cols.get(candidate.entity, []))
+        if candidate.entity_id in initial_idx:
+            for k, v in initial_idx[candidate.entity_id].items():
+                if k not in where_dict:
+                    where_dict[k] = v
+
+        # changes uses AFTER values
         entity_dict = {"id": candidate.entity_id}
         for f, (_before, after) in candidate.field_changes.items():
             entity_dict[f] = after
+        f_cols = _collections_of(final)
+        final_idx = _index_by_id(f_cols.get(candidate.entity, []))
+        if candidate.entity_id in final_idx:
+            for k, v in final_idx[candidate.entity_id].items():
+                if k not in entity_dict:
+                    entity_dict[k] = v
+
         for fname, pred in entry_obj.where.items():
             local = _build_scope(targets, initial, final, bijection_var=bv, session_start=session_start)
-            if not _predicate_holds(pred, entity_dict.get(fname), local):
+            if not _predicate_holds(pred, where_dict.get(fname), local):
                 return False
         for fname, pred in entry_obj.changes.items():
             after_value = candidate.field_changes.get(fname, (None, entity_dict.get(fname)))[1]
@@ -1053,37 +1084,117 @@ def _match_single_block(
         total_weight += entry.weight
         collection_name = (entry.collection.removeprefix("state.") if entry.collection else _collection_for(entry.entity, collection_map))
         base_desc = entry.desc or f"Delete {entry.entity} matching selector"
-        matched = False
-        for candidate in agent_diff:
-            if not isinstance(candidate, Delete):
+
+        if entry.bijection is not None:
+            # Bijection delete: one-to-one match between target slots and Delete diffs.
+            try:
+                left = _eval_target_expr(entry.bijection.over, targets)
+            except Exception as exc:
+                checks.append({
+                    "desc": base_desc,
+                    "passed": False,
+                    "error": f"target expression failed: {exc}",
+                })
+                failures.append(Failure(
+                    kind="missing_delete",
+                    description=f"bijection {entry.entity} target expression failed",
+                    details={"entry_index": i, "error": str(exc)},
+                ))
                 continue
-            if candidate.entity != collection_name:
-                continue
-            if (candidate.entity, candidate.entity_id) in matched_ids:
-                continue
-            entity_dict = {"id": candidate.entity_id, **candidate.last_fields}
-            where_ok = True
-            for fname, pred in entry.where.items():
-                scope = _build_scope(targets, initial, final, session_start=session_start)
-                if not _predicate_holds(pred, entity_dict.get(fname), scope):
-                    where_ok = False
-                    break
-            if where_ok:
-                matched_ids.add((candidate.entity, candidate.entity_id))
-                matched = True
-                break
-        checks.append({
-            "desc": base_desc,
-            "passed": matched,
-            "error": None if matched else "no Delete entry matched the where selector",
-        })
-        if matched:
-            passed_weight += entry.weight
+
+            n_left = len(left) if hasattr(left, "__len__") else 0
+            candidates = [
+                c for c in agent_diff
+                if isinstance(c, Delete)
+                and c.entity == collection_name
+                and (c.entity, c.entity_id) not in matched_ids
+            ]
+
+            edges: dict[int, set[int]] = {li: set() for li in range(n_left)}
+            for li, lv in enumerate(left):
+                for cj, cand in enumerate(candidates):
+                    entity_dict = {"id": cand.entity_id, **cand.last_fields}
+                    local_scope = _build_scope(
+                        targets, initial, final,
+                        bijection_var=lv,
+                        session_start=session_start,
+                    )
+                    where_ok = all(
+                        _predicate_holds(pred, entity_dict.get(fname), local_scope)
+                        for fname, pred in entry.where.items()
+                    )
+                    if where_ok:
+                        edges[li].add(cj)
+
+            matching = _max_bipartite_matching(edges, n_left, len(candidates))
+            saturated = len(matching) == n_left
+            for _li, cj in matching.items():
+                cand = candidates[cj]
+                matched_ids.add((cand.entity, cand.entity_id))
+
+            if n_left == 0:
+                passed_weight += entry.weight
+                checks.append({
+                    "desc": f"{base_desc} (trivially satisfied — nothing required)",
+                    "passed": True,
+                    "error": None,
+                })
+            elif saturated:
+                passed_weight += entry.weight
+                checks.append({
+                    "desc": f"{base_desc} — {n_left} of {n_left} done",
+                    "passed": True,
+                    "error": None,
+                })
+            else:
+                fraction = len(matching) / n_left if n_left > 0 else 0.0
+                passed_weight += entry.weight * fraction
+                checks.append({
+                    "desc": f"{base_desc} — {len(matching)} of {n_left} done",
+                    "passed": False,
+                    "error": f"matched {len(matching)} of {n_left}",
+                })
+                failures.append(Failure(
+                    kind="missing_delete",
+                    description=(
+                        f"bijection {entry.entity} unsaturated: "
+                        f"matched {len(matching)} of {n_left}"
+                    ),
+                    details={"entry_index": i, "matched": len(matching), "needed": n_left},
+                ))
         else:
-            failures.append(Failure(
-                kind="missing_delete", description=base_desc,
-                details={"entry_index": i},
-            ))
+            # Non-bijection: find one unmatched Delete candidate satisfying where.
+            matched = False
+            for candidate in agent_diff:
+                if not isinstance(candidate, Delete):
+                    continue
+                if candidate.entity != collection_name:
+                    continue
+                if (candidate.entity, candidate.entity_id) in matched_ids:
+                    continue
+                entity_dict = {"id": candidate.entity_id, **candidate.last_fields}
+                where_ok = True
+                for fname, pred in entry.where.items():
+                    scope = _build_scope(targets, initial, final, session_start=session_start)
+                    if not _predicate_holds(pred, entity_dict.get(fname), scope):
+                        where_ok = False
+                        break
+                if where_ok:
+                    matched_ids.add((candidate.entity, candidate.entity_id))
+                    matched = True
+                    break
+            checks.append({
+                "desc": base_desc,
+                "passed": matched,
+                "error": None if matched else "no Delete entry matched the where selector",
+            })
+            if matched:
+                passed_weight += entry.weight
+            else:
+                failures.append(Failure(
+                    kind="missing_delete", description=base_desc,
+                    details={"entry_index": i},
+                ))
 
     # 2. Invariant enforcement. Invariants are PENALTY-ONLY — they do not
     # contribute to total_weight / passed_weight. Doing nothing must not

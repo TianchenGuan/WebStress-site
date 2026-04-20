@@ -39,34 +39,91 @@ seed:
     wrong_review_id: '{output.wrong_review_id}'
     correct_non_review_id: '{output.correct_non_review_id}'
     project_email_ids: '{output.project_email_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(l.name == 'Project Alpha' for l in state.labels)
-    desc: Project Alpha label created
-  - expr: any(l.name == 'Needs Review' for l in state.labels)
-    desc: Needs Review label created
-  - expr: any(l.name == 'Client Feedback' for l in state.labels)
-    desc: Client Feedback label created
-  - expr: all('Client Feedback' in state.get_email(eid).labels for eid in {target.client_email_ids})
-    desc: Client emails labeled
-  - expr: all('Needs Review' in state.get_email(eid).labels for eid in {target.review_email_ids})
-    desc: Review emails labeled Needs Review
-  - expr: all('Project Alpha' in state.get_email(eid).labels for eid in {target.project_email_ids})
-    desc: Project emails labeled Project Alpha
-  - expr: any(l.name == 'Project Alpha' and l.show_in_label_list == 'show_if_unread'
-      for l in state.labels)
-    desc: PA visibility correct
-  - expr: any(l.name == 'Client Feedback' and l.show_in_label_list == 'hide' for l
-      in state.labels)
-    desc: CF visibility correct
-  - expr: '''Needs Review'' not in state.get_email(''{target.wrong_review_id}'').labels'
-    desc: Wrong review label removed
-  negative_checks:
-  - expr: '''Needs Review'' not in state.get_email(''{target.correct_non_review_id}'').labels'
-    desc: Non-review email not mis-labeled
-    penalty: 0.15
-  - expr: len(state.sent) == 0
-    desc: No emails sent when none required
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: labels
+      desc: Create Project Alpha label with show_if_unread visibility
+      count: 1
+      properties:
+        name:
+          eq: "Project Alpha"
+        show_in_label_list:
+          eq: "show_if_unread"
+    - entity: labels
+      desc: Create Needs Review label
+      count: 1
+      properties:
+        name:
+          eq: "Needs Review"
+    - entity: labels
+      desc: Create Client Feedback label with hidden visibility
+      count: 1
+      properties:
+        name:
+          eq: "Client Feedback"
+        show_in_label_list:
+          eq: "hide"
+  update:
+    - entity: emails
+      desc: Apply Client Feedback and Project Alpha labels to client domain emails
+      bijection:
+        over: "target['client_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - "Client Feedback"
+            - "Project Alpha"
+    - entity: emails
+      desc: Apply Needs Review and Project Alpha labels to review emails
+      bijection:
+        over: "target['review_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - "Needs Review"
+            - "Project Alpha"
+  constraints:
+    - desc: Wrong review email does not have Needs Review label
+      expr: "not any(e.id == target['wrong_review_id'] and 'Needs Review' in e.labels for e in state.emails)"
+      severity: high
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in (target['client_email_ids'] + target['review_email_ids'])"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Project Alpha', 'Needs Review', 'Client Feedback']"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent created Project Alpha label
+      ref: create[0]
+      severity: high
+    - name: Agent created Needs Review label
+      ref: create[1]
+      severity: high
+    - name: Agent created Client Feedback label
+      ref: create[2]
+      severity: high
+    - name: Agent labeled client emails with Client Feedback and Project Alpha
+      ref: update[0]
+      severity: high
+    - name: Agent labeled review emails with Needs Review and Project Alpha
+      ref: update[1]
+      severity: high

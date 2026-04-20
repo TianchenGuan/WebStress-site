@@ -20,19 +20,42 @@ seed:
   targets:
     contact_id: '{output.contact_id}'
     contact_name: '{output.contact_name}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(c.name == 'Alice Chen' and 'Project Atlas' in (c.note or '') for c in
-      state.contacts)
-    desc: Alice Chen contact note updated to mention Project Atlas
-  - expr: any(c.name == 'Alice Chen' and 'Team lead' in (c.note or '') for c in state.contacts)
-    desc: Contact note includes the role designation 'Team lead'
-  negative_checks:
-  - expr: len(state.sent) == 0
-    desc: No emails sent when none required
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  update:
+    - entity: contacts
+      desc: Update Alice Chen note to Team lead — Project Atlas
+      where:
+        id:
+          expr: "x == target['contact_id']"
+      changes:
+        note:
+          eq: "Team lead — Project Atlas"
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      filter: "a.id != target['contact_id']"
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent updated Alice Chen's note
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify other contacts
+      ref: invariant[4]
+      severity: high
+    - name: Agent did not send emails
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high

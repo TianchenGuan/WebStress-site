@@ -27,30 +27,71 @@ seed:
     vip_email_ids: '{output.vip_email_ids}'
     status_phrase: '{output.status_phrase}'
     future_vip_email: '{output.future_vip_email}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(state.get_email(email_id) is not None and state.get_email(email_id).is_read
-      and state.get_email(email_id).is_starred for email_id in {target.vip_email_ids})
-    desc: All target VIP emails were read and starred
-  - expr: len([message for message in state.sent if message.in_reply_to in {target.vip_email_ids}
-      and '{target.status_phrase}' in message.body]) == {target.vip_count}
-    desc: Each VIP email received the required reply
-  - expr: any(rule.star and '{target.future_vip_email}' in rule.from_addresses for
-      rule in state.filters)
-    desc: Future VIP filter automatically stars matching messages
-  - expr: len([m for m in state.sent if m.in_reply_to in {target.vip_email_ids}])
-      == {target.vip_count}
-    desc: Reply count matches the number of VIP contacts (cardinality check)
-  negative_checks:
-  - expr: not any(message.in_reply_to not in {target.vip_email_ids} and '{target.status_phrase}'
-      in message.body for message in state.sent)
-    desc: Status phrase was not sent on unrelated replies
-    penalty: 0.25
-  - expr: len(state.sent) <= 4
-    desc: No excessive emails sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to each VIP email with the required status phrase
+      bijection:
+        over: "target['vip_email_ids']"
+        variable: v
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == v"
+        body:
+          expr: "target['status_phrase'] in x"
+        forwarded_from_id:
+          eq: null
+    - entity: filters
+      desc: Create filter that auto-stars future emails from future_vip_email
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['future_vip_email'] in x"
+        star:
+          eq: true
+  update:
+    - entity: emails
+      desc: Star all VIP emails and mark as read
+      bijection:
+        over: "target['vip_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+        is_read:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['vip_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to each VIP email with status phrase
+      ref: create[0]
+      severity: high
+    - name: Agent created future VIP filter
+      ref: create[1]
+      severity: high
+    - name: Agent starred and read all VIP emails
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify non-VIP emails
+      ref: invariant[0]
+      severity: high

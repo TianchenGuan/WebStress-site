@@ -19,26 +19,41 @@ seed:
     - target_email_id
   targets:
     target_email_id: '{output.target_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) == 1
-    desc: Exactly one email was sent
-  - expr: any(m.forwarded_from_id == '{target.target_email_id}' and m.to == ['dave@thornton.com']
-      and m.cc == [] and m.bcc == [] for m in state.sent)
-    desc: Forward of the correct source email is addressed solely to dave@thornton.com
-      (no extra CC/BCC)
-  - expr: any(m.forwarded_from_id == '{target.target_email_id}' and 'Please review
-      this invoice' in m.body for m in state.sent)
-    desc: Forward includes the required note 'Please review this invoice'
-  - expr: not any(m.in_reply_to is not None for m in state.sent)
-    desc: No replies were sent (forward expected, not reply)
-  negative_checks:
-  - expr: len(state.sent) == 1
-    desc: Must send exactly one email (zero or extras are penalised)
-    penalty: 0.2
-  - expr: all(m.forwarded_from_id is None or m.forwarded_from_id == '{target.target_email_id}'
-      for m in state.sent)
-    desc: Must not forward any other email than the target invoice
-    penalty: 0.25
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward the invoice email to dave@thornton.com with the required note
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['target_email_id']"
+        to:
+          expr: "x == ['dave@thornton.com']"
+        body:
+          substring: "Please review this invoice"
+  invariant:
+    - collection: state.emails
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded the correct invoice email
+      ref: create[0]
+      severity: high
+    - name: Agent did not modify inbox
+      ref: invariant[0]
+      severity: high
+    - name: Agent sent exactly one email
+      ref: create[0]
+      severity: medium

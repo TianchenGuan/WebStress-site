@@ -52,39 +52,69 @@ seed:
     correct_value_1: '{output.correct_value_1}'
     correct_value_2: '{output.correct_value_2}'
     wrong_values: '{output.wrong_values}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
-  - expr: 'any(m.in_reply_to == ''{target.summary_id}'' and m.to == [''{target.summary_author_email}'']
-      and ''{target.correct_value_1}'' in m.body and ''{target.correct_value_2}''
-      in m.body for m in state.sent)
-
-      '
-    desc: Single threaded reply to the summary author includes both corrections
-  - expr: all(state.get_email(eid).is_starred for eid in {target.dept_ids})
-    desc: Department emails starred
-  - expr: all('Budget Verified' in state.get_email(eid).labels for eid in {target.all_budget_ids})
-    desc: Budget label applied
-  negative_checks:
-  - expr: not any(len(m.to) > 1 for m in state.sent if m.in_reply_to == '{target.summary_id}')
-    desc: Single recipient (not Reply All)
-    penalty: 0.2
-  - expr: len(state.sent) <= 3
-    desc: No excessive emails sent
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.15
-  - expr: not any(m.in_reply_to in {target.dept_ids} for m in state.sent)
-    desc: No replies were sent to the source department threads
-    penalty: 0.15
-  - expr: "not any(\n  any(str(v) in m.body for v in {target.wrong_values})\n  for\
-      \ m in state.sent\n  if m.in_reply_to == '{target.summary_id}')"
-    desc: Correction reply does not repeat the incorrect summary numbers
-    penalty: 0.15
-  - expr: not any(e.action == 'gmail.email.forward' for e in state.audit_log)
-    desc: Budget reconciliation did not forward budget emails elsewhere
-    penalty: 0.1
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to summary author with the two corrections
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['summary_id']"
+        to:
+          expr: "x == [target['summary_author_email']]"
+        body:
+          expr: "target['correct_value_1'] in x and target['correct_value_2'] in x"
+    - entity: labels
+      desc: Create the Budget Verified label
+      count: 1
+      properties:
+        name:
+          eq: Budget Verified
+  update:
+    - entity: emails
+      desc: Apply Budget Verified label and star department emails
+      bijection:
+        over: "target['all_budget_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - Budget Verified
+  constraints:
+    - desc: All department emails are starred
+      expr: "all(state.get_email(eid) is not None and state.get_email(eid).is_starred for eid in target['dept_ids'])"
+      severity: high
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['all_budget_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'Budget Verified'"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent sent correction reply to summary author
+      ref: create[0]
+      severity: high
+    - name: Agent created the Budget Verified label
+      ref: create[1]
+      severity: high
+    - name: Agent applied Budget Verified label to all budget emails
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify non-budget emails
+      ref: invariant[0]
+      severity: high

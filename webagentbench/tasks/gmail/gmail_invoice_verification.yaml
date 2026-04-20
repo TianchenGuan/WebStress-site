@@ -49,27 +49,54 @@ seed:
     valid_invoice_email_ids: '{output.valid_invoice_email_ids}'
     all_invoice_email_ids: '{output.all_invoice_email_ids}'
     decoy_correction_email_id: '{output.decoy_correction_email_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.sent) >= 1
-    desc: At least one email sent
-  - expr: any(m.in_reply_to == '{target.mismatched_vendor_email_id}' for m in state.sent)
-    desc: Reply sent to mismatched vendor
-  - expr: any(m.in_reply_to == '{target.mismatched_vendor_email_id}' and '{target.correct_po_for_mismatched}'
-      in m.body for m in state.sent)
-    desc: Correct PO number included in reply to mismatched vendor
-  - expr: all(state.get_email(eid).is_starred for eid in {target.valid_invoice_email_ids})
-    desc: Two correct invoices starred
-  negative_checks:
-  - expr: not state.get_email('{target.mismatched_vendor_email_id}').is_starred
-    desc: Mismatched invoice must not be starred
-    penalty: 0.3
-  - expr: not any(m.in_reply_to in [eid for eid in {target.valid_invoice_email_ids}]
-      for m in state.sent)
-    desc: No reply sent to correct invoice vendors
-    penalty: 0.2
-  - expr: not any('{target.wrong_po_on_invoice}' in m.body and m.in_reply_to == '{target.mismatched_vendor_email_id}'
-      for m in state.sent)
-    desc: Reply does not contain the wrong PO number as if it were correct
-    penalty: 0.15
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Reply to mismatched vendor requesting reissue with correct PO number
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['mismatched_vendor_email_id']"
+        body:
+          expr: "target['correct_po_for_mismatched'] in x"
+        forwarded_from_id:
+          eq: null
+  update:
+    - entity: emails
+      desc: Star the two valid invoice emails
+      bijection:
+        over: "target['valid_invoice_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['valid_invoice_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent replied to mismatched vendor with correct PO
+      ref: create[0]
+      severity: high
+    - name: Agent starred valid invoices
+      ref: update[0]
+      severity: high
+    - name: Agent did not modify unrelated emails
+      ref: invariant[0]
+      severity: high

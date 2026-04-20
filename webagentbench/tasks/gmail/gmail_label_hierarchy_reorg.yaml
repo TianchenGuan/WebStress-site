@@ -58,49 +58,136 @@ seed:
     all_projects_email_ids: '{output.all_projects_email_ids}'
     archive_projects_email_ids: '{output.archive_projects_email_ids}'
     engineering_planning_label_id: '{output.engineering_planning_label_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: not any(l.name == 'Projects' for l in state.labels)
-    desc: Label Projects no longer exists (renamed)
-  - expr: not any(l.name == 'Archive-Projects' for l in state.labels)
-    desc: Label Archive-Projects no longer exists (renamed)
-  - expr: any(l.name == 'Engineering/Active' and l.show_in_label_list == 'show' and
-      l.show_in_message_list == 'show' for l in state.labels)
-    desc: Engineering/Active exists with correct visibility
-  - expr: any(l.name == 'Engineering/Completed' and l.show_in_label_list == 'show'
-      and l.show_in_message_list == 'hide' for l in state.labels)
-    desc: Engineering/Completed exists with correct visibility
-  - expr: any(l.name == 'Engineering/Blocked' and l.show_in_label_list == 'show' and
-      l.show_in_message_list == 'show' for l in state.labels)
-    desc: Engineering/Blocked exists with correct visibility
-  - expr: any(l.name == 'Engineering/Review' and l.show_in_label_list == 'show' and
-      l.show_in_message_list == 'hide' for l in state.labels)
-    desc: Engineering/Review exists with correct visibility
-  - expr: any(l.name == 'Design' and l.show_in_label_list == 'show' and l.show_in_message_list
-      == 'show' for l in state.labels)
-    desc: Design label exists with correct visibility
-  - expr: '''Engineering/Blocked'' in state.get_email(''{target.blocked_email_id}'').labels
-      and ''Engineering/Active'' not in state.get_email(''{target.blocked_email_id}'').labels'
-    desc: Blocked email relabeled correctly
-  - expr: all('Engineering/Review' in state.get_email(eid).labels and 'Engineering/Active'
-      not in state.get_email(eid).labels for eid in {target.review_email_ids})
-    desc: Review emails relabeled correctly
-  - expr: all('Engineering/Active' in state.get_email(eid).labels for eid in {target.remaining_projects_email_ids})
-    desc: Non-matching projects emails retain Engineering/Active label
-  - expr: any(l.name == 'Engineering/Planning' for l in state.labels)
-    desc: Engineering/Planning label still exists unchanged
-  negative_checks:
-  - expr: not any(l.name == 'Design/UX' for l in state.labels)
-    desc: Decoy label Design/UX was not created
-    penalty: 0.15
-  - expr: not any(l.name == 'Design/Visual' for l in state.labels)
-    desc: Decoy label Design/Visual was not created
-    penalty: 0.15
-  - expr: not any(l.name == 'Active-Work' for l in state.labels)
-    desc: Decoy rename Active-Work was not applied
-    penalty: 0.15
-  - expr: any(l.id == '{target.engineering_planning_label_id}' and l.name == 'Engineering/Planning'
-      for l in state.labels)
-    desc: Engineering/Planning was not deleted or renamed
-    penalty: 0.2
+canonical_diff:
+  update:
+    - entity: labels
+      desc: Rename Projects to Engineering/Active
+      where:
+        name:
+          eq: "Projects"
+      changes:
+        name:
+          eq: "Engineering/Active"
+    - entity: labels
+      desc: Rename Archive-Projects to Engineering/Completed
+      where:
+        name:
+          eq: "Archive-Projects"
+      changes:
+        name:
+          eq: "Engineering/Completed"
+    - entity: emails
+      desc: Move blocked email from Engineering/Active to Engineering/Blocked
+      where:
+        id:
+          expr: "x == target['blocked_email_id']"
+      changes:
+        labels:
+          superset:
+            - "Engineering/Blocked"
+    - entity: emails
+      desc: Move review emails from Engineering/Active to Engineering/Review
+      bijection:
+        over: "target['review_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - "Engineering/Review"
+    - entity: emails
+      desc: Remaining Projects emails updated to Engineering/Active by rename
+      bijection:
+        over: "target['remaining_projects_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - "Engineering/Active"
+    - entity: emails
+      desc: Archive-Projects emails updated to Engineering/Completed by rename
+      bijection:
+        over: "target['archive_projects_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        labels:
+          superset:
+            - "Engineering/Completed"
+  create:
+    - entity: labels
+      desc: Create Engineering/Blocked label (show in label list, show in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Engineering/Blocked"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "show"
+    - entity: labels
+      desc: Create Engineering/Review label (show in label list, hide in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Engineering/Review"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "hide"
+    - entity: labels
+      desc: Create Design label (show in label list, show in message list)
+      count: 1
+      properties:
+        name:
+          eq: "Design"
+        show_in_label_list:
+          eq: "show"
+        show_in_message_list:
+          eq: "show"
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in ([target['blocked_email_id']] + target['review_email_ids'])"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name not in ['Projects', 'Archive-Projects', 'Engineering/Active', 'Engineering/Completed', 'Engineering/Blocked', 'Engineering/Review', 'Design']"
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent renamed Projects to Engineering/Active
+      ref: update[0]
+      severity: high
+    - name: Agent renamed Archive-Projects to Engineering/Completed
+      ref: update[1]
+      severity: high
+    - name: Agent moved blocked email to Engineering/Blocked
+      ref: update[2]
+      severity: high
+    - name: Agent moved review emails to Engineering/Review
+      ref: update[3]
+      severity: high
+    - name: Agent created Engineering/Blocked label
+      ref: create[0]
+      severity: high
+    - name: Agent created Engineering/Review label
+      ref: create[1]
+      severity: high
+    - name: Agent created Design label
+      ref: create[2]
+      severity: high

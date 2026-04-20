@@ -43,37 +43,93 @@ seed:
     incident_ids: '{output.incident_ids}'
     alert_system_email: '{output.alert_system_email}'
     resolved_alert_id: '{output.resolved_alert_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(m.forwarded_from_id == '{target.alert_id}' and '{target.oncall_email}'
-      in m.to for m in state.sent)
-    desc: Alert forwarded to on-call
-  - expr: any(m.in_reply_to == '{target.manager_email_id}' for m in state.sent)
-    desc: Manager thread replied
-  - expr: all(state.get_email(eid).is_starred for eid in {target.incident_ids})
-    desc: All incident emails starred
-  - expr: all('P0 Incident' in state.get_email(eid).labels for eid in {target.incident_ids})
-    desc: P0 label applied
-  - expr: any(r.star and '{target.alert_system_email}' in r.from_addresses and 'CRITICAL'
-      in r.subject_keywords and 'P0 Incident' in r.add_labels for r in state.filters)
-    desc: Alert filter stars and labels P0 Incident
-  - expr: any('{target.error_code}' in m.body and m.forwarded_from_id == '{target.alert_id}'
-      for m in state.sent)
-    desc: Error code included in forward
-  negative_checks:
-  - expr: all(len(m.cc) == 0 for m in state.sent if m.in_reply_to == '{target.manager_email_id}')
-    desc: Reply not Reply All
-    penalty: 0.2
-  - expr: not any(m.forwarded_from_id == '{target.resolved_alert_id}' for m in state.sent)
-    desc: Resolved alert not forwarded
-    penalty: 0.15
-  - expr: all( m.to == ['{target.oncall_email}'] and len(m.cc) == 0 and len(m.bcc)
-      == 0 for m in state.sent if m.forwarded_from_id == '{target.alert_id}')
-    desc: Alert forward went only to the on-call engineer
-    penalty: 0.15
-  - expr: not any( '{target.alert_system_email}' in r.from_addresses and 'CRITICAL'
-      not in r.subject_keywords for r in state.filters)
-    desc: Future alert filter was not broadened beyond CRITICAL incidents
-    penalty: 0.15
-secondary_primitives: []
+canonical_diff:
+  create:
+    - entity: sent
+      desc: Forward alert to on-call engineer with error code
+      count: 1
+      properties:
+        forwarded_from_id:
+          expr: "x == target['alert_id']"
+        to:
+          expr: "target['oncall_email'] in x"
+        body:
+          expr: "target['error_code'] in x"
+    - entity: sent
+      desc: Reply to manager thread confirming handling
+      count: 1
+      properties:
+        in_reply_to:
+          expr: "x == target['manager_email_id']"
+        forwarded_from_id:
+          eq: null
+    - entity: labels
+      desc: Create P0 Incident label
+      count: 1
+      properties:
+        name:
+          eq: "P0 Incident"
+    - entity: filters
+      desc: Create filter for alert system that stars and labels P0 Incident for CRITICAL subjects
+      count: 1
+      properties:
+        from_addresses:
+          expr: "target['alert_system_email'] in x"
+        subject_keywords:
+          superset:
+            - CRITICAL
+        star:
+          eq: true
+        add_labels:
+          superset:
+            - "P0 Incident"
+  update:
+    - entity: emails
+      desc: Star all incident-related emails and apply P0 Incident label
+      bijection:
+        over: "target['incident_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - "P0 Incident"
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['incident_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      filter: "True"
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      filter: "a.name != 'P0 Incident'"
+      preserve: ALL
+    - collection: state.filters
+      filter: "True"
+      preserve: ALL
+  named_invariants:
+    - name: Agent forwarded alert to on-call with error code
+      ref: create[0]
+      severity: high
+    - name: Agent replied to manager thread
+      ref: create[1]
+      severity: high
+    - name: Agent created P0 Incident label
+      ref: create[2]
+      severity: high
+    - name: Agent created future alert filter
+      ref: create[3]
+      severity: high
+    - name: Agent starred and labeled all incident emails
+      ref: update[0]
+      severity: high

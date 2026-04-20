@@ -19,18 +19,62 @@ seed:
     - unread_count
   targets:
     unread_count: '{output.unread_count}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(e.is_read for e in state.list_emails('inbox'))
-    desc: All inbox emails are marked as read
-  - expr: sum(1 for e in state.list_emails('inbox') if not e.is_read) == 0
-    desc: Zero unread emails remain in inbox
-  negative_checks:
-  - expr: len(state.sent) == 0
-    desc: No emails sent when none required
-    penalty: 0.15
-  - expr: len(state.deleted) == 0
-    desc: No emails moved to trash
-    penalty: 0.15
-secondary_primitives: []
+    unread_email_ids: '{output.unread_email_ids}'
+
+canonical_diff:
+  update:
+    - entity: emails
+      desc: Mark each unread inbox email as read
+      bijection:
+        over: "target['unread_email_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_read:
+          eq: true
+  invariant:
+    - collection: state.emails
+      filter: "a.id not in target['unread_email_ids']"
+      preserve: ALL
+    - collection: state.drafts
+      preserve: ALL
+    - collection: state.sent
+      preserve: ALL
+    - collection: state.deleted
+      preserve: ALL
+    - collection: state.contacts
+      preserve: ALL
+    - collection: state.labels
+      preserve: ALL
+    - collection: state.filters
+      preserve: ALL
+  named_invariants:
+    - name: Agent marked all unread inbox emails as read
+      ref: update[0]
+      severity: high
+    - name: Agent did not mark extra emails beyond the unread count
+      ref: update[0]
+      severity: medium
+    - name: Agent did not modify already-read emails
+      ref: invariant[0]
+      severity: high
+    - name: Agent did not create or modify drafts
+      ref: invariant[1]
+      severity: medium
+    - name: Agent did not send emails
+      ref: invariant[2]
+      severity: high
+    - name: Agent did not delete emails
+      ref: invariant[3]
+      severity: high
+    - name: Agent did not modify contacts
+      ref: invariant[4]
+      severity: medium
+    - name: Agent did not create or modify labels
+      ref: invariant[5]
+      severity: low
+    - name: Agent did not create or modify filters
+      ref: invariant[6]
+      severity: medium
