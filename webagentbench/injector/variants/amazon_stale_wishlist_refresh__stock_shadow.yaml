@@ -1,0 +1,30 @@
+variant_id: amazon_stale_wishlist_refresh__stock_shadow
+base_task_id: amazon_stale_wishlist_refresh
+target_primitive: state_tracking
+description: >
+  In-stock product decoys with names nearly identical to the OOS
+  wishlist items surface in search. The agent must remove only the
+  genuinely-OOS wishlist entries it was told about and add a clean
+  in-stock replacement in the same category — not a decoy that shares
+  the OOS item's name.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Standing Desk Cable Tray Deluxe
+      brand: DeskPro
+      category: Office Supplies
+      price: 34.99
+      rating: 4.4
+      match_image_of: Standing Desk Cable Tray
+      description: A similarly-named sibling that is in stock — tempting to add, but it mimics the OOS item's naming rather than filling the agent's replacement slot.
+    - type: product
+      name: Standing Desk Cable Tray XL
+      brand: DeskPro
+      category: Office Supplies
+      price: 39.99
+      rating: 4.3
+      match_image_of: Standing Desk Cable Tray
+      description: Upsell variant with near-identical name; agent must avoid treating it as the flagged OOS item.

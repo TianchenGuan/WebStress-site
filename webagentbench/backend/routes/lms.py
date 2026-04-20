@@ -273,6 +273,7 @@ def create_session(
     # Capture baseline snapshot for collateral-damage detection
     if hasattr(state, "state_snapshot"):
         state._initial_snapshot = state.state_snapshot()
+        state._initial_state_copy = state.model_copy(deep=True)
 
     instruction = render_template(
         task.instruction_template or task.instruction or "", resolved_targets

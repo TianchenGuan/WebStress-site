@@ -1,0 +1,32 @@
+variant_id: amazon_address_cleanup_consolidate__address_shadow
+base_task_id: amazon_address_cleanup_consolidate
+target_primitive: backtracking
+description: >
+  The first address delete returns 503 Service Unavailable and the
+  first new-address POST also fails transiently. The agent must notice
+  both failures, re-issue the delete, and re-issue the create rather
+  than assuming success after the failed calls. An address-list
+  refresh after the failed ops surfaces the real state.
+injections:
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/addresses/*'
+    methods:
+    - DELETE
+    error_count: 1
+    error_status: 503
+    error_message: Address delete failed transiently. Retry the delete.
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: '**/api/env/amazon/addresses'
+    methods:
+    - POST
+    error_count: 1
+    error_status: 503
+    error_message: Address creation failed transiently. Retry the add.
+    behavior:
+      mode: once

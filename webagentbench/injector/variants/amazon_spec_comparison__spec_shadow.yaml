@@ -1,0 +1,29 @@
+variant_id: amazon_spec_comparison__spec_shadow
+base_task_id: amazon_spec_comparison
+target_primitive: state_tracking
+description: >
+  Near-identical monitor listings sit alongside the two target monitors —
+  same brand, same nominal size, same price tier, but they are separate
+  SKUs. The agent must view the exact two monitors named in the goal and
+  not drift to the decoys when reading specifications.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: LG UltraWide Monitor 34-inch Gaming
+      brand: LG
+      category: Electronics
+      price: 449.99
+      rating: 4.5
+      match_image_of: LG UltraWide Monitor 34-inch
+      description: Gaming-focused sibling of the UltraWide line — same brand and size, a separate SKU from the target.
+    - type: product
+      name: Samsung Curved Monitor 34-inch Pro
+      brand: Samsung
+      category: Electronics
+      price: 529.99
+      rating: 4.6
+      match_image_of: Samsung Curved Monitor 34-inch
+      description: Pro-series curved sibling — nearly identical marketing; agent must not confuse it with the target.

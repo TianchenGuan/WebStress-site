@@ -98,10 +98,87 @@ noop(1000)                        — Wait (default 1000ms)
 # LLM Client
 # =============================================================================
 
+class _GeminiRotatingClient:
+    """Wraps multiple genai.Client instances and rotates on 429/503.
+
+    Rationale: the Gemini free tier has tight per-project daily quotas;
+    when a key is exhausted the SDK raises ClientError(429)
+    RESOURCE_EXHAUSTED. With a second key available, we can swap and
+    keep running instead of failing the whole sweep. Keys come from
+    GEMINI_API_KEY plus any GEMINI_API_KEY_<N> env vars.
+    """
+
+    def __init__(self, api_keys: list[str]) -> None:
+        from google import genai
+        self._clients = [genai.Client(api_key=k) for k in api_keys if k]
+        if not self._clients:
+            raise ValueError("No Gemini API keys available (set GEMINI_API_KEY)")
+        self._idx = 0
+
+    @property
+    def models(self) -> "_GeminiRotatingModels":
+        return _GeminiRotatingModels(self)
+
+
+class _GeminiRotatingModels:
+    def __init__(self, parent: "_GeminiRotatingClient") -> None:
+        self._p = parent
+
+    def generate_content(self, **kwargs):
+        # Try each client in rotation starting from the current index.
+        from google.genai import errors as _genai_errors
+
+        last_exc: Exception | None = None
+        n = len(self._p._clients)
+        for offset in range(n):
+            i = (self._p._idx + offset) % n
+            try:
+                return self._p._clients[i].models.generate_content(**kwargs)
+            except _genai_errors.ClientError as e:
+                # 429 quota exhausted — swap and try next key.
+                if getattr(e, "code", None) == 429 or "RESOURCE_EXHAUSTED" in str(e):
+                    last_exc = e
+                    self._p._idx = (i + 1) % n
+                    continue
+                raise
+            except _genai_errors.ServerError as e:
+                # 503 / transient — let caller's outer retry handle it, but
+                # try the other key once first in case it helps.
+                last_exc = e
+                self._p._idx = (i + 1) % n
+                continue
+        # All keys exhausted.
+        assert last_exc is not None
+        raise last_exc
+
+
+def _collect_gemini_keys(primary: str | None) -> list[str]:
+    keys: list[str] = []
+    if primary:
+        keys.append(primary)
+    seen = set(keys)
+    # Primary from env if none passed
+    if not keys:
+        env_primary = os.environ.get("GEMINI_API_KEY", "")
+        if env_primary and env_primary not in seen:
+            keys.append(env_primary)
+            seen.add(env_primary)
+    # Secondary/tertiary rotation keys
+    for name in ("GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4"):
+        v = os.environ.get(name, "")
+        if v and v not in seen:
+            keys.append(v)
+            seen.add(v)
+    return keys
+
+
 def create_client(provider: str, base_url: str | None = None, api_key: str | None = None):
     if provider == "gemini":
+        keys = _collect_gemini_keys(api_key)
+        if len(keys) > 1:
+            return _GeminiRotatingClient(keys)
         from google import genai
-        return genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
+        return genai.Client(api_key=keys[0] if keys else "")
     if provider == "bedrock":
         # Native AWS Bedrock Converse API via boto3. Authenticates with a
         # long-term Bedrock API key (ABSK...) by routing it to the

@@ -1,0 +1,29 @@
+variant_id: amazon_variant_specific_purchase__variant_shadow
+base_task_id: amazon_variant_specific_purchase
+target_primitive: grounding
+description: >
+  A lookalike jacket SKU — same brand, same category, same price — sits
+  next to the target Performance Running Jacket. The agent must pick
+  the exact listing named in the goal and set the correct variant
+  selections on it rather than landing on the decoy.
+injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: product
+      name: Performance Running Jacket Pro
+      brand: SummitWear
+      category: Clothing
+      price: 89.99
+      rating: 4.5
+      match_image_of: Performance Running Jacket
+      description: Pro-series sibling — same brand, price, and thumbnail; a distinct SKU from the target jacket.
+    - type: product
+      name: Performance Trail Jacket
+      brand: SummitWear
+      category: Clothing
+      price: 89.99
+      rating: 4.4
+      match_image_of: Performance Running Jacket
+      description: Trail variant of the same product line — similar marketing, different listing.
