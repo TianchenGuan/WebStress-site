@@ -46,14 +46,36 @@ ill-posed tasks (noise in the benchmark) and env/information-asymmetry bugs
 
 ---
 
-## Setup (do once per tab)
+## You Are Already on the Launcher
 
-1. Confirm the launcher is up: open `http://localhost:8080/launch`. You
-   should see a list of environments with "Launch" buttons.
-2. If the launcher is down, tell the human operator — **do not** try to
-   start servers yourself. Stop and wait.
-3. Keep this tab on the launcher. Use in-page navigation (click "Launch
-   Gmail", etc.) rather than opening new tabs — we need one worker per tab.
+This tab is open to `http://localhost:8080/launch`. You see:
+
+- A **sticky top bar** with a task title, a "Variant" dropdown, a "Seed"
+  input (default `42`), and a black **Launch** button.
+- A **search box** and a long table of tasks grouped by environment
+  (`amazon`, `booking`, `gmail`, `lms`, `patient_portal`, `reddit`,
+  `robinhood`). Each row is `{env_id} / {task_id}`.
+
+**How to start any assigned task — 4 clicks, memorize this:**
+
+1. Type the `task_id` (without the env prefix) into the search box. The
+   table filters live. Example: type `lms_star` to find `lms_star_course`.
+2. Click the row. The top bar updates to show the selected task.
+3. Variant dropdown:
+   - **Base task run** → leave dropdown blank.
+   - **Degradation variant run** → pick the matching variant filename
+     from the dropdown.
+4. Click **Launch**. Two tabs open automatically:
+   - `wab-bench-{env}` — the env you play the task in.
+   - `wab-control-{env}` — a control panel showing session state/eval.
+
+If popups are blocked, the status line offers "Open control" / "Open
+benchmark" links — click both.
+
+**Do not start servers, do not navigate by URL, do not open new tabs
+yourself.** Use only the launcher flow above. One worker stays in this
+launcher tab; the env + control tabs are its children and get recycled
+across tasks.
 
 ---
 
@@ -81,8 +103,14 @@ Ask yourself, **before running anything**:
 
 ### Step 2 — Launch the environment
 
-From the launcher page, click into the env for this task. You'll land on
-a fresh seeded instance. The URL will include the task ID.
+Go back to the launcher tab. Search for the `task_id`, click the row,
+leave "Variant" blank (base run), seed `42`, click **Launch**. Switch to
+the newly opened `wab-bench-{env}` tab. You should see a fresh seeded
+env; the session ID is in the URL.
+
+For successive tasks, the bench and control tabs are **reused** (they
+share a window name) — you don't need to close them. Just relaunch from
+the launcher tab and the existing tabs navigate to the new task.
 
 ### Step 3 — Attempt the task as a human would
 
@@ -108,10 +136,15 @@ the instruction implies?
 
 Variant YAMLs live at `webagentbench/injector/variants/{variant_id}.yaml`.
 Read the `injections` block to see what layer (`seed` / `server` / `client`
-/ `network`) is being perturbed. Launch the task with the variant applied
-and repeat steps 3–4. Specifically note whether the degradation **still
-leaves the task solvable** — some degradations are too aggressive and
-render the task impossible even for a careful human.
+/ `network`) is being perturbed.
+
+To run the variant: back on the launcher tab, keep the same task row
+selected, open the **Variant** dropdown and pick the variant filename,
+click **Launch**. The bench tab reloads with the variant applied.
+
+Repeat steps 3–4. Specifically note whether the degradation **still leaves
+the task solvable** — some degradations are too aggressive and render the
+task impossible even for a careful human.
 
 ### Step 6 — Record findings
 
