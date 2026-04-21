@@ -12,37 +12,32 @@ export function DealsPage() {
   const [deals, setDeals] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    api.getDeals()
+  const loadDeals = () => {
+    setLoading(true);
+    return api.getDeals()
       .then((result) => {
-        if (!cancelled) {
-          const items = result?.items ?? [];
-          const discounted = items.filter(
-            (p) => p.list_price && p.list_price > p.price
-          );
-          setDeals(discounted.length > 0 ? discounted : items);
-          setLoading(false);
-        }
+        const items = result?.items ?? [];
+        const discounted = items.filter(
+          (p) => p.list_price && p.list_price > p.price
+        );
+        setDeals(discounted.length > 0 ? discounted : items);
       })
-      .catch(() => {
-        if (!cancelled) {
-          api.getProducts({ page_size: 50 })
-            .then((result) => {
-              if (!cancelled) {
-                const discounted = result.items.filter(
-                  (p) => p.list_price && p.list_price > p.price
-                );
-                setDeals(discounted);
-                setLoading(false);
-              }
-            })
-            .catch(() => {
-              if (!cancelled) setLoading(false);
-            });
-        }
-      });
-    return () => { cancelled = true; };
+      .catch(() =>
+        api.getProducts({ page_size: 50 })
+          .then((result) => {
+            const discounted = result.items.filter(
+              (p) => p.list_price && p.list_price > p.price
+            );
+            setDeals(discounted);
+          })
+          .catch(() => setDeals([]))
+      )
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadDeals();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
   if (loading) {
@@ -65,6 +60,14 @@ export function DealsPage() {
         <div className="deals-empty">
           <h2>No deals available</h2>
           <p>Check back later for new deals and discounts.</p>
+          <button
+            type="button"
+            className="amazon-btn amazon-btn--add-to-cart"
+            onClick={loadDeals}
+            aria-label="Retry loading deals"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <div className="deals-grid">

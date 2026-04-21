@@ -79,6 +79,51 @@ class RedditSeedContext:
 
     # -- Model factories ---------------------------------------------------
 
+    def ensure_subreddit(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        is_subscribed: bool = False,
+    ) -> Subreddit:
+        """Return the existing subreddit by name or create+register a new one.
+
+        Tasks that reference niche subreddits (e.g. r/datascience, r/photography,
+        r/learnpython) don't always exist in the base seed pool. Creating one on
+        first reference keeps the environment usable and lets agents navigate
+        to /r/<name>, subscribe, and create posts without hitting 404s.
+        """
+        existing = next(
+            (s for s in self.base["subreddits"] if s.name.lower() == name.lower()),
+            None,
+        )
+        if existing is not None:
+            return existing
+        sub = Subreddit(
+            id=self.next_id("sub"),
+            name=name,
+            display_name=name,
+            description=description or f"Community discussion in r/{name}.",
+            public_description=(description or f"r/{name} community discussion.")[:100],
+            subscriber_count=self.rng.randint(1_000, 500_000),
+            active_users=self.rng.randint(50, 5_000),
+            created_at=self.now - timedelta(days=self.rng.randint(365, 365 * 10)),
+            is_subscribed=is_subscribed,
+            rules=[
+                SubredditRule(title="Be respectful", description="Treat others with respect.", rule_type="both"),
+                SubredditRule(title="No spam", description="Do not post spam.", rule_type="post"),
+            ],
+            flairs=[
+                Flair(id=f"flair_auto_{name}_{j}", text=t, background_color=c)
+                for j, (t, c) in enumerate([
+                    ("Discussion", "#0079d3"),
+                    ("Question", "#46d160"),
+                ])
+            ],
+        )
+        self.base["subreddits"].append(sub)
+        return sub
+
     def post(
         self,
         *,
@@ -96,11 +141,8 @@ class RedditSeedContext:
         comment_count: int = 0,
         awards: list[Award] | None = None,
     ) -> Post:
-        sub = next(
-            (s for s in self.base["subreddits"] if s.name.lower() == subreddit_name.lower()),
-            None,
-        )
-        subreddit_id = sub.id if sub else "sub_unknown"
+        sub = self.ensure_subreddit(subreddit_name)
+        subreddit_id = sub.id
         author = author_name or self.random_username()
         post_score = score if score is not None else self.rng.randint(10, 50000)
         ts = created_at or (self.now - timedelta(hours=self.rng.randint(1, 336)))

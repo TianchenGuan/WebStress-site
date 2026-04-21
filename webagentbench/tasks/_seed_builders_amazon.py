@@ -827,15 +827,21 @@ def build_product_catalog(
     category : str              -- product category
     count : int                 -- number of products (default 5)
     price_range : [lo, hi]      -- uniform-random price range
+    rating_range : [lo, hi]     -- uniform-random rating range (default [3.0, 5.0]).
+                                   Use a tighter cap when a featured product needs
+                                   to remain the unambiguous "highest-rated" winner
+                                   in this category.
     """
     category = params["category"]
     count = params.get("count", 5)
     lo, hi = params.get("price_range", [9.99, 199.99])
+    rating_lo, rating_hi = params.get("rating_range", [3.0, 5.0])
 
     product_ids: list[str] = []
     for _ in range(count):
         price = round(ctx.rng.uniform(lo, hi), 2)
-        p = ctx.product(category=category, price=price)
+        rating = round(ctx.rng.uniform(rating_lo, rating_hi), 1)
+        p = ctx.product(category=category, price=price, rating=rating)
         ctx.base["products"].append(p)
         product_ids.append(p.id)
     return {"product_ids": product_ids}

@@ -1040,6 +1040,7 @@ def get_my_profile(
         "subscriptions": [s.model_dump(mode="json") for s in state.list_subscribed_subreddits()],
         "unread_messages": state.unread_message_count(),
         "unread_notifications": state.unread_notification_count(),
+        "blocked_users": sorted(state.blocked_users),
     }
 
 

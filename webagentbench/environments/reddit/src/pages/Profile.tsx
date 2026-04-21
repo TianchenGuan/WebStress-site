@@ -15,6 +15,8 @@ export function ProfilePage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [tab, setTab] = useState<"posts" | "comments">("posts");
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!username) return;
@@ -33,11 +35,36 @@ export function ProfilePage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (!username || !profile) return;
+    setIsBlocked((profile.blocked_users ?? []).includes(username));
+  }, [username, profile]);
+
   const handleVote = async (postId: string, direction: number) => {
     try {
       const { post } = await api.votePost(postId, direction);
       setPosts((prev) => prev.map((p) => (p.id === postId ? post : p)));
     } catch { notify("Failed to vote"); }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!user || blockBusy) return;
+    setBlockBusy(true);
+    try {
+      if (isBlocked) {
+        await api.unblockUser(user.username as string);
+        setIsBlocked(false);
+        notify(`Unblocked u/${user.username}`);
+      } else {
+        await api.blockUser(user.username as string);
+        setIsBlocked(true);
+        notify(`Blocked u/${user.username}`);
+      }
+    } catch {
+      notify(isBlocked ? "Failed to unblock user" : "Failed to block user");
+    } finally {
+      setBlockBusy(false);
+    }
   };
 
   if (loading) return <div className="profile-page__loading">Loading...</div>;
@@ -87,6 +114,20 @@ export function ProfilePage() {
                   r/{subreddit.name}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {!isOwnProfile ? (
+            <div className="profile-header__actions">
+              <button
+                type="button"
+                className={`profile-header__block-btn ${isBlocked ? "profile-header__block-btn--blocked" : ""}`}
+                onClick={handleToggleBlock}
+                disabled={blockBusy}
+                aria-pressed={isBlocked}
+                aria-label={isBlocked ? `Unblock u/${user.username as string}` : `Block u/${user.username as string}`}
+              >
+                {blockBusy ? "Working..." : isBlocked ? "Unblock user" : "Block user"}
+              </button>
             </div>
           ) : null}
         </div>

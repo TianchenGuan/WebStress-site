@@ -172,4 +172,5 @@ export interface MyProfile {
   subscriptions: Subreddit[];
   unread_messages: number;
   unread_notifications: number;
+  blocked_users: string[];
 }
