@@ -121,6 +121,9 @@ def test_wrong_status_and_timestamp_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # attempt_count predicate relaxed to `x >= 1` so retry-after-submit is
+    # accepted. The remaining hard invariant is that at least one submit
+    # attempt was recorded — attempt_count=0 must still fail.
     _, _, targets, initial, state = _setup_session()
 
     _submit_assignment(
@@ -128,11 +131,11 @@ def test_wrong_attempt_count_fails():
         targets["missing_assignment_id"],
         file_name="late_recovery.pdf",
         status="late",
-        attempt_count=2,
+        attempt_count=0,
     )
 
     report = _report(initial, state, targets)
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert report.passed is False, "zero attempt_count should fail"
 
 
 def test_extra_submission_and_drop_fail():

@@ -2,10 +2,10 @@ task_id: pp_complete_account_audit
 env_id: patient_portal
 title: Complete Account Audit
 instruction_template: Audit your entire patient portal account for completeness and
-  accuracy, then schedule exactly one follow-up appointment with Patient Services
-  using the next available admin slot. Use the appointment reason exactly "Account
-  audit review". Do not send any messages, do not cancel any existing appointments,
-  and do not modify prescriptions or referral statuses.
+  accuracy, then schedule exactly one follow-up appointment with an Administration
+  department provider using the next available admin slot. Use the appointment reason
+  exactly "Account audit review". Do not send any messages, do not cancel any existing
+  appointments, and do not modify prescriptions or referral statuses.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 60
@@ -93,7 +93,7 @@ seed:
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
   # Single-appointment audit task:
-  #   - Create exactly one new Appointment with a Patient Services (admin)
+  #   - Create exactly one new Appointment with an Administration-department (admin)
   #     provider, reason "Account audit review", datetime == the earliest slot
   #     across ALL admin providers' initial available_slots.
   #   - All other collections (prescriptions, referrals, messages, labs,
@@ -101,8 +101,8 @@ canonical_diff:
   create:
     - entity: Appointment
       desc: >-
-        Schedule exactly one appointment with a Patient Services admin provider
-        at the earliest available admin slot; reason must be "Account audit review".
+        Schedule exactly one appointment with an Administration-department admin
+        provider at the earliest available admin slot; reason must be "Account audit review".
       properties:
         status: {eq: "scheduled"}
         reason: {eq: "Account audit review"}
@@ -167,7 +167,7 @@ canonical_diff:
     - name: "Agent did not modify pharmacies"
       ref: invariant[7]
       severity: medium
-    - name: "Agent scheduled exactly one Patient Services audit appointment"
+    - name: "Agent scheduled exactly one Administration audit appointment"
       ref: create[0]
       severity: high
 secondary_primitives: []

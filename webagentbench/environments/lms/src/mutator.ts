@@ -278,6 +278,13 @@ route("POST", "discussions/:discussion_id/posts", (state, params, body) => {
   return { state, response: { post } };
 });
 
+route("GET", "discussions/:discussion_id/posts", (state, params) => {
+  const posts = state.discussion_posts
+    .filter((p) => p.discussion_id === params.discussion_id)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return { state, response: { items: posts } };
+});
+
 route("POST", "discussions/:discussion_id/posts/:post_id/reply", (state, params, body) => {
   const post: DiscussionPost = {
     id: genId("post"),
@@ -322,9 +329,17 @@ route("GET", "peer-reviews/:review_id", (state, params) => {
 route("POST", "peer-reviews/:review_id/submit", (state, params, body) => {
   const review = state.peer_reviews.find((r) => r.id === params.review_id);
   if (!review) return { state, response: { error: "Not found", status: 404 } };
+  const rawScores = (body?.rubric_scores as Record<string, number>) ?? {};
+  const normalisedScores: Record<string, number> = {};
+  for (const [key, value] of Object.entries(rawScores)) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isNaN(parsed)) {
+      normalisedScores[key.trim().toLowerCase().replace(/\s+/g, "_")] = Math.max(1, Math.min(5, parsed));
+    }
+  }
   review.returned_for_revision = false;
   review.status = "submitted";
-  review.rubric_scores = (body?.rubric_scores as Record<string, number>) ?? {};
+  review.rubric_scores = normalisedScores;
   review.comments = String(body?.comments ?? "");
   return { state, response: { peer_review: review } };
 });
@@ -413,13 +428,138 @@ route("GET", "grades/:assignment_id", (state, params) => {
 
 route("POST", "courses/:course_id/grades/what-if", (state, params, body) => {
   const hypotheticalScores = (body?.hypothetical_scores as Record<string, string>) ?? {};
-  // Simplified: just return the hypothetical scores as-is
-  // Full computation would mirror the backend logic
+  const course = state.courses.find((c) => c.id === params.course_id);
+  if (!course) {
+    return { state, response: { error: "Not found", status: 404 } };
+  }
+
+  const assignmentToGradeScore = new Map<string, string>();
+  const originalAssignmentStates = new Map<string, { score: string | null; submission_status: Assignment["submission_status"] }>();
+  const originalGradeStates = new Map<string, { score: string | null; is_dropped: boolean; late_penalty_applied: string }>();
+  const tempGradeIds = new Set<string>();
+  const enrollment = state.enrollments.find(
+    (enrollment) => enrollment.course_id === params.course_id && enrollment.student_id === state.student.id,
+  );
+  const courseAssignments = state.assignments.filter((a) => a.course_id === params.course_id);
+  for (const [assignId, score] of Object.entries(hypotheticalScores)) {
+    const assignment = courseAssignments.find((a) => a.id === assignId);
+    if (assignment) {
+      const scoreText = String(score);
+      if (Number.isNaN(Number(scoreText))) {
+        continue;
+      }
+      originalAssignmentStates.set(assignId, {
+        score: assignment.score,
+        submission_status: assignment.submission_status,
+      });
+      assignmentToGradeScore.set(assignId, scoreText);
+      assignment.score = String(score);
+      if (assignment.submission_status === "not_submitted") {
+        assignment.submission_status = "submitted";
+      }
+    }
+  }
+
+  for (const grade of state.grades) {
+    if (grade.course_id !== params.course_id) continue;
+    if (!assignmentToGradeScore.has(grade.assignment_id)) {
+      continue;
+    }
+    originalGradeStates.set(grade.id, {
+      score: grade.score,
+      is_dropped: grade.is_dropped,
+      late_penalty_applied: grade.late_penalty_applied,
+    });
+    const nextScore = assignmentToGradeScore.get(grade.assignment_id);
+    if (nextScore !== undefined) {
+      grade.score = String(nextScore);
+    }
+  }
+
+  // Create synthetic grade records for hypothetical-scored assignments that are
+  // missing from the gradebook so what-if can include unsubmitted work.
+  for (const assignment of courseAssignments) {
+    const assignmentId = assignment.id;
+    if (!assignmentToGradeScore.has(assignmentId)) continue;
+    if (state.grades.some((g) => g.assignment_id === assignmentId)) continue;
+    if (!enrollment) continue;
+
+    let syntheticGradeId = `tmp_what_if_${assignmentId}`;
+    while (state.grades.some((g) => g.id === syntheticGradeId)) {
+      syntheticGradeId = `${syntheticGradeId}_x`;
+    }
+    state.grades.push({
+      id: syntheticGradeId,
+      enrollment_id: enrollment.id,
+      course_id: params.course_id,
+      assignment_id: assignmentId,
+      score: assignment.score,
+      points_possible: assignment.points_possible,
+      weight_category: assignment.weight_category,
+      is_dropped: false,
+      late_penalty_applied: "0",
+    });
+    tempGradeIds.add(syntheticGradeId);
+  }
+
+  let weighted = 0;
+  let weightedSum = 0;
+  const policyEntries = Object.entries(course.syllabus.grading_policy);
+
+  for (const [catName, catPolicy] of policyEntries) {
+    const categoryGrades = state.grades.filter(
+      (g) => g.course_id === params.course_id && g.weight_category === catName && g.score !== null,
+    );
+    if (categoryGrades.length === 0) continue;
+
+    const dropCount = Math.min(catPolicy.drop_lowest, Math.max(0, categoryGrades.length - 1));
+    const sorted = [...categoryGrades].sort((a, b) => {
+      const ra = parseFloat(a.score!) / parseFloat(a.points_possible);
+      const rb = parseFloat(b.score!) / parseFloat(b.points_possible);
+      return ra - rb;
+    });
+    const droppedIds = new Set(sorted.slice(0, dropCount).map((g) => g.id));
+    const active = categoryGrades.filter((g) => !droppedIds.has(g.id));
+    if (active.length === 0) continue;
+
+    let categoryTotal = 0;
+    for (const g of active) {
+      const effective = parseFloat(g.score!) * (1 - parseFloat(g.late_penalty_applied));
+      categoryTotal += (effective / parseFloat(g.points_possible)) * 100;
+    }
+
+    const avg = categoryTotal / active.length;
+    weightedSum += avg * parseFloat(catPolicy.weight);
+    weighted += parseFloat(catPolicy.weight);
+  }
+
+  const whatIfWeighted = weighted > 0 ? (weightedSum / weighted).toFixed(2) : null;
+
+  // Restore original grade states.
+  for (const [assignmentId, assignmentState] of originalAssignmentStates) {
+    const assignment = courseAssignments.find((a) => a.id === assignmentId);
+    if (!assignment) continue;
+    assignment.score = assignmentState.score;
+    assignment.submission_status = assignmentState.submission_status;
+  }
+  for (const grade of state.grades) {
+    if (grade.course_id !== params.course_id) continue;
+    const original = originalGradeStates.get(grade.id);
+    if (original !== undefined) {
+      grade.score = original.score;
+      grade.is_dropped = original.is_dropped;
+      grade.late_penalty_applied = original.late_penalty_applied;
+    }
+  }
+  if (tempGradeIds.size > 0) {
+    state.grades = state.grades.filter((g) => !tempGradeIds.has(g.id));
+  }
+
   return {
     state,
     response: {
       course_id: params.course_id,
-      what_if_weighted_score: null,
+      what_if_weighted_score: whatIfWeighted,
       hypothetical_scores: hypotheticalScores,
     },
   };

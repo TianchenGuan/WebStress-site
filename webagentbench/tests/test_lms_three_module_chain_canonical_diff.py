@@ -89,12 +89,23 @@ def test_wrong_id_fails():
 
 
 def test_extra_mutation_fails():
+    # The canonical_diff invariant now has comprehensive:true on the
+    # module_ids[1:5] range, so module_5 (the cascade unlock) is
+    # explicitly allowed. An out-of-scope mutation must still fail —
+    # modules NOT in [1:5] (e.g. module_1, the prereq already
+    # completed in the seed) trigger the preserved-invariant. Rename
+    # module_1's title to exercise a change the seed doesn't already
+    # have, so the diff captures it.
     sm, sid, targets, initial, state = _setup_session()
 
     module_ids = _target_module_ids(targets)
     for module_id in module_ids[1:4]:
         _complete_module(state, module_id)
-    _complete_module(state, module_ids[4])
+    prereq = state.get_module(module_ids[0])
+    assert prereq is not None
+    prereq.title = prereq.title + " (edited)"
 
     report = _run(targets, initial, state)
-    assert report.passed is False, "completing an extra module should fail"
+    assert report.passed is False, (
+        "mutating a module outside the comprehensive filter must fail"
+    )

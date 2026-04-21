@@ -174,6 +174,7 @@ export function AppointmentsPage() {
                   <td>{apt.location}</td>
                   <td>
                     <button
+                      type="button"
                       aria-label={`Cancel appointment with ${providerName(apt.provider_id)}`}
                       className="pp-btn pp-btn--danger pp-btn--sm"
                       onClick={() => handleCancel(apt.id)}
@@ -181,6 +182,7 @@ export function AppointmentsPage() {
                       Cancel
                     </button>
                     <button
+                      type="button"
                       aria-label={`Reschedule appointment with ${providerName(apt.provider_id)}`}
                       className="pp-btn pp-btn--secondary pp-btn--sm"
                       onClick={() => startReschedule(apt)}
@@ -227,6 +229,7 @@ export function AppointmentsPage() {
             </div>
             <div className="pp-form-actions">
               <button
+                type="button"
                 className="pp-btn pp-btn--primary"
                 aria-label="Confirm reschedule"
                 onClick={handleReschedule}
@@ -235,6 +238,7 @@ export function AppointmentsPage() {
                 Confirm Reschedule
               </button>
               <button
+                type="button"
                 className="pp-btn pp-btn--secondary"
                 aria-label="Cancel reschedule"
                 onClick={() => { setRescheduleId(null); setRescheduleSlot(""); setRescheduleType("in-person"); }}
@@ -248,6 +252,7 @@ export function AppointmentsPage() {
 
       <section aria-label="Past Appointments" className="pp-section">
         <button
+          type="button"
           className="pp-btn pp-btn--secondary"
           aria-label={showPast ? "Hide past appointments" : "Show past appointments"}
           onClick={() => setShowPast(!showPast)}
@@ -290,6 +295,7 @@ export function AppointmentsPage() {
 
       <section aria-label="Schedule New Appointment" className="pp-section">
         <button
+          type="button"
           className="pp-btn pp-btn--primary"
           aria-label={showSchedule ? "Hide schedule form" : "Schedule New Appointment"}
           onClick={() => setShowSchedule(!showSchedule)}
@@ -379,6 +385,7 @@ export function AppointmentsPage() {
             </div>
 
             <button
+              type="button"
               className="pp-btn pp-btn--primary"
               aria-label="Submit new appointment"
               onClick={handleSchedule}

@@ -24,7 +24,7 @@ def _session_start(targets: dict[str, str]) -> datetime:
     return datetime.fromisoformat(targets["session_start"])
 
 
-def _retake_assignment(state, assignment_id: str, *, file_name: str = "quiz_retake.pdf") -> None:
+def _retake_assignment(state, assignment_id: str, *, file_name: str = "retake.pdf") -> None:
     assignment = state.get_assignment(assignment_id)
     if assignment is None:
         raise ValueError(f"assignment {assignment_id!r} not found")
@@ -132,7 +132,7 @@ def test_retake_branch_rejects_discussion_post():
 
 
 def test_discussion_branch_passes():
-    _, _, targets, initial, state = _setup_session(seed=2)
+    _, _, targets, initial, state = _setup_session(seed=3)
 
     _post_discussion(state, targets["target_discussion_id"])
 
@@ -151,7 +151,7 @@ def test_discussion_branch_passes():
 
 
 def test_discussion_branch_rejects_wrong_discussion():
-    _, _, targets, initial, state = _setup_session(seed=2)
+    _, _, targets, initial, state = _setup_session(seed=3)
 
     _post_discussion(state, _other_discussion_id(state, targets["target_discussion_id"]))
 
@@ -169,7 +169,7 @@ def test_discussion_branch_rejects_wrong_discussion():
 
 
 def test_discussion_branch_rejects_quiz_resubmission():
-    _, _, targets, initial, state = _setup_session(seed=2)
+    _, _, targets, initial, state = _setup_session(seed=3)
 
     _retake_assignment(state, targets["target_assignment_id"])
 

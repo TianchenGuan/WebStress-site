@@ -26,9 +26,11 @@ seed:
     - use: pharmacy_list
       params:
         count: 3
-      outputs: [pharmacy_ids, default_pharmacy_id]
+        must_include_name: ["Walgreens"]
+        target_pharmacy_name: "Walgreens"
+      outputs: [pharmacy_ids, default_pharmacy_id, target_pharmacy_id]
   targets:
-    target_pharmacy_id: "{output.pharmacy_ids.1}"
+    target_pharmacy_id: "{output.target_pharmacy_id}"
     pharmacy_name: "Walgreens #09832"
     original_default_id: "{output.default_pharmacy_id}"
 

@@ -61,8 +61,13 @@ canonical_diff:
           expr: "all(item.get('completed') is True for item in x)"
   invariant:
     - collection: state.modules
-      filter: "a.id not in target['module_ids'].split(',')[1:4]"
+      # Range [1:5] covers the 3 intended target modules (indexes 1,2,3 = module_2/3/4)
+      # plus module_5, which the server auto-unlocks as a side-effect of completing
+      # module_4. Penalizing an agent for this cascade is a false positive — the
+      # status change from 'locked' to 'available' is unavoidable.
+      filter: "a.id not in target['module_ids'].split(',')[1:5]"
       preserve: ALL
+      comprehensive: true
     - collection: state.courses
       preserve: ALL
     - collection: state.enrollments

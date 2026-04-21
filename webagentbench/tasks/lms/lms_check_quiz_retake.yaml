@@ -1,8 +1,8 @@
 task_id: lms_check_quiz_retake
 env_id: lms
-title: Check Quiz Retake Eligibility and Act
-instruction_template: Check the quiz "{target.assignment_title}" in {target.course_code}.
-  If you have remaining attempts, retake it by resubmitting with file "quiz_retake.pdf".
+title: Check Assignment Retake Eligibility and Act
+instruction_template: Check the homework "{target.assignment_title}" in {target.course_code}.
+  If you have remaining attempts, retake it by resubmitting with file "retake.pdf".
   If no attempts remain, post in the course discussion forum asking about a retake
   opportunity.
 difficulty: medium
@@ -60,12 +60,12 @@ seed:
 canonical_diff:
   oneof:
   - constraints:
-    - desc: Remaining attempts are available for the quiz
+    - desc: Remaining attempts are available for the assignment
       expr: "target['has_remaining_attempts'] == 'true'"
       severity: critical
     update:
     - entity: Assignment
-      desc: Retake the quiz by resubmitting quiz_retake.pdf
+      desc: Retake the target assignment by resubmitting retake.pdf
       where:
         id:
           expr: "x == target['target_assignment_id']"
@@ -75,7 +75,7 @@ canonical_diff:
           - submitted
           - late
         file_name:
-          eq: quiz_retake.pdf
+          eq: retake.pdf
         attempt_count:
           eq: 2
         submitted_at:
@@ -105,7 +105,7 @@ canonical_diff:
     - collection: state.sent_messages
       preserve: ALL
     named_invariants:
-    - name: Agent retook the target quiz
+    - name: Agent retook the target assignment
       ref: update[0]
       severity: high
     - name: Agent did not modify other assignments
@@ -142,12 +142,12 @@ canonical_diff:
       ref: invariant[10]
       severity: medium
   - constraints:
-    - desc: No quiz attempts remain, so the retake path is not available
+    - desc: No attempts remain, so the retake path is not available
       expr: "target['has_remaining_attempts'] != 'true'"
       severity: critical
     create:
     - entity: DiscussionPost
-      desc: Ask about a quiz retake in the course discussion forum
+      desc: Ask about a retake in the course discussion forum
       properties:
         discussion_id:
           expr: "x == target['target_discussion_id']"
@@ -230,25 +230,25 @@ eval:
   - expr: "(('{target.has_remaining_attempts}' == 'true'\n and state.get_assignment('{target.target_assignment_id}')\
       \ is not None\n and state.get_assignment('{target.target_assignment_id}').submission_status\
       \ in ('submitted', 'late')\n and state.get_assignment('{target.target_assignment_id}').file_name\
-      \ == 'quiz_retake.pdf')\nor ('{target.has_remaining_attempts}' != 'true'\n \
+      \ == 'retake.pdf')\nor ('{target.has_remaining_attempts}' != 'true'\n \
       \   and any(p.discussion_id == '{target.target_discussion_id}'\n           \
       \ and p.author_id == state.student.id\n            and len(p.body.strip()) >\
       \ 10\n            for p in state.discussion_posts)))"
-    desc: Quiz resubmitted IFF attempts remain, OR discussion post created IFF no
+    desc: Assignment retaken IFF attempts remain, OR discussion post created IFF no
       attempts remain
   - expr: state.get_assignment('{target.target_assignment_id}') is not None
-    desc: Target quiz assignment exists (seed validation)
+    desc: Target assignment exists (seed validation)
   - expr: state.get_assignment('{target.target_assignment_id}') is not None and state.get_assignment('{target.target_assignment_id}').course_id
       == '{target.target_course_id}'
-    desc: Target quiz belongs to the correct course (seed validation)
+    desc: Target assignment belongs to the correct course (seed validation)
   negative_checks:
   - expr: "(state.get_assignment('{target.decoy_assignment_id}') is None\n or state.get_assignment('{target.decoy_assignment_id}').submission_status\n\
       \    in ('not_submitted', 'graded', 'resubmit_requested'))"
     desc: Decoy assignment was not submitted or retaken
     penalty: 0.2
   - expr: "('{target.has_remaining_attempts}' == 'true'\n or not any(a.submission_status\
-      \ in ('submitted', 'late')\n            and a.file_name == 'quiz_retake.pdf'\n\
+      \ in ('submitted', 'late')\n            and a.file_name == 'retake.pdf'\n\
       \            for a in state.assignments))"
-    desc: No quiz_retake.pdf was submitted when no attempts remain
+    desc: No retake.pdf was submitted when no attempts remain
     penalty: 0.25
 secondary_primitives: []

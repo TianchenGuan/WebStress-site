@@ -254,3 +254,41 @@ def test_excess_appointment_fails():
     assert report.passed is False, (
         "excess appointment must be surfaced by the unaccounted sweep"
     )
+
+
+def test_partial_immunization_axis_credits_proportional_score():
+    """2 of 3 immunizations + everything else correct → score > 0 but < 1.
+
+    Documents that bijection matching in evaluator_diff.py line 926 gives
+    len(matching) / n_left fraction of the entry weight when unsaturated.
+    The task's axis split (screening, immunization, refill, renewal-message,
+    status-flip) then weights each equally, so a missing 1-of-3 slot on
+    one axis drops that axis's contribution but does not zero out the rest.
+    """
+    sm, sid, targets, initial, state = _setup_session()
+
+    pcp_id = targets["pcp_id"]
+    for name in targets["overdue_screening_names"]:
+        _schedule_appointment(state, reason=name, provider_id=pcp_id)
+    # Schedule only N-1 vaccines — leave the last one unfulfilled.
+    vax = list(targets["due_vaccine_names"])
+    for name in vax[:-1]:
+        _schedule_appointment(state, reason=name, provider_id=pcp_id)
+    for rid in targets["expiring_with_refills_rx_ids"]:
+        _refill(state, rid)
+    for rid in targets["expiring_zero_refill_rx_ids"]:
+        _renew(state, rid)
+        _append_renewal_message(state, rid, pcp_id)
+
+    task = get_task('pp_full_preventive_compliance')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+
+    assert report.passed is False, "unsaturated immunization axis fails"
+    assert 0.4 < report.score < 1.0, (
+        f"expected partial credit strictly between 0 and 1, got {report.score}"
+    )

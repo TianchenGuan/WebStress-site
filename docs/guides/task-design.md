@@ -2,6 +2,13 @@
 
 Best practices for designing, implementing, and validating WebAgentBench tasks. Drawn from lessons across the Gmail (80 tasks) and Robinhood (65 tasks) environments.
 
+> **Format note (2026-04-21):** The active evaluator only reads `canonical_diff`
+> blocks; the legacy `eval.checks` / `eval.negative_checks` path has been
+> removed. The anatomy example below shows the current format. Legacy
+> `eval.checks` snippets appearing in sections §3–§5 are kept as worked
+> examples of *predicate logic* — the expressions port 1:1 into canonical_diff
+> `{expr: "..."}` predicates and `constraints:` blocks.
+
 ---
 
 ## 1. Task Anatomy
@@ -23,10 +30,20 @@ seed:                                 # deterministic state generation
   distractors: 10
   steps: [...]
   targets: {symbol: "{output.symbol}"}
-eval:                                 # pass/fail criteria
-  source: server_state
-  checks: [...]
-  negative_checks: [...]
+canonical_diff:                       # declarative pass/fail via state diff
+  create:                             # required new entities
+    - entity: Order
+      properties:
+        symbol: {eq: "{target.symbol}"}
+        side: {eq: "buy"}
+        quantity: {eq: 3}
+  invariant:                          # collections the agent must not mutate
+    - collection: state.positions
+      preserve: ALL
+  constraints:                        # free-form post-conditions (penalty-only)
+    - desc: "Order priced at market, not limit"
+      expr: "any(o.type == 'market' for o in state.orders)"
+      severity: high
 ```
 
 ### The Three Pillars

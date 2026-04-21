@@ -49,7 +49,7 @@ def _matcher_report(initial, state, targets):
 
 
 def test_task_has_branching_canonical_diff_and_seed_integrity():
-    sm, sid, targets, initial, state = _setup_session(seed=1)
+    sm, sid, targets, initial, state = _setup_session(seed=0)
     task = get_task("lms_view_late_policy")
 
     assert task.canonical_diff is not None, "canonical_diff missing"
@@ -61,7 +61,7 @@ def test_task_has_branching_canonical_diff_and_seed_integrity():
 
 
 def test_late_submit_branch_passes():
-    sm, sid, targets, initial, state = _setup_session(seed=1)
+    sm, sid, targets, initial, state = _setup_session(seed=0)
 
     _submit_overdue_assignment(state, targets)
 
@@ -71,7 +71,7 @@ def test_late_submit_branch_passes():
 
 
 def test_read_announcement_branch_passes():
-    sm, sid, targets, initial, state = _setup_session(seed=0)
+    sm, sid, targets, initial, state = _setup_session(seed=1)
 
     _mark_latest_announcement_read(state, targets)
 
@@ -81,7 +81,7 @@ def test_read_announcement_branch_passes():
 
 
 def test_wrong_branch_on_submit_seed_fails():
-    sm, sid, targets, initial, state = _setup_session(seed=1)
+    sm, sid, targets, initial, state = _setup_session(seed=0)
 
     _mark_latest_announcement_read(state, targets)
 
@@ -90,7 +90,7 @@ def test_wrong_branch_on_submit_seed_fails():
 
 
 def test_wrong_branch_on_announcement_seed_fails():
-    sm, sid, targets, initial, state = _setup_session(seed=0)
+    sm, sid, targets, initial, state = _setup_session(seed=1)
 
     _submit_overdue_assignment(state, targets)
 
@@ -99,7 +99,7 @@ def test_wrong_branch_on_announcement_seed_fails():
 
 
 def test_extra_mutation_fails():
-    sm, sid, targets, initial, state = _setup_session(seed=1)
+    sm, sid, targets, initial, state = _setup_session(seed=0)
 
     _submit_overdue_assignment(state, targets)
     _mark_latest_announcement_read(state, targets)

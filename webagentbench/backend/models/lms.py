@@ -378,6 +378,77 @@ class LMSState(BaseEnvState):
         )
         return sorted_grades[:drop_count]
 
+    @staticmethod
+    def _letter_from_percentage(score: Decimal) -> str:
+        """Map a weighted percentage to a conventional letter grade."""
+        if score >= 93:
+            return "A"
+        if score >= 90:
+            return "A-"
+        if score >= 87:
+            return "B+"
+        if score >= 83:
+            return "B"
+        if score >= 80:
+            return "B-"
+        if score >= 77:
+            return "C+"
+        if score >= 73:
+            return "C"
+        if score >= 70:
+            return "C-"
+        if score >= 67:
+            return "D+"
+        if score >= 63:
+            return "D"
+        if score >= 60:
+            return "D-"
+        return "F"
+
+    def assignment_curve_changes_letter(
+        self,
+        course_id: str,
+        assignment_id: str,
+        increment_points: str,
+    ) -> bool:
+        """Return whether adding `increment_points` to an assignment can raise letter grade.
+
+        This is evaluated against live state without persisting changes.
+        """
+        assignment = self.get_assignment(assignment_id)
+        if assignment is None or assignment.course_id != course_id:
+            return False
+
+        grade = next(
+            (g for g in self.get_grades_for_course(course_id)
+             if g.assignment_id == assignment_id and g.score is not None),
+            None,
+        )
+        if grade is None or grade.is_dropped:
+            return False
+
+        current_total = self.weighted_score_for_course(course_id)
+        if current_total is None:
+            return False
+
+        original_letter = self._letter_from_percentage(current_total)
+        original_score = grade.score
+        if original_score is None:
+            return False
+
+        bonus = Decimal(str(increment_points))
+        boosted = min(original_score + bonus, grade.points_possible)
+
+        grade.score = boosted
+        try:
+            boosted_total = self.weighted_score_for_course(course_id)
+        finally:
+            grade.score = original_score
+
+        if boosted_total is None:
+            return False
+        return self._letter_from_percentage(boosted_total) != original_letter
+
     def category_score(
         self, course_id: str, category: str,
     ) -> Decimal | None:

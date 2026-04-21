@@ -1,19 +1,10 @@
 variant_id: lms_course_load_analysis__course_ordering_shift_v1
 base_task_id: lms_course_load_analysis
 target_primitive: planning
-description: Ordering cues are perturbed and the first snapshot can be incomplete,
-  so the agent must re-plan against the current LMS state.
+description: Timestamp cues are perturbed and extra enrollment/announcement noise is
+  inserted, so the agent must re-plan against the current LMS state.
 injections:
 - layer: server
   params:
     action: scramble_timestamps
     seed: 42
-- layer: network
-  params:
-    action: stale_data
-    url_pattern: '**/api/env/lms/courses'
-    stale_body:
-      items: []
-    stale_count: 1
-    behavior:
-      mode: once

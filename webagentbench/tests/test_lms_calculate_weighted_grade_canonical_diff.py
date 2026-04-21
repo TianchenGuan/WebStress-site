@@ -76,7 +76,7 @@ def test_correct_discrepancy_branch_passes():
 
 
 def test_correct_no_discrepancy_branch_passes():
-    targets, initial, state = _setup_session(seed=29)
+    targets, initial, state = _setup_session(seed=2)
 
     _mark_read(state, targets["latest_announcement_id"])
 
@@ -103,7 +103,7 @@ def test_wrong_branch_with_discrepancy_fails():
 
 
 def test_wrong_branch_without_discrepancy_fails():
-    targets, initial, state = _setup_session(seed=29)
+    targets, initial, state = _setup_session(seed=2)
 
     _resubmit_assignment(
         state,

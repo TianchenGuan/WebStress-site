@@ -1,19 +1,44 @@
 variant_id: lms_three_module_chain__module_ordering_shift_v1
 base_task_id: lms_three_module_chain
 target_primitive: planning
-description: Ordering cues are perturbed and the first snapshot can be incomplete,
-  so the agent must re-plan against the current LMS state.
+description: Ordering cues are perturbed and extra modules crowd the list, so the
+  agent must re-plan against the current LMS state. All target modules remain
+  present; their display order is shuffled via timestamp scramble, and decoy
+  modules with plausible titles sit alongside them.
 injections:
 - layer: server
   params:
     action: scramble_timestamps
     seed: 42
-- layer: network
+- layer: seed
   params:
-    action: stale_data
-    url_pattern: '**/api/env/lms/courses/*/modules'
-    stale_body:
-      items: []
-    stale_count: 1
-    behavior:
-      mode: once
+    action: add_confusing_decoys
+    decoys:
+    - type: module
+      course_id: '{target.target_course_id}'
+      course_code: '{target.course_code}'
+      title: Optional supplementary module A
+      position: 2
+      status: available
+      unlock_condition: none
+    - type: module
+      course_id: '{target.target_course_id}'
+      course_code: '{target.course_code}'
+      title: Optional supplementary module B
+      position: 4
+      status: available
+      unlock_condition: none
+    - type: module
+      course_id: '{target.target_course_id}'
+      course_code: '{target.course_code}'
+      title: Archived review module
+      position: 6
+      status: available
+      unlock_condition: none
+# NOTE (audit_reports/w05.md): removed stale_data network injection.
+# The React module list does not re-fetch after a stale empty response,
+# so the first-call empty body turned into a permanent "No modules"
+# state. The server-layer timestamp scramble shuffles the ordering of
+# the real target modules, and seed-layer decoy modules add clutter
+# so the agent must identify which three belong to the prerequisite
+# chain.

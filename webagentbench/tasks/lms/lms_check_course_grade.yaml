@@ -80,7 +80,7 @@ canonical_diff:
             file_name:
               eq: catch_up.pdf
             attempt_count:
-              eq: 1
+              expr: "x >= 1"
             submitted_at:
               expr: "x >= session_start"
       invariant:
@@ -250,3 +250,8 @@ eval:
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped
       penalty: 0.3
+    - expr: >-
+        state.get_enrollment_for_course('{target.target_course_id}') is not None
+        and state.get_enrollment_for_course('{target.target_course_id}').status == 'enrolled'
+      desc: Target course (target_course_id) enrollment remains active
+      penalty: 0.2

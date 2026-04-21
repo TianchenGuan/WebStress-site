@@ -49,6 +49,19 @@ seed:
     outputs:
     - upcoming_ids
     - specialist_apt_id
+  # Without an approved dermatology referral, the booking API rejects the
+  # reschedule with "No approved referral exists for dermatology." The
+  # instruction forbids messaging the PCP (the only path to a new
+  # referral), so the task is unsolvable without seeding one upfront.
+  # See audit_reports/w05.md pp_cancel_reschedule.
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - dermatology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     upcoming_ids: '{output.upcoming_ids}'

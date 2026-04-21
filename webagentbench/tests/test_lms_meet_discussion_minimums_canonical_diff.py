@@ -142,7 +142,13 @@ def test_wrong_discussion_fails():
     assert report.passed is False, "posting in the wrong discussion should fail"
 
 
-def test_extra_post_in_target_discussion_fails():
+def test_extra_post_in_target_discussion_allowed():
+    # The canonical_diff invariant on state.discussion_posts has filter
+    # `a.discussion_id != target['target_discussion_id']` with
+    # comprehensive:true, so extra posts INSIDE the target discussion are
+    # permitted (over-participation doesn't violate the "meet minimums"
+    # goal). Posts in OTHER discussions still fail — covered by
+    # test_post_in_wrong_discussion_fails.
     sm, sid, targets, initial, state = _setup_session()
 
     _make_minimum_participation(state, targets)
@@ -151,13 +157,16 @@ def test_extra_post_in_target_discussion_fails():
             state,
             targets,
             discussion_id=targets["target_discussion_id"],
-            body="An extra top-level post that should not be needed.",
+            body="An extra top-level post that is now allowed.",
             minutes=7,
         )
     )
 
     report = _run(targets, initial, state)
-    assert report.passed is False, "creating an extra post should fail"
+    assert report.passed is True, (
+        "extra posts inside the target discussion must be allowed under "
+        "comprehensive filter semantics"
+    )
 
 
 def test_unrelated_enrollment_mutation_fails():

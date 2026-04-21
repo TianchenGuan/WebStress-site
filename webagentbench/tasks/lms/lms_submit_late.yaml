@@ -1,6 +1,6 @@
 task_id: lms_submit_late
 env_id: lms
-title: Submit Late Assignment and Calculate Actual Score
+title: Submit Late Assignment
 instruction_template: Submit the late assignment "{target.assignment_title}" for {target.course_code}.
   Upload a file named "{target.file_name}".
 difficulty: medium
@@ -68,7 +68,7 @@ canonical_diff:
       file_name:
         expr: "x == target['file_name']"
       attempt_count:
-        eq: 1
+        expr: "x >= 1"
       submitted_at:
         expr: "x is not None and x >= session_start"
   invariant:

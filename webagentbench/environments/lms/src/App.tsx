@@ -167,6 +167,11 @@ export function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/courses/:id/assignments" element={<CourseViewPage />} />
+        <Route path="/courses/:id/discussions" element={<CourseViewPage />} />
+        <Route path="/courses/:id/modules" element={<CourseViewPage />} />
+        <Route path="/courses/:id/modules/:moduleId" element={<CourseViewPage />} />
+        <Route path="/courses/:id/syllabus" element={<CourseViewPage />} />
         <Route path="/courses/:id" element={<CourseViewPage />} />
         <Route path="/courses/:id/assignments/:aid" element={<AssignmentPage />} />
         <Route path="/courses/:id/discussions/:did" element={<DiscussionPage />} />

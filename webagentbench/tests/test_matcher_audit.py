@@ -23,6 +23,7 @@ import pytest
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import (
     EvalReport,
+    Update,
     compute_diff,
     match_diff,
 )
@@ -132,6 +133,66 @@ def test_constraint_only_task_score_reflects_constraint_pass_ratio() -> None:
     assert report.passed is False, (
         "failing constraint should yield passed=False"
     )
+
+
+def test_oneof_prefers_branch_with_passing_critical_guard() -> None:
+    """Critical constraints in oneof blocks act as branch guards.
+
+    The matcher should not select an inapplicable branch just because the
+    agent performed that branch's update and earned partial positive credit.
+    """
+    initial, final, targets = _task_with_real_initial()
+    block = CanonicalDiff.model_validate({
+        "oneof": [
+            {
+                "constraints": [
+                    {"desc": "wrong guard", "expr": "False", "severity": "critical"},
+                ],
+                "update": [
+                    {
+                        "entity": "Appointment",
+                        "desc": "wrong branch action",
+                        "where": {"id": {"eq": "guard_probe"}},
+                        "changes": {"status": {"eq": "cancelled"}},
+                    },
+                ],
+            },
+            {
+                "constraints": [
+                    {"desc": "right guard", "expr": "True", "severity": "critical"},
+                ],
+                "update": [
+                    {
+                        "entity": "Appointment",
+                        "desc": "right branch action",
+                        "where": {"id": {"eq": "missing_probe"}},
+                        "changes": {"status": {"eq": "cancelled"}},
+                    },
+                ],
+            },
+        ],
+    })
+
+    report = match_diff(
+        [Update(
+            entity="appointments",
+            entity_id="guard_probe",
+            field_changes={"status": ("scheduled", "cancelled")},
+        )],
+        block,
+        targets=targets,
+        initial=initial,
+        final=final,
+    )
+
+    assert any(
+        check["desc"] == "right guard" and check["passed"]
+        for check in report.negative_checks
+    ), f"selected the wrong oneof branch: {report.negative_checks}"
+    assert any(
+        failure.description == "right branch action"
+        for failure in report.failures
+    ), f"expected the applicable branch's missing update, got {report.failures}"
 
 
 def test_constraint_only_offender_catalog() -> None:
@@ -767,12 +828,12 @@ def test_non_bijection_update_matches_at_most_one_candidate() -> None:
     from webagentbench.evaluator_diff import Update
     initial, final, targets = _task_with_real_initial()
 
-    # `where` reads the AFTER value of the field (evaluator_diff.py:854-858),
-    # so we select on the post-mutation state.
+    # `where` reads the BEFORE value of the field (so renames like
+    # {name: {eq: "OldName"}} work). `changes` asserts the after value.
     block = CanonicalDiff.model_validate({
         "update": [{
             "entity": "Appointment",
-            "where": {"status": {"eq": "cancelled"}},
+            "where": {"status": {"eq": "scheduled"}},
             "changes": {"status": {"eq": "cancelled"}},
         }],
     })
@@ -1016,4 +1077,73 @@ def test_read_only_canonical_diff_documented_behavior() -> None:
     assert report.passed and report.score == 1.0, (
         f"Empty canonical_diff no longer trivially passes on do-nothing — "
         f"{report.score}, {report.passed}. Update the hazard doc."
+    )
+
+
+def test_filtered_invariant_covers_entries_in_unaccounted_sweep() -> None:
+    """Regression for audit_reports/w05.md — filtered-invariant double-penalty.
+
+    Setup mirrors lms_three_module_chain: a bijection update targets modules
+    in slots [1:4] (i.e. a subset), and a FILTERED invariant guards every
+    OTHER module via ``a.id not in target_slots``. A server-side cascade
+    outside the bijection (module_5 auto-unlocks when module_4 completes)
+    matches the invariant's filter.
+
+    Before the fix, that cascade got charged twice: once by the invariant
+    step ("Preserve state.modules") and again by the unaccounted sweep
+    ("Unaccounted update in modules (id=module_5)"). The right behavior is
+    one charge — the filter already covers it.
+    """
+    from webagentbench.evaluator_diff import Update
+    initial, final, targets = _task_with_real_initial()
+    targets["target_slots"] = ["m2", "m3", "m4"]  # the 3 modules the agent should complete
+
+    block = CanonicalDiff.model_validate({
+        "update": [{
+            "entity": "Appointment",  # re-use a real collection for the fixture
+            "bijection": {"over": "target['target_slots']", "variable": "v"},
+            "where": {"id": {"expr": "x == v"}},
+            "changes": {"status": {"eq": "cancelled"}},
+        }],
+        "invariant": [{
+            "collection": "state.appointments",
+            "filter": "a.id not in target['target_slots']",
+            "preserve": "ALL",
+        }],
+    })
+
+    # Agent completes the 3 targets AND triggers a cascade on a non-target
+    # (id="cascade_5") that matches the invariant's filter.
+    diff = [
+        Update(entity="appointments", entity_id="m2",
+               field_changes={"status": ("scheduled", "cancelled")}),
+        Update(entity="appointments", entity_id="m3",
+               field_changes={"status": ("scheduled", "cancelled")}),
+        Update(entity="appointments", entity_id="m4",
+               field_changes={"status": ("scheduled", "cancelled")}),
+        # Side-effect cascade on a non-target entity — matches filter.
+        Update(entity="appointments", entity_id="cascade_5",
+               field_changes={"status": ("scheduled", "cancelled")}),
+    ]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    unaccounted = [
+        nc for nc in report.negative_checks
+        if "Unaccounted" in nc.get("desc", "") and "cascade_5" in nc.get("desc", "")
+    ]
+    assert not unaccounted, (
+        f"Filtered invariant did not protect cascade_5 from the unaccounted "
+        f"sweep — double-penalty regression. negative_checks={report.negative_checks}"
+    )
+    # The invariant itself should still fire (single penalty) — that is the
+    # author's intended guard against modifying non-target entities.
+    invariant_firings = [
+        nc for nc in report.negative_checks
+        if "Preserve state.appointments" in nc.get("desc", "") and not nc["passed"]
+    ]
+    assert invariant_firings, (
+        "Filtered invariant must still fire when a non-target matches its "
+        "filter — otherwise agents could freely mutate protected entries."
     )

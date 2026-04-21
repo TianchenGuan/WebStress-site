@@ -2,12 +2,23 @@ variant_id: pp_care_gap_analysis__skeleton_hang
 base_task_id: pp_care_gap_analysis
 target_primitive: backtracking
 description: >
-  The details pane shows a loading skeleton that never resolves. Only a
-  page refresh (or navigating away and back) clears it.
+  The first available-slots lookup returns an empty list; the second returns
+  the real slot inventory. The agent must backtrack and retry rather than
+  abandoning the scheduling flow when the initial query shows no availability.
 injections:
-  - layer: client
+  # NOTE (audit_reports/w05.md): Replaced the client-layer
+  # skeleton_never_resolves injection with the canonical stale_data
+  # pattern used by all sibling slot-search-stale variants. The
+  # previous skeleton approach required a narrowly-scoped selector to
+  # avoid breaking the scheduling flow entirely; a one-shot stale
+  # response on the slots endpoint lets the page re-fetch on retry
+  # and keeps all three required appointments reachable.
+  - layer: network
     params:
-      action: skeleton_never_resolves
-      route: "/portal/records"
-      selector: ".app-main, main, #root"
-      behavior: { mode: persistent }
+      action: stale_data
+      url_pattern: '**/api/env/patient_portal/appointments/available-slots**'
+      stale_body:
+        items: []
+      stale_count: 1
+      behavior:
+        mode: once

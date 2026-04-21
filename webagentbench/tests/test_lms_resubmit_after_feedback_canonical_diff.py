@@ -133,6 +133,10 @@ def test_wrong_file_name_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # attempt_count predicate relaxed to `x >= 2`, so attempt_count=3 (an
+    # extra retry) is now accepted. Zero attempts should still fail since
+    # the agent must have at least resubmitted once past the original
+    # attempt.
     sm, sid, targets, initial, state = _setup_session()
 
     _resubmit_assignment(
@@ -140,7 +144,7 @@ def test_wrong_attempt_count_fails():
         targets["resubmit_assignment_id"],
         file_name=targets["resubmit_file_name"],
         submitted_at=_expected_submission_time(state, targets["resubmit_assignment_id"]),
-        attempt_count=3,
+        attempt_count=1,
     )
 
     task = get_task("lms_resubmit_after_feedback")
@@ -153,7 +157,7 @@ def test_wrong_attempt_count_fails():
         final=state,
         session_start=_session_start(targets),
     )
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert report.passed is False, "attempt_count below threshold should fail"
 
 
 def test_wrong_submission_time_fails():

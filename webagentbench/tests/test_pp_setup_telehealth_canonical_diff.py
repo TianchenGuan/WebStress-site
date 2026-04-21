@@ -59,13 +59,11 @@ def _provider_slots_sorted(initial, provider_id: str):
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup_session()
     orig = initial.get_appointment(targets["next_appointment_id"])
-    _cancel(state, targets["next_appointment_id"])
     earliest = _provider_slots_sorted(initial, orig.provider_id)[0]
-    state.appointments.append(_make_appt(
-        id="appt_new_telehealth",
-        provider_id=orig.provider_id,
-        datetime=earliest,
-    ))
+    target_appt = next(a for a in state.appointments if a.id == targets["next_appointment_id"])
+    target_appt.type = "telehealth"
+    target_appt.status = "scheduled"
+    target_appt.datetime = earliest
 
     task = get_task("pp_setup_telehealth")
     agent_diff = compute_diff(initial, state)

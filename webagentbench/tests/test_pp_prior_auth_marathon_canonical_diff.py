@@ -68,9 +68,17 @@ def _approved_referral_for(initial, targets, specialty: str):
     )
 
 
+_CANONICAL_REASON = {
+    "radiology": "MRI evaluation",
+    "neurology": "Nerve conduction study",
+    "orthopedics": "Cortisone injection",
+}
+
+
 def _book(state, initial, specialty: str, targets, *, id_suffix: str,
           override_provider_id: str | None = None,
           override_referral_id: str | None = None,
+          override_reason: str | None = None,
           slot_index: int = 0):
     """Append a canonical Appointment for the given specialty. The real
     booking route would consume a slot; we skip that side-effect (Provider
@@ -79,13 +87,18 @@ def _book(state, initial, specialty: str, targets, *, id_suffix: str,
     assert prov is not None, f"seed missing {specialty} provider with slot"
     ref_id = override_referral_id or _approved_referral_for(initial, targets, specialty)
     slot = prov.available_slots[slot_index]
+    reason = (
+        override_reason
+        if override_reason is not None
+        else _CANONICAL_REASON.get(specialty, f"{specialty} procedure")
+    )
     apt = Appointment(
         id=f"appt_new_{specialty}_{id_suffix}",
         provider_id=override_provider_id or prov.id,
         datetime=slot.datetime,
         type=slot.type,
         status="scheduled",
-        reason=f"{specialty} procedure",
+        reason=reason,
         linked_referral_id=ref_id,
     )
     state.appointments.append(apt)

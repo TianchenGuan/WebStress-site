@@ -7,6 +7,82 @@ This changelog spans two benchmark eras:
 
 Unless noted otherwise, older page-benchmark sections are historical notes rather than a description of the active benchmark in this checkout.
 
+## Unreleased — Unified Evaluator Core (2026-04-21)
+
+### What changed
+
+**New `webagentbench/eval_core/` package** replaces the dual-path evaluator
+(legacy `eval.checks` + canonical_diff) with a single canonical_diff-only
+evaluation path. The legacy expression-string evaluator is removed.
+
+**Modules** (5 core + types + access):
+- `orchestrator.py` — public `evaluate()` entry, canonical_diff dispatch only
+- `matcher.py` — create/update/delete/invariant/constraint matching, bijection
+  (augmenting-path bipartite), collateral sweep. `named_invariants` resolution:
+  `invariant[N]` refs use a structural `_inv_index` stamp; `create[N]` refs key
+  off the per-entry `bijection_excess` map; `update[N]`/`delete[N]` refs still
+  resolve the target check by description-prefix match
+- `predicates.py` — full predicate grammar with new `not`, `all_of`, `any_of`
+  combinators; `_fuzzy_eq` for string↔numeric coercion from `model_dump()`
+- `safe_eval.py` — single expression sandbox for all paths (AST validation,
+  forbidden nodes/names, restricted builtins, comprehension-safe globals)
+- `diff.py` — structural collection discovery via Pydantic annotations
+  (`setdefault` for first-wins when multiple fields share an entity type);
+  `collection_for` with proper pluralization (`y→ies`)
+- `access.py` — `FrozenDotMap`, `ReadOnlyProxy`, `EntityView`, `dump_entity`
+  (uses `model_dump()` not `mode="json"` to preserve Decimal types)
+- `types.py` — `EvalResult`, `Failure` (first-class), `CheckResult`
+
+**Legacy removal**:
+- `evaluator_diff.py` → thin compat shim re-exporting from `eval_core`
+- `tasks/_evaluator.py` → delegates to `eval_core.evaluate`; retains
+  Gmail-specific `_compute_collateral` for test backward compat
+- `tasks/_schema.py` → `EvalConfig` marked deprecated (still parsed so
+  existing YAMLs with `eval:` blocks don't break at load)
+
+**Migrated 3 legacy-only tasks to canonical_diff**:
+- `reddit_inbox_read_only` — bijection update (mark all messages read)
+- `reddit_notification_review_silent` — bijection update (mark all notifs read)
+- `reddit_triage_spam_inbox` — bijection delete (spam) + comprehensive invariant (legit)
+
+**Fixed 1 task using removed `now()` binding**:
+- `lms_submission_sprint` — `now()` → `session_start or datetime.now(timezone.utc)`
+
+**Test updates**:
+- `test_evaluator_edge_cases.py` — removed 8 legacy-path tests, added
+  `test_no_canonical_diff_returns_failure`, simplified collateral tests
+- `test_evaluator_diff_match.py` — updated `test_gmail_collection_map_no_overwrite`
+  to use `eval_core.diff` API directly
+
+### Key design decisions
+
+1. **No legacy expression path** — `eval.checks` / `negative_checks` are no
+   longer evaluated. Tasks must have `canonical_diff`. (519 tasks load; 516 have
+   canonical_diff; 3 legacy-only tasks migrated.)
+2. **Single sandbox** — all `{expr: "..."}` predicates, bijection `over`
+   expressions, constraint expressions, and invariant filters route through
+   `safe_eval.py`. No duplicate AST checks or builtins dicts.
+3. **Structural collection discovery** — `collections_of()` uses Pydantic
+   `model_fields` type annotations, works even for empty lists. No per-env
+   collection maps. `setdefault` prevents Gmail's `deleted: list[Email]` from
+   overwriting `emails: list[Email]`.
+4. **`_fuzzy_eq` in `{eq}` predicates** — handles `'3' == 3` from
+   `model_dump()` Decimal→string coercion.
+5. **`session_start` always in scope** — bijection `over` expressions and
+   predicate `{expr}` both receive `session_start` (even when None) so tasks
+   can use `session_start or datetime.now(timezone.utc)` without `NameError`.
+
+### Validation
+
+- All 519 tasks load without errors
+- 2,474 LMS + PP tests pass (0 failures)
+- 7,247 non-booking tests pass (11 failures: 3 legacy-path tests, 3 reddit
+  sent_messages collection issue, 2 adversarial generator, 3 pre-existing)
+- Booking test failures are pre-existing fixture bugs (cancel_reservation
+  API change), unrelated to evaluator
+
+---
+
 ## Unreleased — Degradation Framework Expansion (2026-04-14)
 
 ### What changed

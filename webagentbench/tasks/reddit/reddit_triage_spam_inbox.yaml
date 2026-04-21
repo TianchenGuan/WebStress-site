@@ -1,15 +1,14 @@
 task_id: reddit_triage_spam_inbox
 env_id: reddit
-title: Triage Inbox — Delete Spam, Keep Legitimate Messages
+title: Delete Spam From Inbox
 instruction_template: "Triage your message inbox. Delete any message that is clearly\
   \ spam from a stranger — typical tells are unfamiliar usernames with numeric suffixes\
-  \ or promotional handles (e.g. u/CryptoRewardsX), and bodies that push generic\
-  \ prizes, crypto giveaways, or suspicious external links with no reference to your\
-  \ actual activity. Leave every legitimate message untouched. A message is legitimate\
-  \ if the sender is a moderator account (such as u/ModTeam) or the body references\
-  \ a specific previous interaction of yours (a post, comment, or meeting you were\
-  \ part of). Do not block users, send replies, or mark messages read — just delete\
-  \ the spam and leave the rest alone.\n"
+  \ or promotional handles (e.g. u/CryptoRewardsX), and bodies that push generic prizes,\
+  \ crypto giveaways, or suspicious external links with no reference to your actual\
+  \ activity. Leave every legitimate message untouched. A message is legitimate if\
+  \ the sender is a moderator account (such as u/ModTeam) or the body references a\
+  \ specific previous interaction of yours (a post, comment, or meeting you were part\
+  \ of).\n"
 difficulty: easy
 time_limit_seconds: 180
 expected_steps: 10
@@ -47,7 +46,7 @@ seed:
   - use: target_message
     params:
       from_user: CryptoRewardsX
-      subject: '🎉 CONGRATULATIONS! You''ve won 5 ETH'
+      subject: "\U0001F389 CONGRATULATIONS! You've won 5 ETH"
       body: 'Claim your prize today! Visit our secure portal at bit.ly/crypto-claim-2026
         to verify your wallet and receive your 5 ETH reward. Limited time offer —
         this link expires in 24 hours!'
@@ -61,8 +60,8 @@ seed:
       from_user: GiveAwayWinner_2025
       subject: Your account was selected for our grand giveaway
       body: 'You are one of 50 lucky users chosen for our exclusive $1,000 gift card
-        drawing. Simply reply with your PayPal email and phone number to receive
-        your prize. This offer is not affiliated with Reddit.'
+        drawing. Simply reply with your PayPal email and phone number to receive your
+        prize. This offer is not affiliated with Reddit.'
       is_read: false
     outputs:
     - spam2_id
@@ -85,27 +84,31 @@ seed:
     spam1_id: '{output.spam1_id}'
     spam2_id: '{output.spam2_id}'
     spam3_id: '{output.spam3_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(m.id == '{target.legit1_id}' for m in state.messages)
-    desc: ModTeam welcome message still in inbox
-  - expr: any(m.id == '{target.legit2_id}' for m in state.messages)
-    desc: TechHelper reply still in inbox (references the user's build thread)
-  - expr: not any(m.id == '{target.spam1_id}' for m in state.messages)
-    desc: CryptoRewardsX giveaway spam was deleted
-  - expr: not any(m.id == '{target.spam2_id}' for m in state.messages)
-    desc: GiveAwayWinner_2025 prize spam was deleted
-  - expr: not any(m.id == '{target.spam3_id}' for m in state.messages)
-    desc: promoBot_9482 earn-money spam was deleted
-  negative_checks:
-  - expr: not any(e.action == 'reddit.message.delete' and e.payload.get('message_id')
-      in ['{target.legit1_id}', '{target.legit2_id}'] for e in state.audit_log)
-    desc: No legitimate message was deleted
-    penalty: 0.5
-  - expr: len(state.blocked_users) == 0
-    desc: No users were blocked (task did not ask for it)
-    penalty: 0.15
-  - expr: not any(e.action == 'reddit.message.send' for e in state.audit_log)
-    desc: No replies were sent (including to spammers)
-    penalty: 0.15
+    spam_ids:
+      - '{output.spam1_id}'
+      - '{output.spam2_id}'
+      - '{output.spam3_id}'
+
+canonical_diff:
+  delete:
+    - entity: Message
+      collection: messages
+      bijection:
+        over: "target['spam_ids']"
+        variable: v
+      desc: "Delete each spam message"
+      where:
+        id: {expr: "x == v"}
+  invariant:
+    - collection: state.messages
+      filter: "a.id == target['legit1_id'] or a.id == target['legit2_id']"
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+  named_invariants:
+    - name: "Legitimate messages were not deleted or modified"
+      ref: invariant[0]
+      severity: critical
+    - name: "Agent did not send any messages"
+      ref: invariant[1]
+      severity: high

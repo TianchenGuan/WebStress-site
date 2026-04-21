@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from ...tasks._evaluator import evaluate as unified_evaluate
 from ...tasks._registry import get_task
 from ..models.base import AuditEntry
-from ..models.lms import LMSState
+from ..models.lms import Grade, LMSState
 from ..security import (
     build_public_session_summary,
     has_controller_access,
@@ -163,6 +163,35 @@ def _mutate(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _unlock_available_modules(state: LMSState, course_id: str) -> None:
+    for module in state.modules_for_course(course_id):
+        if module.status == "locked" and state.is_module_unlocked(module.id):
+            module.status = "available"
+
+
+def _course_modules_payload(state: LMSState, course_id: str) -> list[dict[str, Any]]:
+    return [m.model_dump(mode="json") for m in state.modules_for_course(course_id)]
+
+
+def _normalise_rubric_key(key: str) -> str:
+    return "_".join(str(key).strip().lower().split())
+
+
+def _sanitise_peer_review_scores(review: Any, raw_scores: dict[str, Any]) -> dict[str, int]:
+    by_key = {_normalise_rubric_key(k): v for k, v in (raw_scores or {}).items()}
+    valid_keys = [_normalise_rubric_key(item.criterion) for item in review.assignment_rubric]
+    cleaned: dict[str, int] = {}
+    for key in valid_keys:
+        if key not in by_key:
+            continue
+        try:
+            value = int(by_key[key])
+        except (TypeError, ValueError):
+            continue
+        cleaned[key] = max(1, min(5, value))
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -773,6 +802,12 @@ def complete_module(
             detail=f"Cannot complete module: {len(incomplete)} content items still incomplete",
         )
     module.status = "completed"
+    # Propagate unlock to downstream modules in the same course. The frontend
+    # (CourseView.tsx) renders lock state via `mod.status === "locked"`, so
+    # unless we transition dependents off "locked" here, completing a
+    # prerequisite never visibly unlocks its successors even though
+    # state.is_module_unlocked() would report them unlocked.
+    _unlock_available_modules(state, module.course_id)
     state.audit_log.append(
         AuditEntry(
             action="lms.module.complete",
@@ -781,7 +816,10 @@ def complete_module(
         )
     )
     state.touch()
-    return {"module": module.model_dump(mode="json")}
+    return {
+        "module": module.model_dump(mode="json"),
+        "modules": _course_modules_payload(state, module.course_id),
+    }
 
 
 @router.post("/modules/{module_id}/items/{item_index}/complete")
@@ -811,7 +849,10 @@ def complete_module_item(
         )
     )
     state.touch()
-    return {"module": module.model_dump(mode="json")}
+    return {
+        "module": module.model_dump(mode="json"),
+        "modules": _course_modules_payload(state, module.course_id),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +885,19 @@ def get_discussion(
         "discussion": discussion.model_dump(mode="json"),
         "posts": [p.model_dump(mode="json") for p in posts],
     }
+
+
+@router.get("/discussions/{discussion_id}/posts")
+def get_discussion_posts(
+    discussion_id: str,
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _lms_state(session_manager, session_id)
+    posts = [p.model_dump(mode="json") for p in state.posts_for_discussion(discussion_id)]
+    if not posts and state.get_discussion(discussion_id) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown discussion: {discussion_id}")
+    return {"items": posts}
 
 
 @router.post("/discussions/{discussion_id}/posts")
@@ -982,7 +1036,7 @@ def submit_peer_review(
         raise HTTPException(status_code=404, detail=f"Unknown peer review: {review_id}")
     if review.status == "submitted":
         raise HTTPException(status_code=422, detail="Peer review already submitted")
-    review.rubric_scores = body.rubric_scores
+    review.rubric_scores = _sanitise_peer_review_scores(review, body.rubric_scores)
     review.comments = body.comments
     review.status = "submitted"
     state.audit_log.append(
@@ -1016,12 +1070,22 @@ def get_course_grades(
     for cat_name in course.syllabus.grading_policy:
         cat_score = state.category_score(course_id, cat_name)
         category_scores[cat_name] = str(cat_score) if cat_score is not None else None
+    dropped_ids = {
+        dropped.id
+        for cat_name in course.syllabus.grading_policy
+        for dropped in state.dropped_grades_for_category(course_id, cat_name)
+    }
+    grade_rows: list[dict[str, Any]] = []
+    for grade in grades:
+        row = grade.model_dump(mode="json")
+        row["is_dropped"] = grade.id in dropped_ids
+        grade_rows.append(row)
     return {
         "course_id": course_id,
         "course_code": course.course_code,
         "weighted_score": str(weighted_score) if weighted_score is not None else None,
         "category_scores": category_scores,
-        "grades": [g.model_dump(mode="json") for g in grades],
+        "grades": grade_rows,
     }
 
 
@@ -1058,31 +1122,142 @@ def what_if_grades(
     if course is None:
         raise HTTPException(status_code=404, detail=f"Unknown course: {course_id}")
 
-    # Apply hypothetical scores temporarily
-    original_scores: dict[str, tuple[Decimal | None, str]] = {}
+    # Apply hypothetical scores temporarily to both assignment and grade records.
+    original_assignment_scores: dict[str, tuple[Decimal | None, str]] = {}
+    original_grade_scores: dict[str, tuple[Decimal | None, bool, Decimal]] = {}
+    temp_grade_ids: set[str] = set()
+    enrollment = state.get_enrollment_for_course(course_id)
+
     for assign_id, score_str in body.hypothetical_scores.items():
         assignment = state.get_assignment(assign_id)
-        if assignment is None:
+        if assignment is None or assignment.course_id != course_id:
             continue
-        original_scores[assign_id] = (assignment.score, assignment.submission_status)
-        assignment.score = Decimal(score_str)
-        if assignment.submission_status == "not_submitted":
-            assignment.submission_status = "graded"
 
-    # Recompute
+        try:
+            score = Decimal(score_str)
+        except Exception:
+            continue
+        original_assignment_scores[assign_id] = (assignment.score, assignment.submission_status)
+        assignment.score = score
+        if assignment.submission_status == "not_submitted":
+            assignment.submission_status = "submitted"
+
+        grade = next((g for g in state.grades if g.assignment_id == assign_id and g.course_id == course_id), None)
+        if grade is not None:
+            original_grade_scores[grade.id] = (grade.score, grade.is_dropped, grade.late_penalty_applied)
+            grade.score = score
+        elif enrollment is not None:
+            base_grade_id = f"tmp_what_if_{assign_id}"
+            grade_id = base_grade_id
+            while any(g.id == grade_id for g in state.grades):
+                grade_id = f"{base_grade_id}_{len(temp_grade_ids) + 1}"
+            temp_grade = Grade(
+                id=grade_id,
+                enrollment_id=enrollment.id,
+                course_id=course_id,
+                assignment_id=assign_id,
+                score=score,
+                points_possible=assignment.points_possible,
+                weight_category=assignment.weight_category,
+            )
+            state.grades.append(temp_grade)
+            temp_grade_ids.add(grade_id)
+
     weighted = state.weighted_score_for_course(course_id)
 
     # Restore originals
-    for assign_id, (orig_score, orig_status) in original_scores.items():
+    for assign_id, (orig_score, orig_status) in original_assignment_scores.items():
         assignment = state.get_assignment(assign_id)
         if assignment is not None:
             assignment.score = orig_score
             assignment.submission_status = orig_status
 
+    for grade_id, orig_score in original_grade_scores.items():
+        grade = state.get_grade(grade_id)
+        if grade is not None:
+            grade.score, grade.is_dropped, grade.late_penalty_applied = orig_score
+
+    if temp_grade_ids:
+        state.grades = [g for g in state.grades if g.id not in temp_grade_ids]
+
     return {
         "course_id": course_id,
         "what_if_weighted_score": str(weighted) if weighted is not None else None,
         "hypothetical_scores": body.hypothetical_scores,
+    }
+
+
+@router.get("/student")
+def get_student(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _lms_state(session_manager, session_id)
+    current_course_ids = {
+        e.course_id
+        for e in state.enrollments
+        if e.status == "enrolled"
+    }
+    current_credits = sum(
+        course.credits
+        for course in state.courses
+        if course.id in current_course_ids
+    )
+    return {
+        "student": state.student.model_dump(mode="json"),
+        "enrolled_course_count": len(current_course_ids),
+        "current_enrolled_credits": current_credits,
+    }
+
+
+@router.get("/transcript")
+def get_transcript(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _lms_state(session_manager, session_id)
+    transcript_rows: list[dict[str, Any]] = []
+    for e in state.enrollments:
+        course = state.get_course(e.course_id)
+        if not course:
+            continue
+        if e.status != "completed" and e.final_grade is None and e.final_score is None:
+            continue
+        transcript_rows.append({
+            "course_id": e.course_id,
+            "course_code": course.course_code,
+            "course_title": course.title,
+            "final_grade": e.final_grade,
+            "final_score": str(e.final_score) if e.final_score is not None else None,
+            "credits": course.credits,
+            "status": e.status,
+        })
+
+    completed_credits = sum(row["credits"] for row in transcript_rows if row["status"] == "completed")
+    return {
+        "student_id": state.student.student_id,
+        "transcript": transcript_rows,
+        "completed_credits": completed_credits,
+    }
+
+
+@router.get("/gpa")
+def get_gpa(
+    session_id: str = Query(...),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    state = _lms_state(session_manager, session_id)
+    completed = [e for e in state.enrollments if e.status == "completed"]
+    total_credits = 0
+    for e in completed:
+        course = state.get_course(e.course_id)
+        if course is not None:
+            total_credits += course.credits
+
+    return {
+        "student_gpa": str(state.student.gpa),
+        "completed_course_count": len(completed),
+        "completed_credits": total_credits,
     }
 
 

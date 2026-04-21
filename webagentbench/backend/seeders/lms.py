@@ -24,10 +24,30 @@ _EXACT_REF_RE = re.compile(r"^\{(actor|output)\.([^}]+)\}$")
 
 
 def derive_anchor_time(seed: int) -> datetime:
-    """Return a deterministic anchor time for the given seed."""
-    base = datetime(2026, 3, 15, 10, 0, 0, tzinfo=timezone.utc)
+    """Return a deterministic anchor time for the given seed.
+
+    Floats with wall-clock time at day granularity so time-sensitive LMS
+    tasks (late-submission windows, upcoming exams, "next 14 days"
+    preconditions) remain solvable as the calendar advances. Within a single
+    day the anchor is stable, so same-day test runs with the same seed are
+    deterministic. The seed contributes a ±24h offset so RNG streams stay
+    tied to the seed rather than the minute.
+
+    Rationale: the prior fixed anchor (2026-03-15) worked when that date was
+    near wall-clock, but within a few weeks every seeded "not_submitted but
+    still within max_late_days" assignment drifted outside its late window,
+    making lms_recoverable_late_assignments, lms_semester_recovery_plan,
+    lms_study_around_exams, lms_submission_priority, and lms_submission_sprint
+    unsolvable (see audit_reports/w04). Downstream per-task canonical_diff
+    tests that were calibrated against the March-15 anchor may fail until
+    their expected trajectories are recomputed against the floating anchor;
+    that is a deliberate trade — task solvability over test calibration.
+    """
+    today = datetime.now(timezone.utc).replace(
+        hour=10, minute=0, second=0, microsecond=0,
+    )
     offset = timedelta(hours=(seed % 48) - 24)
-    return base + offset
+    return today + offset
 
 
 class LMSSeedRunner:

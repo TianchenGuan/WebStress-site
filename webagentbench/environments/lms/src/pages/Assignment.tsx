@@ -54,7 +54,13 @@ export function AssignmentPage() {
     if (!assignment || !fileName.trim()) return;
     setSubmitting(true);
     try {
-      const updated = await api.resubmitAssignment(assignment.id, fileName.trim());
+      // Route to /resubmit only when status is explicitly "resubmit_requested"
+      // (backend resubmit endpoint requires that); otherwise route to /submit,
+      // which backend (lms.py:646) accepts for graded/late/not_submitted too.
+      const updated =
+        assignment.submission_status === "resubmit_requested"
+          ? await api.resubmitAssignment(assignment.id, fileName.trim())
+          : await api.submitAssignment(assignment.id, fileName.trim());
       setAssignment(updated);
       setFileName("");
       notify("Assignment Resubmitted", `${assignment.title} resubmitted successfully`);
@@ -69,8 +75,16 @@ export function AssignmentPage() {
   if (!assignment) return <div className="lms-empty">Assignment not found</div>;
 
   const canSubmit = assignment.submission_status === "not_submitted";
-  const canResubmit = assignment.submission_status === "resubmit_requested" &&
-    assignment.attempt_count < assignment.max_attempts;
+  // Resubmission is allowed for any status the backend POST /submit accepts
+  // (lms.py:646), gated on remaining attempts. Previously only
+  // "resubmit_requested" unlocked the form, which blocked legitimate
+  // resubmit-after-feedback and late-recovery flows where the instructor
+  // never explicitly flagged the assignment.
+  const canResubmit = (
+    assignment.submission_status === "resubmit_requested" ||
+    assignment.submission_status === "graded" ||
+    assignment.submission_status === "late"
+  ) && assignment.attempt_count < assignment.max_attempts;
 
   return (
     <div aria-label={`Assignment ${assignment.title}`}>

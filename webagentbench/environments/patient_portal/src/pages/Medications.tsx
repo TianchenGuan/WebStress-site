@@ -165,50 +165,55 @@ export function MedicationsPage() {
                     Transfer Pharmacy
                   </button>
                 </div>
+
+                {transferRxId === rx.id && (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Transfer prescription form for ${rx.medication}`}
+                    className="pp-form-section"
+                  >
+                    <h4>Transfer Prescription — {rx.medication}</h4>
+                    <div className="pp-form-field">
+                      <label htmlFor={`transfer-pharmacy-${rx.id}`}>Select Pharmacy</label>
+                      <select
+                        id={`transfer-pharmacy-${rx.id}`}
+                        value={transferPharmacyId}
+                        onChange={(e) => setTransferPharmacyId(e.target.value)}
+                        aria-label="Select pharmacy for transfer"
+                      >
+                        <option value="">Select a pharmacy...</option>
+                        {pharmacies.map((pharmacy) => (
+                          <option key={pharmacy.id} value={pharmacy.id}>
+                            {`${pharmacy.name} (${pharmacy.id})${pharmacy.is_mail_order ? " - Mail Order" : ""}${pharmacy.cost_per_90day_supply ? ` - 90 day $${pharmacy.cost_per_90day_supply}` : ""}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="pp-form-actions">
+                      <button
+                        className="pp-btn pp-btn--primary"
+                        aria-label="Confirm transfer"
+                        onClick={handleTransfer}
+                        disabled={!transferPharmacyId}
+                      >
+                        Transfer
+                      </button>
+                      <button
+                        className="pp-btn pp-btn--secondary"
+                        aria-label="Cancel transfer"
+                        onClick={() => { setTransferRxId(null); setTransferPharmacyId(""); }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </article>
             ))}
           </div>
         )}
       </section>
-
-      {transferRxId && (
-        <section aria-label="Transfer prescription form" className="pp-section pp-form-section">
-          <h4>Transfer Prescription</h4>
-          <div className="pp-form-field">
-            <label htmlFor="transfer-pharmacy">Select Pharmacy</label>
-            <select
-              id="transfer-pharmacy"
-              value={transferPharmacyId}
-              onChange={(e) => setTransferPharmacyId(e.target.value)}
-              aria-label="Select pharmacy for transfer"
-            >
-              <option value="">Select a pharmacy...</option>
-              {pharmacies.map((pharmacy) => (
-                <option key={pharmacy.id} value={pharmacy.id}>
-                  {`${pharmacy.name} (${pharmacy.id})${pharmacy.is_mail_order ? " - Mail Order" : ""}${pharmacy.cost_per_90day_supply ? ` - 90 day $${pharmacy.cost_per_90day_supply}` : ""}`}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="pp-form-actions">
-            <button
-              className="pp-btn pp-btn--primary"
-              aria-label="Confirm transfer"
-              onClick={handleTransfer}
-              disabled={!transferPharmacyId}
-            >
-              Transfer
-            </button>
-            <button
-              className="pp-btn pp-btn--secondary"
-              aria-label="Cancel transfer"
-              onClick={() => { setTransferRxId(null); setTransferPharmacyId(""); }}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      )}
 
       <section aria-label="Inactive Prescriptions" className="pp-section">
         <button

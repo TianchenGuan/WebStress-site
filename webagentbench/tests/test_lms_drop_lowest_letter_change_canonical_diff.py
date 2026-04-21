@@ -56,11 +56,14 @@ def _evaluate(task_id, initial, state, targets, session_start):
 def test_correct_trajectory_passes():
     _, _, targets, initial, state, session_start = _setup_session(seed=1)
 
-    _submit_report(
-        state,
-        targets["lowest_hw_id"],
-        submitted_at=session_start + timedelta(hours=1),
-    )
+    if targets["drop_changes_letter"] == "true":
+        _submit_report(
+            state,
+            targets["lowest_hw_id"],
+            submitted_at=session_start + timedelta(hours=1),
+        )
+    else:
+        _mark_read(state, targets["latest_announcement_id"])
 
     report = _evaluate(
         "lms_drop_lowest_letter_change",

@@ -71,6 +71,19 @@ seed:
     outputs:
     - upcoming_ids
     - completed_ids
+  # Specialty scheduling is gated by approved referrals. The instruction
+  # forbids messaging (the only way to request one), so we seed approved
+  # referrals for the two specialties the task asks the agent to book.
+  # See audit_reports/w05.md pp_care_gap_analysis.
+  - use: referral_chain
+    params:
+      approved_count: 2
+      pending_count: 0
+      must_have_specialties:
+      - cardiology
+      - endocrinology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     cardio_provider_ids: '{output.providers_by_specialty.cardiology}'

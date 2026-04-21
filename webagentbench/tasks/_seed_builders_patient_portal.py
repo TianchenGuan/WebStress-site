@@ -641,6 +641,16 @@ def build_pharmacy_list(ctx: PatientPortalSeedContext, params: dict[str, Any]) -
     templates = pinned + templates
     selected = templates[:min(count, len(templates))]
 
+    # If target_pharmacy_name resolves to selected[0] (the default), swap it
+    # with selected[1] so the target is a non-default pharmacy the agent can
+    # switch TO. Tasks like pp_update_default_pharmacy need target != default.
+    if (
+        target_pharmacy_name
+        and len(selected) >= 2
+        and target_pharmacy_name.lower() in selected[0]["name"].lower()
+    ):
+        selected[0], selected[1] = selected[1], selected[0]
+
     pharmacy_ids: list[str] = []
     default_pharmacy_id: str = ""
     mail_order_pharmacy_id: str | None = None
@@ -736,6 +746,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     completed_provider_pool = [p for p in providers if p["specialty"] not in ("billing", "admin")] or providers
 
     upcoming_ids: list[str] = []
+    pcp_apt_date: str = ""
     completed_ids: list[str] = []
     cancelled_ids: list[str] = []
     conflict_apt_ids: list[str] = []
@@ -791,6 +802,10 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
 
         if i == 0:
             pcp_apt_id = apt_id
+            # Human-readable date for instruction templating (e.g.
+            # "March 15 2026 at 10:00"). The raw ISO string is too
+            # noisy for a task prompt.
+            pcp_apt_date = apt_dt.strftime("%B %-d %Y at %H:%M")
         if i == 0 or (next_appointment_id is None):
             next_appointment_id = apt_id
         if include_specialist and specialist_providers and prov != pcp_provider and specialist_apt_id is None:
@@ -884,6 +899,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
         "next_appointment_id": next_appointment_id,
         "conflict_apt_ids": conflict_apt_ids,
         "pcp_apt_id": pcp_apt_id,
+        "pcp_apt_date": pcp_apt_date,
         "specialist_apt_id": specialist_apt_id,
         "telehealth_apt_id": telehealth_apt_id,
     }
@@ -1166,7 +1182,11 @@ def build_lab_results_panel(ctx: PatientPortalSeedContext, params: dict[str, Any
     if not ordering_providers:
         ordering_providers = [pcp_id]
 
-    lab_pool = list(_LAB_TESTS)
+    # When a trend_test is specified, exclude it from the random-pick pool so
+    # a random normal/abnormal lab doesn't collide with the explicit trend
+    # sequence and silently invert the most-recent reading (e.g. HbA1c's
+    # normal=5.2 landing within the 6-month window after a 6.5→7.8 trend).
+    lab_pool = [t for t in _LAB_TESTS if t["name"] != trend_test] if trend_test else list(_LAB_TESTS)
     ctx.rng.shuffle(lab_pool)
     lab_idx = 0
 

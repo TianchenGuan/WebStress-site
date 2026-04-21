@@ -23,7 +23,13 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
+
+pytestmark = pytest.mark.skip(
+    reason="Legacy eval.checks schema is obsolete — all tasks migrated to canonical_diff. "
+    "Rewrite against canonical_diff predicates if still needed."
+)
 
 TASKS_DIR = Path(__file__).parent.parent / "tasks" / "gmail"
 TARGET_REF_RE = re.compile(r"\{target\.([^}]+)\}")

@@ -2,17 +2,19 @@
 
 Task: review the emergency action plan. The only write action is scheduling
 *exactly one* PCP appointment with reason "Medication wallet card review" at
-that PCP's next available slot. All other steps are read-only verifications:
-emergency contact on file, allergy list intact, insurance details intact.
-Must not modify profile fields, prescriptions, or send messages.
+that PCP's next available slot, with appointment notes listing every allergy
+on the patient profile (this forces the agent to actually read the profile
+rather than skip the verification steps). Must not modify profile fields,
+prescriptions, or send messages.
 
 Shape: one non-bijection create + three read-only constraints + invariants.
 
 Trajectories covered:
-- correct (PCP + earliest PCP slot + exact reason + profile intact) -> 1.0
+- correct (PCP + earliest PCP slot + exact reason + allergies-in-notes + profile intact) -> 1.0
 - wrong_provider (booked with non-PCP provider) -> fails
 - wrong_reason (booked with other reason text) -> fails
 - not_earliest_slot (PCP correct, second-earliest slot) -> fails
+- missing_allergies_in_notes (correct booking but notes omit allergies) -> fails
 - allergy_dropped (correct booking, but drops a seeded allergy) -> fails
 - message_sent (correct booking, but also sends a patient message) -> fails
 - no_mutation (empty trajectory) -> fails, score 0.0
@@ -55,6 +57,11 @@ def _pcp_sorted_slots(initial, targets):
     raise ValueError(f"PCP {pcp_id!r} missing from initial snapshot")
 
 
+def _allergies_notes(initial) -> str:
+    """Comma-joined allergies matching the canonical-diff notes check."""
+    return ", ".join(initial.patient.allergies)
+
+
 def _make_appt(**kwargs) -> Appointment:
     kwargs.setdefault("type", "in-person")
     kwargs.setdefault("status", "scheduled")
@@ -78,10 +85,25 @@ def test_correct_trajectory_passes():
         id="appt_new_wallet_card",
         provider_id=targets["pcp_id"],
         datetime=_pcp_earliest_slot(initial, targets),
+        notes=f"Allergies to cross-check: {_allergies_notes(initial)}",
     ))
     report = _run_match(state, initial, targets)
     assert report.passed is True, f"failures: {report.failures}"
     assert report.score == 1.0, f"expected 1.0, got {report.score}"
+
+
+def test_missing_allergies_in_notes_fails():
+    """Correct booking but the agent skipped reading the profile — notes do
+    not contain the seeded allergies → canonical-diff notes check fails."""
+    sm, sid, targets, initial, state = _setup_session()
+    state.appointments.append(_make_appt(
+        id="appt_new_wallet_card",
+        provider_id=targets["pcp_id"],
+        datetime=_pcp_earliest_slot(initial, targets),
+        notes="Wallet card follow-up (no allergies listed)",
+    ))
+    report = _run_match(state, initial, targets)
+    assert report.passed is False
 
 
 def test_wrong_provider_fails():
@@ -136,6 +158,7 @@ def test_allergy_dropped_fails():
         id="appt_new_wallet_card",
         provider_id=targets["pcp_id"],
         datetime=_pcp_earliest_slot(initial, targets),
+        notes=f"Allergies to cross-check: {_allergies_notes(initial)}",
     ))
     assert state.patient.allergies, "seed must populate at least one allergy"
     state.patient.allergies = state.patient.allergies[1:]
@@ -151,6 +174,7 @@ def test_message_sent_fails():
         id="appt_new_wallet_card",
         provider_id=targets["pcp_id"],
         datetime=_pcp_earliest_slot(initial, targets),
+        notes=f"Allergies to cross-check: {_allergies_notes(initial)}",
     ))
     state.messages.append(ClinicalMessage(
         id="msg_patient_extra",

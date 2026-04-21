@@ -1,13 +1,12 @@
 task_id: lms_academic_standing_optimization
 env_id: lms
 title: Academic Standing Optimization
-instruction_template: 'You are enrolled in 4 courses with different grading policies.
-  Your goal is to maximize your semester GPA. For each course: (1) Check your current
-  weighted score and identify remaining assignments. (2) Determine the letter grade
-  you''re on track for. (3) Identify which course has the most room for improvement
-  relative to effort (i.e., highest credit weight with the most remaining high-weight
-  assignments). Submit any easy-win unsubmitted assignments with file "optimization.pdf".
-  Then send a brief strategy message to your advisor ({target.advisor_name}).'
+instruction_template: >-
+  You are enrolled in 4 courses with different grading policies. Your goal is to
+  maximize your semester GPA. Identify the single missing (unsubmitted) assignment
+  with the highest priority_weight; ties break by earliest due date. Submit that
+  one assignment with file "optimization.pdf". Then send a brief strategy message
+  to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -46,8 +45,9 @@ seed:
       graded_fraction: 0.5
       missing_count: 1
     outputs:
-    - assignment_ids
-    - missing_assignment_ids
+      - assignment_ids
+      - missing_assignment_ids
+      - priority_order_ids
   - use: grade_book
     params: {}
     outputs:
@@ -60,13 +60,14 @@ seed:
     course_codes: '{output.course_codes}'
     current_weighted_scores: '{output.current_weighted_scores}'
     missing_assignment_ids: '{output.missing_assignment_ids}'
+    priority_order_ids: '{output.priority_order_ids}'
 canonical_diff:
   update:
   - entity: Assignment
-    desc: Submit the identified easy-win assignment with optimization.pdf
+    desc: Submit the highest-priority missing assignment with optimization.pdf
     where:
       id:
-        expr: "x == target['missing_assignment_ids'].split(',')[0].strip()"
+        expr: "x == next((aid.strip() for aid in target['priority_order_ids'].split(',') if aid.strip() in [m.strip() for m in target['missing_assignment_ids'].split(',')]), target['missing_assignment_ids'].split(',')[0].strip())"
     changes:
       submission_status:
         in:
@@ -75,12 +76,12 @@ canonical_diff:
       file_name:
         eq: optimization.pdf
       attempt_count:
-        eq: 1
+        expr: "x >= 1"
       submitted_at:
         expr: "x is not None"
   invariant:
   - collection: state.assignments
-    filter: "a.id != target['missing_assignment_ids'].split(',')[0].strip()"
+    filter: "a.id != next((aid.strip() for aid in target['priority_order_ids'].split(',') if aid.strip() in [m.strip() for m in target['missing_assignment_ids'].split(',')]), target['missing_assignment_ids'].split(',')[0].strip())"
     preserve: ALL
   - collection: state.courses
     preserve: ALL
@@ -140,10 +141,8 @@ eval:
   - expr: "any(a.file_name == 'optimization.pdf'\n    and a.submission_status in ('submitted',\
       \ 'late')\n    for a in state.assignments)"
     desc: At least one optimization submission was made
-  - expr: "any(a.file_name == 'optimization.pdf'\n    and a.submission_status in ('submitted',\
-      \ 'late')\n    and a.id in [mid.strip() for mid in '{target.missing_assignment_ids}'.split(',')]\n\
-      \    for a in state.assignments)"
-    desc: Optimization file was submitted for an identified missing assignment
+  - expr: "any(a.file_name == 'optimization.pdf'\n    and a.submission_status in ('submitted', 'late')\n    and a.id == next((aid.strip() for aid in target['priority_order_ids'].split(',') if aid.strip() in [m.strip() for m in target['missing_assignment_ids'].split(',')]), target['missing_assignment_ids'].split(',')[0].strip())\n    for a in state.assignments)"
+    desc: Optimization file was submitted for the highest-priority missing assignment
   - expr: "all(e.status == 'enrolled'\n    for e in state.enrollments)"
     desc: All enrollments remain active (none dropped)
   - expr: len(state.sent_messages) >= 1

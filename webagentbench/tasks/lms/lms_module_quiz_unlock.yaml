@@ -1,9 +1,9 @@
 task_id: lms_module_quiz_unlock
 env_id: lms
-title: Complete Quiz in Module to Unlock Next Project
-instruction_template: In {target.course_code}, Module 3 requires completing a quiz
-  in Module 2 with a minimum score to unlock. Complete the Module 2 content items
-  and mark it done, which should unlock Module 3. Then verify Module 3 is accessible.
+title: Complete Module Content to Unlock Next Project
+instruction_template: In {target.course_code}, Module 3 is locked until Module 2 is
+  completed. Complete every Module 2 content item and mark Module 2 done, which should
+  unlock Module 3. Then verify Module 3 is accessible.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 16
@@ -66,6 +66,7 @@ canonical_diff:
     - collection: state.modules
       filter: "a.id != target['next_available_module_id']"
       preserve: ALL
+      comprehensive: true
       weight: 1.0
     - collection: state.courses
       preserve: ALL

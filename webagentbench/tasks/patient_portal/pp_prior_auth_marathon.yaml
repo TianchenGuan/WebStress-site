@@ -4,9 +4,12 @@ title: Prior Authorization Marathon
 instruction_template: 'You need three procedures: 1) MRI (radiology department), 2)
   Nerve conduction study (neurology department), 3) Cortisone injection (orthopedics
   department). For each one, verify the referral is approved and that any required
-  pre-authorization is already cleared, then schedule exactly one appointment with
-  that department. Do not send any messages and do not schedule anything without an
-  approved referral.'
+  pre-authorization is already cleared, then schedule exactly one NEW appointment with
+  that department using these exact reason strings: "MRI evaluation" for radiology,
+  "Nerve conduction study" for neurology, and "Cortisone injection" for orthopedics.
+  Any appointments that already exist in your schedule do not count toward this task —
+  you must create three new appointments. Do not send any messages and do not schedule
+  anything without an approved referral.'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
@@ -81,46 +84,46 @@ seed:
 canonical_diff:
   create:
     - entity: Appointment
-      desc: "Schedule one radiology appointment linked to an approved radiology referral with pre-auth cleared. Verifying referral approval + pre-auth is read-only (backend gates the booking), so this create fires only after those prerequisites are satisfied."
+      desc: "Schedule one new radiology appointment linked to an approved radiology referral with pre-auth cleared. Verifying referral approval + pre-auth is read-only (backend gates the booking), so this create fires only after those prerequisites are satisfied."
       properties:
         status: {eq: "scheduled"}
         provider_id:
           expr: "x in target['radiology_provider_ids']"
+        reason: {eq: "MRI evaluation"}
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'radiology' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
         datetime: {any: true}
         type: {any: true}
-        reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule one neurology appointment linked to an approved neurology referral with pre-auth cleared."
+      desc: "Schedule one new neurology appointment linked to an approved neurology referral with pre-auth cleared."
       properties:
         status: {eq: "scheduled"}
         provider_id:
           expr: "x in target['neurology_provider_ids']"
+        reason: {eq: "Nerve conduction study"}
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'neurology' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
         datetime: {any: true}
         type: {any: true}
-        reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule one orthopedics appointment linked to an approved orthopedics referral with pre-auth cleared."
+      desc: "Schedule one new orthopedics appointment linked to an approved orthopedics referral with pre-auth cleared."
       properties:
         status: {eq: "scheduled"}
         provider_id:
           expr: "x in target['ortho_provider_ids']"
+        reason: {eq: "Cortisone injection"}
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'orthopedics' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
         datetime: {any: true}
         type: {any: true}
-        reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}

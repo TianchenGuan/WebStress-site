@@ -619,9 +619,74 @@ async def run_episode(
                         if node is None:
                             last_error = f"Element index {idx} not found"
                             continue
-                        from browser_use.browser.events import SelectDropdownOptionEvent
+                        from browser_use.browser.events import (
+                            GetDropdownOptionsEvent,
+                            SelectDropdownOptionEvent,
+                        )
+
+                        # Agents frequently pass option text that's truncated
+                        # ("Dr. X - Endocrinolog...") or simplified (dropping
+                        # the "(30min)" suffix on slot labels) from the
+                        # rendered DOM. SelectDropdownOptionEvent requires
+                        # exact match. Resolve fuzzy agent text to a real
+                        # option by querying the dropdown and trying:
+                        #   1. exact match,
+                        #   2. strip trailing "..." then prefix-match,
+                        #   3. agent-text is a prefix of exactly one option,
+                        #   4. agent-text is a substring of exactly one option.
+                        # Tiebreak by token overlap with the rest of the agent
+                        # string (not by shortest length — "Primary Care
+                        # (PCP)" would lose to "Primary Care (Adult)").
+                        option_for_select = option
+                        try:
+                            opts_event = browser.event_bus.dispatch(
+                                GetDropdownOptionsEvent(node=node))
+                            await opts_event
+                            opts_result = await opts_event.event_result(
+                                raise_if_any=True, raise_if_none=False)
+                            real_options: list[dict] = []
+                            if isinstance(opts_result, dict):
+                                real_options = [
+                                    o for o in (opts_result.get("options") or [])
+                                    if isinstance(o, dict) and isinstance(o.get("text"), str)
+                                ]
+                            real_texts = [o["text"] for o in real_options]
+
+                            def _pick(candidates: list[str]) -> str | None:
+                                if not candidates:
+                                    return None
+                                if len(candidates) == 1:
+                                    return candidates[0]
+                                # Multiple matches — prefer the one whose tail
+                                # tokens overlap most with the agent's query.
+                                query_tokens = set(option.lower().split())
+                                return max(
+                                    candidates,
+                                    key=lambda t: len(query_tokens & set(t.lower().split())),
+                                )
+
+                            match: str | None = None
+                            if option in real_texts:
+                                match = option
+                            if match is None:
+                                stripped = option.rstrip()
+                                if stripped.endswith("..."):
+                                    prefix = stripped[:-3].rstrip()
+                                    match = _pick([t for t in real_texts if t.startswith(prefix)])
+                            if match is None:
+                                # Agent's text is a prefix of a real option
+                                # (common: agent drops the "(30min)" suffix).
+                                match = _pick([t for t in real_texts if t.startswith(option)])
+                            if match is None:
+                                # Agent's text is a substring of a real option.
+                                match = _pick([t for t in real_texts if option in t])
+                            if match is not None:
+                                option_for_select = match
+                        except Exception:
+                            pass
+
                         event = browser.event_bus.dispatch(
-                            SelectDropdownOptionEvent(node=node, text=option))
+                            SelectDropdownOptionEvent(node=node, text=option_for_select))
                         await event
                         try:
                             await event.event_result(raise_if_any=True, raise_if_none=False)

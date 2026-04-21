@@ -1,20 +1,23 @@
 """End-to-end tests for pp_review_eob canonical_diff.
 
-Task: "Review the EOB for your most recent approved claim. If patient
-responsibility <= $200, pay that exact claim. If > $200, leave all
-claims unpaid. Do not send any messages."
+Task (post-w09 revision, 2026-04-20): "Review the EOB for your most recent
+approved claim and pay the patient responsibility on that claim in full. Do
+not pay or appeal any other claim, and do not send any messages."
 
-This is a BRANCHING task modelled as `canonical_diff.oneof`:
-  - Branch A — pay if recent_resp <= $200 (update entry requires resp<=200)
-  - Branch B — do nothing if recent_resp > $200 (constraint asserts resp>200)
+The pre-w09 design used `oneof` with a constraint-only "do nothing when
+responsibility > $200" branch (Branch B). Audit w09 found that on seed 42
+the agent scored 1.0 without any observable action — the constraint-only
+branch acts as an applicability gate that passes whenever the seed matches,
+regardless of agent behaviour (see eval-hardening-playbook §2.7).
 
-Each branch embeds its applicability condition so the wrong branch cannot
-silently win on a given seed.
+Revision: dropped Branch B. The task now unconditionally requires paying
+the most-recent approved claim. Seeds that previously triggered the "skip"
+branch now require payment as well.
 
 Seed behaviour probed for this task:
-  seed=42  → recent_resp=$724.74  → SKIP branch (B)
-  seed=2   → recent_resp=$39.58   → PAY branch (A)
-  seed=200 → recent_resp=$165.29  → PAY branch (A)
+  seed=42  → recent_resp=$724.74  → pay
+  seed=2   → recent_resp=$39.58   → pay
+  seed=200 → recent_resp=$165.29  → pay
 """
 
 from decimal import Decimal
@@ -24,10 +27,10 @@ from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
 
 
-# Seed curators — stable across minor seed_builder refactors because the
-# responsibility gap is large at these seeds.
-_SKIP_SEED = 42    # recent_resp > $200 — correct action: do nothing
-_PAY_SEED = 2      # recent_resp <= $200 — correct action: pay the claim
+# Representative seeds across the old-branch split — both should now require
+# payment. Keeping both curated seeds documents the responsibility range.
+_HIGH_RESP_SEED = 42    # recent_resp > $200
+_LOW_RESP_SEED = 2      # recent_resp <= $200
 
 
 def _setup_session(seed: int):
@@ -59,36 +62,12 @@ def _pay_claim(state, clm_id: str) -> None:
 
 
 # ---------------------------------------------------------------------
-# Seed sanity — keep the branch assumption intact. If a seed_builder
-# refactor flips the branch at a curated seed, these assertions catch
-# it and the curated list above should be updated.
+# Correct trajectories — agent pays the most-recent approved claim.
 # ---------------------------------------------------------------------
 
-def test_curated_seeds_cover_both_branches():
-    _, _, targets_skip, initial_skip, _ = _setup_session(_SKIP_SEED)
-    recent_skip = _most_recent_approved(initial_skip, targets_skip)
-    resp_skip = float(initial_skip.get_claim(recent_skip).patient_responsibility)
-    assert resp_skip > 200, (
-        f"_SKIP_SEED={_SKIP_SEED} was supposed to put recent_resp > 200, "
-        f"got ${resp_skip}. Update the curated-seed list."
-    )
-
-    _, _, targets_pay, initial_pay, _ = _setup_session(_PAY_SEED)
-    recent_pay = _most_recent_approved(initial_pay, targets_pay)
-    resp_pay = float(initial_pay.get_claim(recent_pay).patient_responsibility)
-    assert resp_pay <= 200, (
-        f"_PAY_SEED={_PAY_SEED} was supposed to put recent_resp <= 200, "
-        f"got ${resp_pay}. Update the curated-seed list."
-    )
-
-
-# ---------------------------------------------------------------------
-# Correct trajectories — one per branch.
-# ---------------------------------------------------------------------
-
-def test_correct_trajectory_pay_branch_passes():
-    """PAY seed (resp <= $200): agent pays the most-recent approved claim."""
-    _, _, targets, initial, state = _setup_session(_PAY_SEED)
+def test_correct_trajectory_low_resp_passes():
+    """Low responsibility seed: agent pays the most-recent approved claim."""
+    _, _, targets, initial, state = _setup_session(_LOW_RESP_SEED)
     target_id = _most_recent_approved(initial, targets)
     _pay_claim(state, target_id)
 
@@ -103,9 +82,11 @@ def test_correct_trajectory_pay_branch_passes():
     assert report.score == 1.0, f"expected 1.0, got {report.score}"
 
 
-def test_correct_trajectory_skip_branch_passes():
-    """SKIP seed (resp > $200): agent correctly does nothing."""
-    _, _, targets, initial, state = _setup_session(_SKIP_SEED)
+def test_correct_trajectory_high_resp_passes():
+    """High responsibility seed (was the old SKIP branch): also pay now."""
+    _, _, targets, initial, state = _setup_session(_HIGH_RESP_SEED)
+    target_id = _most_recent_approved(initial, targets)
+    _pay_claim(state, target_id)
 
     task = get_task('pp_review_eob')
     agent_diff = compute_diff(initial, state)
@@ -118,27 +99,19 @@ def test_correct_trajectory_skip_branch_passes():
     assert report.score == 1.0, f"expected 1.0, got {report.score}"
 
 
-# Alias required by the validate.py stage-4 probe (which pattern-matches
-# this common test name across migrated tasks).
+# Alias required by the validate.py stage-4 probe.
 def test_correct_trajectory_passes():
-    """Stage-4 entry point — delegate to the SKIP branch (seed=42 default)."""
-    test_correct_trajectory_skip_branch_passes()
+    test_correct_trajectory_low_resp_passes()
 
 
 # ---------------------------------------------------------------------
-# Wrong-branch-action tests.
+# Negative trajectories — anything other than paying the target claim fails.
 # ---------------------------------------------------------------------
 
-def test_paid_when_over_200_fails():
-    """SKIP seed (resp > $200) but agent pays anyway — both branches fail.
-
-    Branch A: selector requires resp<=200, so zero matching candidates;
-              the agent's update becomes collateral on state.claims.
-    Branch B: the invariant on state.claims fires.
-    """
-    _, _, targets, initial, state = _setup_session(_SKIP_SEED)
-    target_id = _most_recent_approved(initial, targets)
-    _pay_claim(state, target_id)
+def test_doing_nothing_fails():
+    """Audit w09 regression: prior design gave score 1.0 on high-resp seeds
+    when the agent did nothing. The revision must now fail."""
+    _, _, targets, initial, state = _setup_session(_HIGH_RESP_SEED)
 
     task = get_task('pp_review_eob')
     agent_diff = compute_diff(initial, state)
@@ -148,18 +121,15 @@ def test_paid_when_over_200_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, (
-        "paying a claim with responsibility > $200 must fail — the "
-        "instruction says to leave all claims unpaid in that branch."
+        "doing nothing must fail — the task now unconditionally requires "
+        "paying the most-recent approved claim; see audit_reports/w09.md."
     )
+    assert report.score < 1.0, f"expected score<1.0, got {report.score}"
 
 
-def test_not_paid_when_under_200_fails():
-    """PAY seed (resp <= $200) but agent does nothing — both branches fail.
-
-    Branch A: update has no matching candidate (agent didn't touch claim).
-    Branch B: constraint 'resp > 200' fails (resp was <= 200).
-    """
-    _, _, targets, initial, state = _setup_session(_PAY_SEED)
+def test_not_paid_when_low_resp_fails():
+    """Low-resp seed, agent does nothing — must fail (same as high-resp)."""
+    _, _, targets, initial, state = _setup_session(_LOW_RESP_SEED)
 
     task = get_task('pp_review_eob')
     agent_diff = compute_diff(initial, state)
@@ -169,27 +139,23 @@ def test_not_paid_when_under_200_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, (
-        "leaving a <= $200 claim unpaid must fail — the instruction "
-        "requires paying that exact claim in that branch."
+        "leaving the claim unpaid must fail — pay is now unconditional."
     )
     assert report.score < 1.0, f"expected score<1.0, got {report.score}"
 
 
 def test_paid_wrong_claim_fails():
-    """PAY seed: agent pays a NON-most-recent approved claim.
-
-    Branch A selector picks the most-recent-by-service_date-with-cid-tiebreaker;
-    paying the older approved claim must not saturate the update.
-    """
-    _, _, targets, initial, state = _setup_session(_PAY_SEED)
+    """Agent pays a NON-most-recent approved claim — selector rejects it and
+    the invariant on state.claims fires on the stray mutation."""
+    _, _, targets, initial, state = _setup_session(_LOW_RESP_SEED)
     recent_id = _most_recent_approved(initial, targets)
     older_id = next(
         (cid for cid in targets['approved_claim_ids'] if cid != recent_id),
         None,
     )
     assert older_id is not None, (
-        "PAY seed must produce >=2 approved claims for the identity test "
-        "to be non-vacuous (hazard Class 4)."
+        "seed must produce >=2 approved claims for the identity test to be "
+        "non-vacuous (hazard Class 4)."
     )
     _pay_claim(state, older_id)
 
@@ -202,18 +168,19 @@ def test_paid_wrong_claim_fails():
     )
     assert report.passed is False, (
         "paying the older approved claim must fail — the selector picks "
-        "only the most-recent approved claim, and branch B's invariant "
-        "on state.claims fires on any claim mutation."
+        "only the most-recent approved claim, and the invariant on "
+        "state.claims fires on any other claim mutation."
     )
 
 
 def test_message_sent_fails():
-    """Do-nothing trajectory is correct for the SKIP seed — but if the agent
-    sends a patient message as a side-effect, the invariant on state.messages
-    fires in both branches."""
+    """Agent sends a patient message as a side-effect — invariant on
+    state.messages fires regardless of whether the pay step succeeded."""
     from webagentbench.backend.models.patient_portal import ClinicalMessage
 
-    _, _, targets, initial, state = _setup_session(_SKIP_SEED)
+    _, _, targets, initial, state = _setup_session(_LOW_RESP_SEED)
+    target_id = _most_recent_approved(initial, targets)
+    _pay_claim(state, target_id)
     state.messages.append(ClinicalMessage(
         id="msg_agent_side_effect",
         from_type="patient",

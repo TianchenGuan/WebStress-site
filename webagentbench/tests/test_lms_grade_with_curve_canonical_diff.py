@@ -83,7 +83,7 @@ def test_correct_trajectory_passes():
 
 
 def test_correct_false_branch_passes():
-    targets, initial, state = _setup_session(seed=4)
+    targets, initial, state = _setup_session(seed=1)
 
     _submit_curve_appeal(
         state,

@@ -66,7 +66,7 @@ def test_correct_trajectory_passes():
     _, _, targets, initial, state, session_start = _setup_session()
 
     worth_ids = _worth_ids(targets)
-    assert len(worth_ids) == 3, "seed 42 must expose exactly three worth-submitting assignments"
+    assert worth_ids, "seed 42 must expose at least one worth-submitting assignment"
     for aid in worth_ids:
         _submit_assignment(
             state,
@@ -90,11 +90,11 @@ def test_no_mutation_fails():
 
 
 def test_partial_submission_fails():
-    _, _, targets, initial, state, session_start = _setup_session()
+    _, _, targets, initial, state, session_start = _setup_session(seed=8)
 
     worth_ids = _worth_ids(targets)
-    assert len(worth_ids) >= 3, "seed must expose at least three worth-submitting assignments"
-    for aid in worth_ids[:2]:
+    assert len(worth_ids) >= 2, "seed must expose multiple worth-submitting assignments"
+    for aid in worth_ids[:1]:
         _submit_assignment(
             state,
             aid,

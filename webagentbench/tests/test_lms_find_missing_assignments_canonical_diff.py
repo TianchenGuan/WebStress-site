@@ -55,7 +55,8 @@ def _target_assignment_id(targets: dict[str, str]) -> str:
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup_session()
 
-    _submit_assignment(state, _target_assignment_id(targets), "late_recovery.pdf", status="late")
+    for aid in _recoverable_ids(targets):
+        _submit_assignment(state, aid, "late_recovery.pdf", status="late")
 
     task = get_task("lms_find_missing_assignments")
     agent_diff = compute_diff(initial, state)

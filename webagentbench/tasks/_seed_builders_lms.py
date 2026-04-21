@@ -142,7 +142,7 @@ _ASSIGNMENT_TITLES: dict[str, list[str]] = {
     ],
     "project": [
         "Course Project: Phase {n}",
-        "Group Project Milestone {n}",
+        "Project Milestone {n}",
         "Final Project Submission",
     ],
     "quiz": [
@@ -153,7 +153,7 @@ _ASSIGNMENT_TITLES: dict[str, list[str]] = {
     "exam": [
         "Midterm Exam",
         "Final Exam",
-        "Midterm Retake",
+        "Final Exam Retake",
     ],
     "peer_review": [
         "Peer Review: {topic}",
@@ -523,9 +523,16 @@ def _build_enrollment_set(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[s
 # ---------------------------------------------------------------------------
 
 def _pick_assignment_title(
-    rng: random.Random, atype: str, n: int, topic: str,
+    rng: random.Random, atype: str, n: int, topic: str, weight_category: str,
 ) -> str:
     """Deterministically pick a title template and interpolate."""
+    if atype == "exam":
+        if weight_category == "midterm":
+            return "Midterm Exam"
+        if weight_category == "final":
+            return "Final Exam"
+    if atype == "project":
+        return f"Project {n}: {topic}"
     templates = _ASSIGNMENT_TITLES.get(atype, _ASSIGNMENT_TITLES["homework"])
     tmpl = rng.choice(templates)
     return tmpl.replace("{n}", str(n)).replace("{topic}", topic)
@@ -605,7 +612,7 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             cat = categories[(n - 1) % len(categories)]
             atype = _cat_to_type.get(cat, "homework")
             topic = ctx.rng.choice(_TOPICS)
-            title = _pick_assignment_title(ctx.rng, atype, n, topic)
+            title = _pick_assignment_title(ctx.rng, atype, n, topic, cat)
 
             points_possible = Decimal(str(ctx.rng.choice([10, 20, 25, 50, 100])))
             due_offset_days = ctx.rng.randint(-30, 30)
@@ -898,6 +905,38 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             if assignment["id"] not in missing_ids:
                 missing_ids.append(assignment["id"])
 
+    def _is_recoverable_missing(assignment: dict[str, Any]) -> bool:
+        if assignment["submission_status"] != "not_submitted":
+            return False
+        course = courses_by_id.get(assignment["course_id"])
+        if not course:
+            return False
+        due_at_raw = assignment["due_at"]
+        due_dt = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else due_at_raw
+        if due_dt >= ctx.now:
+            return False
+        days_late = (ctx.now - due_dt).days
+        return days_late <= int(course["syllabus"]["late_policy"]["max_late_days"])
+
+    if missing_count > 0 and not any(_is_recoverable_missing(a) for a in all_assignments):
+        for assignment in reversed(all_assignments):
+            if assignment["submission_status"] != "not_submitted":
+                continue
+            course = courses_by_id.get(assignment["course_id"])
+            if not course:
+                continue
+            max_late_days = int(course["syllabus"]["late_policy"]["max_late_days"])
+            recoverable_days_late = max(1, min(max_late_days, 1))
+            assignment["due_at"] = (ctx.now - timedelta(days=recoverable_days_late)).isoformat()
+            assignment["score"] = None
+            assignment["feedback"] = None
+            assignment["submitted_at"] = None
+            assignment["file_name"] = None
+            assignment["attempt_count"] = 0
+            if assignment["id"] not in missing_ids:
+                missing_ids.append(assignment["id"])
+            break
+
     # Select target and decoy assignments
     target_assignment_id: str | None = None
     target_assignment_title: str = ""
@@ -1063,9 +1102,11 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 unsubmitted_project_ids_list.append(a["id"])
                 break
 
-    # ── next_deadline_assignment_id: earliest upcoming due_at ──
+    # ── next_deadline_assignment_id: earliest upcoming due_at (fallback: nearest overdue) ──
     next_deadline_assignment_id = ""
     next_deadline_dt: datetime | None = None
+    fallback_deadline_dt: datetime | None = None
+    fallback_deadline_id = ""
     for a in all_assignments:
         if a["submission_status"] == "not_submitted":
             due_at_raw = a["due_at"]
@@ -1074,6 +1115,12 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 if next_deadline_dt is None or due_dt < next_deadline_dt:
                     next_deadline_dt = due_dt
                     next_deadline_assignment_id = a["id"]
+            elif fallback_deadline_dt is None or due_dt > fallback_deadline_dt:
+                fallback_deadline_dt = due_dt
+                fallback_deadline_id = a["id"]
+
+    if not next_deadline_assignment_id:
+        next_deadline_assignment_id = fallback_deadline_id
 
     # ── allows_late_submit: whether target course allows > 3 late days ──
     allows_late_submit = "false"
@@ -1327,15 +1374,20 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             status="not_submitted",
         )
     if not target_quiz_assignment_id and quiz_ids:
-        target_quiz_assignment_id = quiz_ids[0]
-        quiz_assignment = next((a for a in all_assignments if a["id"] == target_quiz_assignment_id), None)
-        if quiz_assignment is not None:
-            quiz_assignment["submission_status"] = "not_submitted"
-            quiz_assignment["score"] = None
-            quiz_assignment["feedback"] = None
-            quiz_assignment["submitted_at"] = None
-            quiz_assignment["file_name"] = None
-            quiz_assignment["attempt_count"] = 0
+        # Skip quizzes already reserved as resubmit targets — resetting them to
+        # not_submitted would silently invalidate the resubmit_assignment_ids
+        # output consumed by lms_resubmit_after_feedback and siblings.
+        reset_candidate_ids = [qid for qid in quiz_ids if qid not in resubmit_ids]
+        if reset_candidate_ids:
+            target_quiz_assignment_id = reset_candidate_ids[0]
+            quiz_assignment = next((a for a in all_assignments if a["id"] == target_quiz_assignment_id), None)
+            if quiz_assignment is not None:
+                quiz_assignment["submission_status"] = "not_submitted"
+                quiz_assignment["score"] = None
+                quiz_assignment["feedback"] = None
+                quiz_assignment["submitted_at"] = None
+                quiz_assignment["file_name"] = None
+                quiz_assignment["attempt_count"] = 0
 
     target_project_assignment_id = _first_assignment_id(
         assignment_type="project",
@@ -1348,15 +1400,18 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             status="not_submitted",
         )
     if not target_project_assignment_id and project_ids:
-        target_project_assignment_id = project_ids[0]
-        project_assignment = next((a for a in all_assignments if a["id"] == target_project_assignment_id), None)
-        if project_assignment is not None:
-            project_assignment["submission_status"] = "not_submitted"
-            project_assignment["score"] = None
-            project_assignment["feedback"] = None
-            project_assignment["submitted_at"] = None
-            project_assignment["file_name"] = None
-            project_assignment["attempt_count"] = 0
+        # Skip projects already reserved as resubmit targets (see quiz case above).
+        reset_candidate_ids = [pid for pid in project_ids if pid not in resubmit_ids]
+        if reset_candidate_ids:
+            target_project_assignment_id = reset_candidate_ids[0]
+            project_assignment = next((a for a in all_assignments if a["id"] == target_project_assignment_id), None)
+            if project_assignment is not None:
+                project_assignment["submission_status"] = "not_submitted"
+                project_assignment["score"] = None
+                project_assignment["feedback"] = None
+                project_assignment["submitted_at"] = None
+                project_assignment["file_name"] = None
+                project_assignment["attempt_count"] = 0
 
     target_essay_assignment_id = _first_assignment_id(
         assignment_type="essay",
@@ -1663,6 +1718,37 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             return (ws / gw).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return Decimal("0")
 
+    def _recompute_dropped_grade_ids() -> list[str]:
+        recomputed: list[str] = []
+        for g in ctx.base["grades"]:
+            g["is_dropped"] = False
+        for c in courses:
+            course_id = c["id"]
+            for cat_name, cat_policy_raw in c["syllabus"]["grading_policy"].items():
+                drop_lowest = cat_policy_raw["drop_lowest"] if isinstance(cat_policy_raw, dict) else cat_policy_raw.drop_lowest
+                if drop_lowest == 0:
+                    continue
+                cat_grades = [
+                    g for g in ctx.base["grades"]
+                    if g["course_id"] == course_id
+                    and g["weight_category"] == cat_name
+                    and g["score"] is not None
+                ]
+                if not cat_grades:
+                    continue
+                effective_drop = drop_lowest
+                if len(cat_grades) <= effective_drop:
+                    effective_drop = max(0, len(cat_grades) - 1)
+                sorted_grades = sorted(
+                    cat_grades,
+                    key=lambda g: Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))
+                    if Decimal(str(g["points_possible"])) != 0 else Decimal("0"),
+                )
+                for g in sorted_grades[:effective_drop]:
+                    g["is_dropped"] = True
+                    recomputed.append(g["id"])
+        return recomputed
+
     def _letter(score: Decimal) -> str:
         if score >= 93: return "A"
         if score >= 90: return "A-"
@@ -1785,8 +1871,8 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             if _letter(curved_score) != original_letter:
                 curve_changes_letter = "true"
 
-    # ── min_score_achievable: whether minimum final score for B <= 100 ──
-    min_score_achievable = "true" if minimum_final_score_for_b and minimum_final_score_for_b != "" else "false"
+    # ── min_score_achievable: recomputed below after final exam target selection ──
+    min_score_achievable = "false"
 
     # ── final_exam_assignment_id: ID of a final exam assignment (single) ──
     # Prefer not_submitted so the task can submit study_plan.pdf.
@@ -1834,6 +1920,58 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                     g for g in ctx.base["grades"]
                     if g["assignment_id"] != final_exam_assignment_id
                 ]
+        if fa:
+            current_weighted_scores[fa["course_id"]] = str(_weighted_score(fa["course_id"]))
+
+    def _minimum_final_exam_score_for_b(assignment_id: str) -> str:
+        final_assignment = next((a for a in assignments if a["id"] == assignment_id), None)
+        if final_assignment is None:
+            return ""
+        course = next((c for c in courses if c["id"] == final_assignment["course_id"]), None)
+        if course is None:
+            return ""
+
+        total_weight = Decimal("0")
+        fixed_part = Decimal("0")
+        x_coefficient = Decimal("0")
+        for cat_name, cat_policy_raw in course["syllabus"]["grading_policy"].items():
+            weight = Decimal(str(cat_policy_raw["weight"] if isinstance(cat_policy_raw, dict) else cat_policy_raw.weight))
+            active = [
+                g for g in ctx.base["grades"]
+                if g["course_id"] == final_assignment["course_id"]
+                and g["weight_category"] == cat_name
+                and g["assignment_id"] != assignment_id
+                and g["score"] is not None
+                and not g["is_dropped"]
+            ]
+            includes_final = cat_name == final_assignment["weight_category"]
+            n = len(active) + (1 if includes_final else 0)
+            if n == 0:
+                continue
+            score_sum = Decimal("0")
+            for g in active:
+                effective = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
+                score_sum += (effective / Decimal(str(g["points_possible"]))) * Decimal("100")
+            total_weight += weight
+            denom = Decimal(str(n))
+            fixed_part += weight * score_sum / denom
+            if includes_final:
+                x_coefficient += weight / denom
+
+        if total_weight == 0 or x_coefficient == 0:
+            return ""
+        needed = (Decimal("80") * total_weight - fixed_part) / x_coefficient
+        if needed > Decimal("100"):
+            return ""
+        if needed < Decimal("0"):
+            needed = Decimal("0")
+        return str(needed.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+    minimum_final_score_for_b = (
+        _minimum_final_exam_score_for_b(final_exam_assignment_id)
+        if final_exam_assignment_id else ""
+    )
+    min_score_achievable = "true" if minimum_final_score_for_b else "false"
 
     # ── final_exam_assignment_ids: per-course final exam assignment IDs ──
     final_exam_assignment_ids_list: list[str] = []
@@ -1869,11 +2007,11 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             if g["course_id"] == _hw_target_cid
             and g["weight_category"] == "homework"
             and g.get("score") is not None
-            and not g.get("is_dropped", False)
         ]
         if _hw_grades:
+            _hw_candidates = [g for g in _hw_grades if g.get("is_dropped", False)] or _hw_grades
             _hw_lowest = min(
-                _hw_grades,
+                _hw_candidates,
                 key=lambda g: Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))
                 if Decimal(str(g["points_possible"])) != 0 else Decimal("0"),
             )
@@ -2232,6 +2370,34 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
             reverse=True,
         )
         latest_announcement_id = sorted_ann[0]["id"]
+
+    # Late seed adjustments can change grade scores after the first drop-lowest
+    # pass. Recompute stored flags and derived targets once more so the UI,
+    # task target, and LMSState.dropped_grades_for_category() agree.
+    dropped_grade_ids = _recompute_dropped_grade_ids()
+    current_weighted_scores = {
+        c["id"]: str(_weighted_score(c["id"]))
+        for c in courses
+        if _weighted_score(c["id"]) != Decimal("0")
+    }
+    if final_exam_assignment_id:
+        minimum_final_score_for_b = _minimum_final_exam_score_for_b(final_exam_assignment_id)
+        min_score_achievable = "true" if minimum_final_score_for_b else "false"
+    if _hw_target_cid:
+        _hw_grades = [
+            g for g in ctx.base["grades"]
+            if g["course_id"] == _hw_target_cid
+            and g["weight_category"] == "homework"
+            and g.get("score") is not None
+        ]
+        if _hw_grades:
+            _hw_candidates = [g for g in _hw_grades if g.get("is_dropped", False)] or _hw_grades
+            _hw_lowest = min(
+                _hw_candidates,
+                key=lambda g: Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))
+                if Decimal(str(g["points_possible"])) != 0 else Decimal("0"),
+            )
+            lowest_hw_id = _hw_lowest["assignment_id"]
 
     return {
         "grade_ids": grade_ids,

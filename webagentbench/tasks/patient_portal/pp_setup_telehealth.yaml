@@ -2,11 +2,11 @@ task_id: pp_setup_telehealth
 env_id: patient_portal
 title: Convert to Telehealth
 instruction_template: Your next upcoming in-person appointment needs to be converted
-  to telehealth. Cancel the current in-person appointment and reschedule it as a telehealth
-  visit with the same provider at the closest available time.
+  to telehealth. Use the Reschedule option on that appointment to change its type to
+  telehealth and move it to the provider's earliest available slot. Keep the same provider.
 difficulty: medium
 time_limit_seconds: 200
-expected_steps: 10
+expected_steps: 5
 primary_primitives:
 - backtracking
 start_path: /appointments
@@ -54,19 +54,12 @@ seed:
 canonical_diff:
   update:
     - entity: Appointment
-      desc: "Cancel the target upcoming in-person appointment"
+      desc: "Reschedule the target upcoming appointment in-place to telehealth at the provider's earliest available slot"
       where:
         id: {expr: "x == target['next_appointment_id']"}
       changes:
-        status: {eq: "cancelled"}
-  create:
-    - entity: Appointment
-      desc: "Schedule a replacement telehealth visit with the same provider at the earliest available slot"
-      properties:
-        status: {eq: "scheduled"}
         type: {eq: "telehealth"}
-        provider_id:
-          expr: "x == initial.get_appointment(target['next_appointment_id']).provider_id"
+        status: {eq: "scheduled"}
         datetime:
           expr: >
             x == min(
@@ -116,21 +109,16 @@ canonical_diff:
 eval:
   source: server_state
   checks:
-  - expr: state.get_appointment('{target.next_appointment_id}') is not None and state.get_appointment('{target.next_appointment_id}').status
-      == 'cancelled'
-    desc: The next upcoming in-person appointment was cancelled
-  - expr: "any(a.type == 'telehealth'\n    and a.status == 'scheduled'\n    and a.id\
-      \ not in {target.upcoming_ids}\n    and a.provider_id == state._initial_snapshot['appointments']['{target.next_appointment_id}']['provider_id']\n\
-      \    for a in state.appointments)"
-    desc: A new telehealth appointment was scheduled with the same provider
-  - expr: "len([a for a in state.appointments\n     if a.type == 'telehealth'\n  \
-      \   and a.status == 'scheduled'\n     and a.id not in {target.upcoming_ids}])\
-      \ >= 1"
-    desc: At least one new telehealth appointment exists
+  - expr: "state.get_appointment('{target.next_appointment_id}') is not None and state.get_appointment('{target.next_appointment_id}').type == 'telehealth' and state.get_appointment('{target.next_appointment_id}').status == 'scheduled'"
+    desc: The target in-person appointment was rescheduled to telehealth (same appointment, type changed)
+  - expr: "state.get_appointment('{target.next_appointment_id}').provider_id == state._initial_snapshot['appointments']['{target.next_appointment_id}']['provider_id']"
+    desc: The rescheduled appointment kept the same provider
+  - expr: "state.get_appointment('{target.next_appointment_id}').datetime.isoformat() == min(slot['datetime'] for slot in state._initial_snapshot['providers'][state._initial_snapshot['appointments']['{target.next_appointment_id}']['provider_id']]['available_slots'])"
+    desc: The rescheduled appointment uses the provider's earliest originally-available slot
   negative_checks:
-  - expr: "not any(a.type == 'in-person'\n        and a.status == 'scheduled'\n  \
-      \      and a.id not in {target.upcoming_ids}\n        for a in state.appointments)"
-    desc: Agent did not schedule another in-person appointment
+  - expr: "len([a for a in state.appointments\n      if a.id not in state._initial_snapshot.get('appointments',\
+      \ {})]) == 0"
+    desc: Agent did not create an additional new appointment (use Reschedule, not Cancel+Rebook)
     penalty: 0.2
   - expr: "not any(a.id in {target.upcoming_ids}\n        and a.id != '{target.next_appointment_id}'\n\
       \        and a.status == 'cancelled'\n        for a in state.appointments)"

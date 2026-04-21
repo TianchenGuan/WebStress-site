@@ -1,9 +1,9 @@
 task_id: lms_complete_mixed_module
 env_id: lms
 title: Complete Module with Mixed Content Types
-instruction_template: In {target.course_code}, complete the next available module
-  which contains mixed content types (readings, videos, and linked assignments). Complete
-  every content item in order, then mark the module as done.
+instruction_template: In {target.course_code}, complete the next available module,
+  which contains a mix of readings and videos. Complete every content item in order,
+  then mark the module as done.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 18
@@ -66,6 +66,7 @@ canonical_diff:
     - collection: state.modules
       filter: "a.id != target['next_available_module_id']"
       preserve: ALL
+      comprehensive: true
       weight: 1.0
     - collection: state.courses
       preserve: ALL

@@ -2,11 +2,14 @@ task_id: pp_multi_referral_chain
 env_id: patient_portal
 title: Multi-Referral Chain Management
 instruction_template: 'Manage a referral chain: your PCP referred you to a cardiologist,
-  and the cardiologist will then refer you to a cardiac surgeon. Complete the following
-  in order: 1) Verify the cardiology referral is approved and pre-authorization is
-  in place, 2) Schedule the cardiologist appointment, 3) After the cardiologist visit
-  is scheduled, verify the cardiac surgery referral and pre-authorization, 4) Schedule
-  the cardiac surgeon appointment after the cardiologist appointment date.'
+  and a separate PCP referral has also been approved for orthopedics. Complete the
+  following in order: 1) Verify the cardiology referral is approved and pre-authorization
+  is in place, 2) Schedule a new cardiology appointment linked to that referral using
+  reason "Cardiology consultation", 3) Verify the orthopedics referral is approved,
+  4) Schedule a new orthopedics appointment linked to that referral using reason "Orthopedic
+  evaluation" with a datetime that is after the cardiology appointment datetime. Do
+  not send messages, do not modify any referral, and do not reuse any pre-existing
+  appointment to satisfy either step.'
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 40
@@ -36,6 +39,7 @@ seed:
       must_include:
       - pcp
       - cardiology
+      - orthopedics
     outputs:
     - provider_ids
     - providers_by_specialty
@@ -51,6 +55,7 @@ seed:
       with_prior_auth: true
       must_have_specialties:
       - cardiology
+      - orthopedics
     outputs:
     - approved_ref_ids
     - pending_ref_ids
@@ -72,35 +77,47 @@ seed:
   targets:
     pcp_id: '{output.pcp_id}'
     cardio_provider_ids: '{output.providers_by_specialty.cardiology}'
+    ortho_provider_ids: '{output.providers_by_specialty.orthopedics}'
     approved_ref_ids: '{output.approved_ref_ids}'
     prior_auth_ref_id: '{output.prior_auth_ref_id}'
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
   create:
     - entity: Appointment
-      desc: "Schedule the cardiologist appointment linked to the approved cardiology referral (prior-auth approved)."
+      desc: "Schedule the cardiology appointment linked to the approved cardiology referral (prior-auth approved)."
       properties:
         status: {eq: "scheduled"}
         provider_id:
           expr: "x in target['cardio_provider_ids']"
+        reason: {eq: "Cardiology consultation"}
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'cardiology' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
         datetime: {any: true}
         type: {any: true}
-        reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule a second downstream appointment for the cardiac-surgery follow-up. The seed does not contain a cardiac-surgeon provider or a cardiac-surgery referral (that referral would come from the cardiologist after the visit), so this second appointment is only required to be a new scheduled appointment distinct from the cardiology booking. Any new scheduled appointment (PCP follow-up, or a second cardiology slot if approved) satisfies the instruction's 'schedule the cardiac surgeon appointment' step within the seed-permissible world."
+      desc: "Schedule the orthopedics appointment linked to the approved orthopedics referral, with a datetime strictly after the newly scheduled cardiology appointment."
       properties:
         status: {eq: "scheduled"}
-        provider_id: {any: true}
-        linked_referral_id: {any: true}
-        datetime: {any: true}
+        provider_id:
+          expr: "x in target['ortho_provider_ids']"
+        reason: {eq: "Orthopedic evaluation"}
+        linked_referral_id:
+          expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'orthopedics' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
+        datetime:
+          expr: >
+            any(
+              a.status == 'scheduled'
+              and a.provider_id in target['cardio_provider_ids']
+              and a.reason == 'Cardiology consultation'
+              and a.id not in {ap.id for ap in initial.appointments}
+              and x > a.datetime
+              for a in state.appointments
+            )
         type: {any: true}
-        reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
@@ -147,11 +164,13 @@ eval:
   source: server_state
   checks:
   - expr: "any(a.provider_id in {target.cardio_provider_ids}\n    and a.status ==\
-      \ 'scheduled'\n    and a.id not in {target.upcoming_ids}\n    for a in state.appointments)"
-    desc: Cardiologist appointment was scheduled
-  - expr: "len([a for a in state.appointments\n     if a.status == 'scheduled'\n \
-      \    and a.id not in {target.upcoming_ids}]) >= 2"
-    desc: At least two new appointments were scheduled
+      \ 'scheduled'\n    and a.reason == 'Cardiology consultation'\n    and a.id not\
+      \ in {target.upcoming_ids}\n    for a in state.appointments)"
+    desc: New cardiology appointment was scheduled with the required reason
+  - expr: "any(a.provider_id in {target.ortho_provider_ids}\n    and a.status == 'scheduled'\n\
+      \    and a.reason == 'Orthopedic evaluation'\n    and a.id not in {target.upcoming_ids}\n\
+      \    for a in state.appointments)"
+    desc: New orthopedics appointment was scheduled with the required reason
   negative_checks:
   - expr: "all(\n  state.get_appointment(aid) is not None\n  and state.get_appointment(aid).status\
       \ != 'cancelled'\n  for aid in {target.upcoming_ids}\n)"

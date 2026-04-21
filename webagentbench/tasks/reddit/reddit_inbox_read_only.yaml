@@ -1,10 +1,8 @@
 task_id: reddit_inbox_read_only
 env_id: reddit
-title: Read Every Inbox Message Without Replying
-instruction_template: 'Open and read every message in your inbox one by one (do not
-  use mark-all-read — you need to actually read each). Do NOT reply to any message,
-  do NOT delete any message, and do NOT block any sender. When finished, every inbox
-  message should be flagged as read.
+title: Read Every Inbox Message
+instruction_template: 'Open each message in your inbox and mark it as read.
+  When finished, every inbox message should be flagged as read.
 
   '
 difficulty: easy
@@ -16,14 +14,15 @@ secondary_primitives:
 - verification
 start_path: /messages
 seed:
-  distractors: 1
+  distractors: 0
   actors: {}
   steps:
   - use: target_message
     params:
-      from_user: ModTeam
-      subject: Welcome to the community
-      body: Thanks for joining! Please review our rules in the sidebar before posting.
+      from_user: reddit
+      subject: Welcome to Reddit
+      body: Thanks for joining. Review the site-wide rules in your profile sidebar
+        whenever you have a minute. No reply needed.
       is_read: false
     outputs:
     - msg1_id
@@ -31,9 +30,10 @@ seed:
     - msg1_from
   - use: target_message
     params:
-      from_user: TechHelper
-      subject: 'Re: Build help request'
-      body: I'd recommend the Ryzen 7 5800X3D for your use case.
+      from_user: reddit
+      subject: Your weekly activity digest
+      body: Here is a summary of your saved posts and karma movement from the last
+        seven days. This message is informational only.
       is_read: false
     outputs:
     - msg2_id
@@ -41,10 +41,10 @@ seed:
     - msg2_from
   - use: target_message
     params:
-      from_user: StudyBuddy
-      subject: Study group meetup this Saturday
-      body: Hey! We're meeting at the library at 2pm. Bring your notes from chapter
-        7.
+      from_user: reddit
+      subject: Profile privacy tips
+      body: A reminder of the privacy controls available under Settings. No action
+        is required on this message.
       is_read: false
     outputs:
     - msg3_id
@@ -54,41 +54,23 @@ seed:
     msg1_id: '{output.msg1_id}'
     msg2_id: '{output.msg2_id}'
     msg3_id: '{output.msg3_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(m.is_read for m in state.messages)
-    desc: All inbox messages are marked as read
-  - expr: 'sum(1 for e in state.audit_log if e.action == ''reddit.message.read'') >=
-      3
 
-      '
-    desc: Agent read at least three messages individually (not via mark-all-read)
-  - expr: 'any(m.id == ''{target.msg1_id}'' for m in state.messages)
-
-      '
-    desc: Message 1 is still present (not deleted)
-  - expr: 'any(m.id == ''{target.msg2_id}'' for m in state.messages)
-
-      '
-    desc: Message 2 is still present
-  - expr: 'any(m.id == ''{target.msg3_id}'' for m in state.messages)
-
-      '
-    desc: Message 3 is still present
-  negative_checks:
-  - expr: 'not any(e.action == ''reddit.message.send'' for e in state.audit_log)
-
-      '
-    desc: No replies or new messages sent
-    penalty: 0.4
-  - expr: 'not any(e.action == ''reddit.message.delete'' for e in state.audit_log)
-
-      '
-    desc: No messages deleted
-    penalty: 0.4
-  - expr: 'not any(e.action == ''reddit.user.block'' for e in state.audit_log)
-
-      '
-    desc: No senders blocked
-    penalty: 0.2
+canonical_diff:
+  update:
+    - entity: Message
+      collection: messages
+      bijection:
+        over: "[m.id for m in initial.messages]"
+        variable: v
+      desc: "Mark every inbox message as read"
+      where:
+        id: {expr: "x == v"}
+      changes:
+        is_read: {eq: true}
+  invariant:
+    - collection: state.sent_messages
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not send any replies or new messages"
+      ref: invariant[0]
+      severity: high

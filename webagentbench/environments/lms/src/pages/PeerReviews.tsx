@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLmsLayout } from "../context";
 import type { PeerReview } from "../types";
+
+function rubricKey(criterion: string): string {
+  return criterion.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function normaliseScores(scores: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(Object.entries(scores).map(([key, value]) => [rubricKey(key), value]));
+}
 
 export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string } = {}) {
   const { api, notify } = useLmsLayout();
@@ -11,6 +19,7 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
   const [comments, setComments] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const reviewFormRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +61,7 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
     const seedScores = Object.keys(selectedReview.rubric_scores).length > 0
       ? selectedReview.rubric_scores
       : selectedReview.previous_rubric_scores;
-    setScores(seedScores);
+    setScores(normaliseScores(seedScores));
     setComments(selectedReview.comments || selectedReview.previous_comments || "");
   }, [selectedReview]);
 
@@ -60,9 +69,22 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
 
   const handleSubmit = async () => {
     if (!selectedReview) return;
+    const submittedScores = { ...scores };
+    reviewFormRef.current?.querySelectorAll<HTMLInputElement>("input[data-rubric-key]").forEach((input) => {
+      const key = input.dataset.rubricKey;
+      const value = Number.parseInt(input.value, 10);
+      if (key && !Number.isNaN(value)) {
+        submittedScores[key] = value;
+      }
+    });
+    let submittedComments = comments;
+    const commentsInput = reviewFormRef.current?.querySelector<HTMLTextAreaElement>("textarea[data-peer-review-comments]");
+    if (commentsInput && commentsInput.value.trim().length > 0) {
+      submittedComments = commentsInput.value;
+    }
     setSaving(true);
     try {
-      const updated = await api.submitPeerReview(selectedReview.id, scores, comments);
+      const updated = await api.submitPeerReview(selectedReview.id, submittedScores, submittedComments);
       setReviews((current) => current.map((review) => review.id === updated.id ? updated : review));
       notify("Peer Review Submitted", `${updated.reviewee_name}'s review was submitted.`);
     } catch {
@@ -113,7 +135,7 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
           </section>
 
           {selectedReview && (
-            <section aria-label={`Peer review details for ${selectedReview.reviewee_name}`}>
+            <section ref={reviewFormRef} aria-label={`Peer review details for ${selectedReview.reviewee_name}`}>
               <div className="lms-card">
                 <h2 className="lms-card__title">{selectedReview.submission_title}</h2>
                 <p><strong>Reviewee:</strong> {selectedReview.reviewee_name}</p>
@@ -132,30 +154,34 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
                     </tr>
                   </thead>
                   <tbody>
-                    {criteria.map((item) => (
-                      <tr key={item.criterion}>
-                        <td>{item.criterion}</td>
-                        <td>{item.max_points}</td>
-                        <td>{item.description}</td>
-                        <td>
-                          <input
-                            type="number"
-                            min={0}
-                            max={Math.max(5, Math.ceil(parseFloat(item.max_points)))}
-                            className="lms-input"
-                            value={scores[item.criterion] ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setScores((current) => ({
-                                ...current,
-                                [item.criterion]: value === "" ? 0 : Number.parseInt(value, 10),
-                              }));
-                            }}
-                            aria-label={`Score for ${item.criterion}`}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {criteria.map((item) => {
+                      const key = rubricKey(item.criterion);
+                      return (
+                        <tr key={item.criterion}>
+                          <td>{item.criterion}</td>
+                          <td>5</td>
+                          <td>{item.description}</td>
+                          <td>
+                            <input
+                              type="number"
+                              min={1}
+                              max={5}
+                              className="lms-input"
+                              value={scores[key] ?? ""}
+                              data-rubric-key={key}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setScores((current) => ({
+                                  ...current,
+                                  [key]: value === "" ? 0 : Number.parseInt(value, 10),
+                                }));
+                              }}
+                              aria-label={`Score for ${item.criterion}`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -184,6 +210,7 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
                   className="lms-input"
                   style={{ width: "100%", minHeight: "140px" }}
                   value={comments}
+                  data-peer-review-comments
                   onChange={(e) => setComments(e.target.value)}
                   aria-label="Peer review comments"
                 />
@@ -192,7 +219,7 @@ export function PeerReviewsPage({ initialReviewId }: { initialReviewId?: string 
                   className="lms-btn lms-btn--primary"
                   style={{ marginTop: "0.75rem" }}
                   onClick={handleSubmit}
-                  disabled={saving || criteria.some((item) => scores[item.criterion] === undefined) || comments.trim().length === 0}
+                  disabled={saving}
                   aria-label="Submit peer review"
                 >
                   {saving ? "Submitting..." : "Submit Review"}

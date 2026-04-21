@@ -76,7 +76,7 @@ def test_correct_trajectory_passes():
 
 
 def test_correct_no_discrepancy_branch_passes():
-    targets, initial, state = _setup_session(seed=4)
+    targets, initial, state = _setup_session(seed=2)
 
     _mark_read(state, targets["latest_announcement_id"])
 
@@ -94,7 +94,7 @@ def test_no_mutation_fails():
 
 
 def test_wrong_branch_fails():
-    targets, initial, state = _setup_session(seed=4)
+    targets, initial, state = _setup_session(seed=2)
 
     _resubmit_assignment(
         state,

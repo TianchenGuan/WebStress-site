@@ -131,11 +131,10 @@ def test_wrong_file_name_fails():
 def test_wrong_attempt_count_fails():
     sm, sid, targets, initial, state = _setup_session()
 
-    recoverable_ids = _recoverable_late_ids(targets)
+    recoverable_ids = _recoverable_missing_ids(targets) + _recoverable_late_ids(targets)
+    assert recoverable_ids, "seed must expose at least one recoverable assignment"
     _apply_recovery_submission(state, initial, recoverable_ids[0], attempt_delta=2)
     for assignment_id in recoverable_ids[1:]:
-        _apply_recovery_submission(state, initial, assignment_id)
-    for assignment_id in _recoverable_missing_ids(targets):
         _apply_recovery_submission(state, initial, assignment_id)
     _send_advisor_message(state, to=targets["advisor_name"])
 

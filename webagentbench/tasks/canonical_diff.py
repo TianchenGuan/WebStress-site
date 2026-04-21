@@ -12,9 +12,9 @@ All models use ``ConfigDict(extra="forbid")`` so unknown YAML keys raise
 ``ValidationError`` at load time. Predicate maps (``properties``, ``where``,
 ``changes``) are validated against an allowlist of predicate keys.
 
-The trust model for the ``{expr: "..."}`` predicate matches the existing
-``webagentbench/evaluator.py`` restricted-globals pattern — no new security
-surface is introduced here.
+The trust model for the ``{expr: "..."}`` predicate is implemented in
+``webagentbench/eval_core/safe_eval.py`` (AST validation + restricted builtins
++ forbidden name/dunder checks) — no new security surface is introduced here.
 """
 
 from __future__ import annotations
@@ -215,12 +215,21 @@ class InvariantEntry(BaseModel):
 
     An invariant asserts that a collection is preserved — nothing in the target
     region (optionally narrowed by ``filter``) should have been mutated.
+
+    When ``filter`` is set and ``comprehensive`` is True, the filter is treated
+    as the author's complete opinion on the collection — entries NOT matching
+    the filter are considered explicitly allowed to change (server-side
+    cascades, allowed over-production) and are skipped by the collateral
+    sweep. Without ``comprehensive``, the sweep still flags non-matching
+    entries as "unaccounted," forcing the author to list every allowed
+    side-effect as a positive update.
     """
 
     collection: str
     filter: str | None = None
     preserve: Literal["ALL"] = "ALL"
     weight: float = Field(default=1.0, ge=0.0)
+    comprehensive: bool = False
 
     model_config = ConfigDict(extra="forbid")
 

@@ -70,11 +70,11 @@ export function createLmsApi(request: RequestFn) {
     getModule: (moduleId: string) =>
       request<{ module: Module }>(`modules/${moduleId}`).then((r) => r.module),
     completeModuleItem: (moduleId: string, itemIndex: number) =>
-      request<{ module: Module }>(`modules/${moduleId}/items/${itemIndex}/complete`, { method: "POST" }).then(
-        (r) => r.module,
+      request<{ module: Module; modules?: Module[] }>(`modules/${moduleId}/items/${itemIndex}/complete`, { method: "POST" }).then(
+        (r) => r,
       ),
     completeModule: (moduleId: string) =>
-      request<{ module: Module }>(`modules/${moduleId}/complete`, { method: "POST" }).then((r) => r.module),
+      request<{ module: Module; modules?: Module[] }>(`modules/${moduleId}/complete`, { method: "POST" }).then((r) => r),
 
     /* Discussions */
     listDiscussions: (courseId: string) =>

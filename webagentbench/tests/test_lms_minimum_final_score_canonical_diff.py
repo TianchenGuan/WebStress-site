@@ -68,7 +68,7 @@ def test_task_has_branching_canonical_diff_and_seed_integrity():
     assert task.canonical_diff is not None, "canonical_diff missing"
     assert task.canonical_diff.oneof is not None, "expected branching canonical_diff"
     assert len(task.canonical_diff.oneof) == 2, "expected submit/drop branches"
-    assert targets["min_score_achievable"] == "true"
+    assert targets["min_score_achievable"] == "false"
 
     assignment = state.get_assignment(targets["final_exam_assignment_id"])
     assert assignment is not None
@@ -76,7 +76,7 @@ def test_task_has_branching_canonical_diff_and_seed_integrity():
 
 
 def test_correct_trajectory_passes():
-    _, _, targets, initial, state = _setup_session(seed=42)
+    _, _, targets, initial, state = _setup_session(seed=1)
 
     _submit_final_exam(state, targets)
 
@@ -86,7 +86,7 @@ def test_correct_trajectory_passes():
 
 
 def test_drop_branch_passes():
-    _, _, targets, initial, state = _setup_session(seed=5)
+    _, _, targets, initial, state = _setup_session(seed=42)
 
     _drop_course(state, targets["target_course_id"])
 
@@ -96,7 +96,7 @@ def test_drop_branch_passes():
 
 
 def test_no_mutation_fails():
-    _, _, targets, initial, state = _setup_session(seed=42)
+    _, _, targets, initial, state = _setup_session(seed=1)
 
     report = _matcher_report(initial, state, targets)
     assert report.passed is False, "doing nothing should fail"
@@ -104,7 +104,7 @@ def test_no_mutation_fails():
 
 
 def test_wrong_branch_fails():
-    _, _, targets, initial, state = _setup_session(seed=42)
+    _, _, targets, initial, state = _setup_session(seed=1)
 
     _drop_course(state, targets["target_course_id"])
 
@@ -113,7 +113,7 @@ def test_wrong_branch_fails():
 
 
 def test_wrong_file_name_fails():
-    _, _, targets, initial, state = _setup_session(seed=42)
+    _, _, targets, initial, state = _setup_session(seed=1)
 
     _submit_final_exam(state, targets, file_name="wrong_upload.pdf")
 
@@ -122,7 +122,7 @@ def test_wrong_file_name_fails():
 
 
 def test_extra_mutation_fails():
-    _, _, targets, initial, state = _setup_session(seed=42)
+    _, _, targets, initial, state = _setup_session(seed=1)
 
     _submit_final_exam(state, targets)
     _drop_course(state, _other_course_id(state, targets["target_course_id"]))

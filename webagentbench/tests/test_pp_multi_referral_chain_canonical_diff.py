@@ -1,25 +1,26 @@
 """End-to-end tests for pp_multi_referral_chain canonical_diff.
 
 Task: verify the cardiology referral (approved + pre-auth), schedule a
-cardiologist appointment, then verify & schedule a cardiac-surgeon follow-up
-appointment. The seed does NOT include a cardiac_surgery provider/referral
-(the task is phrased as a chain the agent must set up but the downstream
-surgery referral would come from the cardiologist later in a real flow).
-Therefore the canonical_diff asserts:
+cardiology appointment with reason "Cardiology consultation", verify the
+approved orthopedics referral, then schedule an orthopedics appointment with
+reason "Orthopedic evaluation" whose datetime is strictly after the cardiology
+appointment. Both specialties are guaranteed approved in the seed via
+must_have_specialties.
 
-- create[0]: one strict cardiology appointment (provider_id in cardio_provider_ids,
-  linked_referral_id is one of the approved cardiology referrals whose
-  pre-auth is approved).
-- constraints[0]: at least two new scheduled appointments exist (covers the
-  downstream follow-up without over-specifying its shape).
+- create[0]: strict cardiology appointment (provider in cardio_provider_ids,
+  reason == "Cardiology consultation", linked_referral_id is one of the
+  approved cardiology referrals whose pre-auth is cleared).
+- create[1]: strict orthopedics appointment (provider in ortho_provider_ids,
+  reason == "Orthopedic evaluation", linked_referral_id is an approved
+  orthopedics referral, datetime > matching cardiology appt datetime).
 - invariants: no mutation to referrals, prescriptions, messages, immunizations,
   lab_results, claims, or pre-existing upcoming appointments.
 
 Trajectories covered:
-- correct: strict cardio appt + second scheduled appt (PCP follow-up)  -> passes 1.0
-- wrong-specialty provider (no cardio appt)                             -> fails
-- agent flipped a denied/pending referral to approved                   -> fails
-- no mutation at all                                                    -> fails
+- correct: cardio appt + ortho appt (later datetime) -> passes 1.0
+- wrong-specialty provider (no cardio appt)          -> fails
+- agent flipped a pending referral to approved       -> fails
+- no mutation at all                                 -> fails
 """
 
 from webagentbench.backend.models.patient_portal import Appointment
@@ -57,6 +58,28 @@ def _pcp_provider(initial):
     return None
 
 
+def _ortho_provider(initial):
+    """First orthopedics provider with an available slot."""
+    for p in initial.providers:
+        if p.specialty == "orthopedics" and p.available_slots:
+            return p
+    return None
+
+
+def _approved_ortho_referral_id(initial, targets):
+    """Id of an approved orthopedics referral with pre-auth cleared."""
+    approved = set(targets["approved_ref_ids"])
+    for r in initial.referrals:
+        if (r.id in approved and r.status == "approved"
+                and r.to_specialty == "orthopedics"
+                and (not r.prior_auth_required or r.prior_auth_status == "approved")):
+            return r.id
+    raise AssertionError(
+        "seed did not produce an approved orthopedics referral "
+        f"(approved_ref_ids={targets['approved_ref_ids']!r})"
+    )
+
+
 def _approved_cardio_referral_id(initial, targets):
     """Id of an approved referral whose to_specialty == 'cardiology' and
     whose prior_auth is either not required or approved (backend gate)."""
@@ -81,33 +104,42 @@ def _make_appt(**kwargs) -> Appointment:
 
 
 def test_correct_trajectory_passes():
-    """Agent schedules a cardiology appointment with the approved cardio
-    referral plus a second downstream appointment (PCP follow-up). Both
-    create[0] and constraints[0] (>=2 new appts) satisfied."""
+    """Agent schedules a cardiology appointment (earlier datetime) and an
+    orthopedics appointment (later datetime), each linked to its approved
+    referral and using the required reason strings."""
     sm, sid, targets, initial, state = _setup_session()
     cardio = _cardio_provider(initial)
+    ortho = _ortho_provider(initial)
     assert cardio is not None, "seed must contain a cardiology provider with a slot"
-    pcp = _pcp_provider(initial)
-    assert pcp is not None and len(pcp.available_slots) >= 1
-    ref_id = _approved_cardio_referral_id(initial, targets)
+    assert ortho is not None, "seed must contain an orthopedics provider with a slot"
+    cardio_ref = _approved_cardio_referral_id(initial, targets)
+    ortho_ref = _approved_ortho_referral_id(initial, targets)
 
-    # Primary cardiology appointment (first cardio slot).
+    # Pick cardiology slot[0] and an orthopedics slot strictly later.
+    cardio_dt = cardio.available_slots[0].datetime
+    later_ortho_slot = next(
+        (s for s in ortho.available_slots if s.datetime > cardio_dt),
+        None,
+    )
+    assert later_ortho_slot is not None, (
+        "seed must contain an ortho slot after the first cardiology slot"
+    )
+
     state.appointments.append(_make_appt(
         id="appt_new_cardio_correct",
         provider_id=cardio.id,
-        datetime=cardio.available_slots[0].datetime,
+        datetime=cardio_dt,
         type="in-person",
-        linked_referral_id=ref_id,
+        linked_referral_id=cardio_ref,
         reason="Cardiology consultation",
     ))
-    # Downstream follow-up scheduled AFTER the cardiologist visit. Use a PCP
-    # appointment (no referral needed) so the backend gate doesn't block.
     state.appointments.append(_make_appt(
-        id="appt_new_followup_correct",
-        provider_id=pcp.id,
-        datetime=pcp.available_slots[-1].datetime,
+        id="appt_new_ortho_correct",
+        provider_id=ortho.id,
+        datetime=later_ortho_slot.datetime,
         type="in-person",
-        reason="Post-cardiology follow-up for surgical consult",
+        linked_referral_id=ortho_ref,
+        reason="Orthopedic evaluation",
     ))
 
     task = get_task('pp_multi_referral_chain')

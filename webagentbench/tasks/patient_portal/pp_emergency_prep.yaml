@@ -1,13 +1,12 @@
 task_id: pp_emergency_prep
 env_id: patient_portal
 title: Emergency Action Plan Review
-instruction_template: 'Review your emergency action plan and ensure everything is
-  current: 1) Verify your emergency contacts are on file, 2) Confirm your allergy
-  list in the profile is complete, 3) Verify your insurance card details are accessible
-  in your profile, 4) Schedule exactly one PCP follow-up appointment using the next
-  available PCP slot with the appointment reason exactly "Medication wallet card review".
-  Do not modify your emergency contact, allergies, or insurance, and do not send any
-  messages.'
+instruction_template: 'Review your profile data for completeness, then schedule exactly
+  one PCP follow-up appointment using the next available PCP slot with the appointment
+  reason exactly "Medication wallet card review". In the appointment notes, list every
+  allergy currently on your profile, comma-separated, so the PCP can cross-check against
+  your wallet card. Do not modify your emergency contact, allergies, or insurance, and
+  do not send any messages.'
 difficulty: frontier
 time_limit_seconds: 540
 expected_steps: 40
@@ -82,7 +81,7 @@ seed:
 canonical_diff:
   create:
     - entity: Appointment
-      desc: "Schedule one PCP appointment for medication wallet card review at the PCP's next available slot"
+      desc: "Schedule one PCP appointment for medication wallet card review at the PCP's next available slot; notes must list every allergy on the patient profile"
       properties:
         status: {eq: "scheduled"}
         reason: {eq: "Medication wallet card review"}
@@ -96,8 +95,14 @@ canonical_diff:
               if p.id == target['pcp_id']
               for s in p.available_slots
             )
+        notes:
+          expr: >-
+            x is not None
+            and all(
+              allergy.lower() in x.lower()
+              for allergy in initial.patient.allergies
+            )
         type: {any: true}
-        notes: {any: true}
         linked_referral_id: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
@@ -184,6 +189,12 @@ eval:
     desc: Emergency contact information is present on profile
   - expr: len(state.patient.allergies) >= 3
     desc: Allergy list has at least 3 entries
+  - expr: "any(\n  a.status == 'scheduled'\n  and a.reason == 'Medication wallet card\
+      \ review'\n  and a.notes is not None\n  and all(allergy.lower() in a.notes.lower()\
+      \ for allergy in state.patient.allergies)\n  and a.id not in state._initial_snapshot.get('appointments',\
+      \ {})\n  for a in state.appointments\n)"
+    desc: Appointment notes list every allergy on the patient profile (forces profile
+      read)
   - expr: "all(rx.status == 'active'\n    for rx in state.prescriptions\n    if rx.id\
       \ in {target.active_rx_ids})"
     desc: All active prescriptions remain active and unmodified

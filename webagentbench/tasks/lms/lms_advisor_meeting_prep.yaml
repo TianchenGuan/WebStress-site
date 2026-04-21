@@ -3,8 +3,8 @@ env_id: lms
 title: Academic Advisor Meeting Preparation
 instruction_template: Prepare for an upcoming meeting with your academic advisor ({target.advisor_name}).
   First, mark all unread announcements as read and complete the next available module
-  content items in each course. Then send a brief meeting prep message to your advisor
-  ({target.advisor_name}).
+  content items in any course that has available modules. Then send a brief meeting
+  prep message to your advisor ({target.advisor_name}).
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -139,6 +139,7 @@ canonical_diff:
   - collection: state.calendar_events
     preserve: ALL
   - collection: state.sent_messages
+    filter: "m.get('to','') != target['advisor_name']"
     preserve: ALL
   named_invariants:
   - name: Agent marked all unread announcements as read
