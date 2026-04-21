@@ -86,7 +86,12 @@ class NegativeCheck:
 
 @dataclass
 class EvalConfig:
-    """The ``eval:`` section of a task YAML."""
+    """The ``eval:`` section of a task YAML.
+
+    Deprecated: evaluation now uses ``canonical_diff`` exclusively.
+    This class is retained only so existing YAMLs with ``eval:`` blocks
+    continue to load without parse errors.
+    """
     source: str = "server_state"
     checks: list[Check] = field(default_factory=list)
     negative_checks: list[NegativeCheck] = field(default_factory=list)

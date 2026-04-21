@@ -309,24 +309,19 @@ def test_session_captures_initial_snapshot():
 
 def test_gmail_collection_map_no_overwrite():
     """Class 13 regression: Email → emails (not deleted); sent/deleted reachable directly."""
-    import typing as t
-    from webagentbench.backend.models.gmail import GmailState
-    from webagentbench.evaluator_diff import _build_collection_map, _collection_for
+    from webagentbench.backend.models.gmail import GmailSettings, GmailState
+    from webagentbench.eval_core.diff import collection_for, collection_map_for
 
-    mapping: dict[str, str] = {}
-    for name, fi in GmailState.model_fields.items():
-        ann = fi.annotation
-        if t.get_origin(ann) is list:
-            args = t.get_args(ann)
-            if args and hasattr(args[0], "__name__"):
-                if args[0].__name__ not in mapping:
-                    mapping[args[0].__name__] = name
-            mapping[name] = name
+    state = GmailState(
+        env_id="gmail", task_id="test", owner_name="T", owner_email="t@t.com",
+        settings=GmailSettings(id="s1"),
+    )
+    mapping = collection_map_for(state)
 
     assert mapping.get("Email") == "emails", f"Email should map to emails, got {mapping.get('Email')}"
-    assert _collection_for("sent", mapping) == "sent"
-    assert _collection_for("deleted", mapping) == "deleted"
-    assert _collection_for("emails", mapping) == "emails"
-    assert _collection_for("Email", mapping) == "emails"
-    assert _collection_for("Label", mapping) == "labels"
-    assert _collection_for("Draft", mapping) == "drafts"
+    assert collection_for("sent", state) == "sent"
+    assert collection_for("deleted", state) == "deleted"
+    assert collection_for("emails", state) == "emails"
+    assert collection_for("Email", state) == "emails"
+    assert collection_for("Label", state) == "labels"
+    assert collection_for("Draft", state) == "drafts"
