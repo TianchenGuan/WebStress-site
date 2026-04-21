@@ -2,7 +2,9 @@ variant_id: lms_submit_peer_review__peer_review_update_shadow_v2
 base_task_id: lms_submit_peer_review
 target_primitive: state_tracking
 description: Relevant LMS state is updated after the first clue, so the agent must
-  keep tracking the current object and not anchor on the initial snapshot.
+  keep tracking the current object and not anchor on the initial snapshot. The
+  target peer review remains visible; decoys with similar titles are added so the
+  agent must still track which one is the actual assigned target.
 injections:
 - layer: server
   params:
@@ -13,12 +15,39 @@ injections:
       state before you finish.'
     priority: normal
     type: announcement
-- layer: network
+- layer: seed
   params:
-    action: stale_data
-    url_pattern: '**/api/env/lms/peer-reviews'
-    stale_body:
-      items: []
-    stale_count: 1
-    behavior:
-      mode: once
+    action: add_confusing_decoys
+    decoys:
+    - type: peer_review
+      course_id: '{target.target_course_id}'
+      course_code: '{target.target_course_code}'
+      assignment_id: '{target.target_assignment_id}'
+      reviewee_name: Morgan Avery
+      submission_title: Draft peer review submission
+      submission_body: Early draft submission; not the current review assignment.
+      status: assigned
+    - type: peer_review
+      course_id: '{target.target_course_id}'
+      course_code: '{target.target_course_code}'
+      assignment_id: '{target.target_assignment_id}'
+      reviewee_name: Casey Rivera
+      submission_title: Peer review submission v2
+      submission_body: Alternate submission draft, superseded earlier in the week.
+      status: assigned
+    - type: peer_review
+      course_id: '{target.target_course_id}'
+      course_code: '{target.target_course_code}'
+      assignment_id: '{target.target_assignment_id}'
+      reviewee_name: Riley Chen
+      submission_title: Peer review working copy
+      submission_body: Working copy posted before the assigned review target.
+      status: assigned
+# NOTE (audit_reports/w05.md): the network stale_data injection that
+# returned `items: []` on the first call was removed — the React
+# PeerReviews page caches the empty response in component state and
+# never re-fetches, which turned a "filter" into a "wall" (agent sees
+# "No peer reviews assigned." for the rest of the episode). Replaced
+# with seed-layer decoy peer reviews so the real target remains
+# visible while the agent must still track which review is the
+# actively assigned one.

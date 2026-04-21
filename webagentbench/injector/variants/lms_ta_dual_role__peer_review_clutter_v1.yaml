@@ -1,8 +1,9 @@
 variant_id: lms_ta_dual_role__peer_review_clutter_v1
 base_task_id: lms_ta_dual_role
 target_primitive: exploration
-description: Extra peer review noise expands the LMS search surface. The agent must
-  keep exploring until it finds the real target.
+description: Extra peer review noise expands the LMS search surface. The target
+  reviews remain visible; 2-3 decoys with near-match titles are added so the
+  agent must keep exploring until it finds the real targets.
 injections:
 - layer: seed
   params:
@@ -16,12 +17,25 @@ injections:
       submission_title: Reflection submission draft
       submission_body: Near-match draft that is not the active review target.
       status: assigned
-- layer: network
-  params:
-    action: stale_data
-    url_pattern: '**/api/env/lms/peer-reviews'
-    stale_body:
-      items: []
-    stale_count: 1
-    behavior:
-      mode: once
+    - type: peer_review
+      course_id: '{target.ta_course_id}'
+      course_code: '{target.ta_course_code}'
+      assignment_id: '{target.target_assignment_id}'
+      reviewee_name: Alex Nakamura
+      submission_title: Reflection submission revision
+      submission_body: Alternate revision circulated earlier; not the active review.
+      status: assigned
+    - type: peer_review
+      course_id: '{target.ta_course_id}'
+      course_code: '{target.ta_course_code}'
+      assignment_id: '{target.target_assignment_id}'
+      reviewee_name: Sam Okafor
+      submission_title: Reflection submission working copy
+      submission_body: Working copy submitted before the currently assigned review.
+      status: assigned
+# NOTE (audit_reports/w05.md): removed stale_data network injection.
+# The React peer-review page does not re-fetch after a stale empty
+# response, so the first-call empty body turned into a permanent
+# "No peer reviews assigned" state. The seed-layer decoys are
+# sufficient to exercise the exploration primitive while leaving the
+# real targets discoverable.
