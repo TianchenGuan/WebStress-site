@@ -4,6 +4,16 @@ Concrete patterns for tightening task evaluation across any WebAgentBench enviro
 
 Complements [TASK_GENERATION_STANDARD.md](../../webagentbench/share_docs/TASK_GENERATION_STANDARD.md) (principles) and [task-design.md](task-design.md) (anatomy & seed design) with **copy-applicable patterns** for writing robust checks.
 
+> **Format note (2026-04-21):** The examples in this playbook use the legacy
+> `eval.checks` / `eval.negative_checks` YAML syntax that predates the unified
+> evaluator. The *patterns* (vacuous-truth guards, agent-vs-seed distinction,
+> domain normalization, robust date parsing, negative-check construction)
+> apply unchanged to canonical_diff `{expr: "..."}` predicates and
+> `constraints:` blocks. When porting a check expression: drop the surrounding
+> `- expr:` + `desc:` envelope and paste the expression into an `{expr}`
+> predicate or a `constraints` entry. For canonical_diff-specific bug classes
+> see [canonical-diff-migration-hazards.md](canonical-diff-migration-hazards.md).
+
 ---
 
 ## 1  Positive Check Patterns

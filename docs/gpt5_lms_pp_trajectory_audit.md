@@ -70,7 +70,7 @@ The subagent flagged this as a "backend doesn't auto-clear old default" bug. Inv
 
 ### False positive — "negative checks fire on correct branch"
 
-Subagent claimed tasks like `lms_calculate_weighted_grade`, `lms_minimum_final_score` had branch-conditional penalty bugs. Investigation of `evaluator_diff.py:734-743` showed `oneof` correctly picks the highest-scoring branch. The apparent failures were agents taking the wrong branch (misreading the syllabus or seed target), not an evaluator bug.
+Subagent claimed tasks like `lms_calculate_weighted_grade`, `lms_minimum_final_score` had branch-conditional penalty bugs. Investigation of the `oneof` branch selector (now at `eval_core/matcher.py:142-150`) showed it correctly picks the highest-scoring branch. The apparent failures were agents taking the wrong branch (misreading the syllabus or seed target), not an evaluator bug.
 
 ### False positive — `lms_complete_account_audit` sent_messages invariant
 

@@ -4,6 +4,13 @@ Concrete bug classes encountered during the `pp_immunization_gap_review` pilot
 and what to look for in every subsequent migration. Each entry: symptom → root
 cause → where to check → prevention.
 
+> **Note (2026-04-21):** Line-level references below point at the pre-refactor
+> `webagentbench/evaluator_diff.py`. The active implementation now lives in
+> `webagentbench/eval_core/` (split across `matcher.py`, `predicates.py`,
+> `safe_eval.py`, `diff.py`, `access.py`, `orchestrator.py`). When diagnosing a
+> specific hazard, search by symbol (e.g. `_match_single_block`, `_update_holds`)
+> in `eval_core/` rather than by line number.
+
 ---
 
 ## Class 1 — Positive/negative pool confusion

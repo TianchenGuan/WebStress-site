@@ -145,7 +145,7 @@ pytest webagentbench/tests/test_<task>_canonical_diff.py::test_correct_trajector
 
 | Symptom | Class | Fix |
 |---|---|---|
-| `score=1.0` but `passed=False` | Class 7 | Grep `failures.append` in evaluator_diff.py for the line that fired; matching `negative_checks.append` missing; add visibility |
+| `score=1.0` but `passed=False` | Class 7 | Grep `failures.append` in `eval_core/matcher.py` for the line that fired; matching `negative_checks.append` missing; add visibility |
 | `passed=True` but `score<1.0` | — | Some invariant partially violated; inspect `negative_checks` penalty |
 | `Unaccounted Update on <collection>` when correct trajectory | Class 6 | Add field to `DIFF_IGNORE_FIELDS` on the relevant entity class |
 
@@ -227,7 +227,7 @@ Once the immediate failure is fixed, **grep the codebase for the same class in o
 | 4 (identity degeneracy) | inspect all `bijection.over` in env's tasks — duplicate target per slot? |
 | 5 (date drift) | `grep -rn "isOverdue\|isExpired\|new Date.*<.*new Date" webagentbench/environments/<env>/src/` |
 | 6 (side effects) | `grep -rnE "\.(remove\|pop\|append\|extend)\(" webagentbench/backend/routes/<env>.py \| grep -v "^.*state\.[a-z_]+s\."` |
-| 7 (hidden signals) | `grep -n "failures\.append\|checks\.append\|negative_checks\.append" webagentbench/evaluator_diff.py` and pair each failure append with a visible append |
+| 7 (hidden signals) | `grep -rn "failures\.append\|checks\.append\|negative_checks\.append" webagentbench/eval_core/` and pair each failure append with a visible append |
 
 If any same-class hit exists in other migrated tasks, **fix them too** in this PR. One class → one cleanup pass.
 
