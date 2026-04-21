@@ -211,7 +211,15 @@ def build_search_and_star(ctx: SeedContext, params: dict[str, Any]) -> dict[str,
 
 @_register("mark_all_read")
 def build_mark_all_read(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
-    """Seed 5 unread emails that need to be marked as read."""
+    """Seed 5 unread emails that need to be marked as read.
+
+    Forces all pre-existing and distractor emails to is_read=True so that
+    only the 5 seeded emails are unread, preventing false invariant violations
+    when the agent uses the mark-all-read button.
+    """
+    for em in ctx.base.get("emails", []):
+        em.is_read = True
+    ctx.base["_force_distractor_emails_read"] = True
     ids = []
     for i in range(5):
         t = ctx.next_id("thread")

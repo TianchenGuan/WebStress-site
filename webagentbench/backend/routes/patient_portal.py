@@ -285,10 +285,11 @@ def create_session(
         from ...injector.middleware import register_session_degradation
         register_session_degradation(session_id, degradation.get("injections", []))
 
-    # Capture baseline snapshot for collateral-damage detection
+    # Capture baseline snapshot for collateral-damage detection.
+    # Must run after degradation injections so initial reflects post-injection state.
     if hasattr(state, "state_snapshot"):
         state._initial_snapshot = state.state_snapshot()
-        state._initial_state_copy = state.model_copy(deep=True)
+    state._initial_state_copy = state.model_copy(deep=True)
 
     instruction = render_template(
         task.instruction_template or task.instruction or "", resolved_targets

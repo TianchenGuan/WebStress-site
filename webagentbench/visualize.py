@@ -114,6 +114,31 @@ def _normalize_step_targets(step: dict) -> dict:
     return normalized_step
 
 
+def _build_replay_meta(result: dict) -> dict | None:
+    """Synthesize replay metadata from task registry if not already present."""
+    if result.get("replay", {}).get("kind") == "env":
+        return None  # already set
+    task_id = result.get("task_id", "")
+    if not task_id:
+        return None
+    try:
+        from .tasks._registry import tasks_by_env
+        for env_id, tasks in tasks_by_env().items():
+            for t in tasks:
+                if t.task_id == task_id:
+                    return {
+                        "kind": "env",
+                        "env_id": env_id,
+                        "task_id": task_id,
+                        "seed": result.get("seed"),
+                        "base_url": f"/env/{env_id}",
+                        "start_path": t.start_path or "/",
+                    }
+    except Exception:
+        pass
+    return None
+
+
 def _prepare_result_for_js(result: dict) -> dict:
     """Return a browser-safe copy of a result payload for the embedded viewer."""
     result_copy = dict(result)
@@ -127,6 +152,9 @@ def _prepare_result_for_js(result: dict) -> dict:
         if isinstance(step, dict)
     ]
     result_copy["agent"] = agent
+    replay = _build_replay_meta(result)
+    if replay:
+        result_copy["replay"] = replay
     return result_copy
 
 
@@ -157,7 +185,7 @@ def generate_html(data: dict, server_url: str) -> str:
 <title>WebAgentBench — {html.escape(model)}</title>
 <style>
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-html, body {{ height: 100%; overflow: hidden; }}
+html, body {{ height: 100%; overflow: clip; }}
 body {{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     background: #f5f4f1;
@@ -496,7 +524,7 @@ body {{
 </div>
 
 <script>
-const SERVER_URL = {json.dumps(server_url)};
+const SERVER_URL = window.location.origin;
 const RESULTS = {results_json};
 const TASK_META = {task_meta_json};
 
@@ -1180,7 +1208,15 @@ async function buildReplayUrl(result, resetSession = false) {{
 
 async function loadResultFrame(result, resetSession = false) {{
     const iframe = document.getElementById('pageFrame');
+    const replayStatus = document.getElementById('replayStatus');
     const src = await buildReplayUrl(result, resetSession);
+    if (!src) {{
+        iframe.src = 'about:blank';
+        replayStatus.style.display = 'flex';
+        replayStatus.textContent = 'No live replay — screenshots not available for stored results';
+        return;
+    }}
+    replayStatus.style.display = 'none';
     await new Promise((resolve) => {{
         iframe.onload = () => resolve();
         iframe.src = src;

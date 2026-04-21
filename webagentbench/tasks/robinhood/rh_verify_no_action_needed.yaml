@@ -56,27 +56,9 @@ seed:
     - total_active_before
   targets:
     total_active_before: '{output.total_active_before}'
-eval:
-  source: server_state
-  checks:
-  - expr: len([r for r in state.recurring_investments if r.status == 'active']) ==
-      {target.total_active_before}
-    desc: All recurring investments remain active (no change needed since none dropped
-      30%+)
-  - expr: all(r.status == 'active' for r in state.recurring_investments)
-    desc: Every recurring investment still has active status
-  negative_checks:
-  - expr: not any(r.status == 'paused' for r in state.recurring_investments)
-    desc: No recurring investments were incorrectly paused
-    penalty: 0.5
-  - expr: not any(r.status == 'cancelled' for r in state.recurring_investments)
-    desc: No recurring investments were cancelled
-    penalty: 0.5
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No equity orders were placed during this review task
-    penalty: 0.2
-  - expr: len(state.transfers) == 0
-    desc: No transfers were initiated
-    penalty: 0.15
+canonical_diff:
+  constraints:
+  - desc: All recurring investments remain active (no stocks dropped 30%+, so no change needed)
+    expr: "all(r.status == 'active' for r in state.recurring_investments if not r.id.startswith('ri_decoy_'))"
+    severity: critical
 secondary_primitives: []

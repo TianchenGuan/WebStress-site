@@ -21,22 +21,43 @@ seed:
     - bank_ids
   targets:
     bank_ids: '{output.bank_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(t.direction == 'deposit' and t.amount == 500 for t in state.transfers)
-    desc: A $500 deposit transfer exists
-  - expr: any(t.direction == 'deposit' and t.amount == 500 and t.status == 'completed'
-      for t in state.transfers)
-    desc: The $500 deposit transfer has completed status
-  negative_checks:
-  - expr: not any(t.direction == 'withdrawal' for t in state.transfers)
-    desc: No withdrawals were initiated
-    penalty: 0.15
-  - expr: len([t for t in state.transfers if t.direction == 'deposit']) == 1
-    desc: Exactly one deposit was initiated
-    penalty: 0.5
-  - expr: sum(t.amount for t in state.transfers if t.direction == 'deposit') == 500
-    desc: Total deposited amount is exactly $500
-    penalty: 0.5
+canonical_diff:
+  create:
+  - entity: transfers
+    desc: $500 deposit from linked bank
+    properties:
+      direction: {eq: deposit}
+      amount: {eq: 500}
+      status: {in: [pending, completed]}
+      bank_account_id: {any: true}
+      initiated_at: {any: true}
+      completed_at: {any: true}
+  - entity: transactions
+    desc: Deposit transaction record
+    properties:
+      type: {eq: deposit}
+      amount: {eq: 500}
+      symbol: {any: true}
+      quantity: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  constraints:
+  - desc: Exactly one deposit was initiated
+    expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
+    severity: high
+  - desc: Total deposited amount is exactly $500
+    expr: "sum(t.amount for t in state.transfers if t.direction == 'deposit') == 500"
+    severity: critical
+  - desc: No withdrawals were initiated
+    expr: "not any(t.direction == 'withdrawal' for t in state.transfers)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
 secondary_primitives: []

@@ -60,50 +60,27 @@ seed:
     outputs: []
   targets:
     watchlist_name: Growth Picks
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: Sell orders exist for tax-loss harvesting
-  - expr: any(o.status in ('filled', 'pending') and any(leg.side == 'buy' and leg.option_type
-      == 'put' for leg in o.legs) for o in state.options_orders)
-    desc: A protective put was purchased for the collar
-  - expr: any(o.status in ('filled', 'pending') and any(leg.side == 'sell' and leg.option_type
-      == 'call' for leg in o.legs) for o in state.options_orders)
-    desc: A covered call was sold for the collar
-  - expr: sum(1 for r in state.recurring_investments if r.frequency == 'weekly' and
-      r.amount == 100 and r.status == 'active' and not r.id.startswith('ri_decoy_'))
-      >= 3
-    desc: Three weekly $100 recurring investments were created
-  - expr: any(o.status in ('filled', 'pending') and any(leg.underlying_symbol == 'AAPL'
-      and leg.side == 'buy' and leg.option_type == 'put' for leg in o.legs) for o
-      in state.options_orders) and any(o.status in ('filled', 'pending') and any(leg.underlying_symbol
-      == 'AAPL' and leg.side == 'sell' and leg.option_type == 'call' for leg in o.legs)
-      for o in state.options_orders)
-    desc: The collar was placed on AAPL (largest position) with both a put buy and
-      call sell
-  - expr: all(r.symbol in ['SQ', 'PLTR', 'NVDA'] for r in state.recurring_investments
-      if r.frequency == 'weekly' and r.amount == 100 and r.status == 'active' and
-      not r.id.startswith('ri_decoy_'))
-    desc: Recurring investments target the watchlist symbols (SQ, PLTR, NVDA)
-  negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The protected stock (AAPL) was not sold in tax-loss harvesting (cross-goal
-      constraint)
-    penalty: 0.3
-  - expr: not any(o.symbol not in state.loss_position_symbols(Decimal('500')) and
-      o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No sell orders on positions without >$500 unrealized losses
-    penalty: 0.25
-  - expr: len(state.transfers) == 0
-    desc: No transfers were initiated during multi-strategy execution
-    penalty: 0.15
-  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
-    desc: No off-task transfers were initiated
-    penalty: 0.1
-  - expr: not any(e.action.startswith('robinhood.alert.') for e in state.audit_log)
-    desc: No off-task price alerts were created or deleted
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Sell orders placed for tax-loss harvesting
+    expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: Protective put purchased for AAPL collar
+    expr: "any(o.status in ('filled', 'pending') and any(leg.side == 'buy' and leg.option_type == 'put' and leg.underlying_symbol == 'AAPL' for leg in o.legs) for o in state.options_orders)"
+    severity: critical
+  - desc: Covered call sold for AAPL collar
+    expr: "any(o.status in ('filled', 'pending') and any(leg.side == 'sell' and leg.option_type == 'call' and leg.underlying_symbol == 'AAPL' for leg in o.legs) for o in state.options_orders)"
+    severity: critical
+  - desc: Three weekly $100 recurring investments created for watchlist stocks
+    expr: "sum(1 for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 100.0 and r.status == 'active' and not r.id.startswith('ri_decoy_')) >= 3"
+    severity: critical
+  - desc: Recurring investments target watchlist symbols
+    expr: "all(r.symbol in ['SQ', 'PLTR', 'NVDA'] for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 100.0 and r.status == 'active' and not r.id.startswith('ri_decoy_'))"
+    severity: high
+  - desc: AAPL (protected stock) not sold in tax-loss harvesting
+    expr: "not any(o.side == 'sell' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No transfers initiated
+    expr: "len(state.transfers) == 0"
+    severity: high
 secondary_primitives: []

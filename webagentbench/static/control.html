@@ -156,6 +156,7 @@
   var ENV_ID = parts[1];
   var SESSION_ID = parts[2];
   var BENCH_BASE = null; // discovered from env manifest
+  var START_PATH = "/"; // task start path, loaded from session
   var recording = false;
   var recordStartMs = 0;
 
@@ -184,6 +185,7 @@
         return r.json();
       })
       .then(function(data) {
+        START_PATH = data.start_path || "/";
         document.getElementById("task-title").textContent = data.title || SESSION_ID;
         document.getElementById("task-meta").textContent =
           "Environment: " + ENV_ID + " · " + (data.degradation_active ? "Degradation active" : "No intervention");
@@ -193,7 +195,7 @@
 
   // --- Benchmark URL helpers ---
   function benchUrl() {
-    return BENCH_BASE.replace(/\/+$/, "") + "/home?session=" + encodeURIComponent(SESSION_ID) + "&control=on";
+    return BENCH_BASE.replace(/\/+$/, "") + START_PATH + "?session=" + encodeURIComponent(SESSION_ID) + "&control=on";
   }
 
   // --- Recording controls ---
@@ -340,7 +342,7 @@
         // window name causes the existing benchmark tab to be navigated to
         // the new URL instead of a new tab being spawned.
         var newBenchUrl = BENCH_BASE.replace(/\/+$/, "") +
-          "/home?session=" + encodeURIComponent(newSid) + "&control=on";
+          (data.start_path || START_PATH) + "?session=" + encodeURIComponent(newSid) + "&control=on";
         window.open(newBenchUrl, BENCH_WINDOW_NAME);
         // Navigate the control tab itself to the new session's control URL.
         window.location.href = "/control/" + ENV_ID + "/" + encodeURIComponent(newSid);

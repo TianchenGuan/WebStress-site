@@ -59,44 +59,39 @@ seed:
   targets:
     discrepancy_symbols: '{output.discrepancy_symbols}'
     reported_cost_bases: '{output.reported_cost_bases}'
-eval:
-  source: server_state
-  checks:
-  - expr: len([sym for sym in {target.discrepancy_symbols} if sym in state.owned_symbols()])
-      >= 1 and all(any(a.symbol == sym and not a.id.startswith('alert_decoy_') for
-      a in state.price_alerts) for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
-    desc: Every discrepancy symbol still held in the portfolio has a price alert
-  - expr: all(any(a.symbol == sym and a.target_price == Decimal({target.reported_cost_bases}[sym])
-      and not a.id.startswith('alert_decoy_') for a in state.price_alerts) for sym
-      in {target.discrepancy_symbols} if sym in state.owned_symbols())
-    desc: Each alert is set at the 1099 reported cost basis
-  - expr: all(any(a.symbol == sym and ((a.condition == 'above' and state.get_stock(sym).price
-      < a.target_price) or (a.condition == 'below' and state.get_stock(sym).price
-      > a.target_price)) and not a.id.startswith('alert_decoy_') for a in state.price_alerts)
-      for sym in {target.discrepancy_symbols} if sym in state.owned_symbols())
-    desc: Each alert uses the correct above/below condition relative to current price
-  - expr: len([a for a in state.price_alerts if a.symbol in {target.discrepancy_symbols}
-      and a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_')])
-      >= len([sym for sym in {target.discrepancy_symbols} if sym in state.owned_symbols()])
-    desc: The number of non-decoy alerts matches the number of discrepancy symbols
-      held
-  - expr: not any(a.symbol not in {target.discrepancy_symbols} and not a.id.startswith('alert_decoy_')
-      for a in state.price_alerts)
-    desc: No alerts were set for non-discrepancy symbols
-  negative_checks:
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No trades were placed during this task
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: No transfers were initiated
-    penalty: 0.15
-  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
-      for e in state.audit_log)
-    desc: 1099 review did not mutate watchlists or recurring investments
-    penalty: 0.1
-  - expr: not any(e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Existing alerts were not deleted during the 1099 cross-reference
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: price_alerts
+    desc: Price alert at 1099 cost basis for each discrepancy symbol held
+    bijection:
+      over: "target['discrepancy_symbols']"
+      variable: v
+    properties:
+      symbol: {expr: "x == v"}
+      target_price: {expr: "abs(float(x) - float(target['reported_cost_bases'][v])) < 0.01"}
+      condition: {any: true}
+      status: {eq: active}
+      created_at: {any: true}
+  constraints:
+  - desc: Each alert uses the correct condition relative to current price
+    expr: "all(any(a.symbol == v and ((a.condition == 'above' and state.get_stock(v).price < a.target_price) or (a.condition == 'below' and state.get_stock(v).price > a.target_price)) and not a.id.startswith('alert_decoy_') for a in state.price_alerts) for v in target['discrepancy_symbols'])"
+    severity: critical
+  - desc: No alerts for non-discrepancy symbols
+    expr: "not any(a.symbol not in target['discrepancy_symbols'] and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
+    severity: high
+  - desc: No equity orders placed
+    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.price_alerts
+    filter: "a.symbol not in target['discrepancy_symbols']"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, grounding, exploration by
   requiring the agent to cross-reference tax documents with current holdings and set

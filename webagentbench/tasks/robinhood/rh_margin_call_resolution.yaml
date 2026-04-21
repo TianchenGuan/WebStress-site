@@ -38,46 +38,24 @@ seed:
     outputs: []
   targets:
     smallest_impact_symbol: '{output.smallest_impact_symbol}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: A sell order exists to cover margin shortfall
-  - expr: any(t.direction == 'deposit' and t.amount == 500 and t.status in ('completed',
-      'pending') for t in state.transfers)
-    desc: A $500 deposit transfer exists
-  - expr: any(o.symbol == '{target.smallest_impact_symbol}' and o.side == 'sell' and
-      o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for
-      o in state.orders)
-    desc: The position sold is the one with the smallest impact on total returns
-  - expr: len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one non-decoy sell order was placed
-  - expr: len([t for t in state.transfers if t.direction == 'deposit']) == 1
-    desc: Exactly one deposit was made as the additional buffer
-  negative_checks:
-  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No buy orders were placed during margin resolution
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' and e.payload.get('direction')
-      == 'withdrawal' for e in state.audit_log)
-    desc: No withdrawals were made during margin resolution
-    penalty: 0.25
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.smallest_impact_symbol}'
-      and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: Margin resolution did not sell a different position than the smallest-impact
-      choice
-    penalty: 0.2
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.transfer.initiate')
-      == 1
-    desc: Margin resolution initiated exactly one transfer for the required deposit
-      buffer
-    penalty: 0.1
-  - expr: not any( e.action == 'robinhood.options.order.place' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Margin resolution did not mutate unrelated options, watchlist, recurring,
-      or alert surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Sell order for the smallest-impact position
+    expr: "any(o.symbol == target['smallest_impact_symbol'] and o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: $500 deposit transfer initiated
+    expr: "any(t.direction == 'deposit' and float(t.amount) == 500.0 and t.status in ('completed', 'pending') for t in state.transfers)"
+    severity: critical
+  - desc: Exactly one deposit initiated
+    expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
+    severity: high
+  - desc: No buy orders placed
+    expr: "not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: Only the smallest-impact symbol was sold
+    expr: "not any(o.side == 'sell' and o.symbol != target['smallest_impact_symbol'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No withdrawals initiated
+    expr: "not any(t.direction == 'withdrawal' for t in state.transfers)"
+    severity: high
 secondary_primitives: []

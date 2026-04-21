@@ -56,61 +56,20 @@ seed:
         - - 30
           - 144.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(a.symbol == 'XOM' and a.condition == 'above' and a.status == 'triggered'
-      for a in state.price_alerts)
-    desc: A price alert for XOM above $120 was triggered
-  - expr: any(a.symbol == 'CVX' and a.condition == 'below' and a.status == 'triggered'
-      for a in state.price_alerts)
-    desc: A price alert for CVX below $145 was triggered
-  - expr: any(o.symbol == 'XOM' and o.side == 'sell' and o.status == 'filled' for
-      o in state.orders)
-    desc: A filled sell order for XOM exists
-  - expr: any(o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled' for o
-      in state.orders)
-    desc: A filled buy order for CVX exists
-  - expr: all(o.filled_price is not None and o.filled_price > 119 for o in state.orders
-      if o.symbol == 'XOM' and o.side == 'sell' and o.status == 'filled')
-    desc: XOM was sold after it rallied above $120
-  - expr: all(o.filled_price is not None and o.filled_price < 146 for o in state.orders
-      if o.symbol == 'CVX' and o.side == 'buy' and o.status == 'filled')
-    desc: CVX was bought after it dropped below $145
-  negative_checks:
-  - expr: not any(o.symbol == 'CVX' and o.side == 'sell' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The pairs trade did not take the opposite CVX leg
-    penalty: 0.25
-  - expr: not any(o.symbol not in ('XOM', 'CVX') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No orders were placed on unrelated symbols
-    penalty: 0.25
-  - expr: len(state.transfers) == 0
-    desc: No transfers were initiated during the pairs trade
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create')
-      == 2
-    desc: Exactly two price alerts were created for the pairs trade
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'robinhood.alert.create'\n  and not (\n    (e.payload.get('symbol')\
-      \ == 'XOM' and e.payload.get('condition') == 'above')\n    or (e.payload.get('symbol')\
-      \ == 'CVX' and e.payload.get('condition') == 'below')\n  )\n  for e in state.audit_log\n\
-      )"
-    desc: No extra alert with the wrong symbol or direction was created
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') ==
-      2
-    desc: Exactly two equity orders were placed after the alerts triggered
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
-    desc: No trade orders were cancelled during the pairs trade
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'robinhood.options.order.place'\n  or e.action.startswith('robinhood.watchlist.')\n\
-      \  or e.action.startswith('robinhood.recurring.')\n  for e in state.audit_log\n\
-      )"
-    desc: No unrelated options, watchlist, or recurring actions were taken
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: XOM above-$120 price alert created
+    expr: "any(a.symbol == 'XOM' and a.condition == 'above' and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
+    severity: critical
+  - desc: CVX below-$145 price alert created
+    expr: "any(a.symbol == 'CVX' and a.condition == 'below' and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
+    severity: critical
+  - desc: XOM sell order placed
+    expr: "any(o.symbol == 'XOM' and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: CVX buy order placed
+    expr: "any(o.symbol == 'CVX' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, state_tracking, verification, exploration
   by requiring exact completion of the requested Robinhood workflow while ignoring

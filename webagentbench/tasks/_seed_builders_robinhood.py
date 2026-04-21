@@ -826,10 +826,12 @@ def build_pending_orders(ctx: RobinhoodSeedContext, params: dict[str, Any]) -> d
     count : int                 -- number of orders (default 3)
     order_types : list[str]     -- types to choose from (default ["limit", "stop"])
     symbols : list[str]         -- symbols to use (default picks from universe)
+    force_side : str | None     -- if set ("buy" or "sell"), all orders use this side
     """
     count = params.get("count", 3)
     order_types = params.get("order_types", ["limit", "stop"])
     symbols = params.get("symbols", None) or ctx.pick_symbols(count)
+    force_side = params.get("force_side")
     include_suspicious_window = params.get("include_suspicious_window", False)
     suspicious_timestamp = params.get("suspicious_timestamp")
     suspicious_order_count = int(params.get("suspicious_order_count", 1))
@@ -845,7 +847,7 @@ def build_pending_orders(ctx: RobinhoodSeedContext, params: dict[str, Any]) -> d
         sym = symbols[i % len(symbols)]
         stock = ctx.get_stock_from_base(sym)
         otype = ctx.rng.choice(order_types)
-        side = ctx.rng.choice(["buy", "sell"])
+        side = force_side if force_side else ctx.rng.choice(["buy", "sell"])
         qty = Decimal(str(ctx.rng.randint(1, 50)))
         price = float(stock.price) if stock else 100.0
 

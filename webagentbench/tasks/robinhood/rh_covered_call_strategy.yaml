@@ -39,43 +39,36 @@ seed:
       strikes_per_expiration: 12
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: state.latest_options_order(symbol='AAPL') is not None and len(state.latest_options_order(symbol='AAPL').legs)
-      == 1 and state.latest_options_order(symbol='AAPL').legs[0].underlying_symbol
-      == 'AAPL' and state.latest_options_order(symbol='AAPL').legs[0].side == 'sell'
-      and state.latest_options_order(symbol='AAPL').legs[0].option_type == 'call'
-    desc: A single-leg sold call was placed against the AAPL position
-  - expr: state.latest_options_order(symbol='AAPL') is not None and state.days_until(state.latest_options_order(symbol='AAPL').legs[0].expiration)
-      >= 21 and state.days_until(state.latest_options_order(symbol='AAPL').legs[0].expiration)
-      <= 45 and state.latest_options_order(symbol='AAPL').legs[0].strike >= state.get_stock('AAPL').price
-      * Decimal('1.08') and state.latest_options_order(symbol='AAPL').legs[0].strike
-      <= state.get_stock('AAPL').price * Decimal('1.12')
-    desc: The covered call uses an expiration around 30 days out and a strike about
-      10% above spot
-  - expr: state.latest_options_order(symbol='AAPL') is not None and state.latest_options_order(symbol='AAPL').legs[0].quantity
-      == 1
-    desc: Exactly 1 contract was sold (standard covered call quantity)
-  - expr: state.get_position('AAPL') is not None and state.get_position('AAPL').quantity
-      >= 100
-    desc: The agent owns at least 100 shares of AAPL (covered call requirement)
-  negative_checks:
-  - expr: state.latest_options_order(symbol='AAPL') is None or not any(leg.option_type
-      == 'put' for leg in state.latest_options_order(symbol='AAPL').legs)
-    desc: The order did not include an unnecessary put leg
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No equity orders were placed during the options task
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.options.order.place')
-      == 1
-    desc: Covered call workflow placed only one options order
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Covered call task did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: options_orders
+    desc: Covered call sold on AAPL with ~30-day expiry and ~10% OTM strike
+    properties:
+      strategy: {eq: covered_call}
+      status: {in: [pending, filled]}
+      legs: {any: true}
+  constraints:
+  - desc: One sold call leg on AAPL with correct expiry and strike
+    expr: "state.latest_options_order(symbol='AAPL') is not None and any(leg.side == 'sell' and leg.option_type == 'call' and leg.underlying_symbol == 'AAPL' and leg.strike >= state.get_stock('AAPL').price * Decimal('1.08') and leg.strike <= state.get_stock('AAPL').price * Decimal('1.12') for leg in state.latest_options_order(symbol='AAPL').legs)"
+    severity: critical
+  - desc: Expiration approximately 30 days out (21-45 days)
+    expr: "state.latest_options_order(symbol='AAPL') is not None and all(state.days_until(leg.expiration) >= 21 and state.days_until(leg.expiration) <= 45 for leg in state.latest_options_order(symbol='AAPL').legs)"
+    severity: critical
+  - desc: Exactly 1 contract sold
+    expr: "state.latest_options_order(symbol='AAPL') is not None and all(leg.quantity == 1 for leg in state.latest_options_order(symbol='AAPL').legs)"
+    severity: high
+  - desc: No equity orders placed
+    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, exploration, planning, grounding by requiring
   exact completion of the requested Robinhood workflow while ignoring distractor account

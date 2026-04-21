@@ -41,42 +41,36 @@ seed:
   targets:
     low_yield_symbols: '{output.low_yield_symbols}'
     best_yield_symbol: '{output.best_yield_symbol}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active'
-      for r in state.recurring_investments)
-    desc: A weekly $50 recurring investment exists
-  - expr: any(r.frequency == 'weekly' and r.amount == 50 and r.status == 'active'
-      and r.symbol == '{target.best_yield_symbol}' for r in state.recurring_investments)
-    desc: The recurring investment targets the highest yield-on-cost stock
-  - expr: len({target.low_yield_symbols}) == 0 or state.settings.reinvest_dividends
-      == False
-    desc: Dividend reinvestment is disabled for all stocks with yield-on-cost below
-      1%
-  - expr: len([r for r in state.recurring_investments if r.frequency == 'weekly' and
-      r.amount == 50 and r.status == 'active']) == 1
-    desc: Exactly one weekly $50 recurring investment was set up
-  - expr: len({target.low_yield_symbols}) == 0 or state.settings.reinvest_dividends
-      == False
-    desc: No low-yield stock still has dividend reinvestment enabled
-  negative_checks:
-  - expr: not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: No sell orders were placed during this analysis task
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: No transfers were initiated
-    penalty: 0.15
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: Dividend reinvestment analysis did not place any equity orders at all
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.recurring.create')
-      == 1
-    desc: Analysis created only the single required recurring investment
-    penalty: 0.1
-  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Analysis did not mutate watchlists or price alerts
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: recurring_investments
+    desc: Weekly $50 recurring investment for highest yield-on-cost stock
+    properties:
+      symbol: {expr: "x == target['best_yield_symbol']"}
+      frequency: {eq: weekly}
+      amount: {expr: "float(x) == 50.0"}
+      status: {eq: active}
+      next_execution_date: {any: true}
+  constraints:
+  - desc: Dividend reinvestment disabled (when low-yield stocks exist)
+    expr: "len(target['low_yield_symbols']) == 0 or state.settings.reinvest_dividends == False"
+    severity: critical
+  - desc: Exactly one weekly $50 recurring investment created
+    expr: "len([r for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 50.0 and r.status == 'active']) == 1"
+    severity: high
+  - desc: No equity orders placed
+    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    filter: "a.symbol != target['best_yield_symbol']"
+    preserve: ALL
 secondary_primitives: []

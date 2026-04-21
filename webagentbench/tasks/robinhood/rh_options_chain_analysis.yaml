@@ -27,39 +27,32 @@ seed:
       strikes_per_expiration: 12
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: state.highest_open_interest_contract('TSLA', option_type='put', max_days=14)
-      is not None and any(any(leg.underlying_symbol == 'TSLA' and leg.option_type
-      == 'put' and leg.side == 'buy' and leg.strike == state.highest_open_interest_contract('TSLA',
-      option_type='put', max_days=14).strike and leg.expiration == state.highest_open_interest_contract('TSLA',
-      option_type='put', max_days=14).expiration for leg in oo.legs) for oo in state.options_orders)
-    desc: A buy order was placed for the exact contract with highest open interest
-  - expr: any(any(leg.underlying_symbol == 'TSLA' and leg.option_type == 'put' and
-      leg.side == 'buy' and leg.quantity == 1 for leg in oo.legs) for oo in state.options_orders)
-    desc: Exactly 1 contract was purchased as instructed
-  - expr: any(any(leg.underlying_symbol == 'TSLA' and leg.option_type == 'put' and
-      leg.side == 'buy' and state.days_until(leg.expiration) <= 14 for leg in oo.legs)
-      for oo in state.options_orders)
-    desc: The purchased put expires within 2 weeks
-  - expr: len(state.options_orders) >= 1
-    desc: At least one options order was submitted
-  negative_checks:
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No equity trades were placed during the options task
-  - expr: not any(any(leg.underlying_symbol != 'TSLA' for leg in oo.legs) for oo in
-      state.options_orders)
-    desc: No options orders were placed on a different underlying
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.options.order.place')
-      == 1
-    desc: Options chain analysis placed exactly one options order
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Options chain analysis did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: options_orders
+    desc: Buy 1 TSLA put with highest open interest within 2 weeks
+    properties:
+      status: {in: [pending, filled]}
+      legs: {any: true}
+  constraints:
+  - desc: Bought the correct highest-OI TSLA put within 2 weeks
+    expr: "state.highest_open_interest_contract('TSLA', option_type='put', max_days=14) is not None and any(any(leg.underlying_symbol == 'TSLA' and leg.option_type == 'put' and leg.side == 'buy' and leg.strike == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).strike and leg.expiration == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).expiration for leg in oo.legs) for oo in state.options_orders)"
+    severity: critical
+  - desc: Exactly 1 contract purchased
+    expr: "any(any(leg.quantity == 1 and leg.option_type == 'put' and leg.side == 'buy' and leg.underlying_symbol == 'TSLA' for leg in oo.legs) for oo in state.options_orders)"
+    severity: critical
+  - desc: No equity orders placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures exploration, state_tracking, grounding by requiring the
   agent to navigate the options chain, identify the correct contract, and execute

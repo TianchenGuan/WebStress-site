@@ -37,30 +37,41 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: "len([o for o in state.orders\n     if o.symbol == 'AMZN' and o.side ==\
-      \ 'buy'\n     and not o.id.startswith('ord_decoy_')]) == 1"
-    desc: Exactly one AMZN buy order was placed
-  - expr: "any(o.symbol == 'AMZN' and o.side == 'buy' and o.order_type == 'limit'\n\
-      \    and o.quantity == 10 and o.time_in_force == 'gtc' and o.status == 'pending'\n\
-      \    and not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: A pending limit buy order for 10 shares of AMZN with GTC time-in-force exists
-  - expr: "any(o.order_type == 'limit' and o.symbol == 'AMZN'\n    and abs(o.limit_price\
-      \ - (state.get_stock('AMZN').price * Decimal('0.95'))) <= Decimal('0.01')\n\
-      \    and not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: The limit price is 5% below the current AMZN price
-  - expr: "not any(o.symbol != 'AMZN' and o.side == 'buy'\n        and not o.id.startswith('ord_decoy_')\n\
-      \        for o in state.orders)"
-    desc: No buy orders were placed on symbols other than AMZN
-  negative_checks:
-  - expr: "not any(o.symbol == 'AMZN' and o.side != 'buy'\n    and not o.id.startswith('ord_decoy_')\n\
-      \    for o in state.orders)"
-    desc: The AMZN order was not a sell or other side
-    penalty: 0.25
-  - expr: "not any(o.side == 'sell' and not o.id.startswith('ord_decoy_')\n      \
-      \  for o in state.orders)"
-    desc: No sell orders were placed during the limit-order check
-    penalty: 0.15
+canonical_diff:
+  create:
+  - entity: orders
+    desc: Pending GTC limit buy order for 10 shares of AMZN at 5% below market
+    properties:
+      symbol: {eq: AMZN}
+      side: {eq: buy}
+      order_type: {eq: limit}
+      quantity: {eq: 10}
+      time_in_force: {eq: gtc}
+      status: {eq: pending}
+      limit_price: {expr: "abs(float(x) - float(state.get_stock('AMZN').price * Decimal('0.95'))) <= 0.5"}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      extended_hours: {any: true}
+  constraints:
+  - desc: Exactly one AMZN buy order placed
+    expr: "len([o for o in state.orders if o.symbol == 'AMZN' and o.side == 'buy' and not o.id.startswith('ord_decoy_')]) == 1"
+    severity: high
+  - desc: No buy orders on symbols other than AMZN
+    expr: "not any(o.symbol != 'AMZN' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No sell orders placed
+    expr: "not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: medium
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
 secondary_primitives: []

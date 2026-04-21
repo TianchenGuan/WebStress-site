@@ -45,43 +45,23 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.concentrated_symbols(25.0)) == 0 or all(any(o.symbol == sym and
-      o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_')
-      for o in state.orders) for sym in state.concentrated_symbols(25.0))
-    desc: Sell orders were placed for every stock exceeding 25% concentration
-  - expr: len(list(state.expiring_options_positions(5))) == 0 or all(any(any(leg.underlying_symbol
-      == pos.underlying_symbol for leg in oo.legs) for oo in state.options_orders)
-      for pos in state.expiring_options_positions(5))
-    desc: Close orders were placed for all options positions expiring within 5 days
-  - expr: any(t.direction == 'deposit' and t.amount == Decimal('5000') for t in state.transfers)
-    desc: A $5,000 deposit was initiated to reduce margin utilization
-  - expr: len([t for t in state.transfers if t.direction == 'deposit']) == 1
-    desc: Exactly one deposit transfer was made
-  - expr: len(state.concentrated_symbols(25.0)) == 0 or len([o for o in state.orders
-      if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) >= 1
-    desc: At least one non-decoy sell order was placed if concentration risk exists
-  negative_checks:
-  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No unnecessary equity buy orders were placed
-    penalty: 0.25
-  - expr: not any( e.action == 'robinhood.transfer.initiate' and e.payload.get('direction')
-      == 'withdrawal' for e in state.audit_log)
-    desc: No withdrawals were made during portfolio risk mitigation
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.transfer.initiate')
-      == 1
-    desc: Portfolio risk mitigation initiated exactly one transfer for the required
-      deposit
-    penalty: 0.1
-  - expr: not any( e.action == 'robinhood.alert.create' or e.action == 'robinhood.alert.delete'
-      or e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
-      for e in state.audit_log)
-    desc: Portfolio risk mitigation did not mutate unrelated alert, watchlist, or
-      recurring surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Concentrated positions (>25%) reduced via sell orders
+    expr: "len(state.concentrated_symbols(25.0)) == 0 or all(any(o.symbol == sym and o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for o in state.orders) for sym in state.concentrated_symbols(25.0))"
+    severity: critical
+  - desc: Expiring options positions (within 5 days) closed
+    expr: "len(list(state.expiring_options_positions(5))) == 0 or all(any(any(leg.underlying_symbol == pos.underlying_symbol for leg in oo.legs) for oo in state.options_orders) for pos in state.expiring_options_positions(5))"
+    severity: critical
+  - desc: $5,000 deposit initiated
+    expr: "any(t.direction == 'deposit' and float(t.amount) == 5000.0 for t in state.transfers)"
+    severity: critical
+  - desc: No equity buy orders placed
+    expr: "not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: Exactly one deposit initiated
+    expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
+    severity: high
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, exploration, verification, planning by
   requiring the agent to identify multiple risk factors and take specific corrective

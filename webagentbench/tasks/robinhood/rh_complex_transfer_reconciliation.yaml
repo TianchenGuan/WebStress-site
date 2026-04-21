@@ -57,54 +57,76 @@ seed:
     outputs: []
   targets:
     overdue_symbols: '{output.overdue_symbols}'
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.stale_alert_symbols()) == 0
-    desc: All price alerts for unowned stocks were removed
-  - expr: not any(len(wl.symbols) == 0 for wl in state.watchlists)
-    desc: All empty watchlists were removed
-  - expr: len(state.overdue_recurring_investments()) == 0
-    desc: All overdue recurring investments were removed
-  - expr: any(t.direction == 'deposit' and t.amount == Decimal('2500') for t in state.transfers)
-    desc: A $2,500 deposit was initiated from the default bank
-  - expr: len([a for a in state.price_alerts if a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')]) >= 1
-    desc: Price alerts for currently owned stocks were preserved
-  - expr: len([t for t in state.transfers if t.direction == 'deposit']) == 1
-    desc: Exactly one deposit was initiated (not multiple)
-  negative_checks:
-  - expr: state.watchlist_named('My Picks') is not None
-    desc: Non-empty watchlists were preserved
-    penalty: 0.25
-  - expr: not any(a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_')
-      and a.status == 'deleted' for a in state.price_alerts)
-    desc: Price alerts for currently owned stocks were not deleted
-    penalty: 0.2
-  - expr: len([ri for ri in state.recurring_investments if ri.status == 'active' and
-      ri.symbol not in {target.overdue_symbols} and not ri.id.startswith('ri_decoy_')])
-      >= 1
-    desc: Non-overdue recurring investments were preserved
-    penalty: 0.2
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.transfer.initiate')
-      == 1
-    desc: Exactly one deposit transfer was initiated
-    penalty: 0.1
-  - expr: "not any(\n  e.action in ['robinhood.order.place', 'robinhood.options.order.place']\n\
-      \  for e in state.audit_log\n)"
-    desc: No trading orders were placed during the cleanup
-    penalty: 0.15
-  - expr: "not any(\n  e.action.startswith('robinhood.watchlist.')\n  and e.action\
-      \ != 'robinhood.watchlist.delete'\n  for e in state.audit_log\n)"
-    desc: Watchlists were only cleaned up by deleting empty lists
-    penalty: 0.1
-  - expr: "not any(\n  e.action.startswith('robinhood.recurring.')\n  and e.action\
-      \ != 'robinhood.recurring.delete'\n  for e in state.audit_log\n)"
-    desc: Recurring investments were only cleaned up by deleting overdue plans
-    penalty: 0.1
-  - expr: not any(e.action == 'robinhood.alert.create' for e in state.audit_log)
-    desc: No new price alerts were added during reconciliation
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: transfers
+    desc: Deposit of $2,500 from linked bank
+    properties:
+      direction: {eq: deposit}
+      amount: {expr: "float(x) == 2500.0"}
+      status: {any: true}
+      bank_account_id: {any: true}
+      initiated_at: {any: true}
+      estimated_completion: {any: true}
+  - entity: transactions
+    desc: Transaction record for the $2,500 deposit
+    properties:
+      type: {eq: deposit}
+      amount: {expr: "float(x) == 2500.0"}
+      description: {any: true}
+      date: {any: true}
+  delete:
+  - entity: price_alerts
+    desc: Stale price alerts for unowned stocks removed
+    bijection:
+      over: "[a for a in initial.price_alerts if a.symbol not in initial.owned_symbols() and not a.id.startswith('alert_decoy_')]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+  - entity: watchlists
+    desc: Empty watchlists removed
+    bijection:
+      over: "[w for w in initial.watchlists if len(w.symbols) == 0]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+  - entity: recurring_investments
+    desc: Overdue recurring investments removed
+    bijection:
+      over: "[r for r in initial.recurring_investments if r.id in [x.id for x in initial.overdue_recurring_investments()] and not r.id.startswith('ri_decoy_')]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+  constraints:
+  - desc: No stale alerts remain
+    expr: "len(state.stale_alert_symbols()) == 0"
+    severity: critical
+  - desc: No empty watchlists remain
+    expr: "not any(len(wl.symbols) == 0 for wl in state.watchlists)"
+    severity: critical
+  - desc: No overdue recurring investments remain
+    expr: "len(state.overdue_recurring_investments()) == 0"
+    severity: critical
+  - desc: Exactly one deposit of $2,500 initiated
+    expr: "len([t for t in state.transfers if t.direction == 'deposit' and float(t.amount) == 2500.0]) == 1"
+    severity: critical
+  - desc: Non-empty watchlists preserved
+    expr: "state.watchlist_named('My Picks') is not None"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.price_alerts
+    filter: "a.symbol in initial.owned_symbols() and not a.id.startswith('alert_decoy_')"
+    preserve: ALL
+  - collection: state.watchlists
+    filter: "len(a.symbols) > 0"
+    preserve: ALL
+  - collection: state.recurring_investments
+    filter: "a.id not in [x.id for x in initial.overdue_recurring_investments()] and not a.id.startswith('ri_decoy_')"
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, grounding, patience, exploration
   by requiring the agent to audit multiple account areas and take corrective action

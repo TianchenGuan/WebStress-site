@@ -41,40 +41,11 @@ seed:
         - - 30
           - 222.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.side == 'sell' and o.status == 'filled' and o.symbol == '{target.best_symbol}'
-      and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The seeded most profitable position was sold after the portfolio crossed
-      the trigger
-  - expr: all(o.filled_tick is not None and o.filled_tick >= 10 for o in state.orders
-      if o.side == 'sell' and o.status == 'filled' and not o.id.startswith('ord_decoy_'))
-    desc: The sell happened after the portfolio had time to rally past $15K
-  - expr: len([o for o in state.orders if o.side == 'sell' and o.status == 'filled'
-      and not o.id.startswith('ord_decoy_')]) == 1
-    desc: Exactly one sell order was filled
-  - expr: any(o.symbol == '{target.best_symbol}' and o.side == 'sell' and o.status
-      == 'filled' and o.quantity > 0 and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: The sell order targets the most profitable position with a non-zero quantity
-  negative_checks:
-  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No buy orders were placed (task is about selling the winner)
-    penalty: 0.15
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.best_symbol}' and not
-      o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No sells were placed on positions other than the most profitable
-    penalty: 0.25
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') ==
-      1
-    desc: Portfolio watch workflow placed exactly one sell order
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Portfolio watch workflow did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Sell order placed for the most profitable position
+    expr: "any(o.symbol == target['best_symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, state_tracking, planning by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

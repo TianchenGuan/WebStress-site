@@ -321,11 +321,10 @@ async def create_session(
         register_session_degradation(session_id, rendered.get("injections", []))
 
     # Capture initial snapshot for collateral detection.
-    # Refresh the model-level deep copy too so seed-layer decoys don't
-    # appear as spurious Creates in the canonical_diff evaluator.
+    # Must run after degradation injections so initial reflects post-injection state.
     if hasattr(state, "state_snapshot"):
         state._initial_snapshot = state.state_snapshot()
-        state._initial_state_copy = state.model_copy(deep=True)
+    state._initial_state_copy = state.model_copy(deep=True)
 
     instruction = task.instruction_template or task.instruction or ""
     if targets:

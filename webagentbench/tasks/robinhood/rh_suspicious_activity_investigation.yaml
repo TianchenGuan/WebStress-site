@@ -58,46 +58,17 @@ seed:
   targets:
     suspicious_order_ids: '{output.suspicious_order_ids}'
     suspicious_location: '{output.suspicious_location}'
-eval:
-  source: server_state
-  checks:
-  - expr: len({target.suspicious_order_ids}) > 0 and all(any(o.id == order_id and
-      o.status == 'cancelled' for o in state.orders) for order_id in {target.suspicious_order_ids})
-    desc: All orders created during the suspicious session window were cancelled
-  - expr: state.settings.two_factor_method == 'authenticator'
-    desc: Two-factor authentication method is specifically authenticator-based
-  - expr: sum(1 for o in state.orders if o.status == 'cancelled' and o.id in {target.suspicious_order_ids}
-      and not o.id.startswith('ord_decoy_')) == len({target.suspicious_order_ids})
-    desc: Exactly the correct number of suspicious orders were cancelled
-  - expr: state.settings.two_factor_method != 'none'
-    desc: Two-factor authentication is enabled
-  - expr: all(any(o.id == order_id and o.status == 'cancelled' for o in state.orders)
-      for order_id in {target.suspicious_order_ids}) and not any(o.id in {target.suspicious_order_ids}
-      and o.status != 'cancelled' for o in state.orders)
-    desc: Every suspicious order was cancelled and none remain active
-  - expr: not any(o.status == 'pending' and o.id in {target.suspicious_order_ids}
-      for o in state.orders)
-    desc: No suspicious orders are still pending after investigation
-  negative_checks:
-  - expr: not any(o.status == 'cancelled' and o.id not in {target.suspicious_order_ids}
-      and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The investigation did not cancel non-suspicious orders
-    penalty: 0.25
-  - expr: not any(o.side in ('buy', 'sell') and o.status in ('filled', 'pending')
-      and not o.id.startswith('ord_decoy_') and o.id not in {target.suspicious_order_ids}
-      for o in state.orders)
-    desc: The investigation did not place any new orders
-    penalty: 0.15
-  - expr: state.settings.two_factor_method == 'authenticator' or state.settings.two_factor_method
-      is None
-    desc: No settings were changed to a method other than authenticator
-    penalty: 0.2
-  - expr: not any(e.action.startswith('robinhood.watchlist.') for e in state.audit_log)
-    desc: No off-task watchlist changes were made
-    penalty: 0.1
-  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
-    desc: No off-task transfers were initiated
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: All suspicious orders cancelled
+    expr: "all(any(o.id == order_id and o.status == 'cancelled' for o in state.orders) for order_id in target['suspicious_order_ids'])"
+    severity: critical
+  - desc: Two-factor authentication set to authenticator app
+    expr: "state.settings.two_factor_method == 'authenticator'"
+    severity: critical
+  - desc: No non-suspicious orders were cancelled
+    expr: "not any(o.status == 'cancelled' and o.id not in target['suspicious_order_ids'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
 secondary_primitives: []
 primitive_thesis: Measures exploration, state_tracking, verification, planning, backtracking
   by requiring exact completion of the requested Robinhood workflow while ignoring

@@ -25,20 +25,28 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: "any(ri.symbol == 'VOO' and ri.amount == 200 and ri.frequency == 'monthly'\n\
-      \    and ri.status == 'active'\n    for ri in state.recurring_investments)"
-    desc: A monthly $200 recurring investment into VOO exists and is active
-  - expr: "any(ri.symbol == 'VOO' and ri.status == 'active'\n    for ri in state.recurring_investments)"
-    desc: A recurring investment for VOO is active
-  - expr: "any(ri.frequency == 'monthly' and ri.amount == 200\n    for ri in state.recurring_investments\n\
-      \    if ri.status == 'active')"
-    desc: The active recurring investment has monthly frequency and $200 amount
-  negative_checks:
-  - expr: "len([ri for ri in state.recurring_investments\n    if ri.status == 'active'\
-      \ and ri.symbol != 'VOO']) == 0"
-    desc: No recurring investments were created for symbols other than VOO
-    penalty: 0.25
+canonical_diff:
+  create:
+  - entity: recurring_investments
+    desc: Monthly $200 recurring investment into VOO
+    properties:
+      symbol: {eq: VOO}
+      amount: {eq: 200}
+      frequency: {eq: monthly}
+      status: {eq: active}
+      next_execution_date: {any: true}
+  constraints:
+  - desc: No recurring investments created for symbols other than VOO
+    expr: "len([ri for ri in state.recurring_investments if ri.status == 'active' and ri.symbol != 'VOO']) == 0"
+    severity: high
+  invariant:
+  - collection: state.recurring_investments
+    filter: "a.symbol != 'VOO'"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
 secondary_primitives: []

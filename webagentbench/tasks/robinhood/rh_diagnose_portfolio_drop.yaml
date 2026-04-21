@@ -52,44 +52,34 @@ seed:
     loss_symbols: '{output.loss_symbols}'
     worst_symbol: '{output.worst_symbol}'
     initial_alert_ids: '{output.alert_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(any(a.symbol == sym and a.condition == 'below' for a in state.price_alerts
-      if a.id not in {target.initial_alert_ids}) for sym in {target.loss_symbols})
-    desc: Price alerts were set for every position with unrealized losses
-  - expr: all(any(a.symbol == sym and a.condition == 'below' and abs(float(a.target_price)
-      - float(state.get_stock(sym).price) * 0.95) < float(state.get_stock(sym).price)
-      * 0.03 for a in state.price_alerts if a.id not in {target.initial_alert_ids})
-      for sym in {target.loss_symbols})
-    desc: Each alert is set approximately 5% below the current price of the losing
-      position
-  - expr: set(a.symbol for a in state.price_alerts if a.id not in {target.initial_alert_ids})
-      == set({target.loss_symbols})
-    desc: New alerts were created for exactly the losing positions
-  - expr: len([a for a in state.price_alerts if a.id not in {target.initial_alert_ids}])
-      == len({target.loss_symbols})
-    desc: Exactly one new protective alert was created per losing position
-  negative_checks:
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No panic trades (buy or sell) were placed during the diagnostic task
-    penalty: 0.4
-  - expr: len([a for a in state.price_alerts if a.symbol not in {target.loss_symbols}
-      and a.id not in {target.initial_alert_ids}]) == 0
-    desc: No unnecessary price alerts were set on non-losing positions
-    penalty: 0.3
-  - expr: all(any(a.id == aid for a in state.price_alerts) for aid in {target.initial_alert_ids})
-    desc: Pre-existing alerts were not deleted during diagnosis
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create')
-      == len({target.loss_symbols})
-    desc: Diagnosis created exactly one new alert per losing position
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'robinhood.transfer.initiate'\n  or e.action ==\
-      \ 'robinhood.options.order.place'\n  or e.action.startswith('robinhood.watchlist.')\n\
-      \  or e.action.startswith('robinhood.recurring.')\n  for e in state.audit_log)"
-    desc: Diagnosis did not mutate unrelated transfer, options, watchlist, or recurring
-      surfaces
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: price_alerts
+    desc: Protective alert 5% below current price for each losing position
+    bijection:
+      over: "target['loss_symbols']"
+      variable: v
+    properties:
+      symbol: {expr: "x == v"}
+      condition: {eq: below}
+      target_price: {expr: "abs(float(x) - float(state.get_stock(v).price) * 0.95) <= float(state.get_stock(v).price) * 0.03"}
+      status: {eq: active}
+      created_at: {any: true}
+  constraints:
+  - desc: No new alerts for non-loss symbols
+    expr: "len([a for a in state.price_alerts if a.symbol not in target['loss_symbols'] and a.id not in target['initial_alert_ids'] and not a.id.startswith('alert_decoy_')]) == 0"
+    severity: high
+  - desc: No equity orders placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.price_alerts
+    filter: "a.id in target['initial_alert_ids']"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
 secondary_primitives: []

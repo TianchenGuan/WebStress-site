@@ -21,16 +21,33 @@ seed:
       unread_ratio: 0.6
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.notifications) >= 1 and all(n.is_read for n in state.notifications)
-    desc: All notifications are marked as read (vacuous-truth guarded)
-  - expr: len(state.notifications) >= 8
-    desc: All 8 seed notifications still exist (none deleted)
-  negative_checks:
-  - expr: "len([o for o in state.orders\n     if not o.id.startswith('ord_decoy_')])\
-      \ == 0"
-    desc: Agent did not place any orders (task only required marking notifications)
-    penalty: 0.15
+canonical_diff:
+  update:
+  - entity: notifications
+    desc: All previously-unread notifications are marked read
+    bijection:
+      over: "[n for n in initial.notifications if not n.is_read]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      is_read: {eq: true}
+  constraints:
+  - desc: All notifications are now marked as read
+    expr: "len(state.notifications) >= 1 and all(n.is_read for n in state.notifications)"
+    severity: critical
+  - desc: All 8 seed notifications still exist (none deleted)
+    expr: "len(state.notifications) >= 8"
+    severity: high
+  - desc: Agent did not place any orders
+    expr: "len([o for o in state.orders if not o.id.startswith('ord_decoy_')]) == 0"
+    severity: high
+  invariant:
+  - collection: state.notifications
+    filter: "a.is_read"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
 secondary_primitives: []

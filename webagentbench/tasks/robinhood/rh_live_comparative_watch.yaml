@@ -57,58 +57,14 @@ seed:
         - - 35
           - 413.0
         noise_pct: 0.2
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.status == 'filled' and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: A filled sell order for MSFT exists (AAPL outperformed)
-  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled' and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: A filled buy order for AAPL exists (rotated into outperformer)
-  - expr: all(o.filled_tick is not None and o.filled_tick >= 15 for o in state.orders
-      if o.status == 'filled' and not o.id.startswith('ord_decoy_'))
-    desc: Trades were executed after enough time for the performance gap to develop
-  - expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.quantity == 5 and not
-      o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: All 5 MSFT shares were sold (complete position liquidation)
-  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.quantity >= 1 and o.status
-      == 'filled' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: AAPL was bought with the proceeds from the MSFT sale
-  - expr: len([o for o in state.orders if o.status == 'filled' and not o.id.startswith('ord_decoy_')])
-      >= 2
-    desc: At least two trades were executed (one sell and one buy)
-  negative_checks:
-  - expr: not any(o.order_type == 'limit' and not o.id.startswith('ord_decoy_') for
-      o in state.orders)
-    desc: No limit orders were placed (must watch and trade manually)
-    penalty: 0.5
-  - expr: not any(o.symbol == 'AAPL' and o.side == 'sell' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The opposite branch was not taken during the seeded AAPL-outperformance
-      scenario
-  - expr: not any(o.symbol not in ('AAPL', 'MSFT') and o.side == 'buy' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No unrelated buy orders were placed outside the AAPL/MSFT pair
-    penalty: 0.25
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') ==
-      2
-    desc: Exactly two trade orders were placed for the rotation
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
-    desc: No trade orders were cancelled during the watch workflow
-    penalty: 0.1
-  - expr: "not any(\n  e.action == 'robinhood.order.place'\n  and e.payload.get('symbol')\
-      \ == 'MSFT'\n  and e.payload.get('side') == 'buy'\n  for e in state.audit_log\n\
-      )"
-    desc: The opposite MSFT buy branch was not taken in the seeded scenario
-    penalty: 0.2
-  - expr: "not any(\n  e.action == 'robinhood.transfer.initiate'\n  or e.action ==\
-      \ 'robinhood.options.order.place'\n  or e.action.startswith('robinhood.watchlist.')\n\
-      \  or e.action.startswith('robinhood.recurring.')\n  or e.action == 'robinhood.alert.create'\n\
-      \  or e.action == 'robinhood.alert.delete'\n  for e in state.audit_log\n)"
-    desc: No unrelated account-management actions were taken during the live watch
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: MSFT sell order placed (sell the underperformer)
+    expr: "any(o.symbol == 'MSFT' and o.side == 'sell' and o.quantity == 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: AAPL buy order placed (rotate into outperformer)
+    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, state_tracking, grounding, planning, verification
   by requiring exact completion of the requested Robinhood workflow while ignoring

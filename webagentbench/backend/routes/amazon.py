@@ -462,12 +462,10 @@ def create_session(body: SessionCreateRequest, request: Request = None, session_
         register_session_degradation(session_id, degradation.get("injections", []))
 
     # Capture baseline snapshot for collateral-damage detection.
-    # Re-capture BOTH the dict snapshot and the model-level deep copy
-    # (used by the canonical_diff evaluator) so entities added by seed-
-    # layer degradation injections don't appear as spurious Creates.
+    # Must run after degradation injections so initial reflects post-injection state.
     if isinstance(state, AmazonState):
         state._initial_snapshot = state.state_snapshot()
-        state._initial_state_copy = state.model_copy(deep=True)
+    state._initial_state_copy = state.model_copy(deep=True)
 
     instruction = render_template(
         task.instruction_template or task.instruction or "", resolved_targets

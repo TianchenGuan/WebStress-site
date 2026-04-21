@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import concurrent.futures
 import json
 import logging
 import os
@@ -183,6 +184,9 @@ def _trajectory_status(
             return "INFEASIBLE"
     return ""
 
+_STEP_TIMEOUT_SECONDS = 120
+
+
 def run_episode(
     env,
     agent,
@@ -227,7 +231,15 @@ def run_episode(
             break
 
         pre_action_obs = obs
-        action = agent.act(obs)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
+            _fut = _pool.submit(agent.act, obs)
+            try:
+                action = _fut.result(timeout=_STEP_TIMEOUT_SECONDS)
+            except concurrent.futures.TimeoutError:
+                if verbose:
+                    step_elapsed = round(time.time() - start_time, 1)
+                    print(f"    Step {step + 1}: STEP TIMEOUT ({_STEP_TIMEOUT_SECONDS}s, total {step_elapsed}s)")
+                break
 
         if verbose:
             print(f"    Step {step + 1}: {action[:80]}{'...' if len(action) > 80 else ''}")
@@ -309,6 +321,124 @@ def resolve_task_ids(
     return list(load_all_tasks().keys())
 
 
+def _run_single_task(args: tuple) -> dict:
+    """Run one task in its own process (process-safe). Args passed as a tuple for pickling."""
+    (task_id, model, provider, base_url, api_key, temperature, reasoning_effort,
+     use_per_task_budget, max_steps, timeout_per_task, headless,
+     server_host, server_port, seed, deg_path, verbose) = args
+
+    from .agent import LLMAgent
+    from .browsergym_env import make_env
+    from .tasks._registry import get_task as _get_task
+
+    agent = LLMAgent(
+        model=model, provider=provider, base_url=base_url, api_key=api_key,
+        temperature=temperature, reasoning_effort=reasoning_effort,
+    )
+
+    task_def = _get_task(task_id)
+    if use_per_task_budget:
+        task_max_steps = int((task_def.expected_steps or _DEFAULT_MAX_STEPS) * 1.5)
+        task_timeout = task_def.time_limit_seconds or _DEFAULT_TIMEOUT
+    else:
+        task_max_steps = max_steps
+        task_timeout = timeout_per_task
+
+    if verbose:
+        print(f"[{task_id}] (steps<={task_max_steps}, timeout={task_timeout}s)", flush=True)
+
+    env = make_env(
+        task_id=task_id,
+        degradation=deg_path,
+        headless=headless,
+        server_host=server_host,
+        server_port=server_port,
+    )
+
+    try:
+        for _attempt in range(_MAX_RETRY_ATTEMPTS):
+            try:
+                episode = run_episode(
+                    env, agent,
+                    episode_seed=seed,
+                    max_steps=task_max_steps,
+                    timeout_seconds=task_timeout,
+                    verbose=verbose,
+                )
+                break
+            except Exception as exc:
+                exc_str = str(exc)
+                is_transient = (
+                    isinstance(exc, (ConnectionError, TimeoutError))
+                    or any(code in exc_str for code in _TRANSIENT_ERROR_CODES)
+                )
+                if not is_transient or _attempt >= _MAX_RETRY_ATTEMPTS - 1:
+                    raise
+                logger.warning(
+                    "Transient error on task %s (attempt %d/%d), retrying in %ds: %s",
+                    task_id, _attempt + 1, _MAX_RETRY_ATTEMPTS, _RETRY_BACKOFF_SECONDS, exc,
+                )
+                if verbose:
+                    print(f"  [{task_id}] [RETRY] retrying in {_RETRY_BACKOFF_SECONDS}s: {exc}", flush=True)
+                env.close()
+                time.sleep(_RETRY_BACKOFF_SECONDS)
+                env = make_env(
+                    task_id=task_id,
+                    degradation=deg_path,
+                    headless=headless,
+                    server_host=server_host,
+                    server_port=server_port,
+                )
+
+        evaluation = episode["evaluation"]
+        score = evaluation.get("score", evaluation.get("final_score", 0.0))
+        icon = "PASS" if evaluation.get("success") else "FAIL"
+        if verbose:
+            print(f"  [{icon}] [{task_id}] score={score:.2f} ({episode['steps']} steps, {episode['elapsed_seconds']:.0f}s)", flush=True)
+            print(f"  {str(evaluation.get('reasoning', ''))[:120]}", flush=True)
+
+        return {
+            "task_id": task_id,
+            "evaluation": evaluation,
+            "agent": {
+                "model": model, "provider": provider,
+                "steps": episode["steps"],
+                "elapsed_seconds": episode["elapsed_seconds"],
+                "completed": episode["completed"],
+                "trajectory": episode["trajectory"],
+                "messages": episode["messages"],
+            },
+        }
+
+    except Exception as exc:
+        logger.error("Error on task %s: %s", task_id, exc, exc_info=True)
+        if verbose:
+            print(f"  [ERROR] [{task_id}] {exc}", flush=True)
+        return {
+            "task_id": task_id,
+            "evaluation": {"score": 0.0, "success": False, "reasoning": f"Error: {exc}"},
+            "agent": {"model": model, "provider": provider, "steps": 0, "elapsed_seconds": 0, "completed": False, "trajectory": [], "messages": []},
+        }
+    finally:
+        env.close()
+
+
+def _resolve_all_variants(environments_filter: list[str] | None) -> list[tuple[str, str]]:
+    """Return (task_id, variant_path_str) pairs for all variant files matching the env filter."""
+    from .injector.config import DegradationConfig
+    variants_dir = BASE_DIR / "injector" / "variants"
+    pairs: list[tuple[str, str]] = []
+    task_ids = set(resolve_task_ids(None, environments_filter))
+    for path in sorted(variants_dir.glob("*.yaml")):
+        try:
+            cfg = DegradationConfig.from_yaml(path)
+        except Exception:
+            continue
+        if cfg.base_task_id and cfg.base_task_id in task_ids:
+            pairs.append((cfg.base_task_id, str(path)))
+    return pairs
+
+
 def run_evaluation(
     model: str,
     provider: str = "openai",
@@ -327,152 +457,117 @@ def run_evaluation(
     output_path: str = "results/webagentbench/results.json",
     seed: int | None = None,
     degradation: str | None = None,
+    all_variants: bool = False,
+    workers: int = 1,
 ) -> list[dict]:
     """Run evaluation using BrowserGym environments."""
-    from .agent import LLMAgent
-    from .browsergym_env import make_env
+    from concurrent.futures import ProcessPoolExecutor, as_completed
 
-    task_ids = resolve_task_ids(task_filter, environments_filter)
-
-    # If degradation targets a specific base task, filter
-    deg_config = None
-    if degradation:
-        from .injector.config import DegradationConfig
-        deg_path = Path(degradation)
-        for candidate in [deg_path, BASE_DIR / degradation, BASE_DIR / "injector" / "variants" / degradation]:
-            if candidate.exists():
-                deg_path = candidate
-                break
-        if not deg_path.exists():
-            print(f"ERROR: Degradation config not found: {degradation}", file=sys.stderr)
+    # Build per-task (task_id, deg_path_str) pairs
+    if all_variants:
+        variant_pairs = _resolve_all_variants(environments_filter)
+        if not variant_pairs:
+            print("No variant files found for the given environments.", file=sys.stderr)
             return []
-        deg_config = DegradationConfig.from_yaml(deg_path)
-        if deg_config.base_task_id:
-            task_ids = [t for t in task_ids if t == deg_config.base_task_id]
+        task_ids = [t for t, _ in variant_pairs]
+        deg_path_strs = [d for _, d in variant_pairs]
+        deg_config = None
+    else:
+        task_ids = resolve_task_ids(task_filter, environments_filter)
+        deg_config = None
+        deg_path_str: str | None = None
+        if degradation:
+            from .injector.config import DegradationConfig
+            deg_path = Path(degradation)
+            for candidate in [deg_path, BASE_DIR / degradation, BASE_DIR / "injector" / "variants" / degradation]:
+                if candidate.exists():
+                    deg_path = candidate
+                    break
+            if not deg_path.exists():
+                print(f"ERROR: Degradation config not found: {degradation}", file=sys.stderr)
+                return []
+            deg_config = DegradationConfig.from_yaml(deg_path)
+            deg_path_str = str(deg_path)
+            if deg_config.base_task_id:
+                task_ids = [t for t in task_ids if t == deg_config.base_task_id]
+        deg_path_strs = [deg_path_str] * len(task_ids)
 
     if not task_ids:
         print("No tasks to evaluate.", file=sys.stderr)
         return []
 
-    agent = LLMAgent(
-        model=model, provider=provider, base_url=base_url, api_key=api_key,
-        temperature=temperature, reasoning_effort=reasoning_effort,
-    )
+    use_per_task_budget = (max_steps == _DEFAULT_MAX_STEPS and timeout_per_task == _DEFAULT_TIMEOUT)
+    effective_workers = min(workers, len(task_ids))
 
     if verbose:
         print(f"Agent: {model} (via {provider})")
-        print(f"Tasks: {len(task_ids)}")
-        if deg_config:
+        print(f"Tasks: {len(task_ids)} | Workers: {effective_workers}")
+        if all_variants:
+            print(f"Mode: all-variants ({len(task_ids)} intervention tasks)")
+        elif deg_config:
             print(f"Degradation: {deg_config.variant_id} ({deg_config.target_primitive})")
-        budget_mode = "per-task (from YAML)" if (max_steps == _DEFAULT_MAX_STEPS and timeout_per_task == _DEFAULT_TIMEOUT) else f"fixed (steps={max_steps}, timeout={timeout_per_task}s)"
+        budget_mode = "per-task (from YAML)" if use_per_task_budget else f"fixed (steps={max_steps}, timeout={timeout_per_task}s)"
         print(f"Budget: {budget_mode}")
         print(f"Environment: BrowserGym (bid actions, multimodal obs)")
         print(f"{'=' * 60}\n")
 
-    # Per-task budgets: use task YAML expected_steps / time_limit when CLI
-    # doesn't override.  A 1.5x multiplier on expected_steps gives the agent
-    # headroom for retries without making short tasks wait forever.
-    from .tasks._registry import get_task as _get_task
-    use_per_task_budget = (max_steps == _DEFAULT_MAX_STEPS and timeout_per_task == _DEFAULT_TIMEOUT)
+    # For parallel workers, start the server once in the parent process so all
+    # child processes inherit WEBAGENTBENCH_CONTROLLER_SECRET and share it.
+    _server_proc = None
+    if effective_workers > 1:
+        from .runner import ensure_controller_secret, start_server, wait_for_server
+        if not wait_for_server(server_host, server_port, timeout=2):
+            ensure_controller_secret()
+            _server_proc = start_server(server_host, server_port)
+            if not wait_for_server(server_host, server_port):
+                raise RuntimeError("WebAgentBench server failed to start")
+        elif not os.environ.get("WEBAGENTBENCH_CONTROLLER_SECRET"):
+            raise RuntimeError(
+                "A WebAgentBench server is already running but WEBAGENTBENCH_CONTROLLER_SECRET "
+                "is not set. Export the same secret or use a free port."
+            )
 
-    results = []
-    for task_id in task_ids:
-        task_def = _get_task(task_id)
-        if use_per_task_budget:
-            task_max_steps = int((task_def.expected_steps or _DEFAULT_MAX_STEPS) * 1.5)
-            task_timeout = task_def.time_limit_seconds or _DEFAULT_TIMEOUT
-        else:
-            task_max_steps = max_steps
-            task_timeout = timeout_per_task
+    # Build picklable arg tuples — deg_path_str varies per task in all-variants mode
+    base_common = (model, provider, base_url, api_key, temperature, reasoning_effort,
+                   use_per_task_budget, max_steps, timeout_per_task, headless,
+                   server_host, server_port, seed)
+    task_args = [
+        (tid,) + base_common + (deg, verbose)
+        for tid, deg in zip(task_ids, deg_path_strs)
+    ]
 
-        if verbose:
-            budget = f"steps<={task_max_steps}, timeout={task_timeout}s"
-            print(f"[{task_id}] ({budget})")
+    results: list[dict] = []
 
-        env = make_env(
-            task_id=task_id,
-            degradation=str(deg_path) if degradation and deg_path.exists() else None,
-            headless=headless,
-            server_host=server_host,
-            server_port=server_port,
-        )
-
-        try:
-            for _attempt in range(_MAX_RETRY_ATTEMPTS):
+    try:
+        if effective_workers == 1:
+            for args in task_args:
                 try:
-                    episode = run_episode(
-                        env,
-                        agent,
-                        episode_seed=seed,
-                        max_steps=task_max_steps,
-                        timeout_seconds=task_timeout,
-                        verbose=verbose,
-                    )
-                    break
+                    results.append(_run_single_task(args))
                 except Exception as exc:
-                    exc_str = str(exc)
-                    is_transient = (
-                        isinstance(exc, (ConnectionError, TimeoutError))
-                        or any(code in exc_str for code in _TRANSIENT_ERROR_CODES)
-                    )
-                    if not is_transient or _attempt >= _MAX_RETRY_ATTEMPTS - 1:
-                        raise
-                    logger.warning(
-                        "Transient error on task %s (attempt %d/%d), retrying in %ds: %s",
-                        task_id, _attempt + 1, _MAX_RETRY_ATTEMPTS, _RETRY_BACKOFF_SECONDS, exc,
-                    )
-                    if verbose:
-                        print(f"  [RETRY] transient error, retrying in {_RETRY_BACKOFF_SECONDS}s: {exc}")
-                    env.close()
-                    time.sleep(_RETRY_BACKOFF_SECONDS)
-                    env = make_env(
-                        task_id=task_id,
-                        degradation=str(deg_path) if degradation and deg_path.exists() else None,
-                        headless=headless,
-                        server_host=server_host,
-                        server_port=server_port,
-                    )
+                    task_id = args[0]
+                    print(f"  [ERROR] [{task_id}] worker exception: {exc}", flush=True)
+                    results.append({"task_id": task_id, "evaluation": {"score": 0.0, "success": False}, "error": str(exc)})
+        else:
+            with ProcessPoolExecutor(max_workers=effective_workers) as pool:
+                futures = {pool.submit(_run_single_task, args): args[0] for args in task_args}
+                try:
+                    for fut in as_completed(futures):
+                        task_id = futures[fut]
+                        try:
+                            results.append(fut.result())
+                        except Exception as exc:
+                            print(f"  [ERROR] [{task_id}] worker exception: {exc}", flush=True)
+                            results.append({"task_id": task_id, "evaluation": {"score": 0.0, "success": False}, "error": str(exc)})
+                except Exception as pool_exc:
+                    print(f"  [ERROR] process pool error: {pool_exc}", flush=True)
+                    for fut, task_id in futures.items():
+                        if not fut.done():
+                            results.append({"task_id": task_id, "evaluation": {"score": 0.0, "success": False}, "error": str(pool_exc)})
+    finally:
+        if _server_proc is not None:
+            _server_proc.terminate()
 
-            evaluation = episode["evaluation"]
-            score = evaluation.get("score", evaluation.get("final_score", 0.0))
-            icon = "PASS" if evaluation.get("success") else "FAIL"
-            if verbose:
-                print(f"  [{icon}] score={score:.2f} ({episode['steps']} steps, {episode['elapsed_seconds']:.0f}s)")
-                print(f"  {str(evaluation.get('reasoning', ''))[:120]}")
-                print()
-
-            result: dict[str, Any] = {
-                "task_id": task_id,
-                "evaluation": evaluation,
-                "agent": {
-                    "model": model, "provider": provider,
-                    "steps": episode["steps"],
-                    "elapsed_seconds": episode["elapsed_seconds"],
-                    "completed": episode["completed"],
-                    "trajectory": episode["trajectory"],
-                    "messages": episode["messages"],
-                },
-            }
-            if deg_config:
-                result["degradation"] = {
-                    "variant_id": deg_config.variant_id,
-                    "target_primitive": deg_config.target_primitive,
-                    "description": deg_config.description,
-                }
-            results.append(result)
-
-        except Exception as exc:
-            logger.error("Error on task %s: %s", task_id, exc, exc_info=True)
-            results.append({
-                "task_id": task_id,
-                "evaluation": {"score": 0.0, "success": False, "reasoning": f"Error: {exc}"},
-                "agent": {"model": model, "provider": provider, "steps": 0, "elapsed_seconds": 0, "completed": False, "trajectory": [], "messages": []},
-            })
-            if verbose:
-                print(f"  [ERROR] {exc}\n")
-        finally:
-            env.close()
-
+    results.sort(key=lambda r: r["task_id"])
     _write_results(results, model, provider, output_path, degradation=deg_config)
     if verbose:
         _print_summary(results)
@@ -535,6 +630,8 @@ def main():
     parser.add_argument("--tasks", nargs="*")
     parser.add_argument("--environments", nargs="*")
     parser.add_argument("--degradation", default=None)
+    parser.add_argument("--all-variants", action="store_true", default=False,
+                        help="Run all intervention variants for the given environments")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--max-steps", type=int, default=_DEFAULT_MAX_STEPS,
                         help=f"Max steps per task (default: {_DEFAULT_MAX_STEPS}, uses per-task YAML budget when unchanged)")
@@ -545,6 +642,7 @@ def main():
     parser.add_argument("--server-host", default="127.0.0.1")
     parser.add_argument("--server-port", type=int, default=8080)
     parser.add_argument("--output", default="results/webagentbench/results.json")
+    parser.add_argument("--workers", type=int, default=1, help="Parallel worker threads (default: 1)")
     parser.add_argument("--quiet", "-q", action="store_true")
     parser.add_argument(
         "--harness", choices=["browsergym", "browser-use"], default="browsergym",
@@ -585,6 +683,7 @@ def main():
         verbose=not args.quiet, temperature=args.temperature, reasoning_effort=args.reasoning_effort,
         server_host=args.server_host, server_port=args.server_port, output_path=args.output,
         seed=args.seed, degradation=args.degradation,
+        all_variants=args.all_variants, workers=args.workers,
     )
 
 

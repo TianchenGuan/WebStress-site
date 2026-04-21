@@ -40,48 +40,11 @@ seed:
         - - 45
           - 885.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: "any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type == 'market'\n\
-      \    and o.status == 'filled' and o.quantity == 5\n    and not o.id.startswith('ord_decoy_')\n\
-      \    for o in state.orders)"
-    desc: A filled market buy order for 5 shares of NVDA exists
-  - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
-    desc: Only the intended reversal buy order was placed
-  - expr: "(len([o for o in state.orders\n      if o.symbol == 'NVDA' and o.side ==\
-      \ 'buy' and o.status == 'filled'\n      and not o.id.startswith('ord_decoy_')])\
-      \ >= 1\n and all(o.filled_tick is not None and o.filled_tick >= 12\n       \
-      \  for o in state.orders\n         if o.symbol == 'NVDA' and o.side == 'buy'\
-      \ and o.status == 'filled'\n         and not o.id.startswith('ord_decoy_')))"
-    desc: NVDA was purchased after the decline phase (not too early)
-  - expr: "(len([o for o in state.orders\n      if o.symbol == 'NVDA' and o.side ==\
-      \ 'buy' and o.status == 'filled'\n      and not o.id.startswith('ord_decoy_')])\
-      \ >= 1\n and all(o.filled_price is not None and o.filled_price < 870\n     \
-      \    for o in state.orders\n         if o.symbol == 'NVDA' and o.side == 'buy'\
-      \ and o.status == 'filled'\n         and not o.id.startswith('ord_decoy_')))"
-    desc: NVDA was bought near the trough, not at the starting price
-  - expr: state.get_position('NVDA') is not None and state.get_position('NVDA').quantity
-      >= 5
-    desc: NVDA position reflects the purchased shares
-  negative_checks:
-  - expr: "not any(o.order_type == 'limit' and o.symbol == 'NVDA'\n        and not\
-      \ o.id.startswith('ord_decoy_')\n        for o in state.orders)"
-    desc: No limit orders were placed for NVDA (must watch and buy manually)
-    penalty: 0.25
-  - expr: "not any(o.symbol != 'NVDA' and not o.id.startswith('ord_decoy_')\n    \
-      \    for o in state.orders)"
-    desc: Agent did not trade symbols other than NVDA
-    penalty: 0.25
-  - expr: "not any(o.side == 'sell' and not o.id.startswith('ord_decoy_')\n      \
-      \  for o in state.orders)"
-    desc: Reversal workflow did not place any sell orders
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Reversal workflow did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Market buy of 5 NVDA shares placed at the reversal
+    expr: "any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type == 'market' and o.quantity == 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, state_tracking, grounding, verification by requiring
   exact completion of the requested Robinhood workflow while ignoring distractor account

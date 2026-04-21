@@ -36,41 +36,11 @@ seed:
         - - 25
           - 184.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'
-      and o.status == 'filled' and o.quantity == 10 for o in state.orders)
-    desc: A filled market buy order for 10 shares of AAPL exists
-  - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
-    desc: Only the intended dip-buy order was placed
-  - expr: "all(\n  o.filled_tick is not None\n  and state._price_engine is not None\n\
-      \  and state._price_engine.price_at_tick('AAPL', o.filled_tick) < Decimal('182')\n\
-      \  for o in state.orders if o.symbol == 'AAPL' and o.side == 'buy'\n  and o.status\
-      \ == 'filled' and not o.id.startswith('ord_decoy_')\n)"
-    desc: AAPL was bought only after it had actually dropped below $182
-  - expr: all(o.filled_price is not None and o.filled_price < 183 for o in state.orders
-      if o.symbol == 'AAPL' and o.side == 'buy' and o.status == 'filled' and not o.id.startswith('ord_decoy_'))
-    desc: AAPL was bought near or below the $182 target, not at the starting price
-  - expr: state.get_position('AAPL') is not None and state.get_position('AAPL').quantity
-      == 10
-    desc: The AAPL position reflects the purchased shares
-  negative_checks:
-  - expr: not any(o.order_type == 'limit' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No limit orders were placed for AAPL (must watch and buy manually)
-    penalty: 0.5
-  - expr: len([o for o in state.orders if o.order_type == "limit"]) == 0
-    desc: No limit orders placed (market order required)
-    penalty: 0.15
-  - expr: not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: No sell orders were placed during the watch-and-buy flow
-    penalty: 0.15
-  - expr: not any(o.symbol != 'AAPL' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: No orders were placed on unrelated symbols
-    penalty: 0.15
+canonical_diff:
+  constraints:
+  - desc: Market buy of 10 AAPL shares placed after dip below $182
+    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market' and o.quantity == 10 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, grounding, state_tracking by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

@@ -23,8 +23,9 @@ from contextlib import asynccontextmanager, contextmanager
 from functools import lru_cache
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .backend.routes import mount_environment_routes
@@ -883,6 +884,21 @@ async def get_manifest():
     return build_manifest()
 
 
+async def _proxy_to_dev_frontend(dev_url: str, path: str, request: Request) -> Response:
+    """Proxy a request to the Vite dev server, so browsers behind NAT (e.g. WSL2) never need direct access."""
+    target = _join_public_base_url(dev_url, path=path, query=str(request.url.query))
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+        resp = await client.request(
+            method=request.method,
+            url=target,
+            headers={k: v for k, v in request.headers.items() if k.lower() not in ("host", "connection")},
+            content=await request.body(),
+        )
+    excluded = {"transfer-encoding", "connection", "keep-alive"}
+    headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded}
+    return Response(content=resp.content, status_code=resp.status_code, headers=headers)
+
+
 @app.get("/env/{env_id}")
 async def redirect_env_root(env_id: str, request: Request):
     """Redirect bare /env/<id> to the home-page launcher (which has variant support)."""
@@ -890,8 +906,9 @@ async def redirect_env_root(env_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
     dev_url = _env_dev_base_url(env_id)
     if dev_url:
-        return RedirectResponse(url=_join_public_base_url(dev_url, query=request.url.query), status_code=307)
-    # If a session is attached, serve the SPA so the environment can load
+        if request.query_params.get("session"):
+            return await _proxy_to_dev_frontend(dev_url, "", request)
+        return RedirectResponse(url="/", status_code=302)
     if request.query_params.get("session"):
         return _serve_env_html(env_id)
     return RedirectResponse(url="/", status_code=302)
@@ -904,8 +921,7 @@ async def serve_environment_spa(env_id: str, request: Request, path: str = ""):
         raise HTTPException(status_code=404, detail=f"Unknown environment: {env_id}")
     dev_url = _env_dev_base_url(env_id)
     if dev_url:
-        return RedirectResponse(url=_join_public_base_url(dev_url, path=path, query=request.url.query), status_code=307)
-    # Bare /env/gmail/ (trailing slash, empty path) → serve SPA if session attached, else redirect to launcher
+        return await _proxy_to_dev_frontend(dev_url, path, request)
     if not path:
         if request.query_params.get("session"):
             return _serve_env_html(env_id)

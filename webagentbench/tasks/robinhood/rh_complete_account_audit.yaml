@@ -59,40 +59,63 @@ seed:
     mismatch_symbol: '{output.mismatch_symbol}'
     stale_symbol: NFLX
     overdue_symbols: '{output.overdue_symbols}'
-eval:
-  source: server_state
-  checks:
-  - expr: state.watchlist_named('Discrepancy Review') is not None
-    desc: A watchlist named "Discrepancy Review" was created
-  - expr: '''{target.mismatch_symbol}'' in state.watchlist_symbols(''Discrepancy Review'')'
-    desc: The seeded mismatch symbol was added to the Discrepancy Review watchlist
-  - expr: len(state.stale_alert_symbols()) == 0
-    desc: All price alerts for unowned stocks were removed
-  - expr: len(state.overdue_recurring_investments()) == 0
-    desc: All overdue recurring investments were removed
-  - expr: all(n.is_read for n in state.notifications)
-    desc: All notifications were marked as read
-  - expr: len([a for a in state.price_alerts if a.symbol in state.owned_symbols()
-      and not a.id.startswith('alert_decoy_')]) >= 1
-    desc: Price alerts for currently owned stocks were preserved (only stale alerts
-      deleted)
-  negative_checks:
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The audit did not place any orders
-    penalty: 0.2
-  - expr: len(state.transfers) == 0
-    desc: The audit did not initiate any transfers
-    penalty: 0.15
-  - expr: not any(a.symbol in state.owned_symbols() and not a.id.startswith('alert_decoy_')
-      and a.status == 'deleted' for a in state.price_alerts)
-    desc: Non-stale alerts for owned stocks were not deleted
-    penalty: 0.2
-  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
-    desc: No off-task transfers were initiated
-    penalty: 0.1
-  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
-    desc: No off-task equity orders were cancelled
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: watchlists
+    desc: New "Discrepancy Review" watchlist containing the mismatch symbol
+    properties:
+      name: {eq: Discrepancy Review}
+      symbols: {expr: "target['mismatch_symbol'] in x"}
+  update:
+  - entity: notifications
+    desc: All unread notifications marked as read
+    bijection:
+      over: "[n for n in initial.notifications if not n.is_read]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      is_read: {eq: true}
+  delete:
+  - entity: price_alerts
+    desc: Stale price alerts for unowned stocks removed
+    bijection:
+      over: "[a for a in initial.price_alerts if a.symbol not in initial.owned_symbols() and not a.id.startswith('alert_decoy_')]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+  - entity: recurring_investments
+    desc: Overdue recurring investments removed
+    bijection:
+      over: "[r for r in initial.recurring_investments if r.id in [x.id for x in initial.overdue_recurring_investments()] and not r.id.startswith('ri_decoy_')]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+  constraints:
+  - desc: Discrepancy Review watchlist contains mismatch symbol
+    expr: "state.watchlist_named('Discrepancy Review') is not None and target['mismatch_symbol'] in state.watchlist_symbols('Discrepancy Review')"
+    severity: critical
+  - desc: No stale alerts remain
+    expr: "len(state.stale_alert_symbols()) == 0"
+    severity: critical
+  - desc: No overdue recurring investments remain
+    expr: "len(state.overdue_recurring_investments()) == 0"
+    severity: critical
+  - desc: All notifications marked read
+    expr: "all(n.is_read for n in state.notifications)"
+    severity: critical
+  - desc: No orders placed during audit
+    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.price_alerts
+    filter: "a.symbol in initial.owned_symbols() and not a.id.startswith('alert_decoy_')"
+    preserve: ALL
+  - collection: state.recurring_investments
+    filter: "a.id not in [x.id for x in initial.overdue_recurring_investments()] and not a.id.startswith('ri_decoy_')"
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, exploration, patience, grounding
   by requiring the agent to audit multiple account areas and take corrective action

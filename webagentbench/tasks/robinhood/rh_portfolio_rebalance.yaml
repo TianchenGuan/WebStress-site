@@ -46,44 +46,38 @@ seed:
       MSFT: 30
       GOOGL: 20
       AMZN: 10
-eval:
-  source: server_state
-  checks:
-  - expr: len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one sell order was placed to reduce overweight positions
-  - expr: len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one buy order was placed to increase underweight positions
-  - expr: all(state.get_position(symbol) is not None and state.get_position(symbol).quantity
-      > Decimal('0') for symbol in {target.target_allocation})
-    desc: All target symbols retain non-zero positions after rebalancing
-  - expr: state.allocation_error_vs_targets({target.target_allocation}) < state.allocation_error_vs_targets_initial({target.target_allocation})
-    desc: The portfolio moved closer to the requested target allocation
-  - expr: state.allocation_error_vs_targets({target.target_allocation}) <= Decimal('15')
-    desc: The allocation is within a tight total-error band of the requested mix
-  negative_checks:
-  - expr: not any(o.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: Did not trade symbols outside the target allocation set
-    penalty: 0.25
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: No transfers were initiated during the rebalancing task
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.options.order.place' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Portfolio rebalance did not mutate unrelated options, alert, watchlist,
-      or recurring surfaces
-    penalty: 0.1
-  - expr: "(\n  set(o.symbol for o in state.orders\n      if o.side == 'buy' and not\
-      \ o.id.startswith('ord_decoy_'))\n  &\n  set(o.symbol for o in state.orders\n\
-      \      if o.side == 'sell' and not o.id.startswith('ord_decoy_'))\n) == set()"
-    desc: Portfolio rebalance did not buy and sell the same symbol in both directions
-    penalty: 0.1
-  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
-    desc: Portfolio rebalance did not place and then cancel speculative trades
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: At least one sell order placed to reduce overweight positions
+    expr: "len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) >= 1"
+    severity: critical
+  - desc: At least one buy order placed to increase underweight positions
+    expr: "len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) >= 1"
+    severity: critical
+  - desc: Portfolio moved closer to target allocation
+    expr: "state.allocation_error_vs_targets(target['target_allocation']) < state.allocation_error_vs_targets_initial(target['target_allocation'])"
+    severity: critical
+  - desc: Allocation within 15% total error band of target
+    expr: "state.allocation_error_vs_targets(target['target_allocation']) <= Decimal('15')"
+    severity: high
+  - desc: All target symbols retain non-zero positions
+    expr: "all(state.get_position(sym) is not None and state.get_position(sym).quantity > Decimal('0') for sym in target['target_allocation'])"
+    severity: high
+  - desc: Did not trade symbols outside target allocation set
+    expr: "not any(o.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: Did not buy and sell the same symbol
+    expr: "(set(o.symbol for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')) & set(o.symbol for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))) == set()"
+    severity: medium
+  invariant:
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

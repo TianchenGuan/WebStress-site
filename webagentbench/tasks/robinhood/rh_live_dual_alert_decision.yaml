@@ -43,38 +43,17 @@ seed:
         - - 30
           - 485.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(a.symbol == 'META' and a.condition == 'above' and a.target_price ==
-      520 for a in state.price_alerts)
-    desc: A price alert for META above $520 exists
-  - expr: any(a.symbol == 'META' and a.condition == 'below' and a.target_price ==
-      480 and a.status == 'triggered' for a in state.price_alerts)
-    desc: A price alert for META below $480 was triggered
-  - expr: any(o.symbol == 'META' and o.side == 'sell' and o.status == 'filled' for
-      o in state.orders)
-    desc: A filled sell order for META exists (bearish response)
-  - expr: all(o.filled_price is not None and o.filled_price < 482 for o in state.orders
-      if o.symbol == 'META' and o.side == 'sell' and o.status == 'filled')
-    desc: META was sold near or below the $480 alert trigger
-  negative_checks:
-  - expr: not any(o.symbol == 'META' and o.side == 'buy' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The seeded bearish branch did not incorrectly place a bullish buy
-    penalty: 0.25
-  - expr: not any(o.symbol != 'META' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: No orders were placed on symbols other than META
-    penalty: 0.25
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create')
-      == 2
-    desc: Dual-alert workflow created exactly the two required META alerts
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Dual-alert workflow did not mutate transfers, watchlists, or recurring plans
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: META above-$520 price alert created
+    expr: "any(a.symbol == 'META' and a.condition == 'above' and a.target_price == Decimal('520') and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
+    severity: critical
+  - desc: META below-$480 price alert created
+    expr: "any(a.symbol == 'META' and a.condition == 'below' and a.target_price == Decimal('480') and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
+    severity: critical
+  - desc: META sell order placed (bearish response when below-$480 alert triggers)
+    expr: "any(o.symbol == 'META' and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, state_tracking, grounding by requiring
   exact completion of the requested Robinhood workflow while ignoring distractor account

@@ -29,27 +29,36 @@ seed:
       - HD
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: any(w.name == 'Tech Leaders' and all(s in w.symbols for s in ['AAPL', 'MSFT',
-      'GOOGL', 'NVDA', 'META']) for w in state.watchlists)
-    desc: A watchlist named Tech Leaders exists with AAPL, MSFT, GOOGL, NVDA, and
-      META
-  - expr: len([w for w in state.watchlists if w.name == 'Tech Leaders']) == 1
-    desc: Exactly one Tech Leaders watchlist exists (no duplicates)
-  - expr: any(w.name == 'Dividend Kings' and all(s in w.symbols for s in ['KO', 'JNJ',
-      'PG', 'XOM', 'HD']) for w in state.watchlists)
-    desc: A watchlist named Dividend Kings exists with KO, JNJ, PG, XOM, and HD
-  - expr: len([w for w in state.watchlists if w.name == 'Dividend Kings']) == 1
-    desc: Exactly one Dividend Kings watchlist exists (no duplicates)
-  negative_checks:
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No equity orders were placed during the watchlist task
-    penalty: 0.2
-  - expr: len(state.price_alerts) == len([a for a in state.price_alerts if a.id.startswith('alert_decoy_')
-      or a.id.startswith('alert_0')])
-    desc: No price alerts were created during the watchlist task
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: watchlists
+    desc: New "Tech Leaders" watchlist with AAPL, MSFT, GOOGL, NVDA, META
+    properties:
+      name: {eq: Tech Leaders}
+      symbols: {superset: [AAPL, MSFT, GOOGL, NVDA, META]}
+  - entity: watchlists
+    desc: New "Dividend Kings" watchlist with KO, JNJ, PG, XOM, HD
+    properties:
+      name: {eq: Dividend Kings}
+      symbols: {superset: [KO, JNJ, PG, XOM, HD]}
+  constraints:
+  - desc: Exactly one Tech Leaders watchlist exists
+    expr: "len([w for w in state.watchlists if w.name == 'Tech Leaders']) == 1"
+    severity: high
+  - desc: Exactly one Dividend Kings watchlist exists
+    expr: "len([w for w in state.watchlists if w.name == 'Dividend Kings']) == 1"
+    severity: high
+  - desc: No equity orders placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.watchlists
+    filter: "a.name != 'Tech Leaders' and a.name != 'Dividend Kings'"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
 secondary_primitives: []

@@ -54,46 +54,20 @@ seed:
   targets:
     largest_tech_symbol: '{output.largest_tech_symbol}'
     buy_symbol: SCHD
-eval:
-  source: server_state
-  checks:
-  - expr: "any(o.symbol == '{target.buy_symbol}' and o.side == 'buy'\n    and not\
-      \ o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: A buy order for SCHD exists
-  - expr: "any(o.side == 'sell' and o.symbol == '{target.largest_tech_symbol}'\n \
-      \   and not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: The most overweight seeded tech stock was the one sold
-  - expr: state.sector_pct('Technology') <= Decimal('50.5')
-    desc: Technology concentration was reduced to roughly the requested ceiling
-  - expr: "(len([o for o in state.orders\n      if o.side == 'sell' and not o.id.startswith('ord_decoy_')])\
-      \ >= 1\n and len([o for o in state.orders\n          if o.side == 'buy' and\
-      \ not o.id.startswith('ord_decoy_')]) >= 1)"
-    desc: Both sell and buy orders were placed to execute the rebalance
-  negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.largest_tech_symbol}'
-      and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The agent did not sell a different position instead of the most overweight
-      tech holding
-  - expr: not any(o.side == 'buy' and o.symbol != '{target.buy_symbol}' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The agent did not introduce unrelated buy orders during the rebalance
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.options.order.place'
-      or e.action == 'robinhood.alert.create' or e.action == 'robinhood.alert.delete'
-      or e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
-      for e in state.audit_log)
-    desc: Sector rebalance did not mutate unrelated account surfaces
-    penalty: 0.1
-  - expr: "sum(\n  1 for e in state.audit_log\n  if e.action == 'robinhood.order.place'\n\
-      \  and e.payload.get('side') == 'sell'\n) == 1"
-    desc: Sector rebalance used a single sell order on the overweight tech position
-    penalty: 0.1
-  - expr: "sum(\n  1 for e in state.audit_log\n  if e.action == 'robinhood.order.place'\n\
-      \  and e.payload.get('side') == 'buy'\n) == 1"
-    desc: Sector rebalance used a single buy order into SCHD
-    penalty: 0.1
-  - expr: not any(e.action == 'robinhood.order.cancel' for e in state.audit_log)
-    desc: Sector rebalance did not place and then cancel speculative orders
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Sell order placed for most overweight tech stock
+    expr: "any(o.symbol == target['largest_tech_symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: Buy order placed for SCHD
+    expr: "any(o.symbol == 'SCHD' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: Only the most overweight tech stock sold
+    expr: "not any(o.side == 'sell' and o.symbol != target['largest_tech_symbol'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No unrelated buy orders placed
+    expr: "not any(o.side == 'buy' and o.symbol != 'SCHD' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

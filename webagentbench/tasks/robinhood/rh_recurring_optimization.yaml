@@ -47,37 +47,25 @@ seed:
     earnings_symbols: '{output.earnings_symbols}'
     should_pause_symbols: '{output.should_pause_symbols}'
     total_active_before: '{output.total_active_before}'
-eval:
-  source: server_state
-  checks:
-  - expr: any(r.status == 'paused' for r in state.recurring_investments)
-    desc: At least one recurring investment was paused
-  - expr: all(any(r.symbol == sym and r.status == 'paused' for r in state.recurring_investments)
-      for sym in {target.overpaying_symbols})
-    desc: All overpaying recurring investments (avg price >5% above current) were
-      paused
-  - expr: all(any(r.symbol == sym and r.status == 'paused' for r in state.recurring_investments)
-      for sym in {target.earnings_symbols} if any(r.symbol == sym for r in state.recurring_investments))
-    desc: All recurring investments for stocks with earnings in 3 days were paused
-  - expr: len([r for r in state.recurring_investments if r.status == 'paused']) >=
-      len({target.should_pause_symbols})
-    desc: The correct number of recurring investments were paused
-  - expr: not any(r.status == 'paused' and r.symbol not in {target.should_pause_symbols}
-      for r in state.recurring_investments)
-    desc: No recurring investments were paused that should have remained active
-  negative_checks:
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No trades were placed during this analysis task
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: No transfers were initiated
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.recurring.create' for e in state.audit_log)
-    desc: Optimization paused existing recurring plans without creating new ones
-    penalty: 0.15
-  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Optimization did not mutate watchlists or price alerts
-    penalty: 0.1
+canonical_diff:
+  update:
+  - entity: recurring_investments
+    desc: Should-pause recurring investments set to paused
+    bijection:
+      over: "[r for r in initial.recurring_investments if r.symbol in target['should_pause_symbols'] and not r.id.startswith('ri_decoy_')]"
+      variable: ri
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      status: {eq: paused}
+  constraints:
+  - desc: No recurring investments paused beyond should-pause list
+    expr: "not any(r.status == 'paused' and r.symbol not in target['should_pause_symbols'] for r in state.recurring_investments if not r.id.startswith('ri_decoy_'))"
+    severity: critical
+  - desc: No trades placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No new recurring investments created
+    expr: "len([r for r in state.recurring_investments if not r.id.startswith('ri_decoy_')]) == len([r for r in initial.recurring_investments if not r.id.startswith('ri_decoy_')])"
+    severity: high
 secondary_primitives: []

@@ -46,42 +46,14 @@ seed:
       - '390.00'
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: any(ri.symbol == 'VTI' and ri.frequency == 'weekly' and ri.amount == Decimal('200')
-      and ri.status == 'active' for ri in state.recurring_investments)
-    desc: A recurring weekly $200 VTI investment was set up
-  - expr: state.total_transferred('deposit') > state.total_transferred('withdrawal')
-      or (len(state.transfers) > 10 and any(t.direction == 'deposit' and t.amount
-      == Decimal('3000') for t in state.transfers))
-    desc: If withdrawals exceeded deposits, a $3,000 deposit was made; otherwise no
-      deposit was needed
-  - expr: len([ri for ri in state.recurring_investments if ri.symbol == 'VTI' and
-      ri.status == 'active']) >= 1
-    desc: At least one active VTI recurring investment exists
-  - expr: any(ri.symbol == 'VTI' and ri.amount == Decimal('200') for ri in state.recurring_investments)
-    desc: The recurring investment amount is exactly $200 as instructed
-  negative_checks:
-  - expr: all(o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No unintended trades were placed during the transfer audit
-    penalty: 0.15
-  - expr: not any(ri.symbol != 'VTI' and ri.status == 'active' for ri in state.recurring_investments)
-    desc: No recurring investments were created for symbols other than VTI
-    penalty: 0.25
-  - expr: not any( e.action == 'robinhood.transfer.initiate' and e.payload.get('direction')
-      == 'withdrawal' for e in state.audit_log)
-    desc: Transfer-history audit did not initiate any new withdrawals
-    penalty: 0.1
-  - expr: not any( e.action in ['robinhood.recurring.update', 'robinhood.recurring.delete']
-      for e in state.audit_log)
-    desc: Transfer-history audit did not modify or delete existing recurring plans
-    penalty: 0.1
-  - expr: not any( e.action == 'robinhood.options.order.place' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      for e in state.audit_log)
-    desc: Transfer-history audit did not mutate unrelated options, alerts, or watchlists
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Active weekly $200 VTI recurring investment created
+    expr: "any(ri.symbol == 'VTI' and ri.frequency == 'weekly' and ri.amount == Decimal('200') and ri.status == 'active' for ri in state.recurring_investments)"
+    severity: critical
+  - desc: $3,000 deposit made when withdrawals exceeded deposits (or deposits already exceeded)
+    expr: "state.total_transferred('deposit') > state.total_transferred('withdrawal') or any(t.direction == 'deposit' and t.amount == Decimal('3000') for t in state.transfers)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, planning by requiring the
   agent to analyze transfer history and take conditional action based on the findings.

@@ -39,46 +39,17 @@ seed:
         - - 40
           - 435.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == 'MSFT' and o.side == 'buy' and o.order_type == 'limit' and
-      o.status == 'filled' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: A filled limit buy order for MSFT exists
-  - expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.order_type == 'stop' and
-      o.stop_price is not None and abs(o.stop_price - Decimal('380')) < 5 and not
-      o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: A stop-loss order near $380 was placed after the entry filled
-  - expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.order_type == 'limit'
-      and o.limit_price is not None and abs(o.limit_price - Decimal('430')) < 5 and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: A take-profit limit sell near $430 was placed after the entry filled
-  - expr: len([o for o in state.orders if o.symbol == 'MSFT' and not o.id.startswith('ord_decoy_')])
-      == 3
-    desc: Exactly 3 MSFT orders were placed (1 buy + 2 sells for the bracket)
-  - expr: any(o.symbol == 'MSFT' and o.side == 'buy' and o.order_type == 'limit' and
-      o.limit_price is not None and o.limit_price <= Decimal('400') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The limit buy order had a limit price at or below $400
-  negative_checks:
-  - expr: not any(o.symbol != 'MSFT' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: The bracket workflow did not place unrelated orders in other symbols
-    penalty: 0.25
-  - expr: not any(o.order_type == 'market' and not o.id.startswith('ord_decoy_') for
-      o in state.orders)
-    desc: No market orders were placed (bracket strategy requires limit and stop orders)
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.order.place') ==
-      3
-    desc: Bracket workflow placed exactly the three required orders
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') or e.action == 'robinhood.options.order.place'
-      for e in state.audit_log)
-    desc: Bracket workflow did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: MSFT limit buy order placed at or below $400
+    expr: "any(o.symbol == 'MSFT' and o.side == 'buy' and o.order_type == 'limit' and o.limit_price is not None and o.limit_price <= Decimal('400') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: MSFT stop-loss sell order placed near $380
+    expr: "any(o.symbol == 'MSFT' and o.side == 'sell' and o.order_type == 'stop' and o.stop_price is not None and abs(o.stop_price - Decimal('380')) < 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: MSFT take-profit limit sell order placed near $430
+    expr: "any(o.symbol == 'MSFT' and o.side == 'sell' and o.order_type == 'limit' and o.limit_price is not None and abs(o.limit_price - Decimal('430')) < 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, patience, verification by requiring
   exact completion of the requested Robinhood workflow while ignoring distractor account

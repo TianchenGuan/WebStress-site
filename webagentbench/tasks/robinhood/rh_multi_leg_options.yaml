@@ -45,58 +45,39 @@ seed:
     outputs: []
   targets:
     symbol: SPY
-eval:
-  source: server_state
-  checks:
-  - expr: state.latest_options_order(symbol='{target.symbol}') is not None and state.latest_options_order(symbol='{target.symbol}').strategy
-      == 'iron_condor' and len(state.latest_options_order(symbol='{target.symbol}').legs)
-      == 4
-    desc: A 4-leg iron condor order was placed on the target underlying
-  - expr: state.latest_options_order(symbol='{target.symbol}') is not None and len([leg
-      for leg in state.latest_options_order(symbol='{target.symbol}').legs if leg.side
-      == 'sell']) == 2 and len([leg for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.side == 'buy']) == 2
-    desc: The iron condor has the correct two short legs and two protective long legs
-  - expr: state.latest_options_order(symbol='{target.symbol}') is not None and len([leg
-      for leg in state.latest_options_order(symbol='{target.symbol}').legs if leg.option_type
-      == 'call' and leg.side == 'buy']) == 1 and len([leg for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.option_type == 'call' and leg.side == 'sell']) == 1 and len([leg for
-      leg in state.latest_options_order(symbol='{target.symbol}').legs if leg.option_type
-      == 'put' and leg.side == 'buy']) == 1 and len([leg for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.option_type == 'put' and leg.side == 'sell']) == 1 and min([leg.strike
-      for leg in state.latest_options_order(symbol='{target.symbol}').legs if leg.option_type
-      == 'call' and leg.side == 'buy']) > max([leg.strike for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.option_type == 'call' and leg.side == 'sell']) and max([leg.strike for
-      leg in state.latest_options_order(symbol='{target.symbol}').legs if leg.option_type
-      == 'put' and leg.side == 'buy']) < min([leg.strike for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.option_type == 'put' and leg.side == 'sell'])
-    desc: The protective wings sit farther out than the short call and short put
-  - expr: state.latest_options_order(symbol='{target.symbol}') is not None and all(state.days_until(leg.expiration)
-      >= 35 and state.days_until(leg.expiration) <= 55 for leg in state.latest_options_order(symbol='{target.symbol}').legs)
-    desc: All legs expire approximately 45 days out
-  - expr: state.latest_options_order(symbol='{target.symbol}') is not None and all(leg.strike
-      >= state.get_stock('{target.symbol}').price * Decimal('0.90') and leg.strike
-      <= state.get_stock('{target.symbol}').price * Decimal('1.10') for leg in state.latest_options_order(symbol='{target.symbol}').legs
-      if leg.side == 'sell')
-    desc: Short legs are struck near 5% from current price
-  negative_checks:
-  - expr: state.latest_options_order(symbol='{target.symbol}') is None or not any(leg.underlying_symbol
-      != '{target.symbol}' for leg in state.latest_options_order(symbol='{target.symbol}').legs)
-    desc: The iron condor did not mix in legs from another underlying
-    penalty: 0.25
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No equity trades were placed alongside the options strategy
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.options.order.place')
-      == 1
-    desc: Iron condor workflow placed exactly one options order
-    penalty: 0.15
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' for e in state.audit_log)
-    desc: Iron condor workflow did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  create:
+  - entity: options_orders
+    desc: Iron condor with 4 legs on target underlying
+    properties:
+      strategy: {eq: iron_condor}
+      status: {in: [pending, filled]}
+      legs: {any: true}
+  constraints:
+  - desc: 4-leg iron condor with 2 short and 2 long legs
+    expr: "state.latest_options_order(symbol=target['symbol']) is not None and len(state.latest_options_order(symbol=target['symbol']).legs) == 4 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'sell']) == 2 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'buy']) == 2"
+    severity: critical
+  - desc: Correct call and put structure with protective wings outside short strikes
+    expr: "state.latest_options_order(symbol=target['symbol']) is not None and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.option_type == 'call' and leg.side == 'buy']) == 1 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.option_type == 'put' and leg.side == 'buy']) == 1"
+    severity: critical
+  - desc: Short legs struck near 5% from current price
+    expr: "state.latest_options_order(symbol=target['symbol']) is not None and all(leg.strike >= state.get_stock(target['symbol']).price * Decimal('0.90') and leg.strike <= state.get_stock(target['symbol']).price * Decimal('1.10') for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'sell')"
+    severity: critical
+  - desc: All legs expire approximately 45 days out (35-55 days)
+    expr: "state.latest_options_order(symbol=target['symbol']) is not None and all(state.days_until(leg.expiration) >= 35 and state.days_until(leg.expiration) <= 55 for leg in state.latest_options_order(symbol=target['symbol']).legs)"
+    severity: critical
+  - desc: No equity orders placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, exploration, grounding by requiring
   exact completion of the requested Robinhood workflow while ignoring distractor account

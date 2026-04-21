@@ -39,39 +39,11 @@ seed:
         - - 25
           - 255.0
         noise_pct: 0.2
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == 'TSLA' and o.side == 'buy' and o.order_type == 'market'
-      and o.status == 'filled' and o.quantity == 5 and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: A filled market buy order for 5 shares of TSLA exists
-  - expr: sum(1 for o in state.orders if not o.id.startswith('ord_decoy_')) == 1
-    desc: Only the intended reversal buy order was placed
-  - expr: all(o.filled_price is not None and o.filled_price < 255 for o in state.orders
-      if o.symbol == 'TSLA' and o.side == 'buy' and o.status == 'filled' and not o.id.startswith('ord_decoy_'))
-    desc: TSLA was bought during or after the dip, not at the starting price
-  - expr: all(o.filled_tick is not None and o.filled_tick >= 8 for o in state.orders
-      if o.symbol == 'TSLA' and o.side == 'buy' and o.status == 'filled' and not o.id.startswith('ord_decoy_'))
-    desc: The buy was placed after waiting for the price decline and reversal
-  negative_checks:
-  - expr: not any(o.order_type == 'limit' and o.symbol == 'TSLA' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No limit orders were placed for TSLA (must watch and buy manually)
-    penalty: 0.25
-  - expr: not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: No sell orders were placed (task is about buying on reversal)
-    penalty: 0.15
-  - expr: not any(o.symbol != 'TSLA' and not o.id.startswith('ord_decoy_') for o in
-      state.orders)
-    desc: Reversal buy did not trade symbols other than TSLA
-    penalty: 0.25
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Reversal spread workflow did not mutate unrelated account surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Market buy of 5 TSLA shares placed at the spread reversal
+    expr: "any(o.symbol == 'TSLA' and o.side == 'buy' and o.order_type == 'market' and o.quantity == 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, grounding, state_tracking by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

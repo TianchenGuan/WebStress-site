@@ -51,41 +51,25 @@ seed:
     - SCHD
     - VTI
     - KO
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == '{target.worst_yield_symbol}' and o.side == 'sell' and not
-      o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The lowest-dividend-income stock was sold
-  - expr: any(o.side == 'buy' and o.symbol in {target.watchlist_symbols} and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: A buy order was placed for a stock from the Income Ideas watchlist
-  - expr: len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one sell order was placed
-  - expr: len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one buy order was placed
-  negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol != '{target.worst_yield_symbol}' and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: Only the lowest-yield stock was sold, not other positions
-    penalty: 0.25
-  - expr: not any(o.side == 'buy' and o.symbol not in {target.watchlist_symbols} and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: Buys were limited to stocks from the Income Ideas watchlist
-    penalty: 0.25
-  - expr: sum( 1 for e in state.audit_log if e.action == 'robinhood.order.place' and
-      e.payload.get('side') == 'sell' ) == 1
-    desc: Dividend rotation used exactly one sell order
-    penalty: 0.1
-  - expr: sum( 1 for e in state.audit_log if e.action == 'robinhood.order.place' and
-      e.payload.get('side') == 'buy' ) == 1
-    desc: Dividend rotation used exactly one buy order
-    penalty: 0.1
-  - expr: not any( e.action == 'robinhood.transfer.initiate' or e.action.startswith('robinhood.watchlist.')
-      or e.action == 'robinhood.options.order.place' for e in state.audit_log)
-    desc: Dividend rotation did not mutate unrelated transfer, watchlist, or options
-      surfaces
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Only the worst yield symbol was sold
+    expr: "not any(o.side == 'sell' and o.symbol != target['worst_yield_symbol'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: Buy only from Income Ideas watchlist symbols
+    expr: "not any(o.side == 'buy' and o.symbol not in target['watchlist_symbols'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: Exactly one sell order placed
+    expr: "len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) == 1"
+    severity: high
+  - desc: Exactly one buy order placed
+    expr: "len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) == 1"
+    severity: high
+  invariant:
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
 secondary_primitives: []

@@ -36,19 +36,72 @@ seed:
     outputs: []
   targets:
     symbol: AAPL
-eval:
-  source: server_state
-  checks:
-  - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'market'\n\
-      \    and o.quantity == 3 and o.status == 'filled'\n    and not o.id.startswith('ord_decoy_')\n\
-      \    for o in state.orders)"
-    desc: A filled market buy order for 3 shares of AAPL exists (non-decoy)
-  - expr: state.get_position('AAPL') is not None and state.get_position('AAPL').quantity
-      >= 3
-    desc: AAPL position reflects the purchased shares
-  negative_checks:
-  - expr: "not any(o.symbol != 'AAPL' and o.side == 'buy'\n        and not o.id.startswith('ord_decoy_')\n\
-      \        for o in state.orders)"
-    desc: Agent did not place buy orders on other symbols
-    penalty: 0.25
+canonical_diff:
+  create:
+  - entity: orders
+    desc: Filled market buy order for 3 shares of target symbol
+    properties:
+      symbol: {expr: "x == target['symbol']"}
+      side: {eq: buy}
+      order_type: {eq: market}
+      quantity: {eq: 3}
+      filled_quantity: {eq: 3}
+      status: {eq: filled}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: positions
+    desc: Position for target symbol with at least 3 shares
+    properties:
+      symbol: {expr: "x == target['symbol']"}
+      quantity: {eq: 3}
+  - entity: transactions
+    desc: Buy transaction for target symbol
+    properties:
+      type: {eq: buy}
+      symbol: {expr: "x == target['symbol']"}
+      quantity: {eq: 3}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: notifications
+    desc: Order fill notification
+    properties:
+      type: {eq: order_fill}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+      is_read: {any: true}
+      action_url: {any: true}
+  invariant:
+  - collection: state.positions
+    filter: "a.symbol != target['symbol']"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not modify other positions
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not place extra buy orders
+    ref: create[0]
+    severity: high
 secondary_primitives: []

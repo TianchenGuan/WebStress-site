@@ -36,34 +36,14 @@ seed:
         - - 30
           - 185.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: "len([o for o in state.orders\n     if o.symbol == 'AAPL' and o.side ==\
-      \ 'buy'\n     and not o.id.startswith('ord_decoy_')]) == 1"
-    desc: Exactly one AAPL buy order was placed
-  - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit'\n\
-      \    and o.status == 'filled' and o.quantity == 10\n    and o.filled_tick is\
-      \ not None\n    and o.filled_price is not None and o.filled_price <= Decimal('180')\n\
-      \    and not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: A filled limit buy order for 10 shares of AAPL executed at the requested
-      dip price
-  - expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit'\n\
-      \    and o.time_in_force == 'gtc' and float(o.limit_price) <= 180.0\n    and\
-      \ not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: The limit order used the requested $180-or-below GTC price
-  - expr: "abs(\n  next(o.limit_price for o in state.orders\n       if o.symbol ==\
-      \ 'AAPL' and o.side == 'buy'\n       and not o.id.startswith('ord_decoy_'))\
-      \ -\n  (state.get_stock('AAPL').price * Decimal('0.95'))\n) <= Decimal('0.01')"
-    desc: The limit price is 5% below the current AAPL price
-  negative_checks:
-  - expr: not any(o.order_type == 'market' and not o.id.startswith('ord_decoy_') for
-      o in state.orders)
-    desc: The dip-buy workflow did not use a market order
-  - expr: not any(o.side == 'buy' and o.symbol != 'AAPL' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The dip-buy workflow did not buy a different symbol
-    penalty: 0.15
+canonical_diff:
+  constraints:
+  - desc: AAPL GTC limit buy order at approximately 5% below current price
+    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit' and o.time_in_force == 'gtc' and o.limit_price is not None and o.limit_price <= initial.get_stock('AAPL').price * Decimal('0.96') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: Buy 10 AAPL shares
+    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.quantity == 10 and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, verification by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

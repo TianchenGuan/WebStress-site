@@ -30,21 +30,33 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: "any(oo.strategy == 'single'\n    and any(leg.option_type == 'call' and\
-      \ leg.side == 'buy' for leg in oo.legs)\n    for oo in state.options_orders)"
-    desc: An options order exists with a single-leg call buy
-  - expr: "any(oo.underlying_symbol == 'AAPL'\n    and any(leg.option_type == 'call'\
-      \ and leg.side == 'buy' for leg in oo.legs)\n    for oo in state.options_orders)"
-    desc: The call option order is for AAPL
-  - expr: "any(oo.strategy == 'single' for oo in state.options_orders\n    if any(leg.side\
-      \ == 'buy' for leg in oo.legs))"
-    desc: The options order strategy is single (not a multi-leg spread)
-  negative_checks:
-  - expr: "not any(any(leg.option_type == 'put' and leg.side == 'buy' for leg in oo.legs)\n\
-      \    for oo in state.options_orders)"
-    desc: No put options were bought
-    penalty: 0.25
+canonical_diff:
+  create:
+  - entity: options_orders
+    desc: Single-leg call buy on AAPL
+    properties:
+      strategy: {eq: single}
+      status: {in: [pending, filled]}
+      legs: {any: true}
+  constraints:
+  - desc: Call option order is on AAPL
+    expr: "any(any(leg.underlying_symbol == 'AAPL' and leg.option_type == 'call' and leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders if not oo.id.startswith('oo_decoy_'))"
+    severity: critical
+  - desc: Exactly 1 contract purchased
+    expr: "any(any(leg.quantity == 1 and leg.option_type == 'call' and leg.side == 'buy' and leg.underlying_symbol == 'AAPL' for leg in oo.legs) for oo in state.options_orders)"
+    severity: critical
+  - desc: No put options bought
+    expr: "not any(any(leg.option_type == 'put' and leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
 secondary_primitives: []

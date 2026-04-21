@@ -37,19 +37,63 @@ seed:
   targets:
     symbol: TSLA
     quantity: 5
-eval:
-  source: server_state
-  checks:
-  - expr: "any(o.symbol == 'TSLA' and o.side == 'sell' and o.quantity == 5\n    and\
-      \ o.status == 'filled'\n    and not o.id.startswith('ord_decoy_')\n    for o\
-      \ in state.orders)"
-    desc: A filled sell order for all 5 TSLA shares exists (non-decoy)
-  - expr: state.get_position('TSLA') is None or state.get_position('TSLA').quantity
-      == 0
-    desc: TSLA position is fully liquidated
-  negative_checks:
-  - expr: "not any(o.symbol != 'TSLA' and o.side == 'sell'\n        and not o.id.startswith('ord_decoy_')\n\
-      \        for o in state.orders)"
-    desc: Agent did not sell shares of other symbols
-    penalty: 0.25
+canonical_diff:
+  create:
+  - entity: orders
+    desc: Filled market sell order for all target shares
+    properties:
+      symbol: {expr: "x == target['symbol']"}
+      side: {eq: sell}
+      order_type: {eq: market}
+      status: {eq: filled}
+      quantity: {expr: "x == target['quantity']"}
+      filled_quantity: {expr: "x == target['quantity']"}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: transactions
+    desc: Sell transaction for target symbol
+    properties:
+      type: {eq: sell}
+      symbol: {expr: "x == target['symbol']"}
+      quantity: {expr: "x == target['quantity']"}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: notifications
+    desc: Order fill notification
+    properties:
+      type: {eq: order_fill}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+      is_read: {any: true}
+      action_url: {any: true}
+  delete:
+  - entity: positions
+    desc: Target symbol position fully liquidated and removed
+    where:
+      symbol: {expr: "x == target['symbol']"}
+  constraints:
+  - desc: No other symbols were sold
+    expr: "not any(o.symbol != target['symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    filter: "a.symbol != target['symbol']"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not sell other positions
+    ref: invariant[0]
+    severity: high
 secondary_primitives: []

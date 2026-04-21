@@ -66,40 +66,21 @@ seed:
     gain_symbols: '{output.gain_symbols}'
     recent_buy_symbols: '{output.recent_buy_symbols}'
     replacement_etf: VOO
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.side == 'sell' and o.symbol in {target.loss_symbols} and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: At least one position with unrealized losses was sold for tax-loss harvesting
-  - expr: all(o.symbol in {target.loss_symbols} for o in state.orders if o.side ==
-      'sell' and not o.id.startswith('ord_decoy_'))
-    desc: All sell orders target positions with unrealized losses (not gainers)
-  - expr: not any(o.side == 'sell' and o.symbol in {target.recent_buy_symbols} and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No sells were placed on stocks purchased within the last 30 days (wash sale
-      avoidance)
-  - expr: any(o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: A buy order for the replacement ETF (VOO) was placed to maintain market
-      exposure
-  - expr: len([o for o in state.orders if o.side == 'buy' and o.symbol == 'VOO' and
-      not o.id.startswith('ord_decoy_')]) == 1
-    desc: Exactly one buy order for the replacement ETF was placed
-  negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol in {target.recent_buy_symbols} and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: Wash sale violation -- sold a stock purchased within last 30 days
-    penalty: 0.4
-  - expr: not any(o.side == 'sell' and o.symbol in {target.gain_symbols} and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: Profitable positions were sold unnecessarily (only loss positions qualify)
-    penalty: 0.25
-  - expr: not any(o.side == 'buy' and o.symbol != 'VOO' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: Buy orders were placed for stocks other than the replacement ETF
-    penalty: 0.15
-  - expr: len(state.transfers) == 0
-    desc: No transfers were initiated during the tax-loss harvesting task
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: At least one loss position sold for tax-loss harvesting
+    expr: "any(o.side == 'sell' and o.symbol in target['loss_symbols'] and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders) for o in state.orders)"
+    severity: critical
+  - desc: No wash sale violations (no sells of recent buys)
+    expr: "not any(o.side == 'sell' and o.symbol in target['recent_buy_symbols'] and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders) for o in state.orders)"
+    severity: critical
+  - desc: Replacement ETF (VOO) buy order placed
+    expr: "any(o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: All newly placed sell orders target loss positions only
+    expr: "all(o.symbol in target['loss_symbols'] for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders))"
+    severity: high
+  - desc: Exactly one new VOO buy order placed
+    expr: "len([o for o in state.orders if o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders)]) == 1"
+    severity: high
 secondary_primitives: []

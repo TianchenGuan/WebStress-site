@@ -25,16 +25,31 @@ seed:
   targets:
     watchlist_id: "{output.watchlist_id}"
 
-eval:
-  source: server_state
-  checks:
-    - expr: "any('NVDA' in w.symbols and w.name == 'Tech Stocks' for w in state.watchlists)"
-      desc: NVDA is in the Tech Stocks watchlist
-    - expr: "len([w for w in state.watchlists if w.name == 'Tech Stocks']) == 1"
-      desc: Exactly one watchlist named Tech Stocks exists (no duplicates)
-  negative_checks:
-    - expr: >-
-        not any(w.name != 'Tech Stocks' and 'NVDA' in w.symbols
-                for w in state.watchlists)
-      desc: NVDA was not added to any other watchlist
-      penalty: 0.25
+canonical_diff:
+  update:
+  - entity: watchlists
+    desc: Tech Stocks watchlist now includes NVDA
+    where:
+      id: {expr: "x == target['watchlist_id']"}
+    changes:
+      symbols: {any: true}
+  constraints:
+  - desc: NVDA is in the Tech Stocks watchlist
+    expr: "'NVDA' in next(w for w in state.watchlists if w.id == target['watchlist_id']).symbols"
+    severity: critical
+  - desc: Exactly one watchlist named Tech Stocks exists
+    expr: "len([w for w in state.watchlists if w.name == 'Tech Stocks']) == 1"
+    severity: high
+  - desc: NVDA was not added to any other watchlist
+    expr: "not any(w.id != target['watchlist_id'] and 'NVDA' in w.symbols for w in state.watchlists)"
+    severity: high
+  invariant:
+  - collection: state.watchlists
+    filter: "a.id != target['watchlist_id']"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL

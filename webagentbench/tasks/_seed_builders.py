@@ -3229,7 +3229,19 @@ def build_create_label(ctx: SeedContext, params: dict[str, Any]) -> dict[str, An
 
 @_register("mark_all_read")
 def build_mark_all_read(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
-    """Seed 5 unread emails in the inbox."""
+    """Seed 5 unread emails in the inbox.
+
+    Forces all pre-existing and future distractor emails to is_read=True so
+    only the 5 seeded emails are unread.  This prevents distractor emails from
+    being marked as read by the agent's "mark all" action and triggering false
+    invariant violations.
+    """
+    # Mark any emails already in the base state as read (from prior steps).
+    for em in ctx.base.get("emails", []):
+        em.is_read = True
+    # Signal the seeder to force distractor emails to is_read=True as well.
+    ctx.base["_force_distractor_emails_read"] = True
+
     senders = [
         ("Dana Lee", "dana.lee@thornton.com"),
         ("Eric Zhao", "eric.zhao@thornton.com"),

@@ -32,23 +32,99 @@ seed:
   targets:
     worst_symbol: '{output.worst_symbol}'
     best_symbol: '{output.best_symbol}'
-eval:
-  source: server_state
-  checks:
-  - expr: "len([o for o in state.orders\n    if o.side == 'sell' and not o.id.startswith('ord_decoy_')])\
-      \ >= 1"
-    desc: A sell order exists (non-decoy)
-  - expr: "len([o for o in state.orders\n    if o.side == 'buy' and not o.id.startswith('ord_decoy_')])\
-      \ >= 1"
-    desc: A buy order exists (non-decoy)
-  - expr: "any(o.symbol == '{target.worst_symbol}' and o.side == 'sell'\n    and not\
-      \ o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: The sell order targets the worst-performing stock
-  negative_checks:
-  - expr: "(not any(o.symbol == '{target.best_symbol}' and o.side == 'sell'\n    \
-      \     and not o.id.startswith('ord_decoy_')\n         for o in state.orders)\n\
-      \ and not any(o.symbol == '{target.worst_symbol}' and o.side == 'buy'\n    \
-      \         and not o.id.startswith('ord_decoy_')\n             for o in state.orders))"
-    desc: Agent did not sell the best performer or buy the worst performer
-    penalty: 0.25
+canonical_diff:
+  create:
+  - entity: orders
+    desc: Filled market sell order for worst-performing stock (all shares)
+    properties:
+      symbol: {expr: "x == target['worst_symbol']"}
+      side: {eq: sell}
+      order_type: {eq: market}
+      status: {eq: filled}
+      quantity: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: orders
+    desc: Filled market buy order for best-performing stock
+    properties:
+      symbol: {expr: "x == target['best_symbol']"}
+      side: {eq: buy}
+      order_type: {eq: market}
+      status: {eq: filled}
+      quantity: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: transactions
+    desc: Sell transaction for worst symbol
+    properties:
+      type: {eq: sell}
+      symbol: {expr: "x == target['worst_symbol']"}
+      quantity: {any: true}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: transactions
+    desc: Buy transaction for best symbol
+    properties:
+      type: {eq: buy}
+      symbol: {expr: "x == target['best_symbol']"}
+      quantity: {any: true}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: notifications
+    desc: Sell order fill notification
+    properties:
+      type: {eq: order_fill}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+      is_read: {any: true}
+      action_url: {any: true}
+  - entity: notifications
+    desc: Buy order fill notification
+    properties:
+      type: {eq: order_fill}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+      is_read: {any: true}
+      action_url: {any: true}
+  delete:
+  - entity: positions
+    desc: Worst-performing stock position fully sold
+    where:
+      symbol: {expr: "x == target['worst_symbol']"}
+  update:
+  - entity: positions
+    desc: Best-performing stock position increased
+    where:
+      symbol: {expr: "x == target['best_symbol']"}
+    changes:
+      quantity: {any: true}
+      avg_cost_basis: {any: true}
+  constraints:
+  - desc: Agent did not sell best performer or buy worst performer
+    expr: "not any(o.symbol == target['best_symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders) and not any(o.symbol == target['worst_symbol'] and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  invariant:
+  - collection: state.positions
+    filter: "a.symbol != target['worst_symbol'] and a.symbol != target['best_symbol']"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
 secondary_primitives: []

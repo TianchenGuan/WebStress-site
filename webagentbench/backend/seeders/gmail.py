@@ -95,6 +95,10 @@ class GmailSeedRunner:
         # 5. Resolve target templates
         targets = self._resolve_targets(seed_cfg.targets, ctx)
 
+        # Remove internal control keys set by seed builders (e.g. _force_distractor_emails_read)
+        # that must not reach model_validate since GmailState uses extra="forbid".
+        base.pop("_force_distractor_emails_read", None)
+
         return base, targets
 
     # ------------------------------------------------------------------
@@ -229,7 +233,7 @@ class GmailSeedRunner:
                     ),
                     thread_id=ctx.next_id("thread"),
                     labels=labels,
-                    is_read=ctx.rng.random() < 0.5,
+                    is_read=True if ctx.base.get("_force_distractor_emails_read") else ctx.rng.random() < 0.5,
                     attachments=(
                         [
                             ctx.attachment(

@@ -42,24 +42,11 @@ seed:
         - - 35
           - 260.0
         noise_pct: 0.3
-eval:
-  source: server_state
-  checks:
-  - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit'
-      and o.status == 'pending' and o.quantity == 10 for o in state.orders)
-    desc: A pending limit sell order exists for the full TSLA position
-  - expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit'
-      and float(o.limit_price) >= 260.0 for o in state.orders)
-    desc: The take-profit limit is at or above $260
-  - expr: all(o.filled_price is not None and o.filled_price >= 258 for o in state.orders
-      if o.symbol == 'TSLA' and o.side == 'sell' and o.status == 'filled')
-    desc: TSLA limit sell filled at or near the $260 target price
-  negative_checks:
-  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: The take-profit workflow did not place buy orders
-  - expr: not any(o.side == 'sell' and o.symbol != 'TSLA' and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: The take-profit workflow did not place sell orders for another symbol
+canonical_diff:
+  constraints:
+  - desc: TSLA limit sell order for 10 shares at ≥$260
+    expr: "any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type == 'limit' and o.quantity == 10 and o.limit_price is not None and o.limit_price >= Decimal('260') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, grounding by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

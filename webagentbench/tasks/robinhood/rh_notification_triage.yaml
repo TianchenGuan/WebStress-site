@@ -47,38 +47,36 @@ seed:
     outputs: []
   targets:
     high_slippage_symbols: '{output.high_slippage_symbols}'
-eval:
-  source: server_state
-  checks:
-  - expr: len([n for n in state.notifications if n.type == 'order_fill']) >= 1 and
-      all(n.is_read for n in state.notifications if n.type == 'order_fill')
-    desc: All order-fill notifications have been marked as read
-  - expr: all(any(a.symbol == sym for a in state.price_alerts) for sym in {target.high_slippage_symbols})
-    desc: Price alerts were set for every stock with more than 2 percent slippage
-  - expr: len([a for a in state.price_alerts if a.symbol in {target.high_slippage_symbols}])
-      == len({target.high_slippage_symbols})
-    desc: The correct number of price alerts were created (one per high-slippage stock)
-  - expr: not any(a.symbol not in {target.high_slippage_symbols} for a in state.price_alerts)
-    desc: No price alerts were set for stocks without high slippage
-  negative_checks:
-  - expr: not any(o.status == 'cancelled' and not o.id.startswith('ord_decoy_') for
-      o in state.orders)
-    desc: Triage did not cancel filled orders
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: No transfers were initiated during the triage task
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.order.place' for e in state.audit_log)
-    desc: Notification triage did not place any new orders
-    penalty: 0.15
-  - expr: sum(1 for e in state.audit_log if e.action == 'robinhood.alert.create')
-      == len({target.high_slippage_symbols})
-    desc: Triage created alerts only for the required high-slippage fills
-    penalty: 0.1
-  - expr: not any( e.action.startswith('robinhood.watchlist.') or e.action.startswith('robinhood.recurring.')
-      for e in state.audit_log)
-    desc: Triage did not mutate watchlists or recurring investments
-    penalty: 0.1
+canonical_diff:
+  update:
+  - entity: notifications
+    desc: All unread order-fill notifications marked as read
+    bijection:
+      over: "[n for n in initial.notifications if n.type == 'order_fill' and not n.is_read]"
+      variable: n
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      is_read: {eq: true}
+  create:
+  - entity: price_alerts
+    desc: Price alert set for each high-slippage stock
+    bijection:
+      over: "target['high_slippage_symbols']"
+      variable: sym
+    properties:
+      symbol: {expr: "x == v"}
+      status: {eq: active}
+  constraints:
+  - desc: All order-fill notifications marked as read
+    expr: "all(n.is_read for n in state.notifications if n.type == 'order_fill')"
+    severity: critical
+  - desc: Price alert exists for every high-slippage stock
+    expr: "all(any(a.symbol == sym for a in state.price_alerts) for sym in target['high_slippage_symbols'])"
+    severity: critical
+  - desc: No price alerts for non-high-slippage stocks
+    expr: "all(a.symbol in target['high_slippage_symbols'] for a in state.price_alerts if not a.id.startswith('alert_decoy_'))"
+    severity: high
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

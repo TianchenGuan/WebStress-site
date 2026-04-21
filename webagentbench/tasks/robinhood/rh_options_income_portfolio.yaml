@@ -70,50 +70,23 @@ seed:
     params: {}
     outputs: []
   targets: {}
-eval:
-  source: server_state
-  checks:
-  - expr: len(state.position_symbols_at_or_above_shares(Decimal('100'))) >= 1 and
-      all(any(any(leg.underlying_symbol == sym and leg.side == 'sell' and leg.option_type
-      == 'call' for leg in oo.legs) for oo in state.options_orders_for_symbol(sym))
-      for sym in state.position_symbols_at_or_above_shares(Decimal('100')))
-    desc: Every 100-plus-share holding received a covered-call sell order
-  - expr: len([p for p in state.positions if p.quantity < Decimal('100')]) >= 1 and
-      all(any(any(leg.underlying_symbol == p.symbol and leg.side == 'sell' and leg.option_type
-      == 'put' for leg in oo.legs) for oo in state.options_orders_for_symbol(p.symbol))
-      for p in state.positions if p.quantity < Decimal('100'))
-    desc: Every sub-100-share holding received a cash-secured-put style sell order
-  - expr: sum(1 for oo in state.options_orders if any(leg.side == 'sell' and leg.option_type
-      == 'call' for leg in oo.legs)) >= len(state.position_symbols_at_or_above_shares(Decimal('100')))
-    desc: The correct number of covered calls was sold (one per 100+ share holding)
-  - expr: sum(1 for oo in state.options_orders if any(leg.side == 'sell' and leg.option_type
-      == 'put' for leg in oo.legs)) >= len([p for p in state.positions if p.quantity
-      < Decimal('100')])
-    desc: The correct number of cash-secured puts was sold (one per sub-100 holding)
-  - expr: all(any(leg.expiration == state.nearest_monthly_expiration(leg.underlying_symbol)
-      for leg in oo.legs) for oo in state.options_orders if not oo.id.startswith('opt_decoy_'))
-    desc: All options orders use the nearest monthly expiration
-  - expr: len([oo for oo in state.options_orders if not oo.id.startswith('opt_decoy_')])
-      >= 1
-    desc: At least one options order was placed for the income strategy
-  negative_checks:
-  - expr: not any(any(leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders
-      if not oo.id.startswith('opt_decoy_'))
-    desc: The income strategy did not include unnecessary long-option legs
-    penalty: 0.2
-  - expr: not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No equity orders were placed (task is options-only)
-    penalty: 0.15
-  - expr: len(state.transfers) == 0
-    desc: No transfers were initiated during the options strategy
-    penalty: 0.15
-  - expr: not any(e.action.startswith('robinhood.watchlist.') for e in state.audit_log)
-    desc: No off-task watchlist changes were made
-    penalty: 0.1
-  - expr: not any(e.action.startswith('robinhood.transfer.') for e in state.audit_log)
-    desc: No off-task transfers were initiated
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: Covered call placed for every 100+ share position with an options chain
+    expr: "len([sym for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains]) >= 1 and all(any(any(leg.underlying_symbol == sym and leg.side == 'sell' and leg.option_type == 'call' for leg in oo.legs) for oo in state.options_orders_for_symbol(sym)) for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains)"
+    severity: critical
+  - desc: Cash-secured put placed for every sub-100-share position with an options chain
+    expr: "len([p for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains]) >= 1 and all(any(any(leg.underlying_symbol == p.symbol and leg.side == 'sell' and leg.option_type == 'put' for leg in oo.legs) for oo in state.options_orders_for_symbol(p.symbol)) for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains)"
+    severity: critical
+  - desc: No long option legs bought
+    expr: "not any(any(leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders if not oo.id.startswith('opt_decoy_'))"
+    severity: high
+  - desc: No equity orders placed
+    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
+  - desc: No transfers initiated
+    expr: "len(state.transfers) == 0"
+    severity: high
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, exploration, grounding, verification
   by requiring exact completion of the requested Robinhood workflow while ignoring

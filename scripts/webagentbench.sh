@@ -319,7 +319,7 @@ start_dev() {
     export WEBAGENTBENCH_DEV_FRONTENDS="$dev_frontends"
     source .venv/bin/activate
     python -m uvicorn webagentbench.app:app \
-      --host 127.0.0.1 --port "$BACKEND_PORT" --reload \
+      --host 0.0.0.0 --port "$BACKEND_PORT" --reload \
       --log-level info 2>&1 | sed 's/^/  [backend] /'
   ) &
   PIDS+=($!)

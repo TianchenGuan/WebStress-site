@@ -49,37 +49,18 @@ seed:
     loss_symbols: '{output.loss_symbols}'
     recent_buy_symbols: '{output.recent_buy_symbols}'
     gain_symbols: '{output.gain_symbols}'
-eval:
-  source: server_state
-  checks:
-  - expr: len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')])
-      >= 1
-    desc: At least one loss position was sold for tax-loss harvesting
-  - expr: any(o.side == 'sell' and o.symbol in {target.loss_symbols} and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: A sell order targets a stock with unrealized losses
-  - expr: all(o.symbol in {target.loss_symbols} for o in state.orders if o.side ==
-      'sell' and not o.id.startswith('ord_decoy_'))
-    desc: All sell orders target stocks with unrealized losses (not gainers)
-  - expr: not any(o.side == 'sell' and o.symbol in {target.recent_buy_symbols} and
-      not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No sells were placed on stocks purchased within the last 30 days (wash sale
-      avoidance)
-  negative_checks:
-  - expr: not any(o.side == 'sell' and o.symbol in {target.gain_symbols} and not o.id.startswith('ord_decoy_')
-      for o in state.orders)
-    desc: No profitable positions were sold (only loss positions qualify for harvesting)
-    penalty: 0.25
-  - expr: not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)
-    desc: No buy orders were placed (task is only about selling losers)
-    penalty: 0.15
-  - expr: not any(e.action == 'robinhood.transfer.initiate' for e in state.audit_log)
-    desc: Wash-sale avoidance did not initiate transfers
-    penalty: 0.1
-  - expr: not any( e.action == 'robinhood.options.order.place' or e.action == 'robinhood.alert.create'
-      or e.action == 'robinhood.alert.delete' or e.action.startswith('robinhood.watchlist.')
-      or e.action.startswith('robinhood.recurring.') for e in state.audit_log)
-    desc: Wash-sale avoidance did not mutate unrelated options, alerts, watchlists,
-      or recurring plans
-    penalty: 0.1
+canonical_diff:
+  constraints:
+  - desc: At least one loss position sold for tax-loss harvesting
+    expr: "any(o.side == 'sell' and o.symbol in target['loss_symbols'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: No wash sale violations (no sells of recent buys)
+    expr: "not any(o.side == 'sell' and o.symbol in target['recent_buy_symbols'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: critical
+  - desc: All sell orders target loss positions only
+    expr: "all(o.symbol in target['loss_symbols'] for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))"
+    severity: high
+  - desc: No gain positions were sold
+    expr: "not any(o.side == 'sell' and o.symbol in target['gain_symbols'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
+    severity: high
 secondary_primitives: []

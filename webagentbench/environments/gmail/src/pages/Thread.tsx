@@ -53,7 +53,6 @@ export function ThreadPage() {
     }
     api.getThread(emailId).then(async (response) => {
       setThread(response);
-      await api.markRead(emailId);
       await refreshMailbox();
     });
   }, [api, emailId, refreshMailbox]);

@@ -32,22 +32,33 @@ seed:
     - order_ids
   targets:
     order_ids: '{output.order_ids}'
-eval:
-  source: server_state
-  checks:
-  - expr: "any(o.symbol == 'MSFT' and o.status == 'cancelled'\n    and not o.id.startswith('ord_decoy_')\n\
-      \    for o in state.orders)"
-    desc: The MSFT pending order has been cancelled (non-decoy)
-  - expr: "any(o.symbol == 'MSFT' and o.status == 'cancelled'\n    and o.order_type\
-      \ == 'limit'\n    and not o.id.startswith('ord_decoy_')\n    for o in state.orders)"
-    desc: The cancelled MSFT order is a limit order
-  negative_checks:
-  - expr: "not any(o.symbol != 'MSFT' and o.status == 'cancelled'\n        and not\
-      \ o.id.startswith('ord_decoy_')\n        for o in state.orders)"
-    desc: No non-MSFT orders were cancelled
-    penalty: 0.5
-  - expr: "sum(1 for o in state.orders\n    if o.status == 'cancelled'\n    and not\
-      \ o.id.startswith('ord_decoy_')) == 1"
-    desc: Exactly one order was cancelled
-    penalty: 0.3
+canonical_diff:
+  update:
+  - entity: orders
+    desc: MSFT pending limit order is cancelled
+    where:
+      symbol: {eq: MSFT}
+      order_type: {eq: limit}
+      status: {eq: pending}
+    changes:
+      status: {eq: cancelled}
+      cancelled_at: {any: true}
+  constraints:
+  - desc: Exactly one order was cancelled
+    expr: "sum(1 for o in state.orders if o.status == 'cancelled' and not o.id.startswith('ord_decoy_')) == 1"
+    severity: high
+  invariant:
+  - collection: state.orders
+    filter: "a.symbol != 'MSFT'"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  named_invariants:
+  - name: Agent cancelled a non-MSFT order
+    ref: invariant[0]
+    severity: high
 secondary_primitives: []

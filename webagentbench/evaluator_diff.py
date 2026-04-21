@@ -1095,7 +1095,7 @@ def _match_single_block(
         if entry.bijection is not None:
             # Bijection delete: one-to-one match between target slots and Delete diffs.
             try:
-                left = _eval_target_expr(entry.bijection.over, targets)
+                left = _eval_target_expr(entry.bijection.over, targets, initial=initial, final=final)
             except Exception as exc:
                 checks.append({
                     "desc": base_desc,
@@ -1216,7 +1216,11 @@ def _match_single_block(
             if (entry.entity, entry.entity_id) in matched_ids:
                 continue
             if inv.filter:
-                filter_globs = {"__builtins__": _SAFE_BUILTINS}
+                filter_globs = {
+                    "__builtins__": _SAFE_BUILTINS,
+                    "initial": initial,
+                    "state": final,
+                }
                 entity_dict = _entity_dict_for_invariant(entry)
                 filter_locals = {"a": _DotObj(entity_dict), "target": targets}
                 try:
@@ -1308,6 +1312,12 @@ def _match_single_block(
         for inv in block.invariant
         if not inv.filter
     }
+    # Filtered invariants: (collection, filter_expr) pairs for partial coverage.
+    invariant_filtered = [
+        (inv.collection.removeprefix("state."), inv.filter)
+        for inv in block.invariant
+        if inv.filter
+    ]
     for entry in agent_diff:
         if constraint_only:
             break  # constraint-only blocks skip the sweep entirely
@@ -1315,6 +1325,27 @@ def _match_single_block(
             continue
         if entry.entity in invariant_cols_full:
             continue  # whole collection invariant already handled this entry
+        # Skip entries covered by a filtered invariant (filter=True means the
+        # entity is "protected"; the invariant check above already handles it).
+        covered_by_filtered = False
+        for inv_col, inv_filter in invariant_filtered:
+            if entry.entity != inv_col:
+                continue
+            filter_globs = {
+                "__builtins__": _SAFE_BUILTINS,
+                "initial": initial,
+                "state": final,
+            }
+            entity_dict = _entity_dict_for_invariant(entry)
+            filter_locals = {"a": _DotObj(entity_dict), "target": targets}
+            try:
+                if eval(inv_filter, filter_globs, filter_locals):  # noqa: S307
+                    covered_by_filtered = True
+                    break
+            except Exception:
+                pass
+        if covered_by_filtered:
+            continue
         # Also surface collateral failures as a visible negative_check so
         # users don't see score=1.0 but passed=False with no explanation.
         # Without a visible entry the discrepancy between the positive-
