@@ -88,13 +88,12 @@ def _fuzzy_eq(a: Any, b: Any) -> bool:
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         return abs(float(a) - float(b)) < 0.01
     try:
-        if type(a) != type(b):
-            if isinstance(a, str) and isinstance(b, (int, float)):
-                return _fuzzy_eq(float(a), b)
-            if isinstance(b, str) and isinstance(a, (int, float)):
-                return _fuzzy_eq(a, float(b))
-    except (ValueError, TypeError):
-        pass
+        if isinstance(a, str) and isinstance(b, (int, float)):
+            return _fuzzy_eq(float(a), b)
+        if isinstance(b, str) and isinstance(a, (int, float)):
+            return _fuzzy_eq(a, float(b))
+    except ValueError:
+        return False
     return False
 
 

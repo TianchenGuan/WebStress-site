@@ -51,7 +51,7 @@ def _collateral(final_state: Any, initial: Any) -> Any:
     if callable(compute):
         try:
             return compute(initial)
-        except Exception:
+        except (AttributeError, TypeError, KeyError):
             return None
     return None
 

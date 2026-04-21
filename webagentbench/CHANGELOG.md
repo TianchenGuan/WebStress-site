@@ -18,8 +18,10 @@ evaluation path. The legacy expression-string evaluator is removed.
 **Modules** (5 core + types + access):
 - `orchestrator.py` — public `evaluate()` entry, canonical_diff dispatch only
 - `matcher.py` — create/update/delete/invariant/constraint matching, bijection
-  (augmenting-path bipartite), collateral sweep, structural `named_invariants`
-  resolution (by `_inv_index` instead of text prefix matching)
+  (augmenting-path bipartite), collateral sweep. `named_invariants` resolution:
+  `invariant[N]` refs use a structural `_inv_index` stamp; `create[N]` refs key
+  off the per-entry `bijection_excess` map; `update[N]`/`delete[N]` refs still
+  resolve the target check by description-prefix match
 - `predicates.py` — full predicate grammar with new `not`, `all_of`, `any_of`
   combinators; `_fuzzy_eq` for string↔numeric coercion from `model_dump()`
 - `safe_eval.py` — single expression sandbox for all paths (AST validation,

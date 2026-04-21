@@ -13,7 +13,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Mapping
+from enum import StrEnum
+from typing import Any, Callable, Mapping
 
 from .access import EntityView
 from .diff import Create, Delete, DiffEntry, Update, collection_for, collections_of, index_by_id
@@ -22,7 +23,23 @@ from .safe_eval import SafeEvalError, safe_eval
 from .types import Failure, get_field, get_list
 
 
-SEVERITY_PENALTY = {"critical": 0.30, "high": 0.20, "medium": 0.15, "low": 0.10}
+class Severity(StrEnum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+SEVERITY_PENALTY: dict[str, float] = {
+    Severity.CRITICAL: 0.30,
+    Severity.HIGH: 0.20,
+    Severity.MEDIUM: 0.15,
+    Severity.LOW: 0.10,
+}
+
+
+def _penalty_for(severity: str) -> float:
+    return SEVERITY_PENALTY.get(severity, SEVERITY_PENALTY[Severity.MEDIUM])
 
 
 @dataclass
@@ -37,6 +54,21 @@ class MatchReport:
     constraints_passed: int = 0
     critical_constraints_total: int = 0
     critical_constraints_passed: int = 0
+
+
+@dataclass
+class MatchContext:
+    """Per-block evaluation state shared across the create/update/delete matchers."""
+    agent_diff: list[DiffEntry]
+    targets: Mapping[str, Any]
+    initial: Any
+    final: Any
+    session_start: datetime | None
+    matched: set[tuple[str, str]] = field(default_factory=set)
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    failures: list[Failure] = field(default_factory=list)
+    graphs: list[dict[str, Any]] = field(default_factory=list)
+    bijection_excess: dict[int, bool] = field(default_factory=dict)
 
 
 def _scope(
@@ -168,53 +200,33 @@ def _match_block(
     targets: Mapping[str, Any], initial: Any, final: Any,
     session_start: datetime | None,
 ) -> MatchReport:
-    matched: set[tuple[str, str]] = set()
-    checks: list[dict[str, Any]] = []
+    ctx = MatchContext(agent_diff, targets, initial, final, session_start)
     negative_checks: list[dict[str, Any]] = []
-    failures: list[Failure] = []
-    graphs: list[dict[str, Any]] = []
     passed_weight = 0.0
     total_weight = 0.0
-    bijection_excess: dict[int, bool] = {}
 
-    # Creates
-    for idx, entry in enumerate(get_list(block, "create")):
-        w, tw = _match_create(idx, entry, agent_diff, targets, initial, final, session_start,
-                              matched, checks, failures, graphs, bijection_excess)
-        passed_weight += w
-        total_weight += tw
-
-    # Updates
-    for idx, entry in enumerate(get_list(block, "update")):
-        w, tw = _match_update(idx, entry, agent_diff, targets, initial, final, session_start,
-                              matched, checks, failures)
-        passed_weight += w
-        total_weight += tw
-
-    # Deletes
-    for idx, entry in enumerate(get_list(block, "delete")):
-        w, tw = _match_delete(idx, entry, agent_diff, targets, initial, final, session_start,
-                              matched, checks, failures)
-        passed_weight += w
-        total_weight += tw
+    for kind in ("create", "update", "delete"):
+        for idx, entry in enumerate(get_list(block, kind)):
+            w, tw = _match_entry(kind, idx, entry, ctx)
+            passed_weight += w
+            total_weight += tw
 
     # Invariants
     for idx, inv in enumerate(get_list(block, "invariant")):
         collection = str(get_field(inv, "collection", "")).removeprefix("state.")
-        violated = False
-        for entry in agent_diff:
-            if entry.entity != collection:
-                continue
-            if (entry.entity, entry.entity_id) in matched:
-                continue
-            if not _filter_matches(get_field(inv, "filter"), entry, targets):
-                continue
-            violated = True
-            break
+        violated = any(
+            entry.entity == collection
+            and (entry.entity, entry.entity_id) not in ctx.matched
+            and _filter_matches(get_field(inv, "filter"), entry, targets)
+            for entry in agent_diff
+        )
         desc = f"Preserve {get_field(inv, 'collection')}"
-        negative_checks.append({"desc": desc, "passed": not violated, "penalty": SEVERITY_PENALTY["medium"], "_inv_index": idx})
+        negative_checks.append({
+            "desc": desc, "passed": not violated,
+            "penalty": SEVERITY_PENALTY[Severity.MEDIUM], "_inv_index": idx,
+        })
         if violated:
-            failures.append(Failure("invariant", desc, {"entry_index": idx}))
+            ctx.failures.append(Failure("invariant", desc, {"entry_index": idx}))
 
     # Constraints
     constraints_total = constraints_passed = critical_total = critical_passed = 0
@@ -222,21 +234,20 @@ def _match_block(
     for idx, constraint in enumerate(get_list(block, "constraints")):
         desc = str(get_field(constraint, "desc", f"Constraint {idx}"))
         expr_str = str(get_field(constraint, "expr", "False"))
-        severity = str(get_field(constraint, "severity", "medium"))
+        severity = str(get_field(constraint, "severity", Severity.MEDIUM))
         try:
             ok = bool(safe_eval(expr_str, {"state": final, "initial": initial, "target": targets, "session_start": session_start}))
         except SafeEvalError:
             ok = False
-        penalty = SEVERITY_PENALTY.get(severity, SEVERITY_PENALTY["medium"])
-        negative_checks.append({"desc": desc, "passed": ok, "penalty": penalty})
+        negative_checks.append({"desc": desc, "passed": ok, "penalty": _penalty_for(severity)})
         constraint_descs.add(desc)
         constraints_total += 1
         constraints_passed += int(ok)
-        if severity == "critical":
+        if severity == Severity.CRITICAL:
             critical_total += 1
             critical_passed += int(ok)
         if not ok:
-            failures.append(Failure("constraint", desc, {"entry_index": idx, "severity": severity}))
+            ctx.failures.append(Failure("constraint", desc, {"entry_index": idx, "severity": severity}))
 
     # Collateral sweep
     positive_cols = {
@@ -244,19 +255,21 @@ def _match_block(
         for e in [*get_list(block, "create"), *get_list(block, "update"), *get_list(block, "delete")]
     }
     constraint_only = not positive_cols and bool(get_list(block, "constraints"))
-    full_invariant_cols = {str(get_field(i, "collection", "")).removeprefix("state.") for i in get_list(block, "invariant") if not get_field(i, "filter")}
+    full_invariant_cols: set[str] = set()
     filtered_by_col: dict[str, list[Any]] = {}
     comprehensive_cols: set[str] = set()
     for inv in get_list(block, "invariant"):
+        col = str(get_field(inv, "collection", "")).removeprefix("state.")
         if get_field(inv, "filter"):
-            col = str(get_field(inv, "collection", "")).removeprefix("state.")
             filtered_by_col.setdefault(col, []).append(inv)
             if bool(get_field(inv, "comprehensive", False)):
                 comprehensive_cols.add(col)
+        else:
+            full_invariant_cols.add(col)
 
     if not constraint_only:
         for entry in agent_diff:
-            if (entry.entity, entry.entity_id) in matched:
+            if (entry.entity, entry.entity_id) in ctx.matched:
                 continue
             if entry.entity in full_invariant_cols:
                 continue
@@ -267,15 +280,15 @@ def _match_block(
                 continue
             if entry.entity in positive_cols:
                 desc = f"Unaccounted {type(entry).__name__.lower()} in {entry.entity} (id={entry.entity_id})"
-                penalty = SEVERITY_PENALTY["medium"]
+                penalty = SEVERITY_PENALTY[Severity.MEDIUM]
             else:
                 desc = f"Unexpected {type(entry).__name__.lower()} on {entry.entity} (id={entry.entity_id}) — collection not mentioned in diff"
-                penalty = SEVERITY_PENALTY["high"]
-            failures.append(Failure("unaccounted", desc, {"entity_id": entry.entity_id}))
+                penalty = SEVERITY_PENALTY[Severity.HIGH]
+            ctx.failures.append(Failure("unaccounted", desc, {"entity_id": entry.entity_id}))
             negative_checks.append({"desc": desc, "passed": False, "penalty": penalty})
 
     # Named invariants
-    _apply_named_invariants(block, checks, negative_checks, bijection_excess)
+    _apply_named_invariants(block, ctx.checks, negative_checks, ctx.bijection_excess)
 
     # Score
     penalty_total = sum(float(nc.get("penalty", 0.0)) for nc in negative_checks if not nc.get("passed"))
@@ -293,12 +306,12 @@ def _match_block(
     score = max(0.0, min(1.0, raw_score - penalty_total))
 
     return MatchReport(
-        passed=not failures,
+        passed=not ctx.failures,
         score=score,
-        checks=checks,
+        checks=ctx.checks,
         negative_checks=negative_checks,
-        failures=failures,
-        bijection_graphs=graphs,
+        failures=ctx.failures,
+        bijection_graphs=ctx.graphs,
         constraints_total=constraints_total,
         constraints_passed=constraints_passed,
         critical_constraints_total=critical_total,
@@ -310,184 +323,143 @@ def _match_block(
 # Per-entry matchers (return passed_weight, total_weight)
 # ---------------------------------------------------------------------------
 
-def _match_create(
-    idx: int, entry: Any, agent_diff: list[DiffEntry],
-    targets: Mapping[str, Any], initial: Any, final: Any, session_start: datetime | None,
-    matched: set[tuple[str, str]], checks: list[dict[str, Any]],
-    failures: list[Failure], graphs: list[dict[str, Any]],
-    bijection_excess: dict[int, bool],
-) -> tuple[float, float]:
-    weight = float(get_field(entry, "weight", 1.0))
-    desc = get_field(entry, "desc") or f"Create a {get_field(entry, 'entity')} with required properties"
-    collection = collection_for(get_field(entry, "entity"), final, get_field(entry, "collection"))
-    bijection = get_field(entry, "bijection")
-    properties = get_field(entry, "properties", {}) or {}
+_DEFAULT_DESC: dict[str, str] = {
+    "create": "Create a {entity} with required properties",
+    "update": "Update {entity} matching selector",
+    "delete": "Delete {entity} matching selector",
+}
 
-    if bijection is not None:
-        try:
-            slots = list(_target_expr(str(get_field(bijection, "over")), targets, initial, final, session_start=session_start))
-        except Exception as exc:
-            checks.append({"desc": desc, "passed": False, "error": f"target expression failed: {exc}"})
-            failures.append(Failure("missing_create", desc, {"entry_index": idx, "error": str(exc)}))
-            return 0.0, weight
-        if not slots:
-            excess = [c for c in agent_diff if isinstance(c, Create) and c.entity == collection and (c.entity, c.entity_id) not in matched]
-            bijection_excess[idx] = bool(excess)
-            checks.append({"desc": f"{desc} (not applicable for this seed)", "passed": True, "error": None})
-            return 0.0, 0.0
-        candidates = [c for c in agent_diff if isinstance(c, Create) and c.entity == collection and (c.entity, c.entity_id) not in matched]
-        edges: dict[int, set[int]] = {i: set() for i in range(len(slots))}
-        for left_i, slot in enumerate(slots):
-            for right_i, candidate in enumerate(candidates):
-                if all_field_predicates_hold(properties, candidate.fields, _scope(targets, initial, final, bijection_var=slot, session_start=session_start)):
-                    edges[left_i].add(right_i)
-        pairing = _bipartite_matching(edges, len(slots))
-        for right_i in pairing.values():
-            c = candidates[right_i]
-            matched.add((c.entity, c.entity_id))
-        fraction = len(pairing) / len(slots)
-        saturated = len(pairing) == len(slots)
-        checks.append({"desc": f"{desc} — {len(pairing)} of {len(slots)} done", "passed": saturated, "error": None if saturated else f"matched {len(pairing)} of {len(slots)}"})
-        eligible = {right_i for rights in edges.values() for right_i in rights}
-        bijection_excess[idx] = len(eligible) > len(slots)
-        if not saturated:
-            failures.append(Failure("missing_create", desc, {"entry_index": idx, "matched": len(pairing), "needed": len(slots)}))
-        graphs.append({
-            "desc": desc, "entity": get_field(entry, "entity"), "saturated": saturated,
-            "has_excess": bijection_excess[idx],
-            "slots": [{"label": str(slot)[:40], "matched_candidate_index": pairing.get(i)} for i, slot in enumerate(slots)],
-            "candidates": [
-                {"label": _candidate_label(c), "id": c.entity_id,
-                 "matched_slot_index": next((l for l, r in pairing.items() if r == i), None),
-                 "is_excess": i not in set(pairing.values())}
-                for i, c in enumerate(candidates)
-            ],
-            "edges_possible": sorted([[l, r] for l, rs in edges.items() for r in rs]),
-        })
-        return weight * fraction, weight
+_SINGLETON_ERROR: dict[str, str] = {
+    "create": "no candidate satisfied predicates",
+    "update": "no Update entry matched both where and changes predicates",
+    "delete": "no Delete entry matched the where selector",
+}
 
-    found = None
-    for candidate in agent_diff:
-        if not isinstance(candidate, Create) or candidate.entity != collection:
-            continue
-        if (candidate.entity, candidate.entity_id) in matched:
-            continue
-        if all_field_predicates_hold(properties, candidate.fields, _scope(targets, initial, final, session_start=session_start)):
-            found = candidate
-            break
-    if found:
-        matched.add((found.entity, found.entity_id))
-    else:
-        failures.append(Failure("missing_create", desc, {"entry_index": idx}))
-    checks.append({"desc": desc, "passed": found is not None, "error": None if found else "no candidate satisfied predicates"})
-    return (weight if found else 0.0), weight
+_CHECK_SUFFIX: dict[str, str] = {
+    "create": "done",
+    "update": "updated",
+    "delete": "done",
+}
+
+_DIFF_CLS: dict[str, type[DiffEntry]] = {
+    "create": Create,
+    "update": Update,
+    "delete": Delete,
+}
 
 
-def _match_update(
-    idx: int, entry: Any, agent_diff: list[DiffEntry],
-    targets: Mapping[str, Any], initial: Any, final: Any, session_start: datetime | None,
-    matched: set[tuple[str, str]], checks: list[dict[str, Any]], failures: list[Failure],
-) -> tuple[float, float]:
-    weight = float(get_field(entry, "weight", 1.0))
-    desc = get_field(entry, "desc") or f"Update {get_field(entry, 'entity')} matching selector"
-    collection = collection_for(get_field(entry, "entity"), final, get_field(entry, "collection"))
-    bijection = get_field(entry, "bijection")
-
-    if bijection is not None:
-        try:
-            slots = list(_target_expr(str(get_field(bijection, "over")), targets, initial, final, session_start=session_start))
-        except Exception as exc:
-            checks.append({"desc": desc, "passed": False, "error": f"target expression failed: {exc}"})
-            failures.append(Failure("missing_update", desc, {"entry_index": idx, "error": str(exc)}))
-            return 0.0, weight
-        if not slots:
-            checks.append({"desc": f"{desc} (not applicable for this seed)", "passed": True, "error": None})
-            return 0.0, 0.0
-        candidates = [c for c in agent_diff if isinstance(c, Update) and c.entity == collection and (c.entity, c.entity_id) not in matched]
-        edges: dict[int, set[int]] = {i: set() for i in range(len(slots))}
-        for left_i, slot in enumerate(slots):
-            for right_i, candidate in enumerate(candidates):
-                if _update_holds(entry, candidate, targets, initial, final, v=slot, session_start=session_start):
-                    edges[left_i].add(right_i)
-        pairing = _bipartite_matching(edges, len(slots))
-        for right_i in pairing.values():
-            c = candidates[right_i]
-            matched.add((c.entity, c.entity_id))
-        fraction = len(pairing) / len(slots)
-        saturated = len(pairing) == len(slots)
-        checks.append({"desc": f"{desc} — {len(pairing)} of {len(slots)} updated", "passed": saturated, "error": None if saturated else f"matched {len(pairing)} of {len(slots)}"})
-        if not saturated:
-            failures.append(Failure("missing_update", desc, {"entry_index": idx, "matched": len(pairing), "needed": len(slots)}))
-        return weight * fraction, weight
-
-    found = None
-    for candidate in agent_diff:
-        if not isinstance(candidate, Update) or candidate.entity != collection:
-            continue
-        if (candidate.entity, candidate.entity_id) in matched:
-            continue
-        if _update_holds(entry, candidate, targets, initial, final, session_start=session_start):
-            found = candidate
-            break
-    if found:
-        matched.add((found.entity, found.entity_id))
-    else:
-        failures.append(Failure("missing_update", desc, {"entry_index": idx}))
-    checks.append({"desc": desc, "passed": found is not None, "error": None if found else "no Update entry matched both where and changes predicates"})
-    return (weight if found else 0.0), weight
-
-
-def _match_delete(
-    idx: int, entry: Any, agent_diff: list[DiffEntry],
-    targets: Mapping[str, Any], initial: Any, final: Any, session_start: datetime | None,
-    matched: set[tuple[str, str]], checks: list[dict[str, Any]], failures: list[Failure],
-) -> tuple[float, float]:
-    weight = float(get_field(entry, "weight", 1.0))
-    desc = get_field(entry, "desc") or f"Delete {get_field(entry, 'entity')} matching selector"
-    collection = collection_for(get_field(entry, "entity"), final, get_field(entry, "collection"))
-    bijection = get_field(entry, "bijection")
+def _build_predicate(kind: str, entry: Any, ctx: MatchContext) -> Callable[[DiffEntry, Any], bool]:
+    """Return a kind-specific `(candidate, slot_value) -> bool` predicate."""
+    if kind == "create":
+        properties = get_field(entry, "properties", {}) or {}
+        def _check(candidate: DiffEntry, slot: Any) -> bool:
+            return all_field_predicates_hold(
+                properties, candidate.fields,  # type: ignore[attr-defined]
+                _scope(ctx.targets, ctx.initial, ctx.final, bijection_var=slot, session_start=ctx.session_start),
+            )
+        return _check
+    if kind == "update":
+        def _check(candidate: DiffEntry, slot: Any) -> bool:
+            return _update_holds(entry, candidate, ctx.targets, ctx.initial, ctx.final,  # type: ignore[arg-type]
+                                 v=slot, session_start=ctx.session_start)
+        return _check
     where = get_field(entry, "where", {}) or {}
+    def _check(candidate: DiffEntry, slot: Any) -> bool:
+        fields = {"id": candidate.entity_id, **candidate.last_fields}  # type: ignore[attr-defined]
+        return all_field_predicates_hold(
+            where, fields,
+            _scope(ctx.targets, ctx.initial, ctx.final, bijection_var=slot, session_start=ctx.session_start),
+        )
+    return _check
+
+
+def _match_entry(
+    kind: str, idx: int, entry: Any, ctx: MatchContext,
+) -> tuple[float, float]:
+    weight = float(get_field(entry, "weight", 1.0))
+    entity = get_field(entry, "entity")
+    desc = get_field(entry, "desc") or _DEFAULT_DESC[kind].format(entity=entity)
+    collection = collection_for(entity, ctx.final, get_field(entry, "collection"))
+    bijection = get_field(entry, "bijection")
+    failure_kind = f"missing_{kind}"
+    diff_cls = _DIFF_CLS[kind]
+    predicate = _build_predicate(kind, entry, ctx)
+
+    candidates = [
+        c for c in ctx.agent_diff
+        if isinstance(c, diff_cls) and c.entity == collection and (c.entity, c.entity_id) not in ctx.matched
+    ]
 
     if bijection is not None:
         try:
-            slots = list(_target_expr(str(get_field(bijection, "over")), targets, initial, final, session_start=session_start))
+            slots = list(_target_expr(
+                str(get_field(bijection, "over")), ctx.targets, ctx.initial, ctx.final,
+                session_start=ctx.session_start,
+            ))
         except Exception as exc:
-            checks.append({"desc": desc, "passed": False, "error": f"target expression failed: {exc}"})
-            failures.append(Failure("missing_delete", desc, {"entry_index": idx, "error": str(exc)}))
+            ctx.checks.append({"desc": desc, "passed": False, "error": f"target expression failed: {exc}"})
+            ctx.failures.append(Failure(failure_kind, desc, {"entry_index": idx, "error": str(exc)}))
             return 0.0, weight
-        candidates = [c for c in agent_diff if isinstance(c, Delete) and c.entity == collection and (c.entity, c.entity_id) not in matched]
+
+        if not slots:
+            if kind == "create":
+                ctx.bijection_excess[idx] = bool(candidates)
+            ctx.checks.append({"desc": f"{desc} (not applicable for this seed)", "passed": True, "error": None})
+            return 0.0, 0.0
+
         edges: dict[int, set[int]] = {i: set() for i in range(len(slots))}
         for left_i, slot in enumerate(slots):
             for right_i, candidate in enumerate(candidates):
-                fields = {"id": candidate.entity_id, **candidate.last_fields}
-                if all_field_predicates_hold(where, fields, _scope(targets, initial, final, bijection_var=slot, session_start=session_start)):
+                if predicate(candidate, slot):
                     edges[left_i].add(right_i)
+
         pairing = _bipartite_matching(edges, len(slots))
         for right_i in pairing.values():
             c = candidates[right_i]
-            matched.add((c.entity, c.entity_id))
-        fraction = 1.0 if not slots else len(pairing) / len(slots)
+            ctx.matched.add((c.entity, c.entity_id))
+
+        fraction = len(pairing) / len(slots)
         saturated = len(pairing) == len(slots)
-        checks.append({"desc": f"{desc} — {len(pairing)} of {len(slots)} done", "passed": saturated, "error": None if saturated else f"matched {len(pairing)} of {len(slots)}"})
+        ctx.checks.append({
+            "desc": f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}",
+            "passed": saturated,
+            "error": None if saturated else f"matched {len(pairing)} of {len(slots)}",
+        })
         if not saturated:
-            failures.append(Failure("missing_delete", desc, {"entry_index": idx, "matched": len(pairing), "needed": len(slots)}))
+            ctx.failures.append(Failure(
+                failure_kind, desc,
+                {"entry_index": idx, "matched": len(pairing), "needed": len(slots)},
+            ))
+
+        if kind == "create":
+            eligible = {right_i for rights in edges.values() for right_i in rights}
+            ctx.bijection_excess[idx] = len(eligible) > len(slots)
+            ctx.graphs.append({
+                "desc": desc, "entity": entity, "saturated": saturated,
+                "has_excess": ctx.bijection_excess[idx],
+                "slots": [
+                    {"label": str(slot)[:40], "matched_candidate_index": pairing.get(i)}
+                    for i, slot in enumerate(slots)
+                ],
+                "candidates": [
+                    {"label": _candidate_label(c), "id": c.entity_id,
+                     "matched_slot_index": next((l for l, r in pairing.items() if r == i), None),
+                     "is_excess": i not in set(pairing.values())}
+                    for i, c in enumerate(candidates)
+                ],
+                "edges_possible": sorted([[l, r] for l, rs in edges.items() for r in rs]),
+            })
         return weight * fraction, weight
 
-    found = None
-    for candidate in agent_diff:
-        if not isinstance(candidate, Delete) or candidate.entity != collection:
-            continue
-        if (candidate.entity, candidate.entity_id) in matched:
-            continue
-        fields = {"id": candidate.entity_id, **candidate.last_fields}
-        if all_field_predicates_hold(where, fields, _scope(targets, initial, final, session_start=session_start)):
-            found = candidate
-            break
+    found = next((c for c in candidates if predicate(c, None)), None)
     if found:
-        matched.add((found.entity, found.entity_id))
+        ctx.matched.add((found.entity, found.entity_id))
     else:
-        failures.append(Failure("missing_delete", desc, {"entry_index": idx}))
-    checks.append({"desc": desc, "passed": found is not None, "error": None if found else "no Delete entry matched the where selector"})
+        ctx.failures.append(Failure(failure_kind, desc, {"entry_index": idx}))
+    ctx.checks.append({
+        "desc": desc, "passed": found is not None,
+        "error": None if found else _SINGLETON_ERROR[kind],
+    })
     return (weight if found else 0.0), weight
 
 

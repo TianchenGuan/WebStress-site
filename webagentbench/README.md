@@ -15,7 +15,7 @@ Task definitions live under `tasks/<env>/`, benchmark frontends live under `envi
 
 Current tasks are primarily outcome-validated:
 
-- Most success criteria are evaluated against auditable server-side environment state via YAML `eval.checks` and `eval.negative_checks`.
+- Success criteria are expressed as `canonical_diff` blocks in each task YAML — declarative `create`/`update`/`delete`/`invariant` entries plus optional `constraints` and `named_invariants`. The evaluator (`eval_core/`) computes the state diff between initial and final snapshots and matches it against the canonical diff via augmenting-path bipartite matching for bijections.
 - Selected tasks can additionally require client-side `benchmark_state` evidence when the interaction itself matters. For example, `gmail_search_and_star` requires a recorded search event.
 - The benchmark is therefore not a general DOM-evidence benchmark. It is a state-grounded interaction benchmark with optional client-event checks where needed.
 
@@ -34,9 +34,11 @@ Use that document as the authoritative standard for:
 
 Core implementation and validation files:
 
-- `tasks/_schema.py`
+- `tasks/_schema.py` — task YAML pydantic schema
+- `tasks/canonical_diff.py` — `canonical_diff` block grammar
+- `eval_core/` — canonical_diff evaluator (orchestrator, matcher, predicates, safe_eval, diff, access, types)
 - `backend/seeders/`
-- `tasks/_evaluator.py`
+- `tasks/_evaluator.py` — thin shim that delegates to `eval_core.evaluate`
 - `tests/test_task_linter.py`
 - `tests/test_scoring_audit.py`
 - `tests/test_gmail_seed_stability.py`

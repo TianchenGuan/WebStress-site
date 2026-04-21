@@ -12,9 +12,9 @@ All models use ``ConfigDict(extra="forbid")`` so unknown YAML keys raise
 ``ValidationError`` at load time. Predicate maps (``properties``, ``where``,
 ``changes``) are validated against an allowlist of predicate keys.
 
-The trust model for the ``{expr: "..."}`` predicate matches the existing
-``webagentbench/evaluator.py`` restricted-globals pattern — no new security
-surface is introduced here.
+The trust model for the ``{expr: "..."}`` predicate is implemented in
+``webagentbench/eval_core/safe_eval.py`` (AST validation + restricted builtins
++ forbidden name/dunder checks) — no new security surface is introduced here.
 """
 
 from __future__ import annotations

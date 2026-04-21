@@ -6,6 +6,8 @@ import ast
 import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from functools import lru_cache
+from types import CodeType
 from typing import Any, Mapping
 
 from .access import FrozenDotMap, readonly
@@ -87,6 +89,12 @@ def validate_expression(source: str) -> ast.Expression:
     return tree
 
 
+@lru_cache(maxsize=4096)
+def _compile_validated(source: str) -> CodeType:
+    tree = validate_expression(source)
+    return compile(tree, "<safe-eval>", "eval")
+
+
 def safe_eval(
     source: str,
     bindings: Mapping[str, Any] | None = None,
@@ -101,7 +109,7 @@ def safe_eval(
     forbidden builtins before execution. Bindings are placed in globals
     so comprehension scopes can see them.
     """
-    tree = validate_expression(source)
+    code = _compile_validated(source)
     builtins = dict(SAFE_BUILTINS)
     if extra_builtins:
         for key, value in extra_builtins.items():
@@ -113,12 +121,7 @@ def safe_eval(
         if key.startswith("__"):
             raise SafeEvalError(f"forbidden binding name: {key}")
         globs[key] = value
-    code = compile(tree, "<safe-eval>", "eval")
     try:
-        # Restricted eval: AST-validated, builtins-replaced, read-only state.
-        # See _validate_ast above for the safety checks applied before this line.
-        result = code.co_consts  # unused, just to reference code before eval
-        del result
         return _restricted_execute(code, globs)
     except SafeEvalError:
         raise
@@ -127,8 +130,7 @@ def safe_eval(
 
 
 def _restricted_execute(code: Any, globs: dict[str, Any]) -> Any:
-    """Execute pre-validated, restricted code object with controlled globals."""
-    return eval(code, globs, {})  # noqa: S307 — intentionally restricted eval
+    return eval(code, globs, {})  # noqa: S307 — AST-validated, restricted builtins
 
 
 def sanitize_target_value(value: str) -> str:
