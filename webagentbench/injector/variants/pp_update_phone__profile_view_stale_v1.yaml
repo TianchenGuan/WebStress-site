@@ -1,36 +1,45 @@
 variant_id: pp_update_phone__profile_view_stale_v1
 base_task_id: pp_update_phone
 target_primitive: verification
-description: The first profile fetch is stale and shows outdated contact, insurance, and preventive details. The agent must refresh the profile before trusting what it sees.
+description: The first profile fetch returns a stale phone number. All other profile
+  fields are intentionally blanked so that stale contact/insurance/emergency-contact
+  values cannot silently overwrite the real seed when the agent saves. The agent
+  must refresh the profile before trusting the phone value.
 injections:
 - layer: network
   params:
     action: stale_data
     url_pattern: '**/api/env/patient_portal/profile**'
+    # The stale body intentionally only drifts `phone`. All other identity
+    # fields are empty sentinels so that if the agent saves demographics
+    # before the real profile loads, the backend still rejects no writes
+    # it wasn't supposed to accept -- the form state carries empty strings,
+    # but a careful agent will refresh after seeing an obviously blank
+    # profile. Evaluator constraints compare state vs. initial seed, so
+    # emitting empty strings preserves detectability without leaking
+    # deterministic non-phone values that could mismatch the real seed.
     stale_body:
-      id: pat_stale
-      name: Morgan Harper
+      id: ''
+      name: ''
       sex: female
-      dob: '1985-06-14'
+      dob: ''
       phone: (555) 010-1111
-      email: morgan.harper@example.com
+      email: ''
       insurance_plan:
-        plan_name: Legacy Bronze HMO
-        member_id: LEG-0001123
-        group_number: GRP-00123
-        copay: '50.00'
-        deductible: '3500.00'
-        deductible_met: '400.00'
-      pcp_id: prov_stale
-      allergies:
-      - Penicillin
-      conditions:
-      - Hypertension
+        plan_name: ''
+        member_id: ''
+        group_number: ''
+        copay: '0.00'
+        deductible: '0.00'
+        deductible_met: '0.00'
+      pcp_id: ''
+      allergies: []
+      conditions: []
       pharmacy_ids: []
       emergency_contact:
-        name: Jamie Harper
-        phone: (555) 010-2222
-        relationship: Spouse
+        name: ''
+        phone: ''
+        relationship: ''
       applicable_screenings: []
       default_pharmacy: null
     stale_count: 1

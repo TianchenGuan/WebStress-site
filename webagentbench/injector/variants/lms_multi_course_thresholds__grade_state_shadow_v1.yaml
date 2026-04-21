@@ -25,11 +25,31 @@ injections:
     action: stale_data
     url_pattern: '**/api/env/lms/courses/*/grades'
     stale_body:
-      course_id: ''
+      course_id: course_stale
       course_code: '{target.course_code_1}'
-      weighted_score: null
-      category_scores: {}
-      grades: []
+      weighted_score: '72.00'
+      category_scores:
+        Homework: '68.00'
+        Exams: '75.00'
+      grades:
+      - id: grade_stale_1
+        enrollment_id: enr_stale
+        course_id: course_stale
+        assignment_id: assn_stale_1
+        score: '68.00'
+        points_possible: '100.00'
+        weight_category: Homework
+        is_dropped: false
+        late_penalty_applied: '0'
+      - id: grade_stale_2
+        enrollment_id: enr_stale
+        course_id: course_stale
+        assignment_id: assn_stale_2
+        score: '75.00'
+        points_possible: '100.00'
+        weight_category: Exams
+        is_dropped: false
+        late_penalty_applied: '0'
     stale_count: 1
     behavior:
       mode: once

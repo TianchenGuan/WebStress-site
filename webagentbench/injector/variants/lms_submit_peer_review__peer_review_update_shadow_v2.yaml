@@ -19,6 +19,9 @@ injections:
   params:
     action: add_confusing_decoys
     decoys:
+    # Decoys share the target assignment_id but are disambiguated by
+    # status: the real target is the ONLY review with status == "assigned".
+    # Allowed PeerReview statuses: assigned | in_progress | submitted.
     - type: peer_review
       course_id: '{target.target_course_id}'
       course_code: '{target.target_course_code}'
@@ -26,7 +29,7 @@ injections:
       reviewee_name: Morgan Avery
       submission_title: Draft peer review submission
       submission_body: Early draft submission; not the current review assignment.
-      status: assigned
+      status: submitted
     - type: peer_review
       course_id: '{target.target_course_id}'
       course_code: '{target.target_course_code}'
@@ -34,7 +37,7 @@ injections:
       reviewee_name: Casey Rivera
       submission_title: Peer review submission v2
       submission_body: Alternate submission draft, superseded earlier in the week.
-      status: assigned
+      status: submitted
     - type: peer_review
       course_id: '{target.target_course_id}'
       course_code: '{target.target_course_code}'
@@ -42,7 +45,7 @@ injections:
       reviewee_name: Riley Chen
       submission_title: Peer review working copy
       submission_body: Working copy posted before the assigned review target.
-      status: assigned
+      status: in_progress
 # NOTE (audit_reports/w05.md): the network stale_data injection that
 # returned `items: []` on the first call was removed — the React
 # PeerReviews page caches the empty response in component state and

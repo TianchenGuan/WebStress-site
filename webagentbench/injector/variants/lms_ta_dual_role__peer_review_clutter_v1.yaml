@@ -9,6 +9,10 @@ injections:
   params:
     action: add_confusing_decoys
     decoys:
+    # Decoys share the target assignment_id but are disambiguated by
+    # status: the real pending targets are in {assigned, in_progress};
+    # decoys here are already "submitted" so they must not be re-touched.
+    # Allowed PeerReview statuses: assigned | in_progress | submitted.
     - type: peer_review
       course_id: '{target.ta_course_id}'
       course_code: '{target.ta_course_code}'
@@ -16,7 +20,7 @@ injections:
       reviewee_name: Jordan Perez
       submission_title: Reflection submission draft
       submission_body: Near-match draft that is not the active review target.
-      status: assigned
+      status: submitted
     - type: peer_review
       course_id: '{target.ta_course_id}'
       course_code: '{target.ta_course_code}'
@@ -24,7 +28,7 @@ injections:
       reviewee_name: Alex Nakamura
       submission_title: Reflection submission revision
       submission_body: Alternate revision circulated earlier; not the active review.
-      status: assigned
+      status: submitted
     - type: peer_review
       course_id: '{target.ta_course_id}'
       course_code: '{target.ta_course_code}'
@@ -32,7 +36,7 @@ injections:
       reviewee_name: Sam Okafor
       submission_title: Reflection submission working copy
       submission_body: Working copy submitted before the currently assigned review.
-      status: assigned
+      status: submitted
 # NOTE (audit_reports/w05.md): removed stale_data network injection.
 # The React peer-review page does not re-fetch after a stale empty
 # response, so the first-call empty body turned into a permanent
