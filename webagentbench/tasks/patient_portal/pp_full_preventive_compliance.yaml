@@ -88,7 +88,10 @@ seed:
     applicable_screening_names: '{output.applicable_screening_names}'
     overdue_screening_names: '{output.overdue_screening_names}'
 canonical_diff:
-  # Four-axis compliance task over appointments, refills, and renewals:
+  # Four-axis compliance task over appointments, refills, and renewals.
+  # Screening and immunization appointments are tracked as TWO independent
+  # bijections (rather than a single union) so partial coverage credits
+  # partial score rather than failing the whole axis.
   #   (a) bijection: one Appointment per overdue screening (reason contains
   #       the screening name — legacy substring-match);
   #   (b) bijection: one Appointment per due/overdue immunization (reason
@@ -120,12 +123,33 @@ canonical_diff:
   create:
     - entity: Appointment
       desc: >-
-        Schedule one appointment per overdue screening AND per due/overdue
-        immunization; reason must contain the corresponding item's name.
-        Single bijection over the union set so multi-create-same-entity
-        excess candidates are not falsely leaked (hazard: multi-create-same-entity).
+        Schedule one appointment per overdue screening; reason must contain
+        the corresponding screening's name. Independent bijection so partial
+        success on screenings credits partial score (split from the former
+        union bijection that conflated screenings with immunizations).
       bijection:
-        over: "list(target['overdue_screening_names']) + list(target['due_vaccine_names'])"
+        over: "list(target['overdue_screening_names'])"
+        variable: v
+      properties:
+        status: {eq: "scheduled"}
+        reason:
+          expr: "v.lower() in (x or '').lower()"
+        provider_id: {any: true}
+        datetime: {any: true}
+        type: {any: true}
+        notes: {any: true}
+        linked_referral_id: {any: true}
+        pre_auth_status: {any: true}
+        booked_at: {any: true}
+        location: {any: true}
+    - entity: Appointment
+      desc: >-
+        Schedule one appointment per due/overdue immunization; reason must
+        contain the corresponding vaccine's name. Independent bijection so
+        partial success on immunizations credits partial score (split from
+        the former union bijection).
+      bijection:
+        over: "list(target['due_vaccine_names'])"
         variable: v
       properties:
         status: {eq: "scheduled"}
@@ -212,10 +236,13 @@ canonical_diff:
     - name: "Agent did not modify pharmacies"
       ref: invariant[7]
       severity: medium
-    - name: "Agent did not schedule more appointments than required overdue screenings + due immunizations"
+    - name: "Agent did not schedule more appointments than required overdue screenings"
       ref: create[0]
       severity: medium
-    - name: "Agent did not submit more renewal messages than expiring zero-refill rxes"
+    - name: "Agent did not schedule more appointments than required due/overdue immunizations"
       ref: create[1]
+      severity: medium
+    - name: "Agent did not submit more renewal messages than expiring zero-refill rxes"
+      ref: create[2]
       severity: medium
 secondary_primitives: []

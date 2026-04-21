@@ -5,6 +5,7 @@ import { preserveQueryParams, Tabs } from "@webagentbench/shared";
 import { useLmsLayout } from "../context";
 import type { LmsLayoutContextValue } from "../context";
 import type {
+  Announcement,
   Assignment,
   Course,
   Discussion,
@@ -18,6 +19,7 @@ const TABS = [
   { label: "Modules", value: "modules" },
   { label: "Assignments", value: "assignments" },
   { label: "Discussions", value: "discussions" },
+  { label: "Announcements", value: "announcements" },
   { label: "Grades", value: "grades" },
   { label: "Syllabus", value: "syllabus" },
 ];
@@ -28,12 +30,12 @@ function tabFromPath(pathname: string): string | null {
   if (segments[0] !== "courses") return null;
 
   const last = segments[segments.length - 1] ?? "";
-  if (["modules", "assignments", "discussions", "grades", "syllabus"].includes(last)) {
+  if (["modules", "assignments", "discussions", "announcements", "grades", "syllabus"].includes(last)) {
     return last;
   }
 
   const penultimate = segments[segments.length - 2];
-  if (penultimate && ["modules", "assignments", "discussions"].includes(penultimate)) {
+  if (penultimate && ["modules", "assignments", "discussions", "announcements"].includes(penultimate)) {
     return penultimate;
   }
   return null;
@@ -49,6 +51,7 @@ export function CourseViewPage() {
   const [modules, setModules] = useState<Module[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [discussions, setDiscussions] = useState<Discussion[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [gradesData, setGradesData] = useState<{
     weighted_score: string | null;
     category_scores: Record<string, string | null>;
@@ -71,11 +74,12 @@ export function CourseViewPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [c, mods, assigns, discs, gd, enrollments] = await Promise.all([
+        const [c, mods, assigns, discs, anns, gd, enrollments] = await Promise.all([
           api.getCourse(courseId),
           api.listModules(courseId),
           api.listAssignments(courseId),
           api.listDiscussions(courseId),
+          api.listAnnouncements(courseId),
           api.getCourseGrades(courseId),
           api.listEnrollments(),
         ]);
@@ -84,6 +88,7 @@ export function CourseViewPage() {
           setModules(mods);
           setAssignments(assigns);
           setDiscussions(discs);
+          setAnnouncements(anns);
           setGradesData(gd);
           const enrollment = enrollments.find((e) => e.course_id === courseId);
           setEnrollmentStatus(enrollment?.status ?? null);
@@ -175,6 +180,14 @@ export function CourseViewPage() {
         )}
         {activeTab === "discussions" && (
           <DiscussionsTab discussions={discussions} courseId={courseId} />
+        )}
+        {activeTab === "announcements" && (
+          <AnnouncementsTab
+            announcements={announcements}
+            api={api}
+            onAnnouncementsChange={setAnnouncements}
+            notify={notify}
+          />
         )}
         {activeTab === "grades" && gradesData && (
           <GradesTab course={course} gradesData={gradesData} assignments={assignments} />
@@ -361,38 +374,63 @@ function AssignmentsTab({ assignments, courseId }: { assignments: Assignment[]; 
             <tr>
               <th>Title</th>
               <th>Type</th>
+              <th>Category</th>
               <th>Due Date</th>
               <th>Status</th>
+              <th>Feedback</th>
               <th>Score</th>
               <th>Points</th>
             </tr>
           </thead>
           <tbody>
-            {assignments.map((a) => (
-              <tr key={a.id}>
-                <td>
-                  <Link
-                    to={preserveQueryParams(`/courses/${courseId}/assignments/${a.id}`, location.search)}
-                    className="lms-link"
-                    aria-label={`Assignment ${a.title}`}
-                  >
-                    {a.title}
-                  </Link>
-                </td>
-                <td>{a.type}</td>
-                <td>{new Date(a.due_at).toLocaleDateString()}</td>
-                <td>
-                  <span
-                    className={`lms-badge lms-badge--${a.submission_status}`}
-                    aria-label={`Status: ${a.submission_status.replace(/_/g, " ")}`}
-                  >
-                    {a.submission_status.replace(/_/g, " ")}
-                  </span>
-                </td>
-                <td>{a.score ?? "-"}</td>
-                <td>{a.points_possible}</td>
-              </tr>
-            ))}
+            {assignments.map((a) => {
+              const feedbackAvailable = !!(a.feedback && a.feedback.trim().length > 0);
+              return (
+                <tr key={a.id}>
+                  <td>
+                    <Link
+                      to={preserveQueryParams(`/courses/${courseId}/assignments/${a.id}`, location.search)}
+                      className="lms-link"
+                      aria-label={`Assignment ${a.title} (category ${a.weight_category}, status ${a.submission_status.replace(/_/g, " ")}${feedbackAvailable ? ", feedback available" : ""})`}
+                    >
+                      {a.title}
+                    </Link>
+                  </td>
+                  <td>{a.type}</td>
+                  <td>
+                    <span
+                      className={`lms-badge lms-badge--category-${a.weight_category}`}
+                      aria-label={`Weight category: ${a.weight_category}`}
+                    >
+                      {a.weight_category}
+                    </span>
+                  </td>
+                  <td>{new Date(a.due_at).toLocaleDateString()}</td>
+                  <td>
+                    <span
+                      className={`lms-badge lms-badge--${a.submission_status}`}
+                      aria-label={`Submission status: ${a.submission_status.replace(/_/g, " ")}`}
+                    >
+                      {a.submission_status.replace(/_/g, " ")}
+                    </span>
+                  </td>
+                  <td>
+                    {feedbackAvailable ? (
+                      <span
+                        className="lms-badge lms-badge--feedback"
+                        aria-label="Feedback available"
+                      >
+                        feedback
+                      </span>
+                    ) : (
+                      <span aria-label="No feedback" style={{ color: "#999" }}>-</span>
+                    )}
+                  </td>
+                  <td>{a.score ?? "-"}</td>
+                  <td>{a.points_possible}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -428,6 +466,84 @@ function DiscussionsTab({ discussions, courseId }: { discussions: Discussion[]; 
             </Link>
           ))}
         </div>
+      )}
+    </section>
+  );
+}
+
+/* --- Announcements Tab --- */
+
+function AnnouncementsTab({
+  announcements,
+  api,
+  onAnnouncementsChange,
+  notify,
+}: {
+  announcements: Announcement[];
+  api: LmsApi;
+  onAnnouncementsChange: (anns: Announcement[]) => void;
+  notify: (title: string, body: string) => void;
+}) {
+  const [marking, setMarking] = useState<Record<string, boolean>>({});
+
+  const handleMarkRead = async (announcementId: string) => {
+    setMarking((prev) => ({ ...prev, [announcementId]: true }));
+    try {
+      const updated = await api.markAnnouncementRead(announcementId);
+      onAnnouncementsChange(
+        announcements.map((a) => (a.id === updated.id ? updated : a)),
+      );
+    } catch {
+      notify("Error", "Unable to mark announcement as read");
+    } finally {
+      setMarking((prev) => ({ ...prev, [announcementId]: false }));
+    }
+  };
+
+  return (
+    <section aria-label="Announcements">
+      {announcements.length === 0 ? (
+        <p className="lms-empty">No announcements</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {announcements.map((a) => (
+            <li
+              key={a.id}
+              className="lms-card"
+              aria-label={`Announcement: ${a.title}${a.is_read ? " (read)" : " (unread)"}`}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <strong>{a.title}</strong>
+                {a.priority === "urgent" && (
+                  <span className="lms-badge lms-badge--urgent" aria-label="Urgent announcement">
+                    Urgent
+                  </span>
+                )}
+                {!a.is_read && (
+                  <span className="lms-badge lms-badge--unread" aria-label="Unread announcement">
+                    Unread
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: "0.85rem", color: "#666", margin: "0.25rem 0" }}>
+                Posted: {new Date(a.posted_at).toLocaleString()}
+              </p>
+              <p style={{ margin: "0.5rem 0" }}>{a.body}</p>
+              {!a.is_read && (
+                <button
+                  type="button"
+                  className="lms-btn lms-btn--secondary"
+                  onClick={() => handleMarkRead(a.id)}
+                  disabled={marking[a.id]}
+                  aria-label={`Mark announcement "${a.title}" as read`}
+                  style={{ fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}
+                >
+                  {marking[a.id] ? "Marking..." : "Mark as read"}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
