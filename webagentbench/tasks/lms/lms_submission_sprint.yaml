@@ -58,7 +58,7 @@ canonical_diff:
     desc: Submit each of the top-3 highest-impact unsubmitted assignments with sprint_submission.pdf
     bijection:
       over: >-
-        [r[3] for r in sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, now())), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[:3]]
+        [r[3] for r in sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, session_start or datetime.now(timezone.utc))), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[:3]]
       variable: v
     where:
       id:

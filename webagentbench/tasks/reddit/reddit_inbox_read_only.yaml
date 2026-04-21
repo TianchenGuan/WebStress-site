@@ -54,41 +54,24 @@ seed:
     msg1_id: '{output.msg1_id}'
     msg2_id: '{output.msg2_id}'
     msg3_id: '{output.msg3_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(m.is_read for m in state.messages)
-    desc: All inbox messages are marked as read
-  - expr: 'sum(1 for e in state.audit_log if e.action == ''reddit.message.read'') >=
-      3
+    all_msg_ids: '["{output.msg1_id}", "{output.msg2_id}", "{output.msg3_id}"]'
 
-      '
-    desc: Agent read at least three messages individually (not via mark-all-read)
-  - expr: 'any(m.id == ''{target.msg1_id}'' for m in state.messages)
-
-      '
-    desc: Message 1 is still present (not deleted)
-  - expr: 'any(m.id == ''{target.msg2_id}'' for m in state.messages)
-
-      '
-    desc: Message 2 is still present
-  - expr: 'any(m.id == ''{target.msg3_id}'' for m in state.messages)
-
-      '
-    desc: Message 3 is still present
-  negative_checks:
-  - expr: 'not any(e.action == ''reddit.message.send'' for e in state.audit_log)
-
-      '
-    desc: No replies or new messages sent
-    penalty: 0.4
-  - expr: 'not any(e.action == ''reddit.message.delete'' for e in state.audit_log)
-
-      '
-    desc: No messages deleted
-    penalty: 0.4
-  - expr: 'not any(e.action == ''reddit.user.block'' for e in state.audit_log)
-
-      '
-    desc: No senders blocked
-    penalty: 0.2
+canonical_diff:
+  update:
+    - entity: Message
+      collection: messages
+      bijection:
+        over: "target['all_msg_ids']"
+        variable: v
+      desc: "Mark each inbox message as read"
+      where:
+        id: {expr: "x == v"}
+      changes:
+        is_read: {eq: true}
+  invariant:
+    - collection: state.sent_messages
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not send any replies or new messages"
+      ref: invariant[0]
+      severity: high

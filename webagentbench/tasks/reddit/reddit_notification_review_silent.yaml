@@ -53,38 +53,29 @@ seed:
     notif_a_id: '{output.notif_a_id}'
     notif_b_id: '{output.notif_b_id}'
     notif_c_id: '{output.notif_c_id}'
-eval:
-  source: server_state
-  checks:
-  - expr: all(n.is_read for n in state.notifications)
-    desc: Every notification is marked as read
-  - expr: 'sum(1 for e in state.audit_log if e.action == ''reddit.notification.read'')
-      >= 3
+    all_notif_ids: '["{output.notif_a_id}", "{output.notif_b_id}", "{output.notif_c_id}"]'
 
-      '
-    desc: Agent opened at least three notifications individually (not via mark-all-read)
-  negative_checks:
-  - expr: 'not any(e.action == ''reddit.post.vote'' for e in state.audit_log)
-
-      '
-    desc: No post votes were cast
-    penalty: 0.3
-  - expr: 'not any(e.action == ''reddit.comment.vote'' for e in state.audit_log)
-
-      '
-    desc: No comment votes were cast
-    penalty: 0.2
-  - expr: 'not any(e.action == ''reddit.comment.create'' for e in state.audit_log)
-
-      '
-    desc: No new comments posted
-    penalty: 0.2
-  - expr: "not any(e.action in ('reddit.subreddit.subscribe', 'reddit.subreddit.unsubscribe')\
-      \ for e in state.audit_log)"
-    desc: No subscription changes
-    penalty: 0.2
-  - expr: 'not any(e.action == ''reddit.message.send'' for e in state.audit_log)
-
-      '
-    desc: No messages sent
-    penalty: 0.2
+canonical_diff:
+  update:
+    - entity: Notification
+      collection: notifications
+      bijection:
+        over: "target['all_notif_ids']"
+        variable: v
+      desc: "Mark each notification as read"
+      where:
+        id: {expr: "x == v"}
+      changes:
+        is_read: {eq: true}
+  invariant:
+    - collection: state.messages
+      preserve: ALL
+    - collection: state.sent_messages
+      preserve: ALL
+  named_invariants:
+    - name: "Agent did not modify inbox messages"
+      ref: invariant[0]
+      severity: high
+    - name: "Agent did not send any messages"
+      ref: invariant[1]
+      severity: high
