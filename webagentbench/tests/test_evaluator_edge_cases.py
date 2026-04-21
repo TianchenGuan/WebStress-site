@@ -197,8 +197,11 @@ def test_thread_detective_blank_reply_does_not_pass_via_quoted_history() -> None
     )
 
     assert result["success"] is False
+    # Task migrated to canonical_diff; the originality/authored-text rule is
+    # still enforced (the reply with only quoted history fails the positive
+    # create check). Assertion updated to match the current check desc.
     assert any(
-        check["desc"] == "Reply contains the correct non-conflicting time in authored text"
+        check["desc"] == "Reply to sender confirming the non-conflicting meeting time"
         and check["passed"] is False
         for check in result["checks"]
     )
@@ -239,7 +242,7 @@ def test_data_compilation_requires_one_consolidated_summary_email() -> None:
 
     assert result["success"] is False
     assert any(
-        check["desc"] == "Single summary email sent to exec with all CCs, department names, and numbers"
+        check["desc"] == "Compose Q1 Budget Summary email to exec with all dept numbers"
         and check["passed"] is False
         for check in result["checks"]
     )
@@ -281,7 +284,7 @@ def test_meeting_negotiation_requires_one_confirmation_email() -> None:
 
     assert result["success"] is False
     assert any(
-        check["desc"] == "Single confirmation email sent to organizer with all attendees CC'd, correct time, and room name"
+        check["desc"] == "Compose confirmation email to organizer with correct time, room and all attendees CC'd"
         and check["passed"] is False
         for check in result["checks"]
     )
@@ -324,7 +327,7 @@ def test_budget_reconciliation_requires_both_corrections_in_one_reply() -> None:
 
     assert result["success"] is False
     assert any(
-        check["desc"] == "Single threaded reply to the summary author includes both corrections"
+        check["desc"] == "Reply to summary author with the two corrections"
         and check["passed"] is False
         for check in result["checks"]
     )
