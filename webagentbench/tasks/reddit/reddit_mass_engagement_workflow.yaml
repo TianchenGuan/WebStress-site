@@ -48,14 +48,34 @@ seed:
     - saved_ids
   - use: target_post
     params:
-      subreddit: worldnews
+      subreddit: technology
+      title: Breakthrough in solid-state battery cuts EV charging time to six minutes
+      body: Prototype tested across 1,000 cycles with negligible capacity loss.
+      score: 48000
+    outputs:
+    - tech_id
+    - tech_title
+    - tech_sub
+  - use: target_post
+    params:
+      subreddit: gaming
+      title: Indie studio ships a 20-hour RPG built by a team of three in 18 months
+      body: Full release notes and design retrospective inside.
+      score: 37000
+    outputs:
+    - game_id
+    - game_title
+    - game_sub
+  - use: target_post
+    params:
+      subreddit: science
       title: Global carbon emissions fall for first time without economic recession
       body: IEA data shows renewable transition driving decline.
       score: 55000
     outputs:
-    - wn_id
-    - wn_title
-    - wn_sub
+    - sci_id
+    - sci_title
+    - sci_sub
   - use: target_post
     params:
       subreddit: programming
@@ -100,8 +120,8 @@ seed:
   targets:
     subscriptions: '{output.subscriptions}'
     initial_subscriptions: '{output.subscriptions}'
-    wn_title: '{output.wn_title}'
-    wn_id: '{output.wn_id}'
+    wn_title: '{output.sci_title}'
+    wn_id: '{output.sci_id}'
     prog_title: '{output.prog_title}'
     prog_id: '{output.prog_id}'
     reply_author: DeepDiver
@@ -118,14 +138,14 @@ seed:
     j1: MachineLearning
     j2: Piracy
     j3: dataisbeautiful
-    sub1: '{output.wn_sub}'
-    p1: '{output.wn_title}'
+    sub1: '{output.sci_sub}'
+    p1: '{output.sci_title}'
     c1: Finally some good news on climate. The renewable transition is working.
     sub2: '{output.prog_sub}'
     p2: '{output.prog_title}'
-    t1: '{output.wn_title}'
-    t2: '{output.prog_title}'
-    t3: '{output.wn_title}'
+    t1: '{output.tech_title}'
+    t2: '{output.game_title}'
+    t3: '{output.sci_title}'
     t4: '{output.prog_title}'
     c3: This data gives me hope.
     c4: Smart test selection is underrated.

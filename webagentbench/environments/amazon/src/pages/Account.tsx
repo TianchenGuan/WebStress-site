@@ -461,19 +461,38 @@ export function AccountPage() {
                   <span>{addr.city}, {addr.state} {addr.zip_code}</span>
                   {addr.phone && <span>{addr.phone}</span>}
                 </div>
-                <div className="account-card__actions">
-                  <button onClick={() => openEditAddress(addr)}>Edit</button>
+                <div className="account-card__actions" role="group" aria-label={`Actions for address at ${addr.street_address}`}>
+                  <button type="button" onClick={() => openEditAddress(addr)}>Edit</button>
                   {!addr.is_default && (
-                    <button onClick={() => handleSetDefaultAddress(addr.id)}>Set as default</button>
+                    <button type="button" onClick={() => handleSetDefaultAddress(addr.id)}>Set as default</button>
                   )}
                   {confirmDeleteAddr === addr.id ? (
                     <>
-                      <span style={{ fontSize: 12, color: "#B12704" }}>Delete?</span>
-                      <button style={{ color: "#B12704" }} onClick={() => handleDeleteAddress(addr.id)}>Yes</button>
-                      <button onClick={() => setConfirmDeleteAddr(null)}>No</button>
+                      <span role="alert" style={{ fontSize: 12, color: "#B12704" }}>Delete this address?</span>
+                      <button
+                        type="button"
+                        style={{ color: "#B12704" }}
+                        onClick={() => handleDeleteAddress(addr.id)}
+                        aria-label={`Confirm delete address at ${addr.street_address}`}
+                      >
+                        Yes, delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteAddr(null)}
+                        aria-label="Cancel delete"
+                      >
+                        Cancel
+                      </button>
                     </>
                   ) : (
-                    <button onClick={() => setConfirmDeleteAddr(addr.id)}>Delete</button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteAddr(addr.id)}
+                      aria-label={`Delete address at ${addr.street_address}`}
+                    >
+                      Delete
+                    </button>
                   )}
                 </div>
               </div>

@@ -16,6 +16,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 
 import { createAmazonApi } from "./api";
@@ -276,6 +277,23 @@ function AmazonShellWrapper() {
   return <AmazonShell sessionId={sessionId} />;
 }
 
+function AddressesRedirect() {
+  const location = useLocation();
+  return <Navigate to={preserveQueryParams("/account", location.search)} replace />;
+}
+
+function OrderConfirmationRedirect() {
+  const { orderId } = useParams<{ orderId: string }>();
+  const location = useLocation();
+  if (!orderId) return <Navigate to={preserveQueryParams("/orders", location.search)} replace />;
+  return (
+    <Navigate
+      to={preserveQueryParams(`/order-confirmation/${orderId}`, location.search)}
+      replace
+    />
+  );
+}
+
 /* ── App ── */
 
 export function App() {
@@ -290,6 +308,7 @@ export function App() {
         <Route path="checkout" element={<CheckoutPage />} />
         <Route path="order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="orders" element={<OrdersPage />} />
+        <Route path="orders/:orderId" element={<OrderConfirmationRedirect />} />
         <Route path="wishlist" element={<WishlistPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="login" element={<LoginPage />} />
@@ -299,6 +318,7 @@ export function App() {
         <Route path="deals" element={<DealsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="addresses" element={<AddressesRedirect />} />
         <Route path="gift-cards" element={<GiftCardsPage />} />
         <Route path="customer-service" element={<CustomerServicePage />} />
         <Route path="registry" element={<RegistryPage />} />

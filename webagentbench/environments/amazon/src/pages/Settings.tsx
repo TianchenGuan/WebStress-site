@@ -28,6 +28,9 @@ export function SettingsPage() {
         prime_member: settings.prime_member,
         one_click_enabled: settings.one_click_enabled,
         email_notifications: settings.email_notifications,
+        order_updates_email: settings.order_updates_email,
+        deal_alerts_email: settings.deal_alerts_email,
+        two_factor_enabled: settings.two_factor_enabled,
         language: settings.language,
       });
       setSettings((current) => (current ? { ...current, ...updated } : updated));
@@ -106,6 +109,26 @@ export function SettingsPage() {
       </div>
 
       <div className="settings-card">
+        <h2>Login &amp; Security</h2>
+        <div className="settings-form">
+          <div className="settings-form__row settings-form__row--checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.two_factor_enabled}
+                onChange={(e) => setSettings({ ...settings, two_factor_enabled: e.target.checked })}
+                aria-label="Two-factor authentication"
+              />
+              Two-factor authentication (2FA)
+            </label>
+            <p className="settings-form__hint">
+              Require a one-time code at sign-in in addition to your password.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
         <h2>Notifications</h2>
         <div className="settings-form">
           <div className="settings-form__row settings-form__row--checkbox">
@@ -118,13 +141,29 @@ export function SettingsPage() {
               Email notifications
             </label>
           </div>
-          <div className="settings-form__row">
-            <label htmlFor="settings-order-updates">Order update emails</label>
-            <input id="settings-order-updates" type="text" value={settings.order_updates_email ? "Enabled" : "Disabled"} readOnly />
+          <div className="settings-form__row settings-form__row--checkbox">
+            <label>
+              <input
+                id="settings-order-updates"
+                type="checkbox"
+                checked={settings.order_updates_email}
+                onChange={(e) => setSettings({ ...settings, order_updates_email: e.target.checked })}
+                aria-label="Order update emails"
+              />
+              Order update emails
+            </label>
           </div>
-          <div className="settings-form__row">
-            <label htmlFor="settings-deal-alerts">Deal alert emails</label>
-            <input id="settings-deal-alerts" type="text" value={settings.deal_alerts_email ? "Enabled" : "Disabled"} readOnly />
+          <div className="settings-form__row settings-form__row--checkbox">
+            <label>
+              <input
+                id="settings-deal-alerts"
+                type="checkbox"
+                checked={settings.deal_alerts_email}
+                onChange={(e) => setSettings({ ...settings, deal_alerts_email: e.target.checked })}
+                aria-label="Deal alert emails"
+              />
+              Deal alert emails
+            </label>
           </div>
         </div>
       </div>

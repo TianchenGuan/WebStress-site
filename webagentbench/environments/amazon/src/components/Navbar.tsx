@@ -78,8 +78,14 @@ export function Navbar({ searchValue, onSearchChange, onSearchSubmit, cartCount 
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      e.preventDefault();
       onSearchSubmit();
     }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearchSubmit();
   };
 
   return (
@@ -108,7 +114,12 @@ export function Navbar({ searchValue, onSearchChange, onSearchSubmit, cartCount 
         </div>
 
         {/* Search bar */}
-        <div className="amazon-navbar__search">
+        <form
+          className="amazon-navbar__search"
+          role="search"
+          onSubmit={handleFormSubmit}
+          action="#"
+        >
           <select
             className="amazon-navbar__search-dropdown"
             value={searchDepartment}
@@ -129,8 +140,8 @@ export function Navbar({ searchValue, onSearchChange, onSearchSubmit, cartCount 
             aria-label="Search Amazon"
           />
           <button
+            type="submit"
             className="amazon-navbar__search-btn"
-            onClick={onSearchSubmit}
             aria-label="Submit search"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -138,7 +149,7 @@ export function Navbar({ searchValue, onSearchChange, onSearchSubmit, cartCount 
               <line x1="16.5" y1="16.5" x2="21" y2="21" />
             </svg>
           </button>
-        </div>
+        </form>
 
         {/* Nav links */}
         <nav className="amazon-navbar__links" aria-label="Main navigation">

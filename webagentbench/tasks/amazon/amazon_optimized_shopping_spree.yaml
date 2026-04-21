@@ -1,12 +1,14 @@
 task_id: amazon_optimized_shopping_spree
 env_id: amazon
 title: Buy 5 Items from 5 Categories Under $500
-instruction_template: 'Find and purchase exactly 5 items, each from a different category,
-  with each item having a rating of at least 4.0. Your total order must stay under
-  $500. The five categories to shop from are: Electronics, Books, Home & Kitchen,
-  Sports & Outdoors, and Office Supplies. Add one item from each category to your
-  cart, verify the total is under $500, then complete checkout using the shipping
-  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
+instruction_template: 'Find and purchase exactly these 5 highest-rated items, one
+  from each of 5 different categories: Electronics — "Wireless Noise-Cancelling Headphones";
+  Books — "The Art of Problem Solving"; Home & Kitchen — "Stainless Steel Cookware
+  Set"; Sports & Outdoors — "Yoga Mat Premium Non-Slip"; Office Supplies — "Ergonomic
+  Standing Desk Converter". Each item is rated at least 4.0 and your total order must
+  stay under $500. Add one of each to your cart, verify the total is under $500, then
+  complete checkout using the shipping address for Jordan Parker at 742 Evergreen Terrace
+  and the Visa card ending in 4242.
 
   '
 difficulty: hard
@@ -111,6 +113,9 @@ seed:
       price_range:
       - 50.0
       - 500.0
+      rating_range:
+      - 3.0
+      - 4.2
     outputs:
     - catalog_electronics
   - use: product_catalog
@@ -120,6 +125,9 @@ seed:
       price_range:
       - 5.0
       - 50.0
+      rating_range:
+      - 3.0
+      - 4.2
     outputs:
     - catalog_books
   - use: product_catalog
@@ -129,6 +137,9 @@ seed:
       price_range:
       - 20.0
       - 200.0
+      rating_range:
+      - 3.0
+      - 4.2
     outputs:
     - catalog_home
   targets:

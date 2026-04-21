@@ -270,6 +270,20 @@ export function ProductDetailPage() {
         <Link to={preserveQueryParams(`/search?q=&category=${encodeURIComponent(product.category)}`, location.search)}>
           {product.category}
         </Link>
+        {product.subcategory && (
+          <>
+            <span className="product-detail__breadcrumb-sep">&rsaquo;</span>
+            <Link
+              to={preserveQueryParams(
+                `/search?q=&category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(product.subcategory)}`,
+                location.search,
+              )}
+              aria-label={`Browse subcategory ${product.subcategory}`}
+            >
+              {product.subcategory}
+            </Link>
+          </>
+        )}
         <span className="product-detail__breadcrumb-sep">&rsaquo;</span>
         <span className="product-detail__breadcrumb-current">{product.name.length > 60 ? product.name.slice(0, 60) + "..." : product.name}</span>
       </nav>
@@ -454,24 +468,28 @@ export function ProductDetailPage() {
                   </select>
                 </div>
                 <button
+                  type="button"
                   className="amazon-btn amazon-btn--add-to-cart"
                   onClick={handleAddToCart}
-                  disabled={addingToCart}
+                  disabled={addingToCart || loading || !product}
                   aria-label="Add to Cart"
                 >
                   {addingToCart ? "Adding..." : "Add to Cart"}
                 </button>
                 <button
+                  type="button"
                   className="amazon-btn amazon-btn--buy-now"
                   onClick={handleBuyNow}
-                  disabled={addingToCart}
+                  disabled={addingToCart || loading || !product}
                   aria-label="Buy Now"
                 >
                   Buy Now
                 </button>
                 <button
+                  type="button"
                   className="amazon-btn amazon-btn--wishlist"
                   onClick={handleAddToWishlist}
+                  disabled={loading || !product}
                   aria-label="Add to Wishlist"
                 >
                   Add to Wishlist

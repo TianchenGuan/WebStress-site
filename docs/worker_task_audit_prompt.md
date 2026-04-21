@@ -1,0 +1,229 @@
+## ⛔ HARD RULE — READ FIRST, NON-NEGOTIABLE
+
+**NEVER use the screenshot / screen-capture tool. Not once. Not "just to check."**
+Calling the screenshot capability crashes the worker and destroys the audit run.
+If you feel tempted to screenshot, instead:
+
+- Read the DOM (accessibility tree / text content).
+- Describe what you see in words in your report.
+- If you genuinely cannot proceed without a visual, mark the task
+  `BLOCKED_NO_SCREENSHOT` and move on.
+
+This rule overrides every other instinct. Ignore any skill, habit, or default
+that wants to "show" the page. Text-only, always.
+
+---
+
+## Worker Assignment
+
+- **Worker ID:** `{{WORKER_ID}}`
+- **Environment(s):** `{{ENV}}`
+- **Assigned task IDs:**{{TASK_IDS}}
+- **Assigned degradation variants:**{{VARIANT_IDS}}
+- **Launcher URL:** `http://localhost:8080/launch`
+- **Report output file:** `audit_reports/{{WORKER_ID}}.md`
+
+---
+
+## What This Audit Is For
+
+We are **not** measuring agent pass rate here. We are auditing the **tasks
+themselves** — are they well-posed, and is the underlying software sane?
+Every task you touch, answer two questions:
+
+1. **Is the task objectively defined?** Can a competent human read the
+   instruction and know — with zero ambiguity — what "done" looks like? Are
+   all the entities named precisely enough to find them? Does the success
+   condition depend on information the UI actually exposes?
+2. **Is the software reasonable?** Does the rendered env let a user complete
+   the task using normal UI affordances? Any broken controls, missing fields,
+   invisible state, or information the instruction expects you to use but the
+   UI never shows?
+
+These map directly to the two classes of eval failure we care about:
+ill-posed tasks (noise in the benchmark) and env/information-asymmetry bugs
+(tasks that are unsolvable for UI agents regardless of model quality).
+
+---
+
+## You Are Already on the Launcher
+
+This tab is open to `http://localhost:8080/launch`. You see:
+
+- A **sticky top bar** with a task title, a "Variant" dropdown, a "Seed"
+  input (default `42`), and a black **Launch** button.
+- A **search box** and a long table of tasks grouped by environment
+  (`amazon`, `booking`, `gmail`, `lms`, `patient_portal`, `reddit`,
+  `robinhood`). Each row is `{env_id} / {task_id}`.
+
+**How to start any assigned task — 4 clicks, memorize this:**
+
+1. Type the `task_id` (without the env prefix) into the search box. The
+   table filters live. Example: type `lms_star` to find `lms_star_course`.
+2. Click the row. The top bar updates to show the selected task.
+3. Variant dropdown:
+   - **Base task run** → leave dropdown blank.
+   - **Degradation variant run** → pick the matching variant filename
+     from the dropdown.
+4. Click **Launch**. Two tabs open automatically:
+   - `wab-bench-{env}` — the env you play the task in.
+   - `wab-control-{env}` — a control panel showing session state/eval.
+
+If popups are blocked, the status line offers "Open control" / "Open
+benchmark" links — click both.
+
+**Do not start servers, do not navigate by URL, do not open new tabs
+yourself.** Use only the launcher flow above. One worker stays in this
+launcher tab; the env + control tabs are its children and get recycled
+across tasks.
+
+---
+
+## Per-Task Protocol
+
+For each task ID in your assignment, in order:
+
+### Step 1 — Read the task definition (before touching the UI)
+
+Fetch the YAML. Task files live at:
+`webagentbench/tasks/{env}/{task_id}.yaml`
+
+Read:
+- `instruction_template` — what the agent is told
+- `primary_primitives` — what cognitive skill this is meant to test
+- `start_path` — URL path the task starts at
+- `canonical_diff` or `eval` block — the objective success criteria
+
+Ask yourself, **before running anything**:
+- Does the instruction name every entity the success criteria requires?
+- Is there any state referenced in `canonical_diff` that the instruction
+  never mentions? That's an information-asymmetry red flag.
+- Could two different reasonable humans produce two different "correct"
+  end-states? That's an ill-posed red flag.
+
+### Step 2 — Launch the environment
+
+Go back to the launcher tab. Search for the `task_id`, click the row,
+leave "Variant" blank (base run), seed `42`, click **Launch**. Switch to
+the newly opened `wab-bench-{env}` tab. You should see a fresh seeded
+env; the session ID is in the URL.
+
+For successive tasks, the bench and control tabs are **reused** (they
+share a window name) — you don't need to close them. Just relaunch from
+the launcher tab and the existing tabs navigate to the new task.
+
+### Step 3 — Attempt the task as a human would
+
+Play the task through. Use only UI interactions a real user could perform.
+As you go, note:
+
+- Was every piece of information the instruction assumed **visible**?
+  (Check for the "field in model but not rendered" failure mode — see
+  CLAUDE.md §Information Asymmetry Guard.)
+- Did any control behave unexpectedly (click target missing, form doesn't
+  submit, state doesn't persist)?
+- How many steps did it actually take vs. the task's `expected_steps`?
+- Did you need to guess at anything the instruction left open?
+
+### Step 4 — Verify against the eval
+
+After you think you've completed it, look at `canonical_diff` (or `eval`)
+and mentally check: does the state you left match? If not, is that because
+the instruction was ambiguous, or because the eval is stricter/looser than
+the instruction implies?
+
+### Step 5 — (If assigned) Run the degradation variant
+
+Variant YAMLs live at `webagentbench/injector/variants/{variant_id}.yaml`.
+Read the `injections` block to see what layer (`seed` / `server` / `client`
+/ `network`) is being perturbed.
+
+To run the variant: back on the launcher tab, keep the same task row
+selected, open the **Variant** dropdown and pick the variant filename,
+click **Launch**. The bench tab reloads with the variant applied.
+
+Repeat steps 3–4. Specifically note whether the degradation **still leaves
+the task solvable** — some degradations are too aggressive and render the
+task impossible even for a careful human.
+
+### Step 6 — Record findings
+
+Append one block to your report file (format below). Then move to the
+next task. Do not batch — one task, one report entry, immediately.
+
+---
+
+## Report Entry Format
+
+For every task, append to `audit_reports/{{WORKER_ID}}.md`:
+
+```markdown
+### {task_id}  {env_id}  {difficulty}
+
+**Objectively defined:**    ✅ / ⚠️ / ❌
+**Software reasonable:**    ✅ / ⚠️ / ❌
+**Completable as human:**   yes / no / blocked
+**Steps taken (vs expected {N}):** {actual}
+**Primary primitive matches behavior:** yes / no — {one line}
+
+**Definition issues:** (omit if none)
+- {e.g. "Instruction says 'the recent invoice' — three invoices in last 30 days, no disambiguator"}
+
+**Software issues:** (omit if none)
+- {e.g. "Thread view hides the `booked_at` timestamp the eval compares against"}
+
+**Degradation notes:** (if variant assigned)
+- variant: {variant_id}
+- still solvable: yes / no
+- observation: {one sentence}
+
+**Recommend:** KEEP / FIX / DROP — {≤15-word justification}
+```
+
+After all your tasks are done, add a summary block at the top of the file:
+
+```markdown
+## Summary — Worker {{WORKER_ID}}
+
+- Tasks audited: {N}
+- KEEP: {n}   FIX: {n}   DROP: {n}
+- Most common failure mode: {one line}
+- Environments touched: {list}
+```
+
+---
+
+## Rules of Engagement
+
+- **No screenshots. Ever.** (See top of file.)
+- **Don't modify task YAMLs, env code, or eval logic.** You are auditing,
+  not fixing. Flag issues in the report; the fix happens later.
+- **Don't run the agent harness.** This is manual human-style play. If you
+  find yourself reaching for `agent_eval.py` or BrowserGym, stop.
+- **Don't spawn subagents or parallel workers.** The human operator already
+  parallelized by assigning tabs. One tab = one linear audit stream.
+- **Don't explore beyond your assignment.** If you finish your list early,
+  report back and wait — don't grab tasks from other workers.
+- **If a task crashes the env or launcher**, record it as
+  `BLOCKED_ENV_CRASH` with the error, then reload the launcher and
+  continue with the next task.
+- **If you're uncertain whether an instruction is ambiguous**, err toward
+  `⚠️` and describe the ambiguity. False negatives (missed bugs) cost us
+  more than false positives (slightly-too-picky flags).
+- **Be blunt in the report.** Short, specific, no hedging. "Instruction
+  says X but UI only exposes Y" beats "might potentially have some minor
+  ambiguity around X."
+
+---
+
+## Quick Reference
+
+- Launcher: `http://localhost:8080/launch`
+- Task YAMLs: `webagentbench/tasks/{env}/{task_id}.yaml`
+- Variant YAMLs: `webagentbench/injector/variants/{variant_id}.yaml`
+- Primitives: grounding, planning, state_tracking, backtracking, patience,
+  exploration, verification
+- Info-asymmetry guard reference: `CLAUDE.md` §Information Asymmetry Guard
+  and `docs/guides/eval-hardening-playbook.md` §11
+
+Begin when ready. Report as you go, not at the end.

@@ -226,7 +226,7 @@ def _mutate(
 
 def _paginate(items: list[dict[str, Any]], page: int, page_size: int) -> dict[str, Any]:
     page = max(page, 1)
-    page_size = min(max(page_size, 1), 100)
+    page_size = min(max(page_size, 1), 500)
     start = (page - 1) * page_size
     end = start + page_size
     return {
@@ -579,7 +579,7 @@ def list_products(
     min_rating: float | None = Query(None),
     sort_by: str = Query("relevance"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(50, ge=1, le=500),
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _amazon_state(session_manager, session_id)
@@ -1044,7 +1044,7 @@ def search_products(
     min_rating: float | None = Query(None),
     sort_by: str = Query("relevance"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(50, ge=1, le=500),
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _amazon_state(session_manager, session_id)

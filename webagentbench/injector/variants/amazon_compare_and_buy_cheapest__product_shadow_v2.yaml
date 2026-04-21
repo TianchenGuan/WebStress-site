@@ -1,7 +1,7 @@
 variant_id: amazon_compare_and_buy_cheapest__product_shadow_v2
 base_task_id: amazon_compare_and_buy_cheapest
 target_primitive: grounding
-description: Same-name speakers sold by third-party marketplace sellers sit beside the first-party listing. Price, rating, and thumbnail match, so the only way to pick the cheapest RATING-≥4.0 listing correctly is to select the exact product_id rather than any same-named sibling.
+description: Two same-name speakers sit beside the first-party AmazonBasics listing. One is priced at the same $12.99 as the target but has a rating below 4.0 (fails the rating bar); the other has a ≥4.0 rating but is more expensive (fails the cheaper-alternative bar). Neither qualifies under "cheapest with rating ≥ 4.0", so the only correct pick is the target product_id.
 injections:
 - layer: seed
   params:
@@ -12,18 +12,18 @@ injections:
       brand: AmazonBasics
       seller: ElectroDeals Marketplace
       category: Electronics
-      price: 13.49
-      rating: 4.2
+      price: 12.99
+      rating: 3.9
       review_count: 1420
       match_image_of: Basic Bluetooth Speaker
-      description: Marketplace reseller listing of the same-looking speaker at a slightly lower price; distinct SKU, not the first-party AmazonBasics target.
+      description: Marketplace reseller listing tied on price with the target but rating below the 4.0 bar; distinct SKU, must be rejected by rating.
     - type: product
       name: Basic Bluetooth Speaker Certified
       brand: AmazonBasics
       seller: AudioHub Store
       category: Electronics
       price: 14.99
-      rating: 4.2
+      rating: 4.5
       review_count: 980
       match_image_of: Basic Bluetooth Speaker
-      description: Certified reseller sibling with matching branding and thumbnail — a different listing the cheapest-selection rule must reject.
+      description: Certified reseller sibling with matching branding and thumbnail and a high rating, but priced above target — must be rejected by price.

@@ -25,6 +25,9 @@ export function PostPage() {
   const [loading, setLoading] = useState(previewPost === null);
   const [newComment, setNewComment] = useState("");
   const [activePostId, setActivePostId] = useState(postId);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBody, setEditBody] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     if (activePostId === postId) {
@@ -34,6 +37,8 @@ export function PostPage() {
     setComments([]);
     setNewComment("");
     setPost(previewPost);
+    setIsEditing(false);
+    setEditBody("");
   }, [activePostId, postId, previewPost]);
 
   const load = useCallback(async () => {
@@ -135,6 +140,33 @@ export function PostPage() {
     } catch { notify("Failed to delete post"); }
   };
 
+  const handleStartEdit = () => {
+    if (!post) return;
+    setEditBody(post.body ?? "");
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditBody("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!post) return;
+    setEditSubmitting(true);
+    try {
+      const { post: updated } = await api.editPost(post.id, editBody);
+      setPost(updated);
+      setIsEditing(false);
+      setEditBody("");
+      notify("Post edited");
+    } catch {
+      notify("Failed to edit post");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   if (loading && !post) return <div className="post-page__loading">Loading...</div>;
   if (!post) return <div className="post-page__error">Post not found</div>;
 
@@ -176,6 +208,36 @@ export function PostPage() {
             <div className="post-detail__nsfw-blocked">
               NSFW content is hidden by your settings. Enable “Show NSFW content” in Settings to view this post.
             </div>
+          ) : isEditing ? (
+            <div className="post-detail__edit-form">
+              <textarea
+                className="post-detail__edit-input"
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                rows={6}
+                aria-label="Edit post body"
+              />
+              <div className="post-detail__edit-actions">
+                <button
+                  type="button"
+                  className="post-action post-action--primary"
+                  onClick={handleSaveEdit}
+                  disabled={editSubmitting}
+                  aria-label="Save edited post"
+                >
+                  {editSubmitting ? "Saving..." : "Save edits"}
+                </button>
+                <button
+                  type="button"
+                  className="post-action"
+                  onClick={handleCancelEdit}
+                  disabled={editSubmitting}
+                  aria-label="Cancel edit"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               {post.body && <div className="post-detail__body">{post.body}</div>}
@@ -208,6 +270,9 @@ export function PostPage() {
               {post.is_saved ? "★ Saved" : "☆ Save"}
             </button>
             <button className="post-action" aria-label="Share">Share</button>
+            {profile && post.author_name === profile.username && !isEditing && (
+              <button className="post-action" onClick={handleStartEdit} aria-label="Edit post">Edit</button>
+            )}
             {profile && post.author_name === profile.username && (
               <button className="post-action post-action--danger" onClick={handleDeletePost} aria-label="Delete post">Delete</button>
             )}

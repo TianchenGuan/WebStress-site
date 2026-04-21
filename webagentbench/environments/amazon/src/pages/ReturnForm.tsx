@@ -8,8 +8,13 @@ import { useAmazonLayout } from "../context";
 const RETURN_REASONS = [
   { value: "defective", label: "Item is defective or doesn't work" },
   { value: "wrong_item", label: "Wrong item was sent" },
+  { value: "not_as_described", label: "Item not as described" },
+  { value: "missing_parts", label: "Missing parts or accessories" },
+  { value: "quality_below_expectations", label: "Quality below expectations" },
   { value: "no_longer_needed", label: "No longer needed" },
+  { value: "changed_mind", label: "Changed my mind" },
   { value: "arrived_too_late", label: "Item arrived too late" },
+  { value: "other", label: "Other reason (write your own)" },
 ];
 
 export function ReturnFormPage() {
@@ -22,8 +27,12 @@ export function ReturnFormPage() {
   const [selectedOrderId, setSelectedOrderId] = useState(orderId || "");
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [reason, setReason] = useState("");
+  const [otherReason, setOtherReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const isOther = reason === "other";
+  const submittedReason = isOther ? otherReason.trim() : reason;
 
   useEffect(() => {
     let cancelled = false;
@@ -48,13 +57,13 @@ export function ReturnFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrderId || !reason) {
+    if (!selectedOrderId || !submittedReason) {
       notify("Error", "Please select an order, item, and reason.");
       return;
     }
     setSubmitting(true);
     try {
-      await api.createReturn(selectedOrderId, selectedItemIndex, reason);
+      await api.createReturn(selectedOrderId, selectedItemIndex, submittedReason);
       notify("Return Requested", "Your return request has been submitted.");
       navigate(preserveQueryParams("/returns", location.search));
     } catch {
@@ -140,6 +149,20 @@ export function ReturnFormPage() {
             </select>
           </div>
 
+          {isOther && (
+            <div className="return-form__field">
+              <label htmlFor="return-reason-other">Describe your reason</label>
+              <input
+                id="return-reason-other"
+                type="text"
+                value={otherReason}
+                onChange={(e) => setOtherReason(e.target.value)}
+                placeholder="e.g. Upgrading to a newer model"
+                aria-label="Other return reason"
+              />
+            </div>
+          )}
+
           {selectedOrder && selectedItemIndex < selectedOrder.items.length && (
             <div className="return-form__preview">
               <h3>Return Preview</h3>
@@ -165,7 +188,7 @@ export function ReturnFormPage() {
             <button
               type="submit"
               className="amazon-btn amazon-btn--add-to-cart"
-              disabled={submitting || !reason}
+              disabled={submitting || !submittedReason}
             >
               {submitting ? "Submitting..." : "Submit Return Request"}
             </button>
