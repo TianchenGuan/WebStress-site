@@ -1,12 +1,12 @@
 task_id: lms_course_load_analysis
 env_id: lms
 title: Course Load Analysis for Adding a Fifth Course
-instruction_template: 'You''re considering adding a 5th course. Analyze your current
-  load: check weighted scores, count remaining assignments, and determine if your
-  GPA ({target.gpa}) would drop below 3.0 with a C (70%) in a new 3-credit course.
-  If adding the course would keep your GPA above 3.0, mark all unread announcements
-  as read to confirm you''ve reviewed your standing. If it would drop below 3.0, do
-  NOT mark announcements — instead drop your lowest-performing current course.'
+instruction_template: 'You''re considering adding a 5th course. Use the precomputed
+  branch flag {target.can_add_course} from the seed output: if it is ''true'', the
+  new course keeps your GPA at or above 3.0 and you should mark all unread
+  announcements as read. If it is ''false'', assume adding the course would drop GPA
+  below 3.0 and do NOT mark announcements — instead drop your lowest-performing
+  current course.'
 difficulty: expert
 time_limit_seconds: 360
 expected_steps: 20
@@ -154,8 +154,8 @@ canonical_diff:
     - entity: Enrollment
       desc: Drop the lowest-performing current course
       where:
-        id:
-          expr: "x == target['lower_grade_enrollment_id']"
+        course_id:
+          expr: "x == target['lowest_performing_course_id']"
       changes:
         status:
           eq: dropped
@@ -165,7 +165,7 @@ canonical_diff:
     - collection: state.courses
       preserve: ALL
     - collection: state.enrollments
-      filter: "a.id != target['lower_grade_enrollment_id']"
+      filter: "a.course_id != target['lowest_performing_course_id']"
       preserve: ALL
     - collection: state.assignments
       preserve: ALL
@@ -235,9 +235,8 @@ eval:
       for e in state.enrollments)'
     desc: Did not drop a course when GPA would stay above 3.0 (wrong branch)
     penalty: 0.5
-  - expr: '''{target.can_add_course}'' != ''false'' or not all(a.is_read == True for
-      a in state.announcements)'
-    desc: Did not mark all announcements read when GPA would drop below 3.0 (wrong
+  - expr: '''{target.can_add_course}'' != ''false'' or all(a.id not in [x.strip() for x in ''{target.unread_announcement_ids}''.split('','') if x.strip()] or not a.is_read for a in state.announcements)'
+    desc: Did not mark unread announcements when GPA would drop below 3.0 (wrong
       branch)
     penalty: 0.3
   - expr: '''{target.can_add_course}'' != ''false'' or sum(1 for e in state.enrollments

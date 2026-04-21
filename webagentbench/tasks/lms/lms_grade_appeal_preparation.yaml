@@ -3,9 +3,10 @@ env_id: lms
 title: Grade Appeal — Resubmit Disputed Assignments and Post Notice
 instruction_template: Prepare a grade appeal for {target.course_code}. Review every
   graded assignment's score and rubric. Find the two assignments where your score
-  is furthest below the rubric's maximum. Resubmit both with files "appeal_evidence_1.pdf"
-  and "appeal_evidence_2.pdf" (largest gap first). Then post a formal dispute notice
-  in the course's discussion forum stating which assignments you are disputing.
+  is furthest below the assignment's total possible points. Resubmit both with files
+  "appeal_evidence_1.pdf" and "appeal_evidence_2.pdf" (largest gap first). Then post
+  a formal dispute notice in the "{target.target_discussion_title}" discussion forum
+  stating which assignments you are disputing.
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 40
@@ -56,6 +57,7 @@ seed:
     outputs:
     - discussion_ids
     - target_discussion_id
+    - target_discussion_title
   - use: peer_review_assignments
     params:
       count: 2
@@ -69,6 +71,7 @@ seed:
     target_course_id: '{output.target_course_id}'
     most_disputed_assignment_ids: '{output.most_disputed_assignment_ids}'
     target_discussion_id: '{output.target_discussion_id}'
+    target_discussion_title: '{output.target_discussion_title}'
     disputed_title_1: '{output.disputed_title_1}'
     disputed_title_2: '{output.disputed_title_2}'
     decoy_assignment_id: '{output.decoy_assignment_id}'

@@ -238,3 +238,9 @@ eval:
         all(e.status != 'dropped' for e in state.enrollments)
       desc: No courses were dropped
       penalty: 0.3
+    - expr: >-
+        state.get_assignment('{target.target_assignment_id}') is not None
+        and state.get_assignment('{target.target_assignment_id}').submission_status
+        == state._initial_snapshot['assignments']['{target.target_assignment_id}']['submission_status']
+      desc: Target assignment (target_assignment_id) itself was not modified while the grade was checked
+      penalty: 0.2

@@ -56,6 +56,11 @@ seed:
 canonical_diff:
   oneof:
   - constraints:
+    # Branch discriminator — critical acts as a branch guard: _oneof_report_key
+    # filters branches whose critical-constraints are not fully satisfied, so
+    # the matcher reliably selects the applicable branch. Lowering to `low`
+    # breaks this guard (the failed discriminator lands in `failures`,
+    # flipping `passed=False` on an otherwise-correct submission).
     - desc: Target course allows more than 3 late days
       expr: "target['allows_late_submit'] == 'true'"
       severity: critical
@@ -72,8 +77,11 @@ canonical_diff:
           - late
         file_name:
           eq: late_submit.pdf
+        # Relax attempt_count from `eq: 1` to `>= 1`. The task only cares
+        # that the agent submitted the file; exploratory retries during
+        # form-fill should not fail the match.
         attempt_count:
-          eq: 1
+          expr: "x >= 1"
         submitted_at:
           expr: "x is not None and initial.get_assignment(target['overdue_assignment_id']) is not None and x >= initial.get_assignment(target['overdue_assignment_id']).due_at"
     invariant:
@@ -138,6 +146,7 @@ canonical_diff:
       ref: invariant[10]
       severity: medium
   - constraints:
+    # Branch discriminator — critical, matches branch 1. See comment above.
     - desc: Target course allows 3 or fewer late days
       expr: "target['allows_late_submit'] != 'true'"
       severity: critical

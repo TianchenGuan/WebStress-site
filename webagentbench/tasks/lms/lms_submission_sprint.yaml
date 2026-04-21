@@ -55,42 +55,14 @@ seed:
 canonical_diff:
   update:
   - entity: Assignment
-    desc: Submit the highest-impact unsubmitted assignment with sprint_submission.pdf
+    desc: Submit each of the top-3 highest-impact unsubmitted assignments with sprint_submission.pdf
+    bijection:
+      over: >-
+        [r[3] for r in sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, now())), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[:3]]
+      variable: v
     where:
       id:
-        expr: "x == sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, now())), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[0][3]"
-    changes:
-      submission_status:
-        in:
-        - submitted
-        - late
-      file_name:
-        eq: sprint_submission.pdf
-      attempt_count:
-        eq: 1
-      submitted_at:
-        expr: "x is not None"
-  - entity: Assignment
-    desc: Submit the second-highest-impact unsubmitted assignment with sprint_submission.pdf
-    where:
-      id:
-        expr: "x == sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, now())), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[1][3]"
-    changes:
-      submission_status:
-        in:
-        - submitted
-        - late
-      file_name:
-        eq: sprint_submission.pdf
-      attempt_count:
-        eq: 1
-      submitted_at:
-        expr: "x is not None"
-  - entity: Assignment
-    desc: Submit the third-highest-impact unsubmitted assignment with sprint_submission.pdf
-    where:
-      id:
-        expr: "x == sorted([(Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)) * (Decimal('1') - initial.late_penalty_for_assignment(a.id, now())), Decimal(str(initial.get_course(a.course_id).syllabus.grading_policy[a.weight_category].weight)) * Decimal(str(a.points_possible)), -a.due_at.timestamp(), a.id) for a in initial.assignments if a.submission_status == 'not_submitted'], reverse=True)[2][3]"
+        expr: "x == v"
     changes:
       submission_status:
         in:
@@ -124,14 +96,8 @@ canonical_diff:
   - collection: state.sent_messages
     preserve: ALL
   named_invariants:
-  - name: Agent submitted the highest-impact assignment
+  - name: Agent submitted the top-3 highest-impact assignments
     ref: update[0]
-    severity: high
-  - name: Agent submitted the second-highest-impact assignment
-    ref: update[1]
-    severity: high
-  - name: Agent submitted the third-highest-impact assignment
-    ref: update[2]
     severity: high
   - name: Agent did not modify course records
     ref: invariant[0]
