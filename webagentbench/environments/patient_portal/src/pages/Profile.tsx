@@ -156,7 +156,7 @@ export function ProfilePage() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                aria-label="Phone number"
+                aria-label={`Phone number: ${phone || "(empty)"}`}
               />
             </div>
             <div className="pp-form-field">
@@ -166,7 +166,7 @@ export function ProfilePage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                aria-label="Email address"
+                aria-label={`Email address: ${email || "(empty)"}`}
               />
             </div>
             <fieldset className="pp-fieldset">
@@ -178,7 +178,7 @@ export function ProfilePage() {
                   type="text"
                   value={ecName}
                   onChange={(e) => setEcName(e.target.value)}
-                  aria-label="Emergency contact name"
+                  aria-label={`Emergency contact name: ${ecName || "(empty)"}`}
                 />
               </div>
               <div className="pp-form-field">
@@ -188,7 +188,7 @@ export function ProfilePage() {
                   type="tel"
                   value={ecPhone}
                   onChange={(e) => setEcPhone(e.target.value)}
-                  aria-label="Emergency contact phone"
+                  aria-label={`Emergency contact phone: ${ecPhone || "(empty)"}`}
                 />
               </div>
               <div className="pp-form-field">
@@ -198,7 +198,7 @@ export function ProfilePage() {
                   type="text"
                   value={ecRelationship}
                   onChange={(e) => setEcRelationship(e.target.value)}
-                  aria-label="Emergency contact relationship"
+                  aria-label={`Emergency contact relationship: ${ecRelationship || "(empty)"}`}
                 />
               </div>
             </fieldset>
@@ -226,7 +226,7 @@ export function ProfilePage() {
                   type="text"
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
-                  aria-label="Insurance plan name"
+                  aria-label={`Insurance plan name: ${planName || "(empty)"}`}
                 />
               </div>
               <div className="pp-form-field">
@@ -236,7 +236,7 @@ export function ProfilePage() {
                   type="text"
                   value={memberId}
                   onChange={(e) => setMemberId(e.target.value)}
-                  aria-label="Insurance member ID"
+                  aria-label={`Insurance member ID: ${memberId || "(empty)"}`}
                 />
               </div>
               <div className="pp-form-field">
@@ -246,7 +246,7 @@ export function ProfilePage() {
                   type="text"
                   value={groupNumber}
                   onChange={(e) => setGroupNumber(e.target.value)}
-                  aria-label="Insurance group number"
+                  aria-label={`Insurance group number: ${groupNumber || "(empty)"}`}
                 />
               </div>
               <div className="pp-form-field">

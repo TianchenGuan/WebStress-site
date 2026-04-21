@@ -80,6 +80,7 @@ export function BillingPage() {
                     <th>Claim ID</th>
                     <th>Service Date</th>
                     <th>Provider</th>
+                    <th>Linked Appointment</th>
                     <th>Procedure</th>
                     <th>Status</th>
                     <th>Amount Billed</th>
@@ -95,6 +96,7 @@ export function BillingPage() {
                         <td>{claim.id}</td>
                         <td>{new Date(claim.service_date).toLocaleDateString()}</td>
                         <td>{providerName(claim.provider_id)}</td>
+                        <td aria-label={`Linked appointment ${claim.appointment_id}`}>{claim.appointment_id}</td>
                         <td>{claim.procedure_code}</td>
                         <td><span className={`pp-status-badge pp-status-badge--${claim.status}`}>{claim.status}</span></td>
                         <td>${parseFloat(claim.amount_billed).toFixed(2)}</td>
@@ -132,7 +134,7 @@ export function BillingPage() {
                       </tr>
                       {expandedId === claim.id && (
                         <tr key={`${claim.id}-detail`} className="pp-detail-row">
-                          <td colSpan={9}>
+                          <td colSpan={10}>
                             <div className="pp-claim-detail" aria-label={`Claim details for ${claim.id}`}>
                               <div><strong>Claim ID:</strong> {claim.id}</div>
                               <div><strong>Linked Appointment:</strong> {claim.appointment_id}</div>
