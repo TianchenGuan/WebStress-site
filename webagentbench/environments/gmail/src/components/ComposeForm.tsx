@@ -49,7 +49,7 @@ export function ComposeForm({
   submitLabel = "Send",
   autoScrollIntoView = false,
 }: ComposeFormProps) {
-  const formRef = useRef<HTMLElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (autoScrollIntoView && formRef.current) {
@@ -125,7 +125,7 @@ export function ComposeForm({
   };
 
   return (
-    <section ref={formRef} className="gmail-compose-form wab-card" aria-label={title} onKeyDown={handleKeyDown}>
+    <form ref={formRef} className="gmail-compose-form wab-card" aria-label={title} onKeyDown={handleKeyDown} onSubmit={(e) => { e.preventDefault(); if (!isSubmitDisabled) void handleSubmit(); }}>
       <header className="gmail-compose-form__header">
         <h2>{title}</h2>
       </header>
@@ -230,19 +230,19 @@ export function ComposeForm({
       </div>
       <footer className="gmail-compose-form__footer">
         {onCancel ? (
-          <Button variant="ghost" onClick={onCancel} aria-label="Cancel compose">
+          <Button variant="ghost" type="button" onClick={onCancel} aria-label="Cancel compose">
             Cancel
           </Button>
         ) : null}
         <Button
           variant="primary"
-          onClick={handleSubmit}
+          type="submit"
           disabled={isSubmitDisabled}
           aria-label={submitLabel}
         >
           {isSubmitting ? "Sending…" : submitLabel}
         </Button>
       </footer>
-    </section>
+    </form>
   );
 }

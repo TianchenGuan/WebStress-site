@@ -2425,7 +2425,7 @@ def build_morning_triage_extended(ctx: SeedContext, params: dict[str, Any]) -> d
         from_addr=forward_sender_email,
         subject="Integration spec needs engineering input",
         body=ctx.format_email_body(
-            f"Could you please loop in {colleague_name} from engineering? They worked on the original integration spec and would know the current constraints.",
+            f"Could you please loop in {colleague_name} ({colleague_email}) from engineering? They worked on the original integration spec and would know the current constraints.",
             "I think we can finalize the API contract once they weigh in on the rate limits.",
             signoff_name=ctx.first_name(forward_sender_name),
         ),

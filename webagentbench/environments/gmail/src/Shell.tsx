@@ -110,6 +110,7 @@ export function GmailShell({ sessionId }: { sessionId: string }) {
       items: [
         { label: "Settings", to: "/settings" },
         { label: "Labels", to: "/labels" },
+        { label: "Contacts", to: "/labels" },
       ],
     },
   ];

@@ -224,6 +224,7 @@ export function LabelsPage() {
                     setDraftLabel((current) => ({ ...current, name: event.target.value })),
                   placeholder: "Important Projects",
                   "aria-label": "New label name",
+                  autoFocus: true,
                 }}
               />
               <FormField
