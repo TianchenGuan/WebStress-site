@@ -30,6 +30,10 @@ node_modules/
 .pytest_cache/
 .ruff_cache/
 
+# NFS silly-rename lock files (auto-created when a held file is deleted over NFS).
+# These must never be git-added — happened once and broke a rebase.
+**/.nfs*
+
 # Benchmark outputs
 runs/
 runs*
@@ -38,6 +42,8 @@ results_*
 trajectory/
 history/
 raw_instructions/
+# NOTE: webagentbench/human/traces/ is explicitly tracked (annotator recordings).
+# Agent trajectories (webagentbench/trajectories/, gold_trajectories/) remain ignored below.
 
 # Local planning scratch files
 task_plan.md
@@ -70,6 +76,8 @@ scripts/debug_screenshots/
 webagentbench/static/*.html
 !webagentbench/static/docs.html
 !webagentbench/static/control.html
+!webagentbench/static/human.html
+!webagentbench/static/human_control.html
 webagentbench/static/envs/
 webagentbench/static/.frontend-build.lock
 webagentbench/trajectories/*

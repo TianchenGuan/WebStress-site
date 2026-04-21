@@ -87,9 +87,13 @@ function sessionUrl(envId: string, startPath: string, sessionId: string, current
   const envRoot = envRootMatch ? envRootMatch[0] : `/env/${envId}`;
   const nextUrl = new URL(`${window.location.origin}${envRoot}${startPath}`);
   const preserved = new URLSearchParams(currentSearch);
-  const agentMode = preserved.get("agent_mode");
-  if (agentMode !== null && !nextUrl.searchParams.has("agent_mode")) {
-    nextUrl.searchParams.set("agent_mode", agentMode);
+  // Preserve agent_mode + control=on so reset keeps the recording context.
+  const carry = ["agent_mode", "control"];
+  for (const key of carry) {
+    const val = preserved.get(key);
+    if (val !== null && !nextUrl.searchParams.has(key)) {
+      nextUrl.searchParams.set(key, val);
+    }
   }
   nextUrl.searchParams.set("session", sessionId);
   return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
@@ -1213,13 +1217,47 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
           rec.stop();
           active = false;
           if (heartbeat) { window.clearInterval(heartbeat); heartbeat = null; }
-          // Submit trajectory via the existing endpoint
           if (events.length > 0) {
+            const extState = state as { human?: { annotator: string; aid: string; attempt: string; role: string }; stop_evaluation?: Record<string, unknown>; started_at_ms?: number };
+            const human = extState.human;
+            const stopEval = extState.stop_evaluation || {};
+            const startedAt = extState.started_at_ms || 0;
+            // Always mirror to the agent trajectory endpoint (useful for
+            // ad-hoc inspection; webagentbench/trajectories/ is gitignored).
             void fetch(`/api/env/${envId}/trajectory`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ session_id: sessionId, events, evaluation: {} }),
+              body: JSON.stringify({ session_id: sessionId, events, evaluation: stopEval }),
             }).catch(() => {});
+            // If the control tab declared human-recording context at start,
+            // also write the authoritative copy under webagentbench/human/traces.
+            if (human) {
+              void fetch(`/api/human/attempt/save`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  annotator: human.annotator,
+                  aid: human.aid,
+                  attempt: human.attempt,
+                  session_id: sessionId,
+                  events,
+                  evaluation: stopEval,
+                  started_at_ms: startedAt,
+                  ended_at_ms: Date.now(),
+                  viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
+                  client_metadata: { user_agent: navigator.userAgent, pathname: location.pathname },
+                }),
+              })
+                .then((r) => r.json())
+                .then((saveResult) =>
+                  fetch(`/api/control/${encodeURIComponent(sessionId)}/record/save-result`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ save_result: saveResult }),
+                  }).catch(() => {}),
+                )
+                .catch(() => {});
+            }
           }
         }
       } catch {

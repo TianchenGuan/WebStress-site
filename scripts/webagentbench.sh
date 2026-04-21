@@ -24,6 +24,7 @@ Modes:
 
 Options:
   --env ENV_ID   Start only the specified frontend in dev mode. Repeatable.
+                 Use --env all to start all 7 environments at once.
   --port PORT    Backend port (default: 8080). Also settable via WEBAGENTBENCH_PORT.
   --no-open      Do not open the browser automatically.
   --clean        Remove existing static frontend bundles before building.
@@ -35,6 +36,11 @@ EOF
 all_dev_envs() {
   echo "gmail"
   echo "robinhood"
+  echo "amazon"
+  echo "booking"
+  echo "reddit"
+  echo "lms"
+  echo "patient_portal"
 }
 
 env_port() {
@@ -44,6 +50,8 @@ env_port() {
     gmail) echo "$((BACKEND_PORT + 1))" ;;
     reddit) echo "$((BACKEND_PORT + 5))" ;;
     robinhood) echo "$((BACKEND_PORT + 2))" ;;
+    lms) echo "$((BACKEND_PORT + 6))" ;;
+    patient_portal) echo "$((BACKEND_PORT + 7))" ;;
     *) return 1 ;;
   esac
 }
@@ -57,6 +65,8 @@ env_base_url() {
     gmail) echo "http://localhost:${port}/env/gmail" ;;
     reddit) echo "http://localhost:${port}/env/reddit" ;;
     robinhood) echo "http://localhost:${port}/env/robinhood" ;;
+    lms) echo "http://localhost:${port}/env/lms" ;;
+    patient_portal) echo "http://localhost:${port}/env/patient_portal" ;;
     *) return 1 ;;
   esac
 }
@@ -95,7 +105,13 @@ while [ $# -gt 0 ]; do
         usage
         exit 1
       fi
-      SELECTED_ENVS+=("$2")
+      if [ "$2" = "all" ]; then
+        while IFS= read -r _env_id; do
+          SELECTED_ENVS+=("$_env_id")
+        done < <(all_dev_envs)
+      else
+        SELECTED_ENVS+=("$2")
+      fi
       shift 2
       ;;
     --port)
