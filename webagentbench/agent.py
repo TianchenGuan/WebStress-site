@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import ast
+import base64
 import copy
 import json
 import logging
@@ -298,12 +299,36 @@ def _complete_gemini(client, model, messages, temperature):
         role = msg.get("role", "user")
         content = msg.get("content", "")
         if role == "system":
-            system_instruction = content
+            system_instruction = content if isinstance(content, str) else ""
+            continue
+        parts: list = []
+        if isinstance(content, list):
+            for block in content:
+                btype = block.get("type")
+                if btype == "text":
+                    text = block.get("text", "")
+                    if text:
+                        parts.append(types.Part(text=text))
+                elif btype == "image_url":
+                    url = block.get("image_url", {}).get("url", "")
+                    if url.startswith("data:") and ";base64," in url:
+                        mime, b64 = url.split(";base64,", 1)
+                        mime_type = mime.replace("data:", "") or "image/png"
+                        try:
+                            data = base64.b64decode(b64)
+                            parts.append(types.Part(
+                                inline_data=types.Blob(mime_type=mime_type, data=data),
+                            ))
+                        except Exception as exc:
+                            logger.warning("Failed to decode image for Gemini: %s", exc)
         else:
-            contents.append(types.Content(
-                role="user" if role != "assistant" else "model",
-                parts=[types.Part(text=content)],
-            ))
+            parts.append(types.Part(text=content))
+        if not parts:
+            parts.append(types.Part(text=""))
+        contents.append(types.Content(
+            role="user" if role != "assistant" else "model",
+            parts=parts,
+        ))
     config_kwargs: dict[str, Any] = {"system_instruction": system_instruction}
     if temperature is not None:
         config_kwargs["temperature"] = temperature

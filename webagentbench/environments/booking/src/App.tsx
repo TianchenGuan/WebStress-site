@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useSession } from "@webagentbench/shared";
 import BookingShell from "./Shell";
 import Home from "./pages/Home";
@@ -15,6 +15,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Reviews from "./pages/Reviews";
 import Deals from "./pages/Deals";
+import Rebooking from "./pages/Rebooking";
 import "./booking.css";
 
 function BookingLauncher() {
@@ -26,6 +27,14 @@ function BookingLauncher() {
   );
 }
 
+/** Redirect to /home while preserving the session query string. Without this,
+ *  deep links like /saved/<id>?session=... would be caught by the catch-all
+ *  <Navigate to="/home" /> and the session param would be lost. */
+function HomeRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
+}
+
 export default function App() {
   const { sessionId } = useSession("booking");
 
@@ -34,7 +43,7 @@ export default function App() {
   return (
     <BookingShell>
       <Routes>
-        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/home" element={<Home />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
@@ -44,12 +53,14 @@ export default function App() {
         <Route path="/trips/:id" element={<ReservationDetail />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/saved" element={<SavedLists />} />
+        <Route path="/saved/:listId" element={<SavedLists />} />
+        <Route path="/rebook/:reservationId" element={<Rebooking />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/reviews" element={<Reviews />} />
         <Route path="/deals" element={<Deals />} />
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<HomeRedirect />} />
       </Routes>
     </BookingShell>
   );

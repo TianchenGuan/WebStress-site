@@ -370,6 +370,7 @@ async def run_episode(
     max_steps: int = 200,
     timeout_seconds: int = 3600,
     headless: bool = True,
+    include_screenshots: bool = True,
     server_host: str = "127.0.0.1",
     server_port: int = 8080,
     seed: int = 42,
@@ -449,6 +450,8 @@ async def run_episode(
 
         last_error = ""
         consecutive_llm_failures = 0
+        consecutive_no_action = 0
+        _MAX_CONSECUTIVE_NO_ACTION = 5
 
         # ── 3. Agent loop ───────────────────────────────────────────
         for step in range(max_steps):
@@ -459,12 +462,15 @@ async def run_episode(
                 break
 
             # Get browser state
+            screenshot_b64 = ""
             try:
-                state = await browser.get_browser_state_summary(include_screenshot=False)
+                state = await browser.get_browser_state_summary(include_screenshot=include_screenshots)
                 dom_text = state.dom_state.llm_representation()
                 selector_map = state.dom_state.selector_map
                 browser.update_cached_selector_map(selector_map)
                 current_url = state.url
+                if include_screenshots:
+                    screenshot_b64 = getattr(state, "screenshot", None) or ""
             except Exception as exc:
                 logger.warning("Failed to get browser state at step %d: %s", step + 1, exc)
                 # Use a separate variable so state-fetch errors don't bleed
@@ -477,12 +483,21 @@ async def run_episode(
 
             # Build observation message
             if step == 0:
-                obs_content = f"## Current Page\nURL: {current_url}\n\n{dom_text}"
+                text_obs = f"## Current Page\nURL: {current_url}\n\n{dom_text}"
             else:
                 parts = [f"## Current Page\nURL: {current_url}\n\n{dom_text}"]
                 if last_error:
                     parts.append(f"\n## Last Action Error\n{last_error}")
-                obs_content = "\n".join(parts)
+                text_obs = "\n".join(parts)
+
+            if screenshot_b64:
+                obs_content = [
+                    {"type": "text", "text": text_obs},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}},
+                ]
+            else:
+                obs_content = text_obs
 
             messages.append({"role": "user", "content": obs_content})
 
@@ -533,7 +548,22 @@ async def run_episode(
                     step + 1, thinking, memory, [{"think": {}}],
                     {}, current_url, "", round(elapsed, 1),
                 ))
+                consecutive_no_action += 1
+                if consecutive_no_action >= _MAX_CONSECUTIVE_NO_ACTION:
+                    logger.error(
+                        "Aborting: %d consecutive think-only steps (agent stalled)",
+                        consecutive_no_action,
+                    )
+                    evaluation = {
+                        "score": 0.0, "success": False,
+                        "reasoning": (
+                            f"Aborted: {consecutive_no_action} consecutive no-action steps "
+                            f"(agent stalled in think loop)"
+                        ),
+                    }
+                    break
                 continue
+            consecutive_no_action = 0
 
             # ── Execute actions ──────────────────────────────────────
             last_error = ""
@@ -783,6 +813,7 @@ async def run_evaluation(
     max_steps: int = _DEFAULT_MAX_STEPS,
     timeout_per_task: int = _DEFAULT_TIMEOUT,
     headless: bool = True,
+    include_screenshots: bool = True,
     verbose: bool = True,
     temperature: float | None = None,
     reasoning_effort: str | None = None,
@@ -863,6 +894,7 @@ async def run_evaluation(
                 max_steps=task_max_steps,
                 timeout_seconds=task_timeout,
                 headless=headless,
+                include_screenshots=include_screenshots,
                 server_host=server_host,
                 server_port=server_port,
                 seed=seed or 42,
@@ -993,6 +1025,9 @@ def main():
     parser.add_argument("--timeout", type=int, default=_DEFAULT_TIMEOUT)
     parser.add_argument("--headless", action="store_true", default=True)
     parser.add_argument("--no-headless", action="store_false", dest="headless")
+    parser.add_argument("--screenshots", action="store_true", default=True,
+                        help="Include page screenshots in the observation sent to the LLM (default: on)")
+    parser.add_argument("--no-screenshots", action="store_false", dest="screenshots")
     parser.add_argument("--server-host", default="127.0.0.1")
     parser.add_argument("--server-port", type=int, default=8080)
     parser.add_argument("--output", default="results/webagentbench/results.json")
@@ -1009,6 +1044,7 @@ def main():
         max_steps=args.max_steps,
         timeout_per_task=args.timeout,
         headless=args.headless,
+        include_screenshots=args.screenshots,
         verbose=not args.quiet,
         temperature=args.temperature,
         reasoning_effort=args.reasoning_effort,

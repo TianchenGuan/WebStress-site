@@ -24,6 +24,7 @@ import type {
   GeniusInfo,
   Wallet,
   SearchHistoryEntry,
+  RebookingSuggestion,
   SearchResults,
   Destination,
   Deal,
@@ -111,10 +112,63 @@ export function createBookingApi(request: RequestFn) {
       return request<Reservation>(`reservations/${reservationId}`);
     },
 
-    cancelReservation(reservationId: string) {
-      return request<Reservation>(`reservations/${reservationId}/cancel`, {
+    previewCancelReservation(reservationId: string) {
+      return request<{
+        reservation_id: string;
+        fee_amount: number;
+        total_price: number;
+        days_until_checkin: number;
+        policy_type: string;
+        policy_description: string;
+        refundable: boolean;
+        currency: string;
+      }>(`reservations/${reservationId}/cancel-preview`, {
         method: "POST",
       });
+    },
+
+    cancelReservation(reservationId: string, feeAccepted: number | null = null) {
+      return request<Reservation>(`reservations/${reservationId}/cancel`, {
+        method: "POST",
+        body: { fee_accepted: feeAccepted },
+      });
+    },
+
+    pricePreview(params: {
+      property_id: string;
+      room_type_id: string;
+      nights: number;
+      rooms?: number;
+    }) {
+      const q = new URLSearchParams({
+        property_id: params.property_id,
+        room_type_id: params.room_type_id,
+        nights: String(params.nights),
+        rooms: String(params.rooms ?? 1),
+      });
+      return request<{
+        property_id: string;
+        room_type_id: string;
+        nights: number;
+        rooms: number;
+        price_per_night: number;
+        base_total: number;
+        taxes: number;
+        city_fee: number;
+        resort_fee: number;
+        cleaning_fee: number;
+        total_fees: number;
+        total_with_fees: number;
+        currency: string;
+      }>(`price-preview?${q.toString()}`);
+    },
+
+    listRebookings() {
+      return request<{ rebookings: RebookingSuggestion[] }>("rebookings");
+    },
+
+    getRebookingByReservation(reservationId: string) {
+      return request<RebookingSuggestion>(`rebookings/by-reservation/${reservationId}`);
     },
 
     modifyReservation(reservationId: string, params: {

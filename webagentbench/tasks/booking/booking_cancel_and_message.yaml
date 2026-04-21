@@ -3,9 +3,9 @@ env_id: booking
 title: Cancel Reservation and Message the Property
 instruction_template: 'Go to your trips and cancel the reservation at "{target.property_name}"
   (confirmation number {target.confirmation_number}), which is scheduled for check-in
-  on {target.check_in}. After cancelling, send a message to the property with the
-  subject "Cancellation - Change of Plans" and a body explaining that you had to cancel
-  due to a family emergency and you hope to rebook in the future.
+  on {target.check_in}, accepting any cancellation fee shown. Then send a message
+  to the property with the subject "Cancellation - Change of Plans" and a body explaining
+  that you had to cancel due to a family emergency and you hope to rebook in the future.
 
   '
 difficulty: medium
@@ -65,6 +65,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 10
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 30
+        description: "30% cancellation fee applies"
     outputs:
     - reservation_id
     - confirmation_number
@@ -112,6 +116,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged the cancellation fee
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
+      severity: high
   named_invariants:
     - name: Agent cancelled the target reservation
       ref: update[0]

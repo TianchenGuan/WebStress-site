@@ -1,7 +1,9 @@
 task_id: booking_expert_cancel_chain
 env_id: booking
 title: Cancel Three Reservations with Personalized Messages and Saved List
-instruction_template: "Cancel three specific reservations and document them:\n1. Find\
+instruction_template: "Cancel three specific reservations and document them. Accept\
+  \ any cancellation fee shown \u2014 the hotels have different policies, so review\
+  \ and accept each fee individually when prompted.\n1. Find\
   \ and cancel your reservation at \"{target.cancel_name_1}\".\n   Send a message\
   \ to the property with subject \"Cancellation - Medical Emergency\" and body \"\
   I must cancel due to a family medical emergency. I hope to visit in the future.\"\
@@ -12,9 +14,7 @@ instruction_template: "Cancel three specific reservations and document them:\n1.
   .\n   Send a message to the property with subject \"Cancellation - Travel Restrictions\"\
   \ and body \"Travel restrictions have been imposed for the region. I will rebook\
   \ once they are lifted.\"\n4. Create a saved list called \"Cancelled Trips\" and\
-  \ add all three properties to it for future rebooking reference.\n5. Add a notification\
-  \ reminder by updating your preferences: set preferred_language to \"English\" (confirm\
-  \ it).\n"
+  \ add all three properties to it for future rebooking reference.\n"
 difficulty: expert
 time_limit_seconds: 450
 expected_steps: 35
@@ -58,6 +58,11 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 30
+      cancellation_policy:
+        type: free_cancellation
+        free_cancel_before_days: 7
+        penalty_percentage: 100
+        description: "Free cancellation until 7 days before"
     outputs:
     - cancel_res_id_1
     - cancel_conf_1
@@ -94,6 +99,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 21
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 30
+        description: "30% cancellation fee"
     outputs:
     - cancel_res_id_2
     - cancel_conf_2
@@ -130,6 +139,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 14
+      cancellation_policy:
+        type: non_refundable
+        penalty_percentage: 100
+        description: "Non-refundable"
     outputs:
     - cancel_res_id_3
     - cancel_conf_3
@@ -252,6 +265,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged cancellation fee for all three reservations
+      expr: "sum(1 for e in state.audit_log if e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None) >= 3"
+      severity: high
   named_invariants:
     - name: Agent cancelled all three target reservations
       ref: update[0]

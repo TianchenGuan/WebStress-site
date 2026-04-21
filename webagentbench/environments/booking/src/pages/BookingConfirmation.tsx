@@ -206,12 +206,22 @@ export default function BookingConfirmation() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--bk-gray-600)", fontSize: 13 }}>
-              Taxes &amp; fees
-            </span>
-            <span>
-              {reservation.currency} {reservation.taxes_and_fees.toFixed(2)}
-            </span>
+            <span style={{ color: "var(--bk-gray-600)", fontSize: 13 }}>Taxes</span>
+            <span>{reservation.currency} {reservation.taxes.toFixed(2)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--bk-gray-600)", fontSize: 13 }}>City fee</span>
+            <span>{reservation.currency} {reservation.city_fee.toFixed(2)}</span>
+          </div>
+          {reservation.resort_fee > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--bk-gray-600)", fontSize: 13 }}>Resort fee</span>
+              <span>{reservation.currency} {reservation.resort_fee.toFixed(2)}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--bk-gray-600)", fontSize: 13 }}>Cleaning fee</span>
+            <span>{reservation.currency} {reservation.cleaning_fee.toFixed(2)}</span>
           </div>
 
           <div

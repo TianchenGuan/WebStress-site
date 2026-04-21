@@ -1,11 +1,16 @@
 task_id: booking_find_genius_deal
 env_id: booking
 title: Find and Book a Genius-Discounted Property in Barcelona
-instruction_template: 'Search for hotels in "Barcelona" and find the Genius-discounted
-  property named "{target.property_name}" (it should show a Genius discount). Book
-  its "{target.room_name}" room for 4 nights checking in on 2026-07-01 and checking
-  out on 2026-07-05 for 2 guests. Use the default Visa payment method (ending in 4242).
-  Enter your name and email from your account profile.
+instruction_template: 'Search for hotels in "Barcelona" and find the cheapest Genius-discounted
+  property whose ALL-IN total (base + taxes + city fee + cleaning fee + any resort
+  fee, minus the Genius discount which applies ONLY to the base price, not to fees)
+  is at most $800 for a 4-night stay for 2 guests. Genius discount applies only to
+  the base price, not to the taxes/fees. Read the fee breakdown on the booking page
+  before you confirm, because the property with the lowest nightly rate is NOT always
+  the cheapest all-in once resort fees and taxes are added. Book that property''s
+  cheapest Genius room for 4 nights checking in on 2026-07-01 and checking out on
+  2026-07-05 for 2 guests. Use the default Visa payment method (ending in 4242). Enter
+  your name and email from your account profile.
 
   '
 difficulty: medium
@@ -102,15 +107,96 @@ seed:
     outputs:
     - decoy_property_2_id
     - decoy_property_2_name
+  # Fee-trap Genius property: lower nightly rate than the target (and
+  # tempting "cheaper per night"), but its resort property_type adds
+  # $25/night resort_fee and its smaller 10% Genius discount applies only
+  # to the base. So once you do the math, the target Barcelona Genius
+  # Boutique (15% discount, hotel, no resort fee) is actually cheaper
+  # all-in. This traps agents who sort by nightly rate or Genius price.
+  - use: featured_property
+    params:
+      name: Diagonal Mar Genius Resort
+      city: Barcelona
+      country: Spain
+      star_rating: 4
+      review_score: 8.5
+      review_count: 1440
+      price: 180.0
+      property_type: resort
+      neighborhood: Diagonal Mar
+      address: 1 Passeig del Taulat, 08019 Barcelona
+      genius_discount_pct: 10
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Beach access
+      - Restaurant
+      - Air conditioning
+      popular_facilities:
+      - Free WiFi
+      - Pool
+      - Beach access
+      distance_km: 4.5
+      rooms:
+      - name: Genius Ocean View Room
+        price: 180.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: 200.0
+        view_type: sea
+      - name: Genius Beach Suite
+        price: 260.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        original_price: 290.0
+        view_type: sea
+    outputs:
+    - fee_trap_prop_id
+    - fee_trap_prop_name
+    - fee_trap_room_id
+    - fee_trap_room_name
   targets:
     property_id: '{output.property_id}'
     property_name: '{output.property_name}'
     room_id: '{output.cheapest_room_id}'
     room_name: Genius Superior Room
+    fee_trap_prop_id: '{output.fee_trap_prop_id}'
+    fee_trap_prop_name: '{output.fee_trap_prop_name}'
+    # All-in 4-night budget cap.
+    # Target (Barcelona Genius Boutique, $195/n, hotel, 15% genius):
+    #   base 780 + tax(10%) 78 + city(4*4) 16 + cleaning 40 - disc 117 = $797.
+    # Fee-trap (Diagonal Mar Genius Resort, $180/n, resort, 10% genius):
+    #   base 720 + tax 72 + city 16 + resort(25*4) 100 + cleaning 40 - disc 72 = $876.
+    # Target fits under $800; fee-trap does not despite lower nightly rate.
+    budget: 800.0
 canonical_diff:
+  constraints:
+    - desc: New Barcelona Genius booking's all-in total_price stays within the $800 budget
+      expr: >-
+        any(
+          r.property_id == target['property_id']
+          and r.status == 'confirmed'
+          and r.check_in == '2026-07-01'
+          and r.total_price <= target['budget']
+          for r in state.reservations
+        )
+      severity: critical
+    - desc: Agent did not book the fee-trap resort Genius property whose all-in exceeds budget
+      expr: >-
+        not any(
+          r.property_id == target['fee_trap_prop_id']
+          and r.status == 'confirmed'
+          for r in state.reservations
+        )
+      severity: high
   create:
     - entity: Reservation
-      desc: Book the Genius-discounted Genius Superior Room for 4 nights
+      desc: Book the cheapest-all-in Genius Superior Room for 4 nights
       properties:
         property_id: {expr: "x == target['property_id']"}
         property_name: {any: true}
@@ -122,7 +208,7 @@ canonical_diff:
         guests: {eq: 2}
         rooms: {any: true}
         price_per_night: {any: true}
-        total_price: {any: true}
+        total_price: {expr: "x <= target['budget']"}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}

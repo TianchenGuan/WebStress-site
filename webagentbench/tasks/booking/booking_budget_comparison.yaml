@@ -3,10 +3,12 @@ env_id: booking
 title: Compare Rome Hotels by Budget and Book Best Rated
 instruction_template: 'Compare hotels in Rome within the $150-$250 per night budget
   range. Among those properties, find the one that has the best review score AND also
-  offers free cancellation on at least one room. Book that hotel''s cheapest room
-  with free cancellation for 2 guests checking in on 2026-06-20 and checking out on
-  2026-06-24 (4 nights). Use the default Visa payment method (ending in 4242) and
-  enter your name and email from your profile.
+  offers free cancellation on at least one room AND whose ALL-IN total price (base
+  + taxes + city fee + cleaning fee + resort fee if applicable) is at most $1200 for
+  the full stay. Use the booking-page fee breakdown to compute the all-in total before
+  you confirm. Book that hotel''s cheapest room with free cancellation for 2 guests
+  checking in on 2026-06-20 and checking out on 2026-06-24 (4 nights). Use the default
+  Visa payment method (ending in 4242) and enter your name and email from your profile.
 
   '
 difficulty: hard
@@ -113,12 +115,84 @@ seed:
     outputs:
     - decoy_property_id
     - decoy_property_name
+  # Fee-trap distractor: a top-rated, free-cancellation resort priced inside
+  # the $150-$250/night range but whose $25/night resort_fee + Rome 22% tax
+  # pushes its all-in total over the $1200 budget. Designed to lure agents
+  # who compare only nightly rate + review score without reading the fee
+  # breakdown.
+  - use: featured_property
+    params:
+      name: Villa Borghese Resort
+      city: Rome
+      country: Italy
+      property_type: resort
+      star_rating: 5
+      review_score: 9.3
+      review_count: 2890
+      price: 230.0
+      neighborhood: Villa Borghese
+      address: 10 Via Aldrovandi, 00197 Rome
+      amenities:
+      - Free WiFi
+      - Spa
+      - Pool
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Air conditioning
+      rooms:
+      - name: Garden Room
+        price: 230.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: garden
+      - name: Pool Suite
+        price: 330.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: pool
+    outputs:
+    - fee_trap_prop_id
+    - fee_trap_prop_name
+    - fee_trap_room_id
+    - fee_trap_room_name
   targets:
     target_prop_id: '{output.property_id_1}'
     target_prop_name: '{output.property_name_1}'
     no_cancel_prop_id: '{output.property_id_2}'
     low_score_prop_id: '{output.property_id_3}'
+    fee_trap_prop_id: '{output.fee_trap_prop_id}'
+    fee_trap_prop_name: '{output.fee_trap_prop_name}'
+    # All-in budget cap. Target (Hotel Palazzo Manfredi, Rome, $230/n * 4
+    # nights) all-in = 920 base + 202.40 tax (Rome 22%) + 28 city fee
+    # (Rome $7/night * 4) + 40 cleaning = $1190.40, fits under 1200.
+    # Villa Borghese Resort (same nightly, but +$100 resort fee) totals
+    # $1290.40 and is rejected.
+    budget: 1200.0
 canonical_diff:
+  constraints:
+    - desc: New Rome booking's all-in total_price stays within the $1200 all-in budget
+      expr: >-
+        any(
+          r.property_id == target['target_prop_id']
+          and r.status == 'confirmed'
+          and r.check_in == '2026-06-20'
+          and r.total_price <= target['budget']
+          for r in state.reservations
+        )
+      severity: critical
+    - desc: Agent did not book the fee-trap resort whose all-in price exceeds budget
+      expr: >-
+        not any(
+          r.property_id == target['fee_trap_prop_id']
+          and r.status == 'confirmed'
+          for r in state.reservations
+        )
+      severity: high
   create:
     - entity: Reservation
       desc: Book the best-rated hotel with free cancellation in Rome, cheapest room, correct dates
@@ -133,7 +207,7 @@ canonical_diff:
         guests: {eq: 2}
         rooms: {any: true}
         price_per_night: {expr: "150.0 <= x <= 250.0"}
-        total_price: {any: true}
+        total_price: {expr: "x <= target['budget']"}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}

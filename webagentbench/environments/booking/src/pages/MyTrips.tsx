@@ -39,7 +39,6 @@ export default function MyTrips() {
   const [genius, setGenius] = useState<GeniusInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,25 +55,6 @@ export default function MyTrips() {
       cancelled = true;
     };
   }, [api, sessionId]);
-
-  const handleCancel = async (reservationId: string) => {
-    setCancellingId(reservationId);
-    try {
-      const updated = await api.cancelReservation(reservationId);
-      setReservations((prev) =>
-        prev.map((r) => (r.id === reservationId ? updated : r))
-      );
-      notify("Booking Cancelled", `Reservation ${reservationId} has been cancelled.`);
-    } catch {
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === reservationId ? { ...r, status: "cancelled" } : r
-        )
-      );
-      notify("Booking Cancelled", `Reservation ${reservationId} has been cancelled.`);
-    }
-    setCancellingId(null);
-  };
 
   const filteredReservations = reservations.filter((r) => {
     if (activeTab === "all") return true;
@@ -95,11 +75,6 @@ export default function MyTrips() {
     { key: "completed", label: "Completed" },
     { key: "cancelled", label: "Cancelled" },
   ];
-
-  const canCancel = (r: Reservation) => {
-    const status = r.status.toLowerCase();
-    return status === "confirmed" || status === "modified";
-  };
 
   return (
     <div>
@@ -212,15 +187,8 @@ export default function MyTrips() {
                       >
                         View details
                       </Link>
-                      {canCancel(reservation) && (
-                        <button
-                          className="bk-btn bk-btn--danger bk-btn--sm"
-                          onClick={() => handleCancel(reservation.id)}
-                          disabled={cancellingId === reservation.id}
-                        >
-                          {cancellingId === reservation.id ? "Cancelling..." : "Cancel"}
-                        </button>
-                      )}
+                      {/* Inline cancel removed: cancellation requires acknowledging
+                          the fee via the detail page modal. Users click "View details". */}
                     </div>
                   </div>
                 </div>

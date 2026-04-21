@@ -60,8 +60,12 @@ export default function Messages() {
     const newExpanded = expandedId === msg.id ? null : msg.id;
     setExpandedId(newExpanded);
 
-    // Mark as read on expand
-    if (newExpanded && !msg.read) {
+    // Mark as read on expand — but only for messages *received* from the
+    // property. Guest-sent messages don't have a read/unread semantic from
+    // the sender's perspective, and auto-marking them breaks canonical_diff
+    // predicates that assert `read: false` on freshly-created outgoing
+    // messages.
+    if (newExpanded && !msg.read && msg.sender !== "guest") {
       void handleMarkRead(msg.id);
     }
   };
@@ -367,7 +371,7 @@ export default function Messages() {
                           </p>
 
                           <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                            {!msg.read && (
+                            {!msg.read && msg.sender !== "guest" && (
                               <button
                                 className="bk-btn bk-btn--ghost bk-btn--sm"
                                 onClick={() => void handleMarkRead(msg.id)}

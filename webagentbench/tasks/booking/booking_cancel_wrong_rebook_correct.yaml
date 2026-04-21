@@ -5,7 +5,13 @@ instruction_template: "You have two confirmed reservations in {target.city}. One
   \ them is for the WRONG dates and needs to be cancelled, while the other is correct\
   \ and needs special requests added.\n1. Find your reservation at \"{target.wrong_prop_name}\"\
   \ (checking in\n   {target.wrong_check_in}). This reservation was booked for the\
-  \ wrong dates.\n   Cancel it.\n2. Find your reservation at \"{target.correct_prop_name}\"\
+  \ wrong dates.\n   It has a non-trivial cancellation fee — preview the fee first,\
+  \ then accept\n   any cancellation fee and cancel it.\n2. After cancelling, open\
+  \ the system's Rebooking Options page for the\n   cancelled reservation and review\
+  \ the same-city alternatives the system\n   generated. Confirm that your intended\
+  \ replacement hotel\n   \"{target.correct_prop_name}\" appears among the candidates\
+  \ — this is the\n   alternative that best matches your intended stay (correct room\
+  \ type /\n   guests / budget).\n3. Then find your reservation at \"{target.correct_prop_name}\"\
   \ (checking in\n   {target.correct_check_in}). This is the correct reservation.\
   \ Modify it to\n   add the special request: \"Extra pillows and hypoallergenic bedding\
   \ please.\n   Celebrating anniversary.\"\n"
@@ -52,6 +58,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 8
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 40
+        description: "40% cancellation fee"
     outputs:
     - wrong_res_id
     - wrong_conf_num
@@ -64,7 +74,7 @@ seed:
       star_rating: 5
       review_score: 9.3
       review_count: 3567
-      price: 580.0
+      price: 615.0
       neighborhood: Mayfair
       address: Brook Street, London W1K 4HR
       amenities:
@@ -93,6 +103,49 @@ seed:
     - correct_res_id
     - correct_conf_num
     - correct_res_property_id
+  - use: decoy_property
+    params:
+      name: The Langham London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.1
+      review_count: 4200
+      price: 540.0
+      neighborhood: Marylebone
+      address: 1C Portland Place, London W1B 1JA
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+    outputs:
+    - london_extra1_prop_id
+    - london_extra1_prop_name
+  - use: decoy_property
+    params:
+      name: The Dorchester London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.2
+      review_count: 3800
+      price: 610.0
+      neighborhood: Mayfair
+      address: 53 Park Lane, London W1K 1QA
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+    outputs:
+    - london_extra2_prop_id
+    - london_extra2_prop_name
   - use: featured_property
     params:
       name: Hotel Costes
@@ -128,6 +181,7 @@ seed:
     correct_check_in: '2026-06-15'
     distractor_res_id: '{output.distractor_res_id}'
     city: London
+    correct_rebook_prop_id: '{output.correct_prop_id}'
 canonical_diff:
   update:
     - entity: Reservation
@@ -160,6 +214,16 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged the cancellation fee
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
+      severity: high
+    - desc: A rebooking suggestion was generated for the cancelled wrong reservation
+      expr: "any(s.original_reservation_id == target['wrong_res_id'] for s in state.rebooking_suggestions)"
+      severity: high
+    - desc: The intended replacement property was among the rebooking candidates
+      expr: "any(target['correct_rebook_prop_id'] in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions)"
+      severity: critical
   named_invariants:
     - name: Agent cancelled the wrong-date reservation
       ref: update[0]

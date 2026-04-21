@@ -3,9 +3,13 @@ env_id: booking
 title: Diagnose and Fix Wrong Check-In Date on Reservation
 instruction_template: You just realized one of your upcoming hotel reservations has
   the wrong check-in date — it should be {target.correct_check_in} instead of what's
-  currently booked. Find the incorrect reservation, cancel it, and rebook the same
-  hotel ("{target.hotel_name}") with the correct dates. Keep the same room type and
-  guest count.
+  currently booked. Find the incorrect reservation, cancel it (accept any cancellation
+  fee shown). After cancelling, open the system's Rebooking Options page for the
+  cancelled reservation to see the same-city alternatives it generated — use that page
+  to identify a matching property in the correct city. Then rebook the same hotel
+  ("{target.hotel_name}") with the CORRECT dates from the hotel's confirmation email
+  ({target.correct_check_in} to {target.correct_check_out}). Keep the same room type
+  and guest count.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 22
@@ -51,6 +55,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 5
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 25
+        description: "25% cancellation fee"
     outputs:
     - wrong_res_id
     - wrong_conf_num
@@ -74,6 +82,46 @@ seed:
     outputs:
     - decoy_prop_id
     - decoy_prop_name
+  - use: decoy_property
+    params:
+      name: The Ritz London
+      city: London
+      country: United Kingdom
+      star_rating: 5
+      review_score: 9.2
+      review_count: 5100
+      price: 620.0
+      neighborhood: Piccadilly
+      address: 150 Piccadilly, London W1J 9BR
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      - Room service
+      - Concierge
+    outputs:
+    - london_extra1_prop_id
+    - london_extra1_prop_name
+  - use: decoy_property
+    params:
+      name: Kimpton Fitzroy London
+      city: London
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.7
+      review_count: 3900
+      price: 320.0
+      neighborhood: Bloomsbury
+      address: 1-8 Russell Square, London WC1B 5BE
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+    outputs:
+    - london_extra2_prop_id
+    - london_extra2_prop_name
   - use: featured_property
     params:
       name: Hotel Grande Bretagne Athens
@@ -161,6 +209,13 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged the cancellation fee on the wrong-date reservation
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('reservation_id') == target['wrong_res_id'] and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
+      severity: high
+    - desc: Rebooking suggestion was generated for the cancelled wrong-date reservation
+      expr: "any(s.original_reservation_id == target['wrong_res_id'] for s in state.rebooking_suggestions)"
+      severity: high
   named_invariants:
     - name: Agent cancelled the wrong-date reservation
       ref: update[0]

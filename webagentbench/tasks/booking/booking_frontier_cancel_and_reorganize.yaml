@@ -1,24 +1,31 @@
 task_id: booking_frontier_cancel_and_reorganize
 env_id: booking
 title: 'Frontier: Cancel 3 Reservations, Rebook 2 Cheaper, Message, and Update List'
-instruction_template: "Reorganize your upcoming trips:\n1. Cancel your reservation\
+instruction_template: "Reorganize your upcoming trips. Accept whatever cancellation\
+  \ fees apply to each reservation \u2014 policies differ by hotel.\n1. Cancel your reservation\
   \ at \"{target.cancel1_name}\"\n   (confirmation {target.cancel1_conf}) in {target.cancel1_city}.\n\
   2. Cancel your reservation at \"{target.cancel2_name}\"\n   (confirmation {target.cancel2_conf})\
   \ in {target.cancel2_city}.\n3. Cancel your reservation at \"{target.cancel3_name}\"\
-  \n   (confirmation {target.cancel3_conf}) in {target.cancel3_city}.\n4. Rebook in\
-  \ {target.cancel1_city}: search for \"{target.rebook1_name}\"\n   and book its cheapest\
-  \ room for 2 guests, same dates as the\n   cancelled booking (2026-08-05 to 2026-08-09),\n\
-  \   using default Visa (ending 4242).\n5. Rebook in {target.cancel2_city}: search\
-  \ for \"{target.rebook2_name}\"\n   and book its cheapest room for 2 guests, same\
-  \ dates as the\n   cancelled booking (2026-08-15 to 2026-08-19),\n   using Mastercard\
-  \ ending in 8888.\n6. Send a message to each of the 3 cancelled properties:\n  \
-  \ - \"{target.cancel1_name}\": subject \"Cancellation\", body\n     \"I had to cancel\
-  \ due to budget constraints. Thank you.\"\n   - \"{target.cancel2_name}\": subject\
-  \ \"Cancellation\", body\n     \"Plans changed, hope to visit another time.\"\n\
-  \   - \"{target.cancel3_name}\": subject \"Cancellation\", body\n     \"Sorry for\
-  \ the cancellation. Will rebook when possible.\"\n7. Go to your saved list \"{target.list_name}\"\
-  \ and add both\n   new rebooked properties to it. Also remove the property\n   \"\
-  {target.remove_from_list_name}\" from the list.\n"
+  \n   (confirmation {target.cancel3_conf}) in {target.cancel3_city}.\n4. For the\
+  \ two cancelled reservations that still need replacement stays\n   ({target.cancel1_city}\
+  \ and {target.cancel2_city}), open the \"Rebooking Options\"\n   page the system\
+  \ generated for each cancelled reservation and compare the\n   itemized fees of\
+  \ the 3 suggested candidates. Pick the cheapest candidate\n   whose all-in total\
+  \ (base + taxes + city fee + cleaning fee) is within a\n   combined budget of $\
+  {target.rebook_combined_budget} across BOTH rebookings.\n5. Rebook in {target.cancel1_city}\
+  \ by booking the chosen candidate for 2 guests,\n   same dates as the cancelled\
+  \ booking (2026-08-05 to 2026-08-09),\n   using default Visa (ending 4242).\n6.\
+  \ Rebook in {target.cancel2_city} by booking the chosen candidate for 2 guests,\n\
+  \   same dates as the cancelled booking (2026-08-15 to 2026-08-19),\n   using Mastercard\
+  \ ending in 8888.\n7. The Prague booking is non-refundable \u2014 do not rebook anything\
+  \ there.\n8. Send a message to each of the 3 cancelled properties:\n   - \"{target.cancel1_name}\"\
+  : subject \"Cancellation\", body\n     \"I had to cancel due to budget constraints.\
+  \ Thank you.\"\n   - \"{target.cancel2_name}\": subject \"Cancellation\", body\n\
+  \     \"Plans changed, hope to visit another time.\"\n   - \"{target.cancel3_name}\"\
+  : subject \"Cancellation\", body\n     \"Sorry for the cancellation. Will rebook\
+  \ when possible.\"\n9. Go to your saved list \"{target.list_name}\" and add both\n\
+  \   new rebooked properties to it. Also remove the property\n   \"{target.remove_from_list_name}\"\
+  \ from the list.\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 48
@@ -60,6 +67,11 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 20
+      cancellation_policy:
+        type: free_cancellation
+        free_cancel_before_days: 7
+        penalty_percentage: 100
+        description: "Free cancellation until 7 days before check-in"
     outputs:
     - cancel1_res_id
     - cancel1_conf
@@ -94,6 +106,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 18
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 40
+        description: "40% cancellation fee applies"
     outputs:
     - cancel2_res_id
     - cancel2_conf
@@ -128,6 +144,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 15
+      cancellation_policy:
+        type: non_refundable
+        penalty_percentage: 100
+        description: "Non-refundable booking"
     outputs:
     - cancel3_res_id
     - cancel3_conf
@@ -194,6 +214,132 @@ seed:
     - rebook2_prop_name
     - rebook2_room_id
     - rebook2_room_name
+  - use: featured_property
+    params:
+      name: Hotel Milano Centro
+      city: Milan
+      country: Italy
+      star_rating: 4
+      review_score: 8.4
+      review_count: 1700
+      price: 160.0
+      neighborhood: Brera
+      address: Via Brera 28, 20121 Milan
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      rooms:
+      - name: Classic Double
+        price: 160.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Superior Double
+        price: 210.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - milan_mid_prop_id
+    - milan_mid_prop_name
+    - milan_mid_room_id
+    - milan_mid_room_name
+  - use: featured_property
+    params:
+      name: Milano Grand Duomo
+      city: Milan
+      country: Italy
+      star_rating: 5
+      review_score: 8.9
+      review_count: 2500
+      price: 220.0
+      neighborhood: Duomo
+      address: Via Torino 18, 20123 Milan
+      amenities:
+      - Free WiFi
+      - Spa
+      - Restaurant
+      - Bar
+      rooms:
+      - name: Executive Double
+        price: 220.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Suite
+        price: 310.0
+        bed_type: king
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - milan_high_prop_id
+    - milan_high_prop_name
+    - milan_high_room_id
+    - milan_high_room_name
+  - use: featured_property
+    params:
+      name: Vienna Park Boutique
+      city: Vienna
+      country: Austria
+      star_rating: 4
+      review_score: 8.4
+      review_count: 1300
+      price: 140.0
+      neighborhood: Schönbrunn
+      address: Mariahilfer Strasse 90, 1060 Vienna
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      rooms:
+      - name: Classic Double
+        price: 140.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Superior Room
+        price: 180.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - vienna_mid_prop_id
+    - vienna_mid_prop_name
+    - vienna_mid_room_id
+    - vienna_mid_room_name
+  - use: featured_property
+    params:
+      name: Vienna Opera Residence
+      city: Vienna
+      country: Austria
+      star_rating: 4
+      review_score: 8.8
+      review_count: 1800
+      price: 180.0
+      neighborhood: Innere Stadt
+      address: Kärntner Strasse 20, 1010 Vienna
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      - Fitness center
+      rooms:
+      - name: Classic Double
+        price: 180.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Double
+        price: 235.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - vienna_high_prop_id
+    - vienna_high_prop_name
+    - vienna_high_room_id
+    - vienna_high_room_name
   - use: decoy_property
     params:
       name: Rome Grand Palace
@@ -235,6 +381,11 @@ seed:
     rebook1_name: '{output.rebook1_prop_name}'
     rebook2_prop_id: '{output.rebook2_prop_id}'
     rebook2_name: '{output.rebook2_prop_name}'
+    milan_res_id: '{output.cancel1_res_id}'
+    vienna_res_id: '{output.cancel2_res_id}'
+    milan_rebook_prop_id: '{output.rebook1_prop_id}'
+    vienna_rebook_prop_id: '{output.rebook2_prop_id}'
+    rebook_combined_budget: 1200
     list_id: '{output.list_id}'
     list_name: '{output.list_name}'
     remove_from_list_id: '{output.cancel3_prop_id}'
@@ -383,6 +534,19 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged cancellation fee for all three reservations
+      expr: "sum(1 for e in state.audit_log if e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None) >= 3"
+      severity: high
+    - desc: Rebooking suggestions were generated for both cancelled reservations that needed rebooking
+      expr: "sum(1 for s in state.rebooking_suggestions if s.original_reservation_id in (target['milan_res_id'], target['vienna_res_id'])) >= 2"
+      severity: high
+    - desc: Both rebookings came from the system's candidate list
+      expr: "all(any(booked_prop in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions) for booked_prop in (target['milan_rebook_prop_id'], target['vienna_rebook_prop_id']))"
+      severity: critical
+    - desc: Combined cost of 2 rebookings fits combined budget
+      expr: "sum(r.total_price for r in state.reservations if r.property_id in (target['milan_rebook_prop_id'], target['vienna_rebook_prop_id']) and r.status == 'confirmed') <= target['rebook_combined_budget']"
+      severity: high
   named_invariants:
     - name: Agent cancelled first reservation
       ref: update[0]

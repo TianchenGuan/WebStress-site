@@ -648,16 +648,42 @@ async def get_reservation(
     return data
 
 
-@router.post("/reservations/{reservation_id}/cancel")
-async def cancel_reservation(
+class CancelReservationRequest(SessionScopedRequest):
+    fee_accepted: float | None = None
+
+
+@router.post("/reservations/{reservation_id}/cancel-preview")
+async def cancel_reservation_preview(
     reservation_id: str,
     body: SessionScopedRequest,
     sm: SessionManager = Depends(get_session_manager),
 ):
+    """Return cancellation fee preview without mutating state."""
+    state = _booking_state(sm, body.session_id)
+    try:
+        return state.compute_cancel_fee(reservation_id)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/reservations/{reservation_id}/cancel")
+async def cancel_reservation(
+    reservation_id: str,
+    body: CancelReservationRequest,
+    sm: SessionManager = Depends(get_session_manager),
+):
+    """Cancel a reservation after fee has been acknowledged.
+
+    The caller must first hit ``/cancel-preview`` to obtain ``fee_amount`` and
+    then pass it back in ``fee_accepted``. The server validates the match and
+    records ``fee_accepted`` in the audit_log entry.
+    """
+    fee_accepted = body.fee_accepted
     try:
         res = _mutate(sm, body.session_id, "reservation.cancel", {
             "reservation_id": reservation_id,
-        }, lambda s: s.cancel_reservation(reservation_id))
+            "fee_accepted": fee_accepted,
+        }, lambda s: s.cancel_reservation(reservation_id, fee_accepted=fee_accepted))
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return res.model_dump(mode="json")
@@ -762,6 +788,94 @@ async def create_saved_list(
         "name": body.name,
     }, lambda s: s.create_saved_list(body.name))
     return result.model_dump(mode="json")
+
+
+@router.get("/price-preview")
+async def price_preview(
+    property_id: str = Query(...),
+    room_type_id: str = Query(...),
+    nights: int = Query(...),
+    rooms: int = Query(1),
+    session_id: str = Query(...),
+    sm: SessionManager = Depends(get_session_manager),
+):
+    """Return itemized fees (taxes, city fee, resort fee, cleaning fee) for a
+    potential booking, so the agent can read all-in cost before confirming."""
+    from webagentbench.backend.models.booking import compute_fee_breakdown
+    state = _booking_state(sm, session_id)
+    prop = state.get_property(property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail=f"Property not found: {property_id}")
+    room = next((rt for rt in prop.room_types if rt.id == room_type_id), None)
+    if room is None:
+        raise HTTPException(status_code=404, detail=f"Room not found: {room_type_id}")
+    base_total = round(room.price_per_night * max(1, nights) * max(1, rooms), 2)
+    breakdown = compute_fee_breakdown(
+        city=prop.city,
+        property_type=prop.property_type,
+        base_price=base_total,
+        nights=nights,
+    )
+    return {
+        "property_id": property_id,
+        "room_type_id": room_type_id,
+        "nights": nights,
+        "rooms": rooms,
+        "price_per_night": room.price_per_night,
+        "base_total": base_total,
+        "taxes": breakdown["taxes"],
+        "city_fee": breakdown["city_fee"],
+        "resort_fee": breakdown["resort_fee"],
+        "cleaning_fee": breakdown["cleaning_fee"],
+        "total_fees": breakdown["total_fees"],
+        "total_with_fees": round(base_total + breakdown["total_fees"], 2),
+        "currency": prop.currency,
+    }
+
+
+@router.get("/rebookings")
+async def list_rebookings(
+    session_id: str = Query(...),
+    sm: SessionManager = Depends(get_session_manager),
+):
+    """List all rebooking suggestions generated after cancellations in this session."""
+    state = _booking_state(sm, session_id)
+    return {
+        "rebookings": [r.model_dump(mode="json") for r in state.rebooking_suggestions],
+    }
+
+
+@router.get("/rebookings/{rebooking_id}")
+async def get_rebooking(
+    rebooking_id: str,
+    session_id: str = Query(...),
+    sm: SessionManager = Depends(get_session_manager),
+):
+    state = _booking_state(sm, session_id)
+    r = next((x for x in state.rebooking_suggestions if x.id == rebooking_id), None)
+    if r is None:
+        raise HTTPException(status_code=404, detail=f"Rebooking not found: {rebooking_id}")
+    return r.model_dump(mode="json")
+
+
+@router.get("/rebookings/by-reservation/{reservation_id}")
+async def get_rebooking_by_reservation(
+    reservation_id: str,
+    session_id: str = Query(...),
+    sm: SessionManager = Depends(get_session_manager),
+):
+    """Look up the rebooking suggestion generated for a specific cancelled reservation."""
+    state = _booking_state(sm, session_id)
+    r = next(
+        (x for x in state.rebooking_suggestions if x.original_reservation_id == reservation_id),
+        None,
+    )
+    if r is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No rebooking suggestion for reservation {reservation_id}",
+        )
+    return r.model_dump(mode="json")
 
 
 @router.get("/saved-lists")
@@ -895,7 +1009,7 @@ async def list_messages(
     state = _booking_state(sm, session_id)
     return {
         "messages": [m.model_dump(mode="json") for m in state.messages],
-        "unread": sum(1 for m in state.messages if not m.read),
+        "unread": sum(1 for m in state.messages if not m.read and m.sender != "guest"),
     }
 
 

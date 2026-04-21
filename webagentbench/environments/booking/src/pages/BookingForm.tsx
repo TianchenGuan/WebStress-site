@@ -140,8 +140,37 @@ export default function BookingForm() {
   );
 
   const subtotal = room ? room.price_per_night * nights * numRooms : 0;
-  const taxRate = 0.12;
-  const taxesAndFees = Math.round(subtotal * taxRate * 100) / 100;
+  const [feeBreakdown, setFeeBreakdown] = useState<{
+    taxes: number;
+    city_fee: number;
+    resort_fee: number;
+    cleaning_fee: number;
+    total_fees: number;
+    total_with_fees: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!room || !propertyId || nights <= 0) return;
+    let ignore = false;
+    api
+      .pricePreview({
+        property_id: propertyId,
+        room_type_id: room.id,
+        nights,
+        rooms: numRooms,
+      })
+      .then((p) => {
+        if (!ignore) setFeeBreakdown(p);
+      })
+      .catch(() => {
+        if (!ignore) setFeeBreakdown(null);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [api, propertyId, room, nights, numRooms]);
+
+  const taxesAndFees = feeBreakdown?.total_fees ?? 0;
   const geniusDiscount =
     property?.is_genius_property && property.genius_discount_pct > 0
       ? Math.round(subtotal * (property.genius_discount_pct / 100) * 100) / 100
@@ -444,10 +473,28 @@ export default function BookingForm() {
               <span>{formatCurrency(subtotal, currency)}</span>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span>Taxes &amp; fees (12%)</span>
-              <span>{formatCurrency(taxesAndFees, currency)}</span>
-            </div>
+            {feeBreakdown && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                  <span>Taxes</span>
+                  <span>{formatCurrency(feeBreakdown.taxes, currency)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                  <span>City fee</span>
+                  <span>{formatCurrency(feeBreakdown.city_fee, currency)}</span>
+                </div>
+                {feeBreakdown.resort_fee > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                    <span>Resort fee</span>
+                    <span>{formatCurrency(feeBreakdown.resort_fee, currency)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                  <span>Cleaning fee</span>
+                  <span>{formatCurrency(feeBreakdown.cleaning_fee, currency)}</span>
+                </div>
+              </>
+            )}
 
             {geniusDiscount > 0 && (
               <div

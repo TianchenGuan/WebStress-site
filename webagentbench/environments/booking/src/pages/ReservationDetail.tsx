@@ -40,6 +40,14 @@ export default function ReservationDetail() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState<{
+    fee_amount: number;
+    total_price: number;
+    days_until_checkin: number;
+    policy_description: string;
+    refundable: boolean;
+    currency: string;
+  } | null>(null);
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [modifying, setModifying] = useState(false);
@@ -65,19 +73,37 @@ export default function ReservationDetail() {
     };
   }, [api, sessionId, id]);
 
-  const handleCancel = async () => {
+  const openCancelModal = async () => {
     if (!reservation) return;
+    setCancelPreview(null);
+    setShowCancelModal(true);
+    try {
+      const preview = await api.previewCancelReservation(reservation.id);
+      setCancelPreview(preview);
+    } catch {
+      notify("Error", "Could not compute cancellation fee.");
+      setShowCancelModal(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!reservation || !cancelPreview) return;
     setCancelling(true);
     try {
-      const updated = await api.cancelReservation(reservation.id);
+      const updated = await api.cancelReservation(reservation.id, cancelPreview.fee_amount);
       setReservation(updated);
-      notify("Booking Cancelled", `Reservation ${reservation.confirmation_number} has been cancelled.`);
+      notify(
+        "Booking Cancelled",
+        cancelPreview.fee_amount > 0
+          ? `Cancelled with a fee of ${cancelPreview.currency === "USD" ? "$" : cancelPreview.currency + " "}${cancelPreview.fee_amount.toFixed(2)}.`
+          : "Reservation has been cancelled with no fee.",
+      );
     } catch {
-      setReservation((prev) => (prev ? { ...prev, status: "cancelled" } : prev));
-      notify("Booking Cancelled", `Reservation has been cancelled.`);
+      notify("Error", "Failed to cancel reservation.");
     }
     setCancelling(false);
     setShowCancelModal(false);
+    setCancelPreview(null);
   };
 
   const openModifyModal = () => {
@@ -326,8 +352,22 @@ export default function ReservationDetail() {
                 <span>{currencySymbol}{subtotal.toFixed(2)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Taxes and fees</span>
-                <span>{currencySymbol}{reservation.taxes_and_fees.toFixed(2)}</span>
+                <span>Taxes</span>
+                <span>{currencySymbol}{reservation.taxes.toFixed(2)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>City fee</span>
+                <span>{currencySymbol}{reservation.city_fee.toFixed(2)}</span>
+              </div>
+              {reservation.resort_fee > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Resort fee</span>
+                  <span>{currencySymbol}{reservation.resort_fee.toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Cleaning fee</span>
+                <span>{currencySymbol}{reservation.cleaning_fee.toFixed(2)}</span>
               </div>
               {reservation.genius_discount > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--bk-green)" }}>
@@ -359,7 +399,7 @@ export default function ReservationDetail() {
               {isCancellable && (
                 <button
                   className="bk-btn bk-btn--danger bk-btn--block"
-                  onClick={() => setShowCancelModal(true)}
+                  onClick={openCancelModal}
                 >
                   Cancel Booking
                 </button>
@@ -379,6 +419,16 @@ export default function ReservationDetail() {
                   style={{ textAlign: "center" }}
                 >
                   Write a Review
+                </Link>
+              )}
+              {status === "cancelled" && (
+                <Link
+                  to={preserveQueryParams(`/rebook/${reservation.id}`, location.search)}
+                  className="bk-btn bk-btn--primary bk-btn--block"
+                  style={{ textAlign: "center" }}
+                  aria-label="See rebooking options"
+                >
+                  See Rebooking Options
                 </Link>
               )}
               <Link
@@ -489,10 +539,42 @@ export default function ReservationDetail() {
               <strong>Dates:</strong> {formatDate(reservation.check_in)} &rarr;{" "}
               {formatDate(reservation.check_out)}
             </p>
-            {reservation.cancellation_policy.penalty_percentage > 0 && (
+            {cancelPreview === null ? (
               <div className="bk-info-box" style={{ marginTop: 12 }}>
-                A cancellation penalty of{" "}
-                {reservation.cancellation_policy.penalty_percentage}% of the total price may apply.
+                Computing cancellation fee...
+              </div>
+            ) : cancelPreview.fee_amount > 0 ? (
+              <div
+                className="bk-info-box"
+                style={{
+                  marginTop: 12,
+                  background: "#fff5f5",
+                  border: "1px solid #fca5a5",
+                }}
+                aria-label={`Cancellation fee ${cancelPreview.fee_amount} ${cancelPreview.currency}`}
+              >
+                <div style={{ fontWeight: 700, fontSize: 15 }}>
+                  Cancellation fee: {cancelPreview.currency === "USD" ? "$" : cancelPreview.currency + " "}
+                  {cancelPreview.fee_amount.toFixed(2)}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--bk-gray-600)", marginTop: 4 }}>
+                  Policy: {cancelPreview.policy_description}
+                  <br />
+                  {cancelPreview.days_until_checkin} day(s) until check-in &middot;{" "}
+                  Total paid: {cancelPreview.currency === "USD" ? "$" : cancelPreview.currency + " "}
+                  {cancelPreview.total_price.toFixed(2)}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="bk-info-box"
+                style={{ marginTop: 12, background: "#f0fdf4", border: "1px solid #86efac" }}
+                aria-label="Free cancellation"
+              >
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Free cancellation — no fee</div>
+                <div style={{ fontSize: 13, color: "var(--bk-gray-600)", marginTop: 4 }}>
+                  {cancelPreview.policy_description}
+                </div>
               </div>
             )}
             <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
@@ -506,9 +588,14 @@ export default function ReservationDetail() {
               <button
                 className="bk-btn bk-btn--danger"
                 onClick={handleCancel}
-                disabled={cancelling}
+                disabled={cancelling || cancelPreview === null}
+                aria-label={
+                  cancelPreview && cancelPreview.fee_amount > 0
+                    ? `Confirm cancellation with ${cancelPreview.fee_amount} ${cancelPreview.currency} fee`
+                    : "Confirm cancellation"
+                }
               >
-                {cancelling ? "Cancelling..." : "Yes, Cancel"}
+                {cancelling ? "Cancelling..." : "Confirm Cancellation"}
               </button>
             </div>
           </div>

@@ -23,6 +23,7 @@ def _setup_session(seed: int = 42):
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
     state.travel_preferences.preferred_currency = 'EUR'
+    # Leg 1: Lisbon (Alfama Heritage) - 5 nights, all-in 1218.50
     state.reservations.append(Reservation(
         id="res_alfama",
         property_id=targets['winner_id'],
@@ -34,9 +35,9 @@ def _apply_correct_state(targets, state):
         nights=5,
         guests=2,
         rooms=1,
-        price_per_night=120.0,
-        total_price=600.0,
-        taxes_and_fees=60.0,
+        price_per_night=190.0,
+        total_price=1218.50,
+        taxes_and_fees=268.50,
         currency="EUR",
         status="confirmed",
         booked_at=now,
@@ -49,6 +50,65 @@ def _apply_correct_state(targets, state):
         meals_included="none",
         rating_submitted=False,
     ))
+    # Leg 2: Venice (Venetian Canal Inn) - 2 nights, all-in 402.00
+    state.reservations.append(Reservation(
+        id="res_venice",
+        property_id=targets['venice_prop_id'],
+        property_name="Venetian Canal Inn",
+        room_type_id="rt_venice",
+        room_type_name="Canal Double Room",
+        check_in="2026-09-09",
+        check_out="2026-09-11",
+        nights=2,
+        guests=2,
+        rooms=1,
+        price_per_night=160.0,
+        total_price=402.0,
+        taxes_and_fees=82.0,
+        currency="EUR",
+        status="confirmed",
+        booked_at=now,
+        guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
+        payment_method_id="pm_1",
+        cancellation_policy=CancellationPolicy(),
+        confirmation_number="CONF_VEN",
+        is_genius_deal=False,
+        genius_discount=0.0,
+        meals_included="none",
+        rating_submitted=False,
+    ))
+    # Leg 3: Paris (Left Bank Parisian Hotel) - 2 nights, all-in 454.00
+    state.reservations.append(Reservation(
+        id="res_paris",
+        property_id=targets['paris_prop_id'],
+        property_name="Left Bank Parisian Hotel",
+        room_type_id="rt_paris",
+        room_type_name="Classic Parisian Room",
+        check_in="2026-09-22",
+        check_out="2026-09-24",
+        nights=2,
+        guests=2,
+        rooms=1,
+        price_per_night=170.0,
+        total_price=454.0,
+        taxes_and_fees=114.0,
+        currency="EUR",
+        status="confirmed",
+        booked_at=now,
+        guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
+        payment_method_id="pm_1",
+        cancellation_policy=CancellationPolicy(),
+        confirmation_number="CONF_PAR",
+        is_genius_deal=False,
+        genius_discount=0.0,
+        meals_included="none",
+        rating_submitted=False,
+    ))
+    # Flip the review-target reservation's rating_submitted (side quest 6).
+    for r in state.reservations:
+        if r.id == targets['review_res_id']:
+            r.rating_submitted = True
+            break
     state.saved_lists.append(SavedList(
         id="sl_lisbon_alt",
         name="Lisbon Alternatives",

@@ -365,6 +365,13 @@ def _collections_of(state: Any) -> dict[str, list[dict]]:
             if not (isinstance(inner, type) and issubclass(inner, BaseModel)):
                 # list[str] / list[int] / etc. — not an entity collection.
                 continue
+            # Collections of system-generated entities (e.g. rebooking_suggestions
+            # auto-created by the server on cancel) should not feed the diff at
+            # all — their existence is a side-effect the agent doesn't author.
+            # Tasks that want to reason about these use constraint expressions
+            # against `state.<collection>` directly.
+            if getattr(inner, "DIFF_SYSTEM_COLLECTION", False):
+                continue
             val = getattr(state, name)
             if not isinstance(val, list):
                 continue

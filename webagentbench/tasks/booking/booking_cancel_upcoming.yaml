@@ -2,7 +2,8 @@ task_id: booking_cancel_upcoming
 env_id: booking
 title: Cancel an Upcoming Reservation
 instruction_template: 'Go to your trips and cancel the upcoming reservation at "{target.property_name}"
-  with confirmation number {target.confirmation_number}.
+  with confirmation number {target.confirmation_number}. Accept whatever cancellation
+  fee is shown and confirm the cancellation.
 
   '
 difficulty: easy
@@ -35,6 +36,10 @@ seed:
       check_out: '2026-06-04'
       status: confirmed
       booked_days_ago: 3
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 50
+        description: "50% cancellation fee applies"
     outputs:
     - reservation_id
     - confirmation_number
@@ -68,6 +73,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged the cancellation fee
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
+      severity: high
   named_invariants:
     - name: Agent cancelled the target reservation
       ref: update[0]

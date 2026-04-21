@@ -1,12 +1,16 @@
 task_id: booking_cancel_rebook_cheaper
 env_id: booking
 title: Cancel Expensive Reservation and Rebook Cheaper Alternative
-instruction_template: 'Review your upcoming confirmed reservations and find the most
-  expensive one (by total price). Cancel it. Then search for hotels in the same city
-  ("{target.city}") and book a cheaper alternative that costs less than ${target.cheaper_max_price}
-  per night. Book the cheapest room available at the cheaper hotel for the same dates
-  ({target.check_in} to {target.check_out}) and same number of guests ({target.guests}).
-  Use the default Visa payment method (ending in 4242).
+instruction_template: 'Your budget is tight. Review your upcoming confirmed reservations
+  and find the most expensive one (by total price) in "{target.city}". Preview its
+  cancellation fee and cancel it (explicitly accepting the fee). After cancelling,
+  your total budget for the replacement booking is ${target.budget} all-in (base +
+  taxes + city fee + cleaning fee — every line item counts). Use the "Rebooking
+  Options" page that the system generates for the cancelled reservation to compare
+  the 3 system-suggested alternatives by their itemized fees, then book the one
+  whose all-in total is within budget for the same dates ({target.check_in} to
+  {target.check_out}) and same number of guests ({target.guests}). Use the default
+  Visa payment method (ending in 4242).
 
   '
 difficulty: hard
@@ -52,6 +56,10 @@ seed:
       status: confirmed
       guests: 2
       booked_days_ago: 14
+      cancellation_policy:
+        type: partial_refund
+        penalty_percentage: 20
+        description: "20% cancellation fee applies"
     outputs:
     - expensive_res_id
     - expensive_conf_num
@@ -117,6 +125,37 @@ seed:
     - cheaper_prop_name
     - cheaper_room_id
     - cheaper_room_name
+  - use: featured_property
+    params:
+      name: Queensberry Inn Bath
+      city: Bath
+      country: United Kingdom
+      star_rating: 4
+      review_score: 8.7
+      review_count: 950
+      price: 275.0
+      neighborhood: City Center
+      address: Russel Street, Bath BA1 2QF
+      amenities:
+      - Free WiFi
+      - Restaurant
+      - Bar
+      rooms:
+      - name: Classic Double Room
+        price: 275.0
+        bed_type: double
+        max_occupancy: 2
+        cancel_type: free_cancellation
+      - name: Deluxe Room
+        price: 335.0
+        bed_type: queen
+        max_occupancy: 2
+        cancel_type: free_cancellation
+    outputs:
+    - mid_prop_id
+    - mid_prop_name
+    - mid_room_id
+    - mid_room_name
   - use: decoy_property
     params:
       name: The Gainsborough Bath Spa
@@ -141,6 +180,8 @@ seed:
     expensive_prop_name: '{output.expensive_prop_name}'
     cheaper_prop_id: '{output.cheaper_prop_id}'
     cheaper_prop_name: '{output.cheaper_prop_name}'
+    rebook_prop_id: '{output.cheaper_prop_id}'
+    rebook_prop_name: '{output.cheaper_prop_name}'
     moderate_res_id: '{output.moderate_res_id}'
     moderate_prop_id: '{output.moderate_prop_id}'
     city: Bath
@@ -148,6 +189,7 @@ seed:
     check_out: '2026-07-05'
     guests: '2'
     cheaper_max_price: '300'
+    budget: 1100
 canonical_diff:
   update:
     - entity: Reservation
@@ -158,9 +200,9 @@ canonical_diff:
         status: {eq: cancelled}
   create:
     - entity: Reservation
-      desc: Book the cheaper Bath hotel for same dates and guests
+      desc: Book the cheaper Bath hotel (one of the system-suggested candidates) for same dates and guests
       properties:
-        property_id: {expr: "x == target['cheaper_prop_id']"}
+        property_id: {expr: "x == target['rebook_prop_id']"}
         property_name: {any: true}
         room_type_id: {any: true}
         room_type_name: {any: true}
@@ -185,7 +227,7 @@ canonical_diff:
         rating_submitted: {any: true}
   invariant:
     - collection: state.reservations
-      filter: "a.id != target['expensive_res_id'] and not (a.property_id == target['cheaper_prop_id'] and a.check_in == '2026-07-01')"
+      filter: "a.id != target['expensive_res_id'] and not (a.property_id == target['rebook_prop_id'] and a.check_in == '2026-07-01')"
       preserve: ALL
     - collection: state.properties
       preserve: ALL
@@ -199,6 +241,22 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+  constraints:
+    - desc: Agent acknowledged the cancellation fee
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
+      severity: high
+    - desc: Agent made the correct cancel decision (fee + new_total < current_total)
+      expr: "any(e.action == 'reservation.cancel' and e.payload.get('reservation_id') == target['expensive_res_id'] for e in state.audit_log)"
+      severity: critical
+    - desc: A rebooking suggestion was generated for the cancelled reservation
+      expr: "any(s.original_reservation_id == target['expensive_res_id'] for s in state.rebooking_suggestions)"
+      severity: high
+    - desc: The new booking's property was one of the system-suggested candidates
+      expr: "any(target['rebook_prop_id'] in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions)"
+      severity: critical
+    - desc: The new booking's total_price fits the budget (all-in with taxes + fees)
+      expr: "any(r.total_price <= target['budget'] for r in state.reservations if r.property_id == target['rebook_prop_id'] and r.status == 'confirmed')"
+      severity: high
   named_invariants:
     - name: Agent cancelled the most expensive reservation
       ref: update[0]

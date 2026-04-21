@@ -1,22 +1,36 @@
 task_id: booking_frontier_budget_optimizer
 env_id: booking
 title: 'Frontier: Budget-Constrained Hotel Selection with Comparison and Lists'
-instruction_template: "Find the best hotel within a $1000 total budget for 5 nights:\n\
-  1. Search for hotels in Lisbon. You need to stay 5 nights\n   (checking in 2026-09-15,\
-  \ checking out 2026-09-20), so the\n   hotel must cost at most $200/night to stay\
-  \ within $1000.\n2. Compare these four Lisbon properties:\n   \"{target.name_1}\"\
-  , \"{target.name_2}\",\n   \"{target.name_3}\", \"{target.name_4}\".\n3. Among those\
-  \ with cheapest room under $200/night, find the\n   one with the HIGHEST review\
-  \ score. That is\n   \"{target.winner_name}\" (score {target.winner_score}).\n \
-  \  Book its cheapest room for 2 guests using the default\n   Visa (ending 4242).\n\
-  4. Save the three alternatives (all properties except the booked\n   one) to a new\
-  \ list called \"Lisbon Alternatives\".\n5. Send a message to the booked property\
-  \ with subject\n   \"Special requests\" and body \"I would like a quiet room\n \
-  \  on a higher floor if possible.\"\n6. Write a review for your completed stay at\n\
-  \   \"{target.review_prop_name}\" in Lisbon: score 8.0,\n   title \"Charming Lisbon\
-  \ gem\", positive \"Beautiful tile work\n   and wonderful breakfast with pasteis\
-  \ de nata\",\n   negative \"Elevator was out of service for one day\",\n   leisure,\
-  \ couple.\n7. Update travel preferences: set preferred currency to \"EUR\".\n"
+instruction_template: "Plan a three-city trip and stay within a COMBINED all-in\
+  \ budget of $2100 across all three hotel bookings. The all-in total for\
+  \ each booking includes base + taxes + city fee + cleaning fee + any resort\
+  \ fee. Use the booking page's fee breakdown before you confirm each booking\n\
+  1. Lisbon (checking in 2026-09-15, checking out 2026-09-20 - 5 nights).\n\
+  \   Compare these four Lisbon properties: \"{target.name_1}\",\n   \"{target.name_2}\"\
+  , \"{target.name_3}\", \"{target.name_4}\". Among those with\n\
+  \   cheapest room under $200/night, find the one with the HIGHEST\n\
+  \   review score. That is \"{target.winner_name}\" (score\n\
+  \   {target.winner_score}). Book its cheapest room for 2 guests using\n\
+  \   the default Visa (ending 4242).\n\
+  2. Venice (checking in 2026-09-09, checking out 2026-09-11 - 2 nights).\n\
+  \   Book the cheapest-all-in hotel in Venice for 2 guests. One Venice\n\
+  \   option is a beach resort with a lower nightly rate but a $25/night\n\
+  \   resort fee - the non-resort option wins on all-in price.\n\
+  3. Paris (checking in 2026-09-22, checking out 2026-09-24 - 2 nights).\n\
+  \   Book the cheapest-all-in hotel in Paris for 2 guests (same resort\n\
+  \   trap applies - read the fee breakdown).\n\
+  The SUM of the three all-in total_prices must be at most $2100.\n\
+  4. Save the three Lisbon alternatives (all Lisbon properties except the\n\
+  \   booked one) to a new list called \"Lisbon Alternatives\".\n\
+  5. Send a message to the booked Lisbon property with subject\n\
+  \   \"Special requests\" and body \"I would like a quiet room on a\n\
+  \   higher floor if possible.\"\n\
+  6. Write a review for your completed stay at \"{target.review_prop_name}\"\
+  \ in Lisbon:\n\
+  \   score 8.0, title \"Charming Lisbon gem\", positive \"Beautiful tile\n\
+  \   work and wonderful breakfast with pasteis de nata\", negative\n\
+  \   \"Elevator was out of service for one day\", leisure, couple.\n\
+  7. Update travel preferences: set preferred currency to \"EUR\".\n"
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 42
@@ -163,6 +177,164 @@ seed:
       preferred_currency: USD
     outputs:
     - prefs_updated
+  # Venice leg: the target is a plain hotel; the fee-trap alternative is a
+  # beach resort with the same nightly rate but an added $25/night resort
+  # fee that pushes the all-in combined budget over $2100.
+  - use: featured_property
+    params:
+      name: Venetian Canal Inn
+      city: Venice
+      country: Italy
+      property_type: hotel
+      star_rating: 3
+      review_score: 8.6
+      review_count: 1420
+      price: 160.0
+      neighborhood: Cannaregio
+      address: 42 Fondamenta della Misericordia, 30121 Venice
+      amenities:
+      - Free WiFi
+      - Canal view
+      - Restaurant
+      - Air conditioning
+      distance_km: 1.0
+      rooms:
+      - name: Canal Double Room
+        price: 160.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: canal
+      - name: Canal Suite
+        price: 240.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: canal
+    outputs:
+    - venice_prop_id
+    - venice_prop_name
+    - venice_room_id
+    - venice_room_name
+  - use: featured_property
+    params:
+      name: Lido Beach Venezia Resort
+      city: Venice
+      country: Italy
+      property_type: resort
+      star_rating: 4
+      review_score: 8.8
+      review_count: 2010
+      price: 160.0
+      neighborhood: Lido
+      address: 8 Lungomare Marconi, 30126 Venice Lido
+      amenities:
+      - Free WiFi
+      - Beach access
+      - Pool
+      - Spa
+      - Restaurant
+      distance_km: 6.0
+      rooms:
+      - name: Beachside Room
+        price: 160.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: sea
+      - name: Lagoon Suite
+        price: 260.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: sea
+    outputs:
+    - venice_trap_prop_id
+    - venice_trap_prop_name
+    - venice_trap_room_id
+    - venice_trap_room_name
+  # Paris leg: same pattern - plain hotel target vs resort fee-trap.
+  - use: featured_property
+    params:
+      name: Left Bank Parisian Hotel
+      city: Paris
+      country: France
+      property_type: hotel
+      star_rating: 3
+      review_score: 8.5
+      review_count: 1650
+      price: 170.0
+      neighborhood: Saint-Germain
+      address: 25 Rue Jacob, 75006 Paris
+      amenities:
+      - Free WiFi
+      - Bar
+      - Restaurant
+      - Air conditioning
+      distance_km: 1.5
+      rooms:
+      - name: Classic Parisian Room
+        price: 170.0
+        bed_type: double
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: city
+      - name: Deluxe Parisian Suite
+        price: 260.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: courtyard
+    outputs:
+    - paris_prop_id
+    - paris_prop_name
+    - paris_room_id
+    - paris_room_name
+  - use: featured_property
+    params:
+      name: Champs-Elysees Grand Resort
+      city: Paris
+      country: France
+      property_type: resort
+      star_rating: 4
+      review_score: 8.9
+      review_count: 3120
+      price: 170.0
+      neighborhood: Champs-Elysees
+      address: 10 Avenue Hoche, 75008 Paris
+      amenities:
+      - Free WiFi
+      - Pool
+      - Spa
+      - Restaurant
+      - Fitness center
+      distance_km: 0.8
+      rooms:
+      - name: Parisian Resort Room
+        price: 170.0
+        bed_type: queen
+        max_occupancy: 2
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: avenue
+      - name: Grand Suite
+        price: 290.0
+        bed_type: king
+        max_occupancy: 3
+        meals_included: breakfast
+        cancel_type: free_cancellation
+        view_type: avenue
+    outputs:
+    - paris_trap_prop_id
+    - paris_trap_prop_name
+    - paris_trap_room_id
+    - paris_trap_room_name
   targets:
     name_1: '{output.prop_name_1}'
     name_2: '{output.prop_name_2}'
@@ -178,11 +350,49 @@ seed:
     review_prop_id: '{output.review_prop_id}'
     review_prop_name: '{output.review_prop_name}'
     review_res_id: '{output.review_res_id}'
+    venice_prop_id: '{output.venice_prop_id}'
+    venice_prop_name: '{output.venice_prop_name}'
+    venice_room_id: '{output.venice_room_id}'
+    venice_trap_prop_id: '{output.venice_trap_prop_id}'
+    venice_trap_prop_name: '{output.venice_trap_prop_name}'
+    paris_prop_id: '{output.paris_prop_id}'
+    paris_prop_name: '{output.paris_prop_name}'
+    paris_room_id: '{output.paris_room_id}'
+    paris_trap_prop_id: '{output.paris_trap_prop_id}'
+    paris_trap_prop_name: '{output.paris_trap_prop_name}'
+    # Combined 3-city all-in budget. Correct trio:
+    #   Lisbon (Alfama Heritage, $190/n * 5 nights, Lisbon tax 23%, city $2/n):
+    #     950 + 218.50 + 10 + 40 = $1218.50
+    #   Venice (Venetian Canal Inn, $160/n * 2 nights, Venice tax 10%, city $5/n):
+    #     320 +  32.00 + 10 + 40 = $402.00
+    #   Paris  (Left Bank Parisian Hotel, $170/n * 2 nights, Paris tax 20%, city $3/n):
+    #     340 +  68.00 +  6 + 40 = $454.00
+    #   Combined: 1218.50 + 402.00 + 454.00 = $2074.50 <= $2100.
+    # Swapping any single leg to its resort fee-trap adds >= $50 and
+    # breaks the combined budget (e.g. 2124.50 or 2125.00 or 2174.50).
+    combined_budget: 2100.0
 canonical_diff:
   constraints:
     - desc: Preferred currency updated to EUR
       expr: "state.travel_preferences.preferred_currency == 'EUR'"
       severity: medium
+    - desc: Combined all-in total across the 3 new city bookings stays within $2100 budget
+      expr: >-
+        sum(
+          r.total_price
+          for r in state.reservations
+          if r.property_id in (target['winner_id'], target['venice_prop_id'], target['paris_prop_id'])
+          and r.status == 'confirmed'
+        ) <= target['combined_budget']
+      severity: critical
+    - desc: Agent did not book any resort fee-trap that would break the combined budget
+      expr: >-
+        not any(
+          r.property_id in (target['venice_trap_prop_id'], target['paris_trap_prop_id'])
+          and r.status == 'confirmed'
+          for r in state.reservations
+        )
+      severity: high
   update:
     - entity: Reservation
       desc: Review submission flips rating_submitted on the reviewed reservation
@@ -201,6 +411,58 @@ canonical_diff:
         check_in: {eq: "2026-09-15"}
         check_out: {eq: "2026-09-20"}
         nights: {eq: 5}
+        guests: {eq: 2}
+        rooms: {any: true}
+        price_per_night: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+        currency: {any: true}
+        status: {eq: confirmed}
+        booked_at: {any: true}
+        guest_info: {any: true}
+        payment_method_id: {any: true}
+        cancellation_policy: {any: true}
+        confirmation_number: {any: true}
+        is_genius_deal: {any: true}
+        genius_discount: {any: true}
+        meals_included: {any: true}
+        rating_submitted: {any: true}
+    - entity: Reservation
+      desc: Book the cheapest-all-in Venice hotel (Venetian Canal Inn) for 2 nights
+      properties:
+        property_id: {expr: "x == target['venice_prop_id']"}
+        property_name: {any: true}
+        room_type_id: {any: true}
+        room_type_name: {any: true}
+        check_in: {eq: "2026-09-09"}
+        check_out: {eq: "2026-09-11"}
+        nights: {eq: 2}
+        guests: {eq: 2}
+        rooms: {any: true}
+        price_per_night: {any: true}
+        total_price: {any: true}
+        taxes_and_fees: {any: true}
+        currency: {any: true}
+        status: {eq: confirmed}
+        booked_at: {any: true}
+        guest_info: {any: true}
+        payment_method_id: {any: true}
+        cancellation_policy: {any: true}
+        confirmation_number: {any: true}
+        is_genius_deal: {any: true}
+        genius_discount: {any: true}
+        meals_included: {any: true}
+        rating_submitted: {any: true}
+    - entity: Reservation
+      desc: Book the cheapest-all-in Paris hotel (Left Bank Parisian) for 2 nights
+      properties:
+        property_id: {expr: "x == target['paris_prop_id']"}
+        property_name: {any: true}
+        room_type_id: {any: true}
+        room_type_name: {any: true}
+        check_in: {eq: "2026-09-22"}
+        check_out: {eq: "2026-09-24"}
+        nights: {eq: 2}
         guests: {eq: 2}
         rooms: {any: true}
         price_per_night: {any: true}
@@ -264,7 +526,11 @@ canonical_diff:
         property_response: {any: true}
   invariant:
     - collection: state.reservations
-      filter: "a.property_id != target['winner_id'] and a.id != target['review_res_id']"
+      filter: >-
+        a.property_id != target['winner_id']
+        and a.property_id != target['venice_prop_id']
+        and a.property_id != target['paris_prop_id']
+        and a.id != target['review_res_id']
       preserve: ALL
     - collection: state.properties
       preserve: ALL
@@ -284,17 +550,23 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
-    - name: Agent booked the best budget hotel with correct dates
+    - name: Agent booked the best budget Lisbon hotel with correct dates
       ref: create[0]
       severity: critical
-    - name: Agent saved three alternatives to Lisbon Alternatives list
+    - name: Agent booked the cheapest-all-in Venice hotel with correct dates
       ref: create[1]
-      severity: high
-    - name: Agent sent special request message to booked hotel
+      severity: critical
+    - name: Agent booked the cheapest-all-in Paris hotel with correct dates
       ref: create[2]
+      severity: critical
+    - name: Agent saved three alternatives to Lisbon Alternatives list
+      ref: create[3]
+      severity: high
+    - name: Agent sent special request message to booked Lisbon hotel
+      ref: create[4]
       severity: medium
     - name: Agent wrote review for completed Lisbon stay
-      ref: create[3]
+      ref: create[5]
       severity: high
     - name: Agent did not modify other reservations
       ref: invariant[0]

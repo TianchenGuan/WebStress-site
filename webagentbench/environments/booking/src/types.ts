@@ -141,6 +141,10 @@ export interface Reservation {
   price_per_night: number;
   total_price: number;
   taxes_and_fees: number;
+  taxes: number;
+  city_fee: number;
+  resort_fee: number;
+  cleaning_fee: number;
   currency: string;
   status: string;
   booked_at: string;
@@ -306,4 +310,40 @@ export interface SearchResults {
   total_pages: number;
   available_cities: string[];
   available_property_types: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Rebooking assistant (Feature I)
+// ---------------------------------------------------------------------------
+
+export interface RebookingCandidate {
+  property_id: string;
+  property_name: string;
+  city: string;
+  star_rating: number;
+  review_score: number;
+  room_type_id: string;
+  room_type_name: string;
+  price_per_night: number;
+  nights: number;
+  base_total: number;
+  taxes: number;
+  city_fee: number;
+  resort_fee: number;
+  cleaning_fee: number;
+  total_with_fees: number;
+  currency: string;
+}
+
+export interface RebookingSuggestion {
+  id: string;
+  original_reservation_id: string;
+  city: string;
+  check_in: string;
+  check_out: string;
+  guests: number;
+  candidates: RebookingCandidate[];
+  created_at: string;
+  consumed_at: string | null;
+  consumed_property_id: string | null;
 }

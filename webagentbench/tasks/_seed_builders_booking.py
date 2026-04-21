@@ -363,6 +363,25 @@ def build_reservation(ctx: BookingSeedContext, params: dict[str, Any]) -> dict[s
         guests=params.get("guests", 2),
         days_ago=params.get("booked_days_ago", 7),
     )
+
+    # Optional cancellation_policy override — lets task YAMLs set policy
+    # independently of the room type. Shape:
+    #   cancellation_policy:
+    #     type: "free_cancellation" | "non_refundable" | "partial_refund"
+    #     free_cancel_before_days: int     # for free_cancellation
+    #     penalty_percentage: float        # 0-100
+    #     description: str                 # user-facing
+    policy_override = params.get("cancellation_policy")
+    if policy_override:
+        res.cancellation_policy = CancellationPolicy(
+            type=policy_override.get("type", "free_cancellation"),
+            free_cancel_before_days=policy_override.get("free_cancel_before_days", 1),
+            penalty_percentage=policy_override.get("penalty_percentage", 0.0),
+            description=policy_override.get(
+                "description", "Cancellation policy applies"
+            ),
+        )
+
     ctx.base["reservations"].append(res)
     return {
         "reservation_id": res.id,
@@ -423,7 +442,13 @@ def build_saved_list(ctx: BookingSeedContext, params: dict[str, Any]) -> dict[st
 def build_message(ctx: BookingSeedContext, params: dict[str, Any]) -> dict[str, Any]:
     """Create a message in the inbox."""
     prop_id = params.get("property_id", "")
-    prop_name = params.get("property_name", "Hotel")
+    prop_name = params.get("property_name")
+    if not prop_name and prop_id:
+        prop = next((p for p in ctx.base.get("properties", []) if p.id == prop_id), None)
+        if prop:
+            prop_name = prop.name
+    if not prop_name:
+        prop_name = "Hotel"
     msg = Message(
         id=f"msg_{len(ctx.base.get('messages', [])) + 1}",
         property_id=prop_id,

@@ -136,6 +136,101 @@ class Property(BaseEntity):
     currency: str = "USD"
 
 
+# ---------------------------------------------------------------------------
+# Rebooking assistant (Feature I)
+# ---------------------------------------------------------------------------
+
+
+class RebookingCandidate(BaseModel):
+    """A single alternative property offered after a cancellation."""
+    property_id: str
+    property_name: str
+    city: str
+    star_rating: int
+    review_score: float
+    room_type_id: str
+    room_type_name: str
+    price_per_night: float
+    nights: int
+    base_total: float          # price_per_night * nights
+    taxes: float
+    city_fee: float
+    resort_fee: float
+    cleaning_fee: float
+    total_with_fees: float
+    currency: str = "USD"
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# ---------------------------------------------------------------------------
+# Fee model (Feature C: multi-dim pricing)
+# ---------------------------------------------------------------------------
+#
+# Each booking's total is composed of:
+#   base_price     = price_per_night * nights * rooms
+#   taxes          = base_price * TAX_RATES[city]       (hotel/VAT tax, per-city)
+#   city_fee       = CITY_FEES_PER_NIGHT[city] * nights (tourist tax, per-night)
+#   resort_fee     = 25.0 * nights  (only if property_type is "resort")
+#   cleaning_fee   = 40.0           (one-time; for every booking)
+#   total_price    = sum of the above minus genius_discount
+#
+# Cities not in the tables fall back to DEFAULT_TAX_RATE / DEFAULT_CITY_FEE.
+
+TAX_RATES: dict[str, float] = {
+    "Venice": 0.10, "Rome": 0.22, "Milan": 0.22, "Funchal": 0.23,
+    "Istanbul": 0.18, "Paris": 0.20, "London": 0.125, "Bath": 0.20,
+    "Edinburgh": 0.20, "New York": 0.1475, "Tokyo": 0.10, "Dubai": 0.10,
+    "Barcelona": 0.10, "Sydney": 0.10, "Bangkok": 0.07, "Singapore": 0.09,
+    "Copenhagen": 0.25, "Vienna": 0.20, "Prague": 0.21, "Madrid": 0.10,
+    "Amsterdam": 0.21, "Berlin": 0.19, "Dublin": 0.135, "Lisbon": 0.23,
+    "Athens": 0.13, "Hong Kong": 0.03, "Seoul": 0.10, "Los Angeles": 0.14,
+    "San Francisco": 0.14, "Miami": 0.13, "Chicago": 0.175, "Boston": 0.1445,
+}
+DEFAULT_TAX_RATE = 0.12
+
+CITY_FEES_PER_NIGHT: dict[str, float] = {
+    "Venice": 5.0, "Rome": 7.0, "Milan": 5.0, "Funchal": 2.0,
+    "Istanbul": 3.0, "Paris": 3.0, "London": 1.0, "Bath": 2.0,
+    "Edinburgh": 2.0, "New York": 3.5, "Tokyo": 2.0, "Dubai": 5.0,
+    "Barcelona": 4.0, "Sydney": 5.0, "Bangkok": 0.0, "Singapore": 0.0,
+    "Copenhagen": 3.0, "Vienna": 3.2, "Prague": 2.5, "Madrid": 3.0,
+    "Amsterdam": 3.5, "Berlin": 5.0, "Dublin": 0.0, "Lisbon": 2.0,
+    "Athens": 1.5, "Hong Kong": 0.0, "Seoul": 0.0, "Los Angeles": 4.0,
+    "San Francisco": 4.0, "Miami": 3.0, "Chicago": 4.5, "Boston": 3.5,
+}
+DEFAULT_CITY_FEE_PER_NIGHT = 2.0
+
+RESORT_FEE_PER_NIGHT = 25.0
+CLEANING_FEE_FLAT = 40.0
+
+
+def compute_fee_breakdown(
+    city: str,
+    property_type: str,
+    base_price: float,
+    nights: int,
+) -> dict[str, float]:
+    """Return itemized taxes/fees for a booking. All amounts rounded to 2dp.
+
+    Keys: taxes, city_fee, resort_fee, cleaning_fee, total_fees.
+    """
+    tax_rate = TAX_RATES.get(city, DEFAULT_TAX_RATE)
+    per_night = CITY_FEES_PER_NIGHT.get(city, DEFAULT_CITY_FEE_PER_NIGHT)
+    taxes = round(base_price * tax_rate, 2)
+    city_fee = round(per_night * max(1, nights), 2)
+    resort_fee = round(RESORT_FEE_PER_NIGHT * nights, 2) if property_type == "resort" else 0.0
+    cleaning_fee = CLEANING_FEE_FLAT
+    total_fees = round(taxes + city_fee + resort_fee + cleaning_fee, 2)
+    return {
+        "taxes": taxes,
+        "city_fee": city_fee,
+        "resort_fee": resort_fee,
+        "cleaning_fee": cleaning_fee,
+        "total_fees": total_fees,
+    }
+
+
 class ReservationGuest(BaseModel):
     full_name: str
     email: str
@@ -158,7 +253,11 @@ class Reservation(BaseEntity):
     rooms: int = 1
     price_per_night: float
     total_price: float
-    taxes_and_fees: float = 0.0
+    taxes_and_fees: float = 0.0  # sum of taxes + city_fee + resort_fee + cleaning_fee (back-compat)
+    taxes: float = 0.0
+    city_fee: float = 0.0
+    resort_fee: float = 0.0
+    cleaning_fee: float = 0.0
     currency: str = "USD"
     status: str = "confirmed"  # confirmed, upcoming, completed, cancelled, no_show, modified
     booked_at: datetime
@@ -276,6 +375,28 @@ class Wallet(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class RebookingSuggestion(BaseEntity):
+    """System-generated alternatives shown to the user after they cancel a booking.
+
+    ``DIFF_SYSTEM_COLLECTION`` tells the diff engine in ``evaluator_diff`` to
+    skip this collection entirely — these entries are server-side side-effects
+    of cancellations, not agent-authored state. Canonical_diff authors use
+    ``constraint`` expressions (``state.rebooking_suggestions``) to assert on
+    them instead of declaring create/invariant blocks.
+    """
+    DIFF_SYSTEM_COLLECTION: ClassVar[bool] = True
+
+    original_reservation_id: str
+    city: str
+    check_in: str
+    check_out: str
+    guests: int = 2
+    candidates: list[RebookingCandidate] = Field(default_factory=list)
+    created_at: datetime
+    consumed_at: datetime | None = None  # set when the user books one of the candidates
+    consumed_property_id: str | None = None
+
+
 class BookingSettings(BaseEntity):
     default_payment_id: str | None = None
     email_notifications: bool = True
@@ -312,6 +433,7 @@ class BookingState(BaseEnvState):
     messages: list[Message] = Field(default_factory=list)
     notifications: list[Notification] = Field(default_factory=list)
     search_history: list[SearchHistoryEntry] = Field(default_factory=list)
+    rebooking_suggestions: list[RebookingSuggestion] = Field(default_factory=list)
     genius: GeniusInfo = Field(default_factory=GeniusInfo)
     travel_preferences: TravelPreferences = Field(default_factory=TravelPreferences)
     wallet: Wallet = Field(default_factory=Wallet)
@@ -486,7 +608,12 @@ class BookingState(BaseEnvState):
 
         price_per_night = room.price_per_night
         subtotal = price_per_night * nights * rooms
-        taxes = round(subtotal * 0.12, 2)  # 12% taxes & fees
+        breakdown = compute_fee_breakdown(
+            city=prop.city,
+            property_type=prop.property_type,
+            base_price=subtotal,
+            nights=nights,
+        )
 
         # Genius discount
         genius_discount = 0.0
@@ -495,7 +622,7 @@ class BookingState(BaseEnvState):
             genius_discount = round(subtotal * prop.genius_discount_pct / 100, 2)
             is_genius = True
 
-        total = round(subtotal + taxes - genius_discount, 2)
+        total = round(subtotal + breakdown["total_fees"] - genius_discount, 2)
         confirmation_number = f"BK-{self._next_id('conf').split('_')[1].zfill(8)}"
 
         reservation = Reservation(
@@ -511,7 +638,11 @@ class BookingState(BaseEnvState):
             rooms=rooms,
             price_per_night=price_per_night,
             total_price=total,
-            taxes_and_fees=taxes,
+            taxes_and_fees=breakdown["total_fees"],
+            taxes=breakdown["taxes"],
+            city_fee=breakdown["city_fee"],
+            resort_fee=breakdown["resort_fee"],
+            cleaning_fee=breakdown["cleaning_fee"],
             currency=prop.currency,
             status="confirmed",
             booked_at=datetime.now(timezone.utc),
@@ -540,12 +671,71 @@ class BookingState(BaseEnvState):
     def get_reservation(self, reservation_id: str) -> Reservation | None:
         return next((r for r in self.reservations if r.id == reservation_id), None)
 
-    def cancel_reservation(self, reservation_id: str) -> Reservation:
+    def compute_cancel_fee(self, reservation_id: str, now: datetime | None = None) -> dict:
+        """Compute cancellation fee preview for a reservation.
+
+        Returns a dict with fee_amount (USD), days_until_checkin, policy_description,
+        refundable flag, and total_price. Pure computation — does not mutate state.
+        """
+        res = self.get_reservation(reservation_id)
+        if res is None:
+            raise KeyError(f"Unknown reservation: {reservation_id}")
+        if res.status in ("cancelled", "completed", "no_show"):
+            raise ValueError(f"Cannot preview cancellation for status '{res.status}'")
+
+        now = now or datetime.now(timezone.utc)
+        check_in = datetime.strptime(res.check_in, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        days_until = (check_in - now).days
+        total = res.total_price
+        policy = res.cancellation_policy
+
+        if policy.type == "non_refundable":
+            fee = total
+        elif policy.type == "free_cancellation":
+            fee = 0.0 if days_until >= policy.free_cancel_before_days else total * (policy.penalty_percentage / 100.0)
+        elif policy.type == "partial_refund":
+            fee = total * (policy.penalty_percentage / 100.0)
+        else:
+            fee = 0.0
+
+        fee = round(fee, 2)
+        return {
+            "reservation_id": reservation_id,
+            "fee_amount": fee,
+            "total_price": total,
+            "days_until_checkin": days_until,
+            "policy_type": policy.type,
+            "policy_description": policy.description,
+            "refundable": fee < total,
+            "currency": res.currency,
+        }
+
+    def cancel_reservation(self, reservation_id: str, fee_accepted: float | None = None) -> Reservation:
+        """Cancel a reservation.
+
+        If ``fee_accepted`` is provided it must match the computed fee within a
+        1-cent tolerance. This is how the benchmark captures whether the agent
+        acknowledged the cancellation fee before proceeding.
+        """
         res = self.get_reservation(reservation_id)
         if res is None:
             raise KeyError(f"Unknown reservation: {reservation_id}")
         if res.status in ("cancelled", "completed", "no_show"):
             raise ValueError(f"Cannot cancel reservation with status '{res.status}'")
+
+        preview = self.compute_cancel_fee(reservation_id)
+        expected_fee = preview["fee_amount"]
+        if fee_accepted is None:
+            raise ValueError(
+                "fee_accepted is required. Fetch /cancel-preview first, then pass the "
+                "returned fee_amount in the cancel request body."
+            )
+        if abs(fee_accepted - expected_fee) > 0.01:
+            raise ValueError(
+                f"fee_accepted ({fee_accepted}) does not match computed fee ({expected_fee}). "
+                "Fetch /cancel-preview first."
+            )
+
         res.status = "cancelled"
 
         # Restore room availability
@@ -556,8 +746,103 @@ class BookingState(BaseEnvState):
                 room.rooms_left += res.rooms
                 room.is_available = True
 
+        # Feature I: generate 3 rebooking alternatives in the same city.
+        # Prefer cheaper same-city properties than the cancelled one; fall back
+        # to any same-city property if fewer than 3 cheaper options exist.
+        self._create_rebooking_suggestion(res, prop)
+
         self.touch()
         return res
+
+    def _create_rebooking_suggestion(
+        self,
+        cancelled_res: "Reservation",
+        cancelled_prop: "Property | None",
+    ) -> "RebookingSuggestion | None":
+        """Create a RebookingSuggestion after a cancel. Returns the suggestion
+        (or None if no candidates were found)."""
+        if cancelled_prop is None:
+            return None
+
+        city = cancelled_prop.city
+        check_in = cancelled_res.check_in
+        check_out = cancelled_res.check_out
+        nights = cancelled_res.nights
+        original_ppn = cancelled_res.price_per_night
+
+        same_city_props: list[Property] = [
+            p for p in self.properties
+            if p.city == city and p.id != cancelled_prop.id and p.room_types
+        ]
+
+        def _cheapest_room(p: Property) -> "RoomType | None":
+            avail = [rt for rt in p.room_types if rt.is_available and rt.rooms_left > 0]
+            if not avail:
+                return None
+            return min(avail, key=lambda rt: rt.price_per_night)
+
+        # Rank candidates by similarity to the original's price — i.e. pick
+        # "peer" properties in the same price band rather than the absolute
+        # cheapest three. Ties break by star_rating and review_score (higher
+        # first), so featured properties tend to win over bare distractors.
+        scored: list[tuple[Property, RoomType]] = []
+        for p in same_city_props:
+            room = _cheapest_room(p)
+            if room is None:
+                continue
+            scored.append((p, room))
+        if not scored:
+            return None
+
+        scored.sort(key=lambda pr: (
+            abs(pr[1].price_per_night - original_ppn),
+            -pr[0].star_rating,
+            -pr[0].review_score,
+        ))
+        picked = scored[:3]
+
+        candidates: list[RebookingCandidate] = []
+        for prop, room in picked:
+            base_total = round(room.price_per_night * nights, 2)
+            breakdown = compute_fee_breakdown(
+                city=prop.city,
+                property_type=prop.property_type,
+                base_price=base_total,
+                nights=nights,
+            )
+            candidates.append(RebookingCandidate(
+                property_id=prop.id,
+                property_name=prop.name,
+                city=prop.city,
+                star_rating=prop.star_rating,
+                review_score=prop.review_score,
+                room_type_id=room.id,
+                room_type_name=room.name,
+                price_per_night=room.price_per_night,
+                nights=nights,
+                base_total=base_total,
+                taxes=breakdown["taxes"],
+                city_fee=breakdown["city_fee"],
+                resort_fee=breakdown["resort_fee"],
+                cleaning_fee=breakdown["cleaning_fee"],
+                total_with_fees=round(base_total + breakdown["total_fees"], 2),
+                currency=prop.currency,
+            ))
+        if not candidates:
+            return None
+
+        suggestion = RebookingSuggestion(
+            id=self._next_id("rebook"),
+            original_reservation_id=cancelled_res.id,
+            city=city,
+            check_in=check_in,
+            check_out=check_out,
+            guests=cancelled_res.guests,
+            candidates=candidates,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.rebooking_suggestions.append(suggestion)
+        return suggestion
 
     def modify_reservation(
         self, reservation_id: str, **kwargs: Any
@@ -743,7 +1028,7 @@ class BookingState(BaseEnvState):
             subject=subject,
             body=body,
             sender="guest",
-            read=True,
+            read=False,
             created_at=datetime.now(timezone.utc),
         )
         self.messages.append(msg)

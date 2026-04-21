@@ -244,10 +244,6 @@ class BookingSeedRunner:
                 id="pm_4", card_type="Visa", last_four="9876",
                 expiry="06/27", holder_name="Jordan Parker", is_default=False,
             ),
-            PaymentMethod(
-                id="pm_5", card_type="Mastercard", last_four="5555",
-                expiry="01/30", holder_name="Alex Parker", is_default=False,
-            ),
         ]
         return {
             "env_id": "booking",

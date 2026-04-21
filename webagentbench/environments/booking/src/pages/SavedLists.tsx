@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { preserveQueryParams } from "@webagentbench/shared";
 
 import type { SavedList } from "../types";
@@ -8,10 +8,11 @@ import { useBookingLayout } from "../context";
 export default function SavedLists() {
   const { sessionId, api, notify } = useBookingLayout();
   const location = useLocation();
+  const { listId: deepLinkListId } = useParams<{ listId?: string }>();
 
   const [lists, setLists] = useState<SavedList[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(deepLinkListId ?? null);
   const [newListName, setNewListName] = useState("");
   const [creating, setCreating] = useState(false);
 
