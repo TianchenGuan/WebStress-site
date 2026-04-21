@@ -254,6 +254,21 @@ When the task says "do X once" or "act on exactly the items matching Y", verify 
 
 When a negative check references state that may not exist, use the `is None or` pattern.
 
+### 2.6  Beware silent-exception predicate paths
+
+Both `{expr: "..."}` predicates in canonical_diff and expression-based checks in the legacy evaluator are wrapped in `try / except: return False`.  Any runtime error inside a predicate — TypeError on a missing dunder, AttributeError on a renamed field, wrong-type value — silently becomes "predicate fails," and the check reports as failed without any stack trace.
+
+Historical bug (audit w04, 2026-04-20): `_DotObj` (auto-wrapper applied to dict values in predicate scopes) did not implement `__len__`.  Every peer-review task predicate of the form
+
+```yaml
+rubric_scores:
+  expr: "len(x) == 3 and set(x) == {'clarity', 'depth', 'originality'} and ..."
+```
+
+silently returned `False`, making three whole tasks (lms_peer_review_mega, lms_peer_review_redo, lms_peer_review_with_feedback) score 0 whenever the agent actually did the work.  The "unaccounted updates" surfaced as the only visible symptom; the underlying TypeError never reached the evaluator reasoning output.
+
+**When to apply:** Anytime you add a new predicate that calls a Python builtin (`len`, `bool`, `==`, `iter`, `in`) on a field whose type is dict, list, or a custom object.  Pre-flight the predicate in a REPL against a representative field value before trusting it in a task.  When a bijection reports "matched 0 of N" on inputs that look correct, the most likely cause is a silent predicate-eval exception, *not* a where-clause mismatch.
+
 ```yaml
 # BAD — if no matching filter exists, the second clause crashes;
 #        evaluator treats crash as non-applicable → penalty silently skipped
@@ -268,6 +283,48 @@ When a negative check references state that may not exist, use the `is None or` 
 ```
 
 **Why:** The evaluator treats crashed negative checks as non-applicable (no penalty).  The `is not None and not ...` form can crash on the second clause and silently skip the check.  The `is None or not ...` form short-circuits safely: no entity = no problem, entity exists = must be correct.
+
+### 2.7  No constraint-only branches in `oneof`
+
+A `canonical_diff.oneof` branch MUST contain at least one `create`, `update`, or `delete` entry.  A branch whose only positive signal is a `constraints:` block evaluates as a free pass whenever the constraints reference only `initial.*` / `target.*` (i.e., when the constraints are really **applicability gates** on seed state rather than assertions about agent behaviour).
+
+```yaml
+# BAD — "do nothing" branch auto-passes on seeds where the gate is True
+oneof:
+  - update: [ ... ]        # Branch A — act
+  - constraints:           # Branch B — do nothing
+      - desc: "Applicable when initial responsibility > $200"
+        expr: "float(initial.get_claim(target['x']).responsibility) > 200"
+
+# GOOD — both branches require an observable state change
+oneof:
+  - update:
+      - desc: "Pay the claim when responsibility <= $200"
+        where: { id: { expr: "x == target['x'] and float(initial.get_claim(x).responsibility) <= 200" } }
+        changes: { patient_responsibility: { eq: 0 } }
+  - update:
+      - desc: "Request a payment plan when responsibility > $200"
+        where: { id: { expr: "x == target['x'] and float(initial.get_claim(x).responsibility) > 200" } }
+        changes: { payment_plan_requested: { eq: true } }
+```
+
+**Why:** `match_diff` selects the best-scoring branch from `oneof`.  The evaluator's promotion path (`score_raw = constraints_passed / constraints_total` when `total_weight == 0`) gives a constraint-only branch a perfect numerator once its gate is satisfied.  Since initial-state gates pass regardless of what the agent does, the branch wins for any seed it applies to — turning the task into auto-pass.  Pattern first surfaced in `pp_review_eob` (audit w09, 2026-04-20): seed 42 produced a $724.74 approved claim, the "high responsibility → do nothing" branch activated, and the agent scored 1.0 without opening the billing page.
+
+**When to apply:** Every `oneof` at authoring time.  Audit helper:
+
+```bash
+python3 -c "
+import yaml, pathlib, sys
+for p in pathlib.Path('webagentbench/tasks').rglob('*.yaml'):
+    with p.open() as f: t = yaml.safe_load(f)
+    cd = (t or {}).get('canonical_diff', {}) or {}
+    for i, alt in enumerate(cd.get('oneof', []) or []):
+        if not (set(alt) & {'create', 'update', 'delete'}):
+            print(f'{p.name}  branch {i}: constraint-only (degenerate)')
+"
+```
+
+If a branch must truly represent "do nothing", either reshape the task so both branches require observable action, or constrain the seed so only the action branch is ever possible.  Reliable decision-making cannot be tested against a state change that never happens.
 
 ---
 
@@ -627,5 +684,5 @@ When hardening an existing task:
 9. **Plausible wrong actions.** List them.  For each, verify a negative check exists.  Check penalties don't stack for same root cause (§4.2).
 10. **Selector-axis decoys.** For each selector in the instruction, verify the seed has a decoy that differs on exactly that axis (§6).
 11. **Coverage table.** Does the task meet its difficulty level's minimum from §8?
-12. **Conditional branches.** If the task has if/else logic, do BOTH branches have verifiable state outcomes?
+12. **Conditional branches.** If the task has if/else logic, do BOTH branches have verifiable state outcomes?  Every `oneof` branch must contain ≥1 positive entry (create/update/delete) — constraint-only branches referencing only `initial.*`/`target.*` auto-pass on applicable seeds (§2.7).
 13. **Multi-seed.** Validate with seeds 1, 7, 42, 99 to catch RNG-dependent failures.
