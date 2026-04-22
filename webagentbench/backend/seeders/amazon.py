@@ -590,12 +590,16 @@ class AmazonSeedRunner:
             )
             base["notifications"].append(notif)
 
-        # ---- Wishlist (4 products) ----
-        wishlist_products = history_pool[pool_idx:pool_idx + 4]
+        # ---- Wishlist (no pre-population) ----
+        # Pre-wishlisting random catalog products contradicts the stated
+        # wishlist count in instructions such as amazon_wishlist_to_cart
+        # ("add all wishlist items to your cart") and
+        # amazon_wishlist_cart_consolidation ("your wishlist has 4 items"):
+        # tasks that want a seeded wishlist use the ``wishlist_items`` or
+        # ``wishlist_stock_mix`` builders explicitly. We still advance
+        # ``pool_idx`` by 4 so downstream browsing-history slicing stays
+        # deterministic for existing seeds.
         pool_idx += 4
-        for p in wishlist_products:
-            if p.id not in base["wishlist"]:
-                base["wishlist"].append(p.id)
 
         # ---- Browsing history / recently viewed (6 products) ----
         browsing_products = history_pool[pool_idx:pool_idx + 6]
