@@ -621,15 +621,11 @@ async def run_episode(
                             continue
                         from browser_use.browser.events import (
                             GetDropdownOptionsEvent,
-                            SelectDropdownOptionEvent,
                         )
 
                         # Agents frequently pass option text that's truncated
-                        # ("Dr. X - Endocrinolog...") or simplified (dropping
-                        # the "(30min)" suffix on slot labels) from the
-                        # rendered DOM. SelectDropdownOptionEvent requires
-                        # exact match. Resolve fuzzy agent text to a real
-                        # option by querying the dropdown and trying:
+                        # or simplified from the rendered DOM. Resolve fuzzy
+                        # agent text to a real option by querying the dropdown:
                         #   1. exact match,
                         #   2. strip trailing "..." then prefix-match,
                         #   3. agent-text is a prefix of exactly one option,
@@ -646,8 +642,12 @@ async def run_episode(
                                 raise_if_any=True, raise_if_none=False)
                             real_options: list[dict] = []
                             if isinstance(opts_result, dict):
+                                raw_opts = opts_result.get("options") or []
+                                if isinstance(raw_opts, str):
+                                    import json as _json
+                                    raw_opts = _json.loads(raw_opts)
                                 real_options = [
-                                    o for o in (opts_result.get("options") or [])
+                                    o for o in raw_opts
                                     if isinstance(o, dict) and isinstance(o.get("text"), str)
                                 ]
                             real_texts = [o["text"] for o in real_options]
@@ -666,32 +666,51 @@ async def run_episode(
                                 )
 
                             match: str | None = None
+                            option_low = option.lower()
                             if option in real_texts:
                                 match = option
                             if match is None:
                                 stripped = option.rstrip()
                                 if stripped.endswith("..."):
-                                    prefix = stripped[:-3].rstrip()
-                                    match = _pick([t for t in real_texts if t.startswith(prefix)])
+                                    prefix = stripped[:-3].rstrip().lower()
+                                    match = _pick([t for t in real_texts if t.lower().startswith(prefix)])
                             if match is None:
-                                # Agent's text is a prefix of a real option
-                                # (common: agent drops the "(30min)" suffix).
-                                match = _pick([t for t in real_texts if t.startswith(option)])
+                                match = _pick([t for t in real_texts if t.lower().startswith(option_low)])
                             if match is None:
-                                # Agent's text is a substring of a real option.
-                                match = _pick([t for t in real_texts if option in t])
+                                match = _pick([t for t in real_texts if option_low in t.lower()])
                             if match is not None:
                                 option_for_select = match
                         except Exception:
                             pass
 
-                        event = browser.event_bus.dispatch(
-                            SelectDropdownOptionEvent(node=node, text=option_for_select))
-                        await event
+                        # Trigger the select via JS using React's native value
+                        # setter pattern — CDP change events alone don't trigger
+                        # React's synthetic onChange reliably.
+                        attrs = node.attributes or {}
+                        sel_id = attrs.get("id") or ""
+                        pw_page = await browser.get_current_page()
                         try:
-                            await event.event_result(raise_if_any=True, raise_if_none=False)
+                            ok = await pw_page.evaluate("""([selId, targetLabel]) => {
+                                const el = selId
+                                    ? document.getElementById(selId)
+                                    : document.querySelector('select[aria-label]');
+                                if (!el) return 'element_not_found';
+                                const opt = Array.from(el.options).find(
+                                    o => o.text.trim() === targetLabel
+                                );
+                                if (!opt) return 'option_not_found: ' + targetLabel;
+                                const setter = Object.getOwnPropertyDescriptor(
+                                    HTMLSelectElement.prototype, 'value'
+                                ).set;
+                                setter.call(el, opt.value);
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                                return 'ok';
+                            }""", [sel_id, option_for_select])
+                            if ok != "ok":
+                                last_error = f"Select JS failed: {ok}"
+                                continue
                         except Exception as sel_err:
-                            last_error = f"Select failed on index {idx}: {sel_err}"
+                            last_error = f"Select failed on #{sel_id}: {sel_err}"
                             continue
                         await asyncio.sleep(0.3)
 
