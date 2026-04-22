@@ -22,7 +22,10 @@ export function ProductDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [questions, setQuestions] = useState<ProductQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedVariant, setSelectedVariant] = useState<string | undefined>(undefined);
+  // Map of variant group name -> selected value. Each dimension (e.g. Color,
+  // Size) has its own slot so selecting a value in one group does not wipe
+  // the selection in another.
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
 
@@ -64,7 +67,13 @@ export function ProductDetailPage() {
       setReviews(revs);
       setQuestions(qs);
       if (prod.variants && prod.variants.length > 0) {
-        setSelectedVariant(prod.variants[0].value);
+        const initial: Record<string, string> = {};
+        for (const v of prod.variants) {
+          if (!(v.name in initial) && v.in_stock) {
+            initial[v.name] = v.value;
+          }
+        }
+        setSelectedVariants(initial);
       }
       setLoading(false);
     }).catch(() => {
@@ -74,11 +83,8 @@ export function ProductDetailPage() {
     return () => { cancelled = true; };
   }, [api, id]);
 
-  const selectedVariantSelections = product?.variants && selectedVariant
-    ? (() => {
-        const variant = product.variants.find((candidate) => candidate.value === selectedVariant);
-        return variant ? { [variant.name]: variant.value } : undefined;
-      })()
+  const selectedVariantSelections = product?.variants && Object.keys(selectedVariants).length > 0
+    ? { ...selectedVariants }
     : undefined;
 
   const handleAddToCart = async () => {
@@ -381,11 +387,11 @@ export function ProductDetailPage() {
                 {product.variants.map((variant) => (
                   <button
                     key={`${variant.name}:${variant.value}`}
-                    className={`product-detail__variant-btn ${selectedVariant === variant.value ? "product-detail__variant-btn--selected" : ""}`}
-                    onClick={() => setSelectedVariant(variant.value)}
+                    className={`product-detail__variant-btn ${selectedVariants[variant.name] === variant.value ? "product-detail__variant-btn--selected" : ""}`}
+                    onClick={() => setSelectedVariants((prev) => ({ ...prev, [variant.name]: variant.value }))}
                     disabled={!variant.in_stock}
                     aria-label={`Select variant: ${variant.name} ${variant.value}`}
-                    aria-pressed={selectedVariant === variant.value}
+                    aria-pressed={selectedVariants[variant.name] === variant.value}
                   >
                     <span className="product-detail__variant-name">{variant.name}: {variant.value}</span>
                     {variant.price_modifier !== 0 && (

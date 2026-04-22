@@ -267,6 +267,14 @@ class RedditSeedRunner:
         # 3. Add generic distractors
         self._add_generic_distractors(ctx, count=seed_cfg.distractors)
 
+        # 3b. Guarantee every authored entity has a user profile so that
+        # /u/<author> renders instead of 404ing. Tasks sometimes seed posts,
+        # comments, or messages for named characters (e.g. CryptoSkeptic)
+        # that were never added to the baseline user_profiles sample, which
+        # leaves the block-user flow and profile navigation broken for any
+        # task that asks the agent to act on that user.
+        self._sync_user_profiles(ctx)
+
         # 4. Sort posts by time
         base["posts"] = sorted(
             base["posts"], key=lambda p: p.created_at, reverse=True
@@ -368,6 +376,65 @@ class RedditSeedRunner:
     # ------------------------------------------------------------------
     # Generic distractors
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _sync_user_profiles(ctx: RedditSeedContext) -> None:
+        """Ensure every authored entity has a matching UserProfile.
+
+        Collects authors from posts/comments, senders/recipients from
+        messages, and notification from_user fields; any name missing from
+        ``user_profiles`` (and not the owner) gets a minimal auto-generated
+        profile so ``/u/<name>`` renders and the Block-User button shows up.
+        """
+        base = ctx.base
+        owner = str(base.get("owner_username", "")).lower()
+        known = {u.username.lower() for u in base.get("user_profiles", [])}
+        seen: list[str] = []
+        seen_lower: set[str] = set()
+
+        def collect(name: str | None) -> None:
+            if not name:
+                return
+            low = name.lower()
+            if low == owner or low in known or low in seen_lower:
+                return
+            seen.append(name)
+            seen_lower.add(low)
+
+        for post in base.get("posts", []):
+            collect(getattr(post, "author_name", None))
+        for c in base.get("comments", []):
+            collect(getattr(c, "author_name", None))
+        for m in base.get("messages", []):
+            collect(getattr(m, "from_user", None))
+            collect(getattr(m, "to_user", None))
+        for m in base.get("sent_messages", []):
+            collect(getattr(m, "to_user", None))
+        for n in base.get("notifications", []):
+            collect(getattr(n, "from_user", None))
+
+        next_idx = len(base.get("user_profiles", [])) + 1
+        interests = ["technology", "science", "gaming", "photography", "music"]
+        for name in seen:
+            profile = UserProfile(
+                id=f"user_{next_idx}",
+                username=name,
+                display_name=name.replace("_", " "),
+                about=(
+                    f"Reddit user since {ctx.rng.randint(2015, 2024)}. "
+                    f"Interested in {ctx.rng.choice(interests)}."
+                ),
+                post_karma=ctx.rng.randint(100, 500000),
+                comment_karma=ctx.rng.randint(500, 1000000),
+                cake_day=ctx.now - timedelta(days=ctx.rng.randint(30, 365 * 10)),
+                is_premium=ctx.rng.random() < 0.1,
+                trophies=ctx.rng.sample(
+                    ["Verified Email", "One-Year Club", "Five-Year Club", "Gilding I", "Best Comment"],
+                    k=ctx.rng.randint(1, 3),
+                ),
+            )
+            base["user_profiles"].append(profile)
+            next_idx += 1
 
     @staticmethod
     def _add_generic_distractors(ctx: RedditSeedContext, count: int) -> None:

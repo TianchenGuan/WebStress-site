@@ -1507,12 +1507,19 @@ def list_deals(
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _amazon_state(session_manager, session_id)
-    # Products on sale = those with a list_price higher than price
-    deals = [
-        p.model_dump(mode="json")
-        for p in state.products
+    # Products on sale = those with a list_price higher than price.
+    # Sort by discount percentage descending so task-seeded featured deals
+    # (which carry the biggest markdowns) surface on the first page
+    # instead of being buried alphabetically with the baseline catalog.
+    on_sale = [
+        p for p in state.products
         if p.list_price is not None and p.list_price > p.price
     ]
+    on_sale.sort(
+        key=lambda p: (p.list_price - p.price) / p.list_price if p.list_price else 0.0,
+        reverse=True,
+    )
+    deals = [p.model_dump(mode="json") for p in on_sale]
     return _paginate(deals, page, page_size)
 
 

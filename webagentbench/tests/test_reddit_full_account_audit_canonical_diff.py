@@ -16,8 +16,11 @@ def _setup(seed: int = 42):
 def _apply_correct(state, targets):
     # 1. Block CryptoSkeptic
     state.blocked_users.append(targets["block_user"])
-    # 2. Hide posts by CryptoSkeptic (none exist in this seed — vacuous, fine)
-    # 3. Delete the message with id del_id (ryushin6 spam)
+    # 2. Hide posts by CryptoSkeptic
+    for p in state.posts:
+        if p.author_name == targets["block_user"]:
+            p.is_hidden = True
+    # 3. Delete the message with id del_id (CryptoSkeptic spam)
     state.messages = [m for m in state.messages if m.id != targets["del_id"]]
     # 4. Settings
     state.settings.theme = "dark"

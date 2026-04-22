@@ -86,7 +86,7 @@ seed:
     - r_msg_from
   - use: target_message
     params:
-      from_user: ryushin6
+      from_user: CryptoSkeptic
       subject: FREE NFT DROP!!!
       body: Limited time offer!
       is_read: false
@@ -94,6 +94,17 @@ seed:
     - del_msg_id
     - del_msg_sub
     - del_msg_from
+  - use: target_post
+    params:
+      subreddit: technology
+      title: Crypto skepticism thread - unpopular takes welcome
+      body: Sharing a contrarian view on the recent market cycle.
+      author: CryptoSkeptic
+      score: 420
+    outputs:
+    - cs_post_id
+    - cs_post_title
+    - cs_post_sub
   - use: capture_notification_ids
     params: {}
     outputs:
@@ -201,6 +212,14 @@ canonical_diff:
     changes:
       is_saved:
         eq: false
+  - entity: Post
+    desc: Posts by the target block_user were hidden
+    where:
+      author_name:
+        expr: "x == target['block_user']"
+    changes:
+      is_hidden:
+        eq: true
   delete:
   - entity: Message
     collection: state.messages
