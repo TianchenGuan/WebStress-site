@@ -1,14 +1,19 @@
 """Generate pre-filled worker audit prompts.
 
 Splits all WebAgentBench tasks across N workers in contiguous env-grouped
-chunks (so each worker mostly stays in 1-2 envs) and attaches every
-degradation variant whose base task the worker owns.
+chunks (so each worker mostly stays in 1-2 envs), attaches every degradation
+variant whose base task the worker owns, and inlines every task / variant
+YAML directly into the generated prompt. The output is a self-contained
+markdown file — paste it into claude-in-chrome and the worker has
+everything it needs without any HTTP or filesystem lookups.
 
 Usage:
     python scripts/generate_worker_prompts.py                       # defaults
     python scripts/generate_worker_prompts.py --env reddit --workers 5
     python scripts/generate_worker_prompts.py --env lms --env patient_portal --workers 10
     python scripts/generate_worker_prompts.py --env all --workers 14
+    python scripts/generate_worker_prompts.py --env amazon --workers 4 \\
+        --out docs/worker_prompts/amazon
 
 Options:
     --env ENV        Environment to include (repeatable). Pass `--env all`
@@ -72,6 +77,53 @@ def split_contiguous(items: list, n: int) -> list[list]:
     return chunks
 
 
+def _read_yaml_text(path: Path) -> str:
+    """Read a YAML file as-is and strip trailing whitespace. Missing files
+    raise FileNotFoundError up to the caller so broken assignments never
+    silently omit a task body.
+    """
+    return path.read_text().rstrip()
+
+
+def render_task_block(env: str, task_id: str, variant_ids: list[str]) -> str:
+    """Render one task's full YAML plus any assigned variant YAMLs as a
+    fenced-block markdown section.
+    """
+    lines: list[str] = []
+    lines.append(f"### Task: `{env}/{task_id}`")
+    lines.append("")
+    lines.append("```yaml")
+    lines.append(_read_yaml_text(TASKS_ROOT / env / f"{task_id}.yaml"))
+    lines.append("```")
+
+    if not variant_ids:
+        lines.append("")
+        lines.append("_No intervention variant assigned to this task._")
+
+    for vid in variant_ids:
+        lines.append("")
+        lines.append(f"#### Variant: `{vid}`")
+        lines.append("")
+        lines.append("```yaml")
+        lines.append(_read_yaml_text(VARIANTS_ROOT / f"{vid}.yaml"))
+        lines.append("```")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_task_definitions(
+    chunk: list[tuple[str, str]],
+    variants_by_base: dict[str, list[str]],
+) -> str:
+    """Concatenate all task blocks for one worker's chunk."""
+    blocks: list[str] = []
+    for env, task_id in chunk:
+        variant_ids = variants_by_base.get(task_id, [])
+        blocks.append(render_task_block(env, task_id, variant_ids))
+    return "\n".join(blocks)
+
+
 def fill_template(
     template: str,
     *,
@@ -79,6 +131,7 @@ def fill_template(
     envs: str,
     task_block: str,
     variant_block: str,
+    task_definitions: str,
     port: int,
 ) -> str:
     return (
@@ -87,6 +140,7 @@ def fill_template(
         .replace("{{ENV}}", envs)
         .replace("{{TASK_IDS}}", task_block)
         .replace("{{VARIANT_IDS}}", variant_block)
+        .replace("{{TASK_DEFINITIONS}}", task_definitions)
         .replace("localhost:8080", f"localhost:{port}")
     )
 
@@ -150,15 +204,15 @@ def main() -> None:
         "# Worker Assignment Index\n",
         f"Envs: {', '.join(args.env)}  |  Tasks: {len(tasks)}  |  Variants: {assigned_variant_total}  |  "
         f"Workers: {args.workers}  |  Port: {args.port}\n",
-        "| Worker | Envs | Tasks | Variants |",
-        "|---|---|---|---|",
+        "| Worker | Envs | Tasks | Variants | Prompt size |",
+        "|---|---|---|---|---|",
     ]
 
     digits = max(2, len(str(args.workers)))
     for i, chunk in enumerate(chunks, start=1):
         wid = f"w{i:0{digits}d}"
         if not chunk:
-            summary_lines.append(f"| {wid} | (empty) | 0 | 0 |")
+            summary_lines.append(f"| {wid} | (empty) | 0 | 0 | — |")
             continue
 
         envs_in_chunk: list[str] = []
@@ -178,20 +232,24 @@ def main() -> None:
         else:
             variant_block = " (none assigned)"
 
+        task_definitions = build_task_definitions(chunk, variants_by_base)
+
         filled = fill_template(
             template,
             worker_id=wid,
             envs=env_label,
             task_block=task_block,
             variant_block=variant_block,
+            task_definitions=task_definitions,
             port=args.port,
         )
 
         out_path = args.out / f"{wid}.md"
         out_path.write_text(filled)
 
+        size_kb = f"{len(filled) / 1024:.0f} KB"
         summary_lines.append(
-            f"| {wid} | {env_label} | {len(chunk)} | {len(variant_ids)} |"
+            f"| {wid} | {env_label} | {len(chunk)} | {len(variant_ids)} | {size_kb} |"
         )
 
     (args.out / "README.md").write_text("\n".join(summary_lines) + "\n")

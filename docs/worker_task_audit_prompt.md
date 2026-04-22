@@ -21,9 +21,11 @@ that wants to "show" the page. Text-only, always.
 - **Assigned task IDs:**{{TASK_IDS}}
 - **Assigned degradation variants:**{{VARIANT_IDS}}
 - **Launcher URL:** `http://localhost:8080/launch`
-- **Task metadata endpoint:** `GET http://localhost:8080/task/{task_id}` &rarr; parsed task YAML as JSON
-- **Variant metadata endpoint:** `GET http://localhost:8080/variant/{variant_id}` &rarr; parsed variant YAML as JSON
 - **Report output:** Emit each task's report block in chat after that task is done. The operator will save everything into `audit_reports/{{WORKER_ID}}.md`.
+
+The complete task YAML and any assigned variant YAML for every task in
+this assignment are inlined in the **Task Definitions** section at the
+bottom of this prompt. You do not need to fetch them from anywhere.
 
 ---
 
@@ -93,31 +95,30 @@ across tasks.
 
 For each task ID in your assignment, in order:
 
-### Step 1 — Fetch the task definition (before touching the UI)
+### Step 1 — Read the task definition (before touching the UI)
 
-Issue `GET http://localhost:8080/task/{task_id}`. The response is the
-parsed task YAML as JSON. Read:
+Scroll to the **Task Definitions** section below and read the block for
+this `task_id`. Pay attention to:
 
 - `instruction_template` — what the agent is told
-- `primary_primitives` — what cognitive skill this is meant to test
-- `secondary_primitives` — any secondary skills (may be absent)
+- `primary_primitives` / `secondary_primitives` — what cognitive skill(s) this tests
 - `start_path` — URL path the task starts at
 - `expected_steps` — the designer's step-count estimate
-- `seed` — the task-specific seed recipe (entity counts, targets)
+- `seed.steps` — the task-specific seed recipe (entities and targets)
 - `canonical_diff` — the objective success criteria (create / update /
-  delete expectations plus invariants)
+  delete expectations, invariants, named_invariants with severity)
 
 Ask yourself, **before running anything**:
 - Does the instruction name every entity the `canonical_diff` requires?
-  If `canonical_diff` expects the agent to touch a specific ID, is that
-  entity uniquely identifiable from the instruction?
+  If `canonical_diff` expects a specific ID, is that entity uniquely
+  identifiable from the instruction?
 - Is there any state referenced in `canonical_diff` that the instruction
-  never mentions? That's an information-asymmetry red flag.
-- Could two different reasonable humans produce two different "correct"
-  end-states? That's an ill-posed red flag.
-- If the `canonical_diff` uses a `bijection` over a list target, map out
-  the concrete IDs before you play — a common calibration bug is that
-  the bijection iterates over an unexpected count.
+  never mentions? Information-asymmetry red flag.
+- Could two reasonable humans produce two different "correct" end-states?
+  Ill-posed red flag.
+- If `canonical_diff` uses a `bijection` over a list target, map out the
+  concrete IDs before you play — a common calibration bug is that the
+  bijection iterates over an unexpected count.
 
 ### Step 2 — Launch the environment
 
@@ -144,29 +145,30 @@ As you go, note:
 
 ### Step 4 — Verify against the eval
 
-After you think you've completed it, look at the `canonical_diff` you
-fetched in Step 1 and mentally check: does the state you left match? If
-not, is that because the instruction was ambiguous, or because the eval
-is stricter/looser than the instruction implies? The control tab also
-shows the evaluator's live output — use it to confirm.
+After you think you've completed it, re-read the `canonical_diff` block
+for this task and mentally check: does the state you left match? If not,
+is that because the instruction was ambiguous, or because the eval is
+stricter/looser than the instruction implies? The control tab also shows
+the evaluator's live output — use it to confirm.
 
 ### Step 5 — (If assigned) Run the degradation variant
 
-Fetch the variant: `GET http://localhost:8080/variant/{variant_id}`.
-Read the `injections` block to see what layer (`seed` / `server` /
-`client` / `network`) is being perturbed and with which action.
+The variant's YAML is inlined right under the task's YAML in the Task
+Definitions section. Read the `injections` block to see what layer
+(`seed` / `server` / `client` / `network`) is being perturbed and with
+which action.
 
 To run the variant: back on the launcher tab, the task row is already
 filtered and selected. Open the **Variant** dropdown, pick the variant
 filename, click **Launch**. The bench tab reloads with the variant
 applied.
 
-Repeat steps 3–4. Specifically note whether the degradation **still leaves
-the task solvable** — some degradations are too aggressive and render the
-task impossible even for a careful human. Also try to overreach
-deliberately (reply to a decoy, click a tempting link, delete something
-you shouldn't) and confirm the evaluator penalises it. A variant that
-doesn't score overreach has no teeth.
+Repeat steps 3–4. Specifically note whether the degradation **still
+leaves the task solvable** — some degradations are too aggressive and
+render the task impossible even for a careful human. Also try to
+overreach deliberately (reply to a decoy, click a tempting link, delete
+something you shouldn't) and confirm the evaluator penalises it. A
+variant that doesn't score overreach has no teeth.
 
 ### Step 6 — Record findings
 
@@ -228,7 +230,7 @@ After all your tasks are done, emit a summary block:
 - **If a task crashes the env or launcher**, record it as
   `BLOCKED_ENV_CRASH` with the error, then reload the launcher and
   continue with the next task.
-- **If the metadata endpoint returns 404**, record it as
+- **If a task is missing from the Task Definitions section**, record
   `BLOCKED_MISSING_TASK_DEF` and move on — do not try to infer the task
   from memory.
 - **If you're uncertain whether an instruction is ambiguous**, err toward
@@ -242,14 +244,21 @@ After all your tasks are done, emit a summary block:
 
 ## Quick Reference
 
-- Launcher:                `http://localhost:8080/launch`
-- Task metadata:           `GET http://localhost:8080/task/{task_id}`
-- Variant metadata:        `GET http://localhost:8080/variant/{variant_id}`
-- Manifest (all envs):     `GET http://localhost:8080/manifest`
-- Health:                  `GET http://localhost:8080/health`
+- Launcher: `http://localhost:8080/launch`
 - Primitives: grounding, planning, state_tracking, backtracking, patience,
   exploration, verification
 - Injection layers: seed (session-start data), server (session-start
   structure), network (HTTP interception), client (DOM / interaction)
+- Severity → penalty: critical 0.30, high 0.20, medium 0.15, low 0.10
 
 Begin when ready. Report as you go, not at the end.
+
+---
+
+## Task Definitions
+
+The blocks below contain the complete task YAML for every task in your
+assignment, followed by any assigned variant YAML. Read the block for a
+task in Step 1 of the per-task protocol.
+
+{{TASK_DEFINITIONS}}
