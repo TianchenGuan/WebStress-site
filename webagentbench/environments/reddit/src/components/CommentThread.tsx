@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { Comment } from "../types";
 import { VoteButtons } from "./VoteButtons";
@@ -50,12 +50,24 @@ function CommentNode({
   const [isCollapsed, setIsCollapsed] = useState(comment.is_collapsed);
   const isOwner = comment.author_name === ownerUsername;
   const children = tree.get(comment.id) ?? [];
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmitReply = () => {
-    if (!replyText.trim()) return;
-    onReply(comment.id, replyText.trim());
+    const body = (replyRef.current?.value ?? replyText).trim();
+    if (!body) return;
+    onReply(comment.id, body);
     setReplyText("");
+    if (replyRef.current) replyRef.current.value = "";
     setIsReplying(false);
+  };
+
+  const handleSubmitEdit = () => {
+    if (!onEdit) return;
+    const body = (editRef.current?.value ?? editText).trim();
+    if (!body) return;
+    onEdit(comment.id, body);
+    setIsEditing(false);
   };
 
   return (
@@ -126,6 +138,7 @@ function CommentNode({
             {isEditing && onEdit && (
               <div className="comment-node__reply-form">
                 <textarea
+                  ref={editRef}
                   className="comment-reply-textarea"
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
@@ -134,7 +147,7 @@ function CommentNode({
                 />
                 <div className="comment-reply-actions">
                   <button className="comment-reply-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
-                  <button className="comment-reply-submit" onClick={() => { onEdit(comment.id, editText); setIsEditing(false); }} disabled={!editText.trim()}>Save Edit</button>
+                  <button className="comment-reply-submit" onClick={handleSubmitEdit}>Save Edit</button>
                 </div>
               </div>
             )}
@@ -142,6 +155,7 @@ function CommentNode({
             {isReplying && (
               <div className="comment-node__reply-form">
                 <textarea
+                  ref={replyRef}
                   className="comment-reply-textarea"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
@@ -151,7 +165,7 @@ function CommentNode({
                 />
                 <div className="comment-reply-actions">
                   <button className="comment-reply-cancel" onClick={() => { setIsReplying(false); setReplyText(""); }}>Cancel</button>
-                  <button className="comment-reply-submit" onClick={handleSubmitReply} disabled={!replyText.trim()}>Reply</button>
+                  <button className="comment-reply-submit" onClick={handleSubmitReply}>Reply</button>
                 </div>
               </div>
             )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { preserveQueryParams } from "@webagentbench/shared";
 
@@ -28,6 +28,11 @@ export function PostPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
+  // Fallback for agents that set textarea.value programmatically without
+  // dispatching an input event (React's synthetic onChange then never
+  // fires, leaving `newComment` stale and the submit button disabled).
+  const newCommentRef = useRef<HTMLTextAreaElement>(null);
+  const editBodyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (activePostId === postId) {
@@ -73,11 +78,13 @@ export function PostPage() {
   };
 
   const handleAddComment = async () => {
-    if (!postId || !newComment.trim()) return;
+    const body = (newCommentRef.current?.value ?? newComment).trim();
+    if (!postId || !body) return;
     try {
-      const { comment } = await api.createComment(postId, newComment.trim());
+      const { comment } = await api.createComment(postId, body);
       setComments((prev) => [comment, ...prev]);
       setNewComment("");
+      if (newCommentRef.current) newCommentRef.current.value = "";
       if (post) setPost({ ...post, comment_count: post.comment_count + 1 });
       notify("Comment posted");
     } catch { notify("Failed to post comment"); }
@@ -154,8 +161,9 @@ export function PostPage() {
   const handleSaveEdit = async () => {
     if (!post) return;
     setEditSubmitting(true);
+    const body = editBodyRef.current?.value ?? editBody;
     try {
-      const { post: updated } = await api.editPost(post.id, editBody);
+      const { post: updated } = await api.editPost(post.id, body);
       setPost(updated);
       setIsEditing(false);
       setEditBody("");
@@ -211,6 +219,7 @@ export function PostPage() {
           ) : isEditing ? (
             <div className="post-detail__edit-form">
               <textarea
+                ref={editBodyRef}
                 className="post-detail__edit-input"
                 value={editBody}
                 onChange={(e) => setEditBody(e.target.value)}
@@ -284,6 +293,7 @@ export function PostPage() {
       {!hideNsfw && !post.is_locked && (
         <div className="post-page__add-comment">
           <textarea
+            ref={newCommentRef}
             className="post-page__comment-input"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -294,7 +304,6 @@ export function PostPage() {
           <button
             className="post-page__comment-submit"
             onClick={handleAddComment}
-            disabled={!newComment.trim()}
           >
             Comment
           </button>

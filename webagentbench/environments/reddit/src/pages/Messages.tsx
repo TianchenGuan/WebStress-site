@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button, preserveQueryParams } from "@webagentbench/shared";
 
@@ -21,6 +21,12 @@ export function MessagesPage() {
   const [toUser, setToUser] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  // Refs let us read live DOM values even when an agent sets input.value
+  // programmatically without dispatching a React-visible input event.
+  const toUserRef = useRef<HTMLInputElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const replyBodyRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,12 +78,16 @@ export function MessagesPage() {
   };
 
   const handleSend = async () => {
-    if (!toUser.trim() || !subject.trim() || !body.trim()) return;
+    const to = (toUserRef.current?.value ?? toUser).trim();
+    const subj = (subjectRef.current?.value ?? subject).trim();
+    const replyDomValue = replyingTo ? replyBodyRef.current?.value : undefined;
+    const bdy = (replyDomValue ?? bodyRef.current?.value ?? body).trim();
+    if (!to || !subj || !bdy) return;
     try {
       await api.sendMessage({
-        to_user: toUser.trim(),
-        subject: subject.trim(),
-        body: body.trim(),
+        to_user: to,
+        subject: subj,
+        body: bdy,
         ...(replyingTo ? { parent_id: replyingTo.id } : {}),
       });
       setComposing(false);
@@ -85,6 +95,10 @@ export function MessagesPage() {
       setToUser("");
       setSubject("");
       setBody("");
+      if (toUserRef.current) toUserRef.current.value = "";
+      if (subjectRef.current) subjectRef.current.value = "";
+      if (bodyRef.current) bodyRef.current.value = "";
+      if (replyBodyRef.current) replyBodyRef.current.value = "";
       notify("Message sent!");
       if (folder === "sent") void load();
     } catch {
@@ -127,10 +141,10 @@ export function MessagesPage() {
 
       {composing && (
         <div className="messages-compose" aria-label="Compose message">
-          <input type="text" value={toUser} onChange={(e) => setToUser(e.target.value)} placeholder="To: u/username" className="messages-compose__input" aria-label="Recipient username" />
-          <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="messages-compose__input" aria-label="Message subject" />
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message" className="messages-compose__textarea" rows={4} aria-label="Message body" />
-          <Button variant="primary" onClick={handleSend} disabled={!toUser.trim() || !subject.trim() || !body.trim()} aria-label="Send message">Send</Button>
+          <input ref={toUserRef} type="text" value={toUser} onChange={(e) => setToUser(e.target.value)} placeholder="To: u/username" className="messages-compose__input" aria-label="Recipient username" />
+          <input ref={subjectRef} type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="messages-compose__input" aria-label="Message subject" />
+          <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message" className="messages-compose__textarea" rows={4} aria-label="Message body" />
+          <Button variant="primary" onClick={handleSend} aria-label="Send message">Send</Button>
         </div>
       )}
 
@@ -161,10 +175,10 @@ export function MessagesPage() {
               </div>
               {replyingTo?.id === msg.id && (
                 <div className="message-reply-form" aria-label="Reply to message">
-                  <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your reply..." className="messages-compose__textarea" rows={3} aria-label="Reply body" />
+                  <textarea ref={replyBodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your reply..." className="messages-compose__textarea" rows={3} aria-label="Reply body" />
                   <div className="message-reply-form__actions">
                     <button className="message-action" onClick={handleCancelReply}>Cancel</button>
-                    <Button variant="primary" onClick={handleSend} disabled={!body.trim()} aria-label="Send reply">Send Reply</Button>
+                    <Button variant="primary" onClick={handleSend} aria-label="Send reply">Send Reply</Button>
                   </div>
                 </div>
               )}
