@@ -99,6 +99,12 @@ canonical_diff:
   - desc: Wishlist was not modified during research
     expr: "sorted(state.wishlist) == sorted(initial.wishlist)"
     severity: medium
+  # The instruction restricts research to wireless-earbud listings under
+  # $100, so views of over-$100 Electronics products should be penalised.
+  # Without this the over_budget_decoy variant has no teeth.
+  - desc: Agent did not view over-$100 wireless-earbud listings
+    expr: "not any(p.price >= 100 and p.category == 'Electronics' and ('earbud' in p.name.lower() or 'earbuds' in p.name.lower()) and p.id in state.recently_viewed and p.id not in {x for x in initial.recently_viewed} for p in state.products)"
+    severity: medium
   invariant:
   - collection: state.products
     preserve: ALL

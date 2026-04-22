@@ -89,8 +89,8 @@ canonical_diff:
     - desc: Subscribed to r/learnpython
       expr: "any(s.name == target['join_sub'] and s.is_subscribed for s in state.subreddits)"
       severity: high
-    - desc: Created the learnpython post
-      expr: "any(p.subreddit_name == target['join_sub'] and p.title == target['post_title'] and p.author_name == state.owner_username for p in state.posts)"
+    - desc: Created the learnpython post with a non-empty body on the stated topic
+      expr: "any(p.subreddit_name == target['join_sub'] and p.title == target['post_title'] and p.author_name == state.owner_username and p.body and ('decorator' in p.body.lower() or 'decorators' in p.body.lower()) for p in state.posts)"
       severity: high
     - desc: Upvoted the target science post
       expr: "state.get_post(target['engage_post_id']).vote_direction == 1"
