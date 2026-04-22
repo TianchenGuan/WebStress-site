@@ -111,6 +111,13 @@ cp webagentbench/.env.example webagentbench/.env
 $EDITOR webagentbench/.env           # paste keys; file is gitignored
 ```
 
+> **AWS Bedrock users:** an `AWS_BEDROCK_API_KEY` alone is not enough. Go to
+> AWS Console → **Bedrock** → **Model access** → **Manage model access** and
+> request access to each model family you plan to use (Claude, Qwen, etc.).
+> Some Anthropic models also require a short use-case form. Without this,
+> every LLM call returns `permission_error: ... is not available for this
+> account`.
+
 Sanity check the frontend build and the `.env`:
 
 ```bash
@@ -145,6 +152,11 @@ python -m webagentbench.stock_browseruse_eval \
 
 If the smoke PASSes you are set up end-to-end. The rest of this section
 scales that command up to the full benchmark.
+
+> **Hit `permission_error: ... is not available for this account`?** The model
+> is live on Bedrock but not authorized for your account. Revisit
+> **Model access** in the Bedrock console and confirm the row is `Access
+> granted`, not `Available to request`.
 
 ### Supported providers
 
@@ -276,10 +288,17 @@ throughput.
 
 - **Claude (Sonnet / Opus) on Bedrock** — clean. Daily TPD quota is per-model;
   long sweeps can exhaust Opus's cap in ~3 expert-tier tasks. Sonnet 4.6 has
-  a larger quota and is the recommended default.
+  a larger quota and is the recommended default. For the full 280-run primary
+  sweep on Opus, file a TPD quota-increase request via AWS Service Quotas
+  (24–48 h lead time); for exploration runs, start with `--limit 5` to check
+  headroom before committing to a long sweep.
 - **Qwen3-VL-235B (`qwen.qwen3-vl-235b-a22b`)** — works once the harness's
   `toolChoice` forcing is applied (already wired in this repo). Without it,
   the model returns flat JSON (`{"click": 45}`) that fails Pydantic validation.
+  Separately, Qwen tends to **over-act** (do steps the task didn't ask for,
+  e.g. check grade → then also submit homework) and miss fine recipient/body
+  constraints — these show up as low eval scores even though the agent says
+  it succeeded. This is a model-capability gap, not a harness bug.
 - **Kimi K2.5 (`moonshotai.kimi-k2.5`)** — Bedrock silently ignores
   `toolChoice` for this vendor, so the model still drops to plain-text
   reasoning at long context (~step 4+). Kimi K2.5 via Bedrock is not
