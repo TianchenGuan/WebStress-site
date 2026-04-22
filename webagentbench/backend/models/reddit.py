@@ -11,6 +11,30 @@ from pydantic import BaseModel, ConfigDict, Field
 from .base import BaseEntity, BaseEnvState, diff_dict_of_dicts
 
 
+def _reddit_query_tokens(query: str | None) -> list[str]:
+    """Tokenize a reddit-style search query.
+
+    Users commonly type the Reddit-convention prefixes ``r/<sub>`` and
+    ``u/<user>`` into the search bar. Without special handling those
+    prefixes get attached to the real token ("r/machinelearning") and the
+    whole-token substring match fails against haystacks that only contain
+    the bare name ("machinelearning"). Strip the prefixes so the search
+    matches what a human would expect.
+    """
+    if not query:
+        return []
+    tokens: list[str] = []
+    for raw in query.lower().split():
+        tok = raw
+        if tok.startswith("/r/") or tok.startswith("/u/"):
+            tok = tok[3:]
+        elif tok.startswith("r/") or tok.startswith("u/"):
+            tok = tok[2:]
+        if tok:
+            tokens.append(tok)
+    return tokens
+
+
 # ---------------------------------------------------------------------------
 # Sub-entities
 # ---------------------------------------------------------------------------
@@ -633,7 +657,7 @@ class RedditState(BaseEnvState):
     # ------------------------------------------------------------------
 
     def search_posts(self, query: str, subreddit_name: str | None = None, sort: str = "relevance") -> list[Post]:
-        tokens = query.lower().split() if query else []
+        tokens = _reddit_query_tokens(query)
         items = [p for p in self.posts if not p.is_removed and not p.is_hidden]
         if subreddit_name:
             items = [p for p in items if p.subreddit_name.lower() == subreddit_name.lower()]
@@ -657,7 +681,7 @@ class RedditState(BaseEnvState):
         return items
 
     def search_subreddits(self, query: str) -> list[Subreddit]:
-        tokens = query.lower().split() if query else []
+        tokens = _reddit_query_tokens(query)
         if not tokens:
             return list(self.subreddits)
         results = []
