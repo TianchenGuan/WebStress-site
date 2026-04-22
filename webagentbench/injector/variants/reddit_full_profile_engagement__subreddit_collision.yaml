@@ -1,7 +1,11 @@
 variant_id: reddit_full_profile_engagement__subreddit_collision
 base_task_id: reddit_full_profile_engagement
 target_primitive: grounding
-description: Two sibling communities (r/photography2 and r/Truephotography, chosen by distinct naming attacks) mirror r/photography's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
+description: u/PhotonWave's profile now carries two additional PhotonWave-authored
+  bird-photography posts, and r/photography has lookalike siblings (r/photography2,
+  r/Truephotography). The agent must upvote, save, comment on, and message about
+  the exact Central Park post in r/photography, not a sibling post from the same
+  user or a decoy sub.
 injections:
 - layer: seed
   params:
@@ -19,8 +23,15 @@ injections:
       subscribers: 2132000
     - type: post
       subreddit: photography2
-      title: Interesting discussion thread
-      author: shadow_mod
-      score: 144
-      comments: 21
-      body: Same headline posted into the wrong, lookalike subreddit.
+      title: I spent 3 years photographing every species of bird in Central Park
+      author: PhotonWave
+      score: 28400
+      comments: 412
+      body: Same Central Park bird-photography headline reposted into the lookalike sub; appears on PhotonWave's profile alongside the real target.
+    - type: post
+      subreddit: photography
+      title: I spent 5 years photographing every species of bird in Prospect Park
+      author: PhotonWave
+      score: 18200
+      comments: 276
+      body: Earlier PhotonWave series; same opener, different park ("Prospect Park"), different duration.

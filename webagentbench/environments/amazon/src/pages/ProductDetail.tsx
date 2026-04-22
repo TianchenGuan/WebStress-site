@@ -478,7 +478,9 @@ export function ProductDetailPage() {
                   className="amazon-btn amazon-btn--add-to-cart"
                   onClick={handleAddToCart}
                   disabled={addingToCart || loading || !product}
-                  aria-label="Add to Cart"
+                  aria-label={`Add ${product?.name ?? "item"} to Cart`}
+                  data-action="add-to-cart"
+                  data-product-id={product?.id}
                 >
                   {addingToCart ? "Adding..." : "Add to Cart"}
                 </button>
@@ -487,7 +489,9 @@ export function ProductDetailPage() {
                   className="amazon-btn amazon-btn--buy-now"
                   onClick={handleBuyNow}
                   disabled={addingToCart || loading || !product}
-                  aria-label="Buy Now"
+                  aria-label={`Buy ${product?.name ?? "item"} Now`}
+                  data-action="buy-now"
+                  data-product-id={product?.id}
                 >
                   Buy Now
                 </button>
@@ -496,7 +500,9 @@ export function ProductDetailPage() {
                   className="amazon-btn amazon-btn--wishlist"
                   onClick={handleAddToWishlist}
                   disabled={loading || !product}
-                  aria-label="Add to Wishlist"
+                  aria-label={`Add ${product?.name ?? "item"} to Wishlist`}
+                  data-action="add-to-wishlist"
+                  data-product-id={product?.id}
                 >
                   Add to Wishlist
                 </button>

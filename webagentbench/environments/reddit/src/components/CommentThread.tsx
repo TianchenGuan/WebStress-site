@@ -71,7 +71,7 @@ function CommentNode({
   };
 
   return (
-    <div className="comment-node" style={{ marginLeft: `${Math.min(comment.depth * 20, 100)}px` }}>
+    <div className="comment-node" data-comment-id={comment.id} data-author={comment.author_name} style={{ marginLeft: `${Math.min(comment.depth * 20, 100)}px` }}>
       <div
         className="comment-node__collapse-bar"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -113,59 +113,65 @@ function CommentNode({
                 onVote={(dir) => onVote(comment.id, dir)}
                 vertical={false}
               />
-              <button className="comment-action" onClick={() => setIsReplying(!isReplying)} aria-label="Reply to comment">
+              <button className="comment-action" data-comment-id={comment.id} data-action="reply" onClick={() => setIsReplying(!isReplying)} aria-label={`Reply to comment by ${comment.author_name}`}>
                 Reply
               </button>
               <button
                 className={`comment-action ${comment.is_saved ? "comment-action--active" : ""}`}
+                data-comment-id={comment.id}
+                data-action={comment.is_saved ? "unsave" : "save"}
                 onClick={() => onSave?.(comment.id)}
-                aria-label={comment.is_saved ? "Unsave comment" : "Save comment"}
+                aria-label={comment.is_saved ? `Unsave comment by ${comment.author_name}` : `Save comment by ${comment.author_name}`}
               >
                 {comment.is_saved ? "★ Saved" : "☆ Save"}
               </button>
               {isOwner && onEdit && !comment.is_removed && (
-                <button className="comment-action" onClick={() => { setIsEditing(!isEditing); setEditText(comment.body); }} aria-label="Edit comment">
+                <button className="comment-action" data-comment-id={comment.id} data-action="edit" onClick={() => { setIsEditing(!isEditing); setEditText(comment.body); }} aria-label={`Edit comment by ${comment.author_name}`}>
                   Edit
                 </button>
               )}
               {isOwner && onDelete && !comment.is_removed && (
-                <button className="comment-action comment-action--danger" onClick={() => onDelete(comment.id)} aria-label="Delete comment">
+                <button className="comment-action comment-action--danger" data-comment-id={comment.id} data-action="delete" onClick={() => onDelete(comment.id)} aria-label={`Delete comment by ${comment.author_name}`}>
                   Delete
                 </button>
               )}
             </div>
 
             {isEditing && onEdit && (
-              <div className="comment-node__reply-form">
+              <div className="comment-node__reply-form" data-comment-id={comment.id}>
                 <textarea
                   ref={editRef}
+                  data-comment-id={comment.id}
+                  data-role="edit-body"
                   className="comment-reply-textarea"
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   rows={3}
-                  aria-label="Edit comment text"
+                  aria-label={`Edit comment text (${comment.author_name})`}
                 />
                 <div className="comment-reply-actions">
-                  <button className="comment-reply-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
-                  <button className="comment-reply-submit" onClick={handleSubmitEdit}>Save Edit</button>
+                  <button className="comment-reply-cancel" data-comment-id={comment.id} onClick={() => setIsEditing(false)}>Cancel</button>
+                  <button className="comment-reply-submit" data-comment-id={comment.id} data-action="edit-submit" onClick={handleSubmitEdit}>Save Edit</button>
                 </div>
               </div>
             )}
 
             {isReplying && (
-              <div className="comment-node__reply-form">
+              <div className="comment-node__reply-form" data-comment-id={comment.id}>
                 <textarea
                   ref={replyRef}
+                  data-comment-id={comment.id}
+                  data-role="reply-body"
                   className="comment-reply-textarea"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder={`Reply to ${comment.author_name}...`}
                   rows={3}
-                  aria-label="Reply text"
+                  aria-label={`Reply text for comment by ${comment.author_name}`}
                 />
                 <div className="comment-reply-actions">
-                  <button className="comment-reply-cancel" onClick={() => { setIsReplying(false); setReplyText(""); }}>Cancel</button>
-                  <button className="comment-reply-submit" onClick={handleSubmitReply}>Reply</button>
+                  <button className="comment-reply-cancel" data-comment-id={comment.id} onClick={() => { setIsReplying(false); setReplyText(""); }}>Cancel</button>
+                  <button className="comment-reply-submit" data-comment-id={comment.id} data-action="reply-submit" onClick={handleSubmitReply}>Reply</button>
                 </div>
               </div>
             )}

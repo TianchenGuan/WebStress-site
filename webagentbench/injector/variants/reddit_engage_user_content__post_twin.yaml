@@ -1,8 +1,10 @@
 variant_id: reddit_engage_user_content__post_twin
 base_task_id: reddit_engage_user_content
 target_primitive: grounding
-description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
-  engage with the exact target thread rather than the similar twin.
+description: u/PhotonWave's profile now carries two additional PhotonWave-authored
+  Minecraft posts whose titles echo the target's "I recreated ... in Minecraft and
+  it took ... months" phrasing. The agent must upvote and save the exact target
+  post ("entire Zelda overworld ... 14 months"), not a sibling from the same user.
 injections:
 - layer: seed
   params:
@@ -10,20 +12,20 @@ injections:
     decoys:
     - type: post
       subreddit: gaming
-      title: Interesting discussion thread [Update]
-      author: lookalike_helper
-      score: 245
-      comments: 41
-      body: Near-duplicate discussion thread with overlapping keywords.
+      title: I recreated the Zelda Hyrule Castle in Minecraft and it took 4 months
+      author: PhotonWave
+      score: 21800
+      comments: 340
+      body: Earlier PhotonWave Minecraft build; same opener and franchise, narrower scope (castle, 4 months).
     - type: subreddit
       name: gaming_
       display_name: r/gaming_
-      description: Lookalike subreddit with a nearly identical name.
+      description: Lookalike community mirroring r/gaming posts with minor edits.
       subscribers: 82000
     - type: post
       subreddit: gaming_
-      title: Interesting discussion thread
-      author: crosspost_helper
-      score: 188
-      comments: 23
-      body: Same title posted in a different, similarly named subreddit.
+      title: I recreated the entire Zelda overworld in Minecraft and it took 14 months
+      author: PhotonWave
+      score: 12400
+      comments: 198
+      body: Same PhotonWave Minecraft Zelda title reposted into the lookalike sub — appears on the profile alongside the real target.

@@ -134,10 +134,10 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: Order contains all three high-rated deal products (and no low-rated bad deals)
+    desc: Order contains exactly the three high-rated deal products (no low-rated bad deals, no other items)
     properties:
       items:
-        expr: "any(it['product_id'] == target['deal_1'] for it in x) and any(it['product_id'] == target['deal_2'] for it in x) and any(it['product_id'] == target['deal_3'] for it in x) and all(it['product_id'] not in [target['bad_1'], target['bad_2']] for it in x)"
+        expr: "len(x) == 3 and {it['product_id'] for it in x} == {target['deal_1'], target['deal_2'], target['deal_3']}"
       status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}

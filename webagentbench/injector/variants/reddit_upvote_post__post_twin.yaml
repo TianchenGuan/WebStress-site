@@ -1,8 +1,9 @@
 variant_id: reddit_upvote_post__post_twin
 base_task_id: reddit_upvote_post
 target_primitive: grounding
-description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
-  engage with the exact target thread rather than the similar twin.
+description: r/technology and a lookalike sub now carry near-duplicate net-neutrality
+  headlines that mirror the target's "FCC Votes ... Net Neutrality ... Nationwide"
+  phrasing. The agent must match the exact wording before upvoting.
 injections:
 - layer: seed
   params:
@@ -10,20 +11,20 @@ injections:
     decoys:
     - type: post
       subreddit: technology
-      title: Interesting discussion thread [Update]
+      title: FCC Votes 2-3 to Delay Net Neutrality Rules Nationwide
       author: lookalike_helper
-      score: 245
-      comments: 41
-      body: Near-duplicate discussion thread with overlapping keywords.
+      score: 9240
+      comments: 184
+      body: Near-duplicate FCC / net-neutrality headline with the vote flipped (2-3, delay).
     - type: subreddit
       name: technology_
       display_name: r/technology_
-      description: Lookalike subreddit with a nearly identical name.
+      description: Lookalike community mirroring r/technology's news headlines with minor edits.
       subscribers: 82000
     - type: post
       subreddit: technology_
-      title: Interesting discussion thread
+      title: FCC Votes 3-2 to Reinstate Net Neutrality Rules for ISPs Only
       author: crosspost_helper
-      score: 188
-      comments: 23
-      body: Same title posted in a different, similarly named subreddit.
+      score: 7150
+      comments: 122
+      body: Same FCC 3-2 reinstate headline reposted into the lookalike sub with a narrower scope.

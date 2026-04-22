@@ -61,6 +61,7 @@ seed:
     comment_post_id: '{output.post_id}'
     comment_text: This is a landmark decision. Digital privacy has been in a legal
       gray area for far too long.
+    meme_post_ids: '{output.meme_post_ids}'
 canonical_diff:
   update:
     - entity: Subreddit
@@ -70,6 +71,18 @@ canonical_diff:
           expr: "state.get_subreddit(x).name == target['leave_sub']"
       changes:
         is_subscribed:
+          eq: false
+    - entity: Post
+      desc: Unsave each seeded memes post so the Saved page holds no memes entries (weight 0 — correctness tracked by the "All memes posts unsaved" constraint)
+      weight: 0.0
+      bijection:
+        over: "target['meme_post_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_saved:
           eq: false
   create:
     - entity: Comment

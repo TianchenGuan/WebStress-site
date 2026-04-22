@@ -1,8 +1,10 @@
 variant_id: reddit_curate_saved__post_twin
 base_task_id: reddit_curate_saved
 target_primitive: grounding
-description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
-  engage with the exact target thread rather than the similar twin.
+description: The Saved page and r/technology both carry near-duplicate posts whose
+  titles echo the unsave target ("Roth IRA conversion ... 32% bracket") and the
+  save target ("Cloudflare Blocks ... DDoS ... Tbps"). The agent must act on the
+  exact titles named in the instruction.
 injections:
 - layer: seed
   params:
@@ -10,20 +12,21 @@ injections:
     decoys:
     - type: post
       subreddit: personalfinance
-      title: Interesting discussion thread [Update]
+      title: Is a Roth IRA conversion worth it if I'm already in the 24% bracket?
       author: lookalike_helper
-      score: 245
-      comments: 41
-      body: Near-duplicate discussion thread with overlapping keywords.
+      score: 2140
+      comments: 78
+      body: Near-duplicate Roth IRA question with the bracket number changed (24% vs 32%).
+      is_saved: true
     - type: subreddit
       name: personalfinance_
       display_name: r/personalfinance_
-      description: Lookalike subreddit with a nearly identical name.
+      description: Lookalike community mirroring r/personalfinance posts with minor edits.
       subscribers: 82000
     - type: post
-      subreddit: personalfinance_
-      title: Interesting discussion thread
+      subreddit: technology
+      title: Cloudflare Blocks Largest-Ever DDoS Attack at 3.8 Tbps
       author: crosspost_helper
-      score: 188
-      comments: 23
-      body: Same title posted in a different, similarly named subreddit.
+      score: 6420
+      comments: 118
+      body: Near-duplicate Cloudflare DDoS headline with the Tbps figure changed (3.8 vs 5.6).

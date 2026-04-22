@@ -120,6 +120,9 @@ seed:
   targets:
     subscriptions: '{output.subscriptions}'
     initial_subscriptions: '{output.subscriptions}'
+    tech_id: '{output.tech_id}'
+    game_id: '{output.game_id}'
+    sci_id: '{output.sci_id}'
     wn_title: '{output.sci_title}'
     wn_id: '{output.sci_id}'
     prog_title: '{output.prog_title}'
@@ -181,17 +184,17 @@ canonical_diff:
   # Plus an aggregate notifications-read sweep. A constraint-only block
   # captures this semantics cleanly (spec §3.6 / Class 10).
   constraints:
-    - desc: Upvoted a post in r/technology
-      expr: "any(p.subreddit_name == 'technology' and p.vote_direction == 1 for p in state.posts)"
+    - desc: Upvoted the named r/technology post (t1)
+      expr: "any(p.id == target['tech_id'] and p.vote_direction == 1 for p in state.posts)"
       severity: high
-    - desc: Saved a post in r/gaming
-      expr: "any(p.subreddit_name == 'gaming' and p.id in state.saved_post_ids for p in state.posts)"
+    - desc: Saved the named r/gaming post (t2)
+      expr: "any(p.id == target['game_id'] and p.id in state.saved_post_ids for p in state.posts)"
       severity: high
-    - desc: Commented on a post in r/science
-      expr: "any(c.author_name == state.owner_username and any(p.id == c.post_id and p.subreddit_name == 'science' for p in state.posts) for c in state.comments)"
+    - desc: Commented on the named r/science post (t3) with exact body
+      expr: "any(c.post_id == target['sci_id'] and c.author_name == state.owner_username and c.body == target['c3'] for c in state.comments)"
       severity: high
-    - desc: Upvoted and commented on a post in r/programming
-      expr: "any(p.subreddit_name == 'programming' and p.vote_direction == 1 and any(c.author_name == state.owner_username and c.post_id == p.id for c in state.comments) for p in state.posts)"
+    - desc: Upvoted and commented on the named r/programming post (t4) with exact body
+      expr: "any(p.id == target['prog_id'] and p.vote_direction == 1 for p in state.posts) and any(c.post_id == target['prog_id'] and c.author_name == state.owner_username and c.body == target['c4'] for c in state.comments)"
       severity: high
     - desc: Subscribed to r/{target.join}
       expr: "any(s.name == target['join'] and s.is_subscribed for s in state.subreddits)"

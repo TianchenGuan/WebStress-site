@@ -21,6 +21,7 @@ export function MessagesPage() {
   const [toUser, setToUser] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   // Refs let us read live DOM values even when an agent sets input.value
   // programmatically without dispatching a React-visible input event.
   const toUserRef = useRef<HTMLInputElement>(null);
@@ -83,6 +84,7 @@ export function MessagesPage() {
     const replyDomValue = replyingTo ? replyBodyRef.current?.value : undefined;
     const bdy = (replyDomValue ?? bodyRef.current?.value ?? body).trim();
     if (!to || !subj || !bdy) return;
+    setSendError(null);
     try {
       await api.sendMessage({
         to_user: to,
@@ -101,7 +103,12 @@ export function MessagesPage() {
       if (replyBodyRef.current) replyBodyRef.current.value = "";
       notify("Message sent!");
       if (folder === "sent") void load();
-    } catch {
+    } catch (err) {
+      const status = (err as { status?: number } | null)?.status;
+      const banner = status
+        ? `Failed to send message (HTTP ${status}). Your draft is still in the form — click Send again to retry.`
+        : "Failed to send message. Your draft is still in the form — click Send again to retry.";
+      setSendError(banner);
       notify("Failed to send message");
     }
   };
@@ -141,6 +148,11 @@ export function MessagesPage() {
 
       {composing && (
         <div className="messages-compose" aria-label="Compose message">
+          {sendError && (
+            <div className="messages-compose__error" role="alert" aria-live="assertive">
+              {sendError}
+            </div>
+          )}
           <input ref={toUserRef} type="text" value={toUser} onChange={(e) => setToUser(e.target.value)} placeholder="To: u/username" className="messages-compose__input" aria-label="Recipient username" />
           <input ref={subjectRef} type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="messages-compose__input" aria-label="Message subject" />
           <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message" className="messages-compose__textarea" rows={4} aria-label="Message body" />
@@ -175,6 +187,11 @@ export function MessagesPage() {
               </div>
               {replyingTo?.id === msg.id && (
                 <div className="message-reply-form" aria-label="Reply to message">
+                  {sendError && (
+                    <div className="messages-compose__error" role="alert" aria-live="assertive">
+                      {sendError}
+                    </div>
+                  )}
                   <textarea ref={replyBodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your reply..." className="messages-compose__textarea" rows={3} aria-label="Reply body" />
                   <div className="message-reply-form__actions">
                     <button className="message-action" onClick={handleCancelReply}>Cancel</button>

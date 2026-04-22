@@ -16,11 +16,15 @@ def _setup(seed: int = 42):
 
 def test_correct_trajectory_passes():
     _, _, targets, initial, state = _setup()
-    # Unsave all memes posts — only mutate saved_post_ids (list[str] isn't
-    # compute_diff'd). Mutating Post.is_saved would surface unaccounted
-    # updates via the sweep since state.posts isn't a positive-diff target.
+    # Unsave all memes posts — flip both saved_post_ids and Post.is_saved to
+    # mirror the real POST /posts/{id}/unsave endpoint. The weight-0 bijection
+    # update on Post covers the is_saved changes so the preserve-ALL
+    # invariant on state.posts doesn't fire for the intended unsaves.
     memes_ids = {p.id for p in state.posts if p.subreddit_name == targets["unsave_sub"]}
     state.saved_post_ids = [pid for pid in state.saved_post_ids if pid not in memes_ids]
+    for p in state.posts:
+        if p.id in memes_ids:
+            p.is_saved = False
     # Unsubscribe memes
     for s in state.subreddits:
         if s.name == targets["leave_sub"]:

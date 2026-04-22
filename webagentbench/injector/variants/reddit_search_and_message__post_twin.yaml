@@ -1,8 +1,9 @@
 variant_id: reddit_search_and_message__post_twin
 base_task_id: reddit_search_and_message
 target_primitive: grounding
-description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
-  engage with the exact target thread rather than the similar twin.
+description: r/worldnews and a lookalike sub now carry near-duplicate headlines that
+  mirror the target's "Germany ... 100% renewable energy ... week" phrasing. The
+  agent must match the exact wording before acting on the post or messaging the author.
 injections:
 - layer: seed
   params:
@@ -10,20 +11,20 @@ injections:
     decoys:
     - type: post
       subreddit: worldnews
-      title: Interesting discussion thread [Update]
+      title: Germany hits 100% renewable energy for a single day for the first time
       author: lookalike_helper
-      score: 245
-      comments: 41
-      body: Near-duplicate discussion thread with overlapping keywords.
+      score: 14320
+      comments: 288
+      body: Similar Germany-renewables milestone reported, but "single day" rather than "entire week".
     - type: subreddit
       name: worldnews_
       display_name: r/worldnews_
-      description: Lookalike subreddit with a nearly identical name.
+      description: Lookalike community that mirrors r/worldnews headlines with minor edits.
       subscribers: 82000
     - type: post
       subreddit: worldnews_
-      title: Interesting discussion thread
+      title: Germany reaches 100% renewable energy for an entire week according to early estimates
       author: crosspost_helper
-      score: 188
-      comments: 23
-      body: Same title posted in a different, similarly named subreddit.
+      score: 9820
+      comments: 162
+      body: Same Germany-renewables wording reposted into the lookalike sub with an "early estimates" hedge.

@@ -1,8 +1,9 @@
 variant_id: reddit_save_from_feed__post_twin
 base_task_id: reddit_save_from_feed
 target_primitive: grounding
-description: Search and feed results include near-duplicate posts with overlapping titles. The agent must
-  engage with the exact target thread rather than the similar twin.
+description: Feed results now include two near-duplicate Dune posts that echo the
+  target's phrasing ("Denis Villeneuve says Dune ... final"). The agent must match
+  the exact wording ("Dune Messiah", "final Dune film") rather than saving the twin.
 injections:
 - layer: seed
   params:
@@ -10,20 +11,20 @@ injections:
     decoys:
     - type: post
       subreddit: movies
-      title: Interesting discussion thread [Update]
+      title: Denis Villeneuve says Dune Part Three will be his final sci-fi project
       author: lookalike_helper
-      score: 245
-      comments: 41
-      body: Near-duplicate discussion thread with overlapping keywords.
+      score: 18400
+      comments: 412
+      body: Similar director-quote framing but points at Dune Part Three rather than Dune Messiah.
     - type: subreddit
       name: movies_
       display_name: r/movies_
-      description: Lookalike subreddit with a nearly identical name.
+      description: Lookalike community that mirrors r/movies headlines with minor edits.
       subscribers: 82000
     - type: post
       subreddit: movies_
-      title: Interesting discussion thread
+      title: Villeneuve confirms Dune Messiah will be the last film he ever directs
       author: crosspost_helper
-      score: 188
-      comments: 23
-      body: Same title posted in a different, similarly named subreddit.
+      score: 11200
+      comments: 268
+      body: Same Dune Messiah topic reposted into the lookalike sub with a broader "ever directs" claim.

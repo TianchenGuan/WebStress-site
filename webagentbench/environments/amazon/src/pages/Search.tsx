@@ -40,9 +40,9 @@ function SearchResultItem({ product }: { product: Product }) {
   const cents = (product.price % 1).toFixed(2).slice(2);
 
   return (
-    <article className="search-result-item" aria-label={product.name}>
+    <article className="search-result-item" aria-label={product.name} data-product-id={product.id}>
       <div className="search-result-item__image">
-        <Link to={preserveQueryParams(`/product/${product.id}`, location.search)}>
+        <Link to={preserveQueryParams(`/product/${product.id}`, location.search)} aria-label={`Open ${product.name}`} data-product-id={product.id}>
           <img
             src={product.image_url}
             alt={product.name}
@@ -55,7 +55,7 @@ function SearchResultItem({ product }: { product: Product }) {
       </div>
       <div className="search-result-item__details">
         <div className="search-result-item__title">
-          <Link to={preserveQueryParams(`/product/${product.id}`, location.search)}>
+          <Link to={preserveQueryParams(`/product/${product.id}`, location.search)} aria-label={`Open ${product.name} product page`} data-product-id={product.id}>
             {product.name}
           </Link>
         </div>

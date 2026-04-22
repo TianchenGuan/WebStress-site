@@ -21,15 +21,15 @@ def _find_post_in(state, subreddit_name):
 
 
 def _apply_correct(state, targets):
-    # 1. Upvote a post in r/technology
-    tech_post = _find_post_in(state, "technology")
+    # 1. Upvote the named r/technology post (t1)
+    tech_post = next(p for p in state.posts if p.id == targets["tech_id"])
     tech_post.vote_direction = 1
-    # 2. Save a post in r/gaming
-    gaming_post = _find_post_in(state, "gaming")
+    # 2. Save the named r/gaming post (t2)
+    gaming_post = next(p for p in state.posts if p.id == targets["game_id"])
     gaming_post.is_saved = True
     state.saved_post_ids.append(gaming_post.id)
-    # 3. Comment on r/science
-    science_post = _find_post_in(state, "science")
+    # 3. Comment on the named r/science post (t3)
+    science_post = next(p for p in state.posts if p.id == targets["sci_id"])
     state.comments.append(Comment(
         id="comment_science",
         post_id=science_post.id, parent_id=None,
@@ -40,8 +40,8 @@ def _apply_correct(state, targets):
         is_saved=False, is_submitter=False, vote_direction=0, depth=0,
         awards=[], flair_text=None,
     ))
-    # 4. Upvote + comment on r/programming
-    prog_post = _find_post_in(state, "programming")
+    # 4. Upvote + comment on the named r/programming post (t4)
+    prog_post = next(p for p in state.posts if p.id == targets["prog_id"])
     prog_post.vote_direction = 1
     state.comments.append(Comment(
         id="comment_prog",
