@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Avatar, Badge } from "@webagentbench/shared";
+import { Avatar, Badge, Button } from "@webagentbench/shared";
 import { formatDateTime } from "@webagentbench/shared";
 
 import { IconReply, IconReplyAll, IconCollapse } from "../icons";
