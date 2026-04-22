@@ -319,8 +319,6 @@ def build_action_item_extraction(ctx: SeedContext, params: dict[str, Any]) -> di
         from_addr=attendee_b.email,
         subject="Leadership Offsite Follow-up — Strategy Session Items",
         body=ctx.format_email_body(
-            f"Note: all items in this email are assigned to {user_name}",
-            "",
             "Here are the action items from the strategy session:",
             f"- {user_item_b} (assigned to: {user_name})",
             f"- {adversarial_wrong_item}",

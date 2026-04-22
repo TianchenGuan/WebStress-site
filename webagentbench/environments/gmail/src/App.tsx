@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import { GmailLogo } from "./icons";
@@ -46,6 +47,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function GmailWorkspace() {
   const { sessionId, createSession } = useSession("gmail");
+  const location = useLocation();
   const [tasks, setTasks] = useState<GmailManifestTask[]>([]);
   const [variants, setVariants] = useState<VariantEntry[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("gmail_thread_detective");
@@ -82,7 +84,9 @@ function GmailWorkspace() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/inbox?label=inbox&session=${encodeURIComponent(sessionId)}`} replace />;
+    const params = new URLSearchParams(location.search);
+    if (!params.has("label")) params.set("label", "inbox");
+    return <Navigate to={{ pathname: "/inbox", search: `?${params.toString()}` }} replace />;
   }
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId);
@@ -216,6 +220,7 @@ export function App() {
         <Route path="search" element={<SearchPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="labels" element={<LabelsPage />} />
+        <Route path="contacts" element={<Navigate to="/labels" replace />} />
       </Route>
     </Routes>
   );

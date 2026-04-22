@@ -1,16 +1,16 @@
 # Worker Assignment Index
 
-Envs: lms, patient_portal  |  Total tasks: 135  |  Total variants: 136  |  Workers: 10
+Envs: gmail, robinhood  |  Total tasks: 155  |  Total variants: 164  |  Workers: 10
 
 | Worker | Envs | Tasks | Variants |
 |---|---|---|---|
-| w01 | lms | 14 | 14 |
-| w02 | lms | 14 | 14 |
-| w03 | lms | 14 | 14 |
-| w04 | lms | 14 | 14 |
-| w05 | lms+patient_portal | 14 | 14 |
-| w06 | patient_portal | 13 | 13 |
-| w07 | patient_portal | 13 | 14 |
-| w08 | patient_portal | 13 | 13 |
-| w09 | patient_portal | 13 | 13 |
-| w10 | patient_portal | 13 | 13 |
+| w01 | gmail | 16 | 22 |
+| w02 | gmail | 16 | 16 |
+| w03 | gmail | 16 | 18 |
+| w04 | gmail | 16 | 17 |
+| w05 | gmail | 16 | 16 |
+| w06 | gmail+robinhood | 15 | 15 |
+| w07 | robinhood | 15 | 15 |
+| w08 | robinhood | 15 | 15 |
+| w09 | robinhood | 15 | 15 |
+| w10 | robinhood | 15 | 15 |

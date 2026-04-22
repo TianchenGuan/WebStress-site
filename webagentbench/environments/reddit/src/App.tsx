@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import { FeedPage } from "./pages/Feed";
@@ -49,6 +50,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function RedditWorkspace() {
   const { sessionId, createSession } = useSession("reddit");
+  const location = useLocation();
   const [tasks, setTasks] = useState<RedditManifestTask[]>([]);
   const [variants, setVariants] = useState<VariantEntry[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
@@ -85,7 +87,7 @@ function RedditWorkspace() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/", search: location.search }} replace />;
   }
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId);
@@ -233,8 +235,9 @@ export function App() {
 
 function RedditWorkspaceOrShell() {
   const { sessionId } = useSession("reddit");
+  const location = useLocation();
   if (sessionId) {
-    return <Navigate to={`/feed?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/feed", search: location.search }} replace />;
   }
   return <RedditWorkspace />;
 }

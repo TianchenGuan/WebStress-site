@@ -1,15 +1,14 @@
 task_id: reddit_triage_spam_inbox
 env_id: reddit
-title: Triage Inbox — Delete Spam, Keep Legitimate Messages
+title: Delete Spam From Inbox
 instruction_template: "Triage your message inbox. Delete any message that is clearly\
   \ spam from a stranger — typical tells are unfamiliar usernames with numeric suffixes\
-  \ or promotional handles (e.g. u/CryptoRewardsX), and bodies that push generic\
-  \ prizes, crypto giveaways, or suspicious external links with no reference to your\
-  \ actual activity. Leave every legitimate message untouched. A message is legitimate\
-  \ if the sender is a moderator account (such as u/ModTeam) or the body references\
-  \ a specific previous interaction of yours (a post, comment, or meeting you were\
-  \ part of). Do not block users, send replies, or mark messages read — just delete\
-  \ the spam and leave the rest alone.\n"
+  \ or promotional handles (e.g. u/CryptoRewardsX), and bodies that push generic prizes,\
+  \ crypto giveaways, or suspicious external links with no reference to your actual\
+  \ activity. Leave every legitimate message untouched. A message is legitimate if\
+  \ the sender is a moderator account (such as u/ModTeam) or the body references a\
+  \ specific previous interaction of yours (a post, comment, or meeting you were part\
+  \ of).\n"
 difficulty: easy
 time_limit_seconds: 180
 expected_steps: 10
@@ -61,8 +60,8 @@ seed:
       from_user: GiveAwayWinner_2025
       subject: Your account was selected for our grand giveaway
       body: 'You are one of 50 lucky users chosen for our exclusive $1,000 gift card
-        drawing. Simply reply with your PayPal email and phone number to receive
-        your prize. This offer is not affiliated with Reddit.'
+        drawing. Simply reply with your PayPal email and phone number to receive your
+        prize. This offer is not affiliated with Reddit.'
       is_read: false
     outputs:
     - spam2_id
@@ -85,7 +84,10 @@ seed:
     spam1_id: '{output.spam1_id}'
     spam2_id: '{output.spam2_id}'
     spam3_id: '{output.spam3_id}'
-    spam_ids: '["{output.spam1_id}", "{output.spam2_id}", "{output.spam3_id}"]'
+    spam_ids:
+      - '{output.spam1_id}'
+      - '{output.spam2_id}'
+      - '{output.spam3_id}'
 
 canonical_diff:
   delete:
@@ -101,7 +103,6 @@ canonical_diff:
     - collection: state.messages
       filter: "a.id == target['legit1_id'] or a.id == target['legit2_id']"
       preserve: ALL
-      comprehensive: true
     - collection: state.sent_messages
       preserve: ALL
   named_invariants:

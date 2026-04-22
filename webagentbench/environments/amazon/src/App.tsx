@@ -67,6 +67,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function AmazonLauncher() {
   const { sessionId, createSession } = useSession("amazon");
+  const location = useLocation();
   const [tasks, setTasks] = useState<AmazonManifestTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [seedText, setSeedText] = useState("42");
@@ -97,7 +98,7 @@ function AmazonLauncher() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/", search: location.search }} replace />;
   }
 
   const selectedTask = tasks.find((t) => t.task_id === selectedTaskId);
@@ -332,8 +333,9 @@ export function App() {
  */
 function AmazonLauncherOrShell() {
   const { sessionId } = useSession("amazon");
+  const location = useLocation();
   if (sessionId) {
-    return <Navigate to={`/home?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
   }
   return <AmazonLauncher />;
 }

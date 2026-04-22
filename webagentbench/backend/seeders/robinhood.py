@@ -27,10 +27,15 @@ _EXACT_REF_RE = re.compile(r"^\{(actor|output)\.([^}]+)\}$")
 
 
 def derive_anchor_time(seed: int) -> datetime:
-    """Return a deterministic anchor time for the given seed."""
-    base = datetime(2026, 3, 15, 10, 0, 0, tzinfo=timezone.utc)
+    """Return a deterministic anchor time anchored to today's UTC date.
+
+    Using today keeps future-dated data (option expirations, upcoming events)
+    actually in the future regardless of when the benchmark is run. The seed
+    provides a ±24-hour jitter so different seeds don't collide.
+    """
+    today = datetime.now(timezone.utc).replace(hour=10, minute=0, second=0, microsecond=0)
     offset = timedelta(hours=(seed % 48) - 24)
-    return base + offset
+    return today + offset
 
 
 class RobinhoodSeedRunner:

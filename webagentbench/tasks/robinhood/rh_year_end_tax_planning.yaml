@@ -3,8 +3,8 @@ env_id: robinhood
 title: Year-End Tax-Loss Harvesting and Re-Entry Plan
 instruction_template: It is year-end. Calculate your total realized gains from the
   1099 preview (both short-term and long-term). Find unrealized losses you can harvest
-  without triggering wash sales. Execute the harvesting sells. Set up recurring investments
-  to re-enter those positions after 31 days.
+  without triggering wash sales. Execute the harvesting sells. Set up monthly $100
+  recurring investments to re-enter those positions after 31 days.
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 35
@@ -63,7 +63,7 @@ canonical_diff:
     expr: "not any(o.symbol in target['recent_buy_symbols'] for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))"
     severity: critical
   - desc: Recurring re-entry investments created for all harvested symbols
-    expr: "all(any(ri.symbol == o.symbol and ri.status == 'active' and not ri.id.startswith('ri_decoy_') for ri in state.recurring_investments) for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))"
+    expr: "any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders) and all(any(ri.symbol == o.symbol and ri.status == 'active' and not ri.id.startswith('ri_decoy_') for ri in state.recurring_investments) for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))"
     severity: critical
   - desc: All sells target seeded loss positions
     expr: "all(o.symbol in target['loss_symbols'] for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))"

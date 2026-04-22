@@ -2,34 +2,28 @@ task_id: gmail_annual_contact_review
 env_id: gmail
 title: End-of-year contact review with activity audit, protected list, enrichment,
   and summary
-instruction_template: "Perform an end-of-year contact review. Complete all of the\
-  \ following steps:\n\n1. AUDIT: Page through all contacts. For each contact, search\
-  \ the inbox for emails from that person within the last 90 days (since December\
-  \ 20, 2025). Identify contacts with zero email activity in that period.\n\n2. PROTECTED\
-  \ LIST: Open the email from your manager Grace Lin with subject \"Protected Contacts\
-  \ — Do Not Delete\". This email lists 4 contacts by name that must NOT be deleted\
-  \ regardless of activity: Patricia Engel, Kenji Matsuda, Ines Herrera, and Tobias\
-  \ Falk.\n\n3. DELETE INACTIVE: Delete every contact that has zero email activity\
-  \ in the last 90 days AND is NOT on Grace's protected list. Based on the seeded\
-  \ data, this should be exactly 3 contacts: Rupert Haines <r.haines@tannerfield.com>,\
-  \ Simone Arcuri <s.arcuri@vincenzi.it>, and Chen Wei-Lin <w.chen@discontinuedclient.tw>.\n\
+instruction_template: "Perform an end-of-year contact review. Note: contacts are\
+  \ accessible via the Labels & contacts page (click the Labels link in the sidebar).\
+  \ Complete all of the following steps:\n\n1. AUDIT: Page through all contacts. For\
+  \ each contact, search the inbox for emails from that person within the last 90 days\
+  \ (since December 20, 2025). Identify contacts with zero email activity in that\
+  \ period.\n\n2. PROTECTED LIST: Open the email from your manager Grace Lin with\
+  \ subject \"Protected Contacts — Do Not Delete\". This email lists 4 contacts by\
+  \ name that must NOT be deleted regardless of activity: Patricia Engel, Kenji Matsuda,\
+  \ Ines Herrera, and Tobias Falk.\n\n3. DELETE INACTIVE: Delete every contact that\
+  \ has zero email activity in the last 90 days AND is NOT on Grace's protected list.\n\
   \n4. UPDATE NOTES: Find the most recent thread from each of the following 4 contacts\
   \ and update their note with the specified information:\n   - Patricia Engel: set\
-  \ note to her new role from her latest email signature (\"Chief Revenue Officer\
-  \ at Engel & Partners\")\n   - Kenji Matsuda: set note to the project name mentioned\
-  \ in his latest thread subject (\"Project Sakura — Phase 2\")\n   - Ines Herrera:\
-  \ set note to the conference name she mentions in her latest email body (\"WebSummit\
-  \ Lisbon 2026\")\n   - Tobias Falk: set note to his new phone number from his latest\
-  \ email signature (\"+49 170 555 8823\")\n\n5. ADD NEW: Three people have emailed\
-  \ you recently but have no contact entry. Add contacts for:\n   - Nadia Kowalski\
-  \ <n.kowalski@freshstart.pl> with note \"Inbound lead — March 2026\"\n   - Ravi\
-  \ Sundaram <r.sundaram@deltaforge.in> with note \"Referred by Kenji Matsuda\"\n\
-  \   - Amara Diallo <a.diallo@sahelconsulting.sn> with note \"Conference connection\
-  \ — WebSummit\"\n\n6. SUMMARY: Compose a new email (not reply) to Grace Lin (g.lin@company.com)\
-  \ with subject \"Annual Contact Review — Complete\" and body listing:\n   - \"Deleted:\
-  \ Chen Wei-Lin, Rupert Haines, Simone Arcuri\"\n   - \"Updated: Ines Herrera, Kenji\
-  \ Matsuda, Patricia Engel, Tobias Falk\"\n   - \"Added: Amara Diallo, Nadia Kowalski,\
-  \ Ravi Sundaram\""
+  \ note to her new role from her latest email signature\n   - Kenji Matsuda: set\
+  \ note to the project name mentioned in his latest thread subject\n   - Ines Herrera:\
+  \ set note to the conference name she mentions in her latest email body\n   - Tobias\
+  \ Falk: set note to his new phone number from his latest email signature\n\n5. ADD\
+  \ NEW: Three people have recently emailed you for the first time and have no contact\
+  \ entry yet. Find them in your inbox (look for senders from the past 90 days who\
+  \ are not in your contacts list) and add them as new contacts, using the email context\
+  \ to write a brief note for each.\n\n6. SUMMARY: Compose a new email (not\
+  \ reply) to Grace Lin (g.lin@company.com) with subject \"Annual Contact Review —\
+  \ Complete\" and body listing the contacts you deleted, updated, and added by name."
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 72
@@ -76,7 +70,7 @@ canonical_diff:
         email:
           eq: n.kowalski@freshstart.pl
         note:
-          eq: "Inbound lead — March 2026"
+          any: true
     - entity: contacts
       desc: Add Ravi Sundaram as new contact
       count: 1
@@ -84,7 +78,7 @@ canonical_diff:
         email:
           eq: r.sundaram@deltaforge.in
         note:
-          eq: "Referred by Kenji Matsuda"
+          any: true
     - entity: contacts
       desc: Add Amara Diallo as new contact
       count: 1
@@ -92,7 +86,7 @@ canonical_diff:
         email:
           eq: a.diallo@sahelconsulting.sn
         note:
-          eq: "Conference connection — WebSummit"
+          any: true
     - entity: sent
       desc: Send annual contact review summary to Grace Lin
       count: 1

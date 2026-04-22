@@ -77,6 +77,12 @@ canonical_diff:
         add_labels:
           superset:
             - Travel
+    - entity: labels
+      desc: Create Travel label
+      count: 1
+      properties:
+        name:
+          eq: Travel
   invariant:
     - collection: state.emails
       preserve: ALL
@@ -90,6 +96,7 @@ canonical_diff:
     - collection: state.contacts
       preserve: ALL
     - collection: state.labels
+      filter: "a.name != 'Travel'"
       preserve: ALL
     - collection: state.filters
       filter: "True"
@@ -104,6 +111,9 @@ canonical_diff:
     - name: Agent created airline filter with Travel label
       ref: create[2]
       severity: high
+    - name: Agent created Travel label
+      ref: create[3]
+      severity: medium
     - name: Agent did not modify inbox emails
       ref: invariant[0]
       severity: high

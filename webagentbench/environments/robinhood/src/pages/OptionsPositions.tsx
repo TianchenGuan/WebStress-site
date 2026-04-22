@@ -63,6 +63,9 @@ export function OptionsPositionsPage() {
                     {position.underlying_symbol}
                   </Link>
                   <span>{position.option_type.toUpperCase()}</span>
+                  <span aria-label={`Position side: ${position.position_side}`} style={{ fontWeight: 600, color: position.position_side === "long" ? "var(--rh-green)" : "var(--rh-red)" }}>
+                    {position.position_side.toUpperCase()}
+                  </span>
                 </div>
                 <div className="rh-options-positions__card-main">
                   <strong>${Number.parseFloat(position.strike_price).toFixed(2)}</strong>

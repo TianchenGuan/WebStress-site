@@ -15,9 +15,12 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import subprocess
+
+import yaml
 from copy import deepcopy
 from contextlib import asynccontextmanager, contextmanager
 from functools import lru_cache
@@ -882,6 +885,44 @@ async def list_trajectories():
 async def get_manifest():
     """Return the merged benchmark manifest."""
     return build_manifest()
+
+
+_SAFE_ID = re.compile(r"^[A-Za-z0-9_]+$")
+_TASKS_DIR = BASE_DIR / "tasks"
+_VARIANTS_DIR = BASE_DIR / "injector" / "variants"
+
+
+def _load_yaml_safe(path: Path) -> dict:
+    raw = yaml.safe_load(path.read_text())
+    return raw if isinstance(raw, dict) else {}
+
+
+@app.get("/task/{task_id}")
+def get_task_yaml(task_id: str) -> dict:
+    """Return the parsed task YAML so browser-only workers can audit without
+    filesystem access. task_id is an alphanumeric/underscore identifier; no
+    path traversal is possible.
+    """
+    if not _SAFE_ID.match(task_id):
+        raise HTTPException(status_code=400, detail="invalid task_id")
+    for env_dir in _TASKS_DIR.iterdir():
+        if not env_dir.is_dir() or env_dir.name.startswith("_"):
+            continue
+        candidate = env_dir / f"{task_id}.yaml"
+        if candidate.is_file():
+            return _load_yaml_safe(candidate)
+    raise HTTPException(status_code=404, detail=f"task {task_id} not found")
+
+
+@app.get("/variant/{variant_id}")
+def get_variant_yaml(variant_id: str) -> dict:
+    """Return the parsed intervention-variant YAML."""
+    if not _SAFE_ID.match(variant_id):
+        raise HTTPException(status_code=400, detail="invalid variant_id")
+    candidate = _VARIANTS_DIR / f"{variant_id}.yaml"
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail=f"variant {variant_id} not found")
+    return _load_yaml_safe(candidate)
 
 
 async def _proxy_to_dev_frontend(dev_url: str, path: str, request: Request) -> Response:

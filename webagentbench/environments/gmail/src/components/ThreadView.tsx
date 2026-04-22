@@ -14,7 +14,7 @@ interface ThreadViewProps {
 
 function ExpandableBulletList({ items }: { items: string[] }) {
   const previewCount = 2;
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const visibleItems = expanded ? items : items.slice(0, previewCount);
   const remainingCount = items.length - previewCount;
 
@@ -26,14 +26,14 @@ function ExpandableBulletList({ items }: { items: string[] }) {
         ))}
       </ul>
       {items.length > previewCount ? (
-        <Button
-          variant="ghost"
+        <button
+          type="button"
           className="gmail-thread__inline-toggle"
           aria-label={expanded ? "Collapse list details" : `Show ${remainingCount} more list item${remainingCount === 1 ? "" : "s"}`}
           onClick={() => setExpanded((current) => !current)}
         >
           {expanded ? "Show less" : `Show ${remainingCount} more`}
-        </Button>
+        </button>
       ) : null}
     </>
   );

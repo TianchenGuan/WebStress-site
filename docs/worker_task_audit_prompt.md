@@ -4,7 +4,7 @@
 Calling the screenshot capability crashes the worker and destroys the audit run.
 If you feel tempted to screenshot, instead:
 
-- Read the DOM (accessibility tree / text content).
+- Read the DOM via the browser snapshot / accessibility-tree tool.
 - Describe what you see in words in your report.
 - If you genuinely cannot proceed without a visual, mark the task
   `BLOCKED_NO_SCREENSHOT` and move on.
@@ -21,7 +21,9 @@ that wants to "show" the page. Text-only, always.
 - **Assigned task IDs:**{{TASK_IDS}}
 - **Assigned degradation variants:**{{VARIANT_IDS}}
 - **Launcher URL:** `http://localhost:8080/launch`
-- **Report output file:** `audit_reports/{{WORKER_ID}}.md`
+- **Task metadata endpoint:** `GET http://localhost:8080/task/{task_id}` &rarr; parsed task YAML as JSON
+- **Variant metadata endpoint:** `GET http://localhost:8080/variant/{variant_id}` &rarr; parsed variant YAML as JSON
+- **Report output:** Emit each task's report block in chat after that task is done. The operator will save everything into `audit_reports/{{WORKER_ID}}.md`.
 
 ---
 
@@ -43,6 +45,14 @@ Every task you touch, answer two questions:
 These map directly to the two classes of eval failure we care about:
 ill-posed tasks (noise in the benchmark) and env/information-asymmetry bugs
 (tasks that are unsolvable for UI agents regardless of model quality).
+
+### Information-asymmetry guard
+
+Before you play, check whether the task's `canonical_diff` references any
+field the UI does not render. A common failure: the eval compares
+`state.orders[0].booked_at` but the agent's only way to see that field is
+through the API. If the UI hides it, the task is unsolvable for a
+UI-grounded agent no matter how capable it is. Flag these aggressively.
 
 ---
 
@@ -83,23 +93,31 @@ across tasks.
 
 For each task ID in your assignment, in order:
 
-### Step 1 — Read the task definition (before touching the UI)
+### Step 1 — Fetch the task definition (before touching the UI)
 
-Fetch the YAML. Task files live at:
-`webagentbench/tasks/{env}/{task_id}.yaml`
+Issue `GET http://localhost:8080/task/{task_id}`. The response is the
+parsed task YAML as JSON. Read:
 
-Read:
 - `instruction_template` — what the agent is told
 - `primary_primitives` — what cognitive skill this is meant to test
+- `secondary_primitives` — any secondary skills (may be absent)
 - `start_path` — URL path the task starts at
-- `canonical_diff` or `eval` block — the objective success criteria
+- `expected_steps` — the designer's step-count estimate
+- `seed` — the task-specific seed recipe (entity counts, targets)
+- `canonical_diff` — the objective success criteria (create / update /
+  delete expectations plus invariants)
 
 Ask yourself, **before running anything**:
-- Does the instruction name every entity the success criteria requires?
+- Does the instruction name every entity the `canonical_diff` requires?
+  If `canonical_diff` expects the agent to touch a specific ID, is that
+  entity uniquely identifiable from the instruction?
 - Is there any state referenced in `canonical_diff` that the instruction
   never mentions? That's an information-asymmetry red flag.
 - Could two different reasonable humans produce two different "correct"
   end-states? That's an ill-posed red flag.
+- If the `canonical_diff` uses a `bijection` over a list target, map out
+  the concrete IDs before you play — a common calibration bug is that
+  the bijection iterates over an unexpected count.
 
 ### Step 2 — Launch the environment
 
@@ -117,9 +135,8 @@ the launcher tab and the existing tabs navigate to the new task.
 Play the task through. Use only UI interactions a real user could perform.
 As you go, note:
 
-- Was every piece of information the instruction assumed **visible**?
-  (Check for the "field in model but not rendered" failure mode — see
-  CLAUDE.md §Information Asymmetry Guard.)
+- Was every piece of information the instruction assumed **visible** in
+  the DOM? (See Information-asymmetry guard above.)
 - Did any control behave unexpectedly (click target missing, form doesn't
   submit, state doesn't persist)?
 - How many steps did it actually take vs. the task's `expected_steps`?
@@ -127,35 +144,40 @@ As you go, note:
 
 ### Step 4 — Verify against the eval
 
-After you think you've completed it, look at `canonical_diff` (or `eval`)
-and mentally check: does the state you left match? If not, is that because
-the instruction was ambiguous, or because the eval is stricter/looser than
-the instruction implies?
+After you think you've completed it, look at the `canonical_diff` you
+fetched in Step 1 and mentally check: does the state you left match? If
+not, is that because the instruction was ambiguous, or because the eval
+is stricter/looser than the instruction implies? The control tab also
+shows the evaluator's live output — use it to confirm.
 
 ### Step 5 — (If assigned) Run the degradation variant
 
-Variant YAMLs live at `webagentbench/injector/variants/{variant_id}.yaml`.
-Read the `injections` block to see what layer (`seed` / `server` / `client`
-/ `network`) is being perturbed.
+Fetch the variant: `GET http://localhost:8080/variant/{variant_id}`.
+Read the `injections` block to see what layer (`seed` / `server` /
+`client` / `network`) is being perturbed and with which action.
 
-To run the variant: back on the launcher tab, keep the same task row
-selected, open the **Variant** dropdown and pick the variant filename,
-click **Launch**. The bench tab reloads with the variant applied.
+To run the variant: back on the launcher tab, the task row is already
+filtered and selected. Open the **Variant** dropdown, pick the variant
+filename, click **Launch**. The bench tab reloads with the variant
+applied.
 
 Repeat steps 3–4. Specifically note whether the degradation **still leaves
 the task solvable** — some degradations are too aggressive and render the
-task impossible even for a careful human.
+task impossible even for a careful human. Also try to overreach
+deliberately (reply to a decoy, click a tempting link, delete something
+you shouldn't) and confirm the evaluator penalises it. A variant that
+doesn't score overreach has no teeth.
 
 ### Step 6 — Record findings
 
-Append one block to your report file (format below). Then move to the
-next task. Do not batch — one task, one report entry, immediately.
+Emit one report block in chat (format below) immediately after the task
+is done. One task, one block. Do not batch at the end.
 
 ---
 
 ## Report Entry Format
 
-For every task, append to `audit_reports/{{WORKER_ID}}.md`:
+For every task, emit this block in chat:
 
 ```markdown
 ### {task_id}  {env_id}  {difficulty}
@@ -175,12 +197,13 @@ For every task, append to `audit_reports/{{WORKER_ID}}.md`:
 **Degradation notes:** (if variant assigned)
 - variant: {variant_id}
 - still solvable: yes / no
+- overreach scored: yes / no / partial — {one line on what happens when the agent takes the bait}
 - observation: {one sentence}
 
 **Recommend:** KEEP / FIX / DROP — {≤15-word justification}
 ```
 
-After all your tasks are done, add a summary block at the top of the file:
+After all your tasks are done, emit a summary block:
 
 ```markdown
 ## Summary — Worker {{WORKER_ID}}
@@ -198,15 +221,16 @@ After all your tasks are done, add a summary block at the top of the file:
 - **No screenshots. Ever.** (See top of file.)
 - **Don't modify task YAMLs, env code, or eval logic.** You are auditing,
   not fixing. Flag issues in the report; the fix happens later.
-- **Don't run the agent harness.** This is manual human-style play. If you
-  find yourself reaching for `agent_eval.py` or BrowserGym, stop.
-- **Don't spawn subagents or parallel workers.** The human operator already
-  parallelized by assigning tabs. One tab = one linear audit stream.
+- **Don't spawn subagents or parallel workers.** One tab = one linear
+  audit stream.
 - **Don't explore beyond your assignment.** If you finish your list early,
   report back and wait — don't grab tasks from other workers.
 - **If a task crashes the env or launcher**, record it as
   `BLOCKED_ENV_CRASH` with the error, then reload the launcher and
   continue with the next task.
+- **If the metadata endpoint returns 404**, record it as
+  `BLOCKED_MISSING_TASK_DEF` and move on — do not try to infer the task
+  from memory.
 - **If you're uncertain whether an instruction is ambiguous**, err toward
   `⚠️` and describe the ambiguity. False negatives (missed bugs) cost us
   more than false positives (slightly-too-picky flags).
@@ -218,12 +242,14 @@ After all your tasks are done, add a summary block at the top of the file:
 
 ## Quick Reference
 
-- Launcher: `http://localhost:8080/launch`
-- Task YAMLs: `webagentbench/tasks/{env}/{task_id}.yaml`
-- Variant YAMLs: `webagentbench/injector/variants/{variant_id}.yaml`
+- Launcher:                `http://localhost:8080/launch`
+- Task metadata:           `GET http://localhost:8080/task/{task_id}`
+- Variant metadata:        `GET http://localhost:8080/variant/{variant_id}`
+- Manifest (all envs):     `GET http://localhost:8080/manifest`
+- Health:                  `GET http://localhost:8080/health`
 - Primitives: grounding, planning, state_tracking, backtracking, patience,
   exploration, verification
-- Info-asymmetry guard reference: `CLAUDE.md` §Information Asymmetry Guard
-  and `docs/guides/eval-hardening-playbook.md` §11
+- Injection layers: seed (session-start data), server (session-start
+  structure), network (HTTP interception), client (DOM / interaction)
 
 Begin when ready. Report as you go, not at the end.

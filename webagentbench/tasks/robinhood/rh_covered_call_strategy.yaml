@@ -2,7 +2,7 @@ task_id: rh_covered_call_strategy
 env_id: robinhood
 title: Sell Covered Call on AAPL Position
 instruction_template: You own 100 shares of AAPL. Sell a covered call with expiration
-  approximately 30 days out, at a strike price 10% above the current price.
+  between 25 and 35 days from today, at a strike price 10% above the current price.
 difficulty: hard
 time_limit_seconds: 250
 expected_steps: 10
@@ -51,8 +51,8 @@ canonical_diff:
   - desc: One sold call leg on AAPL with correct expiry and strike
     expr: "state.latest_options_order(symbol='AAPL') is not None and any(leg.side == 'sell' and leg.option_type == 'call' and leg.underlying_symbol == 'AAPL' and leg.strike >= state.get_stock('AAPL').price * Decimal('1.08') and leg.strike <= state.get_stock('AAPL').price * Decimal('1.12') for leg in state.latest_options_order(symbol='AAPL').legs)"
     severity: critical
-  - desc: Expiration approximately 30 days out (21-45 days)
-    expr: "state.latest_options_order(symbol='AAPL') is not None and all(state.days_until(leg.expiration) >= 21 and state.days_until(leg.expiration) <= 45 for leg in state.latest_options_order(symbol='AAPL').legs)"
+  - desc: Expiration between 25 and 35 days from today
+    expr: "state.latest_options_order(symbol='AAPL') is not None and all(state.days_until(leg.expiration) >= 25 and state.days_until(leg.expiration) <= 35 for leg in state.latest_options_order(symbol='AAPL').legs)"
     severity: critical
   - desc: Exactly 1 contract sold
     expr: "state.latest_options_order(symbol='AAPL') is not None and all(leg.quantity == 1 for leg in state.latest_options_order(symbol='AAPL').legs)"

@@ -9,6 +9,7 @@ type TabKey = "pending" | "filled" | "cancelled";
 export function OrdersPage() {
   const { api, notify } = useRobinhoodLayout();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [marketPrices, setMarketPrices] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
 
@@ -16,6 +17,11 @@ export function OrdersPage() {
     try {
       const items = await api.listOrders();
       setOrders(items);
+      const symbols = [...new Set(items.map((o) => o.symbol))];
+      const priceEntries = await Promise.all(
+        symbols.map((sym) => api.getStock(sym).then((s) => [sym, s.price] as [string, string]).catch(() => [sym, ""] as [string, string]))
+      );
+      setMarketPrices(Object.fromEntries(priceEntries));
     } catch { /* skip */ }
     setLoading(false);
   };
@@ -72,6 +78,7 @@ export function OrdersPage() {
                 <span>{parseFloat(order.filled_quantity)}/{parseFloat(order.quantity)} shares</span>
                 {order.limit_price && <span>Limit: ${parseFloat(order.limit_price).toFixed(2)}</span>}
                 {order.stop_price && <span>Stop: ${parseFloat(order.stop_price).toFixed(2)}</span>}
+                {marketPrices[order.symbol] && <span aria-label={`Current market price: $${parseFloat(marketPrices[order.symbol]).toFixed(2)}`}>Market: ${parseFloat(marketPrices[order.symbol]).toFixed(2)}</span>}
                 <span className="rh-orders__status">{order.status}</span>
               </div>
               <div className="rh-orders__meta">

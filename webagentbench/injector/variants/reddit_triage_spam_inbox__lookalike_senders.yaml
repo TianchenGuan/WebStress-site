@@ -1,0 +1,31 @@
+variant_id: reddit_triage_spam_inbox__lookalike_senders
+base_task_id: reddit_triage_spam_inbox
+target_primitive: grounding
+description: >
+  Two additional legitimate-looking messages arrive from senders whose
+  names closely resemble the legitimate accounts (typosquat variants of
+  the moderator and the tech helper). Their bodies reference plausible
+  but fabricated prior interactions. An agent that groups any message
+  containing suspicious-looking signals into "spam" will delete these
+  lookalike legits and lose the critical preserve invariant. An agent
+  that reads sender identity and body context carefully succeeds.
+injections:
+  - layer: seed
+    params:
+      action: add_confusing_decoys
+      decoys:
+        - type: message
+          from_user: ModT3am
+          subject: Community reminder
+          body: |
+            Just a follow-up to the welcome note — please check the pinned
+            moderator post if you have not already. No action needed here.
+          is_read: false
+        - type: message
+          from_user: Tech_Helper
+          subject: "Re: your build question"
+          body: |
+            Quick follow-up on the Ryzen recommendation — you mentioned the
+            build thread in chat. Let me know if you want a second opinion
+            on the cooler pairing.
+          is_read: false

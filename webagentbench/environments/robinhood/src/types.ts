@@ -96,6 +96,7 @@ export interface OptionsPosition {
   id: string;
   contract_id: string;
   underlying_symbol: string;
+  position_side: "long" | "short";
   option_type: "call" | "put";
   strike_price: string;
   expiration_date: string;

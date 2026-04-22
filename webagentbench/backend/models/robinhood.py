@@ -556,10 +556,20 @@ class RobinhoodState(BaseEnvState):
 
     def search_stocks(self, query: str) -> list[Stock]:
         q = query.lower()
-        return [
+        candidates = [
             s for s in self.stocks
             if q in s.symbol.lower() or q in s.name.lower()
         ]
+        def _rank(s: Stock) -> int:
+            sym = s.symbol.lower()
+            if sym == q:
+                return 0
+            if sym.startswith(q):
+                return 1
+            if q in sym:
+                return 2
+            return 3
+        return sorted(candidates, key=_rank)
 
     def watchlist_named(self, name: str) -> Watchlist | None:
         return next((w for w in self.watchlists if w.name == name), None)

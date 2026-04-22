@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Callable, Mapping
 
 from .access import EntityView
@@ -23,7 +23,11 @@ from .safe_eval import SafeEvalError, safe_eval
 from .types import Failure, get_field, get_list
 
 
-class Severity(StrEnum):
+class Severity(str, Enum):
+    """String-valued enum; mirrors ``StrEnum`` (Python 3.11+) while staying
+    compatible with Python 3.10 (the project's declared floor).
+    """
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"

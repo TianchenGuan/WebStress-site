@@ -1,11 +1,12 @@
 task_id: rh_transfer_history_audit
 env_id: robinhood
 title: Deposit and Set Up Auto-Invest
-instruction_template: Review your transfer history from the past 6 months. Calculate
-  your total deposits and total withdrawals. If total deposits exceed total withdrawals,
-  set up a recurring weekly investment of $200 in VTI to put your surplus to work.
-  If withdrawals exceed or equal deposits, first deposit $3,000 from your default
-  linked bank, then set up the recurring weekly $200 VTI investment.
+instruction_template: Review your transfer history from the past 6 months (ending
+  today, 4/21/2026). Calculate your total deposits and total withdrawals for that
+  period. If total deposits exceed total withdrawals, set up a recurring weekly investment
+  of $200 in VTI to put your surplus to work. If withdrawals exceed or equal deposits,
+  first deposit $3,000 from your default linked bank, then set up the recurring weekly
+  $200 VTI investment.
 difficulty: hard
 time_limit_seconds: 220
 expected_steps: 8
@@ -51,7 +52,7 @@ canonical_diff:
   - desc: Active weekly $200 VTI recurring investment created
     expr: "any(ri.symbol == 'VTI' and ri.frequency == 'weekly' and ri.amount == Decimal('200') and ri.status == 'active' for ri in state.recurring_investments)"
     severity: critical
-  - desc: $3,000 deposit made when withdrawals exceeded deposits (or deposits already exceeded)
+  - desc: $3,000 deposit made if withdrawals exceeded deposits (passes if deposits already exceed withdrawals without it)
     expr: "state.total_transferred('deposit') > state.total_transferred('withdrawal') or any(t.direction == 'deposit' and t.amount == Decimal('3000') for t in state.transfers)"
     severity: critical
 secondary_primitives: []

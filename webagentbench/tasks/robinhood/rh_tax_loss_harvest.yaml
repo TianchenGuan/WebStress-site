@@ -34,6 +34,8 @@ seed:
       multi_lot: true
       include_losers: true
       loser_count: 3
+      gain_forced_symbols:
+      - VOO
     outputs:
     - loss_symbols
     - gain_symbols
@@ -74,13 +76,13 @@ canonical_diff:
   - desc: No wash sale violations (no sells of recent buys)
     expr: "not any(o.side == 'sell' and o.symbol in target['recent_buy_symbols'] and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders) for o in state.orders)"
     severity: critical
-  - desc: Replacement ETF (VOO) buy order placed
-    expr: "any(o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+  - desc: Replacement ETF buy order placed
+    expr: "any(o.side == 'buy' and o.symbol == target['replacement_etf'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
     severity: critical
   - desc: All newly placed sell orders target loss positions only
     expr: "all(o.symbol in target['loss_symbols'] for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders))"
     severity: high
-  - desc: Exactly one new VOO buy order placed
-    expr: "len([o for o in state.orders if o.side == 'buy' and o.symbol == 'VOO' and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders)]) == 1"
+  - desc: Exactly one new replacement ETF buy order placed
+    expr: "len([o for o in state.orders if o.side == 'buy' and o.symbol == target['replacement_etf'] and not o.id.startswith('ord_decoy_') and not any(io.id == o.id for io in initial.orders)]) == 1"
     severity: high
 secondary_primitives: []

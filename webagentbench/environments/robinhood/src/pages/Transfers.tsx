@@ -58,6 +58,7 @@ export function TransfersPage() {
       <div className="rh-transfers__form">
         <div className="rh-order-form__tabs">
           <button
+            aria-label="Deposit"
             className={`rh-order-form__tab ${direction === "deposit" ? "rh-order-form__tab--active" : ""}`}
             onClick={() => setDirection("deposit")}
           >
@@ -99,9 +100,9 @@ export function TransfersPage() {
           variant="primary"
           disabled={!amount || !bankId || isSubmitting}
           onClick={handleSubmit}
-          aria-label={`Submit ${direction}`}
+          aria-label={direction === "deposit" ? "Submit deposit" : "Submit withdrawal"}
         >
-          {isSubmitting ? "Processing..." : `${direction === "deposit" ? "Deposit" : "Withdraw"}`}
+          {isSubmitting ? "Processing..." : direction === "deposit" ? "Submit Deposit" : "Submit Withdrawal"}
         </Button>
       </div>
 

@@ -1041,7 +1041,7 @@ export function SettingsPage() {
 
       {/* Tab bar */}
       <nav className="gmail-settings-tabs" aria-label="Settings tabs">
-        <div className="gmail-settings-tabs__row">
+        <div className="gmail-settings-tabs__row" role="tablist">
           {SETTINGS_TABS.map((tab) => (
             <button
               key={tab}
@@ -1055,7 +1055,7 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
-        <div className="gmail-settings-tabs__row">
+        <div className="gmail-settings-tabs__row" role="tablist">
           {SETTINGS_TABS_SECONDARY.map((tab) => (
             <button
               key={tab}

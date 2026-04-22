@@ -612,6 +612,19 @@ def build_portfolio_basic(ctx: RobinhoodSeedContext, params: dict[str, Any]) -> 
         position_ids.append(pos_id)
         total_value += total
 
+        if "transactions" not in ctx.base:
+            ctx.base["transactions"] = []
+        acquired_dt = datetime(acquired.year, acquired.month, acquired.day, tzinfo=timezone.utc)
+        ctx.base["transactions"].append(Transaction(
+            id=ctx.next_id("txn"),
+            type="buy",
+            symbol=sym,
+            quantity=qty,
+            amount=qty * cost,
+            description=f"Bought {qty} shares of {sym} @ ${cost:.2f}",
+            timestamp=acquired_dt,
+        ))
+
     ctx.base["portfolio_value"] = ctx.base.get("portfolio_value", Decimal("0")) + total_value
     best_symbol = max(created_positions, key=lambda position: position.total_return_pct).symbol if created_positions else None
     worst_symbol = min(created_positions, key=lambda position: position.total_return_pct).symbol if created_positions else None
@@ -666,6 +679,7 @@ def build_portfolio_diverse(ctx: RobinhoodSeedContext, params: dict[str, Any]) -
     multi_lot = params.get("multi_lot", True)
     mixed_quantities = params.get("mixed_quantities", False)
     total_value_target = params.get("total_value_target")
+    gain_forced_symbols = set(params.get("gain_forced_symbols", []))
 
     stocks = list(ctx.base.get("stocks", []))
     if sectors:
@@ -691,9 +705,10 @@ def build_portfolio_diverse(ctx: RobinhoodSeedContext, params: dict[str, Any]) -
         ctx.base["positions"] = []
 
     if loser_count is None:
-        loss_indexes = {idx for idx in range(len(picked)) if include_losers and idx % 3 == 0}
+        loss_indexes = {idx for idx in range(len(picked)) if include_losers and idx % 3 == 0 and picked[idx].symbol not in gain_forced_symbols}
     else:
-        loss_indexes = set(range(min(int(loser_count), len(picked)))) if include_losers else set()
+        eligible = [i for i in range(len(picked)) if picked[i].symbol not in gain_forced_symbols]
+        loss_indexes = set(eligible[:min(int(loser_count), len(eligible))]) if include_losers else set()
 
     position_ids: list[str] = []
     created_positions: list[Position] = []
@@ -772,6 +787,21 @@ def build_portfolio_diverse(ctx: RobinhoodSeedContext, params: dict[str, Any]) -
             position.total_return = market_val - total_cost
             position.total_return_pct = Decimal(str(round(float(position.total_return / total_cost * 100), 2))) if total_cost else Decimal("0")
             total_value += market_val
+
+    if "transactions" not in ctx.base:
+        ctx.base["transactions"] = []
+    for pos in created_positions:
+        for lot in pos.lots:
+            acquired_dt = datetime(lot.acquired_date.year, lot.acquired_date.month, lot.acquired_date.day, tzinfo=timezone.utc)
+            ctx.base["transactions"].append(Transaction(
+                id=ctx.next_id("txn"),
+                type="buy",
+                symbol=pos.symbol,
+                quantity=lot.shares,
+                amount=lot.shares * lot.cost_per_share,
+                description=f"Bought {float(lot.shares):.0f} shares of {pos.symbol} @ ${lot.cost_per_share:.2f}",
+                timestamp=acquired_dt,
+            ))
 
     ctx.base["portfolio_value"] = ctx.base.get("portfolio_value", Decimal("0")) + total_value
     loss_symbols = sorted(position.symbol for position in created_positions if position.total_return < 0)
@@ -1623,7 +1653,7 @@ def build_transaction_ledger(ctx: RobinhoodSeedContext, params: dict[str, Any]) 
                 symbol=sym,
                 quantity=qty,
                 amount=qty * price,
-                description=f"Recent buy {qty} shares of {sym} @ ${price}",
+                description=f"Bought {qty} shares of {sym} @ ${price}",
                 timestamp=ctx.now - timedelta(days=idx + 3),
             ))
             txn_ids.append(txn_id)
@@ -1644,7 +1674,7 @@ def build_transaction_ledger(ctx: RobinhoodSeedContext, params: dict[str, Any]) 
             symbol=mismatch_symbol,
             quantity=qty,
             amount=qty * price,
-            description=f"Ledger mismatch buy {qty} shares of {mismatch_symbol} @ ${price}",
+            description=f"Bought {qty} shares of {mismatch_symbol} @ ${price}",
             timestamp=ctx.now - timedelta(days=14),
         ))
         txn_ids.append(txn_id)

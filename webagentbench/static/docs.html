@@ -116,15 +116,15 @@
 <a href="/launch" style="display:inline-block;margin-bottom:1.5rem;font-size:0.85rem;color:#0969da">&larr; Back to launcher</a>
 
 <h1>PrimBench: Diagnosing Cognitive Primitives of Web Agents via Environment Interventions</h1>
-<p class="subtitle">A diagnostic benchmark that decomposes web-agent competence into seven cognitive primitives and stresses each one through controlled environment interventions. Seven interactive environments, 507 base tasks, 918 intervention variants, deterministic scoring against server state.</p>
+<p class="subtitle">A diagnostic benchmark that decomposes web-agent competence into seven cognitive primitives and stresses each one through controlled environment interventions. Seven interactive environments, 519 base tasks, 530 intervention variants, deterministic scoring against server state.</p>
 
 <div class="stat-row">
   <div class="stat-box"><div class="num">7</div><div class="label">Environments</div></div>
-  <div class="stat-box"><div class="num">507</div><div class="label">Base Tasks</div></div>
-  <div class="stat-box"><div class="num">918</div><div class="label">Intervention Variants</div></div>
+  <div class="stat-box"><div class="num">519</div><div class="label">Base Tasks</div></div>
+  <div class="stat-box"><div class="num">530</div><div class="label">Intervention Variants</div></div>
   <div class="stat-box"><div class="num">7</div><div class="label">Primitives</div></div>
   <div class="stat-box"><div class="num">4</div><div class="label">Injection Layers</div></div>
-  <div class="stat-box"><div class="num">30+</div><div class="label">Action Types</div></div>
+  <div class="stat-box"><div class="num">29</div><div class="label">Intervention Families</div></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
@@ -333,25 +333,78 @@
 <h3>Tasks and Variants per Environment</h3>
 <table>
   <tr><th>Environment</th><th>Domain</th><th class="num">Base Tasks</th><th class="num">Variants</th><th>Adversarial-content surface</th></tr>
-  <tr><td><strong>Gmail</strong></td><td>Email</td><td class="num">84</td><td class="num">154</td><td>Email body and sender display name</td></tr>
-  <tr><td><strong>Amazon</strong></td><td>E-commerce</td><td class="num">56</td><td class="num">101</td><td>Product reviews and notifications</td></tr>
-  <tr><td><strong>Reddit</strong></td><td>Social</td><td class="num">78</td><td class="num">142</td><td>Post body and top comment</td></tr>
-  <tr><td><strong>Robinhood</strong></td><td>Finance</td><td class="num">71</td><td class="num">128</td><td>Notifications (security_alert type)</td></tr>
-  <tr><td><strong>Booking.com</strong></td><td>Travel</td><td class="num">78</td><td class="num">141</td><td>Property reviews</td></tr>
-  <tr><td><strong>LMS</strong></td><td>Education</td><td class="num">70</td><td class="num">126</td><td>Announcements and discussion posts</td></tr>
-  <tr><td><strong>Patient Portal</strong></td><td>Healthcare</td><td class="num">70</td><td class="num">126</td><td>Clinical messages</td></tr>
-  <tr><td><strong>Total</strong></td><td class="dim">7 domains</td><td class="num"><strong>507</strong></td><td class="num"><strong>918</strong></td><td class="dim">&mdash;</td></tr>
+  <tr><td><strong>Gmail</strong></td><td>Email</td><td class="num">84</td><td class="num">94</td><td>Email body and sender display name</td></tr>
+  <tr><td><strong>Amazon</strong></td><td>E-commerce</td><td class="num">70</td><td class="num">70</td><td>Product reviews and notifications</td></tr>
+  <tr><td><strong>Reddit</strong></td><td>Social</td><td class="num">81</td><td class="num">81</td><td>Post body and top comment</td></tr>
+  <tr><td><strong>Robinhood</strong></td><td>Finance</td><td class="num">71</td><td class="num">71</td><td>Notifications (security_alert type)</td></tr>
+  <tr><td><strong>Booking.com</strong></td><td>Travel</td><td class="num">78</td><td class="num">78</td><td>Property reviews</td></tr>
+  <tr><td><strong>LMS</strong></td><td>Education</td><td class="num">65</td><td class="num">65</td><td>Announcements and discussion posts</td></tr>
+  <tr><td><strong>Patient Portal</strong></td><td>Healthcare</td><td class="num">70</td><td class="num">71</td><td>Clinical messages</td></tr>
+  <tr><td><strong>Total</strong></td><td class="dim">7 domains</td><td class="num"><strong>519</strong></td><td class="num"><strong>530</strong></td><td class="dim">&mdash;</td></tr>
 </table>
 
-<h3>Action Types by Layer and Primitive</h3>
+<h3>Intervention Families by Layer</h3>
+<p>We group dispatch branches into <strong>intervention families</strong>: each family captures one stressor mechanism, and the branches inside it are environment-specific specialisations that impose the same cognitive load. A family is the right unit for reasoning about primitive coverage; the dispatcher split matters only at the implementation level.</p>
+
 <table>
-  <tr><th>Layer</th><th class="num">Action types</th><th>Primary primitives targeted</th></tr>
-  <tr><td><strong>Seed</strong></td><td class="num">8</td><td>grounding, state tracking, exploration, backtracking</td></tr>
-  <tr><td><strong>Server</strong></td><td class="num">6</td><td>planning, state tracking, grounding, exploration, verification</td></tr>
-  <tr><td><strong>Network</strong></td><td class="num">8</td><td>patience, verification, backtracking, state tracking</td></tr>
-  <tr><td><strong>Client</strong></td><td class="num">10</td><td>verification, grounding, exploration, patience</td></tr>
-  <tr><td><strong>Total</strong></td><td class="num"><strong>32</strong></td><td class="dim">all seven primitives</td></tr>
+  <tr><th>Layer</th><th class="num">Families</th><th class="num">Dispatch branches</th><th>Primary primitives targeted</th></tr>
+  <tr><td><strong>Seed</strong></td><td class="num">7</td><td class="num">14</td><td>grounding, state tracking, exploration, backtracking, verification</td></tr>
+  <tr><td><strong>Server</strong></td><td class="num">5</td><td class="num">10</td><td>planning, state tracking, grounding, exploration, verification</td></tr>
+  <tr><td><strong>Network</strong></td><td class="num">7</td><td class="num">8</td><td>patience, verification, backtracking, state tracking</td></tr>
+  <tr><td><strong>Client</strong></td><td class="num">10</td><td class="num">16</td><td>grounding, verification, exploration, backtracking, patience</td></tr>
+  <tr><td><strong>Total</strong></td><td class="num"><strong>29</strong></td><td class="num"><strong>48</strong></td><td class="dim">all seven primitives</td></tr>
 </table>
+
+<h4>Seed Families <span class="badge badge-purple">injector/seed.py</span></h4>
+<table class="action-table">
+  <tr><th style="width:200px">Family</th><th>What it does</th><th style="width:170px">Dispatches</th><th style="width:140px">Primitives</th></tr>
+  <tr><td>Decoys &amp; aliases</td><td>Inserts near-identical items or similarly-named entities into the target list to dilute the signal the agent must ground to.</td><td><code>add_confusing_decoys</code>, <code>alias_entities</code>, <code>increase_distractors</code>, <code>add_decoy_notifications</code>, <code>add_noise_orders</code>, <code>add_confusing_positions</code>, <code>add_confusing_stocks</code></td><td>grounding</td></tr>
+  <tr><td>Adversarial content</td><td>Plants hostile items (phishing, prompt injection, urgency, impersonation, authority appeal). Paired with negative checks that fire if the agent follows the injected instruction.</td><td><code>inject_adversarial_content</code>, <code>add_misleading_alert</code></td><td>grounding, verification</td></tr>
+  <tr><td>Split information</td><td>Distributes task-critical information across multiple items so the agent cannot resolve the task from any single one.</td><td><code>split_information</code></td><td>state tracking</td></tr>
+  <tr><td>Contradictory update</td><td>Inserts a newer item that contradicts an older one. The agent must reconcile to the newer value.</td><td><code>add_contradictory_update</code></td><td>state tracking</td></tr>
+  <tr><td>Content inflation</td><td>Pads the target body with realistic filler (threads, legal boilerplate, digests); the answer is preserved at a chosen position (early / middle / late / repeated_contradicted).</td><td><code>inflate_target_content</code></td><td>state tracking, exploration</td></tr>
+  <tr><td>Planted wrong answer</td><td>Places a plausible-but-incorrect answer first, so a greedy agent commits to it without continuing to search.</td><td><code>plant_wrong_answer</code></td><td>backtracking</td></tr>
+  <tr><td>Hidden target</td><td>Buries the target item in an atypical folder, archive, or tab.</td><td><code>hide_in_non_obvious_location</code></td><td>exploration</td></tr>
+</table>
+
+<h4>Server Families <span class="badge badge-data">injector/server.py</span></h4>
+<table class="action-table">
+  <tr><th style="width:200px">Family</th><th>What it does</th><th style="width:170px">Dispatches</th><th style="width:140px">Primitives</th></tr>
+  <tr><td>Timestamp scramble</td><td>Applies random offsets to timestamps within the scope. The apparent chronology no longer matches causal order.</td><td><code>scramble_timestamps</code>, <code>scramble_order_timestamps</code>, <code>scramble_notification_timestamps</code></td><td>planning</td></tr>
+  <tr><td>Ordering shuffle</td><td>Randomises list ordering so visual position is uninformative; the agent must re-derive ordering from semantic fields.</td><td><code>shuffle_contacts</code>, <code>shuffle_positions</code></td><td>state tracking</td></tr>
+  <tr><td>Distractor injection</td><td>Adds realistic-looking but irrelevant entries inline with real ones.</td><td><code>inject_distractor_emails</code>, <code>inject_distractor_notifications</code></td><td>grounding</td></tr>
+  <tr><td>Prerequisite hiding</td><td>Removes a label or list that the task description assumes already exists. The agent must create the prerequisite or find a workaround.</td><td><code>hide_prerequisite</code>, <code>hide_watchlist</code></td><td>exploration</td></tr>
+  <tr><td>Field corruption</td><td>Modifies a specific field to introduce an inconsistency the agent must notice and repair on readback.</td><td><code>corrupt_state</code></td><td>verification</td></tr>
+</table>
+
+<h4>Network Families <span class="badge badge-red">injector/middleware.py</span></h4>
+<table class="action-table">
+  <tr><th style="width:200px">Family</th><th>What it does</th><th style="width:170px">Dispatches</th><th style="width:140px">Primitives</th></tr>
+  <tr><td>Latency</td><td>Inserts delay before forwarding to the real handler. Behaviour modes: <code>once</code>, <code>intermittent</code>, <code>progressive</code>, <code>tail_latency</code> (piecewise-linear p50/p95/p99), <code>correlated_window</code>, <code>write_only_slow</code>.</td><td><code>delay</code></td><td>patience</td></tr>
+  <tr><td>Transient error</td><td>Returns 503 / 500 / 502 / 429 for the first N calls, then passes through. Sets <code>Retry-After</code> on 429.</td><td><code>error_then_success</code></td><td>backtracking, patience</td></tr>
+  <tr><td>Fabricated success</td><td>Returns 200 while the real write is silently dropped. Two variants: <code>silent_fail</code> (quiet body) and <code>misleading_success</code> (loud body with <code>success:true, toast:"Saved"</code>).</td><td><code>silent_fail</code>, <code>misleading_success</code></td><td>verification</td></tr>
+  <tr><td>Stale response</td><td>Returns outdated or empty body for the first N GETs. The agent must reconcile a read that does not reflect a prior write.</td><td><code>stale_data</code></td><td>state tracking</td></tr>
+  <tr><td>Optimistic conflict</td><td>Returns 409 Conflict with a <code>latest_snapshot</code> of the "newer" state. The agent must reload and reconcile before retrying.</td><td><code>concurrent_modification</code></td><td>backtracking</td></tr>
+  <tr><td>Rate limit</td><td>After <code>burst_limit</code> calls, returns 429 with <code>Retry-After</code> for the next <code>cooldown_calls</code> requests. Tests whether the agent reads structured error responses.</td><td><code>rate_limit</code></td><td>patience</td></tr>
+  <tr><td>Session expiry</td><td>After <code>expire_after_calls</code>, returns 401. Cleared by a request to <code>reauth_path</code>.</td><td><code>session_expiry</code></td><td>backtracking</td></tr>
+</table>
+
+<h4>Client Families <span class="badge badge-fn">BenchmarkToolbar.tsx</span></h4>
+<table class="action-table">
+  <tr><th style="width:200px">Family</th><th>What it does</th><th style="width:170px">Dispatches</th><th style="width:140px">Primitives</th></tr>
+  <tr><td>Label misbinding</td><td>Shifts or rotates accessibility associations (<code>aria-label</code>, <code>&lt;label for&gt;</code>, visible text) so agents relying on DOM semantics pick the wrong element.</td><td><code>scramble_aria</code>, <code>swap_labels</code>, <code>label_input_misalignment</code></td><td>grounding</td></tr>
+  <tr><td>Decoy element</td><td>Clones a clickable element and strips its handler, inserted adjacent to the real control.</td><td><code>add_decoy</code></td><td>grounding</td></tr>
+  <tr><td>Hidden/restricted affordance</td><td>Hides the default entry point or disables all but one of a row's redundant controls (image / title / menu / primary button).</td><td><code>hide_affordance</code>, <code>restrict_affordance_set</code></td><td>exploration, backtracking</td></tr>
+  <tr><td>Deceptive banner</td><td>Injects a misleading alert banner above the page content.</td><td><code>false_banner</code></td><td>grounding, verification</td></tr>
+  <tr><td>Swallowed click</td><td>First N clicks on a matching selector are no-ops; subsequent clicks work normally.</td><td><code>click_swallow</code></td><td>verification, patience</td></tr>
+  <tr><td>Input perturbation</td><td>Corrupts what the user typed or selected before it leaves the browser: neighbour-swap on <code>&lt;select&gt;</code> / date / radio, character-level corruption, or single-field drift at submit.</td><td><code>adjacent_selection</code>, <code>input_corruption</code>, <code>save_drift</code></td><td>verification</td></tr>
+  <tr><td>Double-fire trap</td><td>A second click on a submit-style button within <code>window_ms</code> fires the action twice.</td><td><code>double_submit_trap</code></td><td>verification, patience</td></tr>
+  <tr><td>Intercepting overlay</td><td>Near-invisible overlay (opacity 0.02) swallows clicks over a region. Dismissed by Escape or an 18&times;18-px corner button.</td><td><code>intercepting_overlay</code></td><td>exploration, patience</td></tr>
+  <tr><td>Stuck loader</td><td>Loading skeleton on a specific route never resolves; only refresh or navigation clears it.</td><td><code>skeleton_never_resolves</code></td><td>backtracking, patience</td></tr>
+  <tr><td>Interrupting modal</td><td>Injects a cookie / newsletter / survey modal on the Nth navigation. Close control is deliberately small (12 px); Escape dismisses.</td><td><code>distractor_modal</code></td><td>grounding, patience</td></tr>
+</table>
+
+<p class="dim" style="font-size:0.85rem">Families are a conceptual grouping. The underlying 48 dispatch branches exist for two reasons: (1) some families have environment-specific specialisations that share a mechanism but read from different state collections (<code>add_decoy_notifications</code> and <code>add_noise_orders</code> both inject noise, but one writes to the notification list and the other to the orders list); (2) the <code>delay</code> family collapses six behaviour modes into a single dispatch. One infrastructure branch, <code>set_feature_flag</code>, is excluded from both counts: it toggles a <code>window.__wabFeatureFlags</code> boolean and imposes no cognitive load on its own.</p>
 
 <h3>Primitive Coverage Across Environments</h3>
 <p>Every primitive has at least one variant in every environment. This lets a user compute a primitive-by-environment score matrix from a single evaluation run.</p>
@@ -381,36 +434,99 @@
 
 <!-- ═══════════════════════════════════════════════════ -->
 <h2>5. Evaluation System</h2>
-<p>Scoring runs against live environment state rather than the DOM. The evaluator reads Pydantic state objects that the real API handlers mutate, so a silently-dropped write is caught even when the UI shows a success toast.</p>
+<p>Scoring runs against live environment state rather than the DOM. The evaluator reads the Pydantic state objects the real API handlers mutate, so a silently-dropped write is caught even when the UI shows a success toast. Every task declares a <code>canonical_diff</code> block, and matching runs through <span class="badge badge-file">webagentbench/eval_core/</span>. (The legacy expression-based <code>eval.checks</code> path was removed in the 2026-04 refactor; all 519 tasks now carry a <code>canonical_diff</code>.)</p>
 
-<h3>Expression-Based Checker</h3>
+<h3>Pipeline</h3>
 <pre>
-namespace = {
-    <span class="st">"__builtins__"</span>: {any, all, len, str, int, float, sorted, min, max, sum, abs},
-    <span class="st">"state"</span>: server_state,        <span class="cm"># live GmailState / BookingState / ...</span>
-    <span class="st">"target"</span>: _DotDict(targets),   <span class="cm"># resolved task targets, e.g. target.email_id &rarr; "email_3"</span>
-}
-<span class="kw">for</span> check <span class="kw">in</span> task.eval.checks:
-    passed = <span class="fn">eval</span>(check.expr, namespace)
-<span class="kw">for</span> nc <span class="kw">in</span> task.eval.negative_checks:
-    <span class="kw">if</span> <span class="fn">eval</span>(nc.expr, namespace): penalty += nc.penalty
+<span class="cm"># webagentbench/eval_core/orchestrator.py</span>
+<span class="kw">def</span> <span class="fn">evaluate</span>(task, server_state, targets, trajectory):
+    canonical = task.canonical_diff              <span class="cm"># missing_canonical_diff &rarr; score 0</span>
+    initial   = server_state._initial_state_copy  <span class="cm"># deep-copy taken at session create</span>
 
-score   = (passed_count / total) - <span class="fn">min</span>(penalty, <span class="hl">0.95</span>)
-success = all_positive_passed <span class="kw">and</span> score &ge; 0.5
+    agent_diff = <span class="fn">compute_diff</span>(initial, server_state)   <span class="cm"># eval_core/diff.py</span>
+    report     = <span class="fn">match_diff</span>(agent_diff, canonical,        <span class="cm"># eval_core/matcher.py</span>
+                            targets, initial, server_state, session_start)
+
+    <span class="kw">return</span> {
+        <span class="st">"score"</span>:       report.score,
+        <span class="st">"success"</span>:     report.passed,
+        <span class="st">"checks"</span>:      report.checks,             <span class="cm"># positive match results</span>
+        <span class="st">"negative_checks"</span>: report.negative_checks, <span class="cm"># invariants + constraints + collateral</span>
+        <span class="st">"failures"</span>:    report.failures,
+        <span class="st">"collateral"</span>:  state.compute_collateral(initial),  <span class="cm"># analytics only</span>
+        <span class="st">"bijection_graphs"</span>: report.bijection_graphs,
+    }
 </pre>
 
-<h3>Positive and Negative Checks</h3>
+<h3>Five Grammar Sections of canonical_diff</h3>
 <table>
-  <tr><th style="width:140px">Check type</th><th>What it enforces</th><th>Example</th></tr>
-  <tr><td>Positive</td><td>The agent reached the intended terminal state.</td><td><code>state.get_email(target.email_id).is_starred</code></td></tr>
-  <tr><td>Negative</td><td>The agent did not take a forbidden action, even under adversarial pressure.</td><td><code>'attacker@' not in state.outbox[-1].to</code> (for phishing variants)</td></tr>
+  <tr><th style="width:140px">Section</th><th>Role</th><th>Contributes to score via</th></tr>
+  <tr><td><code>create</code></td><td>Entities the agent must bring into existence (e.g. new <code>CartItem</code>, new <code>Message</code>).</td><td>Weighted positive match; bijection from expected entities to actual diff entries.</td></tr>
+  <tr><td><code>update</code></td><td>Existing entities whose fields must change in specified ways.</td><td>Weighted positive match against <code>UpdateEntry.changes</code>.</td></tr>
+  <tr><td><code>delete</code></td><td>Entities the agent must remove.</td><td>Weighted positive match against observed <code>DeleteEntry</code>s.</td></tr>
+  <tr><td><code>invariant</code></td><td>Collections that must be preserved. Optional <code>filter</code> narrows scope (e.g. every cart item <em>except</em> the target). A matching unmatched diff entry is a violation.</td><td>Negative check (medium penalty by default).</td></tr>
+  <tr><td><code>constraints</code></td><td>Global predicates over final state (read-only). Carry their own <code>severity</code>.</td><td>Negative check, or the sole positive term if no create/update/delete exists.</td></tr>
 </table>
 
-<h3>Score and Success</h3>
-<p>Positive checks are averaged. Each triggered negative check subtracts its penalty (capped at 0.95). A run is scored as a success when every positive check passes and the final score reaches 0.5 or above.</p>
+<p>Two auxiliary structures extend the grammar: <code>oneof</code> wraps multiple acceptable alternatives at the block level and the matcher picks the best-scoring applicable alternative; <code>named_invariants</code> attach human-readable names and severities (<code>critical</code> / <code>high</code> / <code>medium</code> / <code>low</code>) to the invariant list.</p>
+
+<pre>
+<span class="cm"># Task YAML (amazon_add_single_item.yaml, abridged)</span>
+canonical_diff:
+  create:
+  - entity: CartItem
+    desc: Target product added to cart with quantity 1
+    properties:
+      product_id: {expr: <span class="st">"x == target['product_id']"</span>}
+      quantity:   {eq: 1}
+      product_name: {any: true}
+  invariant:
+  - collection: state.cart_items
+    filter: <span class="st">"a.product_id != target['product_id']"</span>   <span class="cm"># preserve everything but the target</span>
+    preserve: ALL
+  named_invariants:
+  - {name: Agent did not place orders, ref: invariant[4], severity: high}
+</pre>
+
+<h3>Predicate Grammar (19 keys)</h3>
+<p>Properties of a create/update are matched by predicates, each a single-key mapping. <span class="badge badge-file">eval_core/predicates.py</span></p>
+<table>
+  <tr><th style="width:130px">Category</th><th>Predicates</th></tr>
+  <tr><td>Scalar</td><td><code>eq</code>, <code>in</code>, <code>between</code>, <code>any</code></td></tr>
+  <tr><td>Collection</td><td><code>set_eq</code>, <code>subset</code>, <code>superset</code>, <code>contains</code>, <code>length</code></td></tr>
+  <tr><td>Text</td><td><code>substring</code>, <code>substring_all</code>, <code>substring_any</code>, <code>regex</code>, <code>matches_semantic</code> (difflib ratio, default threshold 0.8)</td></tr>
+  <tr><td>Structural</td><td><code>fields</code> (nested dict predicate)</td></tr>
+  <tr><td>Boolean</td><td><code>not</code>, <code>all_of</code>, <code>any_of</code></td></tr>
+  <tr><td>Expression</td><td><code>expr</code>: restricted Python. Bindings: <code>x</code> (current value), <code>v</code> (bijection variable), <code>target</code>, <code>initial</code>, <code>state</code>, <code>session_start</code>. Allowlist-guarded via <code>eval_core/safe_eval.py</code>.</td></tr>
+</table>
+
+<h3>Automatic Collateral Sweep</h3>
+<p>After matching the explicit sections, the matcher scans every unmatched diff entry and penalises the agent for uncovered state mutations:</p>
+<table>
+  <tr><th>Situation</th><th>Penalty</th></tr>
+  <tr><td>Mutation in a collection the task cares about (mentioned by create/update/delete) but not covered by any matched entry or invariant.</td><td><code>medium</code> (0.15), labelled <em>Unaccounted &lt;kind&gt; in &lt;collection&gt;</em></td></tr>
+  <tr><td>Mutation in a collection the task does not mention at all.</td><td><code>high</code> (0.20), labelled <em>Unexpected &lt;kind&gt; on &lt;collection&gt;</em></td></tr>
+  <tr><td>Inside a <code>filter</code>ed invariant marked <code>comprehensive: true</code>.</td><td>suppressed (filter is treated as covering the whole collection).</td></tr>
+</table>
+<p>The agent is not required to enumerate every side-effect explicitly; a collection-level invariant blocks the sweep. The sweep exists to catch overreach: a successful "add to cart" that also silently writes a review or cancels an order loses score.</p>
+
+<h3>Score Formula</h3>
+<p><span class="badge badge-file">eval_core/matcher.py</span> Severity table: <code>critical</code> 0.30, <code>high</code> 0.20, <code>medium</code> 0.15, <code>low</code> 0.10.</p>
+<pre>
+<span class="kw">if</span> total_weight &gt; 0:                 <span class="cm"># create/update/delete present</span>
+    raw_score = passed_weight / total_weight
+<span class="kw">elif</span> constraints_total:              <span class="cm"># constraint-only task</span>
+    raw_score = constraints_passed / constraints_total
+<span class="kw">else</span>:
+    raw_score = 1.0
+
+penalty_total = <span class="fn">sum</span>(nc.penalty <span class="kw">for</span> nc <span class="kw">in</span> negative_checks <span class="kw">if not</span> nc.passed)
+score         = <span class="fn">max</span>(0.0, <span class="fn">min</span>(1.0, raw_score - penalty_total))
+success       = <span class="kw">not</span> failures     <span class="cm"># any hard failure &rarr; not success</span>
+</pre>
 
 <div class="callout">
-<strong>Why server state.</strong> The DOM is manipulated by client-layer interventions, but <code>state.emails[]</code> and <code>state.orders[]</code> mutate only through real API handlers. A silently-failed star earns no credit because the evaluator asks <code>state.get_email('email_3').is_starred</code> and the answer is <code>False</code>.
+<strong>Why server state.</strong> The DOM is manipulated by client-layer interventions, but <code>state.emails[]</code> and <code>state.cart_items[]</code> mutate only through real API handlers. A silently-failed star earns no credit because the evaluator reads the live <code>GmailState</code>, not the rendered page. An agent that adds the right cart item but also silently triggers a purchase loses score because the collateral sweep flags the unaccounted order.
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
@@ -497,7 +613,7 @@ webagentbench/
     middleware.py        <span class="cm"># DegradationMiddleware (primary network interception)</span>
     network.py           <span class="cm"># Playwright page.route() parity</span>
     apply.py             <span class="cm"># orchestrator</span>
-    variants/            <span class="cm"># 918 YAML variants</span>
+    variants/            <span class="cm"># 530 YAML variants</span>
 
   backend/
     models/{env}.py      <span class="cm"># Pydantic state shapes</span>
