@@ -176,7 +176,12 @@ export function OrdersPage() {
                       Track Order
                     </Link>
 
-                    {isDelivered && (
+                    {/* The /returns endpoint accepts any status that isn't
+                        cancelled; showing Return Item for confirmed/shipped
+                        orders too matches the backend and unblocks tasks
+                        (e.g. full_order_lifecycle) that ask the agent to
+                        return an item from a freshly-placed order. */}
+                    {!isCancelled && order.status.toLowerCase() !== "pending" && (
                       <button
                         className="amazon-btn amazon-btn--add-to-cart"
                         onClick={() => navigate(preserveQueryParams(`/returns/new/${order.id}`, location.search))}

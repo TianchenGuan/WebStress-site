@@ -464,7 +464,13 @@ export function AccountPage() {
                 <div className="account-card__actions" role="group" aria-label={`Actions for address at ${addr.street_address}`}>
                   <button type="button" onClick={() => openEditAddress(addr)}>Edit</button>
                   {!addr.is_default && (
-                    <button type="button" onClick={() => handleSetDefaultAddress(addr.id)}>Set as default</button>
+                    <button
+                      type="button"
+                      aria-label={`Set ${addr.street_address} as default shipping address`}
+                      onClick={() => handleSetDefaultAddress(addr.id)}
+                    >
+                      Set as default
+                    </button>
                   )}
                   {confirmDeleteAddr === addr.id ? (
                     <>
@@ -600,11 +606,27 @@ export function AccountPage() {
                   <span>Expires {pm.expiry}</span>
                   <span>{pm.holder_name}</span>
                 </div>
-                <div className="account-card__actions">
+                <div
+                  className="account-card__actions"
+                  role="group"
+                  aria-label={`Actions for ${pm.card_type} ending in ${pm.last_four}`}
+                >
                   {!pm.is_default && (
-                    <button onClick={() => handleSetDefaultPayment(pm.id)}>Set as default</button>
+                    <button
+                      type="button"
+                      aria-label={`Set ${pm.card_type} ending in ${pm.last_four} as default payment method`}
+                      onClick={() => handleSetDefaultPayment(pm.id)}
+                    >
+                      Set as default
+                    </button>
                   )}
-                  <button onClick={() => handleDeletePayment(pm.id)}>Delete</button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${pm.card_type} ending in ${pm.last_four}`}
+                    onClick={() => handleDeletePayment(pm.id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
