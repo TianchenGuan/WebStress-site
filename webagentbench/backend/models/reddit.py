@@ -4,6 +4,8 @@ import math
 from datetime import datetime, timezone
 from typing import Any
 
+from typing import ClassVar
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base import BaseEntity, BaseEnvState, diff_dict_of_dicts
@@ -41,6 +43,10 @@ class Award(BaseModel):
 # ---------------------------------------------------------------------------
 
 class Subreddit(BaseEntity):
+    # Subscribing to a subreddit increments subscriber_count as a side
+    # effect of setting is_subscribed=True. The derived counter should
+    # not trigger preserve-ALL invariants on unrelated tasks.
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = ("subscriber_count", "active_users")
     name: str  # e.g. "AskReddit" (without r/ prefix)
     display_name: str  # e.g. "Ask Reddit"
     description: str
@@ -60,6 +66,14 @@ class Subreddit(BaseEntity):
 
 
 class Post(BaseEntity):
+    # Commenting on or voting on a post mutates these aggregate fields
+    # as pure side effects of Comment creation or Vote changes (both of
+    # which are already tracked in canonical_diff via their own entities
+    # or the post's vote_direction field). Including them here would
+    # cause preserve-ALL invariants to fire falsely whenever an agent
+    # performs the intended comment/vote action on an in-scope post.
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = ("comment_count", "score", "upvote_ratio")
+
     subreddit_id: str
     subreddit_name: str
     author_name: str
@@ -88,6 +102,10 @@ class Post(BaseEntity):
 
 
 class Comment(BaseEntity):
+    # Voting on a comment mutates its score as a side effect of the
+    # vote_direction change. Ignored for the same reason as Post.score.
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = ("score",)
+
     post_id: str
     parent_id: str | None = None  # None = top-level comment
     author_name: str

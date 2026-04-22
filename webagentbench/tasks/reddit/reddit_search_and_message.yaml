@@ -37,6 +37,9 @@ seed:
 canonical_diff:
   create:
     - entity: Message
+      # Reddit has two Message collections (state.messages for the inbox,
+      # state.sent_messages for the outbox). Route this create to the outbox.
+      collection: sent_messages
       desc: Compose the private message to the post author
       properties:
         to_user:

@@ -59,9 +59,9 @@ canonical_diff:
     - entity: Notification
       collection: notifications
       bijection:
-        over: "[n.id for n in initial.notifications]"
+        over: "[n.id for n in initial.notifications if not n.is_read]"
         variable: v
-      desc: "Mark every notification as read"
+      desc: "Mark every unread notification as read"
       where:
         id: {expr: "x == v"}
       changes:

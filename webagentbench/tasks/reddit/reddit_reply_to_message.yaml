@@ -40,6 +40,9 @@ seed:
 canonical_diff:
   create:
     - entity: Message
+      # Reddit has two Message collections (state.messages for the inbox,
+      # state.sent_messages for the outbox). The reply lands in the outbox.
+      collection: sent_messages
       desc: Send the reply to the target user
       properties:
         to_user:

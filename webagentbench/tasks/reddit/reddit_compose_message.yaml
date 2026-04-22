@@ -19,6 +19,9 @@ seed:
 canonical_diff:
   create:
     - entity: Message
+      # Reddit has two Message collections (state.messages for the inbox,
+      # state.sent_messages for the outbox). Route this create to the outbox.
+      collection: sent_messages
       desc: Compose a new message to QuantumPanda with the exact subject and body
       properties:
         to_user:

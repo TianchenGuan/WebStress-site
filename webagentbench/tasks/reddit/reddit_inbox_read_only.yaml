@@ -60,9 +60,9 @@ canonical_diff:
     - entity: Message
       collection: messages
       bijection:
-        over: "[m.id for m in initial.messages]"
+        over: "[m.id for m in initial.messages if not m.is_read]"
         variable: v
-      desc: "Mark every inbox message as read"
+      desc: "Mark every unread inbox message as read"
       where:
         id: {expr: "x == v"}
       changes:
