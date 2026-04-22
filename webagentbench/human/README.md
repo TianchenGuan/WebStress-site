@@ -1,10 +1,14 @@
-# WebAgentBench — Human Recording Guide
+# WebAgentBench — Human Recording Setup
 
 > For Weili / Michael / Xunjian / Tianchen (full-load) and Keagan / Kyle / Royce / Daisy (duplicate).
 
+**Two docs:**
+- **This file (README.md)** — install + launch + submit traces. The *how-to-run* guide.
+- **[GUIDELINES.md](./GUIDELINES.md)** — what counts as a valid recording, what you may / may not do, how to report bugs. The *how-to-behave* guide. **Read it before your first recording.**
+
 You'll record a fixed set of tasks under two conditions (`clean` + `intervention`), each twice (`cold` → `warm`), on your own laptop, and commit the traces back to the repo as a PR. A full-load annotator has 70 task-conditions = 140 attempts; a duplicate annotator has 8–9 task-conditions = 16–18 attempts.
 
-The launcher handles everything: start backend + all 7 env dev servers, open a dashboard filtered to your assignments, step you through cold → warm → a 30-second post-task form per assignment.
+The launcher handles everything: start backend + env dev servers, open a dashboard filtered to your assignments, step you through cold → warm, and optionally a 30-second feedback form.
 
 ## TL;DR
 
@@ -96,7 +100,9 @@ You read the instruction in the Control tab, act in the Env tab, and come back t
    ```
 
 5. **Start warm.** The control tab now shows pass/fail + reasoning + a **Start warm attempt →** button. Click it. The session resets (env tab reloads automatically at the same start page, seed 42 rebuilds fresh state), and recording re-starts after a short countdown. You do the task again — faster this time since you know what to do.
-6. **Evaluate warm + form.** Same Evaluate flow as cold. After warm saves, the control tab replaces itself with a short post-task form (5-point ratings + 3 checkboxes + free-text notes, ~30 seconds). Submit.
+6. **Evaluate warm.** Same Evaluate flow as cold. After warm saves, the assignment is **already marked complete** on the dashboard. The control tab offers two buttons:
+   - **Done — close windows** (most of the time, click this).
+   - **Leave optional feedback…** if you want to flag a bug / ambiguity / alternate strategy. The form is fully optional — you can also submit it blank or just type one line. See GUIDELINES §6.
 7. **Close.** Both windows can close. The dashboard card flips to ✓ Done within 10 seconds (it polls) — or click Refresh to see it immediately. Pick the next card.
 
 ### Pausing and resuming — cold + warm must be atomic
@@ -156,7 +162,7 @@ You don't have to memorize the rules. The system already enforces:
 - No annotator is assigned an env they designed (`designer_exclusions` in the YAML).
 - Clean and intervention of the same base task go to different primary annotators.
 - `cold` must save before `warm` can save. If you try to warm without cold, the backend returns 400.
-- `form` only unlocks after both cold and warm save.
+- `form` is optional — the assignment is complete as soon as both cold and warm are saved.
 - Starting a new attempt on an assignment **wipes any partial progress** for that assignment — this is what makes cold+warm atomic.
 - Fixed seed 42 across everyone's recordings.
 - `primary_primitive` / `expected_steps` / `variant_id` / intervention description are **hidden from the annotator UI** so your behavior isn't biased by the primitive label.

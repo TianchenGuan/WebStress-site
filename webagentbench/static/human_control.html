@@ -419,6 +419,12 @@ async function submitPostTaskForm(body) {
     });
     state.formSubmitted = true;
     state.phase = "done";
+    // Auto-close both tabs once the optional form is submitted — the
+    // assignment was already complete before the form was filled.
+    setTimeout(() => {
+      try { if (envWindow && !envWindow.closed) envWindow.close(); } catch {}
+      try { window.close(); } catch {}
+    }, 800);
   } catch (err) {
     state.error = `Form submit failed: ${err.message}`;
     state.phase = "error";
@@ -625,9 +631,17 @@ function renderLiveBlock() {
     const pass = Boolean(ev.success);
     const score = ev.score ?? ev.final_score ?? 0;
     const isCold = CTX.attempt === "cold";
-    const nextBtn = isCold
-      ? `<button class="big" id="start-warm">Start warm attempt →</button>`
-      : `<button class="big" id="open-form">Continue to post-task form →</button>`;
+    let actions;
+    if (isCold) {
+      actions = `
+        <button class="big" id="start-warm">Start warm attempt →</button>
+        <button class="ghost" id="abandon-btn">Abandon (redo from cold)</button>`;
+    } else {
+      // Warm done: assignment is complete. Form is optional.
+      actions = `
+        <button class="big" id="finish-done">✓ Done — close windows</button>
+        <button class="secondary" id="open-form">Leave optional feedback…</button>`;
+    }
     return `
       <div class="card">
         <h2>${CTX.attempt} attempt saved</h2>
@@ -637,10 +651,12 @@ function renderLiveBlock() {
           </div>
           <div class="eval-reasoning">${escapeHtml(ev.reasoning || "(no reasoning)")}</div>
         </div>
+        ${!isCold ? `<div class="instruction-body" style="font-size:12px; color:var(--muted); margin-top:12px">
+          Assignment is already marked complete on the dashboard. You can just close — the form is only if you want to flag a bug, ambiguity, or share notes.
+        </div>` : ""}
       </div>
       <div class="actions-row">
-        ${nextBtn}
-        ${isCold ? '<button class="ghost" id="abandon-btn">Abandon (redo from cold)</button>' : ''}
+        ${actions}
       </div>
     `;
   }
@@ -651,9 +667,11 @@ function renderForm() {
   const isIntervention = CTX.condition === "intervention";
   return `
     <div class="card">
-      <h2>Post-task feedback</h2>
+      <h2>Optional feedback</h2>
       <div class="instruction-body" style="font-size:13px; margin-bottom:14px">
-        A quick 30-second rating so we can triage ambiguous tasks and intervention realism.
+        Everything here is optional. Rate if you want, or skip any row. Use the checkboxes
+        and comments box only if you want to flag a specific bug, ambiguity, or alternate strategy —
+        otherwise just click Submit or close this window.
       </div>
       <div class="form-grid">
         ${ratingRow("clarity", "Instruction clarity", "Could you understand what was being asked?")}
@@ -670,6 +688,7 @@ function renderForm() {
       </div>
       <div class="actions-row" style="margin-top:18px">
         <button id="submit-form">Submit</button>
+        <button class="ghost" id="skip-form">Skip — close windows</button>
       </div>
     </div>
   `;
@@ -751,6 +770,13 @@ function bind() {
       state.phase = "form";
       render();
     });
+  const finishDone = document.getElementById("finish-done");
+  if (finishDone)
+    finishDone.addEventListener("click", () => {
+      // Close env tab if still open, then close this control tab.
+      try { if (envWindow && !envWindow.closed) envWindow.close(); } catch {}
+      window.close();
+    });
   const abandonBtn = document.getElementById("abandon-btn");
   if (abandonBtn) abandonBtn.addEventListener("click", () => abandon());
   const reopenEnv = document.getElementById("reopen-env");
@@ -765,6 +791,12 @@ function bind() {
       }),
     );
   });
+  const skipBtn = document.getElementById("skip-form");
+  if (skipBtn)
+    skipBtn.addEventListener("click", () => {
+      try { if (envWindow && !envWindow.closed) envWindow.close(); } catch {}
+      window.close();
+    });
   const submitBtn = document.getElementById("submit-form");
   if (submitBtn)
     submitBtn.addEventListener("click", () => {

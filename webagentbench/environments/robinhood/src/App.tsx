@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import { FeatherLogo } from "./icons";
@@ -49,6 +50,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function RobinhoodWorkspace() {
   const { sessionId, createSession } = useSession("robinhood");
+  const location = useLocation();
   const [tasks, setTasks] = useState<ManifestTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [seedText, setSeedText] = useState("42");
@@ -77,7 +79,7 @@ function RobinhoodWorkspace() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/", search: location.search }} replace />;
   }
 
   const selectedTask = tasks.find((t) => t.task_id === selectedTaskId);

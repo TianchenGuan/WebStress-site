@@ -242,10 +242,11 @@ def list_assignments(
             "form_done": bool(slot.get("form_done", False)),
             "updated_at": slot.get("updated_at"),
         }
+        # An assignment counts as complete once both cold and warm traces
+        # are saved. The post-task form is optional — annotators who want to
+        # flag a bug / ambiguity can still fill it, but it isn't required.
         view["completed"] = (
-            view["status"]["cold_done"]
-            and view["status"]["warm_done"]
-            and view["status"]["form_done"]
+            view["status"]["cold_done"] and view["status"]["warm_done"]
         )
         entries.append(view)
 
@@ -294,12 +295,12 @@ def summary(annotator: str = Query(..., min_length=1)) -> dict[str, Any]:
     partial = [
         aid
         for aid, s in slots.items()
-        if not (s.get("cold_done") and s.get("warm_done") and s.get("form_done"))
+        if not (s.get("cold_done") and s.get("warm_done"))
     ]
     completed = [
         aid
         for aid, s in slots.items()
-        if s.get("cold_done") and s.get("warm_done") and s.get("form_done")
+        if s.get("cold_done") and s.get("warm_done")
     ]
     return {
         "annotator": norm,
@@ -436,9 +437,11 @@ def attempt_save(
         _update_assignment_status(body.annotator, body.aid, warm_done=True)
 
     slot = _load_progress(body.annotator.strip())["assignments"].get(body.aid, {})
+    # After cold: annotator moves to warm. After warm: assignment is already
+    # complete — the post-task form is offered as a short optional step.
     next_action = "reset_for_warm"
     if slot.get("cold_done") and slot.get("warm_done"):
-        next_action = "post_task_form"
+        next_action = "done_form_optional"
     return {
         "saved": True,
         "trace_dir": str(out_dir.relative_to(_REPO_ROOT)),

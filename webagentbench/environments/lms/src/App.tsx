@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useParams,
 } from "react-router-dom";
 
@@ -40,6 +41,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function LmsWorkspace() {
   const { sessionId, createSession } = useSession("lms");
+  const location = useLocation();
   const [tasks, setTasks] = useState<ManifestTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [seedText, setSeedText] = useState("42");
@@ -68,7 +70,7 @@ function LmsWorkspace() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/", search: location.search }} replace />;
   }
 
   const selectedTask = tasks.find((t) => t.task_id === selectedTaskId);

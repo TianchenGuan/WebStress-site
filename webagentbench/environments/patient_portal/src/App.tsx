@@ -8,6 +8,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import { PatientPortalShell } from "./Shell";
@@ -38,6 +39,7 @@ function launcherUrl(startPath: string, sessionId: string) {
 
 function PatientPortalWorkspace() {
   const { sessionId, createSession } = useSession("patient_portal");
+  const location = useLocation();
   const [tasks, setTasks] = useState<ManifestTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [seedText, setSeedText] = useState("42");
@@ -66,7 +68,7 @@ function PatientPortalWorkspace() {
   }, []);
 
   if (sessionId) {
-    return <Navigate to={`/?session=${encodeURIComponent(sessionId)}`} replace />;
+    return <Navigate to={{ pathname: "/", search: location.search }} replace />;
   }
 
   const selectedTask = tasks.find((t) => t.task_id === selectedTaskId);
