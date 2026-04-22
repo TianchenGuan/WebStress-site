@@ -8,6 +8,15 @@ injections:
   - layer: client
     params:
       action: click_swallow
-      selector: "button.add-to-cart, button.checkout-btn, [data-wab-submit]"
+      # The Amazon SPA uses semantic aria-labels for the critical submit
+      # buttons: "Add to Cart" on ProductDetail, "Place your simulated
+      # order" on Checkout. Match those plus the dedicated CSS classes
+      # on the place-order / cart-checkout buttons so the injection
+      # covers both the product-detail and checkout flows.
+      selector: >-
+        [aria-label="Add to Cart"],
+        [aria-label="Place your simulated order"],
+        .checkout-summary-box__place-order,
+        .cart-summary-box__checkout
       swallow_count: 1
       behavior: { mode: persistent }
