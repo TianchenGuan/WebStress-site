@@ -1,30 +1,37 @@
 variant_id: reddit_content_creation_sprint__post_collision
 base_task_id: reddit_content_creation_sprint
 target_primitive: grounding
-description: A sibling r/Memes subreddit (chosen by a distinct naming attack) mirrors r/memes's subscriber count and description and carries a same-title post. The agent must engage with the exact target thread in r/memes, not the near-identical twin.
+description: Case-differing sibling communities r/Python and r/{target.join}
+  carry lookalike descriptions and same-title decoy posts so the agent must
+  create posts in the exactly-named target subreddits, not the twins.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
-    - type: post
-      subreddit: memes
-      title: Interesting discussion thread [Update]
-      author: lookalike_helper
-      score: 205
-      comments: 33
-      is_saved: false
-      body: Follow-up thread with overlapping keywords but not the task target.
     - type: subreddit
-      name: Memes
-      display_name: r/Memes
-      description: Memes! A way of describing cultural information being shared. Case-differing sibling community — distinct URL, near-identical display to the real sub.
-      subscribers: 33232884
+      name: PythonOfficial
+      display_name: r/PythonOfficial
+      description: Official-sounding Python community. Case-and-word-differing
+        lookalike of r/Python — distinct URL.
+      subscribers: 420000
     - type: post
-      subreddit: Memes
-      title: Interesting discussion thread
+      subreddit: PythonOfficial
+      title: '{target.py_title}'
+      author: lookalike_helper
+      score: 318
+      comments: 24
+      body: Same title in a different, lookalike Python community.
+    - type: subreddit
+      name: '{target.join}official'
+      display_name: r/{target.join}official
+      description: Official-sounding {target.join} community. Lookalike with a
+        distinct URL.
+      subscribers: 88000
+    - type: post
+      subreddit: '{target.join}official'
+      title: '{target.ml_title}'
       author: crosspost_helper
-      score: 178
-      comments: 12
-      is_saved: false
-      body: Same title in a different, lookalike community.
+      score: 212
+      comments: 14
+      body: Same title crossposted to the lookalike community.

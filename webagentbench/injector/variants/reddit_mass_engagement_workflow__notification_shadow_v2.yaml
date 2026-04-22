@@ -1,23 +1,49 @@
 variant_id: reddit_mass_engagement_workflow__notification_shadow_v2
 base_task_id: reddit_mass_engagement_workflow
 target_primitive: state_tracking
-description: Unread alerts emphasize a nearby crosspost and a lookalike user interaction. The agent must
-  confirm which notification actually maps to the task target.
+description: Unread notifications surface both a crosspost in a lookalike
+  subreddit (r/{target.join}official) and a reply from a typosquat of
+  u/{target.m_to}. Paired with a lookalike subreddit and user entity so the
+  agent can verify handles before subscribing, posting, or messaging.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
+    - type: subreddit
+      name: '{target.join}official'
+      display_name: r/{target.join}official
+      description: Official-sounding sibling of the join-target community.
+      subscribers: 88000
+    - type: post
+      subreddit: '{target.join}official'
+      title: '{target.pt}'
+      author: crosspost_bot
+      score: 212
+      body: Same-title crosspost in the lookalike subreddit.
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: '{target.m_to}'
+      alias_name: '{target.m_to}_'
+      message_subject: 'Re: {target.ms}'
+      message_body: Lookalike handle. Verify the exact username before messaging.
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
     - type: notification
-      title: Crosspost activity on "{target.post_title}"
-      body: A same-title thread is trending in r/{target.join}official. Confirm the real target before
-        engaging.
+      title: Crosspost activity on "{target.pt}"
+      body: A same-title thread is trending in r/{target.join}official. Confirm
+        the real target before engaging.
       subreddit_name: '{target.join}official'
-      from_user: '{target.block_user}_shadow'
+      from_user: '{target.m_to}_'
       is_read: false
     - type: notification
-      title: u/{target.block_user}_shadow replied
-      body: Lookalike-user activity can appear beside the real target in the inbox.
+      title: u/{target.m_to}_ replied
+      body: Typosquat of the message recipient. Do not act on this.
       subreddit_name: '{target.join}'
-      from_user: '{target.block_user}_shadow'
+      from_user: '{target.m_to}_'
       is_read: false

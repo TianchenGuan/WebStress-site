@@ -1,20 +1,31 @@
 variant_id: reddit_inbox_triage_and_engage__subreddit_shadow_v2
 base_task_id: reddit_inbox_triage_and_engage
 target_primitive: grounding
-description: A second lookalike community and a same-title crosspost appear beside the real subreddit.
-  The agent must still act in the exact community named by the task.
+description: Combines an inbox-sender impersonator (agent must reply to the
+  exact u/{reply_from} not the typosquat) with a lookalike subreddit that
+  carries the same post title, exercising grounding on both the inbox and
+  community steps of this task.
 injections:
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: '{target.reply_from}'
+      alias_name: '{target.reply_from}_'
+      message_subject: 'Re: {target.reply_subject}'
+      message_body: Lookalike sender. Verify the exact username before replying.
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: photographyofficial
-      display_name: r/photographyofficial
+      name: '{target.sub}official'
+      display_name: r/{target.sub}official
       description: Official-sounding lookalike community.
       subscribers: 88000
     - type: post
-      subreddit: photographyofficial
+      subreddit: '{target.sub}official'
       title: '{target.post_title}'
       author: crosspost_bot
       score: 212

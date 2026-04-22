@@ -193,7 +193,11 @@ canonical_diff:
   - entity: Notification
     desc: All unread notifications marked as read
     bijection:
-      over: target['unread_notification_ids']
+      # Iterate over all initially-unread notification ids (which
+      # includes any decoys injected pre-session-snapshot) so the
+      # "Mark all read" action satisfies the bijection regardless of
+      # whether a notification_shadow_v2 variant added extra unreads.
+      over: "[n.id for n in initial.notifications if not n.is_read]"
       variable: v
     where:
       id:

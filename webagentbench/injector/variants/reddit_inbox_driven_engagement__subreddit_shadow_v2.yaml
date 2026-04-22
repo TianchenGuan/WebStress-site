@@ -1,9 +1,20 @@
 variant_id: reddit_inbox_driven_engagement__subreddit_shadow_v2
 base_task_id: reddit_inbox_driven_engagement
 target_primitive: grounding
-description: A second lookalike community and a same-title crosspost appear beside the real subreddit.
-  The agent must still act in the exact community named by the task.
+description: Combines an inbox-sender impersonator (wrong u/r_from) with a
+  lookalike community that mirrors the join-target subreddit and the p1 title,
+  so the agent has to disambiguate on both the reply step and the later
+  community engagement.
 injections:
+- layer: seed
+  params:
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: '{target.r_from}'
+      alias_name: '{target.r_from}_'
+      message_subject: 'Re: {target.r_sub}'
+      message_body: Lookalike sender. Verify the exact username before replying.
 - layer: seed
   params:
     action: add_confusing_decoys
@@ -15,7 +26,7 @@ injections:
       subscribers: 88000
     - type: post
       subreddit: '{target.join}official'
-      title: '{target.post_title}'
+      title: '{target.p1}'
       author: crosspost_bot
       score: 212
       comments: 24

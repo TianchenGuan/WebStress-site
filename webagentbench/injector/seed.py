@@ -464,6 +464,14 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                     for variant in spec.get("variants", [])
                 ]
             state.products.insert(0, product)
+            # Optional: also drop the decoy directly into the wishlist so
+            # wishlist-scoped tasks (e.g. amazon_wishlist_stock_audit) see
+            # the lookalike SKU in the same surface they operate on, not
+            # only in browse/search results.
+            if bool(spec.get("wishlist", False)):
+                wishlist = getattr(state, "wishlist", None)
+                if isinstance(wishlist, list) and product.id not in wishlist:
+                    wishlist.append(product.id)
         if hasattr(state, "touch"):
             state.touch()
         return

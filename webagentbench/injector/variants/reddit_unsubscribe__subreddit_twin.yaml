@@ -1,27 +1,26 @@
 variant_id: reddit_unsubscribe__subreddit_twin
 base_task_id: reddit_unsubscribe
 target_primitive: grounding
-description: A twin subreddit with a nearly identical name appears in search and navigation. The agent
-  must act in the exact community named in the task.
+description: Lookalike communities r/memes_ and r/Memes sit alongside r/memes
+  in search and sidebar. The agent must leave the exact r/memes community
+  named in the instruction, not a case-varying or suffix-varying twin.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: MachineLearning_
-      display_name: r/MachineLearning_
+      name: memes_
+      display_name: r/memes_
       description: Lookalike community with a confusingly similar name.
       subscribers: 215000
     - type: subreddit
-      name: MachineLearninghelp
-      display_name: r/MachineLearninghelp
+      name: Memes
+      display_name: r/Memes
+      description: Case-differing sibling of the real r/memes community.
+      subscribers: 332000
+    - type: subreddit
+      name: memeshelp
+      display_name: r/memeshelp
       description: Meta/help community for a similarly named subreddit.
       subscribers: 54000
-    - type: post
-      subreddit: MachineLearning_
-      title: Helpful thread
-      author: shadow_mod
-      score: 92
-      comments: 11
-      body: Same headline in the wrong, lookalike subreddit.

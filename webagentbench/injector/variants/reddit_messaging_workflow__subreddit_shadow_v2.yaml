@@ -1,22 +1,27 @@
 variant_id: reddit_messaging_workflow__subreddit_shadow_v2
 base_task_id: reddit_messaging_workflow
 target_primitive: grounding
-description: A second lookalike community and a same-title crosspost appear beside the real subreddit.
-  The agent must still act in the exact community named by the task.
+description: Lookalike usernames impersonate the reply_from / delete_from / new_to
+  targets in the inbox so the agent must verify the exact username before each
+  inbox action. Replaces an earlier subreddit_shadow variant that had no bite on
+  a messaging-only task.
 injections:
 - layer: seed
   params:
-    action: add_confusing_decoys
-    decoys:
-    - type: subreddit
-      name: MachineLearningofficial
-      display_name: r/MachineLearningofficial
-      description: Official-sounding lookalike community.
-      subscribers: 88000
-    - type: post
-      subreddit: MachineLearningofficial
-      title: Interesting discussion thread
-      author: crosspost_bot
-      score: 212
-      comments: 24
-      body: Same title posted into the wrong, official-sounding subreddit.
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: '{target.reply_from}'
+      alias_name: '{target.reply_from}_'
+      message_subject: 'Re: {target.reply_subject}'
+      message_body: Similar-looking account. Please verify my handle before replying.
+    - type: user
+      original_name: '{target.delete_from}'
+      alias_name: '{target.delete_from}.mod'
+      message_subject: 'About: {target.delete_subject}'
+      message_body: Typosquat of the sender you were asked to delete. Do not act here.
+    - type: user
+      original_name: '{target.new_to}'
+      alias_name: '{target.new_to}-official'
+      message_subject: Hey, heads up
+      message_body: Lookalike username - do not compose here.

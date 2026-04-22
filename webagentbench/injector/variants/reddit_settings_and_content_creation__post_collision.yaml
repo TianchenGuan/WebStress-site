@@ -1,30 +1,34 @@
 variant_id: reddit_settings_and_content_creation__post_collision
 base_task_id: reddit_settings_and_content_creation
 target_primitive: grounding
-description: A sibling r/NewMachineLearning subreddit (chosen by a distinct naming attack) mirrors r/MachineLearning's subscriber count and description and carries a same-title post. The agent must engage with the exact target thread in r/MachineLearning, not the near-identical twin.
+description: Case/word-differing sibling Python communities plus a same-title
+  decoy post so the agent must create its Python post in r/Python exactly,
+  not in r/PythonOfficial or r/Python2. Also adds a lookalike of the join
+  subreddit so step 4 subscribes to the right community.
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
-    - type: post
-      subreddit: MachineLearning
-      title: Interesting discussion thread [Update]
-      author: lookalike_helper
-      score: 205
-      comments: 33
-      is_saved: false
-      body: Follow-up thread with overlapping keywords but not the task target.
     - type: subreddit
-      name: NewMachineLearning
-      display_name: r/NewMachineLearning
-      description: Discussion of machine learning and related topics. Splinter community claiming to be the modern successor of the real sub.
-      subscribers: 2604000
+      name: PythonOfficial
+      display_name: r/PythonOfficial
+      description: Official-sounding splinter of the real Python community.
+      subscribers: 512000
     - type: post
-      subreddit: NewMachineLearning
-      title: Interesting discussion thread
-      author: crosspost_helper
-      score: 178
-      comments: 12
-      is_saved: false
-      body: Same title in a different, lookalike community.
+      subreddit: PythonOfficial
+      title: '{target.post_title}'
+      author: lookalike_helper
+      score: 318
+      comments: 24
+      body: Same title crossposted to the lookalike community.
+    - type: subreddit
+      name: Python2
+      display_name: r/Python2
+      description: Lookalike with a distinct URL.
+      subscribers: 98000
+    - type: subreddit
+      name: '{target.join_sub}official'
+      display_name: r/{target.join_sub}official
+      description: Official-sounding {target.join_sub} community, distinct URL.
+      subscribers: 144000
