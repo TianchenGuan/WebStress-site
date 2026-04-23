@@ -195,6 +195,11 @@ python -m webagentbench.stock_browseruse_eval \
 `webagentbench/human/assignments_v1.yaml`; `scripts/run_picks.py` consumes
 that JSON and runs the tasks sequentially against a live backend.
 
+Each pick must be uniquely identified by the tuple `(task_id, cond)` — the
+per-task output directory is `tasks/<task_id>__<cond>/`, so two picks with
+the same `(task_id, cond)` will overwrite each other's trajectory. `gen_picks.py`
+satisfies this by construction; watch out only when hand-crafting picks JSON.
+
 **1. Generate a picks JSON:**
 
 ```bash

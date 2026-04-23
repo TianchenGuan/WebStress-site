@@ -119,7 +119,7 @@ async def _run_one(
         score = ep.get("evaluation", {}).get("score", 0.0)
         ok = "PASS" if ep.get("evaluation", {}).get("success") else "FAIL"
         elapsed = ep.get("agent", {}).get("elapsed_seconds", 0)
-        print(f"  [{ok}] {header[1:].split(']')[0]}] score={score:.2f}  ({elapsed}s)", flush=True)
+        print(f"  [{ok}] [{idx}/{total}] score={score:.2f}  ({elapsed}s)", flush=True)
         return ep, traj_path
 
 
