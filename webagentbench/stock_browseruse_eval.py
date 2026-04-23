@@ -20,7 +20,7 @@ CLI:
     python -m webagentbench.stock_browseruse_eval \\
         --model gemini-3-flash-preview --provider gemini \\
         --tasks booking_cancel_upcoming booking_budget_comparison \\
-        --output results/webagentbench/stock_bu.json
+        --output-dir webagentbench/results/gemini_booking
 """
 from __future__ import annotations
 
@@ -298,6 +298,145 @@ def _build_llm(
 
 
 # =============================================================================
+# Trajectory construction (ports browseruse_eval.py's format so the same
+# visualize.py + demo-site replay works for both harnesses)
+# =============================================================================
+
+
+def _history_to_trajectory(
+    history,
+    *,
+    include_screenshots: bool,
+    screenshots_dir: "Path | None" = None,
+) -> list[dict]:
+    """Convert a browser_use.AgentHistoryList into the WAB trajectory format.
+
+    Step shape matches `browseruse_eval.build_trajectory_step`'s output, so
+    `webagentbench.visualize` can render trajectories from either harness.
+
+    Screenshot handling (stock-harness-only; custom harness doesn't set this):
+      - If `include_screenshots` is False: `screenshot` field is omitted.
+      - If `screenshots_dir` is given and the directory exists: each step's
+        PNG is written as `<screenshots_dir>/step{N:02d}.png` and the step's
+        `screenshot` field is set to the relative path "screenshots/step{N:02d}.png"
+        (relative to the per-task trajectory.json that will reference it).
+      - If `screenshots_dir` is None: the `screenshot` field holds a base64
+        data URI inline (legacy single-file fallback).
+    """
+    from pathlib import Path
+    import base64
+    from webagentbench.browseruse_eval import build_trajectory_step
+
+    if history is None or not hasattr(history, "history"):
+        return []
+
+    screenshots: list[str | None]
+    try:
+        screenshots = list(history.screenshots()) if include_screenshots else []
+    except Exception as exc:  # pragma: no cover — defensive against upstream breakage
+        logger.warning("history.screenshots() failed: %s", exc)
+        screenshots = []
+
+    if include_screenshots and screenshots_dir is not None:
+        Path(screenshots_dir).mkdir(parents=True, exist_ok=True)
+
+    trajectory: list[dict] = []
+    for i, item in enumerate(history.history):
+        mo = getattr(item, "model_output", None)
+        state = getattr(item, "state", None)
+        if mo is None:
+            continue
+
+        thinking = (getattr(mo, "thinking", None) or "") or (
+            getattr(mo, "evaluation_previous_goal", None) or ""
+        )
+        memory = getattr(mo, "memory", None) or ""
+
+        actions_raw = getattr(mo, "action", None) or []
+        actions = []
+        for a in actions_raw:
+            try:
+                actions.append(a.model_dump(exclude_unset=True, exclude_none=True))
+            except Exception:
+                # ActionModel variants sometimes fail exclude_unset; fall back.
+                actions.append(a.model_dump(exclude_none=True))
+
+        # interacted_element is list-parallel-to-actions. Map it to a
+        # {index: elem_info} dict keyed by the action's own target index so
+        # build_trajectory_step's target lookup works.
+        dom_elements: dict[int, dict] = {}
+        interacted = getattr(state, "interacted_element", None) or []
+        for act_idx, elem in enumerate(interacted):
+            if elem is None:
+                continue
+            action_target_idx = None
+            if act_idx < len(actions):
+                for key in (
+                    "click", "input_text", "select_option",
+                    "scroll_down", "scroll_up", "scroll_left", "scroll_right",
+                ):
+                    if key in actions[act_idx]:
+                        action_target_idx = actions[act_idx][key].get("index")
+                        break
+            if action_target_idx is None:
+                continue
+            dom_elements[action_target_idx] = {
+                "tag_name": getattr(elem, "node_name", "") or "",
+                "attributes": getattr(elem, "attributes", None) or {},
+                "text": getattr(elem, "node_value", "") or "",
+            }
+
+        url = getattr(state, "url", "") or ""
+
+        # Status: "success" unless any ActionResult in this step carried an error.
+        status = "success"
+        for r in getattr(item, "result", None) or []:
+            if getattr(r, "error", None):
+                status = f"ERROR: {r.error}"
+                break
+
+        metadata = getattr(item, "metadata", None)
+        elapsed = 0.0
+        if metadata is not None:
+            elapsed = float(
+                getattr(metadata, "duration_seconds", None)
+                or getattr(metadata, "elapsed", None)
+                or 0.0
+            )
+
+        step = build_trajectory_step(
+            step_num=i + 1,
+            thinking=thinking,
+            memory=memory,
+            actions=actions,
+            dom_elements=dom_elements,
+            url=url,
+            status=status,
+            elapsed=round(elapsed, 1),
+        )
+        if include_screenshots and i < len(screenshots) and screenshots[i]:
+            b64 = screenshots[i]
+            # Strip any incoming data: prefix to recover bare base64 bytes.
+            if b64.startswith("data:"):
+                b64 = b64.split(",", 1)[1]
+            if screenshots_dir is not None:
+                # Externalize: write PNG file, reference by relative path.
+                png_path = Path(screenshots_dir) / f"step{i + 1:02d}.png"
+                try:
+                    png_path.write_bytes(base64.b64decode(b64))
+                    step["screenshot"] = f"screenshots/{png_path.name}"
+                except Exception as exc:
+                    logger.warning("failed to write %s: %s", png_path, exc)
+                    step["screenshot"] = f"data:image/png;base64,{b64}"
+            else:
+                # No dir provided → fallback inline (legacy / programmatic use).
+                step["screenshot"] = f"data:image/png;base64,{b64}"
+        trajectory.append(step)
+
+    return trajectory
+
+
+# =============================================================================
 # Single-task runner
 # =============================================================================
 
@@ -324,6 +463,14 @@ async def run_episode(
     max_failures: int = 3,
     step_timeout: int = 120,
     extra_banned_actions: list[str] | None = None,
+    # --- Trajectory output (on by default — same schema as browseruse_eval, plus `screenshot`) ---
+    record_trajectory: bool = True,
+    trajectory_screenshots: bool = True,
+    # If set, PNG screenshots are written here (as step{N:02d}.png) and the
+    # trajectory JSON references them by relative path; a self-contained
+    # trajectory.json is also written alongside the screenshots/ directory.
+    # If None, screenshots are embedded inline as base64 data URIs (legacy).
+    trajectory_dir: "Path | None" = None,
 ) -> dict:
     """Run one WebAgentBench task through the stock browser-use agent."""
     from browser_use import Agent, Browser, Controller
@@ -475,9 +622,50 @@ async def run_episode(
     except Exception:
         pass
 
-    # 9. Shape the result to roughly match browseruse_eval.py's output so
-    #    downstream aggregation scripts can read both.
-    return {
+    # 9. Build trajectory in the same schema as browseruse_eval.py so
+    #    webagentbench.visualize can render runs from either harness. When a
+    #    `trajectory_dir` is provided, PNG screenshots are externalized to
+    #    `<trajectory_dir>/screenshots/` and the step's `screenshot` field
+    #    becomes a relative path ("screenshots/stepNN.png") instead of a
+    #    base64 data URI. A self-contained per-task trajectory.json is also
+    #    written alongside the screenshots/ directory so each task folder
+    #    can be inspected or shipped independently.
+    trajectory: list[dict] = []
+    screenshots_dir = None
+    if record_trajectory and trajectory_dir is not None:
+        trajectory_dir = Path(trajectory_dir)
+        trajectory_dir.mkdir(parents=True, exist_ok=True)
+        if trajectory_screenshots:
+            screenshots_dir = trajectory_dir / "screenshots"
+    if record_trajectory:
+        try:
+            trajectory = _history_to_trajectory(
+                history,
+                include_screenshots=trajectory_screenshots,
+                screenshots_dir=screenshots_dir,
+            )
+        except Exception as exc:
+            logger.warning("trajectory build failed for %s: %s", task_id, exc)
+
+    # 10. Shape the result to match browseruse_eval.py's output so downstream
+    #     aggregation scripts, visualize.py, and replay tooling work uniformly.
+    n_steps = (
+        len(history.model_dump()["history"])
+        if (history and hasattr(history, "model_dump"))
+        else 0
+    )
+    agent_block: dict[str, Any] = {
+        "model": model,
+        "provider": provider,
+        "harness": "stock-browser-use",
+        "elapsed_seconds": elapsed,
+        "completed": completed,
+        "steps": n_steps,
+    }
+    if record_trajectory:
+        agent_block["trajectory"] = trajectory
+
+    result = {
         "task_id": task_id,
         "session_id": session_id,
         "evaluation": {
@@ -487,20 +675,119 @@ async def run_episode(
             "checks": checks,
             "negative_checks": negative_checks,
         },
-        "agent": {
-            "model": model,
-            "provider": provider,
-            "harness": "stock-browser-use",
-            "elapsed_seconds": elapsed,
-            "completed": completed,
-            "steps": len(history.model_dump()["history"]) if (history and hasattr(history, "model_dump")) else 0,
-        },
+        "agent": agent_block,
     }
+
+    # 11. Write a self-contained per-task trajectory.json when a dir was given.
+    #     Summary (many-task) and run_manifest files are written by the caller
+    #     (run_picks.py or the CLI runner) so this function stays per-task.
+    if record_trajectory and trajectory_dir is not None:
+        traj_file = trajectory_dir / "trajectory.json"
+        try:
+            traj_file.write_text(json.dumps(result, indent=2, default=str))
+        except Exception as exc:
+            logger.warning("failed to write %s: %s", traj_file, exc)
+
+    return result
 
 
 # =============================================================================
 # Multi-task runner
 # =============================================================================
+
+
+def _task_slug(task_id: str, variant_filename: str | None = None, cond: str | None = None) -> str:
+    """Return a filesystem-safe subdirectory name for a task run.
+
+    Format:
+      "<task_id>__<cond>"  when condition is known (clean / intervention)
+      "<task_id>"          otherwise
+    """
+    if cond:
+        return f"{task_id}__{cond}"
+    if variant_filename:
+        return f"{task_id}__intervention"
+    return task_id
+
+
+def _summary_entry(result: dict, trajectory_path: str | None) -> dict:
+    """Strip the full trajectory from a result and add a trajectory_path pointer.
+
+    The summary is a one-stop file for grid analysis (score, pass, elapsed,
+    steps) without carrying the per-step data. Users drill into a specific
+    task via `<output-dir>/<trajectory_path>`.
+    """
+    agent = dict(result.get("agent", {}))
+    agent.pop("trajectory", None)  # full trajectory lives in per-task file
+    entry = {
+        "task_id": result.get("task_id"),
+        "session_id": result.get("session_id"),
+        "evaluation": result.get("evaluation", {}),
+        "agent": agent,
+    }
+    if trajectory_path is not None:
+        entry["trajectory_path"] = trajectory_path
+    for k in ("variant_filename", "pick_metadata"):
+        if k in result:
+            entry[k] = result[k]
+    return entry
+
+
+def write_run_artifacts(
+    output_dir: "str | Path",
+    *,
+    model: str,
+    provider: str,
+    results: list[dict],
+    trajectory_paths: list[str | None],
+    wall_seconds: float,
+    started_at: str,
+    ended_at: str,
+    extra_manifest: dict | None = None,
+) -> Path:
+    """Write summary.json + run_manifest.json for a completed run.
+
+    Each per-task trajectory.json is expected to have already been written
+    by run_episode() (via its `trajectory_dir` parameter). This function
+    just produces the top-level aggregation pointing at them.
+    """
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    passed = sum(1 for r in results if r.get("evaluation", {}).get("success"))
+    avg = sum(r.get("evaluation", {}).get("score", 0.0) for r in results) / max(1, len(results))
+
+    summary = {
+        "model": model,
+        "provider": provider,
+        "harness": "stock-browser-use",
+        "banned_actions": _BANNED_ACTIONS,
+        "n": len(results),
+        "passed": passed,
+        "avg_score": avg,
+        "wall_seconds": wall_seconds,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "results": [
+            _summary_entry(r, tp) for r, tp in zip(results, trajectory_paths)
+        ],
+    }
+    (out / "summary.json").write_text(json.dumps(summary, indent=2, default=str))
+
+    manifest = {
+        "model": model,
+        "provider": provider,
+        "harness": "stock-browser-use",
+        "n_tasks": len(results),
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "wall_seconds": wall_seconds,
+    }
+    if extra_manifest:
+        manifest.update(extra_manifest)
+    (out / "run_manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
+
+    return out
 
 
 async def run_evaluation(
@@ -515,7 +802,7 @@ async def run_evaluation(
     server_host: str = "127.0.0.1",
     backend_port: int = 8080,
     frontend_port: int = 8084,
-    output_path: str = "results/webagentbench/stock_bu_results.json",
+    output_dir: str = "webagentbench/results/stock_bu_run",
     verbose: bool = True,
     # --- Stock browser-use tunables (threaded to run_episode) ---
     temperature: float | None = None,
@@ -526,24 +813,39 @@ async def run_evaluation(
     max_failures: int = 3,
     step_timeout: int = 120,
     extra_banned_actions: list[str] | None = None,
+    record_trajectory: bool = True,
+    trajectory_screenshots: bool = True,
 ) -> list[dict]:
     from .agent_eval import resolve_task_ids
+    from datetime import datetime, timezone
 
     task_ids = resolve_task_ids(task_filter, environments_filter)
     if not task_ids:
         print("No tasks to evaluate.", file=sys.stderr)
         return []
 
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tasks_dir = out_dir / "tasks"
+    tasks_dir.mkdir(exist_ok=True)
+
     if verbose:
-        print(f"Agent: {model} (via {provider})")
-        print(f"Harness: stock browser-use")
-        print(f"Tasks: {len(task_ids)}")
-        print(f"Budget: steps={max_steps}, timeout={timeout_per_task}s")
-        print(f"Banned actions: {', '.join(_BANNED_ACTIONS)}")
+        print(f"Agent:    {model} (via {provider})")
+        print(f"Harness:  stock browser-use")
+        print(f"Tasks:    {len(task_ids)}")
+        print(f"Budget:   steps={max_steps}, timeout={timeout_per_task}s")
+        print(f"Banned:   {', '.join(_BANNED_ACTIONS)}")
+        print(f"Writing:  {out_dir}/")
         print("=" * 60)
 
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.time()
+
     results: list[dict] = []
+    trajectory_paths: list[str | None] = []
     for tid in task_ids:
+        slug = _task_slug(tid)
+        task_dir = tasks_dir / slug
         try:
             res = await run_episode(
                 tid,
@@ -564,7 +866,11 @@ async def run_evaluation(
                 max_failures=max_failures,
                 step_timeout=step_timeout,
                 extra_banned_actions=extra_banned_actions,
+                record_trajectory=record_trajectory,
+                trajectory_screenshots=trajectory_screenshots,
+                trajectory_dir=task_dir if record_trajectory else None,
             )
+            trajectory_paths.append(f"tasks/{slug}/trajectory.json" if record_trajectory else None)
         except Exception as exc:
             logger.error("Fatal error on %s: %s", tid, exc, exc_info=True)
             res = {
@@ -572,22 +878,27 @@ async def run_evaluation(
                 "evaluation": {"score": 0.0, "success": False, "reasoning": f"fatal: {exc}"},
                 "agent": {"model": model, "provider": provider, "harness": "stock-browser-use", "steps": 0},
             }
+            trajectory_paths.append(None)
         results.append(res)
         ev = res["evaluation"]
         if verbose:
             status = "PASS" if ev["success"] else "FAIL"
             print(f"  [{status}] {tid} score={ev['score']:.2f} ({res['agent'].get('elapsed_seconds', 0)}s)")
 
-    # Write aggregated results
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w") as f:
-        json.dump({
-            "format": "stock-browser-use",
-            "agent": {"model": model, "provider": provider, "harness": "stock-browser-use"},
-            "banned_actions": _BANNED_ACTIONS,
-            "results": results,
-        }, f, indent=2)
+    wall = time.time() - t0
+    ended_at = datetime.now(timezone.utc).isoformat()
+
+    write_run_artifacts(
+        out_dir,
+        model=model,
+        provider=provider,
+        results=results,
+        trajectory_paths=trajectory_paths,
+        wall_seconds=wall,
+        started_at=started_at,
+        ended_at=ended_at,
+        extra_manifest={"task_filter": task_filter, "environments_filter": environments_filter},
+    )
 
     if verbose:
         n = len(results)
@@ -595,7 +906,7 @@ async def run_evaluation(
         avg = sum(r["evaluation"].get("score", 0) for r in results) / max(n, 1)
         print("=" * 60)
         print(f"SUMMARY: {p}/{n} passed | avg score: {avg:.3f}")
-        print(f"Results written to: {out}")
+        print(f"Summary: {out_dir}/summary.json")
 
     return results
 
@@ -623,7 +934,13 @@ def main():
     p.add_argument("--server-host", default="127.0.0.1")
     p.add_argument("--backend-port", type=int, default=8080)
     p.add_argument("--frontend-port", type=int, default=8084)
-    p.add_argument("--output", default="results/webagentbench/stock_bu_results.json")
+    p.add_argument(
+        "--output-dir",
+        default="webagentbench/results/stock_bu_run",
+        help="Directory for run artifacts: summary.json, run_manifest.json, "
+             "tasks/<task_id>/trajectory.json, tasks/<task_id>/screenshots/*.png "
+             "(default: webagentbench/results/stock_bu_run)",
+    )
     p.add_argument("--quiet", "-q", action="store_true")
 
     # Stock-browser-use tunables
@@ -639,6 +956,14 @@ def main():
     p.add_argument("--ban-action", action="append", default=None,
                    metavar="NAME",
                    help="ban an additional action beyond the default list (repeatable)")
+    p.add_argument("--no-trajectory", dest="record_trajectory",
+                   action="store_false", default=True,
+                   help="don't embed the per-step trajectory in the output JSON")
+    p.add_argument("--no-trajectory-screenshots",
+                   dest="trajectory_screenshots",
+                   action="store_false", default=True,
+                   help="record the trajectory but omit base64 PNG screenshots "
+                        "(trades ~10MB/task of size for no visual replay)")
 
     args = p.parse_args()
 
@@ -653,7 +978,7 @@ def main():
         server_host=args.server_host,
         backend_port=args.backend_port,
         frontend_port=args.frontend_port,
-        output_path=args.output,
+        output_dir=args.output_dir,
         verbose=not args.quiet,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
@@ -663,6 +988,8 @@ def main():
         max_failures=args.max_failures,
         step_timeout=args.step_timeout,
         extra_banned_actions=args.ban_action,
+        record_trajectory=args.record_trajectory,
+        trajectory_screenshots=args.trajectory_screenshots,
     ))
 
 

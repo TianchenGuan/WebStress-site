@@ -139,15 +139,59 @@ def _build_replay_meta(result: dict) -> dict | None:
     return None
 
 
-def _prepare_result_for_js(result: dict) -> dict:
-    """Return a browser-safe copy of a result payload for the embedded viewer."""
+def _inline_screenshot_if_relative(step: dict, base_dir: "Path | None") -> dict:
+    """If a step's `screenshot` field is a relative path (new-style), read the
+    PNG from disk and inline as a base64 data URI so the rendered HTML remains
+    a self-contained artifact. Data URI strings are passed through unchanged.
+    """
+    shot = step.get("screenshot")
+    if not isinstance(shot, str) or not shot:
+        return step
+    if shot.startswith("data:"):
+        return step
+    if base_dir is None:
+        return step
+    import base64 as _b64
+    png_path = (base_dir / shot).resolve()
+    try:
+        if png_path.is_file():
+            b = png_path.read_bytes()
+            step["screenshot"] = f"data:image/png;base64,{_b64.b64encode(b).decode('ascii')}"
+    except Exception:
+        pass
+    return step
+
+
+def _prepare_result_for_js(result: dict, *, trajectory_base_dir: "Path | None" = None) -> dict:
+    """Return a browser-safe copy of a result payload for the embedded viewer.
+
+    If the result has a `trajectory_path` pointer (new summary.json schema)
+    and `trajectory_base_dir` is given, load the per-task trajectory.json and
+    splice its trajectory[] into this result before rendering. Relative
+    screenshot paths are re-encoded to base64 so the final HTML is
+    self-contained.
+    """
     result_copy = dict(result)
     agent = dict(result_copy.get("agent", {}))
     raw_msgs = agent.get("messages", [])
     raw_traj = agent.get("trajectory", [])
+
+    # If trajectory is empty but a pointer exists, follow it.
+    traj_path = result_copy.get("trajectory_path")
+    task_dir: "Path | None" = None
+    if not raw_traj and traj_path and trajectory_base_dir is not None:
+        full = (trajectory_base_dir / traj_path).resolve()
+        if full.is_file():
+            try:
+                per_task = json.loads(full.read_text())
+                raw_traj = per_task.get("agent", {}).get("trajectory", [])
+                task_dir = full.parent
+            except Exception:
+                pass
+
     agent["messages"] = _truncate_messages(raw_msgs) if raw_msgs else []
     agent["trajectory"] = [
-        _normalize_step_targets(step)
+        _inline_screenshot_if_relative(_normalize_step_targets(step), task_dir)
         for step in raw_traj
         if isinstance(step, dict)
     ]
@@ -158,17 +202,25 @@ def _prepare_result_for_js(result: dict) -> dict:
     return result_copy
 
 
-def generate_html(data: dict, server_url: str) -> str:
+def generate_html(data: dict, server_url: str, *, trajectory_base_dir: "Path | None" = None) -> str:
     """Generate the visualization HTML from result data."""
-    model = data.get("agent", {}).get("model", "unknown")
-    provider = data.get("agent", {}).get("provider", "unknown")
+    # New schema (summary.json from stock harness) puts model at top level.
+    # Legacy schema keeps it inside .agent.
+    model = data.get("model") or data.get("agent", {}).get("model", "unknown")
+    provider = data.get("provider") or data.get("agent", {}).get("provider", "unknown")
     summary = data.get("summary", {})
     results = data.get("results", [])
     task_meta = load_embedded_task_meta(data)
     total_tasks = summary_total_tasks(summary) or len(results)
 
     # Build a lightweight copy of results with truncated messages for embedding.
-    results_for_js = [_prepare_result_for_js(r) for r in results]
+    # When a summary.json references per-task trajectory.json files, follow
+    # those pointers + re-encode each step's PNG as base64 so the emitted
+    # HTML remains a self-contained artifact.
+    results_for_js = [
+        _prepare_result_for_js(r, trajectory_base_dir=trajectory_base_dir)
+        for r in results
+    ]
 
     results_json = json.dumps(results_for_js)
     task_meta_json = json.dumps(task_meta)
@@ -442,6 +494,19 @@ body {{
     margin-top: 4px; white-space: pre-wrap; line-height: 1.5;
     padding: 6px 8px; border-radius: 3px;
     background: #f0eeea;
+}}
+
+.step-screenshot {{ margin-top: 4px; }}
+.step-screenshot summary {{
+    cursor: pointer; color: #6b6560; font-size: 11px;
+    list-style: none; font-weight: 500;
+}}
+.step-screenshot summary::-webkit-details-marker {{ display: none; }}
+.step-screenshot summary:hover {{ color: #1a1a1a; }}
+.step-screenshot .step-screenshot-img {{
+    display: block; margin-top: 4px;
+    max-width: 100%; border: 1px solid #d4d0ca; border-radius: 3px;
+    background: #fff;
 }}
 
 /* ── Eval panel ─────────────────────────────────────────────── */
@@ -1400,6 +1465,21 @@ async function selectPage(idx) {{
                 step.appendChild(details);
             }}
 
+            // screenshot (stock-harness-only; recorded by _history_to_trajectory)
+            if (t.screenshot) {{
+                const shotDetails = document.createElement('details');
+                shotDetails.className = 'step-screenshot';
+                const shotSummary = document.createElement('summary');
+                shotSummary.textContent = 'Screenshot';
+                shotDetails.appendChild(shotSummary);
+                const img = document.createElement('img');
+                img.src = t.screenshot;
+                img.className = 'step-screenshot-img';
+                img.alt = 'Step ' + t.step + ' screenshot';
+                shotDetails.appendChild(img);
+                step.appendChild(shotDetails);
+            }}
+
             step.onclick = () => goToStep(stepIdx);
             trajEl.appendChild(step);
         }});
@@ -1679,7 +1759,12 @@ def main():
         server_ok = server_is_healthy(args.server_url)
 
     # Generate HTML
-    html_content = generate_html(data, args.server_url)
+    # If the input file is a summary.json whose results point at per-task
+    # trajectory.json files, load/inline them relative to the summary's dir.
+    html_content = generate_html(
+        data, args.server_url,
+        trajectory_base_dir=Path(args.file).resolve().parent,
+    )
     with open(out_path, "w") as f:
         f.write(html_content)
 

@@ -139,15 +139,17 @@ python -m uvicorn webagentbench.app:app --host 127.0.0.1 --port 8080
 ```
 
 ```bash
-# Terminal 2 — run one task end-to-end (picks ~90 seconds)
+# Terminal 2 — run one task end-to-end (~90 seconds)
 source .venv/bin/activate
 set -a; source webagentbench/.env; set +a
 python -m webagentbench.stock_browseruse_eval \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --tasks amazon_browse_category \
     --backend-port 8080 --frontend-port 8080 \
-    --output /tmp/smoke.json
-# Expect: "SUMMARY: 1/1 passed, avg: 1.000" and a JSON at /tmp/smoke.json.
+    --output-dir webagentbench/results/smoke
+# Expect: "SUMMARY: 1/1 passed | avg score: 1.000"
+# Artifacts written under webagentbench/results/smoke/:
+#   summary.json, run_manifest.json, tasks/amazon_browse_category/{trajectory.json,screenshots/*.png}
 ```
 
 If the smoke PASSes you are set up end-to-end. The rest of this section
@@ -184,7 +186,7 @@ python -m webagentbench.stock_browseruse_eval \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --tasks amazon_browse_category \
     --backend-port 8080 --frontend-port 8080 \
-    --output results/webagentbench/smoke.json
+    --output-dir webagentbench/results/single_task
 ```
 
 ### Batch run via `run_picks.py`
@@ -219,7 +221,7 @@ python scripts/run_picks.py \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --backend-port 8080 --frontend-port 8080 \
     --max-steps 40 --timeout 600 \
-    --output results/webagentbench/sonnet_duplicate.json
+    --output-dir webagentbench/results/sonnet_duplicate
 ```
 
 **Parallel execution with `--concurrency N`** (default `1` = sequential). Each
@@ -234,13 +236,14 @@ python scripts/run_picks.py \
     --backend-port 8080 --frontend-port 8080 \
     --concurrency 4 \
     --max-steps 40 --timeout 600 \
-    --output results/webagentbench/sonnet_primary.json
+    --output-dir webagentbench/results/sonnet_primary
 ```
 
 Wall-time scales close to linearly with `--concurrency` until the backend or
 the model API becomes the bottleneck (Bedrock throttling typically kicks in
-around `--concurrency 8`+; OpenAI and OpenRouter tolerate more). Results are
-written in the original picks order regardless of completion order.
+around `--concurrency 8`+; OpenAI and OpenRouter tolerate more). Per-task
+trajectory files are written **atomically as each task finishes** — a crash
+or timeout mid-sweep still leaves every completed task inspectable on disk.
 
 ### Slurm example (Duke CS `compsci` partition)
 
@@ -278,11 +281,63 @@ python -u scripts/run_picks.py \
     --backend-port "$BACKEND_PORT" --frontend-port "$BACKEND_PORT" \
     --concurrency 4 \
     --max-steps 40 --timeout 600 \
-    --output /usr/xtmp/$USER/wab-logs/stock-bu-${SLURM_JOB_ID}.json
+    --output-dir /usr/xtmp/$USER/wab-runs/sonnet-${SLURM_JOB_ID}
 ```
 
 Match `--concurrency` to the slurm `--cpus-per-task` allocation for best
 throughput.
+
+### Trajectory replay
+
+Every run produces a directory with the following layout:
+
+```
+webagentbench/results/<run_name>/
+├── summary.json            top-level aggregation (score/pass/avg + trajectory_path per task)
+├── run_manifest.json       reproducibility metadata (model, provider, picks file, git SHA, timestamps)
+└── tasks/
+    ├── <task_id>__clean/
+    │   ├── trajectory.json        per-step thought/action/targets/status (+ screenshot pointer)
+    │   └── screenshots/
+    │       ├── step01.png
+    │       ├── step02.png
+    │       └── ...
+    ├── <task_id>__intervention/
+    │   └── ...
+    └── ...
+```
+
+`summary.json` is the single file you need for analysis (grid building,
+cross-model comparison). Each per-task `trajectory.json` mirrors the schema
+used by `browseruse_eval.py` (same `{step, thought, action, targets, status,
+elapsed_seconds, replay_path, result_path}`), with one stock-harness-only
+addition: `screenshot` points to the relative path of the PNG under the
+per-task `screenshots/` directory. Per-task files are written **atomically
+as each task finishes**, so a crash-mid-sweep still leaves completed tasks
+fully inspectable.
+
+Inspect a run with the existing visualizer (pass either the top-level
+`summary.json` or a single task's `trajectory.json`):
+
+```bash
+python -m webagentbench.visualize webagentbench/results/<run_name>/summary.json
+# opens an HTML viewer: iframe of the live WAB page on the left, step-by-step
+# timeline on the right. Each step has "Thought" and (for stock harness)
+# "Screenshot" <details> you can expand. Screenshots are re-encoded from the
+# per-task PNG files into the generated HTML, so the HTML is self-contained.
+```
+
+Two knobs to trade disk for replay fidelity:
+
+```
+--no-trajectory                 skip per-task trajectory.json entirely (only summary.json)
+--no-trajectory-screenshots     write trajectory.json but skip PNGs (~10 MB/task saved)
+```
+
+Rough size: **~50 KB per step** of PNG + a few hundred bytes of JSON. A
+30-step expert task with screenshots is ~1.5 MB; a 280-task primary sweep is
+~200 MB on disk (most of which is PNGs on the filesystem, not inside any
+JSON). Defaults are on.
 
 ### Known model quirks
 
