@@ -192,25 +192,38 @@ python -m webagentbench.stock_browseruse_eval \
 ### Batch run via `run_picks.py`
 
 `scripts/gen_picks.py` generates a picks JSON from
-`webagentbench/human/assignments_v1.yaml`; `scripts/run_picks.py` consumes
-that JSON and runs the tasks sequentially against a live backend.
+one of two sources:
+
+- `--subset all` — **the agent benchmark default.** Enumerates every task
+  under `webagentbench/tasks/<env>/*.yaml` (519 base tasks) plus every
+  intervention variant under `webagentbench/injector/variants/*.yaml`
+  (~530). Produces **519 clean + 530 intervention ≈ 1049 picks**.
+- `--subset primary / duplicate / both` — subsets curated for the *human*
+  annotator study in `webagentbench/human/assignments_v1.yaml`. These are
+  for reproducing the human-study slice, **not the agent sweep.**
+
+`scripts/run_picks.py` then consumes the picks JSON and runs the tasks
+against a live backend (sequentially or in parallel).
 
 Each pick must be uniquely identified by the tuple `(task_id, cond)` — the
 per-task output directory is `tasks/<task_id>__<cond>/`, so two picks with
-the same `(task_id, cond)` will overwrite each other's trajectory. `gen_picks.py`
-satisfies this by construction; watch out only when hand-crafting picks JSON.
+the same `(task_id, cond)` will overwrite each other's trajectory.
+`gen_picks.py` satisfies this by construction; watch out only when hand-
+crafting picks JSON.
 
 **1. Generate a picks JSON:**
 
 ```bash
-# Full primary panel: 140 base tasks × (clean + intervention) = 280 runs
-python scripts/gen_picks.py --subset primary -o picks_primary.json
+# Full agent benchmark (519 clean + 530 intervention = 1049 runs)
+python scripts/gen_picks.py --subset all -o picks_all.json
 
-# Duplicate subset (cross-annotator): 35 base × 2 conditions = 70 runs
-python scripts/gen_picks.py --subset duplicate -o picks_duplicate.json
+# Filters work on any subset:
+python scripts/gen_picks.py --subset all --env amazon --cond clean -o picks_amazon_clean.json
+python scripts/gen_picks.py --subset all --diff easy medium -o picks_easy_medium.json
 
-# Filters: --env amazon booking  --diff easy medium  --cond clean
-python scripts/gen_picks.py --subset duplicate --env amazon --cond clean -o picks_amazon_clean.json
+# Human-study subsets (not the agent sweep):
+python scripts/gen_picks.py --subset primary   -o picks_primary.json    # 140 × 2 = 280
+python scripts/gen_picks.py --subset duplicate -o picks_duplicate.json  # 35  × 2 = 70
 ```
 
 **2. Start the backend, then run the picks:**
@@ -222,7 +235,7 @@ python -m uvicorn webagentbench.app:app --host 127.0.0.1 --port 8080
 
 # Terminal 2 — agent (sequential, one episode at a time)
 python scripts/run_picks.py \
-    --picks picks_duplicate.json \
+    --picks picks_all.json \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --backend-port 8080 --frontend-port 8080 \
     --max-steps 40 --timeout 600 \
@@ -236,12 +249,12 @@ backend. Budget **~400 MB RAM and ~1 CPU core per concurrent episode**:
 ```bash
 # Run 4 episodes in parallel (good default for a 16 GB / 8-core laptop)
 python scripts/run_picks.py \
-    --picks picks_primary.json \
+    --picks picks_all.json \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --backend-port 8080 --frontend-port 8080 \
     --concurrency 4 \
     --max-steps 40 --timeout 600 \
-    --output-dir webagentbench/results/sonnet_primary
+    --output-dir webagentbench/results/sonnet_full
 ```
 
 Wall-time scales close to linearly with `--concurrency` until the backend or
@@ -281,7 +294,7 @@ done
 
 export PYTHONUNBUFFERED=1
 python -u scripts/run_picks.py \
-    --picks picks_duplicate.json \
+    --picks picks_all.json \
     --model us.anthropic.claude-sonnet-4-6 --provider bedrock \
     --backend-port "$BACKEND_PORT" --frontend-port "$BACKEND_PORT" \
     --concurrency 4 \
