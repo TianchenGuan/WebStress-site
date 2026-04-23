@@ -147,6 +147,13 @@ canonical_diff:
       preserve: ALL
     - collection: state.payment_methods
       preserve: ALL
+    # Cancelling a reservation auto-generates a rebooking_suggestion
+    # (models/booking.py:752). These are system-only side effects —
+    # the agent has no UI to create them directly.
+    - collection: state.rebooking_suggestions
+      filter: "False"
+      preserve: ALL
+      comprehensive: true
   named_invariants:
     - name: Agent cancelled the target reservation found via notification
       ref: update[0]
@@ -178,3 +185,6 @@ canonical_diff:
     - name: Agent did not modify payment methods
       ref: invariant[6]
       severity: high
+    - name: Rebooking suggestions are system-generated side effects
+      ref: invariant[7]
+      severity: low

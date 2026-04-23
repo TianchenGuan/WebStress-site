@@ -265,6 +265,13 @@ canonical_diff:
       preserve: ALL
     - collection: state.notifications
       preserve: ALL
+    # Cancelling a reservation auto-generates a rebooking_suggestion
+    # (models/booking.py:752). These are system-only side effects —
+    # the agent has no UI to create them directly.
+    - collection: state.rebooking_suggestions
+      filter: "False"
+      preserve: ALL
+      comprehensive: true
   constraints:
     - desc: Agent acknowledged cancellation fee for all three reservations
       expr: "sum(1 for e in state.audit_log if e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None) >= 3"
@@ -305,4 +312,7 @@ canonical_diff:
       severity: high
     - name: Agent did not create notifications
       ref: invariant[6]
+      severity: low
+    - name: Rebooking suggestions are system-generated side effects
+      ref: invariant[7]
       severity: low
