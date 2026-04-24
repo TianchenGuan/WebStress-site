@@ -357,6 +357,30 @@ Rough size: **~50 KB per step** of PNG + a few hundred bytes of JSON. A
 ~200 MB on disk (most of which is PNGs on the filesystem, not inside any
 JSON). Defaults are on.
 
+### Known environment quirks
+
+- **Ubuntu 24.04+ AppArmor blocks Chrome's sandbox** — symptom:
+  `BrowserStartEvent timed out after 30.0s` + `ConnectionRefusedError on
+  127.0.0.1:<random>/json/version` during `browser.start()`. Ubuntu 24.04
+  introduced `kernel.apparmor_restrict_unprivileged_userns=1` which breaks
+  Chrome's zygote process; the Chromium subprocess launches but dies silently
+  before opening its CDP port. The harness ships with `chromium_sandbox=False`
+  on `Browser(...)` so this is handled out of the box — no `IN_DOCKER=true`
+  env var needed. If you're running browser-use *outside* this harness on
+  Ubuntu 24.04 and hit the same timeout, either `export IN_DOCKER=true`
+  before launching or `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
+
+- **OpenRouter routes Claude through AWS Bedrock by default** — symptom:
+  `400 Provider returned error: For 'integer' type, property 'minimum' is not
+  supported. provider_name: Amazon Bedrock`. OpenRouter exposes each Claude
+  model through multiple upstreams (Anthropic direct, AWS Bedrock, Google
+  Vertex); the Bedrock structured-output endpoint rejects JSON schemas that
+  browser-use emits (element indices are `{"type": "integer", "minimum": 0}`).
+  The harness forces `provider.ignore=["Amazon Bedrock"]` on every OpenRouter
+  request so routing lands on Anthropic direct or Vertex. Override via
+  `WEBAGENTBENCH_OPENROUTER_IGNORE_PROVIDERS=...` (comma-separated list;
+  empty string restores OpenRouter's default).
+
 ### Known model quirks
 
 - **Claude (Sonnet / Opus) on Bedrock** — clean. Daily TPD quota is per-model;

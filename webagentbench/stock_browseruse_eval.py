@@ -556,6 +556,15 @@ async def run_episode(
         user_data_dir=user_data_dir,
         downloads_path=downloads_path,
         traces_dir=traces_dir,
+        # Disable Chrome's sandbox. Safe here because allowed_domains already
+        # confines navigation to our local WAB backend, and the renderer only
+        # ever loads seeded benchmark pages. This also avoids the Ubuntu 24.04
+        # regression where AppArmor's `unprivileged_userns` restriction breaks
+        # Chrome's zygote → Chromium launches but the CDP port never opens →
+        # browser-use times out with `BrowserStartEvent timed out after 30s`.
+        # Equivalent to passing `--no-sandbox`; equivalent to setting the
+        # `IN_DOCKER=true` env var that browser-use watches for.
+        chromium_sandbox=False,
     )
 
     # 5. Restrict the action registry. This is the key integrity measure — the
