@@ -283,7 +283,25 @@ def _build_llm(
         key = os.environ.get("OPENROUTER_API_KEY", "")
         if not key:
             raise ValueError("OPENROUTER_API_KEY not set")
-        return ChatOpenRouter(model=model, api_key=key, **common)
+        # OpenRouter exposes many Claude / Qwen / etc. models through multiple
+        # upstream providers (Anthropic direct, AWS Bedrock, Google Vertex).
+        # AWS Bedrock's OpenAI-compatible structured-output endpoint rejects
+        # JSON schemas with `{"type": "integer", "minimum": N}` — which
+        # browser-use emits for element-index fields. Tell OpenRouter to skip
+        # the Bedrock upstream so requests land on Anthropic direct / Vertex
+        # where the schema is accepted. See:
+        # https://openrouter.ai/docs/features/provider-routing#ignoring-providers
+        ignore_env = os.environ.get("WEBAGENTBENCH_OPENROUTER_IGNORE_PROVIDERS", "Amazon Bedrock")
+        ignore_list = [p.strip() for p in ignore_env.split(",") if p.strip()]
+        extra_body: dict[str, Any] = {}
+        if ignore_list:
+            extra_body["provider"] = {"ignore": ignore_list}
+        return ChatOpenRouter(
+            model=model,
+            api_key=key,
+            extra_body=extra_body or None,
+            **common,
+        )
 
     if provider == "vllm":
         from browser_use.llm.openai.chat import ChatOpenAI as BUChatOpenAI
