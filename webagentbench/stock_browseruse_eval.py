@@ -253,64 +253,110 @@ def _strip_numeric_bounds(schema: "Any") -> "Any":
 
 
 def _make_openrouter_stripped_class():
-    """ChatOpenRouter subclass with two surgical patches active during ainvoke.
+    """ChatOpenRouter subclass that reimplements the structured-output path
+    with two surgical local fixes.
 
     1. Numeric-bounds strip on the outbound JSON schema (see
-       `_strip_numeric_bounds` above) — Anthropic-family OAI-compat upstreams
+       `_strip_numeric_bounds`) — Anthropic-family OAI-compat upstreams
        reject `minimum`/`maximum` on integer/number fields.
 
     2. Tolerant JSON parse on the inbound response — GPT-5 reasoning models
-       on OR sometimes emit two concatenated AgentOutput JSONs in a single
-       `message.content` (first turn + predicted next turn), making
-       Pydantic fail with `Invalid JSON: trailing characters`. We wrap
-       `BaseModel.model_validate_json` so if the raw decoder hits trailing
-       content, we keep only the first valid JSON object and retry via
-       `model_validate`. Pydantic still enforces the full AgentOutput
-       schema on that object.
+       on OR occasionally emit two concatenated AgentOutput JSONs in a
+       single `message.content` (first turn + eagerly predicted next turn).
+       If the strict parse fails, fall back to `json.JSONDecoder().raw_decode`
+       to keep only the first valid JSON object; Pydantic still enforces
+       the full AgentOutput schema on that object.
 
-    Implementation: temporarily monkey-patch `SchemaOptimizer` and
-    `BaseModel.model_validate_json` for the duration of a single ainvoke()
-    so we don't fight browser-use's own request/parse code. Restored in a
-    finally block. Thread-safe for one client at a time; our runs use
-    independent client instances per concurrent task, so no shared state.
+    Implementation: reimplement ChatOpenRouter.ainvoke's structured branch
+    inline (~40 lines copied from browser-use 0.12.6) so both fixes are
+    local to this subclass and there is **no global monkey-patching**. This
+    matters: an earlier version patched `BaseModel.model_validate_json`
+    globally and — because classmethod save/restore through `__func__` is
+    fragile and the global attribute leaks under async concurrency —
+    caused `BaseModel cannot be instantiated directly` errors in the
+    Agent's retry path. Keeping state local to the instance avoids that.
     """
     import json as _json
     from dataclasses import dataclass
-    from pydantic import BaseModel as _PydBaseModel
+    from openai import APIConnectionError, APIStatusError, RateLimitError
+    from openai.types.shared_params.response_format_json_schema import (
+        JSONSchema,
+        ResponseFormatJSONSchema,
+    )
+    from browser_use.llm.exceptions import ModelProviderError, ModelRateLimitError
     from browser_use.llm.openrouter.chat import ChatOpenRouter
-    from browser_use.llm import schema as _schema_mod
+    from browser_use.llm.openrouter.serializer import OpenRouterMessageSerializer
+    from browser_use.llm.schema import SchemaOptimizer
+    from browser_use.llm.views import ChatInvokeCompletion
 
     @dataclass
     class ChatOpenRouterStripped(ChatOpenRouter):
         async def ainvoke(self, messages, output_format=None, **kwargs):
+            # Non-structured path: delegate unchanged.
             if output_format is None:
                 return await super().ainvoke(messages, output_format=None, **kwargs)
 
-            orig_schema = _schema_mod.SchemaOptimizer.create_optimized_json_schema
+            # Structured-output path: inline reimplementation of browser-use
+            # ChatOpenRouter.ainvoke (lines 163-201 in 0.12.6), with schema
+            # strip and tolerant JSON parse applied locally.
+            openrouter_messages = OpenRouterMessageSerializer.serialize_messages(messages)
 
-            def _wrapped_schema(model, **opts):
-                return _strip_numeric_bounds(orig_schema(model, **opts))
+            extra_headers: dict[str, str] = {}
+            if self.http_referer:
+                extra_headers["HTTP-Referer"] = self.http_referer
 
-            orig_mvj = _PydBaseModel.model_validate_json
-
-            def _tolerant_mvj(cls, j, *a, **kw):
-                content = j if isinstance(j, str) else j.decode() if hasattr(j, "decode") else str(j)
-                try:
-                    return orig_mvj.__func__(cls, content, *a, **kw)
-                except Exception:
-                    try:
-                        obj, end = _json.JSONDecoder().raw_decode(content.lstrip())
-                    except _json.JSONDecodeError:
-                        raise
-                    return cls.model_validate(obj)
-
-            _schema_mod.SchemaOptimizer.create_optimized_json_schema = staticmethod(_wrapped_schema)
-            _PydBaseModel.model_validate_json = classmethod(_tolerant_mvj)
             try:
-                return await super().ainvoke(messages, output_format=output_format, **kwargs)
-            finally:
-                _schema_mod.SchemaOptimizer.create_optimized_json_schema = orig_schema
-                _PydBaseModel.model_validate_json = orig_mvj
+                schema = _strip_numeric_bounds(
+                    SchemaOptimizer.create_optimized_json_schema(output_format)
+                )
+                response_format_schema: JSONSchema = {
+                    "name": "agent_output",
+                    "strict": True,
+                    "schema": schema,
+                }
+                response = await self.get_client().chat.completions.create(
+                    model=self.model,
+                    messages=openrouter_messages,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    seed=self.seed,
+                    response_format=ResponseFormatJSONSchema(
+                        json_schema=response_format_schema,
+                        type="json_schema",
+                    ),
+                    extra_headers=extra_headers,
+                    **(self.extra_body or {}),
+                )
+                content = response.choices[0].message.content
+                if content is None:
+                    raise ModelProviderError(
+                        message="Failed to parse structured output from model response",
+                        status_code=500,
+                        model=self.name,
+                    )
+                usage = self._get_usage(response)
+                try:
+                    parsed = output_format.model_validate_json(content)
+                except Exception as parse_exc:
+                    try:
+                        obj, _end = _json.JSONDecoder().raw_decode(content.lstrip())
+                    except _json.JSONDecodeError:
+                        raise parse_exc from None
+                    parsed = output_format.model_validate(obj)
+                return ChatInvokeCompletion(completion=parsed, usage=usage)
+
+            except RateLimitError as e:
+                raise ModelRateLimitError(message=e.message, model=self.name) from e
+            except APIConnectionError as e:
+                raise ModelProviderError(message=str(e), model=self.name) from e
+            except APIStatusError as e:
+                raise ModelProviderError(
+                    message=e.message, status_code=e.status_code, model=self.name
+                ) from e
+            except ModelProviderError:
+                raise
+            except Exception as e:
+                raise ModelProviderError(message=str(e), model=self.name) from e
 
     return ChatOpenRouterStripped
 
