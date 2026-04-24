@@ -370,16 +370,47 @@ JSON). Defaults are on.
   Ubuntu 24.04 and hit the same timeout, either `export IN_DOCKER=true`
   before launching or `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 
-- **OpenRouter routes Claude through AWS Bedrock by default** — symptom:
-  `400 Provider returned error: For 'integer' type, property 'minimum' is not
-  supported. provider_name: Amazon Bedrock`. OpenRouter exposes each Claude
-  model through multiple upstreams (Anthropic direct, AWS Bedrock, Google
-  Vertex); the Bedrock structured-output endpoint rejects JSON schemas that
-  browser-use emits (element indices are `{"type": "integer", "minimum": 0}`).
-  The harness forces `provider.ignore=["Amazon Bedrock"]` on every OpenRouter
-  request so routing lands on Anthropic direct or Vertex. Override via
-  `WEBAGENTBENCH_OPENROUTER_IGNORE_PROVIDERS=...` (comma-separated list;
-  empty string restores OpenRouter's default).
+- **Claude via OpenRouter hits `compiled grammar is too large`** — symptom:
+  `400 Provider returned error: "The compiled grammar is too large, which
+  would cause performance issues. Simplify your tool schemas..."`
+  (`provider_name: Azure | Anthropic | Amazon Bedrock`).
+
+  **Root cause**: `browser_use.ChatOpenRouter` uses OpenAI-compat
+  `response_format={"type":"json_schema","strict":true}`. When OpenRouter
+  routes a Claude request to an upstream that honors strict mode (Azure,
+  Bedrock's OAI-compat endpoint, or Anthropic's OAI-compat proxy), the
+  upstream compiles the JSON schema to a grammar for constrained decoding
+  and enforces a size limit. Anthropic's **native** Messages API
+  (`tools=[{input_schema}]` tool_use) has no such limit — verified live at
+  16k-char schema 2026-04-24.
+
+  **Empirical thresholds** (browser-use 0.12.6, Sonnet 4.6 via OR, single
+  probe each — real limits may vary with model/upstream):
+
+  | schema chars | actions | via OR | direct Anthropic |
+  |---|---|---|---|
+  | 7,952 | 11 | ✅ | ✅ |
+  | 9,057 | 12 | ❌ grammar too large | ✅ |
+  | 9,933 | 14 (WAB default exclude) | ❌ grammar too large | ✅ |
+  | 15,889 | 24 (full default) | ❌ grammar too large | ✅ |
+
+  GPT via OR passes 9k chars cleanly — so the limit is specific to the
+  Anthropic family's strict implementation, not OR or WAB.
+
+  **Separate Layer-1 issue**: Azure / Bedrock's OAI-compat endpoints also
+  reject numeric bounds — `400 ... For 'integer'|'number' type, property
+  'minimum' is not supported`. browser-use emits these on element-index
+  (`int, ge=0`) and scroll pages (`float, ge=0.5, le=10`) fields. The
+  harness strips them at wire time via `_strip_numeric_bounds` in
+  `stock_browseruse_eval.py`; pydantic validation on the returned tool
+  input still enforces the original bounds client-side.
+
+  **Recommended**: run Claude with `--provider anthropic` (native Messages
+  API) or `--provider bedrock` (native Converse API) — neither path triggers
+  grammar compilation, so any schema size works. Keep OR for GPT / Qwen /
+  Kimi where the upstream's strict implementation is fine. If you must run
+  Claude via OR, cap the action set at ≤ 11 actions (`_BANNED_ACTIONS` plus
+  `screenshot, find_text, find_elements`).
 
 ### Known model quirks
 

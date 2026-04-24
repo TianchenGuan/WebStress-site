@@ -189,6 +189,69 @@ def _make_bedrock_forced_class():
 
 
 # =============================================================================
+# OpenRouter: strip numeric bounds from the JSON schema sent with
+# response_format=json_schema. Several OpenRouter upstreams for Claude
+# (Anthropic direct, Amazon Bedrock, Azure) reject schemas containing
+# `{"type": "integer"|"number", "minimum"|"maximum": N}` with:
+#     output_config.format.schema: For 'integer' type,
+#     property 'minimum' is not supported
+# browser-use emits these on element-index fields (int) and on scroll
+# pages (float). Removing the bounds from numeric nodes makes the request
+# acceptable on every provider we've tested. The bound validation is still
+# enforced on the client side via Pydantic's model_validate on the returned
+# tool input — we're only loosening the wire schema, not the final accept
+# gate.
+# =============================================================================
+
+
+def _strip_numeric_bounds(schema: "Any") -> "Any":
+    """Recursively drop min/max constraints from integer/number-typed nodes."""
+    if isinstance(schema, dict):
+        if schema.get("type") in ("integer", "number"):
+            for key in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
+                schema.pop(key, None)
+        for value in schema.values():
+            _strip_numeric_bounds(value)
+    elif isinstance(schema, list):
+        for item in schema:
+            _strip_numeric_bounds(item)
+    return schema
+
+
+def _make_openrouter_stripped_class():
+    """ChatOpenRouter subclass that strips numeric bounds from the schema it
+    sends, but leaves every other OpenRouter behavior unchanged.
+
+    Implementation: temporarily wrap SchemaOptimizer.create_optimized_json_schema
+    for the duration of a single ainvoke() so we don't fight browser-use's
+    own request-building code. Thread-safe for one client at a time; our
+    runs use independent client instances per concurrent task, so no shared
+    state.
+    """
+    from dataclasses import dataclass
+    from browser_use.llm.openrouter.chat import ChatOpenRouter
+    from browser_use.llm import schema as _schema_mod
+
+    @dataclass
+    class ChatOpenRouterStripped(ChatOpenRouter):
+        async def ainvoke(self, messages, output_format=None, **kwargs):
+            if output_format is None:
+                return await super().ainvoke(messages, output_format=None, **kwargs)
+            orig = _schema_mod.SchemaOptimizer.create_optimized_json_schema
+
+            def _wrapped(model, **opts):
+                return _strip_numeric_bounds(orig(model, **opts))
+
+            _schema_mod.SchemaOptimizer.create_optimized_json_schema = staticmethod(_wrapped)
+            try:
+                return await super().ainvoke(messages, output_format=output_format, **kwargs)
+            finally:
+                _schema_mod.SchemaOptimizer.create_optimized_json_schema = orig
+
+    return ChatOpenRouterStripped
+
+
+# =============================================================================
 # Backend communication
 # =============================================================================
 
@@ -279,32 +342,10 @@ def _build_llm(
         return ChatAnthropic(model=model, api_key=key, **common)
 
     if provider == "openrouter":
-        from browser_use.llm.openrouter.chat import ChatOpenRouter
         key = os.environ.get("OPENROUTER_API_KEY", "")
         if not key:
             raise ValueError("OPENROUTER_API_KEY not set")
-        # OpenRouter exposes many Claude / Qwen / etc. models through multiple
-        # upstream providers (Anthropic direct, AWS Bedrock, Google Vertex).
-        # AWS Bedrock's OpenAI-compatible structured-output endpoint rejects
-        # JSON schemas with `{"type": "integer", "minimum": N}` — which
-        # browser-use emits for element-index fields. Tell OpenRouter to skip
-        # the Bedrock upstream so requests land on Anthropic direct / Vertex
-        # where the schema is accepted. See:
-        # https://openrouter.ai/docs/features/provider-routing#ignoring-providers
-        #
-        # Implementation note: ChatOpenRouter unpacks its `extra_body` dict as
-        # kwargs into OpenAI SDK's chat.completions.create(...) call, so to
-        # land our payload in the *OpenAI SDK* `extra_body=` parameter (which
-        # becomes the request body) we have to wrap it one level deeper:
-        #   ChatOpenRouter(extra_body={"extra_body": {"provider": {...}}})
-        #     → create(extra_body={"provider": {...}})
-        #     → POST body includes "provider": {...}
-        ignore_env = os.environ.get("WEBAGENTBENCH_OPENROUTER_IGNORE_PROVIDERS", "Amazon Bedrock")
-        ignore_list = [p.strip() for p in ignore_env.split(",") if p.strip()]
-        or_kwargs: dict[str, Any] = {}
-        if ignore_list:
-            or_kwargs["extra_body"] = {"extra_body": {"provider": {"ignore": ignore_list}}}
-        return ChatOpenRouter(model=model, api_key=key, **or_kwargs, **common)
+        return _make_openrouter_stripped_class()(model=model, api_key=key, **common)
 
     if provider == "vllm":
         from browser_use.llm.openai.chat import ChatOpenAI as BUChatOpenAI
