@@ -62,6 +62,40 @@ _BANNED_ACTIONS: list[str] = [
     "save_as_pdf",
 ]
 
+# Extra actions dropped on the Claude-via-OpenRouter path. browser-use's stock
+# schema (14 actions after _BANNED_ACTIONS, ~9.9k chars) triggers
+# `compiled grammar is too large` on OR's Anthropic-family OAI-compat
+# upstreams. Dropping these three shrinks the schema to ~8k chars which
+# passes. See README "Claude via OpenRouter hits compiled grammar is too
+# large" for measurements. Irrelevant on direct Anthropic / Bedrock Converse
+# / GPT-via-OR paths.
+_OPENROUTER_CLAUDE_EXTRA_BANNED: list[str] = [
+    "screenshot",
+    "find_text",
+    "find_elements",
+]
+
+
+def _effective_banned(
+    provider: str,
+    model: str,
+    extra_banned_actions: list[str] | None = None,
+) -> list[str]:
+    """Banned-action list actually applied to the Controller for this run.
+
+    Order: start with `_BANNED_ACTIONS`, append CLI `--ban-action` args,
+    append the Claude-via-OR extra set when applicable.
+    """
+    banned = list(_BANNED_ACTIONS)
+    if extra_banned_actions:
+        banned.extend(a for a in extra_banned_actions if a not in banned)
+    if provider == "openrouter" and model.startswith("anthropic/"):
+        for extra in _OPENROUTER_CLAUDE_EXTRA_BANNED:
+            if extra not in banned:
+                banned.append(extra)
+    return banned
+
+
 _DEFAULT_MAX_STEPS = 60
 _DEFAULT_TIMEOUT = 600
 
@@ -612,10 +646,11 @@ async def run_episode(
     )
 
     # 5. Restrict the action registry. This is the key integrity measure — the
-    #    agent cannot call `navigate`, `evaluate`, `read_file`, etc.
-    banned = list(_BANNED_ACTIONS)
-    if extra_banned_actions:
-        banned.extend(a for a in extra_banned_actions if a not in banned)
+    #    agent cannot call `navigate`, `evaluate`, `read_file`, etc. On the
+    #    Claude-via-OR path, 3 more actions are dropped so the schema stays
+    #    under Anthropic's strict-grammar size limit (see
+    #    `_OPENROUTER_CLAUDE_EXTRA_BANNED`).
+    banned = _effective_banned(provider, model, extra_banned_actions)
     controller = Controller(exclude_actions=banned)
 
     # 6. Stock configuration (tunable via kwargs).
@@ -832,7 +867,7 @@ def write_run_artifacts(
         "model": model,
         "provider": provider,
         "harness": "stock-browser-use",
-        "banned_actions": _BANNED_ACTIONS,
+        "banned_actions": _effective_banned(provider, model),
         "n": len(results),
         "passed": passed,
         "avg_score": avg,
@@ -905,7 +940,7 @@ async def run_evaluation(
         print(f"Harness:  stock browser-use")
         print(f"Tasks:    {len(task_ids)}")
         print(f"Budget:   steps={max_steps}, timeout={timeout_per_task}s")
-        print(f"Banned:   {', '.join(_BANNED_ACTIONS)}")
+        print(f"Banned:   {', '.join(_effective_banned(provider, model, extra_banned_actions))}")
         print(f"Writing:  {out_dir}/")
         print("=" * 60)
 
