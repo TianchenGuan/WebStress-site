@@ -291,17 +291,20 @@ def _build_llm(
         # the Bedrock upstream so requests land on Anthropic direct / Vertex
         # where the schema is accepted. See:
         # https://openrouter.ai/docs/features/provider-routing#ignoring-providers
+        #
+        # Implementation note: ChatOpenRouter unpacks its `extra_body` dict as
+        # kwargs into OpenAI SDK's chat.completions.create(...) call, so to
+        # land our payload in the *OpenAI SDK* `extra_body=` parameter (which
+        # becomes the request body) we have to wrap it one level deeper:
+        #   ChatOpenRouter(extra_body={"extra_body": {"provider": {...}}})
+        #     → create(extra_body={"provider": {...}})
+        #     → POST body includes "provider": {...}
         ignore_env = os.environ.get("WEBAGENTBENCH_OPENROUTER_IGNORE_PROVIDERS", "Amazon Bedrock")
         ignore_list = [p.strip() for p in ignore_env.split(",") if p.strip()]
-        extra_body: dict[str, Any] = {}
+        or_kwargs: dict[str, Any] = {}
         if ignore_list:
-            extra_body["provider"] = {"ignore": ignore_list}
-        return ChatOpenRouter(
-            model=model,
-            api_key=key,
-            extra_body=extra_body or None,
-            **common,
-        )
+            or_kwargs["extra_body"] = {"extra_body": {"provider": {"ignore": ignore_list}}}
+        return ChatOpenRouter(model=model, api_key=key, **or_kwargs, **common)
 
     if provider == "vllm":
         from browser_use.llm.openai.chat import ChatOpenAI as BUChatOpenAI
