@@ -370,6 +370,16 @@ JSON). Defaults are on.
   Ubuntu 24.04 and hit the same timeout, either `export IN_DOCKER=true`
   before launching or `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 
+- **`BrowserStartEvent timed out after 30s` on contended machines** —
+  different symptom from the AppArmor case above: Chrome does eventually
+  open its CDP port, but takes longer than browser-use's default 30s
+  ceiling when several browsers start in parallel (shared slurm nodes,
+  CI runners, laptops under load). The harness bumps
+  `TIMEOUT_BrowserStartEvent` and `TIMEOUT_BrowserLaunchEvent` to 90s at
+  import time via `os.environ.setdefault`, which eliminates the flake in
+  our 6-way parallel smokes. Override by exporting either env var to a
+  smaller value if you want to fail faster.
+
 - **Claude via OpenRouter hits `compiled grammar is too large`** — symptom:
   `400 Provider returned error: "The compiled grammar is too large, which
   would cause performance issues. Simplify your tool schemas..."`

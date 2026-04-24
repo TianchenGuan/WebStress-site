@@ -47,6 +47,16 @@ try:
 except Exception:
     pass
 
+# Bump browser-use's Chrome-launch timeouts. Default is 30s per event, which
+# reliably fails on contended slurm nodes, shared CI runners, or any machine
+# where 2+ Chromes start in parallel (we've seen ~1/3 jobs hit the 30s
+# timeout on 6-way parallel smoke). 90s is enough headroom in practice;
+# Chrome that hasn't booted after 90s is genuinely stuck, not slow. These
+# are read by browser_use/browser/events.py `_get_timeout(env, default)`,
+# so explicit values in the environment still win.
+os.environ.setdefault("TIMEOUT_BrowserStartEvent", "90")
+os.environ.setdefault("TIMEOUT_BrowserLaunchEvent", "90")
+
 # Stock browser-use exposes ~25 actions. We remove the ones that would let the
 # agent escape the benchmark's UI-only contract.
 _BANNED_ACTIONS: list[str] = [
