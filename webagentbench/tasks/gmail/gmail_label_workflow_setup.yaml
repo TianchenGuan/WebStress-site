@@ -47,8 +47,11 @@ canonical_diff:
       properties:
         name:
           eq: "Project Alpha"
+        # GM-5: accept either UI default ("show") or the requested
+        # ("show_if_unread") so a near-miss on visibility doesn't trip
+        # the unaccounted-create invariant on top of failing the spec.
         show_in_label_list:
-          eq: "show_if_unread"
+          in: ["show_if_unread", "show"]
     - entity: labels
       desc: Create Needs Review label
       count: 1
