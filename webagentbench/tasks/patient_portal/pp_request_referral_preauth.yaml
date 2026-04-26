@@ -104,6 +104,13 @@ canonical_diff:
       preserve: ALL
     - collection: state.claims
       preserve: ALL
+    # PP-1: whitelist cancelled appointments from the unaccounted-create
+    # sweep. Booking flows can leave cancelled tentatives. Appended at
+    # end so existing named_invariant index references stay aligned.
+    - collection: state.appointments
+      filter: "a.status != 'cancelled'"
+      preserve: ALL
+      comprehensive: true
   named_invariants:
     - name: "Agent did not cancel or modify pre-existing appointments"
       ref: invariant[0]
