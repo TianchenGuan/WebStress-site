@@ -60,6 +60,9 @@ export function StockDetailPage() {
           <div className={`rh-stock-detail__day-change ${isPositive ? "rh-gain" : "rh-loss"}`}>
             {isPositive ? "+" : ""}${dayChange.toFixed(2)} ({isPositive ? "+" : ""}{dayChangePct.toFixed(2)}%) Today
           </div>
+          <div className="rh-stock-detail__bid-ask" aria-label={`Bid and ask quote for ${stock.symbol}`}>
+            Bid ${parseFloat(stock.bid).toFixed(2)} / Ask ${parseFloat(stock.ask).toFixed(2)}
+          </div>
         </div>
 
         {/* Chart */}
