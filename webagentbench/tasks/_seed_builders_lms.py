@@ -3249,10 +3249,22 @@ def _build_peer_review_assignments(ctx: LMSSeedContext, params: dict[str, Any]) 
         else:
             completed_review_ids.append(review_id)
 
+    # Distinct list of assignment_ids referenced by these peer reviews. Used
+    # by canonical_diff invariants that need to whitelist cascade effects on
+    # the underlying assignments when a peer review is submitted.
+    peer_review_assignment_id_list: list[str] = []
+    seen_aid: set[str] = set()
+    for pr in ctx.base["peer_reviews"]:
+        aid = pr.get("assignment_id", "")
+        if aid and aid not in seen_aid:
+            peer_review_assignment_id_list.append(aid)
+            seen_aid.add(aid)
+
     return {
         "review_ids": review_ids,
         "pending_review_ids": pending_review_ids,
         "completed_review_ids": completed_review_ids,
         "returned_review_ids": returned_review_ids,
         "target_review_id": pending_review_ids[0] if pending_review_ids else (review_ids[0] if review_ids else ""),
+        "peer_review_assignment_ids": peer_review_assignment_id_list,
     }

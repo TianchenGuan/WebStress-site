@@ -60,10 +60,12 @@ seed:
     - review_ids
     - pending_review_ids
     - completed_review_ids
+    - peer_review_assignment_ids
   targets:
     course_codes: '{output.course_codes}'
     pending_review_ids: '{output.pending_review_ids}'
     resubmit_assignment_ids: '{output.resubmit_assignment_ids}'
+    peer_review_assignment_ids: '{output.peer_review_assignment_ids}'
 
 canonical_diff:
   update:
@@ -109,7 +111,11 @@ canonical_diff:
     filter: "a.id not in [rid.strip() for rid in target['pending_review_ids'].split(',') if rid.strip()]"
     preserve: ALL
   - collection: state.assignments
-    filter: "a.id not in [aid.strip() for aid in target['resubmit_assignment_ids'].split(',') if aid.strip()]"
+    # Exclude both explicit resubmit targets and any assignment referenced by
+    # a peer review — submitting a peer review can cascade onto the
+    # underlying assignment record, so those assignments shouldn't be
+    # treated as unrelated mutations.
+    filter: "a.id not in [aid.strip() for aid in target['resubmit_assignment_ids'].split(',') if aid.strip()] and a.id not in [pid.strip() for pid in (target.get('peer_review_assignment_ids', '') or '').split(',') if pid.strip()]"
     preserve: ALL
   - collection: state.courses
     preserve: ALL

@@ -52,12 +52,14 @@ seed:
     - review_ids
     - pending_review_ids
     - completed_review_ids
+    - peer_review_assignment_ids
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
     pending_review_ids: '{output.pending_review_ids}'
     resubmit_assignment_id: '{output.resubmit_assignment_ids[0]}'
     decoy_assignment_id: '{output.decoy_assignment_id}'
+    peer_review_assignment_ids: '{output.peer_review_assignment_ids}'
 canonical_diff:
   update:
   - entity: PeerReview
@@ -94,8 +96,12 @@ canonical_diff:
       submitted_at:
         expr: "x >= session_start"
   invariant:
+  # Exclude the resubmit target and any assignment referenced by a peer
+  # review — submitting a peer review can cascade onto the underlying
+  # assignment record, so those assignments shouldn't be treated as
+  # unrelated mutations.
   - collection: state.assignments
-    filter: "a.id != target['resubmit_assignment_id']"
+    filter: "a.id != target['resubmit_assignment_id'] and a.id not in [pid.strip() for pid in (target.get('peer_review_assignment_ids', '') or '').split(',') if pid.strip()]"
     preserve: ALL
   - collection: state.peer_reviews
     filter: "a.id not in [rid.strip() for rid in target['pending_review_ids'].split(',') if rid.strip()]"
