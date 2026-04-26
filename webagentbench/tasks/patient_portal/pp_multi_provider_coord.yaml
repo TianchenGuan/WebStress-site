@@ -71,6 +71,17 @@ seed:
     - unread_msg_ids
     - all_msg_ids
     - context_msg_ids
+  # PP-4: scheduling with the cardiologist requires an approved referral;
+  # seed one so the task is solvable without sending a referral request
+  # message (the instruction forbids messages).
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - cardiology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     cardio_provider_ids: '{output.providers_by_specialty.cardiology}'

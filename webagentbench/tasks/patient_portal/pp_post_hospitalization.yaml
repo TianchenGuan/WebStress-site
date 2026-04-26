@@ -75,6 +75,18 @@ seed:
     - context_msg_ids
     - context_specialties
     - context_specialist_provider_ids
+  # PP-4: scheduling with the specialist named in the discharge summary
+  # requires an approved referral. The current must_include set forces
+  # cardiology for the specialist follow-up; seed an approved cardiology
+  # referral so the booking API doesn't reject the create.
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - cardiology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     active_rx_ids: '{output.active_rx_ids}'

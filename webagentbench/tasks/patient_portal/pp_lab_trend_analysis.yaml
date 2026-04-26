@@ -65,6 +65,16 @@ seed:
       active_count: 3
     outputs:
     - active_rx_ids
+  # PP-4: scheduling with the endocrinologist requires an approved
+  # referral; seed one so the task is solvable without messaging.
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - endocrinology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     endo_provider_ids: '{output.providers_by_specialty.endocrinology}'

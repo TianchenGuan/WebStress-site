@@ -63,6 +63,17 @@ seed:
     - critical_lab_id
     - trend_lab_ids
     - trend_test_name
+  # PP-4: scheduling with the endocrinologist requires an approved
+  # referral; without one the booking API rejects the create. Seed an
+  # approved endocrinology referral upfront.
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - endocrinology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
     endo_provider_ids: '{output.providers_by_specialty.endocrinology}'

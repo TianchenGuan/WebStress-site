@@ -57,6 +57,17 @@ seed:
     - abnormal_lab_ids
     - pending_lab_ids
     - trend_lab_ids
+  # PP-4: scheduling with the lab's ordering provider (an endocrinologist
+  # in the seed) requires an approved referral; seed one upfront so the
+  # task is solvable without the messaging path the instruction forbids.
+  - use: referral_chain
+    params:
+      approved_count: 1
+      pending_count: 0
+      must_have_specialties:
+      - endocrinology
+    outputs:
+    - approved_ref_ids
   targets:
     pcp_id: '{output.pcp_id}'
 canonical_diff:
