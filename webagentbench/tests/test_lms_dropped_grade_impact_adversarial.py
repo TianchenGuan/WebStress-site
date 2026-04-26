@@ -45,7 +45,24 @@ def _unread_announcement_id(state, targets: dict[str, str]) -> str:
     for announcement in state.announcements:
         if announcement.id != targets["latest_announcement_id"] and not announcement.is_read:
             return announcement.id
-    raise ValueError("seed must provide an unread announcement other than the latest one")
+    for announcement in state.announcements:
+        if announcement.id != targets["latest_announcement_id"]:
+            return announcement.id
+    raise ValueError("seed must provide an announcement other than the latest one")
+
+
+def _mutate_other_announcement(state, targets: dict[str, str]) -> None:
+    """Mutate an announcement that isn't the canonical target.
+
+    Toggles is_read so the resulting diff produces an Update entry on a
+    non-target announcement, regardless of whether the chosen announcement
+    started out read or unread.
+    """
+    aid = _unread_announcement_id(state, targets)
+    announcement = state.get_announcement(aid)
+    if announcement is None:
+        raise ValueError(f"announcement {aid!r} not found")
+    announcement.is_read = not announcement.is_read
 
 
 def _other_assignment_id(state, target_assignment_id: str) -> str:
@@ -99,10 +116,10 @@ def test_wrong_file_name_fails():
 def test_wrong_branch_true_seed_fails():
     _, _, targets, initial, state = _setup_session(seed=18)
 
-    _mark_read(state, _unread_announcement_id(state, targets))
+    _mutate_other_announcement(state, targets)
 
     report = _report(initial, state, targets)
-    assert report.passed is False, "reading an announcement on the resubmission branch should fail"
+    assert report.passed is False, "modifying an announcement on the resubmission branch should fail"
 
 
 def test_wrong_branch_false_seed_fails():

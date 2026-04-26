@@ -42,10 +42,34 @@ def _mark_read(state, announcement_id: str) -> None:
 
 
 def _unread_announcement_id(state, targets: dict[str, str]) -> str:
+    # Prefer an actually-unread announcement (other than the target) so the
+    # mutation is purely "marked an extra announcement read".
     for announcement in state.announcements:
         if announcement.id != targets["latest_announcement_id"] and not announcement.is_read:
             return announcement.id
-    raise ValueError("seed must provide an unread announcement other than the latest one")
+    # Fall back to any non-target announcement; tests that rely on this
+    # fallback should call _mutate_other_announcement so the resulting diff
+    # always produces an Update entry (toggling is_read either way).
+    for announcement in state.announcements:
+        if announcement.id != targets["latest_announcement_id"]:
+            return announcement.id
+    raise ValueError("seed must provide an announcement other than the latest one")
+
+
+def _mutate_other_announcement(state, targets: dict[str, str]) -> None:
+    """Mutate an announcement that isn't the canonical target.
+
+    Toggles is_read on a non-target announcement so the resulting diff
+    produces an Update entry that violates the announcement-branch
+    invariant, regardless of whether the chosen announcement started out
+    read or unread. Necessary because course-scoped seeds often have only
+    one unread announcement (the target itself).
+    """
+    aid = _unread_announcement_id(state, targets)
+    announcement = state.get_announcement(aid)
+    if announcement is None:
+        raise ValueError(f"announcement {aid!r} not found")
+    announcement.is_read = not announcement.is_read
 
 
 def _report(initial, state, targets):
@@ -97,10 +121,10 @@ def test_no_mutation_fails():
 def test_wrong_branch_true_seed_fails():
     _, _, targets, initial, state = _setup_session(seed=18)
 
-    _mark_read(state, _unread_announcement_id(state, targets))
+    _mutate_other_announcement(state, targets)
 
     report = _report(initial, state, targets)
-    assert report.passed is False, "marking an announcement read on the resubmit branch should fail"
+    assert report.passed is False, "modifying an announcement on the resubmit branch should fail"
 
 
 def test_wrong_branch_false_seed_fails():
@@ -140,7 +164,7 @@ def test_extra_unrelated_mutation_fails():
         session_start=_session_start(targets),
         file_name="improvement.pdf",
     )
-    _mark_read(state, _unread_announcement_id(state, targets))
+    _mutate_other_announcement(state, targets)
 
     report = _report(initial, state, targets)
     assert report.passed is False, (
