@@ -1097,6 +1097,21 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         if grace_candidates
         else (graded_in_target[1]["id"] if len(graded_in_target) >= 2 else "")
     )
+    # ── LMS-4: force resubmit capacity on the dispute targets ──
+    # When the final fallback is hit (any-graded), the chosen assignments may
+    # already have attempt_count == max_attempts and the agent cannot
+    # resubmit. Bump max_attempts so attempt_count + 1 still fits.
+    for _disp_id in (disputed_assignment_id_1, disputed_assignment_id_2):
+        if not _disp_id:
+            continue
+        for a in all_assignments:
+            if a["id"] != _disp_id:
+                continue
+            _attempts = int(a.get("attempt_count", 0) or 0)
+            _max_attempts = int(a.get("max_attempts", 1) or 1)
+            if _max_attempts < _attempts + 1:
+                a["max_attempts"] = _attempts + 1
+            break
     disputed_title_1 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_1), "")
     disputed_title_2 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_2), "")
 
