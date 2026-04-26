@@ -83,7 +83,10 @@ def test_correct_trajectory_passes():
 
 
 def test_correct_false_branch_passes():
-    targets, initial, state = _setup_session(seed=1)
+    # seed=2 yields curve_changes_letter='false' under the LMS-8 seed math
+    # (raw scores, no late-penalty multiplier). seed=1 used to land on this
+    # branch but flipped to 'true' after LMS-8.
+    targets, initial, state = _setup_session(seed=2)
 
     _submit_curve_appeal(
         state,

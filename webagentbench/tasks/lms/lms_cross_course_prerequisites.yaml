@@ -101,8 +101,12 @@ canonical_diff:
       content_items:
         expr: "all(item.get('completed') is True for item in x)"
   invariant:
+  # Allow the backend's prerequisite-unlock cascade: completing a module
+  # flips later locked modules in the same course to status='available'.
+  # We exempt those by checking final status; a manually-completed extra
+  # module ends in status='completed' and is still flagged.
   - collection: state.modules
-    filter: "a.id not in [target['next_available_module_id_1'], target['next_available_module_id_2'], target['first_locked_module_id_1'], target['first_locked_module_id_2']]"
+    filter: "a.id not in [target['next_available_module_id_1'], target['next_available_module_id_2'], target['first_locked_module_id_1'], target['first_locked_module_id_2']] and a.status != 'available'"
     preserve: ALL
     comprehensive: true
   - collection: state.courses

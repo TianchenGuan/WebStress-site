@@ -8,14 +8,18 @@ injections:
   params:
     action: add_confusing_decoys
     decoys:
+    # is_read: true so the canonical_diff's "did not modify already-read"
+    # invariant doesn't fire when the agent reads only the urgent target.
     - type: announcement
       title: Course update follow-up
       body: Archived clarification that does not replace the active announcement.
       priority: normal
+      is_read: true
     - type: announcement
       title: Course update correction
       body: Earlier logistics note for a prior announcement batch.
       priority: urgent
+      is_read: true
 - layer: server
   params:
     action: add_lms_correction_notice
@@ -25,3 +29,4 @@ injections:
       state before you finish.'
     priority: normal
     type: announcement
+    is_read: true

@@ -121,8 +121,12 @@ canonical_diff:
   - collection: state.announcements
     filter: "a.id not in (target['unread_announcement_ids'].split(',') if target['unread_announcement_ids'] else [])"
     preserve: ALL
+  # Allow the backend's prerequisite-unlock cascade: completing
+  # next_available_module flips later locked modules in the same course to
+  # 'available'. Cascade-affected modules end up with status=='available'
+  # and no other field changes, so we exempt those.
   - collection: state.modules
-    filter: "a.id not in [target['next_available_module_id'], target['first_locked_module_id']]"
+    filter: "a.id not in [target['next_available_module_id'], target['first_locked_module_id']] and a.status != 'available'"
     preserve: ALL
   - collection: state.courses
     preserve: ALL

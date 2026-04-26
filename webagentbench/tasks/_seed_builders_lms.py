@@ -997,18 +997,52 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             score_below_70 = "true" if pct < Decimal("0.70") else "false"
 
     # ── feedback_assignment_id: first assignment with non-null feedback ──
+    # Scope to target_course_id when set so course-specific tasks pick the
+    # feedback-bearing assignment in the agent's course view, not a globally
+    # earlier feedback in another course. After choosing, null out feedback on
+    # every other graded assignment so the agent has a single, unambiguous
+    # "feedback-bearing" target to resubmit.
     feedback_assignment_id = ""
-    for a in all_assignments:
+    feedback_search = (
+        [a for a in all_assignments if a["course_id"] == target_course_id]
+        if target_course_id else all_assignments
+    )
+    for a in feedback_search:
         if a.get("feedback"):
             feedback_assignment_id = a["id"]
             break
+    if not feedback_assignment_id:
+        # Fallback: any assignment with feedback, regardless of course
+        for a in all_assignments:
+            if a.get("feedback"):
+                feedback_assignment_id = a["id"]
+                break
+    if feedback_assignment_id:
+        for a in all_assignments:
+            if (
+                a["id"] != feedback_assignment_id
+                and a.get("feedback")
+                and a.get("submission_status") == "graded"
+            ):
+                a["feedback"] = None
 
     # ── course_plan_assignment_id: first unsubmitted assignment ──
+    # Scope to target_course_id so the chosen plan assignment is visible to
+    # the agent on the target course's assignments tab.
     course_plan_assignment_id = ""
-    for a in all_assignments:
+    plan_search = (
+        [a for a in all_assignments if a["course_id"] == target_course_id]
+        if target_course_id else all_assignments
+    )
+    for a in plan_search:
         if a["submission_status"] == "not_submitted":
             course_plan_assignment_id = a["id"]
             break
+    if not course_plan_assignment_id:
+        for a in all_assignments:
+            if a["submission_status"] == "not_submitted":
+                course_plan_assignment_id = a["id"]
+                break
 
     # ── unsubmitted_hw_id: first unsubmitted homework assignment ──
     # Prefer homework; fall back to any not_submitted so the target is always populated.
@@ -1063,6 +1097,21 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
         if grace_candidates
         else (graded_in_target[1]["id"] if len(graded_in_target) >= 2 else "")
     )
+    # ── LMS-4: force resubmit capacity on the dispute targets ──
+    # When the final fallback is hit (any-graded), the chosen assignments may
+    # already have attempt_count == max_attempts and the agent cannot
+    # resubmit. Bump max_attempts so attempt_count + 1 still fits.
+    for _disp_id in (disputed_assignment_id_1, disputed_assignment_id_2):
+        if not _disp_id:
+            continue
+        for a in all_assignments:
+            if a["id"] != _disp_id:
+                continue
+            _attempts = int(a.get("attempt_count", 0) or 0)
+            _max_attempts = int(a.get("max_attempts", 1) or 1)
+            if _max_attempts < _attempts + 1:
+                a["max_attempts"] = _attempts + 1
+            break
     disputed_title_1 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_1), "")
     disputed_title_2 = next((a["title"] for a in all_assignments if a["id"] == disputed_assignment_id_2), "")
 
@@ -1155,9 +1204,16 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             if best_penalty is None or pen < best_penalty:
                 best_penalty = pen
                 most_lenient_id = c["id"]
+    # Scope to target_course_id when no lenient course is set (so we don't
+    # silently fall through to "" when the lookup is empty); otherwise the
+    # most-lenient course id is already course-scoped by construction.
     missing_assignment_in_lenient_course_id = ""
+    lenient_course_id = most_lenient_id or target_course_id
     for a in all_assignments:
-        if a["submission_status"] == "not_submitted" and a["course_id"] == most_lenient_id:
+        if (
+            a["submission_status"] == "not_submitted"
+            and a["course_id"] == lenient_course_id
+        ):
             missing_assignment_in_lenient_course_id = a["id"]
             break
 
@@ -1641,8 +1697,14 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
 
             total = Decimal("0")
             for g in cat_grades:
-                effective_score = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
-                total += (effective_score / Decimal(str(g["points_possible"]))) * Decimal("100")
+                # LMS-8: use the raw score the UI displays, not the
+                # penalty-adjusted internal value. Late penalty is shown as
+                # a separate column on the Grades page; the seed branch
+                # decisions (drop_impact_above_3, drop_changes_letter, etc.)
+                # should match what the agent computes from the visible
+                # numbers, not the hidden post-penalty math.
+                pct = (Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))) * Decimal("100")
+                total += pct
 
             cat_avg = (total / Decimal(str(len(cat_grades)))).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP,
@@ -1733,8 +1795,10 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 continue
             t = Decimal("0")
             for g in cg:
-                eff = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
-                t += (eff / Decimal(str(g["points_possible"]))) * Decimal("100")
+                # LMS-8: drop the (1 - late_penalty_applied) factor for the
+                # seed branch decision; see comment above current_weighted_scores.
+                pct = (Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))) * Decimal("100")
+                t += pct
             avg = t / Decimal(str(len(cg)))
             gw += w
             ws += avg * w
@@ -2396,8 +2460,18 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 break
 
     # ── latest_announcement_id (from announcements if available) ──
+    # Scope to target_course_id when set so course-specific tasks ("the latest
+    # announcement in your course") match what the agent sees in the course's
+    # announcements tab. Without this, a globally-newest announcement from
+    # another course can be picked, making the task unsolvable from the
+    # in-course view.
     latest_announcement_id = ""
     announcements_list = ctx.base.get("announcements", [])
+    _scoped_target_cid = target_cid or ctx.outputs.get("target_course_id", "")
+    if announcements_list and _scoped_target_cid:
+        scoped = [a for a in announcements_list if a.get("course_id") == _scoped_target_cid]
+        if scoped:
+            announcements_list = scoped
     if announcements_list:
         sorted_ann = sorted(
             announcements_list,
@@ -3183,10 +3257,22 @@ def _build_peer_review_assignments(ctx: LMSSeedContext, params: dict[str, Any]) 
         else:
             completed_review_ids.append(review_id)
 
+    # Distinct list of assignment_ids referenced by these peer reviews. Used
+    # by canonical_diff invariants that need to whitelist cascade effects on
+    # the underlying assignments when a peer review is submitted.
+    peer_review_assignment_id_list: list[str] = []
+    seen_aid: set[str] = set()
+    for pr in ctx.base["peer_reviews"]:
+        aid = pr.get("assignment_id", "")
+        if aid and aid not in seen_aid:
+            peer_review_assignment_id_list.append(aid)
+            seen_aid.add(aid)
+
     return {
         "review_ids": review_ids,
         "pending_review_ids": pending_review_ids,
         "completed_review_ids": completed_review_ids,
         "returned_review_ids": returned_review_ids,
         "target_review_id": pending_review_ids[0] if pending_review_ids else (review_ids[0] if review_ids else ""),
+        "peer_review_assignment_ids": peer_review_assignment_id_list,
     }

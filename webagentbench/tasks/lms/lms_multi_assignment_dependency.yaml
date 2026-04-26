@@ -140,8 +140,12 @@ canonical_diff:
       file_name:
         eq: project_final.pdf
   invariant:
+  # Allow the backend's prerequisite-unlock cascade: completing the next
+  # available module flips later locked modules in the same course to
+  # status='available'. A manually-completed extra module ends in
+  # status='completed' and is still flagged.
   - collection: state.modules
-    filter: "a.id != target['next_available_module_id']"
+    filter: "a.id != target['next_available_module_id'] and a.status != 'available'"
     preserve: ALL
   - collection: state.assignments
     filter: "a.id not in [target['target_quiz_assignment_id'], target['target_project_assignment_id']]"
