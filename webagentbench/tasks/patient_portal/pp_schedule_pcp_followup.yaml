@@ -58,9 +58,15 @@ canonical_diff:
         provider_id:
           expr: "x == target['pcp_id']"
         datetime:
+          # PP-3: filter slots to in-person only — the instruction asks for
+          # the next in-person slot, but provider available_slots may
+          # include both modalities and the bare min() could return a
+          # telehealth slot the agent can't legally book.
           expr: >
             x == min(s.datetime for p in initial.providers
-                     if p.id == target['pcp_id'] for s in p.available_slots)
+                     if p.id == target['pcp_id']
+                     for s in p.available_slots
+                     if s.type == 'in-person')
   invariant:
     - collection: state.appointments
       filter: "a.id in {x.id for x in initial.appointments}"

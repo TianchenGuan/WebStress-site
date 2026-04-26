@@ -73,10 +73,14 @@ canonical_diff:
         provider_id:
           expr: "x in target['providers_by_specialty'].get('cardiology', [])"
         datetime:
+          # PP-3: filter slots to telehealth only — the instruction asks
+          # for the next telehealth cardiology slot. The bare min() could
+          # otherwise return an in-person slot.
           expr: >
             x == min(s.datetime for p in initial.providers
                      if p.id in target['providers_by_specialty'].get('cardiology', [])
-                     for s in p.available_slots)
+                     for s in p.available_slots
+                     if s.type == 'telehealth')
   invariant:
     - collection: state.appointments
       filter: "a.id in {x.id for x in initial.appointments}"
