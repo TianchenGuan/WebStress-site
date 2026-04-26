@@ -249,7 +249,10 @@ def _match_block(
             ok = bool(safe_eval(expr_str, {"state": final, "initial": initial, "target": targets, "session_start": session_start}))
         except SafeEvalError:
             ok = False
-        negative_checks.append({"desc": desc, "passed": ok, "penalty": _penalty_for(severity)})
+        negative_checks.append({
+            "desc": desc, "passed": ok, "penalty": _penalty_for(severity),
+            "_kind": "constraint",
+        })
         constraint_descs.add(desc)
         constraints_total += 1
         constraints_passed += int(ok)
