@@ -997,11 +997,19 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
             score_below_70 = "true" if pct < Decimal("0.70") else "false"
 
     # ── feedback_assignment_id: first assignment with non-null feedback ──
+    # Then null-out feedback on every other assignment so the agent has a
+    # single, unambiguous "feedback-bearing" target to resubmit. Without this,
+    # multiple graded assignments carry feedback (line 727) and the agent
+    # picks a different one than the seed-chosen target → eval mismatch.
     feedback_assignment_id = ""
     for a in all_assignments:
         if a.get("feedback"):
             feedback_assignment_id = a["id"]
             break
+    if feedback_assignment_id:
+        for a in all_assignments:
+            if a["id"] != feedback_assignment_id and a.get("feedback") and a.get("submission_status") == "graded":
+                a["feedback"] = None
 
     # ── course_plan_assignment_id: first unsubmitted assignment ──
     course_plan_assignment_id = ""
@@ -2373,8 +2381,17 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 break
 
     # ── latest_announcement_id (from announcements if available) ──
+    # Scope to target_course_id when one is set so course-specific tasks
+    # (e.g. "the latest announcement in your course") match what the agent
+    # sees in the course's announcements tab. Without this, a globally
+    # latest announcement from another course would be picked, making the
+    # task unsolvable from the in-course view.
     latest_announcement_id = ""
     announcements_list = ctx.base.get("announcements", [])
+    if announcements_list and target_course_id:
+        scoped = [a for a in announcements_list if a.get("course_id") == target_course_id]
+        if scoped:
+            announcements_list = scoped
     if announcements_list:
         sorted_ann = sorted(
             announcements_list,

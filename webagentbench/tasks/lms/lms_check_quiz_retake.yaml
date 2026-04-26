@@ -34,6 +34,11 @@ seed:
     params:
       per_course_count: 6
       graded_fraction: 0.5
+      # The retake task requires a target with attempt_count >= 1 already
+      # (so resubmitting bumps it to 2, matching the eval predicate at
+      # line 80). `submitted` is the post-attempt status that sets
+      # attempt_count=1 in the seed builder.
+      target_assignment_status: submitted
     outputs:
     - assignment_ids
     - target_assignment_id

@@ -122,19 +122,35 @@ def _candidate_label(entry: DiffEntry) -> str:
     return str(getattr(entry, "entity_id", "?"))
 
 
-def _entry_dict_for_filter(entry: DiffEntry) -> dict[str, Any]:
+def _entry_dict_for_filter(entry: DiffEntry, final: Any = None) -> dict[str, Any]:
     if isinstance(entry, Create):
         return entry.fields
     if isinstance(entry, Delete):
         return entry.last_fields
-    return {"id": entry.entity_id, **{k: after for k, (_before, after) in entry.field_changes.items()}}
+    # Update: merge the full final-state entity dict (so filters can reference
+    # unchanged fields like sender, property_id) under the change deltas.
+    base: dict[str, Any] = {}
+    if final is not None:
+        full = index_by_id(collections_of(final).get(entry.entity, []))
+        base = dict(full.get(entry.entity_id, {}))
+    base["id"] = entry.entity_id
+    base.update({k: after for k, (_before, after) in entry.field_changes.items()})
+    return base
 
 
-def _filter_matches(filter_expr: str | None, entry: DiffEntry, targets: Mapping[str, Any]) -> bool:
+def _filter_matches(
+    filter_expr: str | None,
+    entry: DiffEntry,
+    targets: Mapping[str, Any],
+    final: Any = None,
+) -> bool:
     if not filter_expr:
         return True
     try:
-        return bool(safe_eval(filter_expr, {"a": EntityView(_entry_dict_for_filter(entry)), "target": targets}))
+        return bool(safe_eval(
+            filter_expr,
+            {"a": EntityView(_entry_dict_for_filter(entry, final)), "target": targets},
+        ))
     except SafeEvalError:
         return False
 
@@ -221,7 +237,7 @@ def _match_block(
         violated = any(
             entry.entity == collection
             and (entry.entity, entry.entity_id) not in ctx.matched
-            and _filter_matches(get_field(inv, "filter"), entry, targets)
+            and _filter_matches(get_field(inv, "filter"), entry, targets, final)
             for entry in agent_diff
         )
         desc = f"Preserve {get_field(inv, 'collection')}"
@@ -278,7 +294,7 @@ def _match_block(
             if entry.entity in full_invariant_cols:
                 continue
             filtered = filtered_by_col.get(entry.entity, [])
-            if any(_filter_matches(get_field(inv, "filter"), entry, targets) for inv in filtered):
+            if any(_filter_matches(get_field(inv, "filter"), entry, targets, final) for inv in filtered):
                 continue
             if entry.entity in comprehensive_cols:
                 continue
