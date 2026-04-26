@@ -53,16 +53,6 @@ export function ThreadPage() {
     }
     api.getThread(emailId).then(async (response) => {
       setThread(response);
-      // Mirror real Gmail: opening a thread auto-marks all unread
-      // messages in it as read. This avoids the situation where eval
-      // checks expect is_read==true but no UI affordance exists for
-      // per-thread mark-as-read (see audit doc GM-3).
-      const unreadIds = response.thread
-        .filter((email) => !email.is_read)
-        .map((email) => email.id);
-      if (unreadIds.length > 0) {
-        await Promise.all(unreadIds.map((id) => api.markRead(id).catch(() => undefined)));
-      }
       await refreshMailbox();
     });
   }, [api, emailId, refreshMailbox]);
