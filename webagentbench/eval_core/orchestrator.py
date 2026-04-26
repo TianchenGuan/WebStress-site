@@ -34,8 +34,18 @@ def _format_reasoning(report: Any) -> str:
         if failed:
             total_penalty = sum(nc.get("penalty", 0.0) for nc in failed)
             lines.append(f"Negative check penalties: {len(failed)} triggered, total penalty {total_penalty:.2f}.")
-            for nc in failed:
-                lines.append(f"  [PENALTY -{nc.get('penalty', 0.0):.2f}] {nc.get('desc', '')}")
+            real_negatives = [nc for nc in failed if nc.get("_kind") != "constraint"]
+            constraint_failures = [nc for nc in failed if nc.get("_kind") == "constraint"]
+            if real_negatives:
+                if constraint_failures:
+                    lines.append("Negative checks failed:")
+                for nc in real_negatives:
+                    lines.append(f"  [PENALTY -{nc.get('penalty', 0.0):.2f}] {nc.get('desc', '')}")
+            if constraint_failures:
+                if real_negatives:
+                    lines.append("Constraints failed:")
+                for nc in constraint_failures:
+                    lines.append(f"  [PENALTY -{nc.get('penalty', 0.0):.2f}] {nc.get('desc', '')}")
         else:
             lines.append("All negative checks passed (no penalties).")
     if report.failures:
