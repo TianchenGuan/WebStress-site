@@ -1697,8 +1697,14 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
 
             total = Decimal("0")
             for g in cat_grades:
-                effective_score = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
-                total += (effective_score / Decimal(str(g["points_possible"]))) * Decimal("100")
+                # LMS-8: use the raw score the UI displays, not the
+                # penalty-adjusted internal value. Late penalty is shown as
+                # a separate column on the Grades page; the seed branch
+                # decisions (drop_impact_above_3, drop_changes_letter, etc.)
+                # should match what the agent computes from the visible
+                # numbers, not the hidden post-penalty math.
+                pct = (Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))) * Decimal("100")
+                total += pct
 
             cat_avg = (total / Decimal(str(len(cat_grades)))).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP,
@@ -1789,8 +1795,10 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 continue
             t = Decimal("0")
             for g in cg:
-                eff = Decimal(str(g["score"])) * (Decimal("1") - Decimal(str(g["late_penalty_applied"])))
-                t += (eff / Decimal(str(g["points_possible"]))) * Decimal("100")
+                # LMS-8: drop the (1 - late_penalty_applied) factor for the
+                # seed branch decision; see comment above current_weighted_scores.
+                pct = (Decimal(str(g["score"])) / Decimal(str(g["points_possible"]))) * Decimal("100")
+                t += pct
             avg = t / Decimal(str(len(cg)))
             gw += w
             ws += avg * w
