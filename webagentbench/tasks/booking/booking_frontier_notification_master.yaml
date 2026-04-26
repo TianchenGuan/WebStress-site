@@ -319,7 +319,14 @@ canonical_diff:
       preserve: ALL
     - collection: state.payment_methods
       preserve: ALL
+    # The task instruction tells the agent to read the four named
+    # notifications, which flips `read: false → true` server-side. Whitelist
+    # those four IDs so the read-flips don't trip the preserve invariant.
+    # All other notifications must remain untouched.
     - collection: state.notifications
+      filter: >-
+        a.id not in (target['confirm_notif_id'], target['price_notif_id'],
+                     target['deal_notif_id'], target['review_notif_id'])
       preserve: ALL
   named_invariants:
     - name: Agent saved price drop property to Price Drop Deals list

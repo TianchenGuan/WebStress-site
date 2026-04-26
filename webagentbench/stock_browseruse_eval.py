@@ -656,7 +656,47 @@ def _history_to_trajectory(
     for i, item in enumerate(history.history):
         mo = getattr(item, "model_output", None)
         state = getattr(item, "state", None)
+
+        # When model_output is None (e.g. an LLM parse failure or a step
+        # dropped by browser-use), we still emit a placeholder so that
+        # trajectory.json stays aligned with screenshots/ — otherwise
+        # downstream replay/visualize sees a gap (32 of 1038 trajectories
+        # in the sonnet_4_6_full_openrouter3 sweep had this misalignment).
         if mo is None:
+            status = "model_output_missing"
+            for r in getattr(item, "result", None) or []:
+                if getattr(r, "error", None):
+                    status = f"ERROR: {r.error}"
+                    break
+            placeholder_meta = getattr(item, "metadata", None)
+            placeholder_elapsed = 0.0
+            if placeholder_meta is not None:
+                placeholder_elapsed = float(
+                    getattr(placeholder_meta, "duration_seconds", None)
+                    or getattr(placeholder_meta, "elapsed", None)
+                    or 0.0
+                )
+            placeholder_step = build_trajectory_step(
+                step_num=i + 1,
+                thinking="",
+                memory="",
+                actions=[],
+                dom_elements={},
+                url=getattr(state, "url", "") or "",
+                status=status,
+                elapsed=round(placeholder_elapsed, 1),
+            )
+            if include_screenshots and i < len(screenshots) and screenshots[i] and screenshots_dir is not None:
+                b64 = screenshots[i]
+                if b64.startswith("data:"):
+                    b64 = b64.split(",", 1)[1]
+                png_path = Path(screenshots_dir) / f"step{i + 1:02d}.png"
+                try:
+                    png_path.write_bytes(base64.b64decode(b64))
+                    placeholder_step["screenshot"] = f"screenshots/{png_path.name}"
+                except Exception as exc:
+                    logger.warning("failed to write %s: %s", png_path, exc)
+            trajectory.append(placeholder_step)
             continue
 
         thinking = (getattr(mo, "thinking", None) or "") or (
