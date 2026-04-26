@@ -239,26 +239,47 @@ The `did not mutate unrelated posts` cluster (4 instances) is real but small. `P
 7. **EVAL-3** (trajectory list saved empty) — 32 runs lose replay
 8. **BOOK-2/4/5**, **GM-4/5/6**, **LMS-3/4/5/6/7/8**, **AMZ-1** — task-by-task
 
-## Implementation status (2026-04-26)
+## Implementation status (2026-04-26 — full sweep)
 
-**Landed (commit 97fab0c7 + a361a446):**
-- EVAL-1 — matcher.py merges full final entity into Update filter scope
-- BOOK-1 — 4 cancel-task YAMLs whitelist `state.rebooking_suggestions`
-- BOOK-2 — `booking_frontier_notification_master.yaml` whitelists the four read-flipped notification IDs
-- LMS-1 — `lms_check_quiz_retake.yaml` filters target to `submission_status: submitted`
-- LMS-5 — `_seed_builders_lms.py` `priority_order_ids` now uses 7-day horizon
-- EVAL-3 — `stock_browseruse_eval.py` emits placeholder steps when `model_output is None`
+After the parallel-agent fix sweep, **27 of 30+ patterns landed across 32 commits**. Final test state: 69 failed (pre-existing baseline) / 7357 passed. No regressions.
 
-**Reverted pending test-fixture coordination:**
-- LMS-2 (feedback null-out + announcement scoped to course) — broke 25
-  existing canonical-diff tests for `lms_dropped_grade_impact` and
-  `lms_grading_discrepancy` which embed the global-latest-announcement
-  assumption. Needs paired updates to those tests and their seeds.
+### Landed
+- **EVAL-1** (`97fab0c7`) — matcher.py merges full final entity into Update filter scope
+- **EVAL-2** (`17ef7cc5`) — orchestrator splits failed constraints out from negative-checks heading
+- **EVAL-3** (`a361a446`) — `stock_browseruse_eval.py` emits placeholder steps when `model_output is None`
+- **Matcher partial-credit** (`c0cceb95`) — singleton/bijection near-misses no longer trip the unaccounted sweep (covers GM-1, GM-4, BOOK-5, AMZ-1 double-penalty)
+- **BOOK-1** (`97fab0c7`) — 4 cancel YAMLs whitelist `state.rebooking_suggestions`
+- **BOOK-2** (`a361a446`) — `booking_frontier_notification_master.yaml` whitelists 4 read-flipped notifications
+- **BOOK-3** (`792a59c4`) — concierge message updates reordered: specific msg_id matches consume before generic catch-all
+- **BOOK-4** (`07c46cc1`) — preferred_currency constraint widened to also accept `state.settings.currency` in 5 tasks
+- **BOOK-5** — covered by matcher partial-credit fix
+- **GM-1** (`1daac1d3`) — `state.sent` invariant filter narrowed to cold sends only in 14 tasks
+- **GM-3** (`b30b9ce0`) — `Thread.tsx` auto-marks unread thread emails on mount
+- **GM-5** (`a5a96127`) — `gmail_label_workflow_setup.yaml` accepts both `show` and `show_if_unread` for label visibility
+- **LMS-1** (`97fab0c7`) — `lms_check_quiz_retake.yaml` filters target to `submission_status: submitted`
+- **LMS-2** (`0b88b9f5`) — re-applied with paired test fixtures: feedback null-out + scoped seeds
+- **LMS-3** (`cfb53f5a`) — module invariant filter widened with `a.status != 'available'` to allow prereq-unlock cascade in 4 tasks
+- **LMS-4** (`bf01a48b`) — dispute target assignments forced to `max_attempts >= attempt_count + 1`
+- **LMS-5** (`a361a446`) — `priority_order_ids` uses 7-day horizon
+- **LMS-6** (`e151a512`) — announcement-clutter decoys seeded as `is_read: true` so completing them is a no-op
+- **LMS-7** (`27c20521`) — peer-review tasks expose `peer_review_assignment_ids` and exclude them from assignments invariant
+- **LMS-8** (`519a957c`) — seed branch math uses raw score (no late_penalty multiplier), matching what the UI shows
+- **AMZ-1** (`c9979c23`) — redundant `len(state.cart_items) == 0` constraint dropped (the named invariant already covers it)
+- **PP-1** (`e758d05d`) — 11 PP tasks whitelist cancelled appointments via `filter: "a.status != 'cancelled'" comprehensive: true`
+- **PP-2** (`3cce5e86`) — `_VACCINES` table gains `short_name` field; predicates use the bare form agents type
+- **PP-3** (`87b696e6`) — next-available-slot expressions filter by modality (`in-person` / `telehealth`) when instruction names one
+- **PP-4** (`73d15124`) — 6 specialist tasks now seed an approved `referral_chain` step
+- **PP-5** (`c441357c`) — `appointment_history` accepts `target_specialty` and emits `target_apt_id` pinned to it
+- **RH-1** (`c5169f43`) — Tax nav link added to Robinhood topbar
+- **RH-2** (`8ecac737`) — `StockDetail` now renders `Bid $X / Ask $Y`
+- **RH-3** (`09b1be0a`) — `today_loss_symbols` seeded by intraday change (separate from lifetime `loss_symbols`)
+- **RH-4** (`205b150a`) — order_fill notifications now mirror real filled-order symbols
+- **RH-5** (`06aa8a06`) — `earnings_calendar` accepts `from_portfolio: true` to scope to position symbols
+- **RH bonus** (`1f9652d3`) — `state.price_alerts` whitelisted from collateral sweep so decoy deletes don't penalize
 
-**Documented but not yet implemented (see patterns above):**
-- GM-1, GM-2, GM-3, GM-4, GM-5 (Gmail invariant + frontend changes — 14+ tasks)
-- BOOK-3, BOOK-4, BOOK-5
-- LMS-3, LMS-4, LMS-6, LMS-7, LMS-8
-- AMZ-1 (cart-clear-on-checkout)
-- All PP and RH patterns (10 from agent's audit)
-- EVAL-2 (constraint vs negative-check display polish)
+### Skipped — root cause didn't apply on closer inspection (`04ca995e`)
+- **GM-2** (thread-level star bookkeeping) — Audit-listed tasks do not actually exhibit the bug: `thread_deadline_cascade` already scopes by `thread_id`; `morning_triage_extended`/`label_workflow_setup` seed each target email in its own thread; `incident_escalation` covers all 3 alert messages via bijection; `client_handoff` has no per-email star/label updates. The real root cause exists in `gmail_escalation_chain.yaml` (2-email thread) but was outside the listed scope.
+- **GM-4** (split star + label updates) — Splitting one update entry into two breaks `_match_entry`'s `(entity, entity_id) not in ctx.matched` filter (the first split consumes the email; the second sees no candidate). Now subsumed by the matcher partial-credit fix anyway.
+
+### Skipped — needs eval_core change owned by another concern (left as TODO)
+- **PP-1 (2 tasks: `pp_provider_transition`, `pp_specialist_roundrobin`)** — These have `test_cancelled_existing_*_fails` tests relying on the unaccounted-update sweep catching cancelled-Update of pre-existing appointments. The `comprehensive: true` whitelist short-circuits that path. Needs a Create-only filter form, OR splitting the invariant into status-aware sub-rules.
