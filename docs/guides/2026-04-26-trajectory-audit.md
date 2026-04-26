@@ -111,6 +111,8 @@ When the agent creates a partial saved list (e.g. 1 of 3 properties), the create
 
 **Fix (eval-side):** broaden `where` to `thread_id == target['qa_thread_id']` with bijection over thread members, OR add a positive-form invariant whitelisting all in-thread starring.
 
+**Note (2026-04-26):** investigated each listed task; the bug as described does not apply to the listed set. `thread_deadline_cascade` already uses `thread_id == ...`. `morning_triage_extended` and `label_workflow_setup` seed each target email in its own thread (so UI thread-star only flips that one). `incident_escalation` bijection covers all 3 alert messages in the shared thread, so all in-thread stars are matched. `client_handoff` has no email-level updates. The real bug exists in `gmail_escalation_chain.yaml` (update `id == unresolved_first_msg_id` on a 2-email thread) — not landed here because GM-1 already changed that file and the user's GM-2 list is authoritative; flagged for follow-up.
+
 #### GM-3: Eval requires `is_read==true` but UI has no per-thread mark-read affordance (HIGH)
 
 `Thread.tsx:50-58` calls only `getThread`; never `api.markRead`. There's no per-thread "Mark read" button. Tasks like `gmail_priority_escalation` require `is_read: {eq: true}` on update entries → impossible to satisfy without `mark-all-read` (which itself violates other invariants).
@@ -126,6 +128,8 @@ When the agent creates a partial saved list (e.g. 1 of 3 properties), the create
 **Affected:** quarterly_closeout, priority_escalation, label_workflow_setup, vacation_preparation__intervention.
 
 **Fix:** matcher should treat partial-match (where matched but changes failed) as `missing_update` only, not also unaccounted.
+
+**Note (2026-04-26):** the YAML-split workaround (one entry per field) does not work because `matcher.py:_match_entry` filters candidates with `(entity, entity_id) not in ctx.matched`, so the second entry (label) sees no candidate after the first entry (star) consumes the email. Tested via `test_gmail_quarterly_closeout_canonical_diff.py::test_correct_trajectory_passes` — split YAML produced `missing_update: Apply Q1 Active label to email A`. Reverted; this pattern needs the matcher-side fix.
 
 #### GM-5: Label create predicate requires non-default visibility — near-miss → unaccounted (MEDIUM)
 
