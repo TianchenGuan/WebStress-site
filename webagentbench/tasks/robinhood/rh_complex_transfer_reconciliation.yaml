@@ -121,6 +121,15 @@ canonical_diff:
   - collection: state.price_alerts
     filter: "a.symbol in initial.owned_symbols() and not a.id.startswith('alert_decoy_')"
     preserve: ALL
+  # Decoy alerts (id prefix `alert_decoy_`) are seeded distractors.
+  # Deleting them as part of the cleanup pass is legitimate; whitelist
+  # the whole collection from the collateral sweep so the agent isn't
+  # charged for cleaning them up. The named invariant above still fires
+  # if owned (non-decoy) alerts are touched.
+  - collection: state.price_alerts
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
   - collection: state.watchlists
     filter: "len(a.symbols) > 0"
     preserve: ALL
