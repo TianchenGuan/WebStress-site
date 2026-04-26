@@ -57,6 +57,30 @@ except Exception:
 os.environ.setdefault("TIMEOUT_BrowserStartEvent", "90")
 os.environ.setdefault("TIMEOUT_BrowserLaunchEvent", "90")
 
+# browser-use 0.12.6 also has a *separate* 30s timeout hardcoded inside
+# `LocalBrowserWatchdog._wait_for_cdp_url` (no env-var hook): it polls
+# `127.0.0.1:<debug_port>/json/version` for 30s and then raises
+# `Browser did not start within 30 seconds`. Bumping the event-bus
+# timeouts above doesn't help because the inner staticmethod uses its own
+# default. Patch the staticmethod's default to 90s at import time so the
+# inner and outer ceilings agree.
+def _bump_chrome_inner_cdp_timeout() -> None:
+    try:
+        from browser_use.browser.watchdogs import local_browser_watchdog as _lbw
+        _orig = _lbw.LocalBrowserWatchdog._wait_for_cdp_url
+
+        async def _patched(port: int, timeout: float = 90) -> str:
+            return await _orig(port, timeout)
+
+        _lbw.LocalBrowserWatchdog._wait_for_cdp_url = staticmethod(_patched)
+    except Exception:
+        # Older / restructured browser-use: skip silently — outer event
+        # timeouts still apply, just less generously.
+        pass
+
+
+_bump_chrome_inner_cdp_timeout()
+
 # Stock browser-use exposes ~25 actions. We remove the ones that would let the
 # agent escape the benchmark's UI-only contract.
 _BANNED_ACTIONS: list[str] = [
