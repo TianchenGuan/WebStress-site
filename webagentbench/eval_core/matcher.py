@@ -69,6 +69,12 @@ class MatchContext:
     final: Any
     session_start: datetime | None
     matched: set[tuple[str, str]] = field(default_factory=set)
+    # Entries that targeted the right entity+collection but failed property
+    # predicates (singleton) or weren't paired (bijection). The unaccounted
+    # collateral sweep treats these like ``matched`` (skip flagging) so the
+    # agent isn't double-charged: once for the missing positive, again for
+    # the "near-miss" candidate sitting in the diff.
+    near_misses: set[tuple[str, str]] = field(default_factory=set)
     checks: list[dict[str, Any]] = field(default_factory=list)
     failures: list[Failure] = field(default_factory=list)
     graphs: list[dict[str, Any]] = field(default_factory=list)
@@ -275,6 +281,11 @@ def _match_block(
         for entry in agent_diff:
             if (entry.entity, entry.entity_id) in ctx.matched:
                 continue
+            # Near-misses (right entity+collection, failed predicates) are
+            # already accounted for by the missing-positive failure recorded
+            # in _match_entry — skip the second penalty here.
+            if (entry.entity, entry.entity_id) in ctx.near_misses:
+                continue
             if entry.entity in full_invariant_cols:
                 continue
             filtered = filtered_by_col.get(entry.entity, [])
@@ -422,6 +433,25 @@ def _match_entry(
             c = candidates[right_i]
             ctx.matched.add((c.entity, c.entity_id))
 
+        # Bijection near-misses: when the bijection did NOT saturate (some
+        # slots unmet), unpaired candidates with no edges to any slot are
+        # treated as near-miss attempts — the missing-positive check already
+        # records the gap, so the unaccounted sweep should not pile on a
+        # second penalty. When the bijection IS saturated, surplus candidates
+        # remain visible to the unaccounted sweep (legitimate over-creation).
+        saturated = len(pairing) == len(slots)
+        if not saturated:
+            paired_right = set(pairing.values())
+            edged_right = {r for rs in edges.values() for r in rs}
+            for right_i, c in enumerate(candidates):
+                if right_i in paired_right:
+                    continue
+                if right_i in edged_right:
+                    # Had edges but lost to bipartite — count as legitimate
+                    # surplus, leave for the unaccounted sweep.
+                    continue
+                ctx.near_misses.add((c.entity, c.entity_id))
+
         fraction = len(pairing) / len(slots)
         saturated = len(pairing) == len(slots)
         ctx.checks.append({
@@ -460,6 +490,14 @@ def _match_entry(
         ctx.matched.add((found.entity, found.entity_id))
     else:
         ctx.failures.append(Failure(failure_kind, desc, {"entry_index": idx}))
+        # Singleton near-miss: the agent produced an entry on the right
+        # entity+collection but its property predicates failed. Mark the
+        # most-likely candidate (first available) as a near-miss so the
+        # unaccounted collateral sweep doesn't pile a second penalty on top
+        # of the missing-positive failure already recorded above.
+        if candidates:
+            cand = candidates[0]
+            ctx.near_misses.add((cand.entity, cand.entity_id))
     ctx.checks.append({
         "desc": desc, "passed": found is not None,
         "error": None if found else _SINGLETON_ERROR[kind],

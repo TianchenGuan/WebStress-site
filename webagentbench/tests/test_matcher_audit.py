@@ -1147,3 +1147,57 @@ def test_filtered_invariant_covers_entries_in_unaccounted_sweep() -> None:
         "Filtered invariant must still fire when a non-target matches its "
         "filter — otherwise agents could freely mutate protected entries."
     )
+
+
+def test_singleton_create_near_miss_not_double_penalised() -> None:
+    """Regression for audit_reports/2026-04-26 (GM-1, GM-4, BOOK-5, AMZ-1).
+
+    Setup: the canonical diff demands one Create in ``appointments`` whose
+    ``id`` equals ``"X"``. The agent creates an entry on the right entity +
+    collection but with ``id == "Y"`` — a property near-miss.
+
+    Pre-fix the matcher charged this twice:
+      - missing_create (the desired Create predicate didn't match anything), and
+      - unaccounted (the agent's Create wasn't claimed by any positive entry).
+
+    Post-fix the second penalty is suppressed: the unaccounted sweep treats
+    the right-collection-but-failed-predicates candidate as a near-miss, so
+    only the missing-positive failure remains.
+    """
+    from webagentbench.evaluator_diff import Create
+    initial, final, targets = _task_with_real_initial()
+
+    block = CanonicalDiff.model_validate({
+        "create": [{
+            "entity": "Appointment",
+            "desc": "Create appointment with id X",
+            "properties": {"id": {"eq": "X"}},
+        }],
+    })
+    # Agent creates on the right collection but the predicate fails (id != X).
+    diff = [Create(entity="appointments", entity_id="Y", fields={"id": "Y"})]
+
+    report = match_diff(diff, block, targets=targets,
+                        initial=initial, final=final)
+
+    # The missing-create failure must still fire.
+    missing = [f for f in report.failures if f.kind == "missing_create"]
+    assert missing, (
+        f"missing_create failure should still fire for property near-miss; "
+        f"failures={report.failures}"
+    )
+
+    # But the unaccounted-create double-penalty must NOT fire.
+    unaccounted_negs = [
+        nc for nc in report.negative_checks
+        if "Unaccounted create" in nc.get("desc", "")
+    ]
+    assert not unaccounted_negs, (
+        f"Singleton property near-miss double-penalised: the same Create is "
+        f"flagged both missing and unaccounted. negative_checks="
+        f"{report.negative_checks}"
+    )
+    unaccounted_failures = [f for f in report.failures if f.kind == "unaccounted"]
+    assert not unaccounted_failures, (
+        f"Unaccounted failure piled on near-miss Create: {unaccounted_failures}"
+    )
