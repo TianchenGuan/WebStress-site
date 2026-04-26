@@ -46,9 +46,14 @@ seed:
       completed_count: 2
       include_specialist: true
       conflict_pair: false
+      # PP-5: pin the target appointment to dermatology so target_apt_id
+      # is bound to the dermatology provider rather than "first non-PCP",
+      # which the previous shape allowed to drift to any specialty.
+      target_specialty: dermatology
     outputs:
     - upcoming_ids
     - specialist_apt_id
+    - target_apt_id
   # Without an approved dermatology referral, the booking API rejects the
   # reschedule with "No approved referral exists for dermatology." The
   # instruction forbids messaging the PCP (the only path to a new
@@ -66,12 +71,16 @@ seed:
     pcp_id: '{output.pcp_id}'
     upcoming_ids: '{output.upcoming_ids}'
     specialist_apt_id: '{output.specialist_apt_id}'
+    target_apt_id: '{output.target_apt_id}'
 canonical_diff:
   update:
     - entity: Appointment
       desc: "Cancel the target dermatology appointment"
       where:
-        id: {expr: "x == target['specialist_apt_id']"}
+        # PP-5: target_apt_id is now pinned to the dermatology specialty
+        # (instead of "first non-PCP"), so the matcher's where-clause
+        # always points at the appointment the instruction names.
+        id: {expr: "x == target['target_apt_id']"}
       changes:
         status: {eq: "cancelled"}
   create:
@@ -85,12 +94,12 @@ canonical_diff:
               a.datetime == x
               and a.status == 'scheduled'
               and a.id in target['upcoming_ids']
-              and a.id != target['specialist_apt_id']
+              and a.id != target['target_apt_id']
               for a in initial.appointments
             )
   invariant:
     - collection: state.appointments
-      filter: "a.id in {x.id for x in initial.appointments} and a.id != target['specialist_apt_id']"
+      filter: "a.id in {x.id for x in initial.appointments} and a.id != target['target_apt_id']"
       preserve: ALL
     - collection: state.prescriptions
       preserve: ALL
@@ -136,7 +145,7 @@ canonical_diff:
 eval:
   source: server_state
   checks:
-  - expr: state.get_appointment('{target.specialist_apt_id}') is not None and state.get_appointment('{target.specialist_apt_id}').status
+  - expr: state.get_appointment('{target.target_apt_id}') is not None and state.get_appointment('{target.target_apt_id}').status
       == 'cancelled'
     desc: The original dermatology appointment was cancelled
   - expr: "any(a.status == 'scheduled'\n    and a.id not in {target.upcoming_ids}\n\
@@ -146,7 +155,7 @@ eval:
       \    and a.id not in {target.upcoming_ids}]) >= 1"
     desc: At least one new scheduled appointment exists
   negative_checks:
-  - expr: "not any(a.status == 'cancelled'\n        and a.id != '{target.specialist_apt_id}'\n\
+  - expr: "not any(a.status == 'cancelled'\n        and a.id != '{target.target_apt_id}'\n\
       \        and a.id in {target.upcoming_ids}\n        for a in state.appointments)"
     desc: Agent did not cancel a non-dermatology upcoming appointment
     penalty: 0.25

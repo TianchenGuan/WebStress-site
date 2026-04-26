@@ -729,15 +729,21 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     """Create a mix of upcoming, completed, and cancelled appointments.
 
     Params: upcoming_count, completed_count, cancelled_count,
-            include_specialist (bool), conflict_pair (bool)
+            include_specialist (bool), conflict_pair (bool),
+            target_specialty (str | None) — when set, the upcoming
+            appointment for that specialty is exposed as `target_apt_id`
+            (PP-5). When unset, `target_apt_id` falls back to
+            `specialist_apt_id` (the first non-PCP upcoming).
     Outputs: upcoming_ids, completed_ids, cancelled_ids, next_appointment_id,
-             conflict_apt_ids, pcp_apt_id, specialist_apt_id, telehealth_apt_id
+             conflict_apt_ids, pcp_apt_id, specialist_apt_id, telehealth_apt_id,
+             target_apt_id
     """
     upcoming_count = params.get("upcoming_count", 2)
     completed_count = params.get("completed_count", 2)
     cancelled_count = params.get("cancelled_count", 1)
     include_specialist = params.get("include_specialist", True)
     conflict_pair = params.get("conflict_pair", False)
+    target_specialty: str | None = params.get("target_specialty")
 
     if "appointments" not in ctx.base:
         ctx.base["appointments"] = []
@@ -759,6 +765,19 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     specialist_apt_id: str | None = None
     telehealth_apt_id: str | None = None
     next_appointment_id: str | None = None
+    # PP-5: when target_specialty is provided, this is the apt_id of the
+    # upcoming appointment whose provider has that specialty. Falls back
+    # to specialist_apt_id (first non-PCP) when unset.
+    target_apt_id: str | None = None
+    # Pre-pick a target-specialty provider (if any). Falls back to None
+    # when no provider matches; in that case target_apt_id stays None and
+    # the YAML's eval falls back to specialist_apt_id.
+    target_specialty_provider: dict[str, Any] | None = None
+    if target_specialty:
+        target_specialty_provider = next(
+            (p for p in providers if p.get("specialty") == target_specialty),
+            None,
+        )
 
     def _link_matching_referral(apt_dict: dict[str, Any], prov: dict[str, Any]) -> None:
         for ref in ctx.base.get("referrals", []):
@@ -772,15 +791,22 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
                 break
 
     # --- Upcoming appointments ---
+    # PP-5: if target_specialty is set, reserve slot i==1 for that
+    # specialty so target_apt_id is bound to a provider of that specialty
+    # rather than "first non-PCP".
+    target_slot_index = 1 if (target_specialty_provider is not None and upcoming_count >= 2) else None
     for i in range(upcoming_count):
         apt_id = ctx.next_id("apt")
         days_ahead = ctx.rng.randint(1, 21)
         hour = ctx.rng.randint(9, 16)
         apt_dt = ctx.now.replace(hour=hour, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
 
-        # First upcoming is PCP, rest alternate
+        # First upcoming is PCP, optional reserved target-specialty slot,
+        # rest alternate.
         if i == 0:
             prov = pcp_provider
+        elif i == target_slot_index and target_specialty_provider is not None:
+            prov = target_specialty_provider
         elif include_specialist and specialist_providers:
             prov = ctx.rng.choice(specialist_providers)
         else:
@@ -817,6 +843,13 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             specialist_apt_id = apt_id
         if apt_type == "telehealth" and telehealth_apt_id is None:
             telehealth_apt_id = apt_id
+        # PP-5: target_apt_id is the appt for the requested specialty.
+        if (
+            target_specialty
+            and target_apt_id is None
+            and prov.get("specialty") == target_specialty
+        ):
+            target_apt_id = apt_id
 
     # --- Completed appointments ---
     for _ in range(completed_count):
@@ -897,6 +930,12 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             conflict_apt_ids.append(apt_id)
             upcoming_ids.append(apt_id)
 
+    # PP-5: when target_specialty is unset (or no matching provider was
+    # found), fall back to specialist_apt_id so consumers can read a
+    # uniform `target_apt_id` field regardless of the seed shape.
+    if target_apt_id is None:
+        target_apt_id = specialist_apt_id
+
     return {
         "upcoming_ids": upcoming_ids,
         "completed_ids": completed_ids,
@@ -907,6 +946,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
         "pcp_apt_date": pcp_apt_date,
         "specialist_apt_id": specialist_apt_id,
         "telehealth_apt_id": telehealth_apt_id,
+        "target_apt_id": target_apt_id,
     }
 
 
