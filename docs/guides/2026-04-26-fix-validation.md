@@ -4,13 +4,21 @@
 **Baseline:** `sonnet_4_6_full_openrouter3/` (sonnet-4.6 via openrouter, same harness)
 **Compared on:** the 59 tasks that received YAML/seed fixes in commits `97fab0c7..088826f5`
 
-## Aggregate
+## Aggregate (final, all 59)
 
 | Metric           | Baseline (sonnet-4.6) | Post-fix (gpt-5) | Δ |
 |------------------|----------------------|------------------|---|
-| Tasks compared   | 55 (4 still running) | 55               | – |
-| Avg score        | 0.490                | 0.605            | **+0.115** |
-| Pass rate        | 10/55 (18.2%)        | 19/55 (34.5%)    | **+9 (+16.3 pp)** |
+| Tasks compared   | 59                   | 59               | – |
+| Avg score        | 0.487                | 0.598            | **+0.111** |
+| Pass rate        | 11/59 (18.6%)        | 21/59 (35.6%)    | **+10 (+16.9 pp)** |
+| Improved (Δ ≥ 0.05)  | –                | 26 tasks         | – |
+| Unchanged (\|Δ\| < 0.05) | –             | 16 tasks         | – |
+| Regressed (Δ ≤ -0.05) | –               | 17 tasks         | (mostly agent-skill) |
+
+Two more tasks finished after the initial 55-task analysis:
+- `pp_year_end_review` 0.77 → 1.00 (PP-1 cancelled-appointment whitelist)
+- `rh_diagnose_portfolio_drop` 0.00 → 1.00 (RH-3 today_loss_symbols seeded by intraday change)
+- `pp_resolve_schedule_conflicts` 1.00 → 0.00 — confirmed infrastructure flake: trajectory shows `evaluate failed: HTTP Error 404` (session expired mid-eval under 6-way parallelism). Not fix-related; would clear on a re-run.
 
 **Caveat:** baseline is sonnet-4.6, post-fix is gpt-5 — different models. Some deltas reflect model capability, not fix impact. Where the failure mode diverges from the original audit pattern, I called it agent-skill.
 
