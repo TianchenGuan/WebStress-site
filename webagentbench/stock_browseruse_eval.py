@@ -637,7 +637,7 @@ def _history_to_trajectory(
     """
     from pathlib import Path
     import base64
-    from webagentbench.browseruse_eval import build_trajectory_step
+    from webagentbench.browseruse_eval import _get_action_index, build_trajectory_step
 
     if history is None or not hasattr(history, "history"):
         return []
@@ -685,6 +685,7 @@ def _history_to_trajectory(
                 url=getattr(state, "url", "") or "",
                 status=status,
                 elapsed=round(placeholder_elapsed, 1),
+                action_results=[],
             )
             if include_screenshots and i < len(screenshots) and screenshots[i] and screenshots_dir is not None:
                 b64 = screenshots[i]
@@ -723,13 +724,7 @@ def _history_to_trajectory(
                 continue
             action_target_idx = None
             if act_idx < len(actions):
-                for key in (
-                    "click", "input_text", "select_option",
-                    "scroll_down", "scroll_up", "scroll_left", "scroll_right",
-                ):
-                    if key in actions[act_idx]:
-                        action_target_idx = actions[act_idx][key].get("index")
-                        break
+                action_target_idx = _get_action_index(actions[act_idx])
             if action_target_idx is None:
                 continue
             dom_elements[action_target_idx] = {
@@ -742,10 +737,20 @@ def _history_to_trajectory(
 
         # Status: "success" unless any ActionResult in this step carried an error.
         status = "success"
+        action_results: list[dict[str, Any]] = []
         for r in getattr(item, "result", None) or []:
+            try:
+                result_data = r.model_dump(exclude_unset=True, exclude_none=True)
+            except Exception:
+                result_data = {}
+                for attr in ("error", "extracted_content", "include_in_memory", "is_done", "success"):
+                    value = getattr(r, attr, None)
+                    if value is not None:
+                        result_data[attr] = value
+            result_data["status"] = "error" if getattr(r, "error", None) else "success"
+            action_results.append(result_data)
             if getattr(r, "error", None):
                 status = f"ERROR: {r.error}"
-                break
 
         metadata = getattr(item, "metadata", None)
         elapsed = 0.0
@@ -765,6 +770,7 @@ def _history_to_trajectory(
             url=url,
             status=status,
             elapsed=round(elapsed, 1),
+            action_results=action_results,
         )
         if include_screenshots and i < len(screenshots) and screenshots[i]:
             b64 = screenshots[i]

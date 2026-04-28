@@ -1401,7 +1401,8 @@ async function selectPage(idx) {{
             step.dataset.step = stepIdx;
 
             const action = t.action || {{}};
-            const name = action.action || '?';
+            const actionBatch = Array.isArray(t.actions) && t.actions.length ? t.actions : [action];
+            const name = actionBatch.map((a) => a.action || '?').join(' → ');
             let targetStr = '';
             if (action.ref !== undefined) targetStr = ' [' + action.ref + ']';
             if (action.from_ref !== undefined) targetStr = ' [' + action.from_ref + ' \u2192 ' + action.to_ref + ']';
