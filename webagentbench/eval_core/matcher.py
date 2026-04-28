@@ -46,6 +46,28 @@ def _penalty_for(severity: str) -> float:
     return SEVERITY_PENALTY.get(severity, SEVERITY_PENALTY[Severity.MEDIUM])
 
 
+def _negative_check(
+    desc: str,
+    passed: bool,
+    penalty: float,
+    kind: str,
+    **metadata: Any,
+) -> dict[str, Any]:
+    """Build a negative-check payload with a stable semantic category.
+
+    ``_kind`` is kept for existing consumers. ``kind`` is the public field used
+    by current control-panel renderers and analysis scripts.
+    """
+    return {
+        "desc": desc,
+        "passed": passed,
+        "penalty": penalty,
+        "kind": kind,
+        "_kind": kind,
+        **metadata,
+    }
+
+
 @dataclass
 class MatchReport:
     passed: bool
@@ -113,6 +135,28 @@ def _bipartite_matching(edges: Mapping[int, set[int]], n_left: int) -> dict[int,
     return match_l
 
 
+_LABEL_FIELDS = (
+    "name",
+    "title",
+    "subject",
+    "vaccine_name",
+    "medication",
+    "test_name",
+    "screening_name",
+    "provider_id",
+    "reason",
+    "type",
+)
+
+
+def _label_from_fields(fields: Mapping[str, Any]) -> str | None:
+    for key in _LABEL_FIELDS:
+        value = fields.get(key)
+        if value:
+            return str(value)
+    return None
+
+
 def _candidate_label(entry: DiffEntry) -> str:
     fields: Mapping[str, Any]
     if isinstance(entry, Create):
@@ -121,11 +165,33 @@ def _candidate_label(entry: DiffEntry) -> str:
         fields = entry.last_fields
     else:
         fields = {k: after for k, (_before, after) in entry.field_changes.items()}
-    for key in ("name", "title", "subject", "provider_id", "reason", "type"):
-        value = fields.get(key)
-        if value:
-            return str(value)[:40]
-    return str(getattr(entry, "entity_id", "?"))
+    return (_label_from_fields(fields) or str(getattr(entry, "entity_id", "?")))[:40]
+
+
+def _slot_label(slot: Any, initial: Any, final: Any) -> str:
+    raw = str(slot)
+    if isinstance(slot, Mapping):
+        label = _label_from_fields(slot)
+        if label:
+            raw_id = slot.get("id")
+            return f"{label} ({raw_id})"[:40] if raw_id else label[:40]
+
+    # Many bijection slots are target IDs. Resolve those IDs against the
+    # initial/final state so the control panel shows user-facing labels
+    # (for example vaccine names) instead of opaque internal IDs.
+    if isinstance(slot, (str, int, float)):
+        slot_id = str(slot)
+        for state in (initial, final):
+            for entities in collections_of(state).values():
+                entity = index_by_id(entities).get(slot_id)
+                if not entity:
+                    continue
+                label = _label_from_fields(entity)
+                if label:
+                    return f"{label} ({slot_id})"[:40]
+                return slot_id[:40]
+
+    return raw[:40]
 
 
 def _entry_dict_for_filter(entry: DiffEntry, final: Any = None) -> dict[str, Any]:
@@ -243,14 +309,19 @@ def _match_block(
         violated = any(
             entry.entity == collection
             and (entry.entity, entry.entity_id) not in ctx.matched
+            and (entry.entity, entry.entity_id) not in ctx.near_misses
             and _filter_matches(get_field(inv, "filter"), entry, targets, final)
             for entry in agent_diff
         )
         desc = f"Preserve {get_field(inv, 'collection')}"
-        negative_checks.append({
-            "desc": desc, "passed": not violated,
-            "penalty": SEVERITY_PENALTY[Severity.MEDIUM], "_inv_index": idx,
-        })
+        negative_checks.append(_negative_check(
+            desc,
+            not violated,
+            SEVERITY_PENALTY[Severity.MEDIUM],
+            "invariant",
+            source="protected_state",
+            _inv_index=idx,
+        ))
         if violated:
             ctx.failures.append(Failure("invariant", desc, {"entry_index": idx}))
 
@@ -265,10 +336,13 @@ def _match_block(
             ok = bool(safe_eval(expr_str, {"state": final, "initial": initial, "target": targets, "session_start": session_start}))
         except SafeEvalError:
             ok = False
-        negative_checks.append({
-            "desc": desc, "passed": ok, "penalty": _penalty_for(severity),
-            "_kind": "constraint",
-        })
+        negative_checks.append(_negative_check(
+            desc,
+            ok,
+            _penalty_for(severity),
+            "constraint",
+            severity=severity,
+        ))
         constraint_descs.add(desc)
         constraints_total += 1
         constraints_passed += int(ok)
@@ -315,11 +389,21 @@ def _match_block(
             if entry.entity in positive_cols:
                 desc = f"Unaccounted {type(entry).__name__.lower()} in {entry.entity} (id={entry.entity_id})"
                 penalty = SEVERITY_PENALTY[Severity.MEDIUM]
+                check_kind = "collateral_unaccounted"
             else:
                 desc = f"Unexpected {type(entry).__name__.lower()} on {entry.entity} (id={entry.entity_id}) — collection not mentioned in diff"
                 penalty = SEVERITY_PENALTY[Severity.HIGH]
+                check_kind = "collateral_unexpected"
             ctx.failures.append(Failure("unaccounted", desc, {"entity_id": entry.entity_id}))
-            negative_checks.append({"desc": desc, "passed": False, "penalty": penalty})
+            negative_checks.append(_negative_check(
+                desc,
+                False,
+                penalty,
+                check_kind,
+                source="collateral",
+                entity=entry.entity,
+                entity_id=entry.entity_id,
+            ))
 
     # Named invariants
     _apply_named_invariants(block, ctx.checks, negative_checks, ctx.bijection_excess)
@@ -473,8 +557,10 @@ def _match_entry(
 
         fraction = len(pairing) / len(slots)
         saturated = len(pairing) == len(slots)
+        check_index = len(ctx.checks)
+        check_desc = f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}"
         ctx.checks.append({
-            "desc": f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}",
+            "desc": check_desc,
             "passed": saturated,
             "error": None if saturated else f"matched {len(pairing)} of {len(slots)}",
         })
@@ -488,10 +574,11 @@ def _match_entry(
             eligible = {right_i for rights in edges.values() for right_i in rights}
             ctx.bijection_excess[idx] = len(eligible) > len(slots)
             ctx.graphs.append({
-                "desc": desc, "entity": entity, "saturated": saturated,
+                "desc": desc, "check_desc": check_desc, "check_index": check_index,
+                "entry_index": idx, "kind": kind, "entity": entity, "saturated": saturated,
                 "has_excess": ctx.bijection_excess[idx],
                 "slots": [
-                    {"label": str(slot)[:40], "matched_candidate_index": pairing.get(i)}
+                    {"label": _slot_label(slot, ctx.initial, ctx.final), "matched_candidate_index": pairing.get(i)}
                     for i, slot in enumerate(slots)
                 ],
                 "candidates": [
@@ -556,7 +643,14 @@ def _apply_named_invariants(
                     nc["penalty"] = penalty
                     break
         elif kind == "create":
-            negative_checks.append({"desc": name, "passed": not bijection_excess.get(idx, False), "penalty": penalty})
+            negative_checks.append(_negative_check(
+                name,
+                not bijection_excess.get(idx, False),
+                penalty,
+                "excess",
+                source="named_invariant",
+                ref=ref,
+            ))
         elif kind in {"update", "delete"}:
             entries = get_list(block, kind)
             if idx < len(entries):
