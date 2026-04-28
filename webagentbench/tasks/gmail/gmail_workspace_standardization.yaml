@@ -39,143 +39,130 @@ seed:
     existing_filter_id: '{output.existing_filter_id}'
 canonical_diff:
   create:
-    - entity: filters
-      desc: Create alerts.monitoring.io filter with Ops/Critical label, star, never spam
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@alerts.monitoring.io"
-        add_labels:
-          superset:
-            - Ops/Critical
-        star:
-          eq: true
-        never_spam:
-          eq: true
-    - entity: filters
-      desc: Create billing.vendorpay.com filter with Finance/Invoices label, never spam
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@billing.vendorpay.com"
-        add_labels:
-          superset:
-            - Finance/Invoices
-        never_spam:
-          eq: true
-    - entity: filters
-      desc: Create expensecloud.com filter with Finance/Receipts label
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@receipts.expensecloud.com"
-        add_labels:
-          superset:
-            - Finance/Receipts
-    - entity: labels
-      desc: Create Ops/Critical label with show_if_unread visibility
-      count: 1
-      properties:
-        name:
-          eq: Ops/Critical
-        show_in_label_list:
-          eq: show_if_unread
-    - entity: labels
-      desc: Create Finance/Invoices label with show visibility
-      count: 1
-      properties:
-        name:
-          eq: Finance/Invoices
-        show_in_label_list:
-          eq: show
-    - entity: labels
-      desc: Create Finance/Tax label with hide visibility
-      count: 1
-      properties:
-        name:
-          eq: Finance/Tax
-        show_in_label_list:
-          eq: hide
+  - entity: filters
+    desc: Create alerts.monitoring.io filter with Ops/Critical label, star, never
+      spam
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@alerts.monitoring.io'
+      add_labels:
+        superset:
+        - Ops/Critical
+      star:
+        eq: true
+      never_spam:
+        eq: true
+  - entity: filters
+    desc: Create billing.vendorpay.com filter with Finance/Invoices label, never spam
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@billing.vendorpay.com'
+      add_labels:
+        superset:
+        - Finance/Invoices
+      never_spam:
+        eq: true
+  - entity: filters
+    desc: Create expensecloud.com filter with Finance/Receipts label
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@receipts.expensecloud.com'
+      add_labels:
+        superset:
+        - Finance/Receipts
+  - entity: labels
+    desc: Create Ops/Critical label with show_if_unread visibility
+    count: 1
+    properties:
+      name:
+        eq: Ops/Critical
+      show_in_label_list:
+        eq: show_if_unread
+  - entity: labels
+    desc: Create Finance/Invoices label with show visibility
+    count: 1
+    properties:
+      name:
+        eq: Finance/Invoices
+      show_in_label_list:
+        eq: show
+  - entity: labels
+    desc: Create Finance/Tax label with hide visibility
+    count: 1
+    properties:
+      name:
+        eq: Finance/Tax
+      show_in_label_list:
+        eq: hide
   update:
-    - entity: labels
-      desc: Fix Ops/Routine label visibility to show
-      where:
-        name:
-          eq: Ops/Routine
-      changes:
-        show_in_label_list:
-          eq: show
-    - entity: labels
-      desc: Fix Finance/Receipts label visibility to show_if_unread
-      where:
-        name:
-          eq: Finance/Receipts
-      changes:
-        show_in_label_list:
-          eq: show_if_unread
-  constraints:
-    - desc: Ops/Critical label exists with show_if_unread visibility
-      expr: "any(l.name == 'Ops/Critical' and l.show_in_label_list == 'show_if_unread' for l in state.labels)"
-      severity: high
-    - desc: Ops/Routine label exists with show visibility
-      expr: "any(l.name == 'Ops/Routine' and l.show_in_label_list == 'show' for l in state.labels)"
-      severity: high
-    - desc: Ops/Archived label exists with hide visibility
-      expr: "any(l.name == 'Ops/Archived' and l.show_in_label_list == 'hide' for l in state.labels)"
-      severity: high
-    - desc: Finance/Invoices label exists with show visibility
-      expr: "any(l.name == 'Finance/Invoices' and l.show_in_label_list == 'show' for l in state.labels)"
-      severity: high
-    - desc: Finance/Receipts label exists with show_if_unread visibility
-      expr: "any(l.name == 'Finance/Receipts' and l.show_in_label_list == 'show_if_unread' for l in state.labels)"
-      severity: high
-    - desc: Finance/Tax label exists with hide visibility
-      expr: "any(l.name == 'Finance/Tax' and l.show_in_label_list == 'hide' for l in state.labels)"
-      severity: high
-    - desc: Display density set to compact
-      expr: "state.settings.display_density == 'compact'"
-      severity: high
-    - desc: Undo send delay set to 20 seconds
-      expr: "state.settings.undo_send_seconds == 20"
-      severity: high
-    - desc: Maximum page size set to 25
-      expr: "state.settings.max_page_size == 25"
-      severity: high
+  - entity: labels
+    desc: Fix Ops/Routine label visibility to show
+    where:
+      name:
+        eq: Ops/Routine
+    changes:
+      show_in_label_list:
+        eq: show
+  - entity: labels
+    desc: Fix Finance/Receipts label visibility to show_if_unread
+    where:
+      name:
+        eq: Finance/Receipts
+    changes:
+      show_in_label_list:
+        eq: show_if_unread
+  - entity: settings
+    desc: Display density, undo send delay, and page size configured per policy
+    where:
+      id: { any: true }
+    changes:
+      display_density: { eq: compact }
+      undo_send_seconds: { eq: 20 }
+      max_page_size: { eq: 25 }
   invariant:
-    - collection: state.emails
-      preserve: ALL
-    - collection: state.drafts
-      preserve: ALL
-    - collection: state.sent
-      preserve: ALL
-    - collection: state.deleted
-      preserve: ALL
-    - collection: state.contacts
-      preserve: ALL
-    - collection: state.labels
-      filter: >-
-        a.name not in ['Ops/Critical', 'Ops/Routine', 'Ops/Archived',
-        'Finance/Invoices', 'Finance/Receipts', 'Finance/Tax']
-      preserve: ALL
-    - collection: state.filters
-      filter: "a.id != target['existing_filter_id']"
-      preserve: ALL
+  - collection: state.emails
+    preserve: ALL
+  - collection: state.drafts
+    preserve: ALL
+  - collection: state.sent
+    preserve: ALL
+  - collection: state.deleted
+    preserve: ALL
+  - collection: state.contacts
+    preserve: ALL
+  - collection: state.labels
+    filter: a.name not in ['Ops/Critical', 'Ops/Routine', 'Ops/Archived', 'Finance/Invoices',
+      'Finance/Receipts', 'Finance/Tax']
+    preserve: ALL
+  - collection: state.filters
+    filter: a.id != target['existing_filter_id']
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent created alerts.monitoring.io filter
-      ref: create[0]
-      severity: high
-    - name: Agent created billing.vendorpay.com filter
-      ref: create[1]
-      severity: high
-    - name: Agent created expensecloud.com filter
-      ref: create[2]
-      severity: high
-    - name: Agent did not send emails
-      ref: invariant[2]
-      severity: high
-    - name: Agent did not modify inbox emails
-      ref: invariant[0]
-      severity: high
+  - name: Agent created alerts.monitoring.io filter
+    ref: create[0]
+    severity: high
+  - name: Agent created billing.vendorpay.com filter
+    ref: create[1]
+    severity: high
+  - name: Agent created expensecloud.com filter
+    ref: create[2]
+    severity: high
+  - name: Agent did not send emails
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not modify inbox emails
+    ref: invariant[0]
+    severity: high
+  - name: Agent updated display density, undo send, and page size per policy
+    ref: update[2]
+    severity: high

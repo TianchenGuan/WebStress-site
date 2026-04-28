@@ -72,9 +72,23 @@ canonical_diff:
           eq: Budget Verified
   update:
     - entity: emails
-      desc: Apply Budget Verified label and star department emails
+      desc: Star the three department emails and apply Budget Verified label
       bijection:
-        over: "target['all_budget_ids']"
+        over: "target['dept_ids']"
+        variable: v
+      where:
+        id:
+          expr: "x == v"
+      changes:
+        is_starred:
+          eq: true
+        labels:
+          superset:
+            - Budget Verified
+    - entity: emails
+      desc: Apply Budget Verified label to the summary email
+      bijection:
+        over: "[target['summary_id']]"
         variable: v
       where:
         id:
@@ -83,10 +97,6 @@ canonical_diff:
         labels:
           superset:
             - Budget Verified
-  constraints:
-    - desc: All department emails are starred
-      expr: "all(state.get_email(eid) is not None and state.get_email(eid).is_starred for eid in target['dept_ids'])"
-      severity: high
   invariant:
     - collection: state.emails
       filter: "a.id not in target['all_budget_ids']"
@@ -105,6 +115,8 @@ canonical_diff:
       preserve: ALL
     - collection: state.filters
       preserve: ALL
+    - collection: state.settings
+      preserve: ALL
   named_invariants:
     - name: Agent sent correction reply to summary author
       ref: create[0]
@@ -112,8 +124,11 @@ canonical_diff:
     - name: Agent created the Budget Verified label
       ref: create[1]
       severity: high
-    - name: Agent applied Budget Verified label to all budget emails
+    - name: Agent starred department emails and labeled them
       ref: update[0]
+      severity: high
+    - name: Agent applied Budget Verified label to the summary email
+      ref: update[1]
       severity: high
     - name: Agent did not modify non-budget emails
       ref: invariant[0]

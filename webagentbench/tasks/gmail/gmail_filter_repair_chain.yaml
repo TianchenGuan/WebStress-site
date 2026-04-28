@@ -50,10 +50,6 @@ canonical_diff:
             - "Vendor/AcmeWidgets"
         archive:
           eq: true
-  constraints:
-    - desc: Vendor/AcmeWidgets label exists
-      expr: "any(l.name == 'Vendor/AcmeWidgets' for l in state.labels)"
-      severity: high
   invariant:
     - collection: state.filters
       filter: "a.id in target['unrelated_filter_ids']"
@@ -69,7 +65,8 @@ canonical_diff:
     - collection: state.contacts
       preserve: ALL
     - collection: state.labels
-      filter: "a.name != 'Vendor/AcmeWidgets'"
+      preserve: ALL
+    - collection: state.settings
       preserve: ALL
   named_invariants:
     - name: Agent created wildcard domain filter
@@ -77,4 +74,7 @@ canonical_diff:
       severity: high
     - name: Agent preserved unrelated filters
       ref: invariant[0]
+      severity: high
+    - name: Agent did not delete or modify any labels
+      ref: invariant[6]
       severity: high
