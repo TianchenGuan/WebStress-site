@@ -4,7 +4,7 @@ import fnmatch
 import shlex
 from datetime import date, datetime, time, timedelta, timezone
 from email.utils import getaddresses
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import ConfigDict, Field, field_validator
 
@@ -268,6 +268,8 @@ class GmailSettings(BaseEntity):
 
 
 class GmailState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("settings",)
+
     owner_name: str
     owner_email: str
     emails: list[Email] = Field(default_factory=list)

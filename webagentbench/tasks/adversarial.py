@@ -49,22 +49,34 @@ def synthesize_adversarial_cases(
                 "final": final,
             })
 
-    # Strategy 2: per-invariant violation — mutate first entity in the collection
+    # Strategy 2: per-invariant violation — mutate first entity in the collection.
+    # Skip filtered (e.g. ``filter: "False"``) and comprehensive invariants —
+    # those are tolerance-style invariants, not strict preservation. Also
+    # skip non-list collections (singletons like ``state.settings``, primitive
+    # scalars) — the diff layer surfaces those via ``DIFF_DIFFABLE_*`` opt-ins,
+    # but the raw state dict still stores them as singletons/scalars and this
+    # generator only knows how to mutate list-shaped collections.
     for i, inv in enumerate(block.invariant):
+        if inv.filter or inv.comprehensive:
+            continue
         collection = inv.collection.removeprefix("state.")
         final = copy.deepcopy(initial)
-        if isinstance(final, dict) and final.get(collection):
-            entity = final[collection][0]
-            if isinstance(entity, dict) and entity:
-                # Pick a non-id field to mutate; fall back to any field
-                mutable_keys = [k for k in entity if k != "id"]
-                if mutable_keys:
-                    k = mutable_keys[0]
-                    entity[k] = f"MUTATED_{entity[k]}"
-                    cases.append({
-                        "description": f"invariant[{i}] violation on {collection}",
-                        "final": final,
-                    })
+        if not isinstance(final, dict):
+            continue
+        col_value = final.get(collection)
+        if not isinstance(col_value, list) or not col_value:
+            continue
+        entity = col_value[0]
+        if isinstance(entity, dict) and entity:
+            # Pick a non-id field to mutate; fall back to any field
+            mutable_keys = [k for k in entity if k != "id"]
+            if mutable_keys:
+                k = mutable_keys[0]
+                entity[k] = f"MUTATED_{entity[k]}"
+                cases.append({
+                    "description": f"invariant[{i}] violation on {collection}",
+                    "final": final,
+                })
 
     # Strategy 3: bijection unsaturation — drop all entities in the target collection
     for i, entry in enumerate(block.create):

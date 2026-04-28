@@ -238,6 +238,8 @@ class CalendarEvent(BaseEntity):
 # ---------------------------------------------------------------------------
 
 class LMSState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("student",)
+
     env_id: str = "lms"
 
     # Core entities

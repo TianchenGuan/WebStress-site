@@ -185,6 +185,9 @@ class AmazonSettings(BaseEntity):
 
 
 class AmazonState(BaseEnvState):
+    DIFF_DIFFABLE_PRIMITIVE_LISTS: ClassVar[tuple[str, ...]] = ("wishlist",)
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("settings",)
+
     owner_name: str
     owner_email: str
     products: list[Product] = Field(default_factory=list)

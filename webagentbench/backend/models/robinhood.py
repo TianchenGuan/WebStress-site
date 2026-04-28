@@ -407,6 +407,8 @@ class Referral(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RobinhoodState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("settings",)
+
     # Account info
     owner_name: str
     owner_email: str
