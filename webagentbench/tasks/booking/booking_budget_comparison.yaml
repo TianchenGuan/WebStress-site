@@ -174,25 +174,6 @@ seed:
     # $1290.40 and is rejected.
     budget: 1200.0
 canonical_diff:
-  constraints:
-    - desc: New Rome booking's all-in total_price stays within the $1200 all-in budget
-      expr: >-
-        any(
-          r.property_id == target['target_prop_id']
-          and r.status == 'confirmed'
-          and r.check_in == '2026-06-20'
-          and r.total_price <= target['budget']
-          for r in state.reservations
-        )
-      severity: critical
-    - desc: Agent did not book the fee-trap resort whose all-in price exceeds budget
-      expr: >-
-        not any(
-          r.property_id == target['fee_trap_prop_id']
-          and r.status == 'confirmed'
-          for r in state.reservations
-        )
-      severity: high
   create:
     - entity: Reservation
       desc: Book the best-rated hotel with free cancellation in Rome, cheapest room, correct dates

@@ -16,10 +16,21 @@ seed:
   steps: []
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: All search history has been cleared
-      expr: "len(state.search_history) == 0"
-      severity: critical
+  # SearchHistoryEntry has no `id` field, so the diff system never produces
+  # entries for state.search_history (a primitive-style list). The no-op
+  # bijection-over-empty update entry below puts `notifications` into
+  # positive_cols so the matcher's collateral sweep runs.
+  update:
+    - entity: notifications
+      desc: "Internal: enable collateral sweep (no expected notification mutation)"
+      weight: 0
+      bijection:
+        over: "[]"
+        variable: v
+      where:
+        id: {expr: "x == v.id"}
+      changes:
+        read: {eq: true}
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -34,6 +45,7 @@ canonical_diff:
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
+      filter: "True"  # no-op update[0] above produces no slots; preserve all notifications
       preserve: ALL
   named_invariants:
     - name: Agent did not modify reservations

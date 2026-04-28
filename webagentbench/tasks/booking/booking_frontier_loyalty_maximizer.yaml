@@ -191,11 +191,12 @@ seed:
     review_name: '{output.review_prop_name}'
     review_res_id: '{output.review_res_id}'
 canonical_diff:
-  constraints:
-    - desc: Preferred currency updated to GBP
-      expr: "state.travel_preferences.preferred_currency == 'GBP' or state.settings.currency == 'GBP'"
-      severity: medium
   update:
+    - entity: travel_preferences
+      desc: Preferred currency updated to GBP
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_currency: {eq: GBP}
     - entity: Reservation
       desc: Review submission flips rating_submitted on the reviewed reservation
       where:
@@ -349,6 +350,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Preferred currency updated to GBP
+      ref: update[0]
+      severity: medium
     - name: Agent booked London Genius Deluxe Room
       ref: create[0]
       severity: critical

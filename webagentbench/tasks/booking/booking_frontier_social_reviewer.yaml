@@ -187,11 +187,12 @@ seed:
     prop_name_4: '{output.prop_name_4}'
     res_id_4: '{output.res_id_4}'
 canonical_diff:
-  constraints:
-    - desc: Preferred room type updated to suite
-      expr: "state.travel_preferences.preferred_room_type == 'suite'"
-      severity: critical
   update:
+    - entity: travel_preferences
+      desc: Preferred room type updated to suite
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_room_type: {eq: suite}
     - entity: Reservation
       desc: Review submission flips rating_submitted on the Tokyo reservation
       where: {id: {expr: "x == target['res_id_1']"}}
@@ -312,6 +313,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Preferred room type updated to suite
+      ref: update[0]
+      severity: critical
     - name: Agent wrote Tokyo review with score 9.5
       ref: create[0]
       severity: critical

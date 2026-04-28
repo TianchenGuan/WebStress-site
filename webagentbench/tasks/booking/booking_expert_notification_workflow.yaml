@@ -173,15 +173,6 @@ seed:
     notif_id_2: '{output.notif_id_2}'
     notif_id_3: '{output.notif_id_3}'
 canonical_diff:
-  constraints:
-    - desc: Three price-drop notifications are marked as read
-      expr: >-
-        all(
-          n.read == True
-          for n in state.notifications
-          if n.id in (target['notif_id_1'], target['notif_id_2'], target['notif_id_3'])
-        )
-      severity: medium
   update:
     - entity: Notification
       desc: Mark first price-drop notification as read

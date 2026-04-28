@@ -22,16 +22,12 @@ seed:
   targets:
     new_phone: +1-312-555-0199
 canonical_diff:
-  constraints:
-    - desc: Phone number updated to the new value
-      expr: "state.owner_phone == target['new_phone']"
-      severity: critical
-    - desc: Owner name was not accidentally changed
-      expr: "state.owner_name == initial.owner_name"
-      severity: medium
-    - desc: Owner email was not accidentally changed
-      expr: "state.owner_email == initial.owner_email"
-      severity: medium
+  update:
+    - entity: owner_phone
+      desc: Phone number updated to new value
+      where: { id: { eq: "__singleton_owner_phone__" } }
+      changes:
+        value: { eq: "+1-312-555-0199" }
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -46,6 +42,10 @@ canonical_diff:
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
+      preserve: ALL
+    - collection: state.owner_name
+      preserve: ALL
+    - collection: state.owner_email
       preserve: ALL
   named_invariants:
     - name: Agent did not modify reservations
@@ -69,4 +69,10 @@ canonical_diff:
     - name: Agent did not create or modify notifications
       ref: invariant[6]
       severity: low
+    - name: Owner name was not accidentally changed
+      ref: invariant[7]
+      severity: medium
+    - name: Owner email was not accidentally changed
+      ref: invariant[8]
+      severity: medium
 secondary_primitives: []

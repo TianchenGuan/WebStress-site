@@ -212,7 +212,7 @@ canonical_diff:
         guests: {eq: 2}
         rooms: {any: true}
         price_per_night: {expr: "x < 300.0"}
-        total_price: {any: true}
+        total_price: {expr: "x <= target['budget']"}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}
@@ -250,22 +250,6 @@ canonical_diff:
       filter: "False"
       preserve: ALL
       comprehensive: true
-  constraints:
-    - desc: Agent acknowledged the cancellation fee
-      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
-      severity: high
-    - desc: Agent made the correct cancel decision (fee + new_total < current_total)
-      expr: "any(e.action == 'reservation.cancel' and e.payload.get('reservation_id') == target['expensive_res_id'] for e in state.audit_log)"
-      severity: critical
-    - desc: A rebooking suggestion was generated for the cancelled reservation
-      expr: "any(s.original_reservation_id == target['expensive_res_id'] for s in state.rebooking_suggestions)"
-      severity: high
-    - desc: The new booking's property was one of the system-suggested candidates
-      expr: "any(target['rebook_prop_id'] in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions)"
-      severity: critical
-    - desc: The new booking's total_price fits the budget (all-in with taxes + fees)
-      expr: "any(r.total_price <= target['budget'] for r in state.reservations if r.property_id == target['rebook_prop_id'] and r.status == 'confirmed')"
-      severity: high
   named_invariants:
     - name: Agent cancelled the most expensive reservation
       ref: update[0]

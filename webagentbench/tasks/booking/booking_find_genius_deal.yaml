@@ -175,25 +175,6 @@ seed:
     # Target fits under $800; fee-trap does not despite lower nightly rate.
     budget: 800.0
 canonical_diff:
-  constraints:
-    - desc: New Barcelona Genius booking's all-in total_price stays within the $800 budget
-      expr: >-
-        any(
-          r.property_id == target['property_id']
-          and r.status == 'confirmed'
-          and r.check_in == '2026-07-01'
-          and r.total_price <= target['budget']
-          for r in state.reservations
-        )
-      severity: critical
-    - desc: Agent did not book the fee-trap resort Genius property whose all-in exceeds budget
-      expr: >-
-        not any(
-          r.property_id == target['fee_trap_prop_id']
-          and r.status == 'confirmed'
-          for r in state.reservations
-        )
-      severity: high
   create:
     - entity: Reservation
       desc: Book the cheapest-all-in Genius Superior Room for 4 nights

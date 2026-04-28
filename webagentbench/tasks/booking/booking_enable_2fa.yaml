@@ -22,13 +22,13 @@ seed:
     - updated
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Two-factor authentication is enabled
-      expr: "state.settings.two_factor_enabled == True"
-      severity: critical
-    - desc: Email notifications were not accidentally changed
-      expr: "state.settings.email_notifications == initial.settings.email_notifications"
-      severity: medium
+  update:
+    - entity: settings
+      desc: Two-factor authentication enabled
+      where: { id: { any: true } }
+      changes:
+        two_factor_enabled: { eq: true }
+        email_notifications: { expr: "x == initial.settings.email_notifications" }
   invariant:
     - collection: state.reservations
       preserve: ALL

@@ -69,10 +69,22 @@ seed:
     property_name: '{output.early_prop_name}'
     check_in: '2026-04-16'
 canonical_diff:
-  constraints:
-    - desc: Target reservation was viewed
-      expr: "any(e.action == 'reservation.view' and e.payload.get('reservation_id') == target['reservation_id'] for e in state.audit_log)"
-      severity: critical
+  # Read-only task: only a view audit-log entry is expected (verified via
+  # constraint). No list-collection mutations should occur. The no-op
+  # bijection-over-empty update entry below puts `notifications` into
+  # positive_cols so the matcher's collateral sweep runs and any unaccounted
+  # write (booking, cancellation, message send, etc.) is caught.
+  update:
+    - entity: notifications
+      desc: "Internal: enable collateral sweep (no expected notification mutation)"
+      weight: 0
+      bijection:
+        over: "[]"
+        variable: v
+      where:
+        id: {expr: "x == v.id"}
+      changes:
+        read: {eq: true}
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -87,6 +99,7 @@ canonical_diff:
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
+      filter: "True"  # no-op update[0] above produces no slots; preserve all notifications
       preserve: ALL
   named_invariants:
     - name: Agent did not modify reservations

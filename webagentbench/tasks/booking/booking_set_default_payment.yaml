@@ -16,13 +16,17 @@ seed:
   steps: []
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: The default payment method is now the Amex card ending in 1234
-      expr: "any(pm.id == state.settings.default_payment_id and pm.card_type == 'Amex' and pm.last_four == '1234' for pm in state.payment_methods)"
-      severity: critical
-    - desc: No payment method was deleted
-      expr: "len(state.payment_methods) >= len(initial.payment_methods)"
-      severity: high
+  # ACTION task: the user wants the default payment switched to the Amex
+  # card ending in 1234. The canonical change is a settings singleton update
+  # (default_payment_id → Amex). The "no payment method deleted" constraint
+  # is subsumed by the unfiltered state.payment_methods invariant.
+  update:
+    - entity: settings
+      desc: Default payment switched to the Amex card ending in 1234
+      where: {id: {any: true}}
+      changes:
+        default_payment_id:
+          expr: "any(pm.id == x and pm.card_type == 'Amex' and pm.last_four == '1234' for pm in state.payment_methods)"
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -35,6 +39,8 @@ canonical_diff:
     - collection: state.messages
       preserve: ALL
     - collection: state.notifications
+      preserve: ALL
+    - collection: state.payment_methods
       preserve: ALL
   named_invariants:
     - name: Agent did not modify reservations
@@ -55,3 +61,6 @@ canonical_diff:
     - name: Agent did not create or modify notifications
       ref: invariant[5]
       severity: low
+    - name: Agent did not delete or alter saved payment methods
+      ref: invariant[6]
+      severity: high

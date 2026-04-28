@@ -26,10 +26,6 @@ canonical_diff:
         expiry: {eq: "09/28"}
         holder_name: {eq: "Jordan Parker"}
         is_default: {eq: false}
-  constraints:
-    - desc: No existing payment method was removed
-      expr: "not any(e.action == 'payment.remove' for e in state.audit_log)"
-      severity: high
   invariant:
     - collection: state.payment_methods
       filter: "a.last_four != '7777' or a.card_type != 'Discover'"
