@@ -251,6 +251,71 @@ def _update_holds(entry: Any, candidate: Update, targets: Mapping[str, Any],
     return True
 
 
+def _diagnose_predicate(
+    kind: str, entry: Any, candidate: DiffEntry, ctx: "MatchContext", slot: Any = None,
+) -> str | None:
+    """Return the first failing predicate path (e.g. ``"changes.language"``).
+
+    Used purely for diagnostics when a positive entry fails to match — it
+    walks each ``where:``/``changes:``/``properties:`` predicate one at a time
+    and returns the field path of the first one that evaluates False. Returns
+    ``None`` if all predicates pass (i.e. the candidate actually matches).
+
+    The hot matching path (``_update_holds`` + ``all_field_predicates_hold``)
+    short-circuits on the first failure and returns ``bool``, losing the
+    field name. This helper re-walks the predicates only on failure to recover
+    granular "which field broke" information for failure messages.
+    """
+    scope_kw = dict(bijection_var=slot, session_start=ctx.session_start)
+    if kind == "create" and isinstance(candidate, Create):
+        for name, pred in (get_field(entry, "properties", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=candidate.fields.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"properties.{name}"
+        return None
+    if kind == "update" and isinstance(candidate, Update):
+        before, after = _updated_entity_dicts(candidate, ctx.initial, ctx.final)
+        for name, pred in (get_field(entry, "where", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=before.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"where.{name}"
+        for name, pred in (get_field(entry, "changes", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=after.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"changes.{name}"
+        return None
+    if kind == "delete" and isinstance(candidate, Delete):
+        fields = {"id": candidate.entity_id, **candidate.last_fields}
+        for name, pred in (get_field(entry, "where", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=fields.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"where.{name}"
+        return None
+    return None
+
+
+def _best_diagnosis(
+    kind: str, entry: Any, candidates: list[DiffEntry], ctx: "MatchContext", slot: Any = None,
+) -> str | None:
+    """Pick the closest near-miss diagnosis from a candidate list.
+
+    For each candidate, run ``_diagnose_predicate`` and return the failure
+    field path. Currently returns the first candidate's diagnosis (good enough
+    for singleton entities like settings/patient, where there is exactly one
+    candidate). Multi-candidate cases (e.g. multiple Update entries on the
+    same collection) take the diagnosis of the first candidate.
+    """
+    for candidate in candidates:
+        diag = _diagnose_predicate(kind, entry, candidate, ctx, slot)
+        if diag is not None:
+            return diag
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public entry
 # ---------------------------------------------------------------------------
@@ -559,16 +624,36 @@ def _match_entry(
         saturated = len(pairing) == len(slots)
         check_index = len(ctx.checks)
         check_desc = f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}"
+
+        slot_diagnoses: list[str] = []
+        if not saturated:
+            # For each unfilled slot, diagnose the first failing predicate
+            # against the first available candidate. Surfaces "changes.symbol
+            # failed for slot AAPL" instead of just "matched 1 of 3".
+            unfilled = [i for i in range(len(slots)) if i not in pairing]
+            unpaired_candidates = [c for i, c in enumerate(candidates) if i not in set(pairing.values())]
+            for slot_i in unfilled[:3]:  # cap to 3 to keep messages tractable
+                diag = _best_diagnosis(kind, entry, unpaired_candidates, ctx, slot=slots[slot_i])
+                if diag is not None:
+                    slot_label = _slot_label(slots[slot_i], ctx.initial, ctx.final)
+                    slot_diagnoses.append(f"slot '{slot_label}' failed at {diag}")
+
+        error_msg = None if saturated else f"matched {len(pairing)} of {len(slots)}"
+        if slot_diagnoses:
+            error_msg = f"{error_msg} ({'; '.join(slot_diagnoses)})"
+
         ctx.checks.append({
             "desc": check_desc,
             "passed": saturated,
-            "error": None if saturated else f"matched {len(pairing)} of {len(slots)}",
+            "error": error_msg,
         })
         if not saturated:
-            ctx.failures.append(Failure(
-                failure_kind, desc,
-                {"entry_index": idx, "matched": len(pairing), "needed": len(slots)},
-            ))
+            failure_detail: dict[str, Any] = {
+                "entry_index": idx, "matched": len(pairing), "needed": len(slots),
+            }
+            if slot_diagnoses:
+                failure_detail["slot_diagnoses"] = slot_diagnoses
+            ctx.failures.append(Failure(failure_kind, desc, failure_detail))
 
         if kind == "create":
             eligible = {right_i for rights in edges.values() for right_i in rights}
@@ -594,8 +679,19 @@ def _match_entry(
     found = next((c for c in candidates if predicate(c, None)), None)
     if found:
         ctx.matched.add((found.entity, found.entity_id))
+        error_msg = None
     else:
-        ctx.failures.append(Failure(failure_kind, desc, {"entry_index": idx}))
+        # Diagnose the closest near-miss: which specific where/changes/properties
+        # field broke? Lets consumers see e.g. "changes.language failed" instead
+        # of just "no Update entry matched both where and changes predicates".
+        diag = _best_diagnosis(kind, entry, candidates, ctx, slot=None)
+        detail: dict[str, Any] = {"entry_index": idx}
+        if diag is not None:
+            detail["predicate_field"] = diag
+            error_msg = f"{_SINGLETON_ERROR[kind]} (failed at {diag})"
+        else:
+            error_msg = _SINGLETON_ERROR[kind]
+        ctx.failures.append(Failure(failure_kind, desc, detail))
         # Singleton near-miss: the agent produced one or more entries on the
         # right entity+collection but their property predicates all failed.
         # Mark every such candidate as a near-miss so the unaccounted
@@ -607,7 +703,7 @@ def _match_entry(
             ctx.near_misses.add((cand.entity, cand.entity_id))
     ctx.checks.append({
         "desc": desc, "passed": found is not None,
-        "error": None if found else _SINGLETON_ERROR[kind],
+        "error": error_msg,
     })
     return (weight if found else 0.0), weight
 
