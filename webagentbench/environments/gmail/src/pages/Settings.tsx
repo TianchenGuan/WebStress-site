@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, DataTable, FormField, Modal } from "@webagentbench/shared";
+import { useSearchParams } from "react-router-dom";
 
 import { IconDelete } from "../icons";
 import { useGmailLayout } from "../context";
@@ -892,6 +893,7 @@ function FiltersTab({
 
 export function SettingsPage() {
   const { api, notify } = useGmailLayout();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("General");
   const [settings, setSettings] = useState<GmailSettings>(DEFAULT_SETTINGS);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -917,12 +919,84 @@ export function SettingsPage() {
   };
   const canRenameLabel = typeof gmailApi.renameLabel === "function";
   const canDeleteLabel = typeof gmailApi.deleteLabel === "function";
+  const isReplayMode = searchParams.get("replay") === "1";
 
   useEffect(() => {
     gmailApi.getSettings().then(setSettings).catch(() => setSettings(DEFAULT_SETTINGS));
     gmailApi.getLabels().then(setLabels);
     gmailApi.getFilters().then(setFilters);
   }, [gmailApi]);
+
+  const replayActiveTab = isReplayMode
+    ? searchParams.get("tab") ?? "General"
+    : activeTab;
+  const replaySettings = useMemo(() => {
+    if (!isReplayMode) {
+      return settings;
+    }
+
+    return {
+      ...settings,
+      signature: searchParams.get("replaySignature") ?? settings.signature,
+      vacation_responder_message:
+        searchParams.get("replayVacationMessage") ?? settings.vacation_responder_message,
+      forwarding_address:
+        searchParams.get("replayForwardingAddress") ?? settings.forwarding_address,
+      undo_send_seconds: searchParams.has("replayUndoSendSeconds")
+        ? Number(searchParams.get("replayUndoSendSeconds"))
+        : settings.undo_send_seconds,
+      max_page_size: searchParams.has("replayMaxPageSize")
+        ? Number(searchParams.get("replayMaxPageSize"))
+        : settings.max_page_size,
+      language: searchParams.get("replayLanguage") ?? settings.language,
+      default_reply_behavior:
+        searchParams.get("replayDefaultReplyBehavior") ?? settings.default_reply_behavior,
+      display_density: searchParams.get("replayDisplayDensity") ?? settings.display_density,
+      vacation_responder_enabled: searchParams.has("replayVacationEnabled")
+        ? searchParams.get("replayVacationEnabled") === "1"
+        : settings.vacation_responder_enabled,
+      send_and_archive: searchParams.has("replaySendAndArchive")
+        ? searchParams.get("replaySendAndArchive") === "1"
+        : settings.send_and_archive,
+    };
+  }, [isReplayMode, searchParams, settings]);
+  const replayEditingLabel = useMemo(() => {
+    if (!isReplayMode) {
+      return editingLabel;
+    }
+
+    const labelId = searchParams.get("replayRenameLabelId");
+    if (!labelId) {
+      return null;
+    }
+
+    const currentLabel = labels.find((label) => label.id === labelId);
+    return {
+      id: labelId,
+      name: searchParams.get("replayRenameLabelDraft") ?? currentLabel?.name ?? "",
+    };
+  }, [editingLabel, isReplayMode, labels, searchParams]);
+  const replayFilterWizardOpen = isReplayMode
+    ? searchParams.get("replayFilterModal") === "1"
+    : isModalOpen;
+  const replayFilterWizardStep = isReplayMode
+    ? (searchParams.get("replayFilterStep") === "actions" ? "actions" : "criteria")
+    : filterWizardStep;
+  const replayFilter = isReplayMode
+    ? {
+        ...EMPTY_DRAFT_FILTER,
+        name: searchParams.get("replayFilterName") ?? "",
+        fromPattern: searchParams.get("replayFilterFrom") ?? "",
+        subjectPhrase: searchParams.get("replayFilterSubject") ?? "",
+        addLabelsText: searchParams.get("replayFilterLabels") ?? "",
+        forwardTo: searchParams.get("replayFilterForward") ?? "",
+        hasAttachment: searchParams.get("replayFilterHasAttachment") === "1",
+        archive: searchParams.get("replayFilterArchive") === "1",
+        markRead: searchParams.get("replayFilterMarkRead") === "1",
+        star: searchParams.get("replayFilterStar") === "1",
+        neverSpam: searchParams.get("replayFilterNeverSpam") === "1",
+      }
+    : newFilter;
 
   const handleSaveSettings = async () => {
     const next = await gmailApi.updateSettings(settings);
@@ -1046,9 +1120,9 @@ export function SettingsPage() {
             <button
               key={tab}
               type="button"
-              className={`gmail-settings-tabs__tab ${activeTab === tab ? "gmail-settings-tabs__tab--active" : ""}`}
+              className={`gmail-settings-tabs__tab ${replayActiveTab === tab ? "gmail-settings-tabs__tab--active" : ""}`}
               onClick={() => setActiveTab(tab)}
-              aria-selected={activeTab === tab}
+              aria-selected={replayActiveTab === tab}
               role="tab"
             >
               {tab}
@@ -1060,9 +1134,9 @@ export function SettingsPage() {
             <button
               key={tab}
               type="button"
-              className={`gmail-settings-tabs__tab ${activeTab === tab ? "gmail-settings-tabs__tab--active" : ""}`}
+              className={`gmail-settings-tabs__tab ${replayActiveTab === tab ? "gmail-settings-tabs__tab--active" : ""}`}
               onClick={() => setActiveTab(tab)}
-              aria-selected={activeTab === tab}
+              aria-selected={replayActiveTab === tab}
               role="tab"
             >
               {tab}
@@ -1073,10 +1147,10 @@ export function SettingsPage() {
 
       {/* Tab content */}
       <div className="gmail-settings-content">
-        {activeTab === "General" && (
-          <GeneralTab settings={settings} setSettings={setSettings} onSave={handleSaveSettings} />
+        {replayActiveTab === "General" && (
+          <GeneralTab settings={replaySettings} setSettings={setSettings} onSave={handleSaveSettings} />
         )}
-        {activeTab === "Labels" && (
+        {replayActiveTab === "Labels" && (
           <LabelsTab
             labels={labels}
             onUpdateLabel={handleUpdateLabel}
@@ -1085,12 +1159,12 @@ export function SettingsPage() {
             onCommitRenameLabel={handleCommitRenameLabel}
             onCancelRenameLabel={handleCancelRenameLabel}
             onPromptDeleteLabel={handlePromptDeleteLabel}
-            editingLabel={editingLabel}
+            editingLabel={replayEditingLabel}
             canRenameLabel={canRenameLabel}
             canDeleteLabel={canDeleteLabel}
           />
         )}
-        {activeTab === "Filters and Blocked Addresses" && (
+        {replayActiveTab === "Filters and Blocked Addresses" && (
           <FiltersTab
             filters={filters}
             onDeleteFilter={handleDeleteFilter}
@@ -1114,7 +1188,7 @@ export function SettingsPage() {
           !(activeTab === "Advanced" && getFeatureFlag("undo_send_advanced")) && (
           <div className="gmail-settings-placeholder">
             <p>
-              {activeTab} settings are not available in this environment.
+              {replayActiveTab} settings are not available in this environment.
             </p>
           </div>
         )}
@@ -1122,16 +1196,16 @@ export function SettingsPage() {
 
       {/* Create filter modal */}
       <Modal
-        open={isModalOpen}
-        title={filterWizardStep === "criteria" ? "Create a filter" : "Choose what happens next"}
+        open={replayFilterWizardOpen}
+        title={replayFilterWizardStep === "criteria" ? "Create a filter" : "Choose what happens next"}
         description={
-          filterWizardStep === "criteria"
+          replayFilterWizardStep === "criteria"
             ? "Step 1 of 2: define which messages should match this filter."
             : "Step 2 of 2: choose what Gmail should do when a message matches."
         }
         onClose={resetFilterWizard}
         footer={
-          filterWizardStep === "criteria" ? (
+          replayFilterWizardStep === "criteria" ? (
             <>
               <Button variant="ghost" onClick={resetFilterWizard} aria-label="Cancel filter creation">
                 Cancel
@@ -1140,7 +1214,7 @@ export function SettingsPage() {
                 variant="primary"
                 onClick={() => setFilterWizardStep("actions")}
                 aria-label="Continue to filter actions"
-                disabled={buildFilterQuery(newFilter) === ""}
+                disabled={buildFilterQuery(replayFilter) === ""}
               >
                 Continue
               </Button>
@@ -1158,7 +1232,7 @@ export function SettingsPage() {
                 variant="primary"
                 onClick={saveNewFilter}
                 aria-label="Save new filter"
-                disabled={!hasFilterAction(newFilter)}
+                disabled={!hasFilterAction(replayFilter)}
               >
                 Create filter
               </Button>
@@ -1166,14 +1240,14 @@ export function SettingsPage() {
           )
         }
       >
-        {filterWizardStep === "criteria" ? (
+        {replayFilterWizardStep === "criteria" ? (
           <div className="gmail-modal-grid">
             <FormField
               id="new-filter-from"
               label="From"
               hint="Use a sender address or a whole domain like @vendor.com."
               inputProps={{
-                value: newFilter.fromPattern,
+                value: replayFilter.fromPattern,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, fromPattern: event.target.value })),
                 placeholder: "finance@acme.com or @vendor.com",
@@ -1185,7 +1259,7 @@ export function SettingsPage() {
               label="Subject"
               hint="Use a short phrase that should appear in the subject line."
               inputProps={{
-                value: newFilter.subjectPhrase,
+                value: replayFilter.subjectPhrase,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, subjectPhrase: event.target.value })),
                 placeholder: "Payroll Exception",
@@ -1195,27 +1269,27 @@ export function SettingsPage() {
             <label className="gmail-settings-card__checkbox">
               <input
                 type="checkbox"
-                checked={newFilter.hasAttachment}
+                checked={replayFilter.hasAttachment}
                 onChange={(event) => setNewFilter((current) => ({ ...current, hasAttachment: event.target.checked }))}
               />
               <span>Has attachment</span>
             </label>
             <div className="gmail-settings-summary-card" aria-label="Filter criteria preview">
               <strong>Matches</strong>
-              <p>{filterCriteriaSummary(newFilter)}</p>
+              <p>{filterCriteriaSummary(replayFilter)}</p>
             </div>
           </div>
         ) : (
           <div className="gmail-modal-grid">
             <div className="gmail-settings-summary-card" aria-label="Current filter criteria">
               <strong>Matches</strong>
-              <p>{filterCriteriaSummary(newFilter)}</p>
+              <p>{filterCriteriaSummary(replayFilter)}</p>
             </div>
             <FormField
               id="new-filter-labels"
               label="Apply labels"
               inputProps={{
-                value: newFilter.addLabelsText,
+                value: replayFilter.addLabelsText,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, addLabelsText: event.target.value })),
                 placeholder: "Billing Vendors, Payroll",
@@ -1226,7 +1300,7 @@ export function SettingsPage() {
               id="new-filter-forward"
               label="Forward to"
               inputProps={{
-                value: newFilter.forwardTo,
+                value: replayFilter.forwardTo,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, forwardTo: event.target.value })),
                 placeholder: "chief-of-staff@example.com",
@@ -1238,7 +1312,7 @@ export function SettingsPage() {
               label="Filter name"
               hint="Optional. If blank, Gmail will use the criteria summary."
               inputProps={{
-                value: newFilter.name,
+                value: replayFilter.name,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setNewFilter((current) => ({ ...current, name: event.target.value })),
                 "aria-label": "Filter name",
@@ -1247,7 +1321,7 @@ export function SettingsPage() {
             <label className="gmail-settings-card__checkbox">
               <input
                 type="checkbox"
-                checked={newFilter.archive}
+                checked={replayFilter.archive}
                 onChange={(event) => setNewFilter((current) => ({ ...current, archive: event.target.checked }))}
               />
               <span>Skip Inbox (Archive it)</span>
@@ -1255,7 +1329,7 @@ export function SettingsPage() {
             <label className="gmail-settings-card__checkbox">
               <input
                 type="checkbox"
-                checked={newFilter.markRead}
+                checked={replayFilter.markRead}
                 onChange={(event) => setNewFilter((current) => ({ ...current, markRead: event.target.checked }))}
               />
               <span>Mark as read</span>
@@ -1263,7 +1337,7 @@ export function SettingsPage() {
             <label className="gmail-settings-card__checkbox">
               <input
                 type="checkbox"
-                checked={newFilter.star}
+                checked={replayFilter.star}
                 onChange={(event) => setNewFilter((current) => ({ ...current, star: event.target.checked }))}
               />
               <span>Star it</span>
@@ -1271,7 +1345,7 @@ export function SettingsPage() {
             <label className="gmail-settings-card__checkbox">
               <input
                 type="checkbox"
-                checked={newFilter.neverSpam}
+                checked={replayFilter.neverSpam}
                 onChange={(event) =>
                   setNewFilter((current) => ({ ...current, neverSpam: event.target.checked }))
                 }
