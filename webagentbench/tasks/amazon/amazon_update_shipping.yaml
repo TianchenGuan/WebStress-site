@@ -57,46 +57,70 @@ canonical_diff:
   - entity: Address
     desc: New default shipping address created with target details
     properties:
-      full_name: {expr: "x == target['recipient_name']"}
-      street_address: {expr: "target['street'] in x"}
-      city: {expr: "x == target['city']"}
-      state: {expr: "x == target['state_code']"}
-      zip_code: {expr: "x == target['zip']"}
-      is_default: {eq: true}
-      apt_suite: {any: true}
-      country: {any: true}
-      phone: {any: true}
+      full_name:
+        expr: x == target['recipient_name']
+      street_address:
+        expr: target['street'] in x
+      city:
+        expr: x == target['city']
+      state:
+        expr: x == target['state_code']
+      zip_code:
+        expr: x == target['zip']
+      is_default:
+        eq: true
+      apt_suite:
+        any: true
+      country:
+        any: true
+      phone:
+        any: true
   - entity: Order
     desc: New order placed for target product using the new default address
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+        expr: any(it['product_id'] == target['product_id'] for it in x)
       shipping_address_id:
-        expr: "state.settings.default_address_id == x and any(a.full_name == target['recipient_name'] for a in state.addresses if a.id == x)"
-      status: {any: true}
-      payment_method_id: {any: true}
-      subtotal: {any: true}
-      shipping_cost: {any: true}
-      tax: {any: true}
-      total: {any: true}
-      placed_at: {any: true}
-      estimated_delivery: {any: true}
-      promo_code: {any: true}
-      discount: {any: true}
+        expr: state.settings.default_address_id == x and any(a.full_name == target['recipient_name']
+          for a in state.addresses if a.id == x)
+      status:
+        any: true
+      payment_method_id:
+        any: true
+      subtotal:
+        any: true
+      shipping_cost:
+        any: true
+      tax:
+        any: true
+      total:
+        any: true
+      placed_at:
+        any: true
+      estimated_delivery:
+        any: true
+      promo_code:
+        any: true
+      discount:
+        any: true
   update:
   - entity: Address
-    desc: Prior default address demoted as a side effect of setting a new default (weight 0)
+    desc: Prior default address demoted as a side effect of setting a new default
+      (weight 0)
     weight: 0.0
     where:
-      id: {any: true}
+      id:
+        any: true
     changes:
-      is_default: {eq: false}
+      is_default:
+        eq: false
   invariant:
   - collection: state.addresses
-    filter: "a.full_name != target['recipient_name']"
+    filter: a.full_name != target['recipient_name']
     preserve: ALL
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    filter: not any(it.get('product_id') == target['product_id'] for it in (a.items
+      or []))
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -115,6 +139,12 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
+  - collection: state.wishlist
     preserve: ALL
   named_invariants:
   - name: Agent did not modify other saved addresses
@@ -150,3 +180,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[12]
+    severity: medium

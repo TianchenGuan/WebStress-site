@@ -127,10 +127,6 @@ canonical_diff:
       estimated_delivery: {any: true}
       promo_code: {any: true}
       discount: {any: true}
-  constraints:
-  - desc: Agent viewed at least one of the target orders
-    expr: "target['order_id_sel1'] in state.viewed_order_ids or target['order_id_sel3'] in state.viewed_order_ids"
-    severity: medium
   invariant:
   - collection: state.orders
     filter: "not (any(it.get('product_id') == target['product_id_sel1'] for it in (a.items or [])) and any(it.get('product_id') == target['product_id_sel3'] for it in (a.items or [])))"
@@ -154,6 +150,10 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.wishlist
+    preserve: ALL
+  - collection: state.settings
     preserve: ALL
   named_invariants:
   - name: Agent did not modify other orders
@@ -189,3 +189,9 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

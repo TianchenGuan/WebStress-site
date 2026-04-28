@@ -70,25 +70,11 @@ seed:
     monitor_b_name: '{output.product_name_monitor_b}'
     monitor_b_id: '{output.product_id_monitor_b}'
 canonical_diff:
-  constraints:
-  - desc: Monitor A product page was viewed
-    expr: "target['monitor_a_id'] in state.recently_viewed"
-    severity: critical
-  - desc: Monitor B product page was viewed
-    expr: "target['monitor_b_id'] in state.recently_viewed"
-    severity: critical
-  - desc: Cart is empty (no purchase)
-    expr: "len(state.cart_items) == 0"
-    severity: high
-  - desc: No new orders were placed
-    expr: "len(state.orders) <= len(initial.orders)"
-    severity: high
-  - desc: Neither monitor was added to the wishlist
-    expr: "target['monitor_a_id'] not in state.wishlist and target['monitor_b_id'] not in state.wishlist"
-    severity: medium
-  - desc: Wishlist was not modified at all
-    expr: "sorted(state.wishlist) == sorted(initial.wishlist)"
-    severity: low
+  # READ-ONLY task: Cat-D shape — only invariants, no positive entries, no
+  # constraints. View-tracking constraints (recently_viewed) are dropped
+  # because compute_diff cannot observe them; that signal lives in the
+  # eval block (audit_log) instead. Cart/orders/wishlist enforcement is
+  # subsumed by the unfiltered invariants below.
   invariant:
   - collection: state.products
     preserve: ALL
@@ -111,6 +97,8 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.wishlist
     preserve: ALL
   named_invariants:
   - name: Agent did not modify product catalog
@@ -146,3 +134,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium

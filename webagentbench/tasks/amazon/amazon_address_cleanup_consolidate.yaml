@@ -1,11 +1,12 @@
 task_id: amazon_address_cleanup_consolidate
 env_id: amazon
 title: Consolidate Addresses and Set a New Default
-instruction_template: >
-  Delete every saved address EXCEPT your default one. Then add a new shipping
-  address with name "{target.new_name}", street "{target.new_street}", city
-  "{target.new_city}", state "{target.new_state}", ZIP "{target.new_zip}" and
+instruction_template: 'Delete every saved address EXCEPT your default one. Then add
+  a new shipping address with name "{target.new_name}", street "{target.new_street}",
+  city "{target.new_city}", state "{target.new_state}", ZIP "{target.new_zip}" and
   set it as the new default.
+
+  '
 difficulty: hard
 time_limit_seconds: 360
 expected_steps: 22
@@ -41,39 +42,55 @@ canonical_diff:
   - entity: Address
     desc: New address added with target details and is_default=True
     properties:
-      full_name: {expr: "x == target['new_name']"}
-      street_address: {expr: "target['new_street'] in x"}
-      city: {expr: "x == target['new_city']"}
-      state: {expr: "x == target['new_state']"}
-      zip_code: {expr: "x == target['new_zip']"}
-      is_default: {eq: true}
-      apt_suite: {any: true}
-      country: {any: true}
-      phone: {any: true}
+      full_name:
+        expr: x == target['new_name']
+      street_address:
+        expr: target['new_street'] in x
+      city:
+        expr: x == target['new_city']
+      state:
+        expr: x == target['new_state']
+      zip_code:
+        expr: x == target['new_zip']
+      is_default:
+        eq: true
+      apt_suite:
+        any: true
+      country:
+        any: true
+      phone:
+        any: true
   update:
   - entity: Address
-    desc: Previous default address demoted to is_default=False (side effect of new default, weight 0)
+    desc: Previous default address demoted to is_default=False (side effect of new
+      default, weight 0)
     weight: 0.0
     where:
-      id: {expr: "x == target['default_addr_id']"}
+      id:
+        expr: x == target['default_addr_id']
     changes:
-      is_default: {eq: false}
+      is_default:
+        eq: false
   delete:
   - entity: Address
     desc: First non-default address deleted
     where:
-      id: {expr: "x in target['non_default_addr_ids']"}
+      id:
+        expr: x in target['non_default_addr_ids']
   - entity: Address
     desc: Second non-default address deleted
     where:
-      id: {expr: "x in target['non_default_addr_ids']"}
+      id:
+        expr: x in target['non_default_addr_ids']
   - entity: Address
     desc: Third non-default address deleted
     where:
-      id: {expr: "x in target['non_default_addr_ids']"}
+      id:
+        expr: x in target['non_default_addr_ids']
   invariant:
   - collection: state.addresses
-    filter: "a.id == target['default_addr_id'] or a.id in target['non_default_addr_ids'] or a.full_name == target['new_name']"
+    filter: a.id == target['default_addr_id'] or a.id in target['non_default_addr_ids']
+      or a.full_name == target['new_name']
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -95,16 +112,12 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
-  constraints:
-  - desc: The new address is the default (set via settings or is_default flag)
-    expr: "any(a.is_default and a.full_name == target['new_name'] and a.zip_code == target['new_zip'] for a in state.addresses)"
-    severity: critical
-  - desc: No non-default seed address survived the cleanup
-    expr: "not any(a.id in target['non_default_addr_ids'] for a in state.addresses)"
-    severity: high
-  - desc: The old default address is still present (it was exempt from deletion)
-    expr: "any(a.id == target['default_addr_id'] for a in state.addresses)"
-    severity: medium
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
+  - collection: state.wishlist
+    preserve: ALL
   named_invariants:
   - name: Agent did not modify addresses outside the cleanup scope
     ref: invariant[0]
@@ -139,3 +152,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[12]
+    severity: medium

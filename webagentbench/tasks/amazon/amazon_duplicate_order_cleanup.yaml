@@ -76,10 +76,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
-  constraints:
-  - desc: The older duplicate order remains in 'confirmed' status (not cancelled)
-    expr: "any(o.id == target['older_order_id'] and o.status == 'confirmed' for o in state.orders)"
-    severity: critical
+  - collection: state.wishlist
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
   - name: Agent did not modify any other orders (only the newer duplicate is touched)
     ref: invariant[0]
@@ -114,3 +114,9 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

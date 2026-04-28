@@ -112,74 +112,104 @@ canonical_diff:
     desc: New order placed containing both best products together
     properties:
       items:
-        expr: "any(it['product_id'] == target['best1'] for it in x) and any(it['product_id'] == target['best2'] for it in x)"
-      status: {any: true}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
-      subtotal: {any: true}
-      shipping_cost: {any: true}
-      tax: {any: true}
-      total: {any: true}
-      placed_at: {any: true}
-      estimated_delivery: {any: true}
-      promo_code: {any: true}
-      discount: {any: true}
+        expr: any(it['product_id'] == target['best1'] for it in x) and any(it['product_id']
+          == target['best2'] for it in x)
+      status:
+        any: true
+      shipping_address_id:
+        any: true
+      payment_method_id:
+        any: true
+      subtotal:
+        any: true
+      shipping_cost:
+        any: true
+      tax:
+        any: true
+      total:
+        any: true
+      placed_at:
+        any: true
+      estimated_delivery:
+        any: true
+      promo_code:
+        any: true
+      discount:
+        any: true
   - entity: Review
     desc: 5-star review for best product 1 with target title
     properties:
-      product_id: {expr: "x == target['best1']"}
-      rating: {eq: 5}
-      title: {expr: "x == target['review_title_1']"}
-      body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
-      created_at: {any: true}
+      product_id:
+        expr: x == target['best1']
+      rating:
+        eq: 5
+      title:
+        expr: x == target['review_title_1']
+      body:
+        any: true
+      author_name:
+        any: true
+      helpful_count:
+        any: true
+      verified_purchase:
+        any: true
+      created_at:
+        any: true
   - entity: Review
     desc: 4-star review for best product 2 with target title
     properties:
-      product_id: {expr: "x == target['best2']"}
-      rating: {eq: 4}
-      title: {expr: "x == target['review_title_2']"}
-      body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
-      created_at: {any: true}
+      product_id:
+        expr: x == target['best2']
+      rating:
+        eq: 4
+      title:
+        expr: x == target['review_title_2']
+      body:
+        any: true
+      author_name:
+        any: true
+      helpful_count:
+        any: true
+      verified_purchase:
+        any: true
+      created_at:
+        any: true
+  - entity: wishlist
+    desc: Low-rated product 1 added to wishlist
+    properties:
+      value:
+        expr: x == target['low1']
+  - entity: wishlist
+    desc: Low-rated product 2 added to wishlist
+    properties:
+      value:
+        expr: x == target['low2']
   update:
   - entity: Product
     desc: Product review_count incremented for best1 review (weight 0)
     weight: 0.0
     where:
-      id: {expr: "x == target['best1']"}
+      id:
+        expr: x == target['best1']
     changes:
-      review_count: {any: true}
+      review_count:
+        any: true
   - entity: Product
     desc: Product review_count incremented for best2 review (weight 0)
     weight: 0.0
     where:
-      id: {expr: "x == target['best2']"}
+      id:
+        expr: x == target['best2']
     changes:
-      review_count: {any: true}
-  constraints:
-  - desc: Low-rated product 1 is on the wishlist
-    expr: "target['low1'] in state.wishlist"
-    severity: high
-  - desc: Low-rated product 2 is on the wishlist
-    expr: "target['low2'] in state.wishlist"
-    severity: high
-  - desc: Best products are not on the wishlist (they should be purchased)
-    expr: "target['best1'] not in state.wishlist and target['best2'] not in state.wishlist"
-    severity: medium
-  - desc: No extra products added to the wishlist beyond the two low-rated ones
-    expr: "len(state.wishlist) <= len(initial.wishlist) + 2"
-    severity: medium
+      review_count:
+        any: true
   invariant:
   - collection: state.orders
-    filter: "not (any(it.get('product_id') == target['best1'] for it in (a.items or [])) and any(it.get('product_id') == target['best2'] for it in (a.items or [])))"
+    filter: not (any(it.get('product_id') == target['best1'] for it in (a.items or
+      [])) and any(it.get('product_id') == target['best2'] for it in (a.items or [])))
     preserve: ALL
   - collection: state.products
-    filter: "a.id != target['best1'] and a.id != target['best2']"
+    filter: a.id != target['best1'] and a.id != target['best2']
     preserve: ALL
   - collection: state.cart_items
     preserve: ALL
@@ -188,7 +218,7 @@ canonical_diff:
   - collection: state.payment_methods
     preserve: ALL
   - collection: state.reviews
-    filter: "a.product_id != target['best1'] and a.product_id != target['best2']"
+    filter: a.product_id != target['best1'] and a.product_id != target['best2']
     preserve: ALL
   - collection: state.returns
     preserve: ALL
@@ -199,6 +229,11 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.wishlist
+    filter: a.value not in [target['low1'], target['low2']]
+    preserve: ALL
+  - collection: state.settings
     preserve: ALL
   named_invariants:
   - name: Agent did not modify other orders
@@ -234,3 +269,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

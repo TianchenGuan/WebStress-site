@@ -107,7 +107,7 @@ canonical_diff:
     desc: New order placed containing only the two cheap wishlist items
     properties:
       items:
-        expr: "any(it['product_id'] == target['cheap_id_1'] for it in x) and any(it['product_id'] == target['cheap_id_2'] for it in x)"
+        expr: "any(it['product_id'] == target['cheap_id_1'] for it in x) and any(it['product_id'] == target['cheap_id_2'] for it in x) and not any(it['product_id'] == target['expensive_id_1'] for it in x) and not any(it['product_id'] == target['expensive_id_2'] for it in x)"
       status: {any: true}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
@@ -141,16 +141,12 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
-  constraints:
-  - desc: Expensive item 1 (Mechanical Keyboard) was not purchased
-    expr: "not any(any(it.product_id == target['expensive_id_1'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
-    severity: high
-  - desc: Expensive item 2 (Premium Webcam) was not purchased
-    expr: "not any(any(it.product_id == target['expensive_id_2'] for it in o.items) for o in state.orders if o.id not in {x.id for x in initial.orders})"
-    severity: high
-  - desc: Cart is empty after checkout
-    expr: "len(state.cart_items) == 0"
-    severity: medium
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.wishlist
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
   - name: Agent did not modify other orders
     ref: invariant[0]
@@ -182,3 +178,12 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[9]
     severity: low
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[10]
+    severity: medium
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium
