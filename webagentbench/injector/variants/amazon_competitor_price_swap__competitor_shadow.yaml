@@ -1,31 +1,58 @@
 variant_id: amazon_competitor_price_swap__competitor_shadow
 base_task_id: amazon_competitor_price_swap
 target_primitive: grounding
-description: >
-  Two same-subcategory competitor listings try to mislead the agent:
-  one is cheaper than the target but has rating below 4.0 (fails the
-  rating bar), another clears the rating bar but is priced higher than
-  the target (fails the cheaper-alternative test). The agent must find
-  the true cheapest qualifying competitor or correctly leave the order
-  alone if none exists.
+description: "Three near-duplicate Studio Monitor Headphones competitor SKUs share the target Voltrex Pro's brand cluster, thumbnail, price, and rating. Sort-by-price-then-filter-by-rating produces a tie at the qualifying-cheapest tier, so the agent must compare exact product_ids and not just pick the first low-priced row. The first two cart-add calls silently no-op so the agent must verify the cart before placing the swap order."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Budget Studio Monitor Headphones
-      brand: SoundBasics
+      name: "Studio Monitor Headphones Pro - Pro Edition"
+      brand: Voltrex
+      seller: Voltrex
       category: Electronics
-      price: 59.99
-      rating: 3.7
-      review_count: 180
-      description: Cheaper than the pending-order price but rating is below the 4.0 threshold; not a qualifying alternative.
+      subcategory: Headphones
+      price: 34.99
+      rating: 4.4
+      review_count: 820
+      match_image_of: Studio Monitor Headphones Pro
+      description: "Pro-edition sibling at the same qualifying-cheapest price/rating; cannot be disambiguated by sort."
     - type: product
-      name: Studio Monitor Headphones Deluxe
-      brand: AcousticPro
+      name: "Studio Monitor Headphones Pro 2-Pack"
+      brand: Voltrex
+      seller: Voltrex
       category: Electronics
-      price: 229.99
-      rating: 4.6
-      review_count: 420
-      description: Well-rated but priced above the target — not a cheaper alternative.
+      subcategory: Headphones
+      price: 34.99
+      rating: 4.4
+      review_count: 580
+      match_image_of: Studio Monitor Headphones Pro
+      description: "Two-unit bundle tied at the qualifying-cheapest tier; not the canonical alternative SKU."
+    - type: product
+      name: "Studio Monitor Headphones Pro Refurbished"
+      brand: "OEM Reseller"
+      seller: ElectroDeals Marketplace
+      category: Electronics
+      subcategory: Headphones
+      price: 34.99
+      rating: 4.4
+      review_count: 410
+      match_image_of: Studio Monitor Headphones Pro
+      description: "Marketplace refurbished listing tied at the qualifying-cheapest tier; identical thumbnail."
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods: [POST]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart add
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }

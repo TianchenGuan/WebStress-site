@@ -1,9 +1,11 @@
 variant_id: reddit_save_comments__comment_twin
 base_task_id: reddit_save_comments
 target_primitive: grounding
-description: The target post's thread now includes lookalike-author comments
-  whose bodies echo the target snippet, so the agent must save exactly the
-  author + snippet pair named in the instruction.
+description: Three lookalike-author comments in the same thread echo the target
+  Roth IRA snippet; the agent must distinguish the canonical author + exact body
+  before saving. Pair with silent_fail (fail_count:2) on the comment-save endpoint
+  so the first two save writes silently no-op and the agent must verify via state
+  read.
 injections:
 - layer: seed
   params:
@@ -12,12 +14,49 @@ injections:
     - type: comment
       post_id: '{target.post_id}'
       author: '{target.save_author}_'
-      body: Near-identical phrasing from a typosquat username. Do not save this one.
-      score: 200
-      depth: 1
+      body: Max out your Roth IRA first ($7,000 for 2026), then put the rest in a
+        total market index fund like VTI. Keep 3-6 months expenses in a HYSA.
+      score: 18
+      depth: 0
     - type: comment
       post_id: '{target.post_id}'
       author: '{target.save_author}.alt'
-      body: Similar tone, different author handle. Verify the exact username.
-      score: 85
+      body: Max out your Roth IRA first ($7,000 for 2026), then put the rest in a
+        total market index fund like VTI. Keep 3-6 months expenses in a HYSA.
+      score: 35
       depth: 0
+    - type: comment
+      post_id: '{target.post_id}'
+      author: '{target.save_author}2'
+      body: Max out your Roth IRA first ($7,000 for 2026), then put the rest in a
+        total market index fund like VTI. Keep 3-6 months expenses in a HYSA.
+      score: 12
+      depth: 0
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/comments/*/save'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      comment:
+        id: '{target.comment_id}'
+        post_id: '{target.post_id}'
+        parent_id:
+        author_name: '{target.save_author}'
+        body: '{target.save_snippet}'
+        score: 4200
+        created_at: '2026-04-26T08:00:00+00:00'
+        is_edited: false
+        edited_at:
+        is_removed: false
+        is_collapsed: false
+        is_saved: true
+        is_submitter: false
+        vote_direction: 0
+        depth: 0
+        awards: []
+        flair_text:
+    behavior:
+      mode: once

@@ -1,7 +1,7 @@
 variant_id: reddit_targeted_engagement_campaign__subreddit_collision
 base_task_id: reddit_targeted_engagement_campaign
 target_primitive: grounding
-description: Two sibling communities (r/Technology and r/Truetechnology, chosen by distinct naming attacks) mirror r/technology's subscriber count and description, plus a same-title post in the wrong place. The agent must act in the exact subreddit named in the task, not a near-identical twin.
+description: "Three lookalike subreddits use distinct naming attacks (case variation, semantic 'True' rebrand, semantic 'Hub' rebrand) to mirror r/technology. The first two save POSTs silently no-op so the agent must verify the engagement actually landed on the canonical post."
 injections:
 - layer: seed
   params:
@@ -17,6 +17,11 @@ injections:
       display_name: r/Truetechnology
       description: Subreddit dedicated to the news and discussion of technology. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
       subscribers: 6574504
+    - type: subreddit
+      name: technologyHub
+      display_name: r/technologyHub
+      description: Community hub for technology news and discussion — appears beside the real sub in search with similar branding.
+      subscribers: 14812901
     - type: post
       subreddit: Technology
       title: Interesting discussion thread
@@ -24,3 +29,40 @@ injections:
       score: 144
       comments: 21
       body: Same headline posted into the wrong, lookalike subreddit.
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/posts/*/save'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      post:
+        id: post_fake_retry
+        subreddit_id: sub_fake
+        subreddit_name: gaming
+        author_name: shadow_mod
+        author_is_op: true
+        title: ''
+        body: ''
+        url: ''
+        post_type: text
+        score: 1
+        upvote_ratio: 1.0
+        comment_count: 0
+        created_at: '2026-04-26T08:00:00+00:00'
+        is_pinned: false
+        is_locked: false
+        is_removed: false
+        is_edited: false
+        is_spoiler: false
+        is_nsfw: false
+        flair_text:
+        flair_color:
+        awards: []
+        is_saved: true
+        is_hidden: false
+        vote_direction: 0
+        permalink: ''
+    behavior:
+      mode: once

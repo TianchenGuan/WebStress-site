@@ -1,16 +1,27 @@
 variant_id: amazon_wishlist_to_cart__cart_add_retry
 base_task_id: amazon_wishlist_to_cart
 target_primitive: backtracking
-description: The first cart mutation fails transiently. The agent must notice the cart did not update and retry the add workflow.
+description: >
+  The first two cart-add POSTs return a fake 200 with a realistic cart_item body
+  but never persist on the backend. The agent must verify the cart contents by
+  re-reading state (not by trusting reflexive retries on error toasts) before
+  declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/amazon/cart/add'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Service temporarily unavailable. (HTTP 503)
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart add
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once

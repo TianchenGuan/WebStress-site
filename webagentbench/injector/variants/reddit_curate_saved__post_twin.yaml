@@ -1,10 +1,10 @@
 variant_id: reddit_curate_saved__post_twin
 base_task_id: reddit_curate_saved
 target_primitive: grounding
-description: The Saved page and r/technology both carry near-duplicate posts whose
-  titles echo the unsave target ("Roth IRA conversion ... 32% bracket") and the
-  save target ("Cloudflare Blocks ... DDoS ... Tbps"). The agent must act on the
-  exact titles named in the instruction.
+description: Three lookalike posts share the unsave/save targets' titles and subreddits;
+  the agent must match the exact title + author + body before acting. Pair with
+  silent_fail (fail_count:2) on the post-save endpoint so the first two save/unsave
+  writes silently no-op and the agent must verify via state read.
 injections:
 - layer: seed
   params:
@@ -12,21 +12,100 @@ injections:
     decoys:
     - type: post
       subreddit: personalfinance
+      title: Is a Roth IRA conversion worth it if I'm already in the 32% bracket?
+      author: shadow_mod
+      score: 1440
+      comments: 42
+      body: Near-duplicate Roth IRA question by an alternate author with the exact
+        same title. Distinct post — verify the body before unsaving.
+      is_saved: true
+    - type: post
+      subreddit: personalfinance
       title: Is a Roth IRA conversion worth it if I'm already in the 24% bracket?
       author: lookalike_helper
-      score: 2140
-      comments: 78
-      body: Near-duplicate Roth IRA question with the bracket number changed (24% vs 32%).
+      score: 5210
+      comments: 88
+      body: One-word title variant (24% vs 32%) with high engagement; not the actual
+        unsave target.
       is_saved: true
     - type: subreddit
       name: personalfinance_
       display_name: r/personalfinance_
-      description: Lookalike community mirroring r/personalfinance posts with minor edits.
+      description: Lookalike community mirroring r/personalfinance posts with minor
+        edits.
       subscribers: 82000
     - type: post
-      subreddit: technology
-      title: Cloudflare Blocks Largest-Ever DDoS Attack at 3.8 Tbps
+      subreddit: personalfinance_
+      title: Is a Roth IRA conversion worth it if I'm already in the 32% bracket?
       author: crosspost_helper
       score: 6420
       comments: 118
-      body: Near-duplicate Cloudflare DDoS headline with the Tbps figure changed (3.8 vs 5.6).
+      body: Crosspost of the Roth IRA question into a lookalike subreddit; identical
+        headline, different community.
+      is_saved: true
+    - type: post
+      subreddit: technology
+      title: Cloudflare Blocks Largest-Ever DDoS Attack at 5.6 Tbps
+      author: shadow_mod
+      score: 1440
+      comments: 21
+      body: Near-duplicate Cloudflare DDoS post by an alternate author with the exact
+        same title. Distinct post.
+    - type: post
+      subreddit: technology
+      title: Cloudflare Blocks Largest-Ever DDoS Attack at 3.8 Tbps
+      author: lookalike_helper
+      score: 5210
+      comments: 88
+      body: One-word title variant (3.8 vs 5.6 Tbps) with high engagement; not the
+        actual save target.
+    - type: subreddit
+      name: technology_
+      display_name: r/technology_
+      description: Lookalike community mirroring r/technology posts with minor edits.
+      subscribers: 82000
+    - type: post
+      subreddit: technology_
+      title: Cloudflare Blocks Largest-Ever DDoS Attack at 5.6 Tbps
+      author: crosspost_helper
+      score: 6420
+      comments: 118
+      body: Crosspost of the Cloudflare DDoS headline into a lookalike subreddit;
+        identical title, different community.
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/posts/*/save'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      post:
+        id: '{target.save_post_id}'
+        subreddit_id: sub_technology
+        subreddit_name: technology
+        author_name: TripleShotPls
+        author_is_op: true
+        title: '{target.save_post_title}'
+        body: ''
+        url: ''
+        post_type: text
+        score: 9870
+        upvote_ratio: 0.95
+        comment_count: 0
+        created_at: '2026-04-26T08:00:00+00:00'
+        is_pinned: false
+        is_locked: false
+        is_removed: false
+        is_edited: false
+        is_spoiler: false
+        is_nsfw: false
+        flair_text: Security
+        flair_color:
+        awards: []
+        is_saved: true
+        is_hidden: false
+        vote_direction: 0
+        permalink: '/r/technology/comments/{target.save_post_id}'
+    behavior:
+      mode: once

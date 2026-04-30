@@ -2,21 +2,31 @@ variant_id: amazon_review_aggregation__patience_v1
 base_task_id: amazon_review_aggregation
 target_primitive: patience
 description: >
-  Review submission responses are progressively delayed, requiring the
-  agent to wait patiently as it aggregates and submits reviews rather
-  than assuming failures.
+  Tail-latency on /products/*/reviews slows every review write (p95 ~4.5s,
+  p99 ~8s), while a newsletter modal pops up on the second navigation and
+  a false "Order workflow complete — review pending" banner sits in the
+  header. The agent must keep waiting for the slow review POSTs and
+  ignore the bait that tempts it to stop after one or two reviews.
 injections:
-  - layer: network
-    params:
-      action: delay
-      url_pattern: "**/api/env/amazon/products/*/reviews"
-      delay_ms: 3000
-      behavior:
-        mode: progressive
-        stages:
-          - after_call: 0
-            delay_ms: 500
-          - after_call: 3
-            delay_ms: 1500
-          - after_call: 5
-            delay_ms: 3000
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/amazon/products/*/reviews'
+    behavior:
+      mode: tail_latency
+      p50_ms: 200
+      p95_ms: 4500
+      p99_ms: 8000
+      seed: 42
+- layer: client
+  params:
+    action: distractor_modal
+    kind: newsletter
+    after_nav: 2
+    behavior: { mode: persistent }
+- layer: client
+  params:
+    action: false_banner
+    selector: "header"
+    text: "Order workflow complete — review pending"
+    behavior: { mode: persistent }

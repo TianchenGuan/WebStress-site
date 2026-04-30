@@ -1,39 +1,46 @@
 variant_id: amazon_wishlist_stock_audit__cart_shadow_v2
 base_task_id: amazon_wishlist_stock_audit
 target_primitive: state_tracking
-description: Color-variant siblings of in-stock wishlist items share brand,
-  rating, and thumbnail AND land directly on the wishlist, so the agent has
-  to distinguish the flagged-in-stock SKU from a near-identical neighbour
-  already in the same wishlist view.
+description: "Three near-duplicate cart rows for the in-stock wishlist target share product_name and variant_selections, so the agent cannot disambiguate by name when reconciling cart with wishlist. The first two cart-update PUT calls silently no-op so the agent must verify the cart row actually changed before reporting done."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
-    - type: product
-      name: Wireless Charging Pad - Midnight Black
+    - type: cart_item
+      product_name: Wireless Charging Pad
       brand: ChargeMax
-      seller: ChargeMax
       category: Electronics
-      price: 30.99
-      rating: 4.5
-      review_count: 310
-      in_stock: true
-      wishlist: true
-      match_image_of: Wireless Charging Pad
-      description: Color-variant sibling (Midnight Black) seeded onto the
-        wishlist. Identical branding and thumbnail as the in-stock target pad,
-        but a distinct SKU that must not be bought as a substitute.
-    - type: product
-      name: Yoga Resistance Band Set - Home Gym Edition
-      brand: Endurafit
-      seller: Endurafit
-      category: Sports & Outdoors
-      price: 19.49
-      rating: 4.4
-      review_count: 195
-      in_stock: true
-      wishlist: true
-      match_image_of: Yoga Resistance Band Set
-      description: The 'Home Gym Edition' sibling of the resistance-band set
-        sitting directly on the wishlist; same brand and thumbnail, distinct SKU.
+      quantity: 1
+      unit_price: 29.99
+      variant_selections: {}
+    - type: cart_item
+      product_name: Wireless Charging Pad
+      brand: ChargeMax
+      category: Electronics
+      quantity: 1
+      unit_price: 29.99
+      variant_selections: {}
+    - type: cart_item
+      product_name: Wireless Charging Pad
+      brand: ChargeMax
+      category: Electronics
+      quantity: 1
+      unit_price: 29.99
+      variant_selections: {}
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/amazon/cart/*'
+    methods: [PUT]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart update
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }

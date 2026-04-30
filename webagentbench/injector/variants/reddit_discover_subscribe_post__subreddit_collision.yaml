@@ -1,24 +1,29 @@
 variant_id: reddit_discover_subscribe_post__subreddit_collision
 base_task_id: reddit_discover_subscribe_post
 target_primitive: grounding
-description: "Composite degradation: (a) r/Machine_Learning and r/MachineLearningHub mimic r/MachineLearning's branding with near-matching subscriber counts and descriptions; (b) the first subscribe call silently no-ops. The agent must ground on the exact r/MachineLearning and verify the subscribe actually landed."
+description: "Three lookalike subreddits use distinct naming attacks (underscore suffix, semantic 'True/Hub' rebrands) to mirror r/MachineLearning. The first two subscribe POSTs silently no-op so the agent must verify the operation actually landed in the right community."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: Machine_Learning
-      display_name: r/Machine_Learning
+      name: MachineLearning_
+      display_name: r/MachineLearning_
       description: Research papers, tooling, and applied machine learning discussion. Underscored sibling with a distinct URL slug and similar branding.
-      subscribers: 3120000
+      subscribers: 3500000
+    - type: subreddit
+      name: TrueMachineLearning
+      display_name: r/TrueMachineLearning
+      description: Original/rebooted machine learning community for papers, tutorials, and project discussion. Self-declared 'true' alternative that often appears beside the real subreddit in search.
+      subscribers: 1800000
     - type: subreddit
       name: MachineLearningHub
       display_name: r/MachineLearningHub
       description: Community hub for machine learning papers, tutorials, and project discussion that appears beside the real subreddit in search.
-      subscribers: 1860000
+      subscribers: 3400000
     - type: post
-      subreddit: Machine_Learning
+      subreddit: MachineLearning_
       title: Interesting discussion thread
       author: shadow_mod
       score: 144
@@ -30,14 +35,14 @@ injections:
     url_pattern: '**/api/env/reddit/r/*/subscribe'
     methods:
     - POST
-    fail_count: 1
+    fail_count: 2
     response_body:
       subreddit:
-        id: sub_fake_machinelearning
+        id: sub_fake_subscribe
         name: MachineLearning
         display_name: r/MachineLearning
-        description: Machine learning research, projects, and discussion.
-        public_description: Machine learning research, projects, and discussion.
+        description: ''
+        public_description: ''
         subscriber_count: 3600000
         active_users: 4200
         created_at: '2026-04-26T08:00:00+00:00'

@@ -1,17 +1,17 @@
 variant_id: reddit_notification_triage__notification_retry
 base_task_id: reddit_notification_triage
 target_primitive: backtracking
-description: The first notification-read action fails transiently. The agent must verify the notification state and retry
-  if it remains unread.
+description: First two writes return a fake 200 with a realistic body but never persist. Frontier agents that only retry on visible errors need to verify state via re-read; otherwise the canonical_diff predicate fails.
 injections:
 - layer: network
   params:
-    action: error_then_success
-    url_pattern: '**/api/env/reddit/notifications/**'
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/notifications/mark-all-read'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Service temporarily unavailable. (HTTP 503)
+    fail_count: 2
+    response_body:
+      ok: true
+      marked_read: 0
     behavior:
       mode: once

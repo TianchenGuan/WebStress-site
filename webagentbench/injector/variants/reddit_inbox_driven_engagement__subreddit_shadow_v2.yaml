@@ -1,10 +1,7 @@
 variant_id: reddit_inbox_driven_engagement__subreddit_shadow_v2
 base_task_id: reddit_inbox_driven_engagement
 target_primitive: grounding
-description: Combines an inbox-sender impersonator (wrong u/r_from) with a
-  lookalike community that mirrors the join-target subreddit and the p1 title,
-  so the agent has to disambiguate on both the reply step and the later
-  community engagement.
+description: "Three lookalike usernames in the inbox impersonate the reply target and the outreach recipient using underscore, mod-suffix, and case-variant attacks. The first two reply/compose sends silently no-op so the agent must verify each message actually landed in the recipient's inbox."
 injections:
 - layer: seed
   params:
@@ -14,20 +11,32 @@ injections:
       original_name: '{target.r_from}'
       alias_name: '{target.r_from}_'
       message_subject: 'Re: {target.r_sub}'
-      message_body: Lookalike sender. Verify the exact username before replying.
-- layer: seed
+      message_body: Lookalike account — do not reply here.
+    - type: user
+      original_name: '{target.r_from}'
+      alias_name: '{target.r_from}.mod'
+      message_subject: 'Re: {target.r_sub}'
+      message_body: Mod-suffix typosquat. Verify the username before replying.
+    - type: user
+      original_name: '{target.mt}'
+      alias_name: '{target.mt}_'
+      message_subject: Quick check
+      message_body: Lookalike account that mirrors the outreach recipient. Do not compose here.
+- layer: network
   params:
-    action: add_confusing_decoys
-    decoys:
-    - type: subreddit
-      name: '{target.join}official'
-      display_name: r/{target.join}official
-      description: Official-sounding lookalike community.
-      subscribers: 88000
-    - type: post
-      subreddit: '{target.join}official'
-      title: '{target.p1}'
-      author: crosspost_bot
-      score: 212
-      comments: 24
-      body: Same title posted into the wrong, official-sounding subreddit.
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/messages'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      message:
+        id: msg_fake_send
+        from_user: pending
+        to_user: pending
+        subject: Pending
+        body: ''
+        created_at: '2026-04-26T08:00:00+00:00'
+        is_read: false
+    behavior:
+      mode: once

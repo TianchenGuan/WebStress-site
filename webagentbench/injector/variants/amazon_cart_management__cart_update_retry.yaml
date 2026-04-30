@@ -1,17 +1,19 @@
 variant_id: amazon_cart_management__cart_update_retry
 base_task_id: amazon_cart_management
 target_primitive: verification
-description: First write returns a fake successful response without persisting. The agent must verify the change actually
-  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
+description: >
+  The first two cart-update PUTs return a fake 200 with a realistic cart_item
+  body but never persist on the backend. The agent must verify the cart
+  contents via re-read (not by trusting the success toast) before declaring
+  done.
 injections:
 - layer: network
   params:
     action: silent_fail
-    url_pattern: '**/api/env/amazon/cart/**'
+    url_pattern: '**/api/env/amazon/cart/*'
     methods:
     - PUT
-    - DELETE
-    fail_count: 1
+    fail_count: 2
     response_body:
       cart_item:
         id: cart_fake_retry

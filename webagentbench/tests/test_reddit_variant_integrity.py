@@ -93,6 +93,8 @@ def test_reddit_subscribe_silent_fail_looks_successful_but_requires_retry(client
     assert subreddit is not None
     assert subreddit.is_subscribed is False
 
+    # Hardened variant uses silent_fail fail_count:2 to defeat the agent's
+    # navigate-back-and-retry loop. First two calls fake; third persists.
     first = client.post(
         "/api/env/reddit/r/MachineLearning/subscribe",
         json={"session_id": session_id, "action": "subscribe"},
@@ -108,6 +110,13 @@ def test_reddit_subscribe_silent_fail_looks_successful_but_requires_retry(client
         json={"session_id": session_id, "action": "subscribe"},
     )
     assert second.status_code == 200, second.text
+    assert subreddit.is_subscribed is False
+
+    third = client.post(
+        "/api/env/reddit/r/MachineLearning/subscribe",
+        json={"session_id": session_id, "action": "subscribe"},
+    )
+    assert third.status_code == 200, third.text
     assert subreddit.is_subscribed is True
 
 
@@ -120,6 +129,7 @@ def test_reddit_settings_silent_fail_returns_full_settings_schema(client: TestCl
     state = app.state.session_manager.get(session_id)
     assert state.settings.theme == "light"
 
+    # Hardened variant uses fail_count:2 to defeat reflexive retry.
     first = client.put(
         "/api/env/reddit/settings",
         json={"session_id": session_id, "theme": "dark"},
@@ -136,6 +146,13 @@ def test_reddit_settings_silent_fail_returns_full_settings_schema(client: TestCl
         json={"session_id": session_id, "theme": "dark"},
     )
     assert second.status_code == 200, second.text
+    assert state.settings.theme == "light"
+
+    third = client.put(
+        "/api/env/reddit/settings",
+        json={"session_id": session_id, "theme": "dark"},
+    )
+    assert third.status_code == 200, third.text
     assert state.settings.theme == "dark"
 
 
@@ -152,6 +169,7 @@ def test_reddit_edit_silent_fail_returns_post_schema_but_does_not_persist(client
     assert post is not None
     assert post.body != new_body
 
+    # Hardened variant uses fail_count:2.
     first = client.put(
         f"/api/env/reddit/posts/{post_id}",
         json={"session_id": session_id, "body": new_body},
@@ -167,4 +185,11 @@ def test_reddit_edit_silent_fail_returns_post_schema_but_does_not_persist(client
         json={"session_id": session_id, "body": new_body},
     )
     assert second.status_code == 200, second.text
+    assert post.body != new_body
+
+    third = client.put(
+        f"/api/env/reddit/posts/{post_id}",
+        json={"session_id": session_id, "body": new_body},
+    )
+    assert third.status_code == 200, third.text
     assert post.body == new_body

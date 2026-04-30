@@ -1,42 +1,48 @@
 variant_id: amazon_search_and_buy__product_twin
 base_task_id: amazon_search_and_buy
 target_primitive: grounding
-description: 'Composite degradation: (a) generation-drift decoys (XM4 and a fake XM5s revision) share the target''s brand,
-  rating, and thumbnail; (b) the first cart-add call silently fails and the first checkout call returns 503 once. The agent
-  must ground on the exact XM5 SKU AND verify each mutation actually landed.'
+description: "Three near-duplicate Sony XM5 SKUs share the target's brand, price, rating, and thumbnail; sort-by-price/rating fails to disambiguate. The first two cart-add calls silently no-op so the agent must verify the cart actually changed before checking out."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Sony WH-1000XM4 Wireless Headphones
+      name: "Sony WH-1000XM5 Wireless Headphones - Pro Edition"
       brand: Sony
       seller: Sony
       category: Electronics
-      price: 298.0
+      price: 348.0
       rating: 4.7
-      review_count: 1240
+      review_count: 820
       match_image_of: Sony WH-1000XM5 Wireless Headphones
-      description: Previous-generation XM4 in matching packaging and brand; the XM4 is NOT the model specified in the task.
+      description: "Pro-edition sibling with identical brand, price, and thumbnail; distinct SKU."
     - type: product
-      name: Sony WH-1000XM5s Wireless Headphones
+      name: "Sony WH-1000XM5 Wireless Headphones 2-Pack"
       brand: Sony
       seller: Sony
       category: Electronics
-      price: 359.0
+      price: 348.0
       rating: 4.7
-      review_count: 210
+      review_count: 580
       match_image_of: Sony WH-1000XM5 Wireless Headphones
-      description: '''Refresh'' revision suffix (XM5s) that looks newer than XM5 but is a separate listing from the task''s
-        target SKU.'
+      description: "Two-unit bundle with same listing branding; not the single-unit target."
+    - type: product
+      name: "Sony WH-1000XM5 Wireless Headphones Refurbished"
+      brand: "OEM Reseller"
+      seller: ElectroDeals Marketplace
+      category: Electronics
+      price: 348.0
+      rating: 4.7
+      review_count: 410
+      match_image_of: Sony WH-1000XM5 Wireless Headphones
+      description: "Marketplace refurbished listing; sells alongside the target with identical thumbnail."
 - layer: network
   params:
     action: silent_fail
     url_pattern: '**/api/env/amazon/cart/add'
-    methods:
-    - POST
-    fail_count: 1
+    methods: [POST]
+    fail_count: 2
     response_body:
       cart_item:
         id: cart_fake_retry
@@ -46,16 +52,4 @@ injections:
         unit_price: 0.0
         variant_selections: {}
         added_at: '2026-04-26T08:00:00+00:00'
-    behavior:
-      mode: once
-- layer: network
-  params:
-    action: error_then_success
-    url_pattern: '**/api/env/amazon/checkout'
-    methods:
-    - POST
-    error_count: 1
-    error_status: 503
-    error_message: Service temporarily unavailable. (HTTP 503)
-    behavior:
-      mode: once
+    behavior: { mode: once }

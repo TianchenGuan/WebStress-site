@@ -1,34 +1,48 @@
 variant_id: amazon_precision_cart_rebuild__state_tracking_v1
 base_task_id: amazon_precision_cart_rebuild
 target_primitive: state_tracking
-description: 'Cart GET returns stale data (empty cart) on the first 3 reads, and cart item updates (PUT) silently fail once.
-  The agent must carefully verify actual cart contents and retry failed quantity changes.
-
-  '
+description: >
+  First two cart-add POSTs silently return 200 with a fake cart_item but
+  do not persist; one cart GET is briefly stale, showing an empty cart;
+  and the first two cart updates (PUT) silently fail. The agent must
+  reconcile cart state from multiple snapshots, not trust the first 200.
 injections:
 - layer: network
   params:
-    url_pattern: '**/api/env/amazon/cart'
+    action: silent_fail
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods: [POST]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart add
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }
+- layer: network
+  params:
     action: stale_data
-    methods:
-    - GET
-    stale_count: 3
+    url_pattern: '**/api/env/amazon/cart'
+    stale_count: 1
     stale_body:
       items: []
       totals:
-        subtotal: 0
-        shipping: 0
-        tax: 0
-        discount: 0
-        gift_card_applied: 0
-        total: 0
+        subtotal: 0.0
+        shipping: 0.0
+        tax: 0.0
+        discount: 0.0
+        gift_card_applied: 0.0
+        total: 0.0
 - layer: network
   params:
-    url_pattern: '**/api/env/amazon/cart/*'
     action: silent_fail
-    methods:
-    - PUT
-    fail_count: 1
+    url_pattern: '**/api/env/amazon/cart/*'
+    methods: [PUT]
+    fail_count: 2
     response_body:
       cart_item:
         id: cart_fake_retry
@@ -38,3 +52,4 @@ injections:
         unit_price: 0.0
         variant_selections: {}
         added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }

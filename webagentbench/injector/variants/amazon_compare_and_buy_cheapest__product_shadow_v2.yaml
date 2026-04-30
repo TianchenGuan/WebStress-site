@@ -1,33 +1,55 @@
 variant_id: amazon_compare_and_buy_cheapest__product_shadow_v2
 base_task_id: amazon_compare_and_buy_cheapest
 target_primitive: grounding
-description: Two same-name speakers sit beside the first-party AmazonBasics listing.
-  One is priced at the same $12.99 as the target but has a rating below 4.0 (fails
-  the rating bar); the other has a >=4.0 rating but is more expensive (fails the
-  cheaper-alternative bar). Neither qualifies under "cheapest with rating >= 4.0",
-  so the only correct pick is the target product_id.
+description: "Three near-duplicate Bluetooth speaker SKUs share the target's brand and thumbnail. Two tie on the cheapest-price tier but vary on rating (one above, one below the 4.0 bar) and a third hits the target rating but at a slightly higher price. Sort-by-price-then-filter cannot pick the unique winner; the agent must compare exact price+rating per listing. The first two cart-add calls silently no-op so the agent must verify the cart actually changed."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: product
-      name: Basic Bluetooth Speaker - Amazon's Choice
+      name: "Basic Bluetooth Speaker - Marketplace Reseller"
       brand: AmazonBasics
       seller: ElectroDeals Marketplace
       category: Electronics
       price: 12.99
       rating: 3.9
-      review_count: 1420
+      review_count: 820
       match_image_of: Basic Bluetooth Speaker
-      description: Marketplace reseller listing tied on price with the target but rating below the 4.0 bar; distinct SKU, must be rejected by rating.
+      description: "Reseller listing tied on price with the target but rating below the 4.0 bar; must be rejected by rating."
     - type: product
-      name: Basic Bluetooth Speaker Certified
+      name: "Basic Bluetooth Speaker - Bargain Listing"
       brand: AmazonBasics
-      seller: AudioHub Store
+      seller: ValueLine Sellers
       category: Electronics
-      price: 14.99
-      rating: 4.5
-      review_count: 980
+      price: 12.99
+      rating: 4.6
+      review_count: 580
       match_image_of: Basic Bluetooth Speaker
-      description: Certified reseller sibling with matching branding and thumbnail and a high rating, but priced above target — must be rejected by price.
+      description: "Same low price and a rating above 4.0 — looks like a winner; agent must check this is a different SKU from the canonical target product_id."
+    - type: product
+      name: "Basic Bluetooth Speaker Certified"
+      brand: "OEM Reseller"
+      seller: ElectroDeals Marketplace
+      category: Electronics
+      price: 13.99
+      rating: 4.2
+      review_count: 410
+      match_image_of: Basic Bluetooth Speaker
+      description: "Same rating as target but slightly higher price; fails the cheapest-with-rating-bar rule."
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/amazon/cart/add'
+    methods: [POST]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart add
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }

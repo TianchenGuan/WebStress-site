@@ -1,10 +1,11 @@
 variant_id: reddit_mass_engagement_workflow__notification_shadow_v2
 base_task_id: reddit_mass_engagement_workflow
 target_primitive: state_tracking
-description: Unread notifications surface both a crosspost in a lookalike
-  subreddit (r/{target.join}official) and a reply from a typosquat of
-  u/{target.m_to}. Paired with a lookalike subreddit and user entity so the
-  agent can verify handles before subscribing, posting, or messaging.
+description: Unread notifications surface both a crosspost in a lookalike subreddit (r/{target.join}official)
+  and a reply from a typosquat of u/{target.m_to}; paired with a lookalike subreddit and user entity so
+  the agent can verify handles before subscribing, posting, or messaging. Additionally, the notifications
+  mark-all-read bulk endpoint silently no-ops on the first two POSTs (returns 200 + marked_read=0) so
+  the agent that bulk-clears the queue fails the canonical_diff invariant on individual is_read flags.
 injections:
 - layer: seed
   params:
@@ -47,3 +48,15 @@ injections:
       subreddit_name: '{target.join}'
       from_user: '{target.m_to}_'
       is_read: false
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/notifications/mark-all-read'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      ok: true
+      marked_read: 0
+    behavior:
+      mode: once

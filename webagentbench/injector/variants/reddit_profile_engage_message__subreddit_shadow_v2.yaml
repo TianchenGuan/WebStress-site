@@ -1,22 +1,42 @@
 variant_id: reddit_profile_engage_message__subreddit_shadow_v2
 base_task_id: reddit_profile_engage_message
 target_primitive: grounding
-description: A second lookalike community and a same-title crosspost appear beside the real subreddit.
-  The agent must still act in the exact community named by the task.
+description: "Three lookalike usernames in the inbox impersonate u/DataWizard42 (the message recipient and post author) using underscore, mod-suffix, and case-variant attacks. The first two send POSTs silently no-op so the agent must verify the outreach message actually landed in the recipient's inbox."
 injections:
 - layer: seed
   params:
-    action: add_confusing_decoys
-    decoys:
-    - type: subreddit
-      name: '{target.join}official'
-      display_name: r/{target.join}official
-      description: Official-sounding lookalike community.
-      subscribers: 88000
-    - type: post
-      subreddit: '{target.join}official'
-      title: '{target.user_post}'
-      author: crosspost_bot
-      score: 212
-      comments: 24
-      body: Same title posted into the wrong, official-sounding subreddit.
+    action: alias_entities
+    entities:
+    - type: user
+      original_name: DataWizard42
+      alias_name: DataWizard42_
+      message_subject: 'Re: SO survey'
+      message_body: Lookalike account — do not reply here.
+    - type: user
+      original_name: DataWizard42
+      alias_name: DataWizard42.mod
+      message_subject: 'Re: SO survey'
+      message_body: Mod-suffix typosquat. Verify the username before composing.
+    - type: user
+      original_name: DataWizard42
+      alias_name: datawizard42
+      message_subject: Quick check
+      message_body: Case-varying typosquat — do not message here.
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: '**/api/env/reddit/messages'
+    methods:
+    - POST
+    fail_count: 2
+    response_body:
+      message:
+        id: msg_fake_send
+        from_user: pending
+        to_user: pending
+        subject: Pending
+        body: ''
+        created_at: '2026-04-26T08:00:00+00:00'
+        is_read: false
+    behavior:
+      mode: once

@@ -1,8 +1,7 @@
 variant_id: reddit_delete_own_comment__delete_retry
 base_task_id: reddit_delete_own_comment
 target_primitive: verification
-description: First write returns a fake successful response without persisting. The agent must verify the change actually
-  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
+description: First two writes return a fake 200 with a realistic body but never persist. Frontier agents that only retry on visible errors need to verify state via re-read; otherwise the canonical_diff predicate fails.
 injections:
 - layer: network
   params:
@@ -10,25 +9,9 @@ injections:
     url_pattern: '**/api/env/reddit/comments/*'
     methods:
     - DELETE
-    fail_count: 1
+    fail_count: 2
     response_body:
-      comment:
-        id: '{target.comment_id}'
-        post_id: '{target.post_id}'
-        parent_id:
-        author_name: TechNomad_42
-        body: '[deleted]'
-        score: 150
-        created_at: '2026-04-26T08:00:00+00:00'
-        is_edited: false
-        edited_at:
-        is_removed: true
-        is_collapsed: false
-        is_saved: false
-        is_submitter: false
-        vote_direction: 1
-        depth: 0
-        awards: []
-        flair_text:
+      success: true
+      comment_id: comment_fake_delete
     behavior:
       mode: once

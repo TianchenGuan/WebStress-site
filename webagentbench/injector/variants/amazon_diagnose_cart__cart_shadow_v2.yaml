@@ -1,34 +1,46 @@
 variant_id: amazon_diagnose_cart__cart_shadow_v2
 base_task_id: amazon_diagnose_cart
 target_primitive: state_tracking
-description: "Composite degradation: (a) a sibling cart item ('Portable Bluetooth Speaker + Carrying Case') shares brand/rating/thumbnail with the mis-quantity target; (b) the first cart-update PUT returns 429 once. The agent must target the exact SKU for the quantity correction AND retry after the rate-limit error."
+description: "Three near-duplicate Portable Bluetooth Speaker rows already sit in the cart with identical product_name and variant_selections; sort or scan-by-name cannot uniquely target the row whose quantity needs correcting. The first two cart-update PUT calls silently no-op so the agent must verify the row actually changed quantity before reporting done."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
-    - type: product
-      name: Portable Bluetooth Speaker + Carrying Case
-      brand: JBL
-      seller: JBL
-      category: Electronics
-      price: 79.99
-      rating: 4.6
-      review_count: 510
-      match_image_of: Portable Bluetooth Speaker
-      description: Speaker+case bundle — same brand, rating, thumbnail; the agent must not apply the quantity fix to this sibling listing.
     - type: cart_item
-      product_name: Portable Bluetooth Speaker + Carrying Case
+      product_name: Portable Bluetooth Speaker
+      brand: JBL
+      category: Electronics
       quantity: 1
-      unit_price: 79.99
+      unit_price: 69.99
+      variant_selections: {}
+    - type: cart_item
+      product_name: Portable Bluetooth Speaker
+      brand: JBL
+      category: Electronics
+      quantity: 3
+      unit_price: 69.99
+      variant_selections: {}
+    - type: cart_item
+      product_name: Portable Bluetooth Speaker
+      brand: JBL
+      category: Electronics
+      quantity: 4
+      unit_price: 69.99
+      variant_selections: {}
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/amazon/cart/*'
-    methods:
-    - PUT
-    error_count: 1
-    error_status: 429
-    error_message: Too many cart updates. Please wait a moment before retrying.
-    behavior:
-      mode: once
+    methods: [PUT]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: cart_fake_retry
+        product_id: prod_fake_retry
+        product_name: Pending cart update
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+    behavior: { mode: once }

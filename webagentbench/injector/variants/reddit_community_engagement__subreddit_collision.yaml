@@ -1,29 +1,29 @@
 variant_id: reddit_community_engagement__subreddit_collision
 base_task_id: reddit_community_engagement
 target_primitive: grounding
-description: 'Composite degradation: (a) two sibling communities (r/Ask_Reddit and r/TrueAskReddit, using distinct naming
-  attacks) mirror r/AskReddit''s subscriber count and description, plus a same-title decoy post; (b) the first subscribe POST
-  silently no-ops and the first post-submit returns 503 once. The agent must ground in the correct sub AND verify each mutation
-  landed.'
+description: "Three lookalike subreddits use distinct naming attacks (underscore suffix, semantic 'True' rebrand, semantic 'Hub' rebrand) to mirror r/AskReddit. The first two subscribe POSTs silently no-op so the agent must verify the operation actually landed in the right community."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: Ask_Reddit
-      display_name: r/Ask_Reddit
-      description: "r/AskReddit is the place to ask and answer thought-provoking questions. Underscored sibling \u2014 distinct\
-        \ URL slug, same branding."
-      subscribers: 54076860
+      name: AskReddit_
+      display_name: r/AskReddit_
+      description: r/AskReddit is the place to ask and answer thought-provoking questions. Underscored sibling — distinct URL slug, same branding.
+      subscribers: 53976860
     - type: subreddit
       name: TrueAskReddit
       display_name: r/TrueAskReddit
-      description: r/AskReddit is the place to ask and answer thought-provoking questions. Self-declared 'original' or 'rebooted'
-        community that often appears in search beside the real sub.
-      subscribers: 23840336
+      description: r/AskReddit is the place to ask and answer thought-provoking questions. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      subscribers: 27038430
+    - type: subreddit
+      name: AskRedditHub
+      display_name: r/AskRedditHub
+      description: Community hub for the AskReddit ecosystem — appears beside the real subreddit in search with similar branding.
+      subscribers: 53876860
     - type: post
-      subreddit: Ask_Reddit
+      subreddit: AskReddit_
       title: Interesting discussion thread
       author: shadow_mod
       score: 144
@@ -35,14 +35,14 @@ injections:
     url_pattern: '**/api/env/reddit/r/*/subscribe'
     methods:
     - POST
-    fail_count: 1
+    fail_count: 2
     response_body:
       subreddit:
-        id: sub_fake_machinelearning
-        name: '{target.join_subreddit}'
-        display_name: 'r/{target.join_subreddit}'
-        description: Machine learning research, projects, and discussion.
-        public_description: Machine learning research, projects, and discussion.
+        id: sub_fake_subscribe
+        name: MachineLearning
+        display_name: r/MachineLearning
+        description: ''
+        public_description: ''
         subscriber_count: 3600000
         active_users: 4200
         created_at: '2026-04-26T08:00:00+00:00'
@@ -52,16 +52,5 @@ injections:
         is_subscribed: true
         rules: []
         flairs: []
-    behavior:
-      mode: once
-- layer: network
-  params:
-    action: error_then_success
-    url_pattern: '**/api/env/reddit/posts'
-    methods:
-    - POST
-    error_count: 1
-    error_status: 503
-    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once
