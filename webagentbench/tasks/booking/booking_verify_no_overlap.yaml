@@ -1,6 +1,6 @@
 task_id: booking_verify_no_overlap
 env_id: booking
-title: Verify No Overlapping Reservations (No-Op)
+title: Cancel Overlapping Reservation
 instruction_template: Review all your upcoming reservations. If any have overlapping
   dates, cancel the one booked more recently. If no overlaps exist, no action is needed.
 difficulty: medium
@@ -40,12 +40,12 @@ seed:
   - use: create_reservation
     params:
       property_id: '{output.prop_id_1}'
-      check_in: '2026-06-01'
-      check_out: '2026-06-05'
+      check_in: '2026-06-10'
+      check_out: '2026-06-15'
       price_per_night: 680.0
       status: confirmed
       guests: 2
-      booked_days_ago: 14
+      booked_days_ago: 20
     outputs:
     - res_id_1
     - conf_num_1
@@ -75,12 +75,12 @@ seed:
   - use: create_reservation
     params:
       property_id: '{output.prop_id_2}'
-      check_in: '2026-06-10'
-      check_out: '2026-06-14'
+      check_in: '2026-06-12'
+      check_out: '2026-06-17'
       price_per_night: 390.0
       status: confirmed
       guests: 2
-      booked_days_ago: 10
+      booked_days_ago: 5
     outputs:
     - res_id_2
     - conf_num_2
@@ -110,12 +110,12 @@ seed:
   - use: create_reservation
     params:
       property_id: '{output.prop_id_3}'
-      check_in: '2026-06-20'
-      check_out: '2026-06-24'
+      check_in: '2026-07-01'
+      check_out: '2026-07-05'
       price_per_night: 450.0
       status: confirmed
       guests: 2
-      booked_days_ago: 7
+      booked_days_ago: 10
     outputs:
     - res_id_3
     - conf_num_3
@@ -125,56 +125,49 @@ seed:
     res_id_2: '{output.res_id_2}'
     res_id_3: '{output.res_id_3}'
 canonical_diff:
-  # Read-only no-op task: no state mutation expected anywhere. The no-op
-  # bijection-over-empty update entry below puts `notifications` into
-  # positive_cols so the matcher's collateral sweep runs and any unaccounted
-  # write (cancellation, message send, etc.) is caught.
+  # Reservation 1 (Jun 10-15, booked 20 days ago) overlaps with
+  # Reservation 2 (Jun 12-17, booked 5 days ago). The more recently
+  # booked is res_2 — the agent must cancel it.
   update:
-    - entity: notifications
-      desc: "Internal: enable collateral sweep (no expected notification mutation)"
-      weight: 0
-      bijection:
-        over: "[]"
-        variable: v
-      where:
-        id: {expr: "x == v.id"}
-      changes:
-        read: {eq: true}
+  - entity: Reservation
+    collection: reservations
+    desc: Cancel the more recently booked overlapping reservation (res_2)
+    where:
+      id: {expr: "x == target['res_id_2']"}
+    changes:
+      status: {eq: cancelled}
   invariant:
-    - collection: state.reservations
-      preserve: ALL
-    - collection: state.properties
-      preserve: ALL
-    - collection: state.reviews
-      preserve: ALL
-    - collection: state.saved_lists
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.payment_methods
-      preserve: ALL
-    - collection: state.notifications
-      filter: "True"  # no-op update[0] above produces no slots; preserve all notifications
-      preserve: ALL
+  - collection: state.reservations
+    filter: "a.id == target['res_id_1'] or a.id == target['res_id_3']"
+    preserve: ALL
+  - collection: state.properties
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.saved_lists
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
   named_invariants:
-    - name: Agent did not cancel or modify any reservation when no overlap exists
-      ref: invariant[0]
-      severity: high
-    - name: Agent did not modify properties
-      ref: invariant[1]
-      severity: medium
-    - name: Agent did not create or modify reviews
-      ref: invariant[2]
-      severity: low
-    - name: Agent did not modify saved lists
-      ref: invariant[3]
-      severity: low
-    - name: Agent did not send or modify messages
-      ref: invariant[4]
-      severity: low
-    - name: Agent did not modify payment methods
-      ref: invariant[5]
-      severity: high
-    - name: Agent did not create or modify notifications
-      ref: invariant[6]
-      severity: low
+  - name: The earlier-booked reservation and the non-overlapping reservation were preserved
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not modify properties
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not create or modify reviews
+    ref: invariant[2]
+    severity: low
+  - name: Agent did not modify saved lists
+    ref: invariant[3]
+    severity: low
+  - name: Agent did not send or modify messages
+    ref: invariant[4]
+    severity: low
+  - name: Agent did not modify payment methods
+    ref: invariant[5]
+    severity: high
