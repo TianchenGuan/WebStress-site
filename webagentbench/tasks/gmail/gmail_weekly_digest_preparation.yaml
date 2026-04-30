@@ -73,7 +73,11 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "'team-all@team.thornton.com' in x"
+          expr: "x == ['team-all@team.thornton.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           expr: "'Weekly Digest' in x"
         body:
@@ -92,11 +96,11 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "*@eng.thornton.com"
             - "*@devops.thornton.com"
         add_labels:
-          superset:
+          set_eq:
             - Engineering
         archive:
           eq: true
@@ -105,11 +109,11 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "*@northstarco.com"
             - "*@evergreenind.com"
         add_labels:
-          superset:
+          set_eq:
             - External
         star:
           eq: true

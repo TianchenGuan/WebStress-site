@@ -39,6 +39,10 @@ canonical_diff:
       properties:
         to:
           expr: "x == [target['organizer_email']]"
+        cc:
+          expr: "sorted(x) == sorted(target['attendee_emails']) and len(x) == len(target['attendee_emails'])"
+        bcc:
+          eq: []
         body:
           expr: "target['correct_time'] in x and target['room_name'] in x"
         in_reply_to:

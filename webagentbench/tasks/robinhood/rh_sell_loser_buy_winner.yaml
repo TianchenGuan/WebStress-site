@@ -1,9 +1,9 @@
 task_id: rh_sell_loser_buy_winner
 env_id: robinhood
 title: Sell Worst Performer and Buy Best Performer
-instruction_template: Find the worst-performing stock in your portfolio by total return
-  %. Sell all of it, then buy as many full shares of your best-performing stock as
-  the proceeds allow, at market price.
+instruction_template: Find the worst-performing stock in your portfolio by total
+  return %. Sell all of it, then buy as many full shares of your best-performing
+  stock as the proceeds allow, at market price.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 8
@@ -118,7 +118,8 @@ canonical_diff:
       avg_cost_basis: {any: true}
   invariant:
   - collection: state.orders
-    filter: "(a.side == 'sell' and a.symbol == target['best_symbol']) or (a.side == 'buy' and a.symbol == target['worst_symbol'])"
+    filter: "(a.side == 'sell' and a.symbol == target['best_symbol']) or (a.side ==
+      'buy' and a.symbol == target['worst_symbol'])"
     preserve: ALL
   - collection: state.positions
     filter: "a.symbol != target['worst_symbol'] and a.symbol != target['best_symbol']"
@@ -127,4 +128,11 @@ canonical_diff:
     preserve: ALL
   - collection: state.price_alerts
     preserve: ALL
+  constraints:
+  - desc: Loser sell and winner buy orders filled completely
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.id not in [io.id for io in initial.orders]) and len([o
+      for o in state.orders if o.id not in [io.id for io in initial.orders]]) >=
+      2
+    severity: critical
 secondary_primitives: []

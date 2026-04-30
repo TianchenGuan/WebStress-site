@@ -250,14 +250,17 @@ canonical_diff:
         nights: {eq: 4}
         guests: {eq: 2}
         rooms: {any: true}
-        price_per_night: {any: true}
+        price_per_night: {expr: "x == float(target['cheapest_price'])"}
         total_price: {any: true}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -286,7 +289,7 @@ canonical_diff:
         scores: {any: true}
         title: {expr: "'Great mountain escape' in x"}
         positive: {expr: "'fireplace' in x.lower() or 'views' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -308,6 +311,8 @@ canonical_diff:
       filter: "a.property_id != target['review_id']"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.payment_methods
       preserve: ALL

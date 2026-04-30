@@ -85,3 +85,32 @@ def test_decline_wrong_vp_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "declining wrong VP should fail"
+
+
+def test_duplicate_accept_reply_does_not_satisfy_both_non_conflicting_vps():
+    """Two accept replies to the same request cannot satisfy both non-conflicting VPs."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Meeting Request",
+        body="I need to decline this meeting request due to a scheduling conflict.",
+        to=[targets["conflicting_vp_email"]],
+        in_reply_to=targets["conflicting_vp_request_id"],
+    )
+    duplicate_id = targets["non_conflicting_request_ids"][0]
+    duplicate_email = state.get_email(duplicate_id)
+    for _ in range(2):
+        state.send_email(
+            subject="Re: Meeting Request",
+            body="I accept your meeting request. Looking forward to it.",
+            to=[duplicate_email.from_addr],
+            in_reply_to=duplicate_id,
+        )
+    for rid in targets["all_request_ids"]:
+        state.forward_email(rid, to=[targets["ea_email"]])
+    state.toggle_star(targets["conflicting_vp_request_id"], is_starred=True)
+
+    task = get_task('gmail_executive_calendar_conflict')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "duplicate accept replies should not satisfy both slots"

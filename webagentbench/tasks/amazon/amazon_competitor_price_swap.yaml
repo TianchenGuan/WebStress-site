@@ -122,7 +122,8 @@ canonical_diff:
     desc: New confirmed order for the cheapest qualifying alternative
     properties:
       items:
-        expr: "any(it['product_id'] == target['cheapest_qualifying_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['cheapest_qualifying_id']
+          and x[0]['quantity'] == 1"
       status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
@@ -143,7 +144,8 @@ canonical_diff:
       status: {eq: cancelled}
   invariant:
   - collection: state.orders
-    filter: "a.id != target['original_order_id'] and not any(it.get('product_id') == target['cheapest_qualifying_id'] for it in (a.items or []))"
+    filter: "a.id != target['original_order_id'] and not any(it.get('product_id')
+      == target['cheapest_qualifying_id'] for it in (a.items or []))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

@@ -185,6 +185,8 @@ canonical_diff:
     changes:
       vote_direction:
         eq: 1
+      is_saved:
+        eq: true
   - entity: Subreddit
     collection: subreddits
     desc: Subscribe to the join subreddit
@@ -196,11 +198,11 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      default_feed_sort: { eq: new }
-      email_messages: { eq: false }
+      theme: {eq: dark}
+      default_feed_sort: {eq: new}
+      email_messages: {eq: false}
   delete:
   - entity: Message
     collection: messages
@@ -215,10 +217,14 @@ canonical_diff:
     properties:
       to_user:
         expr: x == target['r_from']
+      subject:
+        expr: "x == 'Re: ' + target['r_sub']"
       body:
         expr: x == target['r_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        expr: x == target['r_id']
   - entity: Comment
     collection: comments
     desc: Comment on the programming post with the exact text
@@ -230,7 +236,7 @@ canonical_diff:
       author_name:
         expr: x == state.owner_username
       parent_id:
-        eq: null
+        eq:
   - entity: Post
     collection: posts
     desc: Create the new MachineLearning post with exact title and body
@@ -238,11 +244,15 @@ canonical_diff:
       subreddit_name:
         expr: x == target['join']
       title:
-        expr: x == target['post_title']
+        expr: x == target['pt']
       body:
-        expr: x == target['post_body']
+        expr: x == target['pb']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   invariant:
   - collection: state.user_profiles
     preserve: ALL
@@ -250,6 +260,20 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - expr: state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and
+      state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
@@ -257,8 +281,7 @@ eval:
     desc: Notifications read
   - expr: state.unread_message_count() == 0
     desc: Messages read
-  - expr: 'any(m.to_user == ''{target.r_from}'' and m.subject == ''Re: {target.r_sub}''
-      and m.body == ''{target.r_body}'' for m in state.sent_messages)'
+  - expr: 'any(m.to_user == ''{target.r_from}'' and m.subject == ''Re: {target.r_sub}'' and m.body == ''{target.r_body}'' for m in state.sent_messages)'
     desc: Inbox reply sent with the exact required subject and body
   - expr: not any(m.id == '{target.del_id}' for m in state.messages)
     desc: Spam message deleted
@@ -266,14 +289,11 @@ eval:
     desc: Worldnews post upvoted
   - expr: '''{target.wn_id}'' in state.saved_post_ids'
     desc: Worldnews post saved
-  - expr: any(c.post_id == '{target.prog_id}' and c.body == '{target.c2}' and c.author_name
-      == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.prog_id}' and c.body == '{target.c2}' and c.author_name == state.owner_username for c in state.comments)
     desc: Exact programming comment posted
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
     desc: Joined r/MachineLearning
-  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}'
-      and p.body == '{target.post_body}' and p.author_name == state.owner_username
-      for p in state.posts)
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.body == '{target.post_body}' and p.author_name == state.owner_username for p in state.posts)
     desc: Exact MachineLearning post created
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
@@ -288,12 +308,10 @@ eval:
   - expr: state.get_message('{target.r_id}') is not None
     desc: The collaboration message was not deleted by mistake
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
     desc: No extra messages sent beyond the required reply
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) <= 4
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 4
     desc: No extra posts created beyond the required MachineLearning post
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

@@ -29,7 +29,7 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Incident",
         body="I am handling the incident now.",
-        to=[],
+        to=[state.get_email(targets["manager_email_id"]).from_addr],
         in_reply_to=targets["manager_email_id"],
     )
     # Create P0 Incident label
@@ -86,7 +86,7 @@ def test_missing_error_code_in_forward_fails():
     state.send_email(
         subject="Re: Incident",
         body="I am handling it.",
-        to=[],
+        to=[state.get_email(targets["manager_email_id"]).from_addr],
         in_reply_to=targets["manager_email_id"],
     )
     state.ensure_label("P0 Incident")
@@ -107,3 +107,18 @@ def test_missing_error_code_in_forward_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing error code in forward should fail"
+
+
+def test_manager_reply_all_fails():
+    """The manager status reply must be reply-only."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    manager_reply = next(sent for sent in state.sent if sent.in_reply_to == targets["manager_email_id"])
+    manager_reply.cc = ["leadership@example.com"]
+    state.touch()
+
+    task = get_task('gmail_incident_escalation')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "reply-all CC should fail"

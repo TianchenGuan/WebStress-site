@@ -79,12 +79,13 @@ canonical_diff:
     desc: New order placed for target product using the new default address
     properties:
       items:
-        expr: any(it['product_id'] == target['product_id'] for it in x)
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
-        expr: state.settings.default_address_id == x and any(a.full_name == target['recipient_name']
-          for a in state.addresses if a.id == x)
+        expr: state.settings.default_address_id == x and any(a.full_name ==
+          target['recipient_name'] for a in state.addresses if a.id == x)
       status:
-        any: true
+        eq: confirmed
       payment_method_id:
         any: true
       subtotal:
@@ -105,8 +106,8 @@ canonical_diff:
         any: true
   update:
   - entity: Address
-    desc: Prior default address demoted as a side effect of setting a new default
-      (weight 0)
+    desc: Prior default address demoted as a side effect of setting a new
+      default (weight 0)
     weight: 0.0
     where:
       id:
@@ -119,8 +120,8 @@ canonical_diff:
     filter: a.full_name != target['recipient_name']
     preserve: ALL
   - collection: state.orders
-    filter: not any(it.get('product_id') == target['product_id'] for it in (a.items
-      or []))
+    filter: not any(it.get('product_id') == target['product_id'] for it in
+      (a.items or []))
     preserve: ALL
   - collection: state.products
     preserve: ALL

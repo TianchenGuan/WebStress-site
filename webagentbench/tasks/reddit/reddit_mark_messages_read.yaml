@@ -1,8 +1,7 @@
 task_id: reddit_mark_messages_read
 env_id: reddit
 title: Mark All Messages as Read
-instruction_template: Go to your Messages inbox and mark all messages as read. Do
-  not delete any messages or send any replies.
+instruction_template: Go to your Messages inbox and mark all messages as read. Do not delete any messages or send any replies.
 difficulty: easy
 time_limit_seconds: 60
 expected_steps: 4
@@ -21,33 +20,31 @@ canonical_diff:
   # constraint_only=False so the unaccounted-collateral sweep runs
   # against sibling collections (matcher.py:330).
   update:
-    - entity: Message
-      collection: messages
-      bijection:
-        over: "[m.id for m in initial.messages if not m.is_read]"
-        variable: v
-      desc: "Mark every unread inbox message as read"
-      where:
-        id: {expr: "x == v"}
-      changes:
-        is_read: {eq: true}
+  - entity: Message
+    collection: messages
+    bijection:
+      over: "[m.id for m in initial.messages if not m.is_read]"
+      variable: v
+    desc: "Mark every unread inbox message as read"
+    where:
+      id: {expr: "x == v"}
+    changes:
+      is_read: {eq: true}
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.posts
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
-    - collection: state.settings
-      filter: 'False'
-      preserve: ALL
-      comprehensive: true
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
 eval:
   source: server_state
   checks:
@@ -57,8 +54,7 @@ eval:
   - expr: len(state.messages) >= 5
     desc: No messages were deleted
     penalty: 0.3
-  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
-      <= 2
+  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username) <= 2
     desc: No new replies sent
     penalty: 0.2
 secondary_primitives: []

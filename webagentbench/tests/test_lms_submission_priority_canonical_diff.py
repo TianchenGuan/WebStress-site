@@ -62,7 +62,6 @@ def test_no_mutation_fails():
 
     report = _report_for(state, initial, targets)
     assert report.passed is False, "doing nothing should fail"
-    assert report.score == 0.0, f"expected 0.0, got {report.score}"
 
 
 def test_swapped_priority_files_fail():
@@ -82,6 +81,35 @@ def test_second_priority_missing_fails():
 
     report = _report_for(state, initial, targets)
     assert report.passed is False, "submitting only one priority assignment should fail"
+
+
+def test_additional_priority_submission_allowed():
+    _, _, targets, initial, state = _setup_session()
+    priority_ids = _priority_ids(targets)
+    extra_priority_id = next(a.id for a in state.assignments if a.id not in priority_ids)
+    targets["priority_order_ids"] = targets["priority_order_ids"] + "," + extra_priority_id
+    priority_ids = _priority_ids(targets)
+    _apply_submission(state, priority_ids[0], "priority_1.pdf")
+    _apply_submission(state, priority_ids[1], "priority_2.pdf")
+    _apply_submission(state, priority_ids[2], "priority_3.pdf")
+
+    report = _report_for(state, initial, targets)
+    assert report.passed is True, f"at least top two allows additional priority work: {report.failures}"
+    assert report.score == 1.0, f"expected 1.0, got {report.score}"
+
+
+def test_additional_priority_wrong_order_file_fails():
+    _, _, targets, initial, state = _setup_session()
+    priority_ids = _priority_ids(targets)
+    extra_priority_id = next(a.id for a in state.assignments if a.id not in priority_ids)
+    targets["priority_order_ids"] = targets["priority_order_ids"] + "," + extra_priority_id
+    priority_ids = _priority_ids(targets)
+    _apply_submission(state, priority_ids[0], "priority_1.pdf")
+    _apply_submission(state, priority_ids[1], "priority_2.pdf")
+    _apply_submission(state, priority_ids[2], "priority_4.pdf")
+
+    report = _report_for(state, initial, targets)
+    assert report.passed is False, "additional priority submissions must keep priority order filenames"
 
 
 def test_wrong_assignment_with_priority_name_fails():

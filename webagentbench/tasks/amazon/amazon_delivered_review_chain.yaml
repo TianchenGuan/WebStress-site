@@ -122,9 +122,12 @@ canonical_diff:
       rating: {eq: 5}
       title: {expr: "x == target['review_title_1']"}
       body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   - entity: Review
     desc: 3-star review for product 2 with correct title
@@ -133,15 +136,19 @@ canonical_diff:
       rating: {eq: 3}
       title: {expr: "x == target['review_title_2']"}
       body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   - entity: Order
     desc: New confirmed order for the reorder product
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id_reorder'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id_reorder']
+          and x[0]['quantity'] == 1"
       status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
@@ -160,17 +167,22 @@ canonical_diff:
     where:
       id: {expr: "x == target['review_pid_1']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['review_pid_1'])
+          + 1"
   - entity: Product
     desc: Product review_count incremented for product 2 review (weight 0)
     weight: 0.0
     where:
       id: {expr: "x == target['review_pid_2']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['review_pid_2'])
+          + 1"
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['product_id_reorder'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['product_id_reorder'] for it in
+      (a.items or []))"
     preserve: ALL
   - collection: state.reviews
     filter: "a.product_id != target['review_pid_1'] and a.product_id != target['review_pid_2']"

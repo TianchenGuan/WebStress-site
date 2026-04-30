@@ -98,3 +98,32 @@ def test_missing_product_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_extra_product_in_order_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    required = {
+        targets["pid_1"],
+        targets["pid_2"],
+        targets["pid_3"],
+        targets["pid_4"],
+    }
+    extra_pid = next(p.id for p in state.products if p.id not in required and p.in_stock)
+    state.add_to_cart(targets["pid_1"], quantity=2)
+    state.add_to_cart(targets["pid_2"], quantity=1)
+    state.add_to_cart(targets["pid_3"], quantity=3)
+    state.add_to_cart(targets["pid_4"], quantity=1)
+    state.add_to_cart(extra_pid, quantity=1)
+    addr = next(a for a in state.addresses if a.full_name == "Jordan Parker")
+    pm = next(p for p in state.payment_methods if p.last_four == "4242")
+    state.place_order(shipping_address_id=addr.id, payment_method_id=pm.id)
+
+    task = get_task("amazon_bulk_cart_build")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

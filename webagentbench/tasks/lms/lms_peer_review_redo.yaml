@@ -102,6 +102,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
     - name: Agent did not modify other peer reviews
       ref: invariant[0]

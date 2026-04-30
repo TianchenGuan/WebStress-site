@@ -128,6 +128,15 @@ canonical_diff:
       desc: "Schedule exactly one specialist follow-up using the expiring approved referral; reason must be 'Expiring referral follow-up'"
       properties:
         status: {eq: "scheduled"}
+        provider_id:
+          expr: >-
+            any(
+              p.id == x
+              and p.specialty == r.to_specialty
+              for p in initial.providers
+              for r in initial.referrals
+              if r.id == target['expiring_ref_id']
+            )
         reason: {eq: "Expiring referral follow-up"}
         linked_referral_id:
           expr: "x == target['expiring_ref_id']"

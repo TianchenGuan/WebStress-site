@@ -106,6 +106,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent retook the target assignment
       ref: update[0]
@@ -188,6 +192,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.student
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent asked about a retake in the course discussion forum
       ref: create[0]

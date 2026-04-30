@@ -65,3 +65,16 @@ def test_correct_setting_plus_sent_email_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "extra email sent should trigger invariant violation"
+
+
+def test_unrelated_setting_change_fails():
+    """Changing the required setting plus an unrelated setting should fail."""
+    _, _, targets, initial, state = _setup_session()
+    state.settings.undo_send_seconds = 30
+    state.settings.language = 'French'
+
+    task = get_task('gmail_change_setting')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"

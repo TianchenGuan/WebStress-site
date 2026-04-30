@@ -70,63 +70,47 @@ def test_correct_trajectory_passes():
 
 
 def test_no_mutation_fails():
-    # `state.sent_messages` is `list[dict[str, Any]]` without an `id` key,
-    # so compute_diff skips the collection and produces no Create entries.
-    # The waitlist task's only positive change is a sent_message; all
-    # message-content assertions live in the `eval:` block (server_state
-    # checks). The matcher's no-mutation case therefore vacuously passes
-    # against canonical_diff. Recipient/sender/content/excess-message
-    # enforcement is delegated to `eval:` and exercised by the
-    # tests/test_lms_waitlist_strategy_eval.py companion (where present)
-    # or by the live agent_eval pipeline.
     _, _, targets, initial, state = _setup_session()
 
     report = _run(initial, state, targets)
-    # canonical_diff is constraint-only for messages, so passes vacuously
-    assert report.passed is True
+    assert report.passed is False, "doing nothing should fail"
 
 
 def test_wrong_recipient_fails():
-    # Recipient identity cannot be matched via canonical_diff (sent_messages
-    # is list[dict] without ids). Recipient checks live in `eval:`.
     _, _, targets, initial, state = _setup_session()
 
     _send_message(state, targets, to="someone_else@example.com")
 
-    assert state.sent_messages[-1]["to"] == "someone_else@example.com"
+    report = _run(initial, state, targets)
+    assert report.passed is False, "messaging a non-advisor should fail"
 
 
 def test_wrong_sender_fails():
-    # Sender identity cannot be matched via canonical_diff (sent_messages
-    # is list[dict] without ids). Sender checks live in `eval:`.
     _, _, targets, initial, state = _setup_session()
 
     _send_message(state, targets, to=targets["advisor_name"], sender="other@example.com")
 
-    assert state.sent_messages[-1]["from"] == "other@example.com"
+    report = _run(initial, state, targets)
+    assert report.passed is False, "advisor message from a non-student sender should fail"
 
 
 def test_empty_message_content_fails():
-    # Message content cannot be matched via canonical_diff (sent_messages
-    # is list[dict] without ids). Content checks live in `eval:`.
     _, _, targets, initial, state = _setup_session()
 
     _send_message(state, targets, to=targets["advisor_name"], subject="", body="")
 
-    assert state.sent_messages[-1]["subject"] == ""
-    assert state.sent_messages[-1]["body"] == ""
+    report = _run(initial, state, targets)
+    assert report.passed is False, "empty advisor message content should fail"
 
 
-def test_extra_message_fails():
-    # Message-count limits cannot be matched via canonical_diff
-    # (sent_messages is list[dict] without ids). Excess-message limits
-    # live in the `eval:` negative_check block.
+def test_excess_messages_fails():
     _, _, targets, initial, state = _setup_session()
 
-    _send_message(state, targets, to=targets["advisor_name"])
-    _send_message(state, targets, to=targets["advisor_name"], minutes=7)
+    for index in range(5):
+        _send_message(state, targets, to=targets["advisor_name"], minutes=5 + index)
 
-    assert len(state.sent_messages) == 2
+    report = _run(initial, state, targets)
+    assert report.passed is False, "sending more than four messages should fail"
 
 
 def test_unrelated_enrollment_mutation_fails():

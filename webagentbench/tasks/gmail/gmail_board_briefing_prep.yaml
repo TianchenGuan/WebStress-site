@@ -13,7 +13,8 @@ time_limit_seconds: 360
 expected_steps: 40
 primary_primitives:
 - exploration
-secondary_primitives: []
+secondary_primitives:
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -54,7 +55,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['topic_a_latest_id']"
         to:
-          expr: "target['ceo_email'] in x"
+          expr: "x == [target['ceo_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['topic_a'] in x"
     - entity: sent
@@ -64,7 +69,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['topic_b_latest_id']"
         to:
-          expr: "target['ceo_email'] in x"
+          expr: "x == [target['ceo_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['topic_b'] in x"
     - entity: sent
@@ -74,7 +83,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['topic_c_latest_id']"
         to:
-          expr: "target['ceo_email'] in x"
+          expr: "x == [target['ceo_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['topic_c'] in x"
   invariant:

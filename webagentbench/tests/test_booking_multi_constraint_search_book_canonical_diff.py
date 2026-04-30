@@ -45,15 +45,15 @@ def _make_correct_reservation(targets, state, suffix=""):
         status="confirmed",
         booked_at=datetime.now(timezone.utc),
         guest_info=ReservationGuest(
-            full_name="Test User",
-            email="test@example.com",
+            full_name=state.owner_name,
+            email=state.owner_email,
         ),
         payment_method_id=pm.id,
         cancellation_policy=CancellationPolicy(),
         confirmation_number=f"CONF{suffix}",
         is_genius_deal=False,
         genius_discount=0.0,
-        meals_included="none",
+        meals_included="breakfast",
         rating_submitted=False,
     )
 

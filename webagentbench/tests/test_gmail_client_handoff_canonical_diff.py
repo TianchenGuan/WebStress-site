@@ -80,3 +80,56 @@ def test_wrong_contact_note_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong contact note should fail"
+
+
+def test_handoff_reply_all_fails():
+    """The handoff confirmation must be reply-only."""
+    _, _, targets, initial, state = _setup_session()
+    state.add_contact(Contact(id='c_marta', name='Marta Sandoval',
+                              email='m.sandoval@lumico.com', note='Lumico — Active'))
+    state.add_contact(Contact(id='c_erik', name='Erik Lund',
+                              email='e.lund@nordgen.se', note='Nordgen — Active'))
+    state.add_contact(Contact(id='c_yuki', name='Yuki Tanaka',
+                              email='y.tanaka@kaizenlabs.jp', note='Kaizen Labs — Onboarding'))
+    state.update_contact(targets["deepak_rajan_id"], note="Thetawave — Renewal pending")
+    state.update_contact(targets["felicity_okafor_id"], note="Clearbridge — Active")
+    state.send_email(
+        subject="Re: Client Portfolio Handoff",
+        body="Confirmed. All 5 clients onboarded.",
+        to=["a.drummond@company.com"],
+        cc=["rena@example.com"],
+        in_reply_to=targets["handoff_email_id"],
+        thread_id="thread_handoff",
+    )
+
+    task = get_task('gmail_client_handoff')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "reply-all CC should fail"
+
+
+def test_confirmation_reply_rejects_extra_text():
+    """The confirmation body is specified exactly."""
+    _, _, targets, initial, state = _setup_session()
+    state.add_contact(Contact(id='c_marta', name='Marta Sandoval',
+                              email='m.sandoval@lumico.com', note='Lumico — Active'))
+    state.add_contact(Contact(id='c_erik', name='Erik Lund',
+                              email='e.lund@nordgen.se', note='Nordgen — Active'))
+    state.add_contact(Contact(id='c_yuki', name='Yuki Tanaka',
+                              email='y.tanaka@kaizenlabs.jp', note='Kaizen Labs — Onboarding'))
+    state.update_contact(targets["deepak_rajan_id"], note="Thetawave — Renewal pending")
+    state.update_contact(targets["felicity_okafor_id"], note="Clearbridge — Active")
+    state.send_email(
+        subject="Re: Client Portfolio Handoff",
+        body="Confirmed. All 5 clients onboarded. Extra note.",
+        to=["a.drummond@company.com"],
+        in_reply_to=targets["handoff_email_id"],
+        thread_id="thread_handoff",
+    )
+
+    task = get_task('gmail_client_handoff')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra confirmation text should fail"

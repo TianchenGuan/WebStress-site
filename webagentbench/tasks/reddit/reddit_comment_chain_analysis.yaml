@@ -9,12 +9,10 @@ instruction_template: '1. Navigate to r/{target.sub} and open "{target.post_titl
   3. Add a top-level comment with exactly: "{target.top_comment}"
 
 
-  4. Reply to u/{target.reply1_author}''s comment mentioning "{target.reply1_hint}"
-  with exactly: "{target.reply1_text}"
+  4. Reply to u/{target.reply1_author}''s comment mentioning "{target.reply1_hint}" with exactly: "{target.reply1_text}"
 
 
-  5. Reply to u/{target.reply2_author}''s comment mentioning "{target.reply2_hint}"
-  with exactly: "{target.reply2_text}"
+  5. Reply to u/{target.reply2_author}''s comment mentioning "{target.reply2_hint}" with exactly: "{target.reply2_text}"
 
 
   6. Save u/{target.save_author}''s comment that mentions "{target.save_hint}".
@@ -44,8 +42,7 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: Disagree. At scale, a monolith becomes an unmaintainable ball of mud.
-        The real issue is teams adopting microservices too early.
+      body: Disagree. At scale, a monolith becomes an unmaintainable ball of mud. The real issue is teams adopting microservices too early.
       author: CompileError
       score: 3800
     outputs:
@@ -54,9 +51,7 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: The best architecture is the one your team can actually operate. Most
-        small teams cannot handle the operational overhead of Kubernetes and service
-        meshes.
+      body: The best architecture is the one your team can actually operate. Most small teams cannot handle the operational overhead of Kubernetes and service meshes.
       author: DeepDiver
       score: 2900
     outputs:
@@ -65,8 +60,7 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: Shopify runs a massive Rails monolith and they seem to be doing fine.
-        Sometimes boring technology is the right choice.
+      body: Shopify runs a massive Rails monolith and they seem to be doing fine. Sometimes boring technology is the right choice.
       author: BinaryBard
       score: 5100
     outputs:
@@ -84,122 +78,131 @@ seed:
     sub: '{output.subreddit_name}'
     post_title: '{output.post_title}'
     post_id: '{output.post_id}'
-    top_comment: The real answer is that it depends on your team size, deployment
-      frequency, and domain complexity. There is no universal right answer.
+    top_comment: The real answer is that it depends on your team size, deployment frequency, and domain complexity. There is no universal right answer.
     reply1_author: CompileError
     reply1_hint: unmaintainable ball of mud
     reply1_id: '{output.reply1_id}'
-    reply1_text: Agreed on the timing point. The issue is organizational, not technical.
-      Conway's Law applies here.
+    reply1_text: Agreed on the timing point. The issue is organizational, not technical. Conway's Law applies here.
     reply2_author: DeepDiver
     reply2_hint: operational overhead of Kubernetes
     reply2_id: '{output.reply2_id}'
-    reply2_text: This is the key insight. Most teams underestimate the ops burden
-      by an order of magnitude.
+    reply2_text: This is the key insight. Most teams underestimate the ops burden by an order of magnitude.
     save_author: BinaryBard
     save_hint: Shopify
     save_id: '{output.save_id}'
 canonical_diff:
   update:
-    - entity: Post
-      desc: Upvote the target post
-      where:
-        id:
-          expr: "x == target['post_id']"
-      changes:
-        vote_direction:
-          eq: 1
-    - entity: Comment
-      desc: Save the BinaryBard Shopify comment
-      where:
-        id:
-          expr: "x == target['save_id']"
-      changes:
-        is_saved:
-          eq: true
+  - entity: Post
+    desc: Upvote the target post
+    where:
+      id:
+        expr: "x == target['post_id']"
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Comment
+    desc: Save the BinaryBard Shopify comment
+    where:
+      id:
+        expr: "x == target['save_id']"
+    changes:
+      is_saved:
+        eq: true
   create:
-    - entity: Comment
-      desc: Top-level comment on the post
-      properties:
-        post_id:
-          expr: "x == target['post_id']"
-        parent_id:
-          eq: null
-        body:
-          expr: "x == target['top_comment']"
-        author_name:
-          expr: "x == state.owner_username"
-    - entity: Comment
-      desc: Reply to CompileError
-      properties:
-        parent_id:
-          expr: "x == target['reply1_id']"
-        body:
-          expr: "x == target['reply1_text']"
-        author_name:
-          expr: "x == state.owner_username"
-    - entity: Comment
-      desc: Reply to DeepDiver
-      properties:
-        parent_id:
-          expr: "x == target['reply2_id']"
-        body:
-          expr: "x == target['reply2_text']"
-        author_name:
-          expr: "x == state.owner_username"
+  - entity: Comment
+    desc: Top-level comment on the post
+    properties:
+      post_id:
+        expr: "x == target['post_id']"
+      parent_id:
+        eq:
+      body:
+        expr: "x == target['top_comment']"
+      author_name:
+        expr: "x == state.owner_username"
+  - entity: Comment
+    desc: Reply to CompileError
+    properties:
+      parent_id:
+        expr: "x == target['reply1_id']"
+      body:
+        expr: "x == target['reply1_text']"
+      author_name:
+        expr: "x == state.owner_username"
+      post_id:
+        expr: x == target['post_id']
+  - entity: Comment
+    desc: Reply to DeepDiver
+    properties:
+      parent_id:
+        expr: "x == target['reply2_id']"
+      body:
+        expr: "x == target['reply2_text']"
+      author_name:
+        expr: "x == state.owner_username"
+      post_id:
+        expr: x == target['post_id']
   invariant:
-    - collection: state.posts
-      filter: "a.id != target['post_id']"
-      preserve: ALL
-    - collection: state.comments
-      filter: "a.id != target['save_id']"
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['post_id']"
+    preserve: ALL
+  - collection: state.comments
+    filter: "a.id != target['save_id']"
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
-    - name: Agent upvoted the post
-      ref: update[0]
-      severity: high
-    - name: Agent saved the BinaryBard comment
-      ref: update[1]
-      severity: high
-    - name: Top-level comment posted
-      ref: create[0]
-      severity: high
-    - name: Reply to CompileError posted
-      ref: create[1]
-      severity: high
-    - name: Reply to DeepDiver posted
-      ref: create[2]
-      severity: high
-    - name: No unrelated post mutations
-      ref: invariant[0]
-      severity: high
-    - name: No unrelated comment mutations
-      ref: invariant[1]
-      severity: high
+  - name: Agent upvoted the post
+    ref: update[0]
+    severity: high
+  - name: Agent saved the BinaryBard comment
+    ref: update[1]
+    severity: high
+  - name: Top-level comment posted
+    ref: create[0]
+    severity: high
+  - name: Reply to CompileError posted
+    ref: create[1]
+    severity: high
+  - name: Reply to DeepDiver posted
+    ref: create[2]
+    severity: high
+  - name: No unrelated post mutations
+    ref: invariant[0]
+    severity: high
+  - name: No unrelated comment mutations
+    ref: invariant[1]
+    severity: high
+  constraints:
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.get_post('{target.post_id}').vote_direction == 1
     desc: Post upvoted
-  - expr: any(c.post_id == '{target.post_id}' and c.parent_id is None and "depends
-      on your team size" in c.body and c.author_name == state.owner_username for c
-      in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and c.parent_id is None and "depends on your team size" in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Top-level comment
-  - expr: any(c.parent_id == '{target.reply1_id}' and "Conway's Law" in c.body and
-      c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.parent_id == '{target.reply1_id}' and "Conway's Law" in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Reply to CompileError
-  - expr: any(c.parent_id == '{target.reply2_id}' and "ops burden" in c.body and c.author_name
-      == state.owner_username for c in state.comments)
+  - expr: any(c.parent_id == '{target.reply2_id}' and "ops burden" in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Reply to DeepDiver
   - expr: '''{target.save_id}'' in state.saved_comment_ids'
     desc: BinaryBard comment saved
@@ -210,8 +213,7 @@ eval:
   - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 9
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

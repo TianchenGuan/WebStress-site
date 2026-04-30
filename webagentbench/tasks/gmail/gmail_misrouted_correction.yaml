@@ -109,7 +109,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['email_a_id']"
         to:
-          expr: "target['alice_email'] in x"
+          expr: "x == [target['alice_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Email A to Dana (correction after learning Alice is on leave)
       count: 1
@@ -117,7 +121,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['email_a_id']"
         to:
-          expr: "target['dana_email'] in x"
+          expr: "x == [target['dana_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Send correction email to Dana explaining Alice is on leave
       count: 1
@@ -137,7 +145,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['email_b_id']"
         to:
-          expr: "target['bob_email'] in x"
+          expr: "x == [target['bob_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Email C to Carol
       count: 1
@@ -145,7 +157,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['email_c_id']"
         to:
-          expr: "target['carol_email'] in x"
+          expr: "x == [target['carol_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
   invariant:
     - collection: state.emails
       preserve: ALL

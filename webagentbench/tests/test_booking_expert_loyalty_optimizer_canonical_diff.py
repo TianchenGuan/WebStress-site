@@ -23,8 +23,7 @@ def _setup_session(seed: int = 42):
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
     state.travel_preferences.preferred_currency = 'EUR'
-    # Wallet credit applied
-    state.wallet.balance -= 47.50
+    state.use_wallet_credit(47.50, "Applied to reservation at Le Petit Belloy Saint-Germain")
     state.reservations.append(Reservation(
         id="res_genius",
         property_id=targets['target_prop_id'],
@@ -97,6 +96,18 @@ def test_wrong_dates_fails():
     _apply_correct_state(targets, state)
     state.reservations[-1].check_in = "2026-09-01"
     state.reservations[-1].check_out = "2026-09-06"
+
+    task = get_task(TASK_ID)
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_missing_wallet_credit_fails():
+    sm, sid, targets, initial, state = _setup_session()
+    _apply_correct_state(targets, state)
+    state.wallet.balance = initial.wallet.balance
+    state.wallet.transactions = list(initial.wallet.transactions)
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)

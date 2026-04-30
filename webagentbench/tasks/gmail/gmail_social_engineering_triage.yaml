@@ -49,9 +49,13 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['real_ceo_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['real_ceo_email_id'])]"
         body:
-          expr: "target['reply_body_contains'] in x"
+          expr: "x == target['reply_body_contains']"
         cc:
+          eq: []
+        bcc:
           eq: []
         forwarded_from_id:
           eq: null
@@ -60,9 +64,13 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['report_to'] in x"
+          expr: "x == [target['report_to']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
-          expr: "target['report_subject'] in x"
+          expr: "x == target['report_subject']"
         body:
           expr: "target['fake1_address'] in x and target['fake2_address'] in x"
         in_reply_to:

@@ -71,7 +71,9 @@ canonical_diff:
     properties:
       symbol: {expr: "x == target['best_symbol']"}
       condition: {eq: above}
-      target_price: {expr: "Decimal(str(x)) >= state.get_stock(target['best_symbol']).price * Decimal('1.09') and Decimal(str(x)) <= state.get_stock(target['best_symbol']).price * Decimal('1.11')"}
+      target_price: {expr: "Decimal(str(x)) >= state.get_stock(target['best_symbol']).price
+          * Decimal('1.09') and Decimal(str(x)) <= state.get_stock(target['best_symbol']).price
+          * Decimal('1.11')"}
       status: {any: true}
       created_at: {any: true}
   - entity: price_alerts
@@ -79,25 +81,31 @@ canonical_diff:
     properties:
       symbol: {expr: "x == target['best_symbol']"}
       condition: {eq: below}
-      target_price: {expr: "Decimal(str(x)) >= state.get_stock(target['best_symbol']).price * Decimal('0.89') and Decimal(str(x)) <= state.get_stock(target['best_symbol']).price * Decimal('0.91')"}
+      target_price: {expr: "Decimal(str(x)) >= state.get_stock(target['best_symbol']).price
+          * Decimal('0.89') and Decimal(str(x)) <= state.get_stock(target['best_symbol']).price
+          * Decimal('0.91')"}
       status: {any: true}
       created_at: {any: true}
   - entity: watchlists
-    desc: Corporate Actions Watch watchlist created with corporate-action symbols
+    desc: Corporate Actions Watch watchlist created with corporate-action
+      symbols
     properties:
       name: {eq: Corporate Actions Watch}
-      symbols: {expr: "all(sym in x for sym in initial.corporate_action_symbols() if sym in initial.owned_symbols())"}
+      symbols: {expr: "all(sym in x for sym in initial.corporate_action_symbols()
+          if sym in initial.owned_symbols())"}
   - entity: transactions
     desc: Sell transaction(s) for worst position
     bijection:
-      over: "[t for t in state.transactions if t.type == 'sell' and t.id not in [it.id for it in initial.transactions]]"
+      over: "[t for t in state.transactions if t.type == 'sell' and t.id not in [it.id
+        for it in initial.transactions]]"
       variable: v
     properties:
       id: {expr: "x == v.id"}
   - entity: notifications
     desc: Order-fill notifications emitted by worst-position sell
     bijection:
-      over: "[n for n in state.notifications if n.type == 'order_fill' and n.id not in [ix.id for ix in initial.notifications]]"
+      over: "[n for n in state.notifications if n.type == 'order_fill' and n.id not
+        in [ix.id for ix in initial.notifications]]"
       variable: v
     properties:
       id: {expr: "x == v.id"}
@@ -115,7 +123,8 @@ canonical_diff:
   - entity: positions
     desc: Worst-performing position fully liquidated
     bijection:
-      over: "[p for p in initial.positions if p.symbol == target['worst_symbol'] and p.symbol not in [q.symbol for q in state.positions]]"
+      over: "[p for p in initial.positions if p.symbol == target['worst_symbol'] and
+        p.symbol not in [q.symbol for q in state.positions]]"
       variable: v
     where:
       id: {expr: "x == v.id"}
@@ -150,7 +159,13 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: Worst-performing position market sell filled
+    expr: any(o.symbol == target['worst_symbol'] and o.side == 'sell' and
+      o.order_type == 'market' and o.status == 'filled' and o.filled_quantity ==
+      o.quantity for o in state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures state_tracking, exploration, grounding, verification, patience
-  by requiring the agent to identify best/worst performers, manage notifications,
-  and organize corporate action monitoring.
+primitive_thesis: Measures state_tracking, exploration, grounding, verification,
+  patience by requiring the agent to identify best/worst performers, manage
+  notifications, and organize corporate action monitoring.

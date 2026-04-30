@@ -1,8 +1,8 @@
 task_id: rh_deposit_then_buy
 env_id: robinhood
 title: Deposit Funds Then Buy Stock
-instruction_template: Deposit $2,000 from your Chase checking account, then buy $1,500
-  worth of VTI at market price.
+instruction_template: Deposit $2,000 from your Chase checking account, then buy
+  $1,500 worth of VTI at market price.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 7
@@ -101,4 +101,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.price_alerts
     preserve: ALL
+  constraints:
+  - desc: VTI market buy filled completely
+    expr: any(o.symbol == 'VTI' and o.side == 'buy' and o.order_type == 'market'
+      and o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders)
+    severity: critical
 secondary_primitives: []

@@ -16,6 +16,7 @@ def test_correct_trajectory_passes():
     post = state.get_post(targets["post_id"])
     post.vote_direction = 1
     post.is_saved = True
+    state.saved_post_ids.append(targets["post_id"])
     task = get_task("reddit_engage_user_content")
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
@@ -25,6 +26,17 @@ def test_correct_trajectory_passes():
 
 def test_no_mutation_fails():
     _, _, targets, initial, state = _setup()
+    task = get_task("reddit_engage_user_content")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_saved_post_primitive_list_required():
+    _, _, targets, initial, state = _setup()
+    post = state.get_post(targets["post_id"])
+    post.vote_direction = 1
+    post.is_saved = True
     task = get_task("reddit_engage_user_content")
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)

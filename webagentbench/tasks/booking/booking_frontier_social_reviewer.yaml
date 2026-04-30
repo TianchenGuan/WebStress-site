@@ -221,7 +221,7 @@ canonical_diff:
         scores: {any: true}
         title: {expr: "'Outstanding in every way' in x"}
         positive: {expr: "'spa' in x.lower() or 'breakfast' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: family}
@@ -305,6 +305,8 @@ canonical_diff:
       filter: "a.id not in (target['res_id_1'], target['res_id_2'], target['res_id_3'], target['res_id_4'])"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['prop_id_1'], target['prop_id_2'], target['prop_id_3'], target['prop_id_4'])"
+      comprehensive: true
       preserve: ALL
     - collection: state.messages
       preserve: ALL

@@ -121,6 +121,45 @@ canonical_diff:
       preserve: ALL
     - collection: state.patient
       preserve: ALL
+  constraints:
+    - desc: "Remaining Hepatitis B dose appointments are spaced at least 30 days apart"
+      severity: high
+      expr: >-
+        all(
+          later - earlier >= timedelta(days=30)
+          for earlier, later in zip(
+            sorted(
+              a.datetime
+              for a in state.appointments
+              if a.id not in {i.id for i in initial.appointments}
+              and a.status == 'scheduled'
+              and a.provider_id == target['series_admin_provider_id']
+              and (
+                'hepatitis' in (a.reason or '').lower()
+                or target['series_vaccine_name'].lower() in (a.reason or '').lower()
+                or 'vaccine' in (a.reason or '').lower()
+                or 'immunization' in (a.reason or '').lower()
+              )
+              and str(a.datetime) >= target['series_window_start']
+              and str(a.datetime) <= target['series_window_end']
+            ),
+            sorted(
+              a.datetime
+              for a in state.appointments
+              if a.id not in {i.id for i in initial.appointments}
+              and a.status == 'scheduled'
+              and a.provider_id == target['series_admin_provider_id']
+              and (
+                'hepatitis' in (a.reason or '').lower()
+                or target['series_vaccine_name'].lower() in (a.reason or '').lower()
+                or 'vaccine' in (a.reason or '').lower()
+                or 'immunization' in (a.reason or '').lower()
+              )
+              and str(a.datetime) >= target['series_window_start']
+              and str(a.datetime) <= target['series_window_end']
+            )[1:]
+          )
+        )
   named_invariants:
     - name: "Agent did not cancel or modify existing non-immunization appointments"
       ref: invariant[0]

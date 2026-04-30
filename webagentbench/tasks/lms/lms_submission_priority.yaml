@@ -48,24 +48,11 @@ seed:
   targets:
     priority_order_ids: '{output.priority_order_ids}'
 canonical_diff:
-  update:
-    - entity: Assignment
-      desc: Submit the top two priority assignments in order with matching priority filenames
-      bijection:
-        over: "target['priority_order_ids'].split(',')[:2]"
-        variable: v
-      where:
-        id:
-          expr: "x == v"
-      changes:
-        submission_status: {in: [submitted, late]}
-        file_name:
-          expr: >-
-            x == 'priority_' + str(target['priority_order_ids'].split(',')[:2].index(v) + 1) + '.pdf'
   invariant:
     - collection: state.assignments
-      filter: "a.id not in target['priority_order_ids'].split(',')[:2]"
+      filter: "a.id not in [pid.strip() for pid in target['priority_order_ids'].split(',') if pid.strip()]"
       preserve: ALL
+      comprehensive: true
     - collection: state.courses
       preserve: ALL
     - collection: state.enrollments
@@ -86,6 +73,19 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+  constraints:
+  - desc: Highest-priority assignment submitted with priority_1.pdf
+    expr: "(state.get_assignment(target['priority_order_ids'].split(',')[0].strip()) is not None and state.get_assignment(target['priority_order_ids'].split(',')[0].strip()).submission_status in ('submitted', 'late') and state.get_assignment(target['priority_order_ids'].split(',')[0].strip()).file_name == 'priority_1.pdf' and state.get_assignment(target['priority_order_ids'].split(',')[0].strip()).attempt_count >= initial.get_assignment(target['priority_order_ids'].split(',')[0].strip()).attempt_count + 1 and state.get_assignment(target['priority_order_ids'].split(',')[0].strip()).submitted_at is not None)"
+    severity: critical
+  - desc: Second-priority assignment submitted with priority_2.pdf
+    expr: "(state.get_assignment(target['priority_order_ids'].split(',')[1].strip()) is not None and state.get_assignment(target['priority_order_ids'].split(',')[1].strip()).submission_status in ('submitted', 'late') and state.get_assignment(target['priority_order_ids'].split(',')[1].strip()).file_name == 'priority_2.pdf' and state.get_assignment(target['priority_order_ids'].split(',')[1].strip()).attempt_count >= initial.get_assignment(target['priority_order_ids'].split(',')[1].strip()).attempt_count + 1 and state.get_assignment(target['priority_order_ids'].split(',')[1].strip()).submitted_at is not None)"
+    severity: critical
+  - desc: Any additional priority submissions use the matching priority order filename
+    expr: "all((state.get_assignment(pid.strip()) is None or state.get_assignment(pid.strip()).submission_status not in ('submitted', 'late') or state.get_assignment(pid.strip()).file_name == 'priority_' + str([p.strip() for p in target['priority_order_ids'].split(',') if p.strip()].index(pid.strip()) + 1) + '.pdf') for pid in target['priority_order_ids'].split(',') if pid.strip())"
+    severity: high
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
     - name: Agent did not modify other assignments
       ref: invariant[0]

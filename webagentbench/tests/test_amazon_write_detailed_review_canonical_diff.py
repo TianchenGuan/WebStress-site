@@ -27,7 +27,7 @@ def _correct_review(state, targets):
         author_name=state.owner_name,
         rating=int(targets["rating"]),
         title=targets["review_title"],
-        body="The lumbar support is excellent after a week of use.",
+        body=f"I noticed that {targets['review_point']}.",
         created_at=datetime.now(timezone.utc),
     ))
 
@@ -115,6 +115,28 @@ def test_wrong_product_fails():
         rating=int(targets["rating"]),
         title=targets["review_title"],
         body="The lumbar support is excellent.",
+        created_at=datetime.now(timezone.utc),
+    ))
+
+    task = get_task("amazon_write_detailed_review")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
+def test_partial_key_point_fails():
+    _, _, targets, initial, state = _setup_session()
+    state.add_review(Review(
+        id=state._next_id("review"),
+        product_id=targets["product_id"],
+        author_name=state.owner_name,
+        rating=int(targets["rating"]),
+        title=targets["review_title"],
+        body="The lumbar support is present.",
         created_at=datetime.now(timezone.utc),
     ))
 

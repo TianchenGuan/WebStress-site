@@ -104,12 +104,15 @@ canonical_diff:
     desc: First order containing the first product, cancelled
     properties:
       items:
-        expr: "any(it['product_id'] == target['first_product_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['first_product_id'] and
+          x[0]['quantity'] == 1"
       status: {eq: cancelled}
       shipping_address_id:
-        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen
+          Terrace' for a in state.addresses if a.id == x)"
       payment_method_id:
-        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods
+          if p.id == x)"
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -122,12 +125,15 @@ canonical_diff:
     desc: Second order containing both second-order items, not cancelled
     properties:
       items:
-        expr: "any(it['product_id'] == target['second_item1_id'] for it in x) and any(it['product_id'] == target['second_item2_id'] for it in x)"
-      status: {in: [confirmed, shipped, delivered, pending]}
+        expr: "len(x) == 2 and {it['product_id'] for it in x} == {target['second_item1_id'],
+          target['second_item2_id']} and all(it['quantity'] == 1 for it in x)"
+      status: {eq: confirmed}
       shipping_address_id:
-        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen
+          Terrace' for a in state.addresses if a.id == x)"
       payment_method_id:
-        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods
+          if p.id == x)"
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -138,7 +144,8 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') in [target['first_product_id'], target['second_item1_id'], target['second_item2_id']] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') in [target['first_product_id'], target['second_item1_id'],
+      target['second_item2_id']] for it in (a.items or []))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

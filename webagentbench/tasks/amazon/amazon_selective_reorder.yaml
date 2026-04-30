@@ -115,8 +115,10 @@ canonical_diff:
     desc: New order placed containing both reorder products together
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id_sel1'] for it in x) and any(it['product_id'] == target['product_id_sel3'] for it in x) and not any(it['product_id'] == target['product_id_sel2'] for it in x)"
-      status: {any: true}
+        expr: "len(x) == 2 and {it['product_id'] for it in x} == {target['product_id_sel1'],
+          target['product_id_sel3']} and not any(it['product_id'] == target['product_id_sel2']
+          for it in x) and all(it['quantity'] == 1 for it in x)"
+      status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
       subtotal: {any: true}
@@ -129,7 +131,9 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not (any(it.get('product_id') == target['product_id_sel1'] for it in (a.items or [])) and any(it.get('product_id') == target['product_id_sel3'] for it in (a.items or [])))"
+    filter: "not (any(it.get('product_id') == target['product_id_sel1'] for it in
+      (a.items or [])) and any(it.get('product_id') == target['product_id_sel3'] for
+      it in (a.items or [])))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

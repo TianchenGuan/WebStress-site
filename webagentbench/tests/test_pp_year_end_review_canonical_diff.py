@@ -56,6 +56,15 @@ def _appeal_claim(state, clm_id: str) -> None:
     raise ValueError(f"claim {clm_id!r} not found")
 
 
+def _expiring_ref(initial, targets):
+    return next(r for r in initial.referrals if r.id == targets["expiring_ref_id"])
+
+
+def _specialist_provider(initial, targets):
+    ref = _expiring_ref(initial, targets)
+    return next(p for p in initial.providers if p.specialty == ref.to_specialty)
+
+
 def _run(targets, initial, state):
     task = get_task("pp_year_end_review")
     agent_diff = compute_diff(initial, state)
@@ -69,12 +78,7 @@ def _run(targets, initial, state):
 def _apply_correct_trajectory(state, targets):
     """Schedule all required appointments and appeal all denied claims."""
     pcp_id = "prov_1"
-    # Need a specialist provider for the expiring-referral follow-up.
-    # Pick any non-PCP provider (expiring_ref's to_provider_id is preferred).
-    specialist_id = next(
-        (p.id for p in state.providers if p.specialty not in ("pcp", "billing", "admin")),
-        pcp_id,
-    )
+    specialist_id = _specialist_provider(state, targets).id
 
     for i, name in enumerate(targets["due_vaccine_names"]):
         state.appointments.append(_make_appt(
@@ -127,10 +131,7 @@ def test_missing_vaccine_apts_fails():
     """All work except the vaccine bijection — must fail."""
     sm, sid, targets, initial, state = _setup_session()
     pcp_id = "prov_1"
-    specialist_id = next(
-        (p.id for p in state.providers if p.specialty not in ("pcp", "billing", "admin")),
-        pcp_id,
-    )
+    specialist_id = _specialist_provider(initial, targets).id
     for i, name in enumerate(targets["overdue_screening_names"]):
         state.appointments.append(_make_appt(
             id=f"appt_scr_{i}", provider_id=pcp_id, reason=name,
@@ -155,10 +156,7 @@ def test_missing_appeals_fails():
     """Appointments scheduled but no claims appealed — must fail."""
     sm, sid, targets, initial, state = _setup_session()
     pcp_id = "prov_1"
-    specialist_id = next(
-        (p.id for p in state.providers if p.specialty not in ("pcp", "billing", "admin")),
-        pcp_id,
-    )
+    specialist_id = _specialist_provider(initial, targets).id
     for i, name in enumerate(targets["due_vaccine_names"]):
         state.appointments.append(_make_appt(
             id=f"appt_vax_{i}", provider_id=pcp_id, reason=name,
@@ -187,10 +185,7 @@ def test_wrong_linked_referral_fails():
     (identity test for expiring_ref_id, hazard Class 4)."""
     sm, sid, targets, initial, state = _setup_session()
     pcp_id = "prov_1"
-    specialist_id = next(
-        (p.id for p in state.providers if p.specialty not in ("pcp", "billing", "admin")),
-        pcp_id,
-    )
+    specialist_id = _specialist_provider(initial, targets).id
     for i, name in enumerate(targets["due_vaccine_names"]):
         state.appointments.append(_make_appt(
             id=f"appt_vax_{i}", provider_id=pcp_id, reason=name,
@@ -214,6 +209,45 @@ def test_wrong_linked_referral_fails():
     report = _run(targets, initial, state)
     assert report.passed is False, (
         "follow-up with wrong linked_referral_id unexpectedly passed"
+    )
+
+
+def test_wrong_specialist_provider_for_expiring_referral_fails():
+    """Follow-up uses the expiring referral but a provider whose specialty
+    does not match that referral — must fail."""
+    sm, sid, targets, initial, state = _setup_session()
+    pcp_id = "prov_1"
+    ref = _expiring_ref(initial, targets)
+    wrong_provider = next(
+        p for p in initial.providers
+        if p.specialty != ref.to_specialty
+    )
+    for i, name in enumerate(targets["due_vaccine_names"]):
+        state.appointments.append(_make_appt(
+            id=f"appt_vax_{i}",
+            provider_id=pcp_id,
+            reason=name,
+            offset_days=14 + i,
+        ))
+    for i, name in enumerate(targets["overdue_screening_names"]):
+        state.appointments.append(_make_appt(
+            id=f"appt_scr_{i}",
+            provider_id=pcp_id,
+            reason=name,
+            offset_days=30 + i,
+        ))
+    state.appointments.append(_make_appt(
+        id="appt_ref_wrong_provider",
+        provider_id=wrong_provider.id,
+        reason="Expiring referral follow-up",
+        linked_referral_id=targets["expiring_ref_id"],
+    ))
+    for cid in targets["denied_claim_ids"]:
+        _appeal_claim(state, cid)
+
+    report = _run(targets, initial, state)
+    assert report.passed is False, (
+        "expiring-referral follow-up with a non-matching provider unexpectedly passed"
     )
 
 

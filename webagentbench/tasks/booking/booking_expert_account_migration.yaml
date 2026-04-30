@@ -82,7 +82,13 @@ canonical_diff:
       desc: Default payment id flips to the new Visa 6666 (system side effect)
       where: {id: {any: true}}
       changes:
-        default_payment_id: {any: true}
+        default_payment_id:
+          expr: >-
+            x == next(
+              (pm.id for pm in state.payment_methods
+               if pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default),
+              ''
+            )
   create:
     - entity: PaymentMethod
       desc: Add American Express ending in 4444

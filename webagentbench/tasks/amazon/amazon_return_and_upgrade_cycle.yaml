@@ -137,7 +137,8 @@ canonical_diff:
       order_id: {expr: "x == target['order_id']"}
       product_id: {expr: "x == target['ret_pid_1']"}
       reason: {eq: defective}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -149,7 +150,8 @@ canonical_diff:
       order_id: {expr: "x == target['order_id']"}
       product_id: {expr: "x == target['ret_pid_2']"}
       reason: {eq: not_as_described}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -159,8 +161,9 @@ canonical_diff:
     desc: New order containing both upgrade products
     properties:
       items:
-        expr: "any(it['product_id'] == target['up_pid_1'] for it in x) and any(it['product_id'] == target['up_pid_2'] for it in x)"
-      status: {any: true}
+        expr: "len(x) == 2 and {it['product_id'] for it in x} == {target['up_pid_1'],
+          target['up_pid_2']} and all(it['quantity'] == 1 for it in x)"
+      status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
       subtotal: {any: true}
@@ -178,9 +181,12 @@ canonical_diff:
       rating: {eq: 5}
       title: {expr: "x == target['review_title']"}
       body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Product
@@ -189,10 +195,14 @@ canonical_diff:
     where:
       id: {expr: "x == target['up_pid_1']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['up_pid_1'])
+          + 1"
   invariant:
   - collection: state.orders
-    filter: "not (any(it.get('product_id') == target['up_pid_1'] for it in (a.items or [])) and any(it.get('product_id') == target['up_pid_2'] for it in (a.items or [])))"
+    filter: "not (any(it.get('product_id') == target['up_pid_1'] for it in (a.items
+      or [])) and any(it.get('product_id') == target['up_pid_2'] for it in (a.items
+      or [])))"
     preserve: ALL
   - collection: state.returns
     filter: "a.order_id != target['order_id']"

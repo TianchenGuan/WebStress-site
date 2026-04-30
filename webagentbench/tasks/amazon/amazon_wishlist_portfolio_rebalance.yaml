@@ -172,16 +172,16 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed containing the cheap item from each of the three categories
+    desc: New order placed containing the cheap item from each of the three
+      categories
     properties:
       items:
-        expr: any(it['product_id'] == target['e_cheap'] for it in x) and any(it['product_id']
-          == target['h_cheap'] for it in x) and any(it['product_id'] == target['s_cheap']
-          for it in x) and not any(it['product_id'] == target['e_exp'] for it in x)
-          and not any(it['product_id'] == target['h_exp'] for it in x) and not any(it['product_id']
-          == target['s_exp'] for it in x)
+        expr: "len(x) == 3 and {it['product_id'] for it in x} == {target['e_cheap'],
+          target['h_cheap'], target['s_cheap']} and not any(it['product_id'] in [target['e_exp'],
+          target['h_exp'], target['s_exp']] for it in x) and all(it['quantity'] ==
+          1 for it in x)"
       status:
-        any: true
+        eq: confirmed
       shipping_address_id:
         any: true
       payment_method_id:
@@ -219,10 +219,10 @@ canonical_diff:
         expr: x == target['s_cheap']
   invariant:
   - collection: state.orders
-    filter: not (any(it.get('product_id') == target['e_cheap'] for it in (a.items
-      or [])) and any(it.get('product_id') == target['h_cheap'] for it in (a.items
-      or [])) and any(it.get('product_id') == target['s_cheap'] for it in (a.items
-      or [])))
+    filter: not (any(it.get('product_id') == target['e_cheap'] for it in
+      (a.items or [])) and any(it.get('product_id') == target['h_cheap'] for it
+      in (a.items or [])) and any(it.get('product_id') == target['s_cheap'] for
+      it in (a.items or [])))
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -245,7 +245,8 @@ canonical_diff:
   - collection: state.cart_items
     preserve: ALL
   - collection: state.wishlist
-    filter: "a.value not in [target['e_cheap'], target['e_exp'], target['h_cheap'], target['h_exp'], target['s_cheap'], target['s_exp']]"
+    filter: "a.value not in [target['e_cheap'], target['e_exp'], target['h_cheap'],
+      target['h_exp'], target['s_cheap'], target['s_exp']]"
     preserve: ALL
   - collection: state.settings
     preserve: ALL

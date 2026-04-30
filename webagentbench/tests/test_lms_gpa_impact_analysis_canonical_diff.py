@@ -1,5 +1,7 @@
 """End-to-end tests for lms_gpa_impact_analysis canonical_diff."""
 
+from datetime import datetime, timezone
+
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -27,6 +29,8 @@ def _mark_improvement_submitted(state, assignment_id: str) -> None:
         raise ValueError(f"assignment {assignment_id!r} not found")
     assignment.file_name = "improvement_plan.pdf"
     assignment.submission_status = "submitted"
+    assignment.attempt_count += 1
+    assignment.submitted_at = datetime.now(timezone.utc)
 
 
 def _mark_announcement_read(state, announcement_id: str) -> None:

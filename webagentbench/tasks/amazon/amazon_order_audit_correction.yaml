@@ -1,12 +1,11 @@
 task_id: amazon_order_audit_correction
 env_id: amazon
 title: Audit Orders Then Cancel, Return, Reorder, and Review
-instruction_template: 'Audit and correct your order history: 1. Open the pending
-  order for ''{target.pend_name}'' on its detail page to confirm its status, then
-  cancel it. 2. Find the delivered order for ''{target.del2_name}'' and return it
-  with reason ''changed_mind''. 3. Find ''{target.del3_name}'' in your order history
-  and reorder it. 4. Write a 5-star review for ''Ceramic Mug Set 4-Pack'' with the
-  title ''{target.review_title}''.
+instruction_template: 'Audit and correct your order history: 1. Open the pending order
+  for ''{target.pend_name}'' on its detail page to confirm its status, then cancel
+  it. 2. Find the delivered order for ''{target.del2_name}'' and return it with reason
+  ''changed_mind''. 3. Find ''{target.del3_name}'' in your order history and reorder
+  it. 4. Write a 5-star review for ''Ceramic Mug Set 4-Pack'' with the title ''{target.review_title}''.
 
   '
 difficulty: frontier
@@ -177,7 +176,8 @@ canonical_diff:
       order_id: {expr: "x == target['order_id_del2']"}
       product_id: {expr: "x == target['del2_pid']"}
       reason: {eq: changed_mind}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -187,7 +187,8 @@ canonical_diff:
     desc: Reorder placed for product from delivered order 3
     properties:
       items:
-        expr: "any(it['product_id'] == target['del3_pid'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['del3_pid'] and x[0]['quantity']
+          == 1"
       status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
@@ -206,9 +207,12 @@ canonical_diff:
       rating: {eq: 5}
       title: {expr: "x == target['review_title']"}
       body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Order
@@ -223,10 +227,17 @@ canonical_diff:
     where:
       id: {expr: "x == target['del1_pid']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['del1_pid'])
+          + 1"
+  constraints:
+  - desc: Agent opened the pending order detail page before cancelling it
+    expr: "target['order_id_pend'] in state.viewed_order_ids"
+    severity: critical
   invariant:
   - collection: state.orders
-    filter: "a.id != target['order_id_pend'] and not any(it.get('product_id') == target['del3_pid'] for it in (a.items or []))"
+    filter: "a.id != target['order_id_pend'] and not any(it.get('product_id') == target['del3_pid']
+      for it in (a.items or []))"
     preserve: ALL
   - collection: state.returns
     filter: "a.order_id != target['order_id_del2']"

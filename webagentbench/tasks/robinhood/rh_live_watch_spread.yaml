@@ -89,6 +89,17 @@ canonical_diff:
     filter: "False"
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: TSLA market buy waited for below-$255 price and two rising ticks
+    expr: any(o.symbol == 'TSLA' and o.side == 'buy' and o.order_type ==
+      'market' and o.quantity == Decimal('5') and o.status == 'filled' and
+      o.filled_tick is not None and o.filled_tick >= 2 and
+      state._price_engine.price_at_tick('TSLA', o.filled_tick - 2) <
+      Decimal('255') and state._price_engine.price_at_tick('TSLA',
+      o.filled_tick - 2) < state._price_engine.price_at_tick('TSLA',
+      o.filled_tick - 1) < state._price_engine.price_at_tick('TSLA',
+      o.filled_tick) for o in state.orders)
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures patience, grounding, state_tracking by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

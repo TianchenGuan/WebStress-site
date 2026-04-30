@@ -125,3 +125,32 @@ def test_wrong_return_reason_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_missing_pending_order_detail_view_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    state.cancel_order(targets["order_id_pend"])
+    state.request_return(order_id=targets["order_id_del2"], order_item_index=0, reason="changed_mind")
+    state.add_to_cart(targets["del3_pid"], quantity=1)
+    addr = next(a for a in state.addresses if a.is_default)
+    pm = next(p for p in state.payment_methods if p.is_default)
+    state.place_order(shipping_address_id=addr.id, payment_method_id=pm.id)
+    state.add_review(Review(
+        id=state._next_id("review"),
+        product_id=targets["del1_pid"],
+        author_name=state.owner_name,
+        rating=5,
+        title=targets["review_title"],
+        body="Perfect set.",
+        created_at=datetime.now(timezone.utc),
+    ))
+
+    task = get_task("amazon_order_audit_correction")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

@@ -80,7 +80,11 @@ canonical_diff:
         in_reply_to:
           expr: "x == target['chen_wei_latest_email_id']"
         to:
-          expr: "target['chen_wei_email'] in x"
+          expr: "x == [target['chen_wei_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "x.strip().startswith(target['reply_text'])"
         forwarded_from_id:

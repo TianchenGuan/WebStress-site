@@ -61,3 +61,42 @@ def test_missing_items_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "incomplete items should fail"
+
+
+def test_reassigned_or_wrong_items_fail():
+    """Including reassigned/decoy items violates the extraction objective."""
+    _, _, targets, initial, state = _setup_session()
+    body = "\n".join(
+        [
+            *targets["correct_action_items"],
+            targets["reassigned_item"],
+            targets["adversarial_wrong_item"],
+        ]
+    )
+    state.send_email(
+        subject=f"Offsite Action Items — {targets['user_name']}",
+        body=body,
+        to=[targets["manager_email"]],
+    )
+
+    task = get_task('gmail_action_item_extraction')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "reassigned or wrong action items should fail"
+
+
+def test_subject_drift_fails():
+    """The subject is instruction-bound, so client save-drift must be observable."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject=f"Offsite Action Items — {targets['user_name']} ",
+        body="\n".join(targets["correct_action_items"]),
+        to=[targets["manager_email"]],
+    )
+
+    task = get_task('gmail_action_item_extraction')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "trailing subject drift should fail"

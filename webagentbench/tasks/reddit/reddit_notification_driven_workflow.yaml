@@ -4,11 +4,9 @@ instruction_template: '1. Mark all notifications as read.
 
   2. Mark all messages as read.
 
-  3. Navigate to r/{target.sub1} and find "{target.post1_title}". Upvote and save
-  it.
+  3. Navigate to r/{target.sub1} and find "{target.post1_title}". Upvote and save it.
 
-  4. Navigate to r/{target.sub2} and find "{target.post2_title}". Comment with exactly:
-  "{target.comment_text}"
+  4. Navigate to r/{target.sub2} and find "{target.post2_title}". Comment with exactly: "{target.comment_text}"
 
   5. Unsubscribe from r/{target.leave_sub}.
 
@@ -55,8 +53,7 @@ seed:
     sub2: '{output.post2_sub}'
     post2_title: '{output.post2_title}'
     post2_id: '{output.post2_id}'
-    comment_text: Corvids in general are incredibly intelligent. New Caledonian crows
-      even craft and use tools.
+    comment_text: Corvids in general are incredibly intelligent. New Caledonian crows even craft and use tools.
     leave_sub: memes
 canonical_diff:
   update:
@@ -103,9 +100,9 @@ canonical_diff:
         eq: false
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
+      theme: {eq: dark}
   create:
   - entity: Comment
     desc: TIL comment posted with required text on the comment post
@@ -117,7 +114,7 @@ canonical_diff:
       author_name:
         expr: x == state.owner_username
       parent_id:
-        eq: null
+        eq:
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -136,6 +133,23 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities ==
+      initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
@@ -147,8 +161,7 @@ eval:
     desc: WHO post upvoted
   - expr: '''{target.post1_id}'' in state.saved_post_ids'
     desc: WHO post saved
-  - expr: any(c.post_id == '{target.post2_id}' and "New Caledonian crows" in c.body
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.post2_id}' and "New Caledonian crows" in c.body for c in state.comments)
     desc: TIL comment
   - expr: any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)
     desc: Left r/memes
@@ -158,12 +171,10 @@ eval:
   - expr: state.get_post('{target.post2_id}').vote_direction == 0
     desc: TIL post not voted
     penalty: 0.1
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) == 0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

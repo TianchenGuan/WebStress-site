@@ -63,7 +63,9 @@ canonical_diff:
     desc: New confirmed order containing the two wishlist target items
     properties:
       items:
-        expr: "len(x) == 2 and any(it['product_id'] == target['product_id'] for it in x) and any(it['product_id'] == target['product_id_2'] for it in x)"
+        expr: "len(x) == 2 and any(it['product_id'] == target['product_id'] for
+          it in x) and any(it['product_id'] == target['product_id_2'] for it in
+          x) and all(it['quantity'] == 1 for it in x)"
       status: {eq: confirmed}
       shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
       payment_method_id: {expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods)"}

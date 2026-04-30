@@ -183,19 +183,22 @@ canonical_diff:
         nights: {eq: 4}
         guests: {eq: 2}
         rooms: {any: true}
-        price_per_night: {any: true}
+        price_per_night: {expr: "x < 300.0"}
         total_price: {any: true}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}
         booked_at: {any: true}
-        guest_info: {any: true}
-        payment_method_id: {any: true}
-        cancellation_policy: {any: true}
+        guest_info: {expr: "x.full_name == initial.owner_name and x.email == initial.owner_email"}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
+        cancellation_policy: {expr: "x.type == 'free_cancellation'"}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
         genius_discount: {any: true}
-        meals_included: {any: true}
+        meals_included: {eq: breakfast}
         rating_submitted: {any: true}
   invariant:
     - collection: state.reservations

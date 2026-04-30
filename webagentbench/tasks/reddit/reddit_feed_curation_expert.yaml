@@ -1,7 +1,6 @@
 task_id: reddit_feed_curation_expert
 title: Feed Curation and Quality Control
-instruction_template: '1. Hide the post "{target.hide_title}" in r/{target.hide_sub}
-  (it is off-topic).
+instruction_template: '1. Hide the post "{target.hide_title}" in r/{target.hide_sub} (it is off-topic).
 
   2. In r/science find "{target.sci_title}". Upvote, save, and comment: "{target.sci_comment}"
 
@@ -25,8 +24,7 @@ seed:
   - use: target_post
     params:
       subreddit: science
-      title: Engineered probiotic bacteria can detect and treat inflammatory bowel
-        disease in mice
+      title: Engineered probiotic bacteria can detect and treat inflammatory bowel disease in mice
       body: Published in Nature Biotechnology.
       score: 19000
     outputs:
@@ -67,12 +65,10 @@ seed:
     sci_id: '{output.sci_id}'
     prog_title: '{output.prog_title}'
     prog_id: '{output.prog_id}'
-    sci_comment: The targeted delivery mechanism is elegant. If this translates to
-      human trials, it could replace systemic immunosuppressants.
+    sci_comment: The targeted delivery mechanism is elegant. If this translates to human trials, it could replace systemic immunosuppressants.
     msg_to: SilentObserver
     msg_sub: Your SSH tunneling guide
-    msg_body: Best SSH explanation I have ever seen. Would you mind if I reference
-      it in a training doc I am writing?
+    msg_body: Best SSH explanation I have ever seen. Would you mind if I reference it in a training doc I am writing?
     unread_notification_ids: '{output.unread_notification_ids}'
 canonical_diff:
   update:
@@ -117,9 +113,9 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      default_feed_sort: { eq: top }
+      default_feed_sort: {eq: top}
   create:
   - entity: Comment
     desc: Comment on science post with exact text
@@ -129,7 +125,7 @@ canonical_diff:
       body:
         expr: x == target['sci_comment']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   - entity: Message
@@ -144,6 +140,8 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['msg_body']
+      parent_id:
+        eq:
   invariant:
   - collection: state.subreddits
     preserve: ALL
@@ -207,6 +205,20 @@ canonical_diff:
   - name: Agent did not edit user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.theme == initial.settings.theme and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and
+      state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.hidden_post_ids) == sorted([p.id for p in state.posts if p.is_hidden])
+    desc: Hidden-post primitive list matches hidden post flags
+    severity: high
 eval:
   source: server_state
   checks:
@@ -216,8 +228,7 @@ eval:
     desc: Science post upvoted
   - expr: '''{target.sci_id}'' in state.saved_post_ids'
     desc: Science post saved
-  - expr: any(c.post_id == '{target.sci_id}' and "targeted delivery" in c.body for
-      c in state.comments)
+  - expr: any(c.post_id == '{target.sci_id}' and "targeted delivery" in c.body for c in state.comments)
     desc: Science comment
   - expr: '''{target.prog_id}'' in state.saved_post_ids'
     desc: Prog post saved
@@ -234,12 +245,10 @@ eval:
   - expr: len(state.hidden_post_ids) <= 1
     desc: Only one post hidden
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) == 0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
 env_id: reddit

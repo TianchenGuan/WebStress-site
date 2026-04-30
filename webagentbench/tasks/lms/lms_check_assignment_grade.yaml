@@ -74,6 +74,10 @@ canonical_diff:
           changes:
             submission_status: {in: [submitted, late]}
             file_name: {eq: improvement.pdf}
+            attempt_count:
+              expr: "x >= 1"
+            submitted_at:
+              expr: "x is not None"
       invariant:
         - collection: state.assignments
           filter: "a.id != target['unsubmitted_hw_id']"
@@ -100,6 +104,10 @@ canonical_diff:
           preserve: ALL
         - collection: state.student
           preserve: ALL
+      constraints:
+        - desc: Agent did not send messages
+          expr: "len(state.sent_messages) == 0"
+          severity: medium
       named_invariants:
         - name: Agent did not modify other assignments
           ref: invariant[0]
@@ -169,6 +177,10 @@ canonical_diff:
           preserve: ALL
         - collection: state.student
           preserve: ALL
+      constraints:
+        - desc: Agent did not send messages
+          expr: "len(state.sent_messages) == 0"
+          severity: medium
       named_invariants:
         - name: Agent did not modify non-target announcements
           ref: invariant[0]

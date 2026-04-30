@@ -1,18 +1,14 @@
 task_id: reddit_research_and_create
 title: Research Across Subs and Create Content
-instruction_template: '1. Search for "quantum computing". Find and save "{target.search_title}"
-  in r/{target.search_sub}.
+instruction_template: '1. Search for "quantum computing". Find and save "{target.search_title}" in r/{target.search_sub}.
 
-  2. Navigate to r/{target.comment_sub} and find "{target.comment_title}". Comment
-  with exactly: "{target.comment_text}"
+  2. Navigate to r/{target.comment_sub} and find "{target.comment_title}". Comment with exactly: "{target.comment_text}"
 
-  3. Create a post in r/Python title exactly: "{target.post_title}" body exactly:
-  "{target.post_body}"
+  3. Create a post in r/Python title exactly: "{target.post_title}" body exactly: "{target.post_body}"
 
   4. Subscribe to r/{target.join_sub}.
 
-  5. Send message to u/{target.msg_to} subject "{target.msg_subject}" body exactly:
-  "{target.msg_body}"
+  5. Send message to u/{target.msg_to} subject "{target.msg_subject}" body exactly: "{target.msg_body}"
 
   6. Mark all notifications as read. Set theme to "dark" and feed sort to "new".
 
@@ -31,8 +27,7 @@ seed:
     params:
       subreddit: technology
       title: Google achieves quantum error correction below the fault-tolerant threshold
-      body: 'Quantum computing milestone: Willow processor demonstrates exponential
-        error suppression, a key step toward practical large-scale quantum computing.'
+      body: 'Quantum computing milestone: Willow processor demonstrates exponential error suppression, a key step toward practical large-scale quantum computing.'
       score: 38000
     outputs:
     - search_id
@@ -41,8 +36,7 @@ seed:
   - use: target_post
     params:
       subreddit: science
-      title: Quantum computers simulate molecular interactions impossible for classical
-        machines
+      title: Quantum computers simulate molecular interactions impossible for classical machines
       body: Implications for drug discovery.
       author: PhotonWave
       score: 21000
@@ -63,17 +57,13 @@ seed:
     comment_sub: '{output.comment_sub}'
     comment_title: '{output.comment_title}'
     comment_id: '{output.comment_id}'
-    comment_text: The drug discovery implications are enormous. Classical simulation
-      of protein folding is exponentially hard in the number of atoms.
+    comment_text: The drug discovery implications are enormous. Classical simulation of protein folding is exponentially hard in the number of atoms.
     post_title: Building a quantum circuit simulator in Python with NumPy
-    post_body: I wrote a minimal quantum simulator that handles up to 20 qubits using
-      sparse matrix operations. Code and benchmarks in comments.
+    post_body: I wrote a minimal quantum simulator that handles up to 20 qubits using sparse matrix operations. Code and benchmarks in comments.
     join_sub: Piracy
     msg_to: PhotonWave
     msg_subject: Quantum simulation post
-    msg_body: Loved your post about molecular simulation. I built a quantum circuit
-      simulator in Python - would you be interested in testing it on real chemistry
-      problems?
+    msg_body: Loved your post about molecular simulation. I built a quantum circuit simulator in Python - would you be interested in testing it on real chemistry problems?
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
   update:
@@ -106,10 +96,10 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      default_feed_sort: { eq: new }
+      theme: {eq: dark}
+      default_feed_sort: {eq: new}
   create:
   - entity: Comment
     desc: Exact comment posted on target science post
@@ -120,6 +110,8 @@ canonical_diff:
         expr: x == target['comment_text']
       author_name:
         expr: x == state.owner_username
+      parent_id:
+        eq:
   - entity: Post
     desc: Exact post created in r/Python
     properties:
@@ -131,6 +123,10 @@ canonical_diff:
         expr: x == target['post_body']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   - entity: Message
     collection: state.sent_messages
     desc: Exact outreach message sent to u/{target.msg_to}
@@ -143,6 +139,8 @@ canonical_diff:
         expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        eq:
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -161,16 +159,31 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - expr: state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country
+      and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: '''{target.search_id}'' in state.saved_post_ids'
     desc: Search result saved
-  - expr: any(c.post_id == '{target.comment_id}' and c.author_name == state.owner_username
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.comment_id}' and c.author_name == state.owner_username for c in state.comments)
     desc: Comment posted
-  - expr: any(p.title == '{target.post_title}' and p.author_name == state.owner_username
-      for p in state.posts)
+  - expr: any(p.title == '{target.post_title}' and p.author_name == state.owner_username for p in state.posts)
     desc: Post created
   - expr: any(s.name == '{target.join_sub}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed
@@ -184,12 +197,10 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) <= 2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

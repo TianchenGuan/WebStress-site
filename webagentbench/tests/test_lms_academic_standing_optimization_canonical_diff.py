@@ -33,6 +33,24 @@ def _submit_optimization(state, assignment_id: str, *, file_name: str = "optimiz
     assignment.submission_status = "late" if assignment.submitted_at > assignment.due_at else "submitted"
 
 
+def _send_message(
+    state,
+    *,
+    to: str,
+    subject: str = "Standing strategy",
+    body: str = "I submitted the highest-priority work and will keep the strategy focused.",
+) -> None:
+    state.sent_messages.append(
+        {
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "from": state.student.email,
+        }
+    )
+
+
 def _report(initial, state, targets):
     task = get_task("lms_academic_standing_optimization")
     agent_diff = compute_diff(initial, state)
@@ -49,6 +67,7 @@ def test_correct_trajectory_passes():
     _, _, targets, initial, state = _setup_session()
 
     _submit_optimization(state, _missing_assignment_id(targets))
+    _send_message(state, to=targets["advisor_name"])
 
     report = _report(initial, state, targets)
     assert report.passed is True, f"failures: {report.failures}"
@@ -67,9 +86,29 @@ def test_wrong_file_fails():
     _, _, targets, initial, state = _setup_session()
 
     _submit_optimization(state, _missing_assignment_id(targets), file_name="wrong_upload.pdf")
+    _send_message(state, to=targets["advisor_name"])
 
     report = _report(initial, state, targets)
     assert report.passed is False, "submitting the assignment with the wrong file should fail"
+
+
+def test_missing_message_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _submit_optimization(state, _missing_assignment_id(targets))
+
+    report = _report(initial, state, targets)
+    assert report.passed is False, "submitting optimization work without an advisor message should fail"
+
+
+def test_wrong_message_recipient_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _submit_optimization(state, _missing_assignment_id(targets))
+    _send_message(state, to="someone_else@example.com")
+
+    report = _report(initial, state, targets)
+    assert report.passed is False, "messaging a non-advisor should fail"
 
 
 def test_extra_mutation_fails():
@@ -84,6 +123,7 @@ def test_extra_mutation_fails():
         if assignment.id != target_assignment_id
     )
     _submit_optimization(state, extra_assignment, file_name="optimization.pdf")
+    _send_message(state, to=targets["advisor_name"])
 
     report = _report(initial, state, targets)
     assert report.passed is False, "submitting an extra assignment should fail"

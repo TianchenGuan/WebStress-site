@@ -57,20 +57,24 @@ seed:
     order_id: '{output.order_id}'
     rating: '4'
     review_title: Great chair but takes time to adjust
-    review_point: the lumbar support made a noticeable difference after the first
-      week
+    review_point: the lumbar support made a noticeable difference after the
+      first week
 canonical_diff:
   create:
   - entity: Review
-    desc: Detailed review with correct rating, title, and a body mentioning the key point
+    desc: Detailed review with correct rating, title, and a body mentioning the
+      key point
     properties:
       product_id: {expr: "x == target['product_id']"}
       rating: {expr: "x == int(target['rating'])"}
       title: {expr: "x == target['review_title']"}
-      body: {substring: "lumbar"}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      body: {expr: "target['review_point'].lower() in x.lower()"}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Product
@@ -79,7 +83,9 @@ canonical_diff:
     where:
       id: {expr: "x == target['product_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product_id'])
+          + 1"
   invariant:
   - collection: state.products
     filter: "a.id != target['product_id']"

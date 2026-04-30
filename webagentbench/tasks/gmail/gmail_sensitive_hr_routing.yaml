@@ -102,8 +102,7 @@ canonical_diff:
         to:
           expr: "x == [target['hr_director_email']]"
         body:
-          substring_all:
-            - Forwarding for confidential review
+          regex: "^Forwarding for confidential review\\. Do not reply-all on the original thread\\.\\n\\nForwarded message from"
         cc:
           eq: []
         bcc:
@@ -117,8 +116,10 @@ canonical_diff:
         to:
           expr: "x == [target['benefits_requester_email']]"
         body:
-          expr: "target['employee_id'] in x"
+          expr: "x == 'Your employee ID is ' + target['employee_id'] + '. HR will process the dental enrollment within 5 business days.'"
         cc:
+          eq: []
+        bcc:
           eq: []
     - entity: sent
       desc: Forward resignation to VP and HR director
@@ -127,10 +128,13 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['thread_3_msg_id']"
         body:
-          substring_all:
-            - Resignation received
+          regex: "^Resignation received\\. Backfill planning needed\\.\\n\\nForwarded message from"
         to:
-          expr: "target['vp_email'] in x or target['hr_director_email'] in x"
+          expr: "sorted(x) == sorted([target['vp_email'], target['hr_director_email']]) and len(x) == 2"
+        cc:
+          eq: []
+        bcc:
+          eq: []
   update:
     - entity: emails
       desc: Star the resignation email

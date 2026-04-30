@@ -221,7 +221,7 @@ canonical_diff:
         booked_at: {any: true}
         guest_info: {any: true}
         payment_method_id: {eq: "pm_4"}
-        cancellation_policy: {any: true}
+        cancellation_policy: {expr: "x.type == 'free_cancellation'"}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
         genius_discount: {any: true}
@@ -246,7 +246,7 @@ canonical_diff:
         scores: {any: true}
         title: {eq: "Pleasant London stay"}
         positive: {expr: "'afternoon tea' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -265,6 +265,8 @@ canonical_diff:
       filter: "a.property_id != target['completed_id']"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['completed_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.messages
       preserve: ALL

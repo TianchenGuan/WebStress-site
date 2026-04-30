@@ -6,15 +6,13 @@ instruction_template: 'Complete this messaging workflow:
   1. Go to Messages. Mark all messages as read.
 
 
-  2. Find the message from u/{target.reply_from} with subject "{target.reply_subject}".
-  Reply with exactly: "{target.reply_body}"
+  2. Find the message from u/{target.reply_from} with subject "{target.reply_subject}". Reply with exactly: "{target.reply_body}"
 
 
   3. Delete the message from u/{target.delete_from} with subject "{target.delete_subject}".
 
 
-  4. Compose a new message to u/{target.new_to} with subject "{target.new_subject}"
-  and body exactly: "{target.new_body}"
+  4. Compose a new message to u/{target.new_to} with subject "{target.new_subject}" and body exactly: "{target.new_body}"
 
 
   5. Go to Settings and disable email notifications for private messages.
@@ -55,15 +53,13 @@ seed:
     reply_from: '{output.reply_msg_from}'
     reply_subject: '{output.reply_msg_subject}'
     reply_msg_id: '{output.reply_msg_id}'
-    reply_body: Absolutely! I have experience with evaluation frameworks. Let me know
-      how to get started.
+    reply_body: Absolutely! I have experience with evaluation frameworks. Let me know how to get started.
     delete_from: '{output.delete_msg_from}'
     delete_subject: '{output.delete_msg_subject}'
     delete_msg_id: '{output.delete_msg_id}'
     new_to: ByteRunner
     new_subject: Open source maintainer meetup
-    new_body: A few of us are organizing a virtual meetup for open source maintainers.
-      Would you like to join? It is scheduled for next Saturday at 3pm EST.
+    new_body: A few of us are organizing a virtual meetup for open source maintainers. Would you like to join? It is scheduled for next Saturday at 3pm EST.
 canonical_diff:
   update:
   - entity: Message
@@ -80,9 +76,9 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      email_messages: { eq: false }
+      email_messages: {eq: false}
   delete:
   - entity: Message
     collection: messages
@@ -97,10 +93,14 @@ canonical_diff:
     properties:
       to_user:
         expr: x == target['reply_from']
+      subject:
+        expr: "x == 'Re: ' + target['reply_subject']"
       body:
         expr: x == target['reply_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        expr: x == target['reply_msg_id']
   - entity: Message
     collection: sent_messages
     desc: Compose the new outreach message with the exact subject and body
@@ -114,7 +114,7 @@ canonical_diff:
       from_user:
         expr: x == state.owner_username
       parent_id:
-        eq: null
+        eq:
   invariant:
   - collection: state.subreddits
     preserve: ALL
@@ -130,20 +130,21 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.theme == initial.settings.theme and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities
+      and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.unread_message_count() == 0
     desc: All messages marked read
-  - expr: any(m.to_user == '{target.reply_from}' and m.body == "Absolutely! I have
-      experience with evaluation frameworks. Let me know how to get started." for
-      m in state.sent_messages)
+  - expr: any(m.to_user == '{target.reply_from}' and m.body == "Absolutely! I have experience with evaluation frameworks. Let me know how to get started." for m in state.sent_messages)
     desc: Reply sent with exact text
-  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}'
-      and m.body == '{target.new_body}' for m in state.sent_messages)
+  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}' and m.body == '{target.new_body}' for m in state.sent_messages)
     desc: New message sent with exact text
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) == 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) == 2
     desc: Exactly two messages were sent
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam message deleted
@@ -156,14 +157,11 @@ eval:
   - expr: len(state.messages) >= 6
     desc: Other messages were not deleted
     penalty: 0.25
-  - expr: not any( e.action == 'reddit.message.delete' and e.payload.get('message_id')
-      != '{target.delete_msg_id}' for e in state.audit_log)
+  - expr: not any( e.action == 'reddit.message.delete' and e.payload.get('message_id') != '{target.delete_msg_id}' for e in state.audit_log)
     desc: No messages other than the spam target were deleted
     penalty: 0.2
-  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.message.send') ==
-      2
-    desc: Messaging workflow sent exactly the required reply and one new outreach
-      message
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.message.send') == 2
+    desc: Messaging workflow sent exactly the required reply and one new outreach message
     penalty: 0.15
 env_id: reddit
 secondary_primitives: []

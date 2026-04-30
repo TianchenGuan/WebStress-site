@@ -98,3 +98,11 @@ def test_missing_visa_fails():
     state.add_payment_method(pm_amex)
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "missing Visa 6666 should fail"
+
+
+def test_missing_default_payment_pointer_fails():
+    task, targets, initial, state = _setup_session(0)
+    _apply_correct_actions(state, targets)
+    state.settings.default_payment_id = next(pm.id for pm in initial.payment_methods if pm.is_default)
+    report = _evaluate(task, initial, state, targets)
+    assert report.passed is False, "settings.default_payment_id must point to Visa 6666"

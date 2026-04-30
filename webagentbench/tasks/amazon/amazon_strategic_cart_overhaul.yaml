@@ -116,13 +116,21 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: Order contains both alt products and kept budget items; no expensive ones
+    desc: Order contains both alt products and kept budget items; no expensive
+      ones
     properties:
       items:
-        expr: "any(it['product_id'] == target['alt_id_1'] for it in x) and any(it['product_id'] == target['alt_id_2'] for it in x) and any(it['product_name'] == 'USB-C Charging Cable 3-Pack' for it in x) and any(it['product_name'] == 'Stainless Steel Water Bottle' for it in x) and any(it['product_name'] == 'Cotton Crew Socks 6-Pack' for it in x) and all(it['product_name'] not in ['Premium Noise-Cancelling Headphones', 'Smart Home Security Camera', 'Ergonomic Standing Desk Mat'] for it in x)"
+        expr: "len(x) == 5 and any(it['product_id'] == target['alt_id_1'] and it['quantity']
+          == 1 for it in x) and any(it['product_id'] == target['alt_id_2'] and it['quantity']
+          == 1 for it in x) and any(it['product_name'] == 'USB-C Charging Cable 3-Pack'
+          and it['quantity'] == 1 for it in x) and any(it['product_name'] == 'Stainless
+          Steel Water Bottle' and it['quantity'] == 1 for it in x) and any(it['product_name']
+          == 'Cotton Crew Socks 6-Pack' and it['quantity'] == 1 for it in x) and all(it['product_name']
+          not in ['Premium Noise-Cancelling Headphones', 'Smart Home Security Camera',
+          'Ergonomic Standing Desk Mat'] for it in x)"
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

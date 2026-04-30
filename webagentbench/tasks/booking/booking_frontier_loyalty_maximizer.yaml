@@ -223,11 +223,14 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
-        is_genius_deal: {any: true}
-        genius_discount: {any: true}
+        is_genius_deal: {eq: true}
+        genius_discount: {expr: "x > 0"}
         meals_included: {any: true}
         rating_submitted: {any: true}
     - entity: Reservation
@@ -249,11 +252,14 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
-        is_genius_deal: {any: true}
-        genius_discount: {any: true}
+        is_genius_deal: {eq: true}
+        genius_discount: {expr: "x > 0"}
         meals_included: {any: true}
         rating_submitted: {any: true}
     - entity: Reservation
@@ -275,11 +281,14 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
-        is_genius_deal: {any: true}
-        genius_discount: {any: true}
+        is_genius_deal: {eq: true}
+        genius_discount: {expr: "x > 0"}
         meals_included: {any: true}
         rating_submitted: {any: true}
     - entity: SavedList
@@ -318,7 +327,7 @@ canonical_diff:
         title: {eq: "Genius perks made the difference"}
         positive:
           expr: "'room upgrade' in x.lower()"
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -333,6 +342,8 @@ canonical_diff:
         a.id != target['review_res_id']
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_prop_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.reviews
       filter: "a.property_id != target['review_prop_id']"

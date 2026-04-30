@@ -27,6 +27,7 @@ def _run(targets, initial_snap, initial_dict, state):
 
 def _make_correct_reservation(targets, state, suffix=""):
     pm = state.payment_methods[0]
+    cheapest_price = min(rt.price_per_night for rt in state.get_property(targets['genius_prop_id']).room_types if rt.is_available and rt.max_occupancy >= 2)
     return Reservation(
         id=f"res_new{suffix}",
         property_id=targets['genius_prop_id'],
@@ -38,15 +39,15 @@ def _make_correct_reservation(targets, state, suffix=""):
         nights=4,
         guests=2,
         rooms=1,
-        price_per_night=180.0,
+        price_per_night=cheapest_price,
         total_price=720.0,
         taxes_and_fees=72.0,
         currency="USD",
         status="confirmed",
         booked_at=datetime.now(timezone.utc),
         guest_info=ReservationGuest(
-            full_name="Test User",
-            email="test@example.com",
+            full_name=state.owner_name,
+            email=state.owner_email,
         ),
         payment_method_id=pm.id,
         cancellation_policy=CancellationPolicy(),

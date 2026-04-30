@@ -63,10 +63,11 @@ canonical_diff:
       symbol: {expr: "x == v"}
       side: {eq: buy}
       order_type: {eq: limit}
-      status: {in: [pending, filled]}
+      status: {eq: pending}
       limit_price: {expr: "abs(float(x) - float(state.get_stock(v).price) * 0.97) <= 1.0"}
-      quantity: {any: true}
-      filled_quantity: {any: true}
+      quantity: {expr: "Decimal(str(x)) == Decimal(max(1, int(Decimal('500') /
+          state.get_stock(v).price)))"}
+      filled_quantity: {eq: 0}
       filled_price: {any: true}
       stop_price: {any: true}
       trail_amount: {any: true}
@@ -92,6 +93,18 @@ canonical_diff:
     preserve: ALL
   - collection: state.positions
     preserve: ALL
+  - collection: state.transactions
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
   - collection: state.price_alerts
     preserve: ALL
+  constraints:
+  - desc: Each passing-symbol order represents about $500 of buying intent
+    expr: all(o.quantity == Decimal(max(1, int(Decimal('500') /
+      state.get_stock(o.symbol).price))) and o.status == 'pending' and
+      o.filled_quantity == Decimal('0') for o in state.orders if o.side == 'buy'
+      and o.symbol in target['passing_symbols'] and o.id not in [io.id for io in
+      initial.orders])
+    severity: critical
 secondary_primitives: []

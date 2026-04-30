@@ -94,9 +94,12 @@ canonical_diff:
       rating: {eq: 5}
       title: {expr: "x == target['product1_title']"}
       body: {expr: "len(x.strip()) >= 20 and any(ch in x for ch in '.!?')"}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   - entity: Review
     desc: 3-star review for product 2 with the target title
@@ -105,9 +108,12 @@ canonical_diff:
       rating: {eq: 3}
       title: {expr: "x == target['product2_title']"}
       body: {expr: "len(x.strip()) >= 20 and any(ch in x for ch in '.!?')"}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   - entity: Review
     desc: 4-star review for product 3 with the target title
@@ -116,9 +122,12 @@ canonical_diff:
       rating: {eq: 4}
       title: {expr: "x == target['product3_title']"}
       body: {expr: "len(x.strip()) >= 20 and any(ch in x for ch in '.!?')"}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Product
@@ -127,21 +136,27 @@ canonical_diff:
     where:
       id: {expr: "x == target['product1_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product1_id'])
+          + 1"
   - entity: Product
     desc: Product review_count incremented for product 2 review (weight 0)
     weight: 0.0
     where:
       id: {expr: "x == target['product2_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product2_id'])
+          + 1"
   - entity: Product
     desc: Product review_count incremented for product 3 review (weight 0)
     weight: 0.0
     where:
       id: {expr: "x == target['product3_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product3_id'])
+          + 1"
   invariant:
   - collection: state.reviews
     filter: "a.product_id not in (target['product1_id'], target['product2_id'], target['product3_id'])"

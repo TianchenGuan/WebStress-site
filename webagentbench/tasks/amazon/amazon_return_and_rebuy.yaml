@@ -89,22 +89,27 @@ canonical_diff:
       order_id: {expr: "x == target['original_order_id']"}
       product_id: {expr: "x == target['return_product_id']"}
       reason: {eq: wrong_item}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
       created_at: {any: true}
       resolution_note: {any: true}
   - entity: Order
-    desc: New one-item order for the replacement product using the required address and payment
+    desc: New one-item order for the replacement product using the required
+      address and payment
     properties:
       items:
-        expr: "len(x) == 1 and x[0]['product_id'] == target['replacement_id']"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['replacement_id'] and
+          x[0]['quantity'] == 1"
       shipping_address_id:
-        expr: "any(a.full_name == target['shipping_name'] and a.street_address == target['shipping_street'] for a in state.addresses if a.id == x)"
+        expr: "any(a.full_name == target['shipping_name'] and a.street_address ==
+          target['shipping_street'] for a in state.addresses if a.id == x)"
       payment_method_id:
-        expr: "any(p.card_type == target['payment_type'] and p.last_four == target['payment_last_four'] for p in state.payment_methods if p.id == x)"
-      status: {any: true}
+        expr: "any(p.card_type == target['payment_type'] and p.last_four == target['payment_last_four']
+          for p in state.payment_methods if p.id == x)"
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -115,7 +120,8 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['replacement_id'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['replacement_id'] for it in (a.items
+      or []))"
     preserve: ALL
   - collection: state.returns
     filter: "a.order_id != target['original_order_id']"

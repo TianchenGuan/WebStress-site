@@ -20,7 +20,7 @@ def _setup_session(seed: int = 42):
     return sm, sid, dict(targets), initial, state
 
 
-def _make_reservation(targets, *, property_id=None, room_type_id=None,
+def _make_reservation(targets, state, *, property_id=None, room_type_id=None,
                        room_type_name="River View Deluxe",
                        check_in="2026-06-20", check_out="2026-06-22",
                        nights=2, guests=2, status="confirmed"):
@@ -41,7 +41,7 @@ def _make_reservation(targets, *, property_id=None, room_type_id=None,
         currency="USD",
         status=status,
         booked_at=datetime.now(timezone.utc),
-        guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
+        guest_info=ReservationGuest(full_name=state.owner_name, email=state.owner_email),
         payment_method_id="pm_1",
         cancellation_policy=CancellationPolicy(),
         confirmation_number="CONF123",
@@ -55,7 +55,7 @@ def _make_reservation(targets, *, property_id=None, room_type_id=None,
 def test_correct_trajectory_passes():
     for seed in (0, 3, 42):
         sm, sid, targets, initial, state = _setup_session(seed=seed)
-        state.reservations.append(_make_reservation(targets))
+        state.reservations.append(_make_reservation(targets, state))
 
         task = get_task(TASK_ID)
         agent_diff = compute_diff(initial, state)
@@ -75,7 +75,7 @@ def test_no_mutation_fails():
 
 def test_wrong_property_fails():
     sm, sid, targets, initial, state = _setup_session()
-    state.reservations.append(_make_reservation(targets, property_id="prop_wrong_123"))
+    state.reservations.append(_make_reservation(targets, state, property_id="prop_wrong_123"))
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)
@@ -85,7 +85,7 @@ def test_wrong_property_fails():
 
 def test_wrong_room_name_fails():
     sm, sid, targets, initial, state = _setup_session()
-    state.reservations.append(_make_reservation(targets, room_type_name="Standard City Room"))
+    state.reservations.append(_make_reservation(targets, state, room_type_name="Standard City Room"))
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)
@@ -95,7 +95,7 @@ def test_wrong_room_name_fails():
 
 def test_wrong_dates_fail():
     sm, sid, targets, initial, state = _setup_session()
-    state.reservations.append(_make_reservation(targets, check_in="2026-07-01", check_out="2026-07-03", nights=2))
+    state.reservations.append(_make_reservation(targets, state, check_in="2026-07-01", check_out="2026-07-03", nights=2))
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)

@@ -42,3 +42,24 @@ def test_no_mutation_fails():
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
     assert report.passed is False
+
+
+def test_comment_text_must_be_exact():
+    _, _, targets, initial, state = _setup()
+    state.get_post(targets["game_id"]).vote_direction = 1
+    state.get_post(targets["movie_id"]).vote_direction = -1
+    state.get_post(targets["til_id"]).is_saved = True
+    state.saved_post_ids.append(targets["til_id"])
+    state.comments.append(Comment(
+        id="comment_new", post_id=targets["til_id"], parent_id=None,
+        author_name=state.owner_username,
+        body="They have incredibly thick skin.",
+        score=1, created_at=datetime.now(timezone.utc),
+        is_edited=False, edited_at=None, is_removed=False, is_collapsed=False,
+        is_saved=False, is_submitter=False, vote_direction=0, depth=0,
+        awards=[], flair_text=None,
+    ))
+    task = get_task("reddit_multi_vote_comment")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False

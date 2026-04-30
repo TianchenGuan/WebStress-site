@@ -231,6 +231,21 @@ canonical_diff:
         id: {expr: "x == target['review_res_id']"}
       changes:
         rating_submitted: {any: true}
+    - entity: Notification
+      desc: Mark the four target notifications as read
+      bijection:
+        over: >-
+          [
+            target['confirm_notif_id'],
+            target['price_notif_id'],
+            target['deal_notif_id'],
+            target['review_notif_id'],
+          ]
+        variable: notif_id
+      where:
+        id: {expr: "x == v"}
+      changes:
+        read: {eq: true}
   create:
     - entity: SavedList
       desc: Save price drop property to Price Drop Deals list
@@ -259,7 +274,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -278,7 +296,7 @@ canonical_diff:
         title: {eq: "Pleasant stay"}
         positive:
           expr: "'clean' in x.lower() or 'staff' in x.lower()"
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -306,6 +324,8 @@ canonical_diff:
         a.property_id != target['deal_prop_id']
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_prop_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.reviews
       filter: "a.property_id != target['review_prop_id']"
@@ -333,6 +353,9 @@ canonical_diff:
     - name: SMS notifications enabled
       ref: update[0]
       severity: medium
+    - name: Agent read all four target notifications
+      ref: update[2]
+      severity: high
     - name: Agent saved price drop property to Price Drop Deals list
       ref: create[0]
       severity: high

@@ -205,7 +205,7 @@ canonical_diff:
       rooms:
         any: true
       price_per_night:
-        any: true
+        expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['target_prop_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= 2 and rt.meals_included == 'breakfast')"
       total_price:
         any: true
       taxes_and_fees:
@@ -219,17 +219,18 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          any(pm.id == x and pm.card_type == 'Mastercard' and pm.last_four == '8888' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:
         any: true
       is_genius_deal:
-        any: true
+        eq: true
       genius_discount:
-        any: true
+        expr: "x > 0"
       meals_included:
-        any: true
+        eq: breakfast
       rating_submitted:
         any: true
   - entity: SavedList
@@ -260,6 +261,12 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
+  constraints:
+  - desc: Wallet credit of 47.50 was applied to the reservation
+    expr: >-
+      state.wallet.balance == round(initial.wallet.balance - 47.50, 2) and
+      any(tx.type == 'debit' and abs(tx.amount - 47.50) < 0.01 for tx in state.wallet.transactions)
+    severity: critical
   named_invariants:
   - name: Agent booked the target best-value breakfast property
     ref: create[0]

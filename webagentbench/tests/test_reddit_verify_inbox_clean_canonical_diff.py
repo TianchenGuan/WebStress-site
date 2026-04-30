@@ -29,3 +29,12 @@ def test_deleting_known_message_fails():
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
     assert report.passed is False
+
+
+def test_off_task_settings_change_fails():
+    _, _, targets, initial, state = _setup()
+    state.settings.theme = "dark"
+    task = get_task("reddit_verify_inbox_clean")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False

@@ -111,8 +111,10 @@ canonical_diff:
       where:
         id: {expr: "x == v"}
       changes:
-        refills_remaining: {any: true}
-        last_filled: {any: true}
+        refills_remaining:
+          expr: "x == next(r.refills_remaining for r in initial.prescriptions if r.id == v) - 1"
+        last_filled:
+          expr: "x > next(r.last_filled for r in initial.prescriptions if r.id == v)"
     - entity: Prescription
       desc: "Flip the expiring zero-refill prescription to pending_renewal"
       bijection:

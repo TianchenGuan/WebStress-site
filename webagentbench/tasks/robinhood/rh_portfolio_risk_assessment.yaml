@@ -80,7 +80,7 @@ canonical_diff:
       over: "list(initial.expiring_options_positions(5))"
       variable: v
     properties:
-      legs: {expr: "any(leg['underlying_symbol'] == v.underlying_symbol for leg in x)"}
+      legs: {expr: "len(x) == 1 and any(leg['underlying_symbol'] == v.underlying_symbol and leg['option_type'] == v.option_type and leg['strike'] == v.strike_price and leg['expiration'] == v.expiration_date and leg['quantity'] == v.quantity and leg['side'] == ('sell' if v.position_side == 'long' else 'buy') for leg in x)"}
       status: {any: true}
   invariant:
   - collection: state.orders
@@ -120,7 +120,16 @@ canonical_diff:
     filter: "False"
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: No single stock remains above 25% of portfolio value
+    expr: "state.concentrated_symbols(25.0) == []"
+    severity: critical
+  - desc: Concentration-reduction stock sells filled
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders])
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures state_tracking, exploration, verification, planning by
-  requiring the agent to identify multiple risk factors and take specific corrective
-  actions for each.
+primitive_thesis: Measures state_tracking, exploration, verification, planning
+  by requiring the agent to identify multiple risk factors and take specific
+  corrective actions for each.

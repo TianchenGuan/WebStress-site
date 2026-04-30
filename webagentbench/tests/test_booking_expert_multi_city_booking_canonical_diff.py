@@ -22,6 +22,9 @@ def _setup_session(seed: int = 42):
 
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
+    paris_price = min(rt.price_per_night for rt in state.get_property(targets['paris_id']).room_types if rt.is_available and rt.max_occupancy >= 2)
+    tokyo_price = min(rt.price_per_night for rt in state.get_property(targets['tokyo_id']).room_types if rt.is_available and rt.max_occupancy >= 2)
+    london_price = min(rt.price_per_night for rt in state.get_property(targets['london_id']).room_types if rt.is_available and rt.max_occupancy >= 2)
     state.reservations.append(Reservation(
         id="res_paris",
         property_id=targets['paris_id'],
@@ -33,7 +36,7 @@ def _apply_correct_state(targets, state):
         nights=3,
         guests=2,
         rooms=1,
-        price_per_night=250.0,
+        price_per_night=paris_price,
         total_price=750.0,
         taxes_and_fees=75.0,
         currency="EUR",
@@ -59,14 +62,14 @@ def _apply_correct_state(targets, state):
         nights=4,
         guests=2,
         rooms=1,
-        price_per_night=200.0,
+        price_per_night=tokyo_price,
         total_price=800.0,
         taxes_and_fees=80.0,
         currency="JPY",
         status="confirmed",
         booked_at=now,
         guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
-        payment_method_id="pm_1",
+        payment_method_id="pm_2",
         cancellation_policy=CancellationPolicy(),
         confirmation_number="CONF_TOK",
         is_genius_deal=False,
@@ -85,14 +88,14 @@ def _apply_correct_state(targets, state):
         nights=3,
         guests=2,
         rooms=1,
-        price_per_night=300.0,
+        price_per_night=london_price,
         total_price=900.0,
         taxes_and_fees=90.0,
         currency="GBP",
         status="confirmed",
         booked_at=now,
         guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
-        payment_method_id="pm_1",
+        payment_method_id="pm_3",
         cancellation_policy=CancellationPolicy(),
         confirmation_number="CONF_LON",
         is_genius_deal=False,

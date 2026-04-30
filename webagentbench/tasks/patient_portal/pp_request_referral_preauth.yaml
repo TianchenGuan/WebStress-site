@@ -78,10 +78,30 @@ canonical_diff:
       properties:
         status: {eq: "scheduled"}
         provider_id:
-          expr: "state.get_provider(x) is not None and state.get_provider(x).specialty == 'dermatology'"
+          expr: "state.get_provider(x) is not None and state.get_provider(x).specialty == 'dermatology' and any(p.id == x and p.accepting_new for p in initial.providers)"
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids'] and any(r.id == x and r.to_specialty == 'dermatology' and r.status == 'approved' and (not r.prior_auth_required or r.prior_auth_status == 'approved') for r in initial.referrals)"
-        datetime: {any: true}
+        datetime:
+          expr: >-
+            x == min(
+              s.datetime
+              for p in initial.providers
+              if p.specialty == 'dermatology'
+              and p.accepting_new
+              for s in p.available_slots
+            )
+            and any(
+              a.datetime == x
+              and any(
+                p.id == a.provider_id
+                and p.specialty == 'dermatology'
+                and p.accepting_new
+                and any(s.datetime == x for s in p.available_slots)
+                for p in initial.providers
+              )
+              for a in state.appointments
+              if a.id not in {i.id for i in initial.appointments}
+            )
         type: {any: true}
         reason: {any: true}
         notes: {any: true}

@@ -1,9 +1,7 @@
 task_id: reddit_engage_user_content
 env_id: reddit
 title: Find and Engage with User Content
-instruction_template: Visit u/{target.target_user}'s profile page. Find their post
-  titled "{target.user_post_title}". Upvote that post and save it. Do not vote on
-  or save any other posts.
+instruction_template: Visit u/{target.target_user}'s profile page. Find their post titled "{target.user_post_title}". Upvote that post and save it. Do not vote on or save any other posts.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 12
@@ -32,39 +30,45 @@ seed:
     post_id: '{output.post_id}'
 canonical_diff:
   update:
-    - entity: Post
-      desc: Upvote and save the target user's post
-      where:
-        id:
-          expr: "x == target['post_id']"
-      changes:
-        vote_direction:
-          eq: 1
-        is_saved:
-          eq: true
+  - entity: Post
+    desc: Upvote and save the target user's post
+    where:
+      id:
+        expr: "x == target['post_id']"
+    changes:
+      vote_direction:
+        eq: 1
+      is_saved:
+        eq: true
   invariant:
-    - collection: state.posts
-      filter: "a.id != target['post_id']"
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['post_id']"
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
-    - name: Agent upvoted and saved the target post
-      ref: update[0]
-      severity: high
-    - name: Agent did not vote on or save other posts
-      ref: invariant[0]
-      severity: high
+  - name: Agent upvoted and saved the target post
+    ref: update[0]
+    severity: high
+  - name: Agent did not vote on or save other posts
+    ref: invariant[0]
+    severity: high
+  constraints:
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
 eval:
   source: server_state
   checks:
@@ -73,8 +77,7 @@ eval:
   - expr: state.get_post('{target.post_id}').is_saved
     desc: Post saved
   negative_checks:
-  - expr: sum(1 for p in state.posts if p.vote_direction != 0 and p.id != '{target.post_id}')
-      == 0
+  - expr: sum(1 for p in state.posts if p.vote_direction != 0 and p.id != '{target.post_id}') == 0
     desc: No other posts voted on
     penalty: 0.2
 secondary_primitives: []

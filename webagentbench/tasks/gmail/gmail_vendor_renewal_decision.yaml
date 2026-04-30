@@ -48,14 +48,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "'procurement@company.com' in x"
+          expr: "x == ['procurement@company.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           eq: "Q2 Renewal Recommendation"
         body:
-          expr: >-
-            target['qualifying_vendor_name'] in x
-            and target['qualifying_vendor_cost'] in x
-            and target['qualifying_vendor_sla'] in x
+          expr: "x == 'Recommend renewing ' + target['qualifying_vendor_name'] + ' at ' + str(target['qualifying_vendor_cost']) + '/year with ' + str(target['qualifying_vendor_sla']) + ' SLA.'"
         in_reply_to:
           eq: null
         forwarded_from_id:
@@ -67,10 +68,13 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['qualifying_vendor_email_id']"
         to:
-          expr: "'legal@company.com' in x"
+          expr: "x == ['legal@company.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - Please review the attached renewal for contract processing
+          regex: "^Please review the attached renewal for contract processing\\.\\n\\nForwarded message from"
   update:
     - entity: emails
       desc: Star the qualifying vendor proposal

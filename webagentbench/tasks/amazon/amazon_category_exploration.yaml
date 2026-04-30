@@ -104,13 +104,22 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed with at least one item from each of the three target categories
+    desc: New order placed with at least one item from each of the three target
+      categories
     properties:
       items:
-        expr: "len(x) >= 3 and any(any(it['product_id'] == p.id and (target['cat_1'] in p.category or p.category == target['cat_1']) for p in state.products) for it in x) and any(any(it['product_id'] == p.id and p.category == target['cat_2'] for p in state.products) for it in x) and any(any(it['product_id'] == p.id and (target['cat_3'] in p.category or p.category == target['cat_3']) for p in state.products) for it in x)"
-      status: {any: true}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
+        expr: "len(x) == 3 and any(any(it['product_id'] == p.id and (target['cat_1']
+          in p.category or p.category == target['cat_1']) for p in state.products)
+          for it in x) and any(any(it['product_id'] == p.id and p.category == target['cat_2']
+          for p in state.products) for it in x) and any(any(it['product_id'] == p.id
+          and (target['cat_3'] in p.category or p.category == target['cat_3']) for
+          p in state.products) for it in x) and all(it['quantity'] == 1 for it in
+          x)"
+      status: {eq: confirmed}
+      shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker'
+          and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
+      payment_method_id: {expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four
+          == '4242' for p in state.payment_methods)"}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

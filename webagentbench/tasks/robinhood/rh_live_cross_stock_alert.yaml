@@ -139,7 +139,8 @@ canonical_diff:
   - entity: positions
     desc: New CVX position created from the buy (or quantity increased)
     bijection:
-      over: "[p for p in state.positions if p.symbol == 'CVX' and p.id not in [ip.id for ip in initial.positions]]"
+      over: "[p for p in state.positions if p.symbol == 'CVX' and p.id not in [ip.id
+        for ip in initial.positions]]"
       variable: v
     properties:
       symbol: {eq: CVX}
@@ -176,7 +177,28 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: XOM and CVX alerts both triggered before pairs trade
+    expr: any(a.symbol == 'XOM' and a.condition == 'above' and a.status ==
+      'triggered' for a in state.price_alerts) and any(a.symbol == 'CVX' and
+      a.condition == 'below' and a.status == 'triggered' for a in
+      state.price_alerts)
+    severity: critical
+  - desc: Pairs-trade stock orders filled
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.symbol in ('XOM', 'CVX') and o.id not in [io.id for io
+      in initial.orders]) and len([o for o in state.orders if o.symbol in
+      ('XOM', 'CVX') and o.id not in [io.id for io in initial.orders]]) >= 2
+    severity: critical
+  - desc: Pairs-trade orders were created after both alerts triggered
+    expr: len([a for a in state.price_alerts if a.symbol in ('XOM', 'CVX') and
+      a.status == 'triggered' and a.triggered_at is not None]) >= 2 and
+      all(o.created_at > max(a.triggered_at for a in state.price_alerts if
+      a.symbol in ('XOM', 'CVX') and a.triggered_at is not None) for o in
+      state.orders if o.symbol in ('XOM', 'CVX') and o.id not in [io.id for io
+      in initial.orders])
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures planning, patience, state_tracking, verification, exploration
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+primitive_thesis: Measures planning, patience, state_tracking, verification,
+  exploration by requiring exact completion of the requested Robinhood workflow
+  while ignoring distractor account state.

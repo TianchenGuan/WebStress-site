@@ -122,3 +122,49 @@ def test_wrong_product_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_extra_review_count_side_effect_fails():
+    _, _, targets, initial, state = _setup_session()
+    state.add_review(Review(
+        id=state._next_id("review"),
+        product_id=targets["product_id"],
+        author_name=state.owner_name,
+        rating=5,
+        title="Absolutely love it",
+        body="This product is amazing and works perfectly every day.",
+        created_at=datetime.now(timezone.utc),
+    ))
+    product = next(p for p in state.products if p.id == targets["product_id"])
+    product.review_count += 1
+
+    task = get_task("amazon_write_review")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
+def test_title_with_extra_text_fails():
+    _, _, targets, initial, state = _setup_session()
+    state.add_review(Review(
+        id=state._next_id("review"),
+        product_id=targets["product_id"],
+        author_name=state.owner_name,
+        rating=5,
+        title="Absolutely love it!!!",
+        body="This product is amazing and works perfectly every day.",
+        created_at=datetime.now(timezone.utc),
+    ))
+
+    task = get_task("amazon_write_review")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from webagentbench.backend.price_engine import cascade_update
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -17,9 +18,10 @@ def _setup(seed=42):
 
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup()
-    state.place_order(symbol="MSFT", side="buy", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("395"))
-    state.place_order(symbol="MSFT", side="sell", order_type="stop", quantity=Decimal("5"), stop_price=Decimal("380"))
-    state.place_order(symbol="MSFT", side="sell", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("430"))
+    state.place_order(symbol="MSFT", side="buy", order_type="limit", quantity=Decimal("1"), limit_price=Decimal("400"))
+    cascade_update(state, {"MSFT": Decimal("398.00")}, state._price_engine)
+    state.place_order(symbol="MSFT", side="sell", order_type="stop", quantity=Decimal("1"), stop_price=Decimal("380"))
+    state.place_order(symbol="MSFT", side="sell", order_type="limit", quantity=Decimal("1"), limit_price=Decimal("430"))
 
     task = get_task("rh_live_bracket_order")
     report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)
@@ -28,9 +30,21 @@ def test_correct_trajectory_passes():
 
 def test_missing_stop_loss_fails():
     sm, sid, targets, initial, state = _setup()
-    state.place_order(symbol="MSFT", side="buy", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("395"))
-    state.place_order(symbol="MSFT", side="sell", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("430"))
+    state.place_order(symbol="MSFT", side="buy", order_type="limit", quantity=Decimal("1"), limit_price=Decimal("400"))
+    cascade_update(state, {"MSFT": Decimal("398.00")}, state._price_engine)
+    state.place_order(symbol="MSFT", side="sell", order_type="limit", quantity=Decimal("1"), limit_price=Decimal("430"))
 
     task = get_task("rh_live_bracket_order")
     report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)
     assert report.passed is False, "missing stop-loss should fail"
+
+
+def test_unfilled_wrong_quantity_bracket_fails():
+    sm, sid, targets, initial, state = _setup()
+    state.place_order(symbol="MSFT", side="buy", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("395"))
+    state.place_order(symbol="MSFT", side="sell", order_type="stop", quantity=Decimal("5"), stop_price=Decimal("380"))
+    state.place_order(symbol="MSFT", side="sell", order_type="limit", quantity=Decimal("5"), limit_price=Decimal("430"))
+
+    task = get_task("rh_live_bracket_order")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False, "pending 5-share bracket should fail"

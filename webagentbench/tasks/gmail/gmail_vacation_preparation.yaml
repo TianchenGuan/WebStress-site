@@ -54,6 +54,12 @@ canonical_diff:
     properties:
       in_reply_to:
         expr: x == target['pending_a_id']
+      to:
+        expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['pending_a_id'])]"
+      cc:
+        eq: []
+      bcc:
+        eq: []
       forwarded_from_id:
         eq: null
   - entity: sent
@@ -62,6 +68,12 @@ canonical_diff:
     properties:
       in_reply_to:
         expr: x == target['pending_b_id']
+      to:
+        expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['pending_b_id'])]"
+      cc:
+        eq: []
+      bcc:
+        eq: []
       forwarded_from_id:
         eq: null
   - entity: sent
@@ -70,6 +82,12 @@ canonical_diff:
     properties:
       in_reply_to:
         expr: x == target['pending_c_id']
+      to:
+        expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['pending_c_id'])]"
+      cc:
+        eq: []
+      bcc:
+        eq: []
       forwarded_from_id:
         eq: null
   - entity: labels
@@ -133,10 +151,21 @@ canonical_diff:
   - collection: state.filters
     filter: 'True'
     preserve: ALL
-  - collection: state.settings
-    filter: 'False'
-    preserve: ALL
-    comprehensive: true
+  constraints:
+  - desc: Agent did not change unrelated settings
+    severity: critical
+    expr: >-
+      state.settings.forwarding_address == initial.settings.forwarding_address
+      and state.settings.display_density == initial.settings.display_density
+      and state.settings.auto_advance == initial.settings.auto_advance
+      and state.settings.language == initial.settings.language
+      and state.settings.input_tools_enabled == initial.settings.input_tools_enabled
+      and state.settings.right_to_left == initial.settings.right_to_left
+      and state.settings.max_page_size == initial.settings.max_page_size
+      and state.settings.default_reply_behavior == initial.settings.default_reply_behavior
+      and state.settings.hover_actions_enabled == initial.settings.hover_actions_enabled
+      and state.settings.send_and_archive == initial.settings.send_and_archive
+      and state.settings.default_text_style == initial.settings.default_text_style
   named_invariants:
   - name: Agent replied to pending vendor proposal email
     ref: create[0]

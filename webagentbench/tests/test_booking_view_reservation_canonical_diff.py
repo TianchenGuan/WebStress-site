@@ -1,8 +1,4 @@
-"""End-to-end tests for booking_view_reservation canonical_diff.
-
-Constraints-only task (audit_log). Correct trajectory adds a reservation.view audit entry.
-No-mutation test: score < 1.0 (constraint penalty-only), NOT 0.0.
-"""
+"""End-to-end tests for booking_view_reservation canonical_diff."""
 
 from webagentbench.backend.state import SessionManager
 from webagentbench.backend.models.base import AuditEntry
@@ -39,16 +35,6 @@ def test_correct_trajectory_passes():
         assert report.score == 1.0, f"seed={seed} expected 1.0, got {report.score}"
 
 
-import pytest
-
-
-@pytest.mark.skip(reason=(
-    "canonical_diff refactor: the audit_log constraint that previously failed "
-    "wrong reservation_id was a constraint-style check. The new YAML has only "
-    "invariants (no mutation expected), so any final state with no mutation "
-    "passes regardless of audit log payload. Audit log verification is no "
-    "longer enforced via canonical_diff."
-))
 def test_wrong_reservation_id_fails():
     targets, initial_snap, initial_dict, state = _setup_session()
     state.audit_log.append(AuditEntry(
@@ -59,14 +45,7 @@ def test_wrong_reservation_id_fails():
     assert report.passed is False, "wrong reservation_id in audit log should fail"
 
 
-@pytest.mark.skip(reason=(
-    "canonical_diff refactor: this read-only task no longer has constraints. "
-    "With invariants-only canonical_diff, a no-mutation final state trivially "
-    "passes (every invariant 'preserve: ALL' holds). Audit-log requirements "
-    "were dropped from the YAML."
-))
 def test_no_mutation_fails():
-    """No audit entry — constraint fails, score < 1.0 (penalty-only)."""
     targets, initial_snap, initial_dict, state = _setup_session()
     report = _run(targets, initial_snap, initial_dict, state)
     assert report.passed is False, "no audit entry should fail"

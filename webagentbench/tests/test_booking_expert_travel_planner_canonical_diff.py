@@ -22,6 +22,7 @@ def _setup_session(seed: int = 42):
 
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
+    cheapest_price = min(rt.price_per_night for rt in state.get_property(targets['cheapest_id']).room_types if rt.is_available and rt.max_occupancy >= 2)
     state.saved_lists.append(SavedList(
         id="sl_world_tour",
         name="World Tour",
@@ -40,7 +41,7 @@ def _apply_correct_state(targets, state):
         nights=4,
         guests=2,
         rooms=1,
-        price_per_night=150.0,
+        price_per_night=cheapest_price,
         total_price=600.0,
         taxes_and_fees=60.0,
         currency="USD",

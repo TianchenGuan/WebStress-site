@@ -117,6 +117,8 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['vendor_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['vendor_email_id'])]"
         body:
           expr: >-
             target['q1_answer'] in x
@@ -128,10 +130,9 @@ canonical_diff:
             and target['q7_answer'] in x
             and target['q8_correct'] in x
         cc:
-          expr: >-
-            target['dana_park_email'] in x
-            and target['frank_osei_email'] in x
-            and target['grace_liu_email'] in x
+          expr: "sorted(x) == sorted(target['cc_addresses']) and len(x) == len(target['cc_addresses'])"
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -141,7 +142,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['vendor_email_id']"
         to:
-          expr: "target['forward_to'] in x"
+          expr: "x == [target['forward_to']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring_all:
             - All 8 answers submitted

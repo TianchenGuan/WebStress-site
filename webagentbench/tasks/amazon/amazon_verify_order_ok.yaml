@@ -48,13 +48,8 @@ seed:
     product_id: '{output.product_id}'
     order_id: '{output.order_id}'
 canonical_diff:
-  # READ-ONLY task (verify-and-do-nothing): Cat-D shape — only invariants,
-  # no positive entries, no constraints. The view-tracking constraint
-  # (viewed_order_ids) is dropped because compute_diff cannot observe it;
-  # that signal lives in the eval block (audit_log) instead.
-  # Order/return/cart preservation is subsumed by the unfiltered invariants
-  # below — any cancellation, extra order, or return creation will fire as
-  # an invariant violation.
+  # Verify-and-do-nothing task: preserve Amazon state while requiring observable
+  # evidence that the target order was inspected.
   invariant:
   - collection: state.orders
     preserve: ALL
@@ -80,6 +75,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.wishlist
     preserve: ALL
+  constraints:
+  - desc: Agent viewed the target order before leaving it unchanged
+    expr: "target['order_id'] in state.viewed_order_ids"
+    severity: critical
   named_invariants:
   - name: Agent did not cancel the order or modify any order status
     ref: invariant[0]

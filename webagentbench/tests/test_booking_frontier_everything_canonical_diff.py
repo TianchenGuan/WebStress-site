@@ -48,6 +48,7 @@ def _apply_correct_state(targets, state):
         holder_name="Jordan Parker",
         is_default=True,
     ))
+    state.settings.default_payment_id = "pm_visa7777"
     state.reservations.append(Reservation(
         id="res_bcn",
         property_id=targets['book_id'],
@@ -147,6 +148,17 @@ def test_missing_2fa_fails():
     sm, sid, targets, initial, state = _setup_session()
     _apply_correct_state(targets, state)
     state.settings.two_factor_enabled = False
+
+    task = get_task(TASK_ID)
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_missing_default_payment_pointer_fails():
+    sm, sid, targets, initial, state = _setup_session()
+    _apply_correct_state(targets, state)
+    state.settings.default_payment_id = targets['prev_default_pm_id']
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)

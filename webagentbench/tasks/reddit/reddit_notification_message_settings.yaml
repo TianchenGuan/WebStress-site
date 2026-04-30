@@ -4,8 +4,7 @@ title: Notifications, Messages, and Settings
 instruction_template: '1. Mark all notifications as read.
 
 
-  2. Go to Messages. Reply to the message from u/{target.reply_from} (subject: "{target.reply_subject}")
-  with exactly: "{target.reply_body}"
+  2. Go to Messages. Reply to the message from u/{target.reply_from} (subject: "{target.reply_subject}") with exactly: "{target.reply_body}"
 
 
   3. Delete the message from u/{target.delete_from} with subject "{target.delete_subject}".
@@ -48,8 +47,8 @@ seed:
   targets:
     reply_from: '{output.reply_msg_from}'
     reply_subject: '{output.reply_msg_subject}'
-    reply_body: Yes, fully compatible with Python 3.12 and 3.13. Let me know if you
-      hit any issues.
+    reply_msg_id: '{output.reply_msg_id}'
+    reply_body: Yes, fully compatible with Python 3.12 and 3.13. Let me know if you hit any issues.
     delete_from: '{output.delete_msg_from}'
     delete_subject: '{output.delete_msg_subject}'
     delete_msg_id: '{output.delete_msg_id}'
@@ -68,14 +67,14 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      email_comment_reply: { eq: false }
-      email_post_reply: { eq: false }
-      email_mentions: { eq: false }
-      email_messages: { eq: false }
-      email_digest: { eq: false }
-      theme: { eq: dark }
+      email_comment_reply: {eq: false}
+      email_post_reply: {eq: false}
+      email_mentions: {eq: false}
+      email_messages: {eq: false}
+      email_digest: {eq: false}
+      theme: {eq: dark}
   create:
   - entity: Message
     collection: state.sent_messages
@@ -83,10 +82,14 @@ canonical_diff:
     properties:
       to_user:
         expr: x == target['reply_from']
+      subject:
+        expr: "x == 'Re: ' + target['reply_subject']"
       body:
         expr: x == target['reply_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        expr: x == target['reply_msg_id']
   delete:
   - entity: Message
     collection: state.messages
@@ -110,19 +113,23 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.unread_notification_count() == 0
     desc: All notifications read
-  - expr: any(m.to_user == '{target.reply_from}' and m.body == "Yes, fully compatible
-      with Python 3.12 and 3.13. Let me know if you hit any issues." for m in state.sent_messages)
+  - expr: any(m.to_user == '{target.reply_from}' and m.body == "Yes, fully compatible with Python 3.12 and 3.13. Let me know if you hit any issues." for m in state.sent_messages)
     desc: Exact reply sent
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam deleted
-  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
-      and not state.settings.email_digest
+  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages and not state.settings.email_digest
     desc: All email notifications disabled
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
@@ -130,12 +137,10 @@ eval:
   - expr: len(state.messages) >= 4
     desc: Non-spam messages preserved
     penalty: 0.25
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 9
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 9
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) == 0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

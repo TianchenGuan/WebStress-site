@@ -23,6 +23,15 @@ def _setup_session(seed: int = 42):
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
     state.settings.sms_notifications = True
+    target_notif_ids = {
+        targets['confirm_notif_id'],
+        targets['price_notif_id'],
+        targets['deal_notif_id'],
+        targets['review_notif_id'],
+    }
+    for notif in state.notifications:
+        if notif.id in target_notif_ids:
+            notif.read = True
     state.saved_lists.append(SavedList(
         id="sl_price_drop",
         name="Price Drop Deals",
@@ -120,6 +129,20 @@ def test_wrong_property_fails():
     sm, sid, targets, initial, state = _setup_session()
     _apply_correct_state(targets, state)
     state.reservations[-1].property_id = "prop_wrong_decoy"
+
+    task = get_task(TASK_ID)
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_missing_target_notification_read_fails():
+    sm, sid, targets, initial, state = _setup_session()
+    _apply_correct_state(targets, state)
+    for notif in state.notifications:
+        if notif.id == targets['deal_notif_id']:
+            notif.read = False
+            break
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)

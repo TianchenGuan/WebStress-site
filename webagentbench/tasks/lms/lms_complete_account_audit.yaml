@@ -120,6 +120,16 @@ canonical_diff:
     preserve: ALL
   - collection: state.student
     preserve: ALL
+  constraints:
+  - desc: Agent sent an audit summary to the advisor
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and (m.get('subject', '') or '').strip() and (m.get('body', '') or '').strip() for m in state.sent_messages)"
+    severity: critical
+  - desc: Advisor message came from the student account
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and m.get('from') == state.student.email for m in state.sent_messages)"
+    severity: high
+  - desc: Agent did not send excessive messages
+    expr: "len(state.sent_messages) <= 4"
+    severity: medium
   named_invariants:
   - name: Agent marked all unread announcements as read
     ref: update[0]

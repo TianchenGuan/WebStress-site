@@ -67,12 +67,12 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "cora.banks@vendor.io"
             - "lee.chang@vendor.io"
             - "ravi.gupta@partner.com"
         add_labels:
-          superset:
+          set_eq:
             - "On Leave"
         star:
           eq: true
@@ -83,7 +83,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['vendor_email_id']"
         to:
-          expr: "'delegate@company.io' in x"
+          expr: "x == ['delegate@company.io']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Partner Integration Timeline to delegate
       count: 1
@@ -91,7 +95,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['partner_email_id']"
         to:
-          expr: "'delegate@company.io' in x"
+          expr: "x == ['delegate@company.io']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Budget Reallocation Request to delegate
       count: 1
@@ -99,27 +107,39 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['budget_email_id']"
         to:
-          expr: "'delegate@company.io' in x"
+          expr: "x == ['delegate@company.io']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Reply to Sprint 14 Blockers with status text
       count: 1
       properties:
         in_reply_to:
           expr: "x == target['sprint_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['sprint_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - "blocked on API credentials"
-            - "ETA next Wednesday"
+          eq: "Status: blocked on API credentials. ETA next Wednesday."
     - entity: sent
       desc: Reply to Design Review Mobile Nav with status text
       count: 1
       properties:
         in_reply_to:
           expr: "x == target['design_nav_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['design_nav_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - "feedback incorporated"
-            - "PR submitted"
+          eq: "Status: feedback incorporated, PR submitted."
     - entity: contacts
       desc: Add delegate@company.io as Jamie Park contact
       count: 1

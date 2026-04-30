@@ -80,7 +80,7 @@ canonical_diff:
       star:
         eq: true
       add_labels:
-        superset:
+        set_eq:
         - Engineering
   - entity: filters
     desc: Create filter for manager email that stars matching messages
@@ -96,28 +96,24 @@ canonical_diff:
     properties:
       in_reply_to:
         expr: x == target['welcome_id']
+      to:
+        expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['welcome_id'])]"
+      cc:
+        expr: "x == [target['hiring_manager_email']]"
+      bcc:
+        eq: []
       body:
         expr: target['intro_phrase'] in x
       forwarded_from_id:
         eq: null
   - entity: contacts
-    desc: Add first team lead as contact
-    count: 1
+    desc: Add all three team leads as contacts
+    bijection:
+      over: target['new_contact_emails']
+      variable: v
     properties:
       email:
-        expr: x in target['new_contact_emails']
-  - entity: contacts
-    desc: Add second team lead as contact
-    count: 1
-    properties:
-      email:
-        expr: x in target['new_contact_emails']
-  - entity: contacts
-    desc: Add third team lead as contact
-    count: 1
-    properties:
-      email:
-        expr: x in target['new_contact_emails']
+        expr: x == v
   update:
   - entity: settings
     desc: Display density, undo send delay, default reply, and send-and-archive configured
@@ -147,10 +143,21 @@ canonical_diff:
   - collection: state.filters
     filter: 'True'
     preserve: ALL
-  - collection: state.settings
-    filter: 'False'
-    preserve: ALL
-    comprehensive: true
+  constraints:
+  - desc: Agent did not change unrelated settings
+    severity: critical
+    expr: >-
+      state.settings.signature == initial.settings.signature
+      and state.settings.forwarding_address == initial.settings.forwarding_address
+      and state.settings.vacation_responder_enabled == initial.settings.vacation_responder_enabled
+      and state.settings.vacation_responder_message == initial.settings.vacation_responder_message
+      and state.settings.auto_advance == initial.settings.auto_advance
+      and state.settings.language == initial.settings.language
+      and state.settings.input_tools_enabled == initial.settings.input_tools_enabled
+      and state.settings.right_to_left == initial.settings.right_to_left
+      and state.settings.max_page_size == initial.settings.max_page_size
+      and state.settings.hover_actions_enabled == initial.settings.hover_actions_enabled
+      and state.settings.default_text_style == initial.settings.default_text_style
   named_invariants:
   - name: Agent created Engineering label
     ref: create[0]

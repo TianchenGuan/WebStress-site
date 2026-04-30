@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from webagentbench.backend.price_engine import cascade_update
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -19,6 +20,7 @@ def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup()
     state.create_price_alert(symbol="META", condition="above", target_price=Decimal("520"))
     state.create_price_alert(symbol="META", condition="below", target_price=Decimal("480"))
+    cascade_update(state, {"META": Decimal("479.00")}, state._price_engine)
     pos = state.get_position("META")
     if pos:
         state.place_order(symbol="META", side="sell", order_type="market", quantity=pos.quantity)
@@ -32,6 +34,7 @@ def test_missing_sell_fails():
     sm, sid, targets, initial, state = _setup()
     state.create_price_alert(symbol="META", condition="above", target_price=Decimal("520"))
     state.create_price_alert(symbol="META", condition="below", target_price=Decimal("480"))
+    cascade_update(state, {"META": Decimal("479.00")}, state._price_engine)
 
     task = get_task("rh_live_dual_alert_decision")
     report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)

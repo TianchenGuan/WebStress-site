@@ -109,13 +109,15 @@ canonical_diff:
     desc: Protective put leg on AAPL (collar component)
     properties:
       status: {in: [filled, pending]}
-      legs: {expr: "any(leg['side'] == 'buy' and leg['option_type'] == 'put' and leg['underlying_symbol'] == 'AAPL' for leg in x)"}
+      legs: {expr: "any(leg['side'] == 'buy' and leg['option_type'] == 'put' and leg['underlying_symbol']
+          == 'AAPL' for leg in x)"}
       strategy: {any: true}
   - entity: options_orders
     desc: Covered call leg on AAPL (collar component)
     properties:
       status: {in: [filled, pending]}
-      legs: {expr: "any(leg['side'] == 'sell' and leg['option_type'] == 'call' and leg['underlying_symbol'] == 'AAPL' for leg in x)"}
+      legs: {expr: "any(leg['side'] == 'sell' and leg['option_type'] == 'call' and
+          leg['underlying_symbol'] == 'AAPL' for leg in x)"}
       strategy: {any: true}
   invariant:
   - collection: state.orders
@@ -155,4 +157,11 @@ canonical_diff:
     filter: "False"
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: Tax-loss harvesting stock sells filled
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders]) and any(o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders] for o in state.orders)
+    severity: critical
 secondary_primitives: []

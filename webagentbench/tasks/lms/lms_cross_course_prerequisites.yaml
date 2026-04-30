@@ -100,6 +100,20 @@ canonical_diff:
       status: {eq: completed}
       content_items:
         expr: "all(item.get('completed') is True for item in x)"
+  - entity: Module
+    desc: Unlock the following module in the first course
+    where:
+      id:
+        expr: "x == target['first_locked_module_id_1']"
+    changes:
+      status: {eq: available}
+  - entity: Module
+    desc: Unlock the following module in the second course
+    where:
+      id:
+        expr: "x == target['first_locked_module_id_2']"
+    changes:
+      status: {eq: available}
   invariant:
   # Allow the backend's prerequisite-unlock cascade: completing a module
   # flips later locked modules in the same course to status='available'.
@@ -131,12 +145,22 @@ canonical_diff:
     preserve: ALL
   - collection: state.student
     preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
   - name: Agent completed the next available module in the first course
     ref: update[0]
     severity: high
   - name: Agent completed the next available module in the second course
     ref: update[1]
+    severity: high
+  - name: Agent unlocked the following module in the first course
+    ref: update[2]
+    severity: high
+  - name: Agent unlocked the following module in the second course
+    ref: update[3]
     severity: high
   - name: Agent did not modify other modules
     ref: invariant[0]

@@ -147,16 +147,18 @@ canonical_diff:
     desc: New order placed containing the three cheapest curated wishlist items
     properties:
       items:
-        expr: any(it['product_id'] == target['prod2_id'] for it in x) and any(it['product_id']
-          == target['prod4_id'] for it in x) and any(it['product_id'] == target['prod5_id']
-          for it in x) and not any(it['product_id'] == target['prod1_id'] for it in
-          x) and not any(it['product_id'] == target['prod3_id'] for it in x)
+        expr: "len(x) == 3 and {it['product_id'] for it in x} == {target['prod2_id'],
+          target['prod4_id'], target['prod5_id']} and not any(it['product_id'] in
+          [target['prod1_id'], target['prod3_id']] for it in x) and all(it['quantity']
+          == 1 for it in x)"
       status:
-        any: true
+        eq: confirmed
       shipping_address_id:
-        any: true
+        expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address
+          == '742 Evergreen Terrace' for a in state.addresses)"
       payment_method_id:
-        any: true
+        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for
+          p in state.payment_methods)"
       subtotal:
         any: true
       shipping_cost:
@@ -190,10 +192,10 @@ canonical_diff:
         expr: x == target['prod5_id']
   invariant:
   - collection: state.orders
-    filter: not (any(it.get('product_id') == target['prod2_id'] for it in (a.items
-      or [])) and any(it.get('product_id') == target['prod4_id'] for it in (a.items
-      or [])) and any(it.get('product_id') == target['prod5_id'] for it in (a.items
-      or [])))
+    filter: not (any(it.get('product_id') == target['prod2_id'] for it in
+      (a.items or [])) and any(it.get('product_id') == target['prod4_id'] for it
+      in (a.items or [])) and any(it.get('product_id') == target['prod5_id'] for
+      it in (a.items or [])))
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -216,7 +218,8 @@ canonical_diff:
   - collection: state.cart_items
     preserve: ALL
   - collection: state.wishlist
-    filter: "a.value not in [target['prod1_id'], target['prod2_id'], target['prod3_id'], target['prod4_id'], target['prod5_id']]"
+    filter: "a.value not in [target['prod1_id'], target['prod2_id'], target['prod3_id'],
+      target['prod4_id'], target['prod5_id']]"
     preserve: ALL
   - collection: state.settings
     preserve: ALL

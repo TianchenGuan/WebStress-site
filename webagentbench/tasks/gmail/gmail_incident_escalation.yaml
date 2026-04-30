@@ -52,7 +52,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['alert_id']"
         to:
-          expr: "target['oncall_email'] in x"
+          expr: "x == [target['oncall_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['error_code'] in x"
     - entity: sent
@@ -61,6 +65,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['manager_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['manager_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: labels
@@ -76,12 +86,12 @@ canonical_diff:
         from_addresses:
           expr: "target['alert_system_email'] in x"
         subject_keywords:
-          superset:
+          set_eq:
             - CRITICAL
         star:
           eq: true
         add_labels:
-          superset:
+          set_eq:
             - "P0 Incident"
   update:
     - entity: emails

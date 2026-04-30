@@ -6,8 +6,7 @@ instruction_template: '1. Hide the post "{target.hide_title}" in r/{target.hide_
 
   3. Save "{target.save_title}" in r/{target.save_sub}.
 
-  4. Create a text post in r/programming with title exactly: "{target.create_title}"
-  and body exactly: "{target.create_body}"
+  4. Create a text post in r/programming with title exactly: "{target.create_title}" and body exactly: "{target.create_body}"
 
   5. Set default feed sort to "new" and enable compact view.'
 difficulty: expert
@@ -60,8 +59,7 @@ seed:
     saved_ids: '{output.saved_ids}'
     meme_ids: '{output.meme_ids}'
     create_title: Why I stopped using ORMs and went back to raw SQL
-    create_body: After 5 years of fighting with ORMs, I found that well-structured
-      raw SQL with a thin query builder is simpler and more performant.
+    create_body: After 5 years of fighting with ORMs, I found that well-structured raw SQL with a thin query builder is simpler and more performant.
 canonical_diff:
   update:
   - entity: Post
@@ -93,10 +91,10 @@ canonical_diff:
         eq: false
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      default_feed_sort: { eq: new }
-      compact_view: { eq: true }
+      default_feed_sort: {eq: new}
+      compact_view: {eq: true}
   create:
   - entity: Post
     desc: Post created in r/programming with exact title and body
@@ -109,6 +107,10 @@ canonical_diff:
         expr: x == target['create_body']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   invariant:
   - collection: state.subreddits
     preserve: ALL
@@ -163,19 +165,27 @@ canonical_diff:
   - name: Agent did not modify user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.theme == initial.settings.theme and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and
+      state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.hidden_post_ids) == sorted([p.id for p in state.posts if p.is_hidden])
+    desc: Hidden-post primitive list matches hidden post flags
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.get_post('{target.hide_id}').is_hidden
     desc: Post hidden
-  - expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for
-      p in state.posts)
+  - expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)
     desc: Memes unsaved
   - expr: '''{target.save_id}'' in state.saved_post_ids'
     desc: Science post saved
-  - expr: "any(\n  p.subreddit_name == 'programming'\n  and p.title == '{target.create_title}'\n\
-      \  and p.body == '{target.create_body}'\n  and p.author_name == state.owner_username\n\
-      \  for p in state.posts\n)"
+  - expr: "any(\n  p.subreddit_name == 'programming'\n  and p.title == '{target.create_title}'\n  and p.body == '{target.create_body}'\n  and p.author_name == state.owner_username\n  for p in state.posts\n)"
     desc: Programming post created
   - expr: state.settings.default_feed_sort == 'new'
     desc: Feed sort new
@@ -185,23 +195,19 @@ eval:
   - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.create') == 1
     desc: Exactly one post was created for the programming write-up
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.post.hide'\n  and e.payload.get('post_id')\
-      \ != '{target.hide_id}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.post.hide'\n  and e.payload.get('post_id') != '{target.hide_id}'\n  for e in state.audit_log\n)"
     desc: No unrelated post was hidden
     penalty: 0.1
-  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id')\
-      \ != '{target.save_id}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id') != '{target.save_id}'\n  for e in state.audit_log\n)"
     desc: No unrelated post was saved
     penalty: 0.1
   - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.unsave') == len({target.saved_ids})
     desc: Every meme save was explicitly removed
     penalty: 0.1
-  - expr: "not any(\n  e.action == 'reddit.post.unsave'\n  and e.payload.get('post_id')\
-      \ not in {target.saved_ids}\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.post.unsave'\n  and e.payload.get('post_id') not in {target.saved_ids}\n  for e in state.audit_log\n)"
     desc: No non-meme saved post was unsaved
     penalty: 0.1
-  - expr: "not any(\n  e.action in ['reddit.message.send', 'reddit.user.block']\n\
-      \  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action in ['reddit.message.send', 'reddit.user.block']\n  for e in state.audit_log\n)"
     desc: No direct messages or user blocks were performed in this content workflow
     penalty: 0.1
 env_id: reddit

@@ -1,7 +1,6 @@
 task_id: reddit_content_creation_sprint
 title: Content Creation Sprint
-instruction_template: '1. Create post in r/Python: title "{target.py_title}" body
-  "{target.py_body}".
+instruction_template: '1. Create post in r/Python: title "{target.py_title}" body "{target.py_body}".
 
   2. Create post in r/{target.join}: title "{target.ml_title}" body "{target.ml_body}".
 
@@ -68,8 +67,7 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.prog_id}'
-      body: Test selection based on code coverage diff is the biggest win here. We
-        saw similar results.
+      body: Test selection based on code coverage diff is the biggest win here. We saw similar results.
       author: DeepDiver
       score: 2100
     outputs:
@@ -132,28 +130,22 @@ seed:
     pt: Practical guide to deploying ML models with FastAPI and Docker
     pb: Step-by-step walkthrough from local development to production Kubernetes deployment.
     py_title: Async Python patterns that actually improve performance
-    py_body: Not all async code is faster. Here are the patterns where async Python
-      genuinely helps and where it hurts.
+    py_body: Not all async code is faster. Here are the patterns where async Python genuinely helps and where it hurts.
     ml_title: 'Fine-tuning LLMs on domain-specific data: lessons from healthcare NLP'
-    ml_body: We fine-tuned several models on clinical notes. Here is what worked and
-      what did not.
+    ml_body: We fine-tuned several models on clinical notes. Here is what worked and what did not.
     p1_title: Practical guide to deploying ML models with FastAPI and Docker
-    p1_body: Step-by-step walkthrough from local development to production Kubernetes
-      deployment.
+    p1_body: Step-by-step walkthrough from local development to production Kubernetes deployment.
     post_title: Practical guide to deploying ML models with FastAPI and Docker
     post_body: Step-by-step walkthrough from development to production.
     prog_comment: Caching alone cut our pipeline by 60 percent.
-    reply_text: Code coverage diff is the key insight. Most teams over-test unchanged
-      code.
+    reply_text: Code coverage diff is the key insight. Most teams over-test unchanged code.
     msg_to: CompileError
     msg_sub: Your CI/CD post
-    msg_body: Your CI/CD write-up is the clearest breakdown I have read on this topic.
-      The code coverage diff trick alone cut our pipeline significantly.
+    msg_body: Your CI/CD write-up is the clearest breakdown I have read on this topic. The code coverage diff trick alone cut our pipeline significantly.
     ms: Community announcement
     mb: Just published a new guide in r/MachineLearning. Would love your review.
     m_to: CompileError
-    wn_comment: Renewables are finally delivering on their promise. This is the turning
-      point.
+    wn_comment: Renewables are finally delivering on their promise. This is the turning point.
 canonical_diff:
   update:
   - entity: Subreddit
@@ -166,10 +158,10 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      default_comment_sort: { eq: new }
+      theme: {eq: dark}
+      default_comment_sort: {eq: new}
   create:
   - entity: Post
     desc: Post created in r/Python with exact title and body
@@ -182,6 +174,10 @@ canonical_diff:
         expr: x == target['py_body']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   - entity: Post
     desc: Post created in r/MachineLearning with exact title and body
     properties:
@@ -193,6 +189,10 @@ canonical_diff:
         expr: x == target['ml_body']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   - entity: Comment
     desc: Top-level comment posted on programming post
     properties:
@@ -201,7 +201,7 @@ canonical_diff:
       body:
         expr: x == target['prog_comment']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   - entity: Comment
@@ -227,6 +227,8 @@ canonical_diff:
         expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        eq:
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -290,49 +292,50 @@ canonical_diff:
   - name: Agent did not modify user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and
+      state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
-  - expr: any(p.subreddit_name == 'Python' and '{target.py_title}' in p.title and
-      p.author_name == state.owner_username for p in state.posts)
+  - expr: any(p.subreddit_name == 'Python' and '{target.py_title}' in p.title and p.author_name == state.owner_username for p in state.posts)
     desc: Post created in r/Python with correct title
-  - expr: any(p.subreddit_name == '{target.join}' and '{target.ml_title}' in p.title
-      and p.author_name == state.owner_username for p in state.posts)
+  - expr: any(p.subreddit_name == '{target.join}' and '{target.ml_title}' in p.title and p.author_name == state.owner_username for p in state.posts)
     desc: Post created in r/{target.join} with correct title
-  - expr: any(c.post_id == '{target.prog_id}' and '{target.prog_comment}' in c.body
-      and c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.prog_id}' and '{target.prog_comment}' in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Commented on programming post
-  - expr: any(c.post_id == '{target.prog_id}' and '{target.reply_text}' in c.body
-      and c.author_name == state.owner_username and c.parent_id == '{target.reply_id}'
-      for c in state.comments)
+  - expr: any(c.post_id == '{target.prog_id}' and '{target.reply_text}' in c.body and c.author_name == state.owner_username and c.parent_id == '{target.reply_id}' for c in state.comments)
     desc: Replied to u/{target.reply_author}
   - expr: any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/{target.join}
-  - expr: any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_sub}' for
-      m in state.sent_messages)
+  - expr: any(m.to_user == '{target.msg_to}' and m.subject == '{target.msg_sub}' for m in state.sent_messages)
     desc: Message sent to u/{target.msg_to}
   - expr: state.settings.theme == 'dark'
     desc: Theme set to dark
   - expr: state.settings.default_comment_sort == 'new'
     desc: Comment sort set to new
   negative_checks:
-  - expr: not any(p.vote_direction != 0 for p in state.posts if state.get_post(p.id)
-      is not None)
+  - expr: not any(p.vote_direction != 0 for p in state.posts if state.get_post(p.id) is not None)
     desc: No voting on any posts (instruction says do not vote)
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) <= 3
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 3
     desc: No excessive posts created
     penalty: 0.15
   - expr: not any(e.action.startswith('reddit.notification.') for e in state.audit_log)
     desc: No off-task notification actions were taken
     penalty: 0.1
-  - expr: not any(e.action.startswith('reddit.user.block') or e.action.startswith('reddit.user.unblock')
-      for e in state.audit_log)
+  - expr: not any(e.action.startswith('reddit.user.block') or e.action.startswith('reddit.user.unblock') for e in state.audit_log)
     desc: No off-task user blocks were changed
     penalty: 0.1
 env_id: reddit

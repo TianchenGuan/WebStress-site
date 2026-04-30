@@ -8,8 +8,7 @@ instruction_template: '1. Subscribe to r/{target.join}.
 
   4. In r/{target.save_sub} find "{target.save_title}". Save.
 
-  5. In r/{target.comment_sub} find "{target.comment_title}". Comment: "{target.ct}".
-  Reply to u/{target.ra} about "{target.rh}": "{target.rt}".
+  5. In r/{target.comment_sub} find "{target.comment_title}". Comment: "{target.ct}". Reply to u/{target.ra} about "{target.rh}": "{target.rt}".
 
   6. Send message to u/{target.mt} subject "{target.ms}" body: "{target.mb}".
 
@@ -17,8 +16,7 @@ instruction_template: '1. Subscribe to r/{target.join}.
 
   8. Mark all notifications/messages read.
 
-  9. Settings: theme "dark", compact on, comment sort "new", disable show online status
-  and all email notifications.'
+  9. Settings: theme "dark", compact on, comment sort "new", disable show online status and all email notifications.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 55
@@ -223,17 +221,17 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      compact_view: { eq: true }
-      default_comment_sort: { eq: new }
-      show_online_status: { eq: false }
-      email_comment_reply: { eq: false }
-      email_post_reply: { eq: false }
-      email_mentions: { eq: false }
-      email_messages: { eq: false }
-      email_digest: { eq: false }
+      theme: {eq: dark}
+      compact_view: {eq: true}
+      default_comment_sort: {eq: new}
+      show_online_status: {eq: false}
+      email_comment_reply: {eq: false}
+      email_post_reply: {eq: false}
+      email_mentions: {eq: false}
+      email_messages: {eq: false}
+      email_digest: {eq: false}
   create:
   - entity: Post
     desc: New post created in r/MachineLearning
@@ -246,6 +244,10 @@ canonical_diff:
         expr: x == target['pb']
       author_name:
         expr: x == state.owner_username
+      post_type:
+        eq: text
+      url:
+        eq: ''
   - entity: Comment
     desc: Top-level comment on programming post
     properties:
@@ -254,7 +256,7 @@ canonical_diff:
       body:
         expr: x == target['ct']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   - entity: Comment
@@ -280,6 +282,8 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['mb']
+      parent_id:
+        eq:
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -357,27 +361,41 @@ canonical_diff:
   - name: Agent did not edit user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.hidden_post_ids) == sorted([p.id for p in state.posts if p.is_hidden])
+    desc: Hidden-post primitive list matches hidden post flags
+    severity: high
+  - expr: target['block_user'] in state.blocked_users and all(u in initial.blocked_users or u == target['block_user'] for u in state.blocked_users)
+    desc: Required blocked-users side effect enforced
+    severity: critical
 eval:
   source: server_state
   checks:
   - expr: any(s.name == '{target.join}' and s.is_subscribed for s in state.subreddits)
     desc: Joined r/MachineLearning
-  - expr: any(p.subreddit_name == '{target.join}' and p.title == '{target.pt}' and
-      p.body == '{target.pb}' and p.author_name == state.owner_username for p in state.posts)
+  - expr: any(p.subreddit_name == '{target.join}' and p.title == '{target.pt}' and p.body == '{target.pb}' and p.author_name == state.owner_username for p in state.posts)
     desc: Exact post created in r/MachineLearning
   - expr: state.get_post('{target.wn_id}').vote_direction == 1
     desc: Exact worldnews target post was upvoted
   - expr: '''{target.prog_id}'' in state.saved_post_ids'
     desc: Exact programming target post was saved
-  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id is None and c.body ==
-      '{target.ct}' and c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id is None and c.body == '{target.ct}' and c.author_name == state.owner_username for c in state.comments)
     desc: Exact top-level comment posted on the programming target
-  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id == '{target.reply_id}'
-      and c.body == '{target.rt}' and c.author_name == state.owner_username for c
-      in state.comments)
+  - expr: any(c.post_id == '{target.prog_id}' and c.parent_id == '{target.reply_id}' and c.body == '{target.rt}' and c.author_name == state.owner_username for c in state.comments)
     desc: Exact reply posted to DeepDiver on the correct comment
-  - expr: any(m.to_user == '{target.mt}' and m.subject == '{target.ms}' and m.body
-      == '{target.mb}' for m in state.sent_messages)
+  - expr: any(m.to_user == '{target.mt}' and m.subject == '{target.ms}' and m.body == '{target.mb}' for m in state.sent_messages)
     desc: Exact direct message sent to CompileError
   - expr: '''{target.block_user}'' in state.blocked_users'
     desc: CryptoSkeptic was blocked
@@ -391,9 +409,7 @@ eval:
     desc: Comment sort set to new
   - expr: not state.settings.show_online_status
     desc: Online status disabled
-  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply
-      and not state.settings.email_mentions and not state.settings.email_messages
-      and not state.settings.email_digest
+  - expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages and not state.settings.email_digest
     desc: All email notifications disabled
   - expr: state.unread_message_count() == 0
     desc: Messages read
@@ -406,22 +422,16 @@ eval:
   - expr: all(pid in state.saved_post_ids for pid in {target.initial_saved_ids})
     desc: Existing saved posts were preserved
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) == 1
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) == 1
     desc: No extra direct messages were sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) <= 4
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 4
     desc: No extra posts were created beyond the required MachineLearning post
     penalty: 0.15
-  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and
-      c.post_id == '{target.prog_id}' and c.body == '{target.ct}' and c.parent_id
-      is None) == 1
+  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and c.post_id == '{target.prog_id}' and c.body == '{target.ct}' and c.parent_id is None) == 1
     desc: Only one top-level programming comment was posted
     penalty: 0.15
-  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and
-      c.post_id == '{target.prog_id}' and c.body == '{target.rt}' and c.parent_id
-      == '{target.reply_id}') == 1
+  - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and c.post_id == '{target.prog_id}' and c.body == '{target.rt}' and c.parent_id == '{target.reply_id}') == 1
     desc: Only one DeepDiver reply was posted
     penalty: 0.15
   - expr: len(state.blocked_users) == 1

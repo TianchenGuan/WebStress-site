@@ -79,3 +79,27 @@ def test_missing_rename_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing renames should fail"
+
+
+def test_blocked_move_must_remove_active_label():
+    """Moving the blocked email must remove Engineering/Active, not just add Blocked."""
+    _, _, targets, initial, state = _setup_session()
+    projects_label = next((l for l in state.labels if l.name == "Projects"), None)
+    if projects_label:
+        state.update_label(projects_label.id, name="Engineering/Active")
+    archive_label = next((l for l in state.labels if l.name == "Archive-Projects"), None)
+    if archive_label:
+        state.update_label(archive_label.id, name="Engineering/Completed")
+    state.ensure_label("Engineering/Blocked", show_in_label_list="show", show_in_message_list="show")
+    state.ensure_label("Engineering/Review", show_in_label_list="show", show_in_message_list="hide")
+    state.ensure_label("Design", show_in_label_list="show", show_in_message_list="show")
+    state.apply_label(targets["blocked_email_id"], "Engineering/Blocked", action='add')
+    for eid in targets["review_email_ids"]:
+        state.apply_label(eid, "Engineering/Review", action='add')
+        state.apply_label(eid, "Engineering/Active", action='remove')
+
+    task = get_task('gmail_label_hierarchy_reorg')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "blocked email must not retain Engineering/Active"

@@ -7,8 +7,7 @@ instruction_template: 'Complete engagement tasks across three subreddits:
   1. In r/worldnews, find "{target.wn_title}" and upvote it.
 
 
-  2. In r/personalfinance, find "{target.pf_title}" and add a comment with exactly:
-  "{target.pf_comment}"
+  2. In r/personalfinance, find "{target.pf_title}" and add a comment with exactly: "{target.pf_comment}"
 
 
   3. In r/gaming, find "{target.gm_title}" and save it.
@@ -54,8 +53,7 @@ seed:
   - use: target_post
     params:
       subreddit: gaming
-      title: The Witcher 4 gameplay reveal shows 40 minutes of uninterrupted open
-        world exploration
+      title: The Witcher 4 gameplay reveal shows 40 minutes of uninterrupted open world exploration
       body: CD Projekt Red seems to have learned from Cyberpunk's launch.
       score: 52000
     outputs:
@@ -73,8 +71,7 @@ seed:
     wn_id: '{output.wn_id}'
     pf_title: '{output.pf_title}'
     pf_id: '{output.pf_id}'
-    pf_comment: This is exactly why every financial advisor recommends 3-6 months
-      of expenses in an easily accessible account. Glad it worked out for your family.
+    pf_comment: This is exactly why every financial advisor recommends 3-6 months of expenses in an easily accessible account. Glad it worked out for your family.
     gm_title: '{output.gm_title}'
     gm_id: '{output.gm_id}'
     join_sub: MachineLearning
@@ -98,18 +95,18 @@ canonical_diff:
       is_saved:
         eq: true
   - entity: Subreddit
-    desc: Subscribed to r/ML
+    desc: Subscribed to r/{target.join_sub}
     where:
       id:
-        expr: state.get_subreddit(x).name == 'MachineLearning'
+        expr: state.get_subreddit(x).name == target['join_sub']
     changes:
       is_subscribed:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      default_feed_sort: { eq: top }
+      default_feed_sort: {eq: top}
   create:
   - entity: Comment
     desc: Exact comment on PF post
@@ -119,7 +116,7 @@ canonical_diff:
       body:
         expr: x == target['pf_comment']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   invariant:
@@ -157,13 +154,26 @@ canonical_diff:
   - name: Exact comment on PF post
     ref: create[0]
     severity: high
+  constraints:
+  - expr: state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.theme == initial.settings.theme and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and
+      state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.get_post('{target.wn_id}').vote_direction == 1
     desc: Worldnews post upvoted
-  - expr: any(c.post_id == '{target.pf_id}' and c.body == '{target.pf_comment}' and
-      c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.pf_id}' and c.body == '{target.pf_comment}' and c.author_name == state.owner_username for c in state.comments)
     desc: Exact comment on PF post
   - expr: '''{target.gm_id}'' in state.saved_post_ids'
     desc: Gaming post saved
@@ -178,12 +188,10 @@ eval:
   - expr: state.get_post('{target.gm_id}').vote_direction == 0
     desc: Gaming post not voted on
     penalty: 0.15
-  - expr: not any( e.action == 'reddit.comment.create' and e.payload.get('post_id')
-      != '{target.pf_id}' for e in state.audit_log)
+  - expr: not any( e.action == 'reddit.comment.create' and e.payload.get('post_id') != '{target.pf_id}' for e in state.audit_log)
     desc: Commenting stayed on the intended personalfinance post only
     penalty: 0.15
-  - expr: not any( e.action == 'reddit.post.save' and e.payload.get('post_id') !=
-      '{target.gm_id}' for e in state.audit_log)
+  - expr: not any( e.action == 'reddit.post.save' and e.payload.get('post_id') != '{target.gm_id}' for e in state.audit_log)
     desc: Only the gaming post was newly saved
     penalty: 0.15
 secondary_primitives: []

@@ -69,9 +69,7 @@ seed:
     upvote_title: '{output.upvote_title}'
     upvote_id: '{output.upvote_id}'
     upvote_sub: '{output.upvote_sub}'
-    comment_text: It is because each year becomes a smaller fraction of your total
-      life experience. When you are 5, a year is 20% of your life. When you are 50,
-      it is only 2%.
+    comment_text: It is because each year becomes a smaller fraction of your total life experience. When you are 5, a year is 20% of your life. When you are 50, it is only 2%.
 canonical_diff:
   update:
   - entity: Post
@@ -100,9 +98,9 @@ canonical_diff:
         eq: 1
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      compact_view: { eq: true }
+      compact_view: {eq: true}
   create:
   - entity: Comment
     desc: Comment on ELI5 post with exact text
@@ -112,7 +110,7 @@ canonical_diff:
       body:
         expr: x == target['comment_text']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   invariant:
@@ -170,6 +168,23 @@ canonical_diff:
   - name: Agent did not edit user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.theme == initial.settings.theme and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities ==
+      initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.hidden_post_ids) == sorted([p.id for p in state.posts if p.is_hidden])
+    desc: Hidden-post primitive list matches hidden post flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
@@ -179,8 +194,7 @@ eval:
     desc: DataIsBeautiful post saved
   - expr: state.get_post('{target.upvote_id}').vote_direction == 1
     desc: ELI5 post upvoted
-  - expr: any(c.post_id == '{target.upvote_id}' and "smaller fraction" in c.body and
-      c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.upvote_id}' and "smaller fraction" in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Comment on ELI5 post
   - expr: state.settings.compact_view
     desc: Compact view enabled
@@ -188,12 +202,10 @@ eval:
   - expr: len(state.hidden_post_ids) <= 1
     desc: At most one post hidden
     penalty: 0.2
-  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count',
-      0)
+  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
     desc: No messages sent when none required
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) == 0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

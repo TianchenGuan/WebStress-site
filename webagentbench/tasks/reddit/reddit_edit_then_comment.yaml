@@ -1,10 +1,7 @@
 task_id: reddit_edit_then_comment
 env_id: reddit
 title: Edit Own Post Then Comment Elsewhere
-instruction_template: 'Find your post titled "{target.edit_post_title}" in r/{target.edit_sub}
-  and edit its body to exactly: "{target.new_body}" Then navigate to r/{target.comment_sub}
-  and find the post titled "{target.comment_post_title}". Add a top-level comment
-  with exactly: "{target.comment_text}"'
+instruction_template: 'Find your post titled "{target.edit_post_title}" in r/{target.edit_sub} and edit its body to exactly: "{target.new_body}" Then navigate to r/{target.comment_sub} and find the post titled "{target.comment_post_title}". Add a top-level comment with exactly: "{target.comment_text}"'
 difficulty: medium
 time_limit_seconds: 300
 expected_steps: 18
@@ -40,74 +37,73 @@ seed:
     edit_post_id: '{output.edit_post_id}'
     edit_post_title: '{output.edit_post_title}'
     edit_sub: Python
-    new_body: 'Version 1.0 is now stable! Added support for JSON Schema Draft 2020-12
-      and YAML input. Install with: pip install json-schema-cli'
+    new_body: 'Version 1.0 is now stable! Added support for JSON Schema Draft 2020-12 and YAML input. Install with: pip install json-schema-cli'
     comment_post_id: '{output.comment_post_id}'
     comment_post_title: '{output.comment_post_title}'
     comment_sub: '{output.comment_sub}'
-    comment_text: Completely agree. Once I started reading compiler output, I finally
-      understood why certain patterns are faster than others.
+    comment_text: Completely agree. Once I started reading compiler output, I finally understood why certain patterns are faster than others.
 canonical_diff:
   update:
-    - entity: Post
-      desc: Edit the target post body
-      where:
-        id:
-          expr: "x == target['edit_post_id']"
-      changes:
-        body:
-          expr: "x == target['new_body']"
-        is_edited:
-          eq: true
+  - entity: Post
+    desc: Edit the target post body
+    where:
+      id:
+        expr: "x == target['edit_post_id']"
+    changes:
+      body:
+        expr: "x == target['new_body']"
+      is_edited:
+        eq: true
   create:
-    - entity: Comment
-      desc: Post the comment on the assembly post
-      properties:
-        post_id:
-          expr: "x == target['comment_post_id']"
-        body:
-          expr: "x == target['comment_text']"
-        parent_id:
-          eq: null
-        author_name:
-          expr: "x == state.owner_username"
+  - entity: Comment
+    desc: Post the comment on the assembly post
+    properties:
+      post_id:
+        expr: "x == target['comment_post_id']"
+      body:
+        expr: "x == target['comment_text']"
+      parent_id:
+        eq:
+      author_name:
+        expr: "x == state.owner_username"
   invariant:
-    - collection: state.posts
-      filter: "a.id != target['edit_post_id']"
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['edit_post_id']"
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
-    - name: Agent edited own post body
-      ref: update[0]
-      severity: high
-    - name: Agent commented on the assembly post
-      ref: create[0]
-      severity: high
-    - name: Agent did not modify other posts
-      ref: invariant[0]
-      severity: high
+  - name: Agent edited own post body
+    ref: update[0]
+    severity: high
+  - name: Agent commented on the assembly post
+    ref: create[0]
+    severity: high
+  - name: Agent did not modify other posts
+    ref: invariant[0]
+    severity: high
+  constraints:
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
-  - expr: 'state.get_post(''{target.edit_post_id}'').body == ''Version 1.0 is now
-      stable! Added support for JSON Schema Draft 2020-12 and YAML input. Install
-      with: pip install json-schema-cli'''
+  - expr: 'state.get_post(''{target.edit_post_id}'').body == ''Version 1.0 is now stable! Added support for JSON Schema Draft 2020-12 and YAML input. Install with: pip install json-schema-cli'''
     desc: Post body updated to exact text
   - expr: state.get_post('{target.edit_post_id}').is_edited
     desc: Post marked as edited
-  - expr: any(c.post_id == '{target.comment_post_id}' and c.body == "Completely agree.
-      Once I started reading compiler output, I finally understood why certain patterns
-      are faster than others." and c.author_name == state.owner_username for c in
-      state.comments)
+  - expr: any(c.post_id == '{target.comment_post_id}' and c.body == "Completely agree. Once I started reading compiler output, I finally understood why certain patterns are faster than others." and c.author_name == state.owner_username for c in state.comments)
     desc: Exact comment posted on assembly post
   negative_checks:
   - expr: not state.get_post('{target.edit_post_id}').is_removed
@@ -116,8 +112,7 @@ eval:
   - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
     desc: No messages sent when none required
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

@@ -55,7 +55,7 @@ def _future_dt(initial, *, days_ahead: int):
 
 
 def _other_provider_id(state, pcp_id: str) -> str:
-    """Pick a non-PCP provider id (e.g. for lab appointments)."""
+    """Pick a non-PCP provider id."""
     return next(p.id for p in state.providers if p.id != pcp_id)
 
 
@@ -69,13 +69,13 @@ def test_correct_trajectory_passes():
         id="appt_new_physical",
         provider_id=pcp_id,
         datetime=physical_dt,
-        reason="Annual physical exam",
+        reason="Annual physical",
     ))
     state.appointments.append(_make_appt(
         id="appt_new_lab",
-        provider_id=_other_provider_id(state, pcp_id),
+        provider_id=pcp_id,
         datetime=lab_dt,
-        reason="Pre-visit lab work / blood panel",
+        reason="pre-physical lab work",
     ))
 
     task = get_task("pp_schedule_annual_physical")
@@ -119,9 +119,9 @@ def test_only_lab_fails():
     pcp_id = targets["pcp_id"]
     state.appointments.append(_make_appt(
         id="appt_new_lab_only",
-        provider_id=_other_provider_id(state, pcp_id),
+        provider_id=pcp_id,
         datetime=_future_dt(initial, days_ahead=26),
-        reason="Pre-visit lab work",
+        reason="pre-physical lab work",
     ))
 
     task = get_task("pp_schedule_annual_physical")
@@ -151,9 +151,9 @@ def test_gap_too_small_fails():
     ))
     state.appointments.append(_make_appt(
         id="appt_new_lab_tight",
-        provider_id=_other_provider_id(state, pcp_id),
+        provider_id=pcp_id,
         datetime=lab_dt,
-        reason="Pre-visit lab draw",
+        reason="pre-physical lab work",
     ))
 
     task = get_task("pp_schedule_annual_physical")
@@ -183,9 +183,9 @@ def test_telehealth_fails():
     ))
     state.appointments.append(_make_appt(
         id="appt_new_lab_inperson",
-        provider_id=_other_provider_id(state, pcp_id),
+        provider_id=pcp_id,
         datetime=lab_dt,
-        reason="Pre-visit lab work",
+        reason="pre-physical lab work",
     ))
 
     task = get_task("pp_schedule_annual_physical")
@@ -198,6 +198,64 @@ def test_telehealth_fails():
     assert report.passed is False, (
         "telehealth physical must fail the type: in-person predicate"
     )
+
+
+def test_lab_with_non_pcp_provider_fails():
+    """The form has no lab provider; both appointments must be with the PCP."""
+    sm, sid, targets, initial, state = _setup_session()
+    pcp_id = targets["pcp_id"]
+    physical_dt = _future_dt(initial, days_ahead=30)
+    lab_dt = physical_dt - timedelta(days=4)
+    state.appointments.append(_make_appt(
+        id="appt_new_physical",
+        provider_id=pcp_id,
+        datetime=physical_dt,
+        reason="Annual physical",
+    ))
+    state.appointments.append(_make_appt(
+        id="appt_new_lab_wrong_provider",
+        provider_id=_other_provider_id(state, pcp_id),
+        datetime=lab_dt,
+        reason="pre-physical lab work",
+    ))
+
+    task = get_task("pp_schedule_annual_physical")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, "lab appointment with non-PCP provider must fail"
+
+
+def test_near_miss_reasons_fail():
+    """Close paraphrases are not the exact reasons requested by the task."""
+    sm, sid, targets, initial, state = _setup_session()
+    pcp_id = targets["pcp_id"]
+    physical_dt = _future_dt(initial, days_ahead=30)
+    lab_dt = physical_dt - timedelta(days=4)
+    state.appointments.append(_make_appt(
+        id="appt_new_physical_near_reason",
+        provider_id=pcp_id,
+        datetime=physical_dt,
+        reason="Annual physical exam",
+    ))
+    state.appointments.append(_make_appt(
+        id="appt_new_lab_near_reason",
+        provider_id=pcp_id,
+        datetime=lab_dt,
+        reason="Pre-visit lab work",
+    ))
+
+    task = get_task("pp_schedule_annual_physical")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, "non-exact appointment reasons must fail"
 
 
 def test_no_mutation_fails():

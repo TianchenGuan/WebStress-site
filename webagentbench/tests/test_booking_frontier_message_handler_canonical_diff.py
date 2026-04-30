@@ -22,6 +22,9 @@ def _setup_session(seed: int = 42):
 
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
+    for msg in state.messages:
+        if msg.id in {targets['msg1_id'], targets['msg2_id'], targets['msg3_id']}:
+            msg.read = True
     state.messages.append(Message(
         id="msg_madrid",
         property_id=targets['msg1_prop_id'],
@@ -141,6 +144,20 @@ def test_wrong_room_name_fails():
     sm, sid, targets, initial, state = _setup_session()
     _apply_correct_state(targets, state)
     state.reservations[-1].room_type_name = "Standard Room"
+
+    task = get_task(TASK_ID)
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_missing_target_message_reads_fails():
+    sm, sid, targets, initial, state = _setup_session()
+    _apply_correct_state(targets, state)
+    for msg in state.messages:
+        if msg.id == targets['msg2_id']:
+            msg.read = False
+            break
 
     task = get_task(TASK_ID)
     agent_diff = compute_diff(initial, state)

@@ -55,13 +55,23 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['forward_id']"
         to:
-          expr: "target['forward_to_email'] in x"
+          expr: "x == [target['forward_to_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Reply to project update email from reply_sender_name
       count: 1
       properties:
         in_reply_to:
           expr: "x == target['reply_a_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['reply_a_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['reply_phrase_a'] in x"
         forwarded_from_id:
@@ -72,6 +82,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['reply_b_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['reply_b_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: labels

@@ -107,6 +107,13 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: NVDA stop-loss filled only after the stop threshold was reached
+    expr: any(o.symbol == 'NVDA' and o.side == 'sell' and o.order_type == 'stop'
+      and o.status == 'filled' and o.filled_tick is not None and o.filled_price
+      is not None and o.stop_price is not None and o.filled_price <=
+      o.stop_price for o in state.orders)
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, grounding, state_tracking by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

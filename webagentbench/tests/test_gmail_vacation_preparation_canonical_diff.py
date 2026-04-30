@@ -35,19 +35,19 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Vendor proposal",
         body="Thank you for the vendor proposal. I'll review and get back to you.",
-        to=[targets["pending_a_sender"]],
+        to=[state.get_email(targets["pending_a_id"]).from_addr],
         in_reply_to=targets["pending_a_id"],
     )
     state.send_email(
         subject="Re: Timeline",
         body="Confirming the timeline as discussed.",
-        to=[targets["pending_b_sender"]],
+        to=[state.get_email(targets["pending_b_id"]).from_addr],
         in_reply_to=targets["pending_b_id"],
     )
     state.send_email(
         subject="Re: Event attendance",
         body="Confirmed, I will attend.",
-        to=[targets["pending_c_sender"]],
+        to=[state.get_email(targets["pending_c_id"]).from_addr],
         in_reply_to=targets["pending_c_id"],
     )
     # Create Return Attention label
@@ -106,3 +106,31 @@ def test_missing_replies_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing replies should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Vacation prep may not alter settings outside responder, signature, and undo send."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.settings.language = 'French'
+
+    task = get_task('gmail_vacation_preparation')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"
+
+
+def test_timeline_reply_all_fails():
+    """The timeline reply must be reply-only even though the thread includes others."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    timeline_reply = next(sent for sent in state.sent if sent.in_reply_to == targets["pending_b_id"])
+    timeline_reply.cc = ["leadership@example.com"]
+    state.touch()
+
+    task = get_task('gmail_vacation_preparation')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "reply-all CC on timeline reply should fail"

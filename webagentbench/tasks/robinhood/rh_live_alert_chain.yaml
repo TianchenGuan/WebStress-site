@@ -1,10 +1,11 @@
 task_id: rh_live_alert_chain
 env_id: robinhood
 title: Alert-Triggered Portfolio Rebalance
-instruction_template: Set a price alert for NVDA above $900. When the alert triggers,
-  check your portfolio's Technology sector concentration (count NVDA, AAPL, and MSFT
-  as Technology stocks). If Technology exceeds 60% of your total portfolio value, sell
-  enough NVDA to bring it to 50%. Otherwise, buy 5 more shares of NVDA.
+instruction_template: Set a price alert for NVDA above $900. When the alert
+  triggers, check your portfolio's Technology sector concentration (count NVDA,
+  AAPL, and MSFT as Technology stocks). If Technology exceeds 60% of your total
+  portfolio value, sell enough NVDA to bring it to 50%. Otherwise, buy 5 more
+  shares of NVDA.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 20
@@ -98,6 +99,15 @@ canonical_diff:
       id: {expr: "x == v.id"}
     changes:
       quantity: {any: true}
+  - entity: positions
+    desc: Non-NVDA holdings only receive backend mark-to-market refreshes
+    bijection:
+      over: "[p for p in initial.positions if p.symbol != 'NVDA' and state.get_position(p.symbol) is not None and state.get_position(p.symbol).total_return != p.total_return]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      total_return: {any: true}
   invariant:
   - collection: state.positions
     filter: "a.symbol != 'NVDA'"
@@ -125,7 +135,36 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: NVDA above-$900 alert triggered
+    expr: any(a.symbol == 'NVDA' and a.condition == 'above' and Decimal('895')
+      <= Decimal(str(a.target_price)) <= Decimal('905') and a.status ==
+      'triggered' for a in state.price_alerts)
+    severity: critical
+  - desc: NVDA response buy filled for 5 shares
+    expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity ==
+      Decimal('5') and o.status == 'filled' and o.filled_quantity == o.quantity
+      for o in state.orders)
+    severity: critical
+  - desc: NVDA buy branch is valid for the seed and waits for the alert trigger
+    expr: initial.sector_pct('Technology') <= Decimal('60') and any(a.symbol ==
+      'NVDA' and a.condition == 'above' and a.triggered_at is not None and
+      any(o.symbol == 'NVDA' and o.side == 'buy' and o.created_at >
+      a.triggered_at for o in state.orders) for a in state.price_alerts)
+    severity: critical
+  - desc: Non-NVDA positions keep identity and holdings unchanged
+    expr: all((state.get_position(p.symbol) is None) or
+      (state.get_position(p.symbol).id == p.id and
+      state.get_position(p.symbol).quantity == p.quantity and
+      state.get_position(p.symbol).avg_cost_basis == p.avg_cost_basis and
+      state.get_position(p.symbol).current_price == p.current_price and
+      state.get_position(p.symbol).day_change_pct == p.day_change_pct and
+      state.get_position(p.symbol).asset_type == p.asset_type and
+      state.get_position(p.symbol).name == p.name and
+      state.get_position(p.symbol).lots == p.lots) for p in initial.positions if
+      p.symbol != 'NVDA')
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures planning, patience, state_tracking, grounding, verification
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+primitive_thesis: Measures planning, patience, state_tracking, grounding,
+  verification by requiring exact completion of the requested Robinhood workflow
+  while ignoring distractor account state.

@@ -88,3 +88,31 @@ def test_missing_director_forward_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing director forward should fail"
+
+
+def test_exact_reporter_reply_rejects_extra_text():
+    """The first escalation reply is an exact phrase, not a substring target."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: CRITICAL",
+        body="Received. Escalating to engineering lead now. Extra context.",
+        to=[targets["reporter_email"]],
+        in_reply_to=targets["unresolved_first_msg_id"],
+    )
+    state.forward_email(
+        targets["unresolved_first_msg_id"],
+        to=[targets["team_lead_email"]],
+        body="Unresolved payment timeout on Order #88421. Please investigate and assign an engineer.",
+    )
+    state.forward_email(
+        targets["unresolved_first_msg_id"],
+        to=[targets["director_email"]],
+        body=f"Escalated to {targets['team_lead_name']} per protocol. Order #88421 payment timeout remains unresolved.",
+    )
+    state.toggle_star(targets["unresolved_first_msg_id"], is_starred=True)
+
+    task = get_task('gmail_escalation_chain')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra reporter reply text should fail"

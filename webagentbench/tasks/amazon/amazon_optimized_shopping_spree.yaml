@@ -7,8 +7,8 @@ instruction_template: 'Find and purchase exactly these 5 highest-rated items, on
   Set"; Sports & Outdoors — "Yoga Mat Premium Non-Slip"; Office Supplies — "Ergonomic
   Standing Desk Converter". Each item is rated at least 4.0 and your total order must
   stay under $500. Add one of each to your cart, verify the total is under $500, then
-  complete checkout using the shipping address for Jordan Parker at 742 Evergreen Terrace
-  and the Visa card ending in 4242.
+  complete checkout using the shipping address for Jordan Parker at 742 Evergreen
+  Terrace and the Visa card ending in 4242.
 
   '
 difficulty: hard
@@ -154,14 +154,18 @@ canonical_diff:
     desc: Order contains the 5 category winners and stays under $500
     properties:
       items:
-        expr: "any(it['product_id'] == target['elec_id'] for it in x) and any(it['product_id'] == target['book_id'] for it in x) and any(it['product_id'] == target['home_id'] for it in x) and any(it['product_id'] == target['sport_id'] for it in x) and any(it['product_id'] == target['office_id'] for it in x)"
+        expr: "len(x) == 5 and {it['product_id'] for it in x} == {target['elec_id'],
+          target['book_id'], target['home_id'], target['sport_id'], target['office_id']}
+          and all(it['quantity'] == 1 for it in x)"
       total:
         expr: "x < 500.0"
       shipping_address_id:
-        expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"
+        expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address
+          == '742 Evergreen Terrace' for a in state.addresses)"
       payment_method_id:
-        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods)"
-      status: {any: true}
+        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for
+          p in state.payment_methods)"
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

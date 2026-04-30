@@ -108,3 +108,30 @@ def test_wrong_rating_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_partial_review_title_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    state.add_to_cart(targets["product_id"], quantity=1)
+    addr = next(a for a in state.addresses if a.full_name == "Jordan Parker" and "742 Evergreen" in a.street_address)
+    pm = next(p for p in state.payment_methods if p.card_type == "Visa" and p.last_four == "4242")
+    state.place_order(shipping_address_id=addr.id, payment_method_id=pm.id)
+    state.add_review(Review(
+        id=state._next_id("review"),
+        product_id=targets["product_id"],
+        author_name=state.owner_name,
+        rating=5,
+        title="Absolutely love",
+        body="I absolutely love these and use them every day.",
+        created_at=datetime.now(timezone.utc),
+    ))
+
+    task = get_task("amazon_review_after_purchase")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

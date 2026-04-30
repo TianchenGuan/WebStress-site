@@ -93,6 +93,18 @@ def test_wrong_comment_body_fails():
     assert report.passed is False
 
 
+def test_comment_body_with_extra_text_fails():
+    _, _, targets, initial, state = _setup()
+    _apply_correct(state, targets)
+    for c in state.comments:
+        if c.author_name == state.owner_username and c.post_id == targets["prog_id"]:
+            c.body = f"{targets['cc']} Extra commentary."
+    task = get_task("reddit_community_builder")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
 def test_missing_recipient_fails():
     _, _, targets, initial, state = _setup()
     _apply_correct(state, targets)

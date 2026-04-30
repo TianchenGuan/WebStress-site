@@ -106,12 +106,14 @@ seed:
 canonical_diff:
   create:
   - entity: ReturnRequest
-    desc: Return request filed for the most expensive delivered order with upgrade reason
+    desc: Return request filed for the most expensive delivered order with
+      upgrade reason
     properties:
       order_id: {expr: "x == target['old_order_id']"}
       product_id: {expr: "x == target['old_product_id']"}
-      reason: {substring: Upgrading}
-      status: {any: true}
+      reason: {eq: "Upgrading to a better model"}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -121,10 +123,11 @@ canonical_diff:
     desc: Replacement upgrade order containing the upgrade product
     properties:
       items:
-        expr: "len(x) == 1 and x[0]['product_id'] == target['upgrade_product_id'] and x[0]['quantity'] == 1"
-      status: {any: true}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
+        expr: "len(x) == 1 and x[0]['product_id'] == target['upgrade_product_id']
+          and x[0]['quantity'] == 1"
+      status: {eq: confirmed}
+      shipping_address_id: {expr: "x == initial.settings.default_address_id"}
+      payment_method_id: {expr: "x == initial.settings.default_payment_id"}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -135,7 +138,8 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['upgrade_product_id'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['upgrade_product_id'] for it in
+      (a.items or []))"
     preserve: ALL
   - collection: state.returns
     filter: "a.order_id != target['old_order_id']"

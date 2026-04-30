@@ -1,9 +1,10 @@
 task_id: rh_live_comparative_watch
 env_id: robinhood
 title: Comparative Price Watch and Trade
-instruction_template: Watch AAPL and MSFT prices simultaneously. In this scenario,
-  AAPL will outperform. When AAPL's daily change percentage exceeds MSFT's by more
-  than 2 percentage points, sell all your MSFT shares and buy AAPL with the proceeds.
+instruction_template: Watch AAPL and MSFT prices simultaneously. In this
+  scenario, AAPL will outperform. When AAPL's daily change percentage exceeds
+  MSFT's by more than 2 percentage points, sell all your MSFT shares and buy
+  AAPL with the proceeds.
 difficulty: frontier
 time_limit_seconds: 500
 expected_steps: 30
@@ -161,7 +162,15 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: MSFT sell and AAPL buy both filled
+    expr: any(o.symbol == 'MSFT' and o.side == 'sell' and o.status == 'filled'
+      and o.filled_quantity == o.quantity and o.quantity == Decimal('5') for o
+      in state.orders) and any(o.symbol == 'AAPL' and o.side == 'buy' and
+      o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures patience, state_tracking, grounding, planning, verification
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+primitive_thesis: Measures patience, state_tracking, grounding, planning,
+  verification by requiring exact completion of the requested Robinhood workflow
+  while ignoring distractor account state.

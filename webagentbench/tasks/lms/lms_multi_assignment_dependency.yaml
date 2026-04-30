@@ -112,6 +112,10 @@ canonical_diff:
         - late
       file_name:
         eq: quiz_answers.pdf
+      attempt_count:
+        expr: "x >= initial.get_assignment(target['target_quiz_assignment_id']).attempt_count + 1"
+      submitted_at:
+        expr: "x is not None"
   - entity: PeerReview
     desc: Complete the pending peer review with full rubric scores and detailed comments
     where:
@@ -139,6 +143,10 @@ canonical_diff:
         - late
       file_name:
         eq: project_final.pdf
+      attempt_count:
+        expr: "x >= initial.get_assignment(target['target_project_assignment_id']).attempt_count + 1"
+      submitted_at:
+        expr: "x is not None"
   invariant:
   # Allow the backend's prerequisite-unlock cascade: completing the next
   # available module flips later locked modules in the same course to
@@ -172,6 +180,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.sent_messages
     preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
   - name: Agent completed the next available module
     ref: update[0]

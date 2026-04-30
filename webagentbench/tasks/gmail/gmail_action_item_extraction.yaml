@@ -15,7 +15,9 @@ time_limit_seconds: 480
 expected_steps: 45
 primary_primitives:
 - verification
-secondary_primitives: []
+secondary_primitives:
+- exploration
+- grounding
 start_path: /inbox
 seed:
   distractors: 40
@@ -54,12 +56,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['manager_email'] in x"
+          expr: "x == [target['manager_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
-          substring_all:
-            - Offsite Action Items
+          expr: "x == f\"Offsite Action Items — {target['user_name']}\""
         body:
-          expr: "all(item in x for item in target['correct_action_items'])"
+          expr: "all(item in x for item in target['correct_action_items']) and target['reassigned_item'] not in x and target['adversarial_wrong_item'] not in x"
         in_reply_to:
           eq: null
         forwarded_from_id:

@@ -73,10 +73,12 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New confirmed order for the target product, using the correct address and payment
+    desc: New confirmed order for the target product, using the correct address
+      and payment
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id'] and x[0]['quantity']
+          == 1"
       status: {eq: confirmed}
       shipping_address_id: {expr: "x == target['address_id']"}
       payment_method_id: {expr: "x == target['payment_id']"}
@@ -96,7 +98,8 @@ canonical_diff:
       id: {any: true}
   invariant:
   - collection: state.orders
-    filter: "a.id == target['cancelled_order_id'] or not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    filter: "a.id == target['cancelled_order_id'] or not any(it.get('product_id')
+      == target['product_id'] for it in (a.items or []))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

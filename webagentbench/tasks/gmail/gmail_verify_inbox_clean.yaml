@@ -48,6 +48,22 @@ canonical_diff:
       preserve: ALL
     - collection: state.filters
       preserve: ALL
+  constraints:
+    - desc: All target VIP inbox emails were already read
+      severity: critical
+      expr: >-
+        all(
+          next(e for e in state.emails if e.id == eid).is_read
+          for eid in target['vip_email_ids']
+        )
+    - desc: All target VIP inbox emails already had replies before the task
+      severity: critical
+      expr: >-
+        len(state.sent) == target['initial_sent_count']
+        and all(
+          any(sent.in_reply_to == eid for sent in state.sent)
+          for eid in target['vip_email_ids']
+        )
   named_invariants:
     - name: Agent did not send any new emails
       ref: invariant[2]

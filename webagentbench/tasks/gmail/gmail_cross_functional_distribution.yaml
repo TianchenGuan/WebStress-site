@@ -96,13 +96,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['eng_leads_email'] in x"
+          expr: "x == [target['eng_leads_email']]"
         subject:
           eq: "Atlas Update - Technical Details (March 2026)"
         body:
           expr: "target['technical_section_text'] in x"
         cc:
-          expr: "target['pm_email'] in x"
+          expr: "x == [target['pm_email']]"
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -110,13 +112,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['sales_team_email'] in x"
+          expr: "x == [target['sales_team_email']]"
         subject:
           eq: "Atlas Update - Customer Summary (March 2026)"
         body:
           expr: "target['customer_section_text'] in x"
         cc:
-          expr: "target['pm_email'] in x"
+          expr: "x == [target['pm_email']]"
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -124,13 +128,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['legal_email'] in x"
+          expr: "x == [target['legal_email']]"
         subject:
           eq: "Atlas Update - Compliance Notes (March 2026)"
         body:
           expr: "target['compliance_section_text'] in x"
         cc:
-          expr: "target['pm_email'] in x"
+          expr: "x == [target['pm_email']]"
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -138,13 +144,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['cto_email'] in x and target['ceo_email'] in x"
+          expr: "sorted(x) == sorted([target['cto_email'], target['ceo_email']]) and len(x) == 2"
         subject:
           eq: "Atlas Update - Executive Status (March 2026)"
         body:
           expr: "target['executive_section_text'] in x"
         cc:
-          expr: "target['pm_email'] in x"
+          expr: "x == [target['pm_email']]"
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -152,7 +160,11 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['pm_email'] in x"
+          expr: "x == [target['pm_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           eq: "Atlas Update - Full Details + Action Items (March 2026)"
         body:

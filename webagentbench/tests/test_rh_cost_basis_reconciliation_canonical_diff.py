@@ -96,3 +96,30 @@ def test_missing_alert_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, "missing price alert should fail"
+
+
+def test_prematurely_filled_limit_sell_fails():
+    """The task asks to place an ask-limit trim order, not to force a fill."""
+    sm, sid, targets, initial, state = _setup_session()
+    sym = targets["symbol"]
+    qty = targets["sell_quantity"]
+    stock = state.get_stock(sym)
+    alert_price = (stock.price * Decimal("0.90")).quantize(Decimal("0.01"))
+
+    order = state.place_order(
+        symbol=sym, side="sell", order_type="limit",
+        quantity=Decimal(qty), limit_price=stock.ask,
+    )
+    order.status = "filled"
+    order.filled_quantity = Decimal(qty)
+    order.filled_price = stock.ask
+    state.create_price_alert(sym, "below", alert_price)
+
+    task = get_task("rh_cost_basis_reconciliation")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, "filled trim order without fill side effects should fail"

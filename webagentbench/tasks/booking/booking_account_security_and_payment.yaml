@@ -62,6 +62,13 @@ canonical_diff:
     where:
       id: { any: true }
     changes:
+      default_payment_id:
+        expr: >-
+          x == next(
+            (pm.id for pm in state.payment_methods
+             if pm.card_type == 'Visa' and pm.last_four == '3333' and pm.is_default),
+            ''
+          )
       two_factor_enabled: { eq: true }
       deal_alerts: { eq: false }
       sms_notifications: { eq: true }

@@ -1,6 +1,7 @@
 """End-to-end tests for lms_academic_probation_recovery canonical_diff."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
@@ -28,7 +29,7 @@ def _critical_missing_assignment_id(initial) -> str:
                 initial.get_assignment(aid).weight_category
             ].weight,
             initial.get_assignment(aid).points_possible,
-            -initial.get_assignment(aid).due_at.timestamp(),
+            initial.get_assignment(aid).due_at.timestamp(),
         ),
     )
 
@@ -37,8 +38,10 @@ def _submit_recovery(state, assignment_id: str, *, file_name: str = "recovery_pr
     for assignment in state.assignments:
         if assignment.id == assignment_id:
             assignment.file_name = file_name
+            assignment.attempt_count += 1
+            assignment.submitted_at = datetime.now(timezone.utc)
             assignment.submission_status = (
-                "late" if assignment.due_at < datetime.now(timezone.utc) else "submitted"
+                "late" if assignment.due_at < assignment.submitted_at else "submitted"
             )
             return
     raise ValueError(f"assignment {assignment_id!r} not found")
@@ -111,19 +114,121 @@ def test_wrong_file_name_fails():
     assert report.passed is False, "submitting the target assignment with the wrong file should fail"
 
 
+def test_missing_message_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    target_assignment_id = _critical_missing_assignment_id(initial)
+    _submit_recovery(state, target_assignment_id)
+
+    task = get_task("lms_academic_probation_recovery")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "submitting recovery work without an advisor message should fail"
+
+
 def test_wrong_message_recipient_fails():
-    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
-    # compute_diff cannot generate Create entries for messages and the
-    # canonical_diff matcher cannot enforce recipient identity. Recipient
-    # checks live in the `eval:` block (server_state checks). Verify that
-    # `to` is captured on the dict; the eval block enforces correctness.
     sm, sid, targets, initial, state = _setup_session()
 
     target_assignment_id = _critical_missing_assignment_id(initial)
     _submit_recovery(state, target_assignment_id)
     _send_message(state, to="someone_else@example.com")
 
-    assert state.sent_messages[-1]["to"] == "someone_else@example.com"
+    task = get_task("lms_academic_probation_recovery")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "messaging a non-advisor should fail"
+
+
+def test_later_due_date_wins_final_tie():
+    sm, sid, targets, initial, state = _setup_session()
+
+    tied = [a.id for a in initial.assignments if a.submission_status == "not_submitted"][:2]
+    assert len(tied) == 2
+    base_due = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+    for snapshot in (initial, state):
+        for assignment in snapshot.assignments:
+            if assignment.submission_status != "not_submitted":
+                continue
+            course = snapshot.get_course(assignment.course_id)
+            course.credits = 1
+            course.syllabus.grading_policy[assignment.weight_category].weight = Decimal("0.01")
+            assignment.points_possible = Decimal("1")
+            assignment.due_at = base_due - timedelta(days=30)
+
+    for idx, aid in enumerate(tied):
+        for snapshot in (initial, state):
+            assignment = snapshot.get_assignment(aid)
+            course = snapshot.get_course(assignment.course_id)
+            course.credits = 3
+            policy = course.syllabus.grading_policy[assignment.weight_category]
+            policy.weight = Decimal("0.20")
+            assignment.points_possible = Decimal("50")
+            assignment.due_at = base_due + timedelta(days=idx)
+
+    later_due_id = tied[1]
+    earlier_due_id = tied[0]
+    assert _critical_missing_assignment_id(initial) == later_due_id
+
+    _submit_recovery(state, later_due_id)
+    _send_message(state, to=targets["advisor_name"])
+
+    task = get_task("lms_academic_probation_recovery")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is True, f"later due tie-break should pass: {report.failures}"
+
+    _sm, _sid, targets, initial, state = _setup_session()
+    tied = [a.id for a in initial.assignments if a.submission_status == "not_submitted"][:2]
+    earlier_due_id = tied[0]
+    for snapshot in (initial, state):
+        for assignment in snapshot.assignments:
+            if assignment.submission_status != "not_submitted":
+                continue
+            course = snapshot.get_course(assignment.course_id)
+            course.credits = 1
+            course.syllabus.grading_policy[assignment.weight_category].weight = Decimal("0.01")
+            assignment.points_possible = Decimal("1")
+            assignment.due_at = base_due - timedelta(days=30)
+    for idx, aid in enumerate(tied):
+        for snapshot in (initial, state):
+            assignment = snapshot.get_assignment(aid)
+            course = snapshot.get_course(assignment.course_id)
+            course.credits = 3
+            policy = course.syllabus.grading_policy[assignment.weight_category]
+            policy.weight = Decimal("0.20")
+            assignment.points_possible = Decimal("50")
+            assignment.due_at = base_due + timedelta(days=idx)
+    _submit_recovery(state, earlier_due_id)
+    _send_message(state, to=targets["advisor_name"])
+
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "earlier due assignment should lose the final tie-break"
 
 
 def test_extra_assignment_mutation_fails():

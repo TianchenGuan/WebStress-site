@@ -71,3 +71,26 @@ def test_wrong_settings_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong undo_send_seconds should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Compliance changes must not alter unrelated settings."""
+    _, _, targets, initial, state = _setup_session()
+    state.settings.undo_send_seconds = 30
+    state.settings.default_reply_behavior = 'reply'
+    state.settings.send_and_archive = True
+    state.settings.max_page_size = 50
+    state.settings.language = 'French'
+    state.send_email(
+        subject="Re: Q1 Compliance",
+        body="Already compliant: default reply behavior, maximum page size. Changed: undo send delay, send-and-archive.",
+        to=["it-security@company.io"],
+        in_reply_to=targets["it_email_id"],
+        thread_id=targets["it_thread_id"],
+    )
+
+    task = get_task('gmail_compliance_settings_audit')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"

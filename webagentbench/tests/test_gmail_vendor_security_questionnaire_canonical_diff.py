@@ -31,7 +31,7 @@ def _apply_all_correct_mutations(state, targets):
             f"Q7: {targets['q7_answer']}\n"
             f"Q8: {targets['q8_correct']}"
         ),
-        to=["procurement@cloudvault.io"],
+        to=[state.get_email(targets["vendor_email_id"]).from_addr],
         cc=targets["cc_addresses"],
         in_reply_to=targets["vendor_email_id"],
     )
@@ -92,7 +92,7 @@ def test_wrong_q5_answer_fails():
             f"Q7: {targets['q7_answer']}\n"
             f"Q8: {targets['q8_correct']}"
         ),
-        to=["procurement@cloudvault.io"],
+        to=[state.get_email(targets["vendor_email_id"]).from_addr],
         cc=targets["cc_addresses"],
         in_reply_to=targets["vendor_email_id"],
     )
@@ -115,3 +115,18 @@ def test_wrong_q5_answer_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong Q5 answer should fail"
+
+
+def test_wrong_vendor_reply_recipient_fails():
+    """The vendor questionnaire reply must go to the original sender, not the original TO."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    reply = next(sent for sent in state.sent if sent.in_reply_to == targets["vendor_email_id"])
+    reply.to = ["procurement@cloudvault.io"]
+    state.touch()
+
+    task = get_task('gmail_vendor_security_questionnaire')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "replying to original TO instead of sender should fail"

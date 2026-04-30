@@ -106,6 +106,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent submitted the lowest homework with the report file
       ref: update[0]
@@ -179,6 +183,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.student
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent marked the latest announcement as read
       ref: update[0]

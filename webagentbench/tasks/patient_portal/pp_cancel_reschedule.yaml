@@ -72,6 +72,7 @@ seed:
     upcoming_ids: '{output.upcoming_ids}'
     specialist_apt_id: '{output.specialist_apt_id}'
     target_apt_id: '{output.target_apt_id}'
+    approved_ref_ids: '{output.approved_ref_ids}'
 canonical_diff:
   update:
     - entity: Appointment
@@ -85,9 +86,18 @@ canonical_diff:
         status: {eq: "cancelled"}
   create:
     - entity: Appointment
-      desc: "Schedule a replacement appointment at a time that does not conflict with other upcoming appointments"
+      desc: "Schedule a dermatology replacement appointment in an actual dermatology slot that does not conflict with other upcoming appointments"
       properties:
         status: {eq: "scheduled"}
+        provider_id:
+          expr: >-
+            x == next(a.provider_id for a in initial.appointments if a.id == target['target_apt_id'])
+            and any(p.id == x and p.specialty == 'dermatology' for p in initial.providers)
+        linked_referral_id:
+          expr: >-
+            x is not None
+            and x in target['approved_ref_ids']
+            and any(r.id == x and r.status == 'approved' and r.to_specialty == 'dermatology' for r in initial.referrals)
         datetime:
           expr: >
             not any(
@@ -96,6 +106,11 @@ canonical_diff:
               and a.id in target['upcoming_ids']
               and a.id != target['target_apt_id']
               for a in initial.appointments
+            )
+            and any(
+              p.id == next(a.provider_id for a in initial.appointments if a.id == target['target_apt_id'])
+              and any(s.datetime == x for s in p.available_slots)
+              for p in initial.providers
             )
   invariant:
     - collection: state.appointments

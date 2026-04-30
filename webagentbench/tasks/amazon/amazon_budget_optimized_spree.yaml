@@ -164,10 +164,13 @@ canonical_diff:
     desc: Order contains the 5 category winners and stays under $250
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id_cat1'] for it in x) and any(it['product_id'] == target['product_id_cat2'] for it in x) and any(it['product_id'] == target['product_id_cat3'] for it in x) and any(it['product_id'] == target['product_id_cat4'] for it in x) and any(it['product_id'] == target['product_id_cat5'] for it in x) and all(it['unit_price'] < 60 for it in x)"
+        expr: "len(x) == 5 and {it['product_id'] for it in x} == {target['product_id_cat1'],
+          target['product_id_cat2'], target['product_id_cat3'], target['product_id_cat4'],
+          target['product_id_cat5']} and all(it['quantity'] == 1 and it['unit_price']
+          < 60 for it in x)"
       total:
         expr: "x < 250"
-      status: {any: true}
+      status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
       subtotal: {any: true}

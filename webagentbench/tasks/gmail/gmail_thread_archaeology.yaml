@@ -47,9 +47,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['thread_email_id']"
         to:
-          expr: "target['assignee_email'] in x"
+          expr: "x == [target['assignee_email']]"
         cc:
-          expr: "target['manager_email'] in x"
+          expr: "x == [target['manager_email']]"
+        bcc:
+          eq: []
         body:
           expr: "target['deadline'] in x"
     - entity: sent
@@ -58,6 +60,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['thread_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['thread_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         forwarded_from_id:
           eq: null
     - entity: labels

@@ -112,3 +112,16 @@ def test_missing_filter_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing filters should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Workspace standardization may only alter the three instructed settings."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.settings.language = 'French'
+
+    task = get_task('gmail_workspace_standardization')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"

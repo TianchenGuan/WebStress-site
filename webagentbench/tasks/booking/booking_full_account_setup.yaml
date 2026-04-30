@@ -94,6 +94,13 @@ canonical_diff:
       desc: Two-factor authentication enabled
       where: {id: {any: true}}
       changes:
+        default_payment_id:
+          expr: >-
+            x == next(
+              (pm.id for pm in state.payment_methods
+               if pm.card_type == 'Visa' and pm.last_four == '9999' and pm.is_default),
+              ''
+            )
         two_factor_enabled: {eq: true}
   create:
     - entity: PaymentMethod
@@ -131,7 +138,9 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '9999' and pm.is_default for pm in state.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}

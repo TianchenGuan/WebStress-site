@@ -42,8 +42,8 @@ def _make_reservation(targets):
         payment_method_id="pm_1",
         cancellation_policy=CancellationPolicy(),
         confirmation_number="CONF_PRICE",
-        is_genius_deal=False,
-        genius_discount=0.0,
+        is_genius_deal=True,
+        genius_discount=192.0,
         meals_included="breakfast",
         rating_submitted=False,
     )

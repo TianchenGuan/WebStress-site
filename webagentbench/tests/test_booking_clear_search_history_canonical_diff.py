@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import random
 
-from webagentbench.backend.models.booking import BookingState, BookingState
+from webagentbench.backend.models.booking import BookingState
 from webagentbench.backend.seeder import FakeDataGenerator
 from webagentbench.backend.seeders.booking import BookingSeedRunner
 from webagentbench.evaluator_diff import compute_diff, match_diff
@@ -46,33 +46,16 @@ def test_correct_trajectory_passes():
         assert report.score == 1.0, f"seed {seed}: expected 1.0, got {report.score}"
 
 
-import pytest
-
-
-@pytest.mark.skip(reason=(
-    "canonical_diff refactor: search_history has no id field so the diff "
-    "system cannot produce entries for it. The previous constraints-style "
-    "check has been dropped — the new YAML only has invariants over other "
-    "collections (which are trivially satisfied with no mutation)."
-))
 def test_no_mutation_fails():
     task, targets, initial, state = _setup_session(0)
     report = _evaluate(task, initial, state, targets)
-    # Class 14: constraints-only
     assert report.passed is False
 
 
-@pytest.mark.skip(reason=(
-    "canonical_diff refactor: search_history mutations are not visible to the "
-    "diff system (no id field), so partial clears can't be detected via "
-    "canonical_diff. The constraint that checked search_history length was "
-    "dropped from the YAML."
-))
 def test_partial_clear_fails():
     task, targets, initial, state = _setup_session(0)
     if state.search_history:
         state.search_history = state.search_history[:1]  # left some
     report = _evaluate(task, initial, state, targets)
-    # If history was already empty this trivially passes, that's fine
     if len(initial.search_history) > 1:
         assert report.passed is False, "partial clear should fail"

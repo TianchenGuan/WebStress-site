@@ -53,7 +53,7 @@ def _do_full_assessment(state):
                 side=side,
                 strike=pos.strike_price,
                 expiration=pos.expiration_date,
-                quantity=1,
+                quantity=pos.quantity,
                 premium=Decimal("1.00"),
             )],
         )
@@ -97,7 +97,7 @@ def test_missing_deposit_fails():
                 side=side,
                 strike=pos.strike_price,
                 expiration=pos.expiration_date,
-                quantity=1,
+                quantity=pos.quantity,
                 premium=Decimal("1.00"),
             )],
         )
@@ -128,7 +128,7 @@ def test_skipping_concentrated_sell_fails():
                 side=side,
                 strike=pos.strike_price,
                 expiration=pos.expiration_date,
-                quantity=1,
+                quantity=pos.quantity,
                 premium=Decimal("1.00"),
             )],
         )

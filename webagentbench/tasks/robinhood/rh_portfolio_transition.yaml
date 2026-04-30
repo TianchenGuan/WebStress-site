@@ -95,12 +95,12 @@ canonical_diff:
       symbol: {expr: "x == v"}
       side: {eq: sell}
       order_type: {eq: limit}
-      status: {any: true}
-      quantity: {any: true}
-      limit_price: {any: true}
+      status: {eq: pending}
+      quantity: {expr: "x == initial.get_position(v).quantity"}
+      limit_price: {expr: "x == initial.get_stock(v).bid"}
       stop_price: {any: true}
-      filled_quantity: {any: true}
-      filled_price: {any: true}
+      filled_quantity: {eq: 0}
+      filled_price: {eq: null}
       trail_amount: {any: true}
       trail_pct: {any: true}
       time_in_force: {any: true}

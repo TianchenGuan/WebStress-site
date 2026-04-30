@@ -112,10 +112,10 @@ canonical_diff:
     desc: New order placed containing both best products together
     properties:
       items:
-        expr: any(it['product_id'] == target['best1'] for it in x) and any(it['product_id']
-          == target['best2'] for it in x)
+        expr: "len(x) == 2 and {it['product_id'] for it in x} == {target['best1'],
+          target['best2']} and all(it['quantity'] == 1 for it in x)"
       status:
-        any: true
+        eq: confirmed
       shipping_address_id:
         any: true
       payment_method_id:
@@ -148,11 +148,11 @@ canonical_diff:
       body:
         any: true
       author_name:
-        any: true
+        expr: "x == state.owner_name"
       helpful_count:
-        any: true
+        eq: 0
       verified_purchase:
-        any: true
+        eq: true
       created_at:
         any: true
   - entity: Review
@@ -167,11 +167,11 @@ canonical_diff:
       body:
         any: true
       author_name:
-        any: true
+        expr: "x == state.owner_name"
       helpful_count:
-        any: true
+        eq: 0
       verified_purchase:
-        any: true
+        eq: true
       created_at:
         any: true
   - entity: wishlist
@@ -193,7 +193,8 @@ canonical_diff:
         expr: x == target['best1']
     changes:
       review_count:
-        any: true
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['best1'])
+          + 1"
   - entity: Product
     desc: Product review_count incremented for best2 review (weight 0)
     weight: 0.0
@@ -202,11 +203,13 @@ canonical_diff:
         expr: x == target['best2']
     changes:
       review_count:
-        any: true
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['best2'])
+          + 1"
   invariant:
   - collection: state.orders
-    filter: not (any(it.get('product_id') == target['best1'] for it in (a.items or
-      [])) and any(it.get('product_id') == target['best2'] for it in (a.items or [])))
+    filter: not (any(it.get('product_id') == target['best1'] for it in (a.items
+      or [])) and any(it.get('product_id') == target['best2'] for it in (a.items
+      or [])))
     preserve: ALL
   - collection: state.products
     filter: a.id != target['best1'] and a.id != target['best2']

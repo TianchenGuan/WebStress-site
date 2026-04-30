@@ -20,6 +20,8 @@ def _apply_correct(state, targets):
     for p in state.posts:
         if p.author_name == targets["block_user"]:
             p.is_hidden = True
+            if p.id not in state.hidden_post_ids:
+                state.hidden_post_ids.append(p.id)
     # 3. Delete the message with id del_id (CryptoSkeptic spam)
     state.messages = [m for m in state.messages if m.id != targets["del_id"]]
     # 4. Settings
@@ -104,6 +106,11 @@ def test_wrong_message_deleted_fails():
     # Actually re-setup cleanly for this scenario
     _, _, targets, initial, state = _setup()
     state.blocked_users.append(targets["block_user"])
+    for p in state.posts:
+        if p.author_name == targets["block_user"]:
+            p.is_hidden = True
+            if p.id not in state.hidden_post_ids:
+                state.hidden_post_ids.append(p.id)
     # Delete wrong message instead of del_id
     state.messages = [m for m in state.messages if m.id != other_msg_id]
     state.settings.theme = "dark"

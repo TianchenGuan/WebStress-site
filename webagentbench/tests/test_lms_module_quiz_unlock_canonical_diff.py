@@ -26,6 +26,13 @@ def _complete_module(state, module_id: str, *, complete_all_items: bool = True) 
     module.status = "completed"
 
 
+def _unlock_module(state, module_id: str) -> None:
+    module = state.get_module(module_id)
+    if module is None:
+        raise ValueError(f"module {module_id!r} not found")
+    module.status = "available"
+
+
 def _run(task_id: str, targets, initial, state):
     task = get_task(task_id)
     agent_diff = compute_diff(initial, state)
@@ -42,6 +49,7 @@ def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup_session()
 
     _complete_module(state, targets["next_available_module_id"])
+    _unlock_module(state, targets["first_locked_module_id"])
 
     report = _run("lms_module_quiz_unlock", targets, initial, state)
     assert report.passed is True, f"failures: {report.failures}"
@@ -60,6 +68,7 @@ def test_incomplete_content_fails():
     sm, sid, targets, initial, state = _setup_session()
 
     _complete_module(state, targets["next_available_module_id"], complete_all_items=False)
+    _unlock_module(state, targets["first_locked_module_id"])
 
     report = _run("lms_module_quiz_unlock", targets, initial, state)
     assert report.passed is False, (
@@ -80,6 +89,7 @@ def test_extra_module_completion_fails():
     sm, sid, targets, initial, state = _setup_session()
 
     _complete_module(state, targets["next_available_module_id"])
+    _unlock_module(state, targets["first_locked_module_id"])
     # Pick a module that is NOT in the exclusion set (not the target, not first_locked).
     excluded = {targets["next_available_module_id"], targets["first_locked_module_id"]}
     extra = next(
@@ -98,9 +108,19 @@ def test_unrelated_course_mutation_fails():
     sm, sid, targets, initial, state = _setup_session()
 
     _complete_module(state, targets["next_available_module_id"])
+    _unlock_module(state, targets["first_locked_module_id"])
     state.courses[0].title = "Collateral course edit"
 
     report = _run("lms_module_quiz_unlock", targets, initial, state)
     assert report.passed is False, (
         "editing an unrelated course should violate the course invariant"
     )
+
+
+def test_missing_module_3_unlock_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    _complete_module(state, targets["next_available_module_id"])
+
+    report = _run("lms_module_quiz_unlock", targets, initial, state)
+    assert report.passed is False, "Module 3 must be unlocked after Module 2 is completed"

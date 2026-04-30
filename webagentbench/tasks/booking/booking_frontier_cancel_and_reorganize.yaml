@@ -17,7 +17,7 @@ instruction_template: "Reorganize your upcoming trips. Accept whatever cancellat
   \ booking (2026-08-05 to 2026-08-09),\n   using default Visa (ending 4242).\n6.\
   \ Rebook in {target.cancel2_city} by booking the chosen candidate for 2 guests,\n\
   \   same dates as the cancelled booking (2026-08-15 to 2026-08-19),\n   using Mastercard\
-  \ ending in 8888.\n7. The Prague booking is non-refundable \u2014 do not rebook anything\
+  \ ending in 8888.\n7. The {target.cancel3_city} booking is non-refundable \u2014 do not rebook anything\
   \ there.\n8. Send a message to each of the 3 cancelled properties:\n   - \"{target.cancel1_name}\"\
   : subject \"Cancellation\", body\n     \"I had to cancel due to budget constraints.\
   \ Thank you.\"\n   - \"{target.cancel2_name}\": subject \"Cancellation\", body\n\
@@ -440,7 +440,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -466,7 +469,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}

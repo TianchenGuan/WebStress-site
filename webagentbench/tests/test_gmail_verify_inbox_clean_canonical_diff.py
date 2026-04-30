@@ -55,3 +55,16 @@ def test_sending_email_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "sending email should violate preserve-sent invariant"
+
+
+def test_unreplied_vip_baseline_fails():
+    """The no-op path is only accepted when every target VIP email already has a reply."""
+    _, _, targets, initial, state = _setup_session()
+    state.sent = [sent for sent in state.sent if sent.in_reply_to != targets["vip_email_ids"][0]]
+    state.touch()
+
+    task = get_task('gmail_verify_inbox_clean')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unreplied VIP email should fail the no-op sentinel"

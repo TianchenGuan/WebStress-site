@@ -118,10 +118,11 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: >-
-            target['victor_hahn_email'] in x
-            and target['leila_osman_email'] in x
-            and target['nadia_orozco_email'] in x
+          expr: "sorted(x) == sorted([target['victor_hahn_email'], target['leila_osman_email'], target['nadia_orozco_email']]) and len(x) == 3"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           eq: "Conflict: Meridian Room double-booked for 2026-04-01"
         body:

@@ -196,6 +196,17 @@ canonical_diff:
         id: {expr: "x == target['prev_default_pm_id']"}
       changes:
         is_default: {eq: false}
+    - entity: settings
+      desc: Default payment id flips to the new Visa 6666
+      where: {id: {any: true}}
+      changes:
+        default_payment_id:
+          expr: >-
+            x == next(
+              (pm.id for pm in state.payment_methods
+               if pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default),
+              ''
+            )
   delete:
     - entity: PaymentMethod
       desc: Remove old Mastercard 5555
@@ -243,7 +254,9 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '6666' and pm.is_default for pm in state.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -269,7 +282,9 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Mastercard' and pm.last_four == '4444' for pm in state.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -295,7 +310,9 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Amex' and pm.last_four == '2222' for pm in state.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -341,6 +358,8 @@ canonical_diff:
         a.id != target['review_res_id']
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_prop_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.reviews
       filter: "a.property_id != target['review_prop_id']"
@@ -382,6 +401,9 @@ canonical_diff:
       severity: high
     - name: Agent wrote review for Brussels stay
       ref: create[7]
+      severity: high
+    - name: Default payment id reflects new Visa 6666
+      ref: update[2]
       severity: high
     - name: Agent did not modify other reservations
       ref: invariant[0]

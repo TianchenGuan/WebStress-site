@@ -87,6 +87,8 @@ canonical_diff:
     changes:
       file_name:
         eq: exam_prep.pdf
+      attempt_count:
+        expr: "x >= initial.get_assignment(v).attempt_count + 1"
       submitted_at:
         expr: "x is not None and x >= session_start"
   invariant:
@@ -114,6 +116,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.sent_messages
     preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
   - name: Agent dropped every impossible B course
     ref: update[0]

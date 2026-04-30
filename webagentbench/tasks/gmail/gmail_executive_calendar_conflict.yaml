@@ -70,57 +70,49 @@ canonical_diff:
       count: 1
       properties:
         in_reply_to:
-          expr: "x in target['all_request_ids']"
+          expr: "x == target['conflicting_vp_request_id']"
         to:
           expr: "x == [target['conflicting_vp_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring: decline
         forwarded_from_id:
           eq: null
     - entity: sent
       desc: Accept reply to first non-conflicting VP
-      count: 1
+      bijection:
+        over: "target['non_conflicting_request_ids']"
+        variable: v
       properties:
         in_reply_to:
-          expr: "x in target['non_conflicting_request_ids']"
+          expr: "x == v"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == v)]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring: accept
         forwarded_from_id:
           eq: null
     - entity: sent
-      desc: Accept reply to second non-conflicting VP
-      count: 1
-      properties:
-        in_reply_to:
-          expr: "x in target['non_conflicting_request_ids']"
-        body:
-          substring: accept
-        forwarded_from_id:
-          eq: null
-    - entity: sent
-      desc: Forward all three meeting requests to EA (first)
-      count: 1
+      desc: Forward all three meeting requests to EA
+      bijection:
+        over: "target['all_request_ids']"
+        variable: v
       properties:
         forwarded_from_id:
-          expr: "x in target['all_request_ids']"
+          expr: "x == v"
         to:
-          expr: "target['ea_email'] in x"
-    - entity: sent
-      desc: Forward all three meeting requests to EA (second)
-      count: 1
-      properties:
-        forwarded_from_id:
-          expr: "x in target['all_request_ids']"
-        to:
-          expr: "target['ea_email'] in x"
-    - entity: sent
-      desc: Forward all three meeting requests to EA (third)
-      count: 1
-      properties:
-        forwarded_from_id:
-          expr: "x in target['all_request_ids']"
-        to:
-          expr: "target['ea_email'] in x"
+          expr: "x == [target['ea_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
   update:
     - entity: emails
       desc: Star the conflicting VP's email
@@ -154,11 +146,8 @@ canonical_diff:
     - name: Agent accepted non-conflicting VP 1
       ref: create[1]
       severity: high
-    - name: Agent accepted non-conflicting VP 2
-      ref: create[2]
-      severity: high
     - name: Agent forwarded all requests to EA
-      ref: create[3]
+      ref: create[2]
       severity: high
     - name: Agent starred conflicting VP email
       ref: update[0]

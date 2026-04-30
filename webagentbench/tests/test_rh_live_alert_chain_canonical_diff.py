@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from webagentbench.backend.price_engine import cascade_update
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -18,6 +19,7 @@ def _setup(seed=42):
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup()
     state.create_price_alert(symbol="NVDA", condition="above", target_price=Decimal("900"))
+    cascade_update(state, {"NVDA": Decimal("901.00")}, state._price_engine)
     state.place_order(symbol="NVDA", side="buy", order_type="market", quantity=Decimal("5"))
 
     task = get_task("rh_live_alert_chain")
@@ -28,6 +30,7 @@ def test_correct_trajectory_passes():
 def test_missing_buy_fails():
     sm, sid, targets, initial, state = _setup()
     state.create_price_alert(symbol="NVDA", condition="above", target_price=Decimal("900"))
+    cascade_update(state, {"NVDA": Decimal("901.00")}, state._price_engine)
 
     task = get_task("rh_live_alert_chain")
     report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)

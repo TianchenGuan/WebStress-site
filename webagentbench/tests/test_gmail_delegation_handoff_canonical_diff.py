@@ -36,7 +36,7 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Sprint 14 Blockers",
         body="Status: blocked on API credentials. ETA next Wednesday.",
-        to=["team@company.io"],
+        to=[state.get_email(targets["sprint_email_id"]).from_addr],
         in_reply_to=targets["sprint_email_id"],
         thread_id="thread_sprint",
     )
@@ -44,7 +44,7 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Design Review Feedback - Mobile Nav",
         body="Status: feedback incorporated, PR submitted.",
-        to=["design@company.io"],
+        to=[state.get_email(targets["design_nav_email_id"]).from_addr],
         in_reply_to=targets["design_nav_email_id"],
         thread_id="thread_design_nav",
     )
@@ -92,7 +92,7 @@ def test_wrong_reply_text_fails():
     state.send_email(
         subject="Re: Sprint 14 Blockers",
         body="Everything is going well.",  # wrong reply text
-        to=["team@company.io"],
+        to=[state.get_email(targets["sprint_email_id"]).from_addr],
         in_reply_to=targets["sprint_email_id"],
         thread_id="thread_sprint",
     )
@@ -110,3 +110,38 @@ def test_wrong_reply_text_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong reply text should fail"
+
+
+def test_status_reply_rejects_extra_text():
+    """Checklist replies use specified text, so appended prose is not compliant."""
+    _, _, targets, initial, state = _setup_session()
+    state.ensure_label("On Leave")
+    state.create_filter(FilterRule(
+        id='f_leave3', name='on leave filter',
+        from_addresses=['cora.banks@vendor.io', 'lee.chang@vendor.io', 'ravi.gupta@partner.com'],
+        add_labels=['On Leave'], star=True,
+    ))
+    state.forward_email(targets["vendor_email_id"], to=["delegate@company.io"])
+    state.forward_email(targets["partner_email_id"], to=["delegate@company.io"])
+    state.forward_email(targets["budget_email_id"], to=["delegate@company.io"])
+    state.send_email(
+        subject="Re: Sprint 14 Blockers",
+        body="Status: blocked on API credentials. ETA next Wednesday. Extra note.",
+        to=[state.get_email(targets["sprint_email_id"]).from_addr],
+        in_reply_to=targets["sprint_email_id"],
+        thread_id="thread_sprint",
+    )
+    state.send_email(
+        subject="Re: Design Review Feedback - Mobile Nav",
+        body="Status: feedback incorporated, PR submitted.",
+        to=[state.get_email(targets["design_nav_email_id"]).from_addr],
+        in_reply_to=targets["design_nav_email_id"],
+        thread_id="thread_design_nav",
+    )
+    state.add_contact(Contact(id='c_del3', name='Jamie Park', email='delegate@company.io'))
+
+    task = get_task('gmail_delegation_handoff')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra status reply text should fail"

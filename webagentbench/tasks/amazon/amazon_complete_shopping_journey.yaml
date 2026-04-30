@@ -1,6 +1,7 @@
 task_id: amazon_complete_shopping_journey
 env_id: amazon
-title: Compare Speakers, Buy Best, Wishlist Cheapest, Review Past Order, Update Address
+title: Compare Speakers, Buy Best, Wishlist Cheapest, Review Past Order, Update
+  Address
 instruction_template: 'Complete this multi-part shopping session: 1. Search for and
   compare these three speakers: ''{target.best_name}'', ''{target.cheap_name}'', and
   ''{target.mid_name}''. Among these three speakers, purchase the one with the highest
@@ -137,7 +138,8 @@ canonical_diff:
     desc: Highest-rated speaker purchased
     properties:
       items:
-        expr: any(it['product_id'] == target['best_pid'] for it in x)
+        expr: "len(x) == 1 and x[0]['product_id'] == target['best_pid'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
         any: true
       payment_method_id:
@@ -172,11 +174,11 @@ canonical_diff:
       body:
         any: true
       author_name:
-        any: true
+        expr: "x == state.owner_name"
       helpful_count:
-        any: true
+        eq: 0
       verified_purchase:
-        any: true
+        eq: true
       created_at:
         any: true
   - entity: Address
@@ -206,13 +208,14 @@ canonical_diff:
     weight: 0.0
     where:
       id:
-        any: true
+        expr: "x == target['past_pid']"
     changes:
       review_count:
-        any: true
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['past_pid'])
+          + 1"
   - entity: Address
-    desc: Prior default address demoted (side effect of setting a new default, weight
-      0)
+    desc: Prior default address demoted (side effect of setting a new default,
+      weight 0)
     weight: 0.0
     where:
       id:

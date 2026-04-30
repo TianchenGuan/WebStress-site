@@ -310,7 +310,7 @@ canonical_diff:
         scores: {any: true}
         title: {expr: "'Very comfortable' in x"}
         positive: {expr: "'beds' in x.lower() or 'quiet' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -351,6 +351,8 @@ canonical_diff:
       filter: "a.property_id not in (target['review1_prop_id'], target['review2_prop_id'])"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review1_prop_id'], target['review2_prop_id'])"
+      comprehensive: true
       preserve: ALL
     - collection: state.payment_methods
       preserve: ALL

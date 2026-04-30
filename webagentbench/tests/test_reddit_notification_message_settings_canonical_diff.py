@@ -26,7 +26,7 @@ def _apply_correct(targets, state):
         subject=f"Re: {targets['reply_subject']}",
         body=targets["reply_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["reply_msg_id"], context="",
     ))
     # 3. Delete spam
     state.messages = [m for m in state.messages if m.id != targets["delete_msg_id"]]

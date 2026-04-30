@@ -115,3 +115,16 @@ def test_missing_forward_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing forwards should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Quarterly closeout may only change maximum page size."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.settings.language = 'French'
+
+    task = get_task('gmail_quarterly_closeout')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"

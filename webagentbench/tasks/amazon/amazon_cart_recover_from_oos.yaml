@@ -69,8 +69,10 @@ canonical_diff:
       variable: v
     properties:
       product_id:
-        expr: "any(p.id == x and p.in_stock and p.category == target['oos_category'] for p in state.products) and x not in target['oos_product_ids']"
-      quantity: {expr: "x >= 1"}
+        expr: "any(p.id == x and p.in_stock and p.category == target['oos_category']
+          for p in state.products) and x not in target['oos_product_ids']"
+      quantity:
+        eq: 1
       product_name: {any: true}        # auto-populated from product
       unit_price: {any: true}          # auto-populated from product price
       variant_selections: {any: true}  # variant choice not specified

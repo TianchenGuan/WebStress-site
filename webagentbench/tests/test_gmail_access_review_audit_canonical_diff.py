@@ -67,3 +67,27 @@ def test_missing_usernames_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing usernames should fail"
+
+
+def test_decoy_username_in_access_email_fails():
+    """The access-removal email must not include role-change decoys."""
+    _, _, targets, initial, state = _setup_session()
+    body = (
+        "Departed employees with Project Athena access: "
+        f"{', '.join(targets['departed_usernames'])}, {targets['decoy_username']}"
+    )
+    state.send_email(
+        subject=targets["compose_subject"],
+        body=body,
+        to=[targets["compose_to"]],
+    )
+    state.toggle_star(targets["it_email_id"], is_starred=True)
+    state.toggle_star(targets["hr_email_id"], is_starred=True)
+    state.archive_email(targets["it_email_id"])
+    state.archive_email(targets["hr_email_id"])
+
+    task = get_task('gmail_access_review_audit')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "decoy username should fail"

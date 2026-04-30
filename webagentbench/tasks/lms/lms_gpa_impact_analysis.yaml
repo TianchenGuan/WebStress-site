@@ -89,6 +89,10 @@ canonical_diff:
           - late
         file_name:
           eq: improvement_plan.pdf
+        attempt_count:
+          expr: "x >= 1"
+        submitted_at:
+          expr: "x is not None"
     invariant:
     - collection: state.assignments
       filter: "a.id not in (target['improvement_assignment_ids'].split(',') if target['improvement_assignment_ids'] else [])"
@@ -113,6 +117,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent submitted improvement plans for all risky courses
       ref: update[0]
@@ -189,6 +197,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.student
       preserve: ALL
+    constraints:
+    - desc: Agent did not send messages
+      expr: "len(state.sent_messages) == 0"
+      severity: medium
     named_invariants:
     - name: Agent marked unread announcements as read
       ref: update[0]

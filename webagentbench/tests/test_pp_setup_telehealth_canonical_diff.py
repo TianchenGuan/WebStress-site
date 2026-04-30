@@ -77,10 +77,9 @@ def test_correct_trajectory_passes():
 
 
 def test_wrong_provider_fails():
-    """Agent cancels the target but books telehealth with a different provider."""
+    """Agent changes the target appointment to a different provider."""
     sm, sid, targets, initial, state = _setup_session()
     orig = initial.get_appointment(targets["next_appointment_id"])
-    _cancel(state, targets["next_appointment_id"])
 
     other = next(
         p for p in initial.providers
@@ -89,11 +88,11 @@ def test_wrong_provider_fails():
         and p.available_slots
     )
     earliest_other = min(s.datetime for s in other.available_slots)
-    state.appointments.append(_make_appt(
-        id="appt_new_wrong_prov",
-        provider_id=other.id,
-        datetime=earliest_other,
-    ))
+    target_appt = next(a for a in state.appointments if a.id == targets["next_appointment_id"])
+    target_appt.type = "telehealth"
+    target_appt.status = "scheduled"
+    target_appt.provider_id = other.id
+    target_appt.datetime = earliest_other
 
     task = get_task("pp_setup_telehealth")
     agent_diff = compute_diff(initial, state)
@@ -103,23 +102,20 @@ def test_wrong_provider_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, (
-        "telehealth appointment with a different provider must fail "
-        "create[0].provider_id expr predicate"
+        "rescheduling to a different provider must fail the same-provider "
+        "predicate"
     )
 
 
 def test_type_still_in_person_fails():
-    """Agent cancels target but re-books as in-person instead of telehealth."""
+    """Agent reschedules target as in-person instead of telehealth."""
     sm, sid, targets, initial, state = _setup_session()
     orig = initial.get_appointment(targets["next_appointment_id"])
-    _cancel(state, targets["next_appointment_id"])
     earliest = _provider_slots_sorted(initial, orig.provider_id)[0]
-    state.appointments.append(_make_appt(
-        id="appt_new_in_person",
-        provider_id=orig.provider_id,
-        datetime=earliest,
-        type="in-person",
-    ))
+    target_appt = next(a for a in state.appointments if a.id == targets["next_appointment_id"])
+    target_appt.type = "in-person"
+    target_appt.status = "scheduled"
+    target_appt.datetime = earliest
 
     task = get_task("pp_setup_telehealth")
     agent_diff = compute_diff(initial, state)
@@ -129,22 +125,20 @@ def test_type_still_in_person_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, (
-        "in-person replacement must fail create[0].type == 'telehealth' predicate"
+        "in-person reschedule must fail type == 'telehealth' predicate"
     )
 
 
 def test_not_earliest_slot_fails():
-    """Agent books telehealth at the second earliest slot, not the earliest."""
+    """Agent reschedules telehealth at the second earliest slot, not the earliest."""
     sm, sid, targets, initial, state = _setup_session()
     orig = initial.get_appointment(targets["next_appointment_id"])
-    _cancel(state, targets["next_appointment_id"])
     slots = _provider_slots_sorted(initial, orig.provider_id)
     assert len(slots) >= 2, "seed must expose ≥2 provider slots for this test"
-    state.appointments.append(_make_appt(
-        id="appt_new_second_slot",
-        provider_id=orig.provider_id,
-        datetime=slots[1],
-    ))
+    target_appt = next(a for a in state.appointments if a.id == targets["next_appointment_id"])
+    target_appt.type = "telehealth"
+    target_appt.status = "scheduled"
+    target_appt.datetime = slots[1]
 
     task = get_task("pp_setup_telehealth")
     agent_diff = compute_diff(initial, state)
@@ -154,12 +148,12 @@ def test_not_earliest_slot_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, (
-        "second-earliest slot must fail create[0].datetime == min(slot) predicate"
+        "second-earliest slot must fail datetime == min(slot) predicate"
     )
 
 
-def test_only_cancel_no_create_fails():
-    """Agent cancels but never schedules the telehealth replacement."""
+def test_only_cancel_fails():
+    """Agent cancels instead of using the Reschedule flow."""
     sm, sid, targets, initial, state = _setup_session()
     _cancel(state, targets["next_appointment_id"])
 
@@ -170,12 +164,12 @@ def test_only_cancel_no_create_fails():
         targets=dict(targets),
         initial=initial, final=state,
     )
-    assert report.passed is False, "no replacement created → create[0] unmatched"
+    assert report.passed is False, "cancel-only trajectory must fail"
     assert report.score < 1.0
 
 
-def test_only_create_no_cancel_fails():
-    """Agent books a telehealth visit but forgets to cancel the original."""
+def test_create_without_reschedule_fails():
+    """Agent creates a telehealth visit instead of rescheduling in place."""
     sm, sid, targets, initial, state = _setup_session()
     orig = initial.get_appointment(targets["next_appointment_id"])
     earliest = _provider_slots_sorted(initial, orig.provider_id)[0]
@@ -192,5 +186,5 @@ def test_only_create_no_cancel_fails():
         targets=dict(targets),
         initial=initial, final=state,
     )
-    assert report.passed is False, "update[0] unmatched without the cancel mutation"
+    assert report.passed is False, "create-only trajectory must not satisfy in-place reschedule"
     assert report.score < 1.0

@@ -144,9 +144,6 @@ def test_wrong_attempt_count_fails():
 
 
 def test_wrong_message_recipient_fails():
-    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
-    # canonical_diff cannot enforce recipient identity. Recipient checks
-    # live in the `eval:` block.
     sm, sid, targets, initial, state = _setup_session()
 
     for assignment_id in _recoverable_missing_ids(targets):
@@ -155,7 +152,20 @@ def test_wrong_message_recipient_fails():
         _apply_recovery_submission(state, initial, assignment_id)
     _send_advisor_message(state, to="not-the-advisor@example.com")
 
-    assert state.sent_messages[-1]["to"] == "not-the-advisor@example.com"
+    report = _evaluate(initial, state, targets)
+    assert report.passed is False, "messaging a non-advisor should fail"
+
+
+def test_missing_message_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    for assignment_id in _recoverable_missing_ids(targets):
+        _apply_recovery_submission(state, initial, assignment_id)
+    for assignment_id in _recoverable_late_ids(targets):
+        _apply_recovery_submission(state, initial, assignment_id)
+
+    report = _evaluate(initial, state, targets)
+    assert report.passed is False, "submitting recovery work without an advisor message should fail"
 
 
 def test_extra_assignment_mutation_fails():

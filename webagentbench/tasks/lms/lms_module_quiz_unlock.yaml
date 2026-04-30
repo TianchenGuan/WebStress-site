@@ -52,16 +52,24 @@ seed:
     first_locked_module_id: '{output.first_locked_module_id}'
 canonical_diff:
   update:
-    - entity: Module
-      desc: Complete Module 2 only after every content item is finished
-      where:
-        id:
-          expr: "x == target['next_available_module_id']"
-      changes:
-        status: {eq: completed}
-        content_items:
-          expr: "all(item.get('completed') is True for item in x)"
-      weight: 1.0
+  - entity: Module
+    desc: Complete Module 2 only after every content item is finished
+    where:
+      id:
+        expr: "x == target['next_available_module_id']"
+    changes:
+      status: {eq: completed}
+      content_items:
+        expr: "all(item.get('completed') is True for item in x)"
+    weight: 1.0
+  - entity: Module
+    desc: Unlock Module 3 after completing Module 2
+    where:
+      id:
+        expr: "x == target['first_locked_module_id']"
+    changes:
+      status: {eq: available}
+    weight: 1.0
   invariant:
     - collection: state.modules
       filter: "a.id not in [target['next_available_module_id'], target['first_locked_module_id']]"
@@ -98,9 +106,16 @@ canonical_diff:
       preserve: ALL
     - collection: state.student
       preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
     - name: Agent did not modify other modules
       ref: invariant[0]
+      severity: high
+    - name: Agent unlocked Module 3
+      ref: update[1]
       severity: high
     - name: Agent did not modify course records
       ref: invariant[1]
