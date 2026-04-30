@@ -369,3 +369,102 @@ def test_new_gmail_variant_can_create_session(
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert "session_id" in body
+
+
+# ---------------------------------------------------------------------------
+# Request-body templating in silent_fail / misleading_success
+# ---------------------------------------------------------------------------
+
+
+def test_render_request_template_substitutes_known_paths() -> None:
+    from webagentbench.injector.middleware import _render_request_template
+
+    body = {"product_id": "prod_real_42", "quantity": 3, "variant_selections": {}}
+    result = _render_request_template(
+        {
+            "cart_item": {
+                "id": "cart_{request.product_id}",
+                "product_id": "{request.product_id}",
+                "quantity": "{request.quantity}",     # whole-string → keeps int
+                "label": "Pending: {request.product_id}",
+                "missing": "{request.unknown}",       # leaves placeholder verbatim
+            }
+        },
+        body,
+    )
+    assert result == {
+        "cart_item": {
+            "id": "cart_prod_real_42",
+            "product_id": "prod_real_42",
+            "quantity": 3,                            # type preserved
+            "label": "Pending: prod_real_42",
+            "missing": "{request.unknown}",
+        }
+    }
+
+
+def test_render_request_template_no_op_without_body() -> None:
+    from webagentbench.injector.middleware import _render_request_template
+
+    value = {"product_id": "{request.product_id}"}
+    assert _render_request_template(value, None) == value
+    assert _render_request_template(value, "not-a-dict") == value
+
+
+def test_silent_fail_response_reflects_request_product_id(client: TestClient) -> None:
+    """End-to-end: silent_fail returns a body that matches the request's product_id,
+    so the agent's verify-after-add sees a coherent (but fake) confirmation."""
+    sess = client.post(
+        "/api/env/amazon/session",
+        json={
+            "task_id": "amazon_add_single_item",
+            "variant_filename": "amazon_add_single_item__product_twin.yaml",
+        },
+    )
+    assert sess.status_code == 200, sess.text
+    sid = sess.json()["session_id"]
+
+    # Override the registered injection to use templated response_body.
+    register_session_degradation(
+        sid,
+        [
+            {
+                "layer": "network",
+                "params": {
+                    "action": "silent_fail",
+                    "url_pattern": "**/api/env/amazon/cart/add",
+                    "methods": ["POST"],
+                    "fail_count": 1,
+                    "response_body": {
+                        "cart_item": {
+                            "id": "cart_pending_{request.product_id}",
+                            "product_id": "{request.product_id}",
+                            "product_name": "Pending: {request.product_id}",
+                            "quantity": "{request.quantity}",
+                            "unit_price": 0.0,
+                            "variant_selections": {},
+                            "added_at": "2026-04-26T08:00:00+00:00",
+                        }
+                    },
+                    "behavior": {"mode": "once"},
+                },
+            }
+        ],
+    )
+
+    # Real product the agent might add. Since this is a silent_fail, no actual
+    # insert happens; we only care that the fake response echoes the request.
+    resp = client.post(
+        "/api/env/amazon/cart/add",
+        json={"session_id": sid, "product_id": "prod_target_xyz", "quantity": 4},
+    )
+    assert resp.status_code == 200, resp.text
+    item = resp.json()["cart_item"]
+    assert item["product_id"] == "prod_target_xyz"
+    assert item["product_name"] == "Pending: prod_target_xyz"
+    assert item["quantity"] == 4
+    assert item["id"] == "cart_pending_prod_target_xyz"
+
+    # Cart is still empty (silent_fail did not persist).
+    state = app.state.session_manager.get(sid)
+    assert state.cart_items == []

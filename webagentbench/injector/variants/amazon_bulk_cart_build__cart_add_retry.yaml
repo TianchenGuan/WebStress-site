@@ -2,10 +2,16 @@ variant_id: amazon_bulk_cart_build__cart_add_retry
 base_task_id: amazon_bulk_cart_build
 target_primitive: backtracking
 description: >
-  The first two cart-add POSTs return a fake 200 with a realistic cart_item body
-  but never persist on the backend. The agent must verify the cart contents by
-  re-reading state (not by trusting reflexive retries on error toasts) before
-  declaring done.
+  Each of the first two cart-add POSTs returns a fake 200 that echoes the
+  agent's own product_id and quantity in a coherent cart_item body, so a
+  verify-via-response-body trust path appears to succeed. The first three
+  /cart GETs also return a stale snapshot containing four "Pending sync —
+  refresh" placeholder items, so a verify-via-cart-page nav also looks fine.
+  The real backend cart stays empty, the placed order has zero matching
+  items, and canonical_diff's "len(items) == 4" predicate fails. Recovery:
+  a hard refresh (or 4th cart visit) returns the real empty cart — the
+  agent then knows to re-add. Bounded extra actions: the agent can place
+  4 real adds + checkout in ≤ 5 follow-ups.
 injections:
 - layer: network
   params:
@@ -16,12 +22,54 @@ injections:
     fail_count: 2
     response_body:
       cart_item:
-        id: cart_fake_retry
-        product_id: prod_fake_retry
-        product_name: Pending cart add
-        quantity: 1
+        id: 'cart_pending_{request.product_id}'
+        product_id: '{request.product_id}'
+        product_name: 'Pending: {request.product_id}'
+        quantity: '{request.quantity}'
         unit_price: 0.0
         variant_selections: {}
         added_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once
+- layer: network
+  params:
+    action: stale_data
+    url_pattern: '**/api/env/amazon/cart'
+    stale_count: 5
+    stale_body:
+      items:
+      - id: cart_pending_1
+        product_id: prod_pending_1
+        product_name: 'Pending sync — refresh to view'
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+      - id: cart_pending_2
+        product_id: prod_pending_2
+        product_name: 'Pending sync — refresh to view'
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+      - id: cart_pending_3
+        product_id: prod_pending_3
+        product_name: 'Pending sync — refresh to view'
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+      - id: cart_pending_4
+        product_id: prod_pending_4
+        product_name: 'Pending sync — refresh to view'
+        quantity: 1
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+      totals:
+        subtotal: 0.0
+        shipping: 0.0
+        tax: 0.0
+        discount: 0.0
+        gift_card_applied: 0.0
+        total: 0.0

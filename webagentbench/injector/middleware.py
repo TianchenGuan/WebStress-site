@@ -102,6 +102,65 @@ def _glob_to_regex(pattern: str) -> str:
     return ''.join(result)
 
 
+_REQ_PLACEHOLDER = re.compile(r"\{request\.([a-zA-Z_][a-zA-Z0-9_.]*)\}")
+
+
+def _resolve_request_path(body: Any, path: str) -> Any:
+    """Walk a dot-delimited path through a parsed JSON body. Returns None if any
+    segment is missing. Lists are addressable by integer index segment."""
+    cur = body
+    for part in path.split("."):
+        if isinstance(cur, dict):
+            cur = cur.get(part)
+        elif isinstance(cur, list):
+            try:
+                cur = cur[int(part)]
+            except (ValueError, IndexError):
+                return None
+        else:
+            return None
+        if cur is None:
+            return None
+    return cur
+
+
+def _render_request_template(value: Any, request_body: Any) -> Any:
+    """Recursively substitute ``{request.<path>}`` placeholders in a JSON-serializable
+    value using fields from ``request_body``.
+
+    - Dict / list values are walked recursively.
+    - Whole-string placeholders (``"{request.quantity}"``) preserve the source's type
+      (so an int request field becomes an int in the rendered body).
+    - Inline placeholders (``"cart_{request.product_id}"``) stringify each resolution.
+    - Unresolvable paths leave the original placeholder text in place — the agent then
+      sees the raw ``{request.X}`` token, which is a useful signal during authoring.
+    - When ``request_body`` is None or not a mapping, the value is returned unchanged.
+    """
+    if request_body is None or not isinstance(request_body, (dict, list)):
+        return value
+    if isinstance(value, dict):
+        return {k: _render_request_template(v, request_body) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_render_request_template(item, request_body) for item in value]
+    if not isinstance(value, str):
+        return value
+    matches = list(_REQ_PLACEHOLDER.finditer(value))
+    if not matches:
+        return value
+    if len(matches) == 1 and matches[0].group(0) == value:
+        resolved = _resolve_request_path(request_body, matches[0].group(1))
+        return resolved if resolved is not None else value
+    out: list[str] = []
+    cursor = 0
+    for m in matches:
+        out.append(value[cursor:m.start()])
+        resolved = _resolve_request_path(request_body, m.group(1))
+        out.append(str(resolved) if resolved is not None else m.group(0))
+        cursor = m.end()
+    out.append(value[cursor:])
+    return "".join(out)
+
+
 def _url_matches_pattern(url: str, pattern: str) -> bool:
     """Check if URL matches a glob-like pattern (** = any path).
 
@@ -370,17 +429,20 @@ class DegradationMiddleware(BaseHTTPMiddleware):
             or _extract_session_from_cookie(request.headers.get("cookie", ""))
         )
 
-        # For POST/PUT requests, extract session_id from JSON body if not
-        # found in query params/headers. We read and cache the body so the
-        # downstream handler can still consume it.
-        if not session_id and request.method in ("POST", "PUT", "PATCH"):
+        # For POST/PUT/PATCH, parse the JSON body once so we can both extract a
+        # missing session_id and feed request-body templates in silent_fail /
+        # misleading_success response_body. Starlette caches the body bytes so
+        # the downstream handler still receives them intact.
+        request_body: Any = None
+        if request.method in ("POST", "PUT", "PATCH"):
             try:
                 body_bytes = await request.body()
-                import json as _json
-                body_data = _json.loads(body_bytes)
-                session_id = body_data.get("session_id")
+                if body_bytes:
+                    request_body = json.loads(body_bytes)
             except Exception:
-                pass
+                request_body = None
+            if not session_id and isinstance(request_body, dict):
+                session_id = request_body.get("session_id")
 
         if not session_id or session_id not in _SESSION_NETWORK:
             return await call_next(request)
@@ -555,7 +617,7 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                 if should_fail:
                     return JSONResponse(
                         status_code=200,
-                        content=fake_body,
+                        content=_render_request_template(fake_body, request_body),
                     )
 
             elif action == "stale_data":
@@ -637,7 +699,10 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     fail_count = params.get("fail_count", 1)
                     should_mislead = call_num <= fail_count
                 if should_mislead:
-                    return JSONResponse(status_code=200, content=success_body)
+                    return JSONResponse(
+                        status_code=200,
+                        content=_render_request_template(success_body, request_body),
+                    )
 
             elif action == "concurrent_modification":
                 conflict_count = params.get("conflict_count", 1)

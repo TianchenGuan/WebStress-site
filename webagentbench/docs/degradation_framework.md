@@ -183,6 +183,45 @@ write. Inverse of `silent_fail`'s existing behavior, with a louder lie.
       toast: "Your message has been delivered."
 ```
 
+### Request-body templating in `silent_fail` / `misleading_success`
+
+Both `response_body` and `success_body` support `{request.<path>}` placeholders
+that resolve against the incoming JSON request body at fire-time. Use this
+to make the lie *coherent with what the agent just sent* — useful when an
+agent verifies a write by trusting the response body it received.
+
+```yaml
+- layer: network
+  params:
+    action: silent_fail
+    url_pattern: "**/api/env/amazon/cart/add"
+    methods: [POST]
+    fail_count: 2
+    response_body:
+      cart_item:
+        id: "cart_pending_{request.product_id}"           # inline → string
+        product_id: "{request.product_id}"                # whole-string → preserves source type
+        product_name: "Pending: {request.product_id}"
+        quantity: "{request.quantity}"                    # whole-string with int → stays int
+        unit_price: 0.0
+        variant_selections: {}
+        added_at: '2026-04-26T08:00:00+00:00'
+```
+
+Semantics:
+- Whole-string placeholder (`"{request.quantity}"`) returns the source
+  field's native type (int, bool, list).
+- Inline placeholders (`"cart_{request.product_id}"`) stringify each
+  resolved value and splice into the surrounding text.
+- Dot-paths walk nested objects: `{request.cart_item.product_id}`.
+- Unresolvable paths leave the placeholder verbatim — handy while
+  authoring; the rendered body shows the unresolved token so misnamed
+  fields are obvious.
+- GETs and other bodyless requests skip templating; the body is returned
+  literally. Pair templated `silent_fail` with a separate `stale_data`
+  injection on the verify-read endpoint when the agent navigates away
+  and reads collection-level state to verify.
+
 ### `concurrent_modification`
 
 Returns HTTP 409 Conflict on write with a snapshot of the "newer" state. Tests

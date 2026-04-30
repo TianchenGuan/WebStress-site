@@ -158,6 +158,53 @@ Estimated effort: 1 implementer subagent, ~60 min. I did not run this
 follow-up because the validation-run timeline already consumed the budget;
 the discovery (Gemini-verifies-then-retries) is the load-bearing finding.
 
+## Follow-up implemented: Option 3 — request-body templating in silent_fail / misleading_success
+
+`response_body` and `success_body` now support `{request.<path>}`
+placeholders that resolve against the incoming JSON body at fire-time.
+Documented in `docs/degradation_framework.md`. New tests in
+`tests/test_degradation_framework_new_actions.py`. The middleware change
+is in `injector/middleware.py` (`_render_request_template` +
+`_resolve_request_path` helpers, plus the application in the silent_fail
+and misleading_success branches).
+
+The `amazon_bulk_cart_build__cart_add_retry` variant uses templating as a
+demo: the silent_fail response_body now echoes the agent's own
+`product_id` and `quantity`, so a response-body-trust verify path looks
+internally consistent. End-to-end Gemini validation:
+
+| stale_count on `/cart` GET | clean | intervention | Δ | recoverable in ≤5 actions? |
+|---|---|---|---|---|
+| (no stale_data) | pass (16 steps) | pass (21 steps) | 0 | yes |
+| 5 | pass | pass | 0 | yes |
+| 10 | pass | pass (19 steps) | 0 | yes |
+| 15 | pass | pass (26 steps) | 0 | borderline |
+| 30 | pass | **fail (29 steps, agent gave up)** | **100%** | **no** (≥15+ extra reads to exhaust stale) |
+
+**Honest finding from this experiment.** Templating is a real, generalizable
+framework improvement: it lets variants compose convincing per-request lies.
+But on multi-write tasks where the agent re-reads collection state (e.g.
+`/cart` GET on every nav), templating alone doesn't bite — the agent
+eventually navigates back, sees the real state, recovers.
+
+The combined recipe `silent_fail (templated) + stale_data on read` does
+bite Gemini, but only at `stale_count` levels (≥20) that violate the
+"≤5 extra actions to recover" invariant. So the next decision is yours:
+
+1. **Keep ≤5-action recoverability strict.** Verification-stress on
+   multi-write tasks fundamentally can't bite verify-and-retry frontier
+   agents within that bound. Accept lower Amazon Δ.
+2. **Loosen recoverability to ≤10 actions for verification primitives.**
+   Then `silent_fail (templated, fail_count: 2) + stale_data (stale_count: 10)`
+   becomes a viable recipe and Amazon Δ rises substantially.
+3. **Switch primitive on multi-write Amazon tasks.** Test state_tracking via
+   a polluted starting cart instead of verification — different bound,
+   different recipe, no cross-task lie required.
+
+The committed demo variant uses `stale_count: 5` (recoverable, doesn't
+bite Gemini today). It's the right baseline; the design decision above
+determines what to ramp to.
+
 ## Honest scoring against the prompt's targets
 
 The prompt set §5 targets:
