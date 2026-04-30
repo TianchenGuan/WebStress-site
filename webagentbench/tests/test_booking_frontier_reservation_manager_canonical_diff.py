@@ -97,6 +97,13 @@ def _apply_all_mutations(state, targets, suffix=""):
         room_type="Standard", travel_purpose="business", traveled_with="solo",
         stay_date="2026-03", created_at=now,
     ))
+    # Mirror route side-effect: flip rating_submitted on reviewed reservations
+    for key in ('review1_res_id', 'review2_res_id'):
+        res_id = targets.get(key)
+        if res_id:
+            res = state.get_reservation(res_id)
+            if res is not None:
+                res.rating_submitted = True
 
 
 def test_correct_trajectory_passes():

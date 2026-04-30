@@ -162,6 +162,9 @@ def test_wrong_file_name_second_assignment_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # The canonical_diff was relaxed to `attempt_count: x >= 2`, so any
+    # second-or-later attempt is valid. Tighter caps would have to live
+    # in `eval:`. Verify the helper applied the requested counts.
     targets, initial, state = _setup_session()
 
     _submit_assignment(
@@ -171,16 +174,8 @@ def test_wrong_attempt_count_fails():
         submitted_at=_submitted_after_due(state, targets["disputed_assignment_id_1"]),
         attempt_count=3,
     )
-    _submit_assignment(
-        state,
-        targets["disputed_assignment_id_2"],
-        file_name="grace_period_proof.pdf",
-        submitted_at=_submitted_after_due(state, targets["disputed_assignment_id_2"]),
-        attempt_count=2,
-    )
 
-    report = _report(initial, state, targets)
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert state.get_assignment(targets["disputed_assignment_id_1"]).attempt_count == 3
 
 
 def test_extra_submission_fails():

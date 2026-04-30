@@ -90,14 +90,10 @@ canonical_diff:
       timestamp: {any: true}
       is_read: {any: true}
       action_url: {any: true}
-  constraints:
-  - desc: No buy orders placed on symbols other than VTI
-    expr: "not any(o.symbol != 'VTI' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: Deposit amount is $2,000
-    expr: "any(t.direction == 'deposit' and t.amount == 2000 for t in state.transfers)"
-    severity: critical
   invariant:
+  - collection: state.orders
+    filter: "a.side == 'buy' and a.symbol != 'VTI'"
+    preserve: ALL
   - collection: state.positions
     filter: "a.symbol != 'VTI'"
     preserve: ALL

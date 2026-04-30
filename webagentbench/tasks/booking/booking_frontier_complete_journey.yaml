@@ -223,14 +223,13 @@ seed:
     review_prop_name: '{output.review_prop_name}'
     review_res_id: '{output.review_res_id}'
 canonical_diff:
-  constraints:
-    - desc: Currency changed to EUR
-      expr: "state.settings.currency == 'EUR'"
-      severity: high
-    - desc: Newsletter enabled
-      expr: "state.settings.newsletter == True"
-      severity: medium
   update:
+    - entity: settings
+      desc: Currency changed to EUR and newsletter enabled
+      where: {id: {any: true}}
+      changes:
+        currency: {eq: EUR}
+        newsletter: {eq: true}
     - entity: Reservation
       desc: Modify reservation at Grand Hotel Princesa Sofia to new dates
       where:
@@ -341,8 +340,11 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
-    - name: Agent modified reservation dates and added special request
+    - name: Settings updated (EUR, newsletter)
       ref: update[0]
+      severity: high
+    - name: Agent modified reservation dates and added special request
+      ref: update[1]
       severity: high
     - name: Agent created Barcelona Shortlist with top 2 hotels
       ref: create[0]

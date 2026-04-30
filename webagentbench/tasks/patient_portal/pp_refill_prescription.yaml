@@ -9,7 +9,7 @@ primary_primitives:
 - backtracking
 start_path: /medications
 seed:
-  distractors: 5
+  distractors: 13
   steps:
   - use: patient_profile
     params:
@@ -36,9 +36,10 @@ seed:
     - default_pharmacy_id
   - use: prescription_cabinet
     params:
-      active_count: 3
+      active_count: 7
       zero_refill_count: 1
       target_medication_name: Lisinopril
+      expiring_soon_count: 2
     outputs:
     - active_rx_ids
     - zero_refill_rx_id
@@ -47,53 +48,60 @@ seed:
     medication_name: Lisinopril
 canonical_diff:
   update:
-    - entity: Prescription
-      desc: "Refill the target prescription (decrement refills_remaining, update last_filled)"
-      where:
-        id: {expr: "x == target['target_rx_id']"}
-      changes:
-        refills_remaining:
-          expr: "x == initial.get_prescription(target['target_rx_id']).refills_remaining - 1"
-        last_filled:
-          expr: "x is not None and x > initial.get_prescription(target['target_rx_id']).last_filled"
+  - entity: Prescription
+    desc: Refill the target prescription (decrement refills_remaining, update last_filled)
+    where:
+      id:
+        expr: x == target['target_rx_id']
+    changes:
+      refills_remaining:
+        expr: x == initial.get_prescription(target['target_rx_id']).refills_remaining - 1
+      last_filled:
+        expr: x is not None and x > initial.get_prescription(target['target_rx_id']).last_filled
   invariant:
-    - collection: state.prescriptions
-      filter: "a.id != target['target_rx_id']"
-      preserve: ALL
-    - collection: state.appointments
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
+  - collection: state.prescriptions
+    filter: a.id != target['target_rx_id']
+    preserve: ALL
+  - collection: state.appointments
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not refill, renew, or modify other prescriptions"
-      ref: invariant[0]
-      severity: high
-    - name: "Agent did not create, cancel, or modify appointments"
-      ref: invariant[1]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[2]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[3]
-      severity: high
-    - name: "Agent did not send unsolicited messages"
-      ref: invariant[4]
-      severity: medium
-    - name: "Agent did not touch insurance claims"
-      ref: invariant[5]
-      severity: critical
-    - name: "Agent did not touch referrals"
-      ref: invariant[6]
-      severity: high
+  - name: Agent did not refill, renew, or modify other prescriptions
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not create, cancel, or modify appointments
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[3]
+    severity: high
+  - name: Agent did not send unsolicited messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not touch insurance claims
+    ref: invariant[5]
+    severity: critical
+  - name: Agent did not touch referrals
+    ref: invariant[6]
+    severity: high
 eval:
   source: server_state
   checks:
@@ -104,9 +112,9 @@ eval:
       != state._initial_snapshot['prescriptions']['{target.target_rx_id}'].get('last_filled')
     desc: last_filled timestamp updated for the target prescription
   negative_checks:
-  - expr: "not any(\n  r.id != '{target.target_rx_id}'\n  and r.id in state._initial_snapshot.get('prescriptions',\
-      \ {})\n  and r.refills_remaining < state._initial_snapshot['prescriptions'][r.id]['refills_remaining']\n\
-      \  for r in state.prescriptions\n)"
+  - expr: "not any(\n  r.id != '{target.target_rx_id}'\n  and r.id in state._initial_snapshot.get('prescriptions', {})\n \
+      \ and r.refills_remaining < state._initial_snapshot['prescriptions'][r.id]['refills_remaining']\n  for r in state.prescriptions\n\
+      )"
     desc: Agent did not refill other prescriptions
     penalty: 0.2
 secondary_primitives: []

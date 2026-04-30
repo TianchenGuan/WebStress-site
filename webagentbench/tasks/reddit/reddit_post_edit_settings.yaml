@@ -47,6 +47,12 @@ canonical_diff:
     changes:
       is_subscribed:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_comment_sort: { eq: new }
   create:
   - entity: Post
     desc: New post created in r/MachineLearning with exact title and edited body
@@ -61,28 +67,12 @@ canonical_diff:
         expr: x == state.owner_username
       is_edited:
         eq: true
-  constraints:
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Default comment sort set to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: No posts created in subreddits other than MachineLearning
-    expr: not any(p.author_name == state.owner_username and p.subreddit_name != 'MachineLearning' and p.id not in [ip.id for ip in initial.posts] for p in state.posts)
-    severity: high
-  - desc: No excessive outbound messages
-    expr: len(state.sent_messages) == len(initial.sent_messages)
-    severity: medium
-  - desc: No users blocked
-    expr: len(state.blocked_users) == len(initial.blocked_users)
-    severity: medium
   invariant:
   - collection: state.subreddits
-    filter: "a.id != state.get_subreddit_by_name(target['join_sub']).id"
+    filter: a.id != state.get_subreddit_by_name(target['join_sub']).id
     preserve: ALL
   - collection: state.posts
-    filter: "a.id in [p.id for p in initial.posts]"
+    filter: a.id in [p.id for p in initial.posts]
     preserve: ALL
   - collection: state.comments
     preserve: ALL
@@ -94,6 +84,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Subscribed to r/{target.join_sub}
     ref: update[0]
@@ -128,7 +122,8 @@ eval:
       ('MachineLearning', 'technology', 'Python', 'personalfinance') for p in state.posts)
     desc: No posts in wrong subs
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 2
     desc: No extra messages were sent
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

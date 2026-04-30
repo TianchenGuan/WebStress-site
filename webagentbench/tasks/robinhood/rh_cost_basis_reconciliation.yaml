@@ -63,18 +63,11 @@ canonical_diff:
       target_price: {expr: "abs(float(x) - float(state.get_stock(target['symbol']).price) * 0.90) <= 0.5"}
       status: {eq: active}
       created_at: {any: true}
-  constraints:
-  - desc: Exactly one sell order for target symbol
-    expr: "len([o for o in state.orders if o.symbol == target['symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_')]) == 1"
-    severity: high
-  - desc: Exactly one price alert below for target symbol
-    expr: "len([a for a in state.price_alerts if a.symbol == target['symbol'] and a.condition == 'below' and not a.id.startswith('alert_decoy_')]) == 1"
-    severity: high
-  - desc: No buy orders placed
-    expr: "not any(o.symbol == target['symbol'] and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
   - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
+    filter: "a.side == 'buy' and a.symbol == target['symbol']"
     preserve: ALL
   - collection: state.price_alerts
     filter: "a.symbol != target['symbol']"

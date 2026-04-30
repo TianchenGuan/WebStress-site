@@ -5,20 +5,38 @@ import { ComposeForm } from "../components/ComposeForm";
 import { useGmailLayout } from "../context";
 import type { ComposePayload } from "../types";
 
+function splitAddresses(value: string | null) {
+  return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
 export function ComposePage() {
   const { api, notify, refreshMailbox } = useGmailLayout();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  // In replay mode, compose fields come via query params
-  const replayTo = searchParams.get("replayTo");
-  const initialValue: Partial<ComposePayload> = replayTo != null
+  const isReplayMode = searchParams.get("replay") === "1";
+  const hasReplayDraft =
+    isReplayMode &&
+    [
+      "replayTo",
+      "replayCc",
+      "replayBcc",
+      "replaySubject",
+      "replayBody",
+      "replayAttachments",
+      "replayShowCc",
+      "replayShowBcc",
+    ].some((key) => searchParams.has(key));
+
+  const initialValue: Partial<ComposePayload> = hasReplayDraft || isReplayMode
     ? {
-        to: (searchParams.get("replayTo") ?? "").split(",").map(s => s.trim()).filter(Boolean),
-        cc: (searchParams.get("replayCc") ?? "").split(",").map(s => s.trim()).filter(Boolean),
+        to: splitAddresses(searchParams.get("replayTo")),
+        cc: splitAddresses(searchParams.get("replayCc")),
+        bcc: splitAddresses(searchParams.get("replayBcc")),
         subject: searchParams.get("replaySubject") ?? "",
         body: searchParams.get("replayBody") ?? "",
+        attachments: splitAddresses(searchParams.get("replayAttachments")),
       } satisfies Partial<ComposePayload>
     : (location.state ?? {}) as Partial<ComposePayload>;
 
@@ -26,6 +44,8 @@ export function ComposePage() {
     <main className="gmail-page" aria-label="Compose message">
       <ComposeForm
         initialValue={initialValue}
+        forceShowCc={searchParams.get("replayShowCc") === "1"}
+        forceShowBcc={searchParams.get("replayShowBcc") === "1"}
         onCancel={() => navigate(-1)}
         onSubmit={async (payload) => {
           try {

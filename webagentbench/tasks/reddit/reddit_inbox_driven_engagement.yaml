@@ -151,63 +151,105 @@ seed:
     mb: Loved your pipeline optimization post. Would you share the caching config?
     block_post_id: '{output.block_post_id}'
 canonical_diff:
-  # Constraint-only form. The task combines entity-level mutations (vote,
-  # save, subscribe, comment, post, reply) with two aggregate sweeps
-  # (mark-all-notifications-read, mark-all-messages-read) + one inbox
-  # deletion. Because the mark-all sweeps mutate every notification /
-  # message entity, listing them in the positive diff would require
-  # enumerating each entry. A constraint-only block bypasses the
-  # unaccounted sweep entirely and scores purely on constraint
-  # satisfaction (spec §3.6, Class 10 fix).
-  constraints:
-    - desc: Worldnews post upvoted
-      expr: "state.get_post(target['wn_id']).vote_direction == 1"
-      severity: high
-    - desc: Worldnews post saved
-      expr: "state.get_post(target['wn_id']).is_saved and target['wn_id'] in state.saved_post_ids"
-      severity: high
-    - desc: Exact programming comment posted on prog_id
-      expr: "any(c.post_id == target['prog_id'] and c.body == target['c2'] and c.author_name == state.owner_username for c in state.comments)"
-      severity: high
-    - desc: Joined r/MachineLearning
-      expr: "any(s.name == target['join'] and s.is_subscribed for s in state.subreddits)"
-      severity: high
-    - desc: Created MachineLearning post with exact title and body
-      expr: "any(p.subreddit_name == target['join'] and p.title == target['post_title'] and p.body == target['post_body'] and p.author_name == state.owner_username for p in state.posts)"
-      severity: high
-    - desc: Reply sent with exact Re-subject and body to r_from
-      expr: "any(m.to_user == target['r_from'] and m.subject == 'Re: ' + target['r_sub'] and m.body == target['r_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
-      severity: high
-    - desc: Spam message deleted from inbox
-      expr: "not any(m.id == target['del_id'] for m in state.messages)"
-      severity: high
-    - desc: All notifications marked read
-      expr: "state.unread_notification_count() == 0"
-      severity: high
-    - desc: All inbox messages marked read
-      expr: "state.unread_message_count() == 0"
-      severity: high
-    - desc: Theme set to dark
-      expr: "state.settings.theme == 'dark'"
-      severity: high
-    - desc: Feed sort set to new
-      expr: "state.settings.default_feed_sort == 'new'"
-      severity: high
-    - desc: Email notifications for messages disabled
-      expr: "not state.settings.email_messages"
-      severity: high
-    - desc: No existing subscriptions removed
-      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-      severity: high
-    - desc: Only the spam message was deleted from the inbox
-      expr: "len(state.messages) == len(initial.messages) - 1"
-      severity: medium
-    - desc: No users blocked
-      expr: "len(state.blocked_users) == 0"
-      severity: medium
+  update:
+  - entity: Notification
+    collection: notifications
+    bijection:
+      over: '[n.id for n in initial.notifications if not n.is_read]'
+      variable: v
+    desc: Mark every unread notification as read
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Message
+    collection: messages
+    bijection:
+      over: '[m.id for m in initial.messages if not m.is_read and m.id != target[''del_id'']]'
+      variable: v
+    desc: Mark every unread non-spam inbox message as read
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Post
+    collection: posts
+    desc: Upvote the worldnews post
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Subreddit
+    collection: subreddits
+    desc: Subscribe to the join subreddit
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_feed_sort: { eq: new }
+      email_messages: { eq: false }
+  delete:
+  - entity: Message
+    collection: messages
+    desc: Delete the spam message identified by target.del_id
+    where:
+      id:
+        expr: x == target['del_id']
+  create:
+  - entity: Message
+    collection: sent_messages
+    desc: Reply to the inbox message with exact subject and body
+    properties:
+      to_user:
+        expr: x == target['r_from']
+      body:
+        expr: x == target['r_body']
+      from_user:
+        expr: x == state.owner_username
+  - entity: Comment
+    collection: comments
+    desc: Comment on the programming post with the exact text
+    properties:
+      post_id:
+        expr: x == target['prog_id']
+      body:
+        expr: x == target['c2']
+      author_name:
+        expr: x == state.owner_username
+      parent_id:
+        eq: null
+  - entity: Post
+    collection: posts
+    desc: Create the new MachineLearning post with exact title and body
+    properties:
+      subreddit_name:
+        expr: x == target['join']
+      title:
+        expr: x == target['post_title']
+      body:
+        expr: x == target['post_body']
+      author_name:
+        expr: x == state.owner_username
   invariant:
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:
@@ -246,11 +288,12 @@ eval:
   - expr: state.get_message('{target.r_id}') is not None
     desc: The collaboration message was not deleted by mistake
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 3
     desc: No extra messages sent beyond the required reply
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      4
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 4
     desc: No extra posts created beyond the required MachineLearning post
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

@@ -40,23 +40,63 @@ seed:
   targets:
     smallest_impact_symbol: '{output.smallest_impact_symbol}'
 canonical_diff:
-  constraints:
-  - desc: Sell order for the smallest-impact position
-    expr: "any(o.symbol == target['smallest_impact_symbol'] and o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
-  - desc: $500 deposit transfer initiated
-    expr: "any(t.direction == 'deposit' and float(t.amount) == 500.0 and t.status in ('completed', 'pending') for t in state.transfers)"
-    severity: critical
-  - desc: Exactly one deposit initiated
-    expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
-    severity: high
-  - desc: No buy orders placed
-    expr: "not any(o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: Only the smallest-impact symbol was sold
-    expr: "not any(o.side == 'sell' and o.symbol != target['smallest_impact_symbol'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No withdrawals initiated
-    expr: "not any(t.direction == 'withdrawal' for t in state.transfers)"
-    severity: high
+  create:
+  - entity: orders
+    desc: Sell order for the smallest-impact position
+    properties:
+      symbol: {expr: "x == target['smallest_impact_symbol']"}
+      side: {eq: sell}
+      status: {in: [filled, pending]}
+      order_type: {any: true}
+      quantity: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: transfers
+    desc: $500 deposit transfer initiated
+    properties:
+      direction: {eq: deposit}
+      amount: {expr: "float(x) == 500.0"}
+      status: {in: [completed, pending]}
+      bank_account_id: {any: true}
+      initiated_at: {any: true}
+      completed_at: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "a.side == 'buy' or (a.side == 'sell' and a.symbol != target['smallest_impact_symbol'])"
+    preserve: ALL
+  - collection: state.transfers
+    filter: "a.direction == 'withdrawal'"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.transactions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []

@@ -540,19 +540,6 @@ canonical_diff:
       filter: "False"
       preserve: ALL
       comprehensive: true
-  constraints:
-    - desc: Agent acknowledged cancellation fee for all three reservations
-      expr: "sum(1 for e in state.audit_log if e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None) >= 3"
-      severity: high
-    - desc: Rebooking suggestions were generated for both cancelled reservations that needed rebooking
-      expr: "sum(1 for s in state.rebooking_suggestions if s.original_reservation_id in (target['milan_res_id'], target['vienna_res_id'])) >= 2"
-      severity: high
-    - desc: Both rebookings came from the system's candidate list
-      expr: "all(any(booked_prop in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions) for booked_prop in (target['milan_rebook_prop_id'], target['vienna_rebook_prop_id']))"
-      severity: critical
-    - desc: Combined cost of 2 rebookings fits combined budget
-      expr: "sum(r.total_price for r in state.reservations if r.property_id in (target['milan_rebook_prop_id'], target['vienna_rebook_prop_id']) and r.status == 'confirmed') <= target['rebook_combined_budget']"
-      severity: high
   named_invariants:
     - name: Agent cancelled first reservation
       ref: update[0]

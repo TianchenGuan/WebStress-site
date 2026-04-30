@@ -1,24 +1,35 @@
 variant_id: amazon_precision_cart_rebuild__state_tracking_v1
 base_task_id: amazon_precision_cart_rebuild
 target_primitive: state_tracking
-description: >
-  Cart GET returns stale data (empty cart) on the first 3 reads, and cart
-  item updates (PUT) silently fail once. The agent must carefully verify
-  actual cart contents and retry failed quantity changes.
+description: 'Cart GET returns stale data (empty cart) on the first 3 reads, and cart item updates (PUT) silently fail once.
+  The agent must carefully verify actual cart contents and retry failed quantity changes.
+
+  '
 injections:
-  - layer: network
-    params:
-      url_pattern: "**/api/env/amazon/cart"
-      action: stale_data
-      methods: ["GET"]
-      stale_count: 3
-      stale_body:
-        items: []
-        totals: {"subtotal": 0, "shipping": 0, "tax": 0, "discount": 0, "gift_card_applied": 0, "total": 0}
-  - layer: network
-    params:
-      url_pattern: "**/api/env/amazon/cart/*"
-      action: silent_fail
-      methods: ["PUT"]
-      fail_count: 1
-      response_body: {"id": "fake", "quantity": 1, "product_name": "updated"}
+- layer: network
+  params:
+    url_pattern: '**/api/env/amazon/cart'
+    action: stale_data
+    methods:
+    - GET
+    stale_count: 3
+    stale_body:
+      items: []
+      totals:
+        subtotal: 0
+        shipping: 0
+        tax: 0
+        discount: 0
+        gift_card_applied: 0
+        total: 0
+- layer: network
+  params:
+    url_pattern: '**/api/env/amazon/cart/*'
+    action: silent_fail
+    methods:
+    - PUT
+    fail_count: 1
+    response_body:
+      id: prod_a8c4d219
+      quantity: 1
+      product_name: updated

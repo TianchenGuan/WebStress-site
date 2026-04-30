@@ -528,20 +528,32 @@ describe("Criteria panel (category 6)", () => {
 
     await user.click(screen.getByText(/Criteria/));
 
-    // Check for pass/fail symbols
-    expect(screen.getByText("✓")).toBeInTheDocument();
-    expect(screen.getByText("✗")).toBeInTheDocument();
+    expect(screen.getByText("Passed (1)")).toBeInTheDocument();
+    expect(screen.getByText("Failed (1)")).toBeInTheDocument();
   });
 
   it("shows penalty badge for failed criteria", async () => {
     const user = userEvent.setup();
-    mockFetchTrajectory.mockResolvedValue(makeTrajectoryData());
+    mockFetchTrajectory.mockResolvedValue(
+      makeTrajectoryData({
+        evaluation: {
+          score: 0.85,
+          success: true,
+          reasoning: "Completed well",
+          criteria_results: [
+            { desc: "Clicked the right button", passed: true },
+            { desc: "Triggered a penalty", passed: false, kind: "penalty", penalty: 0.15 },
+          ],
+        },
+      }),
+    );
     render(<TrajectoryPage taskId="t1" />);
     await waitFor(() => { expect(screen.getByText("Test Task Title")).toBeInTheDocument(); });
 
     await user.click(screen.getByText(/Criteria/));
 
-    expect(screen.getByText("penalty: -0.15")).toBeInTheDocument();
+    expect(screen.getByText("Penalties triggered (1)")).toBeInTheDocument();
+    expect(screen.getByText(/0\.15 penalty/)).toBeInTheDocument();
   });
 
   it("shows reasoning text in criteria tab", async () => {
@@ -594,7 +606,7 @@ describe("Criteria panel (category 6)", () => {
   it("shows pass/fail badge based on success", async () => {
     mockFetchTrajectory.mockResolvedValue(makeTrajectoryData());
     render(<TrajectoryPage taskId="t1" />);
-    await waitFor(() => { expect(screen.getByText("pass")).toBeInTheDocument(); });
+    await waitFor(() => { expect(screen.getByText("Pass")).toBeInTheDocument(); });
   });
 
   it("shows fail badge when not successful", async () => {
@@ -609,7 +621,7 @@ describe("Criteria panel (category 6)", () => {
       }),
     );
     render(<TrajectoryPage taskId="t1" />);
-    await waitFor(() => { expect(screen.getByText("fail")).toBeInTheDocument(); });
+    await waitFor(() => { expect(screen.getByText("Fail")).toBeInTheDocument(); });
   });
 });
 
@@ -745,8 +757,8 @@ describe("Additional edge cases", () => {
     mockFetchTrajectory.mockResolvedValue(makeTrajectoryData());
     render(<TrajectoryPage taskId="t1" />);
     await waitFor(() => { expect(screen.getByText("Test Task Title")).toBeInTheDocument(); });
-    const backLink = screen.getAllByText("← Results")[0];
-    expect(backLink.closest("a")).toHaveAttribute("href", "/results");
+    const backLink = screen.getByRole("link", { name: /Results/ });
+    expect(backLink).toHaveAttribute("href", "/results");
   });
 
   it("shows Trajectory and Criteria tab buttons", async () => {

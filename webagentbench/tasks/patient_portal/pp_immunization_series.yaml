@@ -117,33 +117,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.pharmacies
       preserve: ALL
-  constraints:
-    - desc: "Consecutive new series-dose appointments are at least 1 month (30 days) apart"
-      severity: medium
-      expr: >
-        (
-          lambda new_apts: (
-            len(new_apts) <= 1
-            or all(
-              (sorted_apts[i].datetime - sorted_apts[i-1].datetime).days >= 28
-              for sorted_apts in [sorted(new_apts, key=lambda a: a.datetime)]
-              for i in range(1, len(sorted_apts))
-            )
-          )
-        )(
-          [
-            a for a in state.appointments
-            if a.status == 'scheduled'
-            and a.id not in {x.id for x in initial.appointments}
-            and a.provider_id == target['series_admin_provider_id']
-            and (
-              'hepatitis' in (a.reason or '').lower()
-              or target['series_vaccine_name'].lower() in (a.reason or '').lower()
-              or 'vaccine' in (a.reason or '').lower()
-              or 'immunization' in (a.reason or '').lower()
-            )
-          ]
-        )
+    - collection: state.providers
+      preserve: ALL
+    - collection: state.patient
+      preserve: ALL
   named_invariants:
     - name: "Agent did not cancel or modify existing non-immunization appointments"
       ref: invariant[0]

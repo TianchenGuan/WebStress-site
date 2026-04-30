@@ -64,16 +64,13 @@ seed:
     latest_announcement_id: '{output.latest_announcement_id}'
 canonical_diff:
   oneof:
-    - constraints:
-        - desc: Weighted grade discrepancy exceeds 1 point
-          expr: "target['has_discrepancy'] == 'true'"
-          severity: critical
-      update:
+    # Branch discriminator baked into Update where-clause (was a critical constraint).
+    - update:
         - entity: Assignment
-          desc: Resubmit the most impactful graded assignment with grade_verification.pdf
+          desc: Resubmit the most impactful graded assignment with grade_verification.pdf (target has discrepancy)
           where:
             id:
-              expr: "x == target['most_impactful_graded_id']"
+              expr: "x == target['most_impactful_graded_id'] and target['has_discrepancy'] == 'true'"
           changes:
             submission_status:
               in:
@@ -108,6 +105,8 @@ canonical_diff:
         - collection: state.calendar_events
           preserve: ALL
         - collection: state.sent_messages
+          preserve: ALL
+        - collection: state.student
           preserve: ALL
       named_invariants:
         - name: Agent resubmitted the highest-impact graded assignment
@@ -146,16 +145,13 @@ canonical_diff:
         - name: Agent did not send messages
           ref: invariant[10]
           severity: medium
-    - constraints:
-        - desc: Weighted grade discrepancy is within 1 point
-          expr: "target['has_discrepancy'] == 'false'"
-          severity: critical
-      update:
+    # Branch 2: only matches when no discrepancy.
+    - update:
         - entity: Announcement
-          desc: Mark the latest announcement as read
+          desc: Mark the latest announcement as read (no grade discrepancy)
           where:
             id:
-              expr: "x == target['latest_announcement_id']"
+              expr: "x == target['latest_announcement_id'] and target['has_discrepancy'] == 'false'"
           changes:
             is_read:
               eq: true
@@ -182,6 +178,8 @@ canonical_diff:
         - collection: state.calendar_events
           preserve: ALL
         - collection: state.sent_messages
+          preserve: ALL
+        - collection: state.student
           preserve: ALL
       named_invariants:
         - name: Agent marked the latest announcement as read

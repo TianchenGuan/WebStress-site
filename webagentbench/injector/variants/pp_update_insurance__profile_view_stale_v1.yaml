@@ -1,38 +1,38 @@
 variant_id: pp_update_insurance__profile_view_stale_v1
 base_task_id: pp_update_insurance
 target_primitive: verification
-description: The first profile fetch is stale and shows outdated contact, insurance, and preventive details. The agent must refresh the profile before trusting what it sees.
+description: Profile fetch returns a stale insurance plan (wrong plan_name and member_id) for the first 3 reads. The agent
+  must refresh and verify the real plan before trusting any cached value, otherwise it will save back the wrong values or
+  report success while the real profile is unchanged.
 injections:
 - layer: network
   params:
     action: stale_data
     url_pattern: '**/api/env/patient_portal/profile**'
     stale_body:
-      id: pat_stale
-      name: Morgan Harper
+      id: ''
+      name: ''
       sex: female
-      dob: '1985-06-14'
-      phone: (555) 010-1111
-      email: morgan.harper@example.com
+      dob: ''
+      phone: (217) 555-9011
+      email: ''
       insurance_plan:
-        plan_name: Legacy Bronze HMO
-        member_id: LEG-0001123
-        group_number: GRP-00123
-        copay: '50.00'
-        deductible: '3500.00'
-        deductible_met: '400.00'
-      pcp_id: prov_stale
-      allergies:
-      - Penicillin
-      conditions:
-      - Hypertension
+        plan_name: Legacy PPO 2019
+        member_id: BC-LEGACY-7421
+        group_number: G-19042
+        copay: '0.00'
+        deductible: '0.00'
+        deductible_met: '0.00'
+      pcp_id: ''
+      allergies: []
+      conditions: []
       pharmacy_ids: []
       emergency_contact:
-        name: Jamie Harper
-        phone: (555) 010-2222
-        relationship: Spouse
+        name: ''
+        phone: ''
+        relationship: ''
       applicable_screenings: []
       default_pharmacy: null
-    stale_count: 1
+    stale_count: 3
     behavior:
       mode: once

@@ -29,6 +29,9 @@ def _apply_all_correct_mutations(state, targets):
         targets["hotel_denver_email_id"],
         to=["travel.assistant@ops.thornton.com"],
     )
+    # Create the Travel label (canonical_diff requires this as a separate
+    # create entry; ensure_label is idempotent and used by create_filter too).
+    state.ensure_label("Travel")
     # Create filter for airline sender with Travel label
     state.create_filter(FilterRule(
         id='f_travel', name='airline filter',

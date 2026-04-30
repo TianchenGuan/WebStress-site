@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, DataTable, FormField } from "@webagentbench/shared";
+import { useSearchParams } from "react-router-dom";
 
 import { LabelChip } from "../components/LabelChip";
 import { useGmailLayout } from "../context";
@@ -84,12 +85,14 @@ function optionalContactValue(value: string): string | undefined {
 
 export function LabelsPage() {
   const { api, notify, summary, refreshMailbox } = useGmailLayout();
+  const [searchParams] = useSearchParams();
   const [labels, setLabels] = useState<Label[]>([]);
   const [contacts, setContacts] = useState<ContactRecord[]>([]);
   const [draftLabel, setDraftLabel] = useState({ name: "", color: "#1a73e8" });
   const [draftContact, setDraftContact] = useState(EMPTY_CONTACT_DRAFT);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactPage, setContactPage] = useState(1);
+  const isReplayMode = searchParams.get("replay") === "1";
 
   useEffect(() => {
     api.getLabels().then(setLabels);
@@ -184,10 +187,42 @@ export function LabelsPage() {
   const editingContact = editingContactId
     ? contacts.find((contact) => contact.id === editingContactId) ?? null
     : null;
-  const isEditingContact = editingContact !== null;
+  const replayEditingContact = isReplayMode
+    ? (
+      searchParams.get("replayContactEditId")
+        ? contacts.find((contact) => contact.id === searchParams.get("replayContactEditId")) ?? null
+        : null
+    )
+    : editingContact;
+  const displayDraftLabel = isReplayMode
+    ? {
+        name: searchParams.get("replayNewLabelName") ?? "",
+        color: "#1a73e8",
+      }
+    : draftLabel;
+  const displayDraftContact = isReplayMode
+    ? {
+        ...EMPTY_CONTACT_DRAFT,
+        name: searchParams.get("replayContactName") ?? "",
+        email: searchParams.get("replayContactEmail") ?? "",
+        company: searchParams.get("replayContactCompany") ?? "",
+        note: searchParams.get("replayContactNote") ?? "",
+        is_vip: searchParams.get("replayContactVip") === "1",
+      }
+    : draftContact;
+  const displayContactPage = isReplayMode
+    ? Math.max(
+        1,
+        Math.min(
+          Math.max(1, Math.ceil(contacts.length / CONTACTS_PAGE_SIZE)),
+          Number(searchParams.get("replayContactPage") ?? 1),
+        ),
+      )
+    : contactPage;
+  const isEditingContact = replayEditingContact !== null;
   const visibleContacts = contacts.slice(
-    (contactPage - 1) * CONTACTS_PAGE_SIZE,
-    contactPage * CONTACTS_PAGE_SIZE,
+    (displayContactPage - 1) * CONTACTS_PAGE_SIZE,
+    displayContactPage * CONTACTS_PAGE_SIZE,
   );
 
   return (
@@ -219,7 +254,7 @@ export function LabelsPage() {
                 id="new-label-name"
                 label="New label"
                 inputProps={{
-                  value: draftLabel.name,
+                  value: displayDraftLabel.name,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftLabel((current) => ({ ...current, name: event.target.value })),
                   placeholder: "Important Projects",
@@ -232,7 +267,7 @@ export function LabelsPage() {
                 label="Color"
                 inputProps={{
                   type: "color",
-                  value: draftLabel.color,
+                  value: displayDraftLabel.color,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftLabel((current) => ({ ...current, color: event.target.value })),
                   "aria-label": "New label color",
@@ -243,10 +278,10 @@ export function LabelsPage() {
               <Button
                 variant="primary"
                 type="submit"
-                aria-label={draftLabel.name.trim() ? `Create label ${draftLabel.name.trim()}` : "Create label"}
-                disabled={draftLabel.name.trim() === ""}
+                aria-label={displayDraftLabel.name.trim() ? `Create label ${displayDraftLabel.name.trim()}` : "Create label"}
+                disabled={displayDraftLabel.name.trim() === ""}
               >
-                {draftLabel.name.trim() ? `Create label "${draftLabel.name.trim()}"` : "Create label"}
+                {displayDraftLabel.name.trim() ? `Create label "${displayDraftLabel.name.trim()}"` : "Create label"}
               </Button>
             </div>
           </form>
@@ -337,14 +372,14 @@ export function LabelsPage() {
           {contacts.length > CONTACTS_PAGE_SIZE && (
             <div className="gmail-toolbar__right" style={{ marginTop: 8 }}>
               <span className="gmail-toolbar__page-info">
-                {(contactPage - 1) * CONTACTS_PAGE_SIZE + 1}–
-                {Math.min(contactPage * CONTACTS_PAGE_SIZE, contacts.length)} of {contacts.length}
+                {(displayContactPage - 1) * CONTACTS_PAGE_SIZE + 1}–
+                {Math.min(displayContactPage * CONTACTS_PAGE_SIZE, contacts.length)} of {contacts.length}
               </span>
               <button
                 type="button"
                 className="gmail-toolbar__nav-btn"
                 aria-label="Previous contacts page"
-                disabled={contactPage <= 1}
+                disabled={displayContactPage <= 1}
                 onClick={() => setContactPage((p) => p - 1)}
               >
                 <IconChevronLeft />
@@ -353,7 +388,7 @@ export function LabelsPage() {
                 type="button"
                 className="gmail-toolbar__nav-btn"
                 aria-label="Next contacts page"
-                disabled={contactPage >= Math.ceil(contacts.length / CONTACTS_PAGE_SIZE)}
+                disabled={displayContactPage >= Math.ceil(contacts.length / CONTACTS_PAGE_SIZE)}
                 onClick={() => setContactPage((p) => p + 1)}
               >
                 <IconChevronRight />
@@ -367,7 +402,7 @@ export function LabelsPage() {
             <h3>{isEditingContact ? "Edit contact" : "Add contact"}</h3>
             <p className="gmail-contact-form__helper">
               {isEditingContact
-                ? `Updating ${editingContact?.name}.`
+                ? `Updating ${replayEditingContact?.name}.`
                 : "Use Edit in the table to update an existing contact, or fill out this form to add a new one."}
             </p>
             <div className="gmail-modal-grid">
@@ -375,7 +410,7 @@ export function LabelsPage() {
                 id="new-contact-name"
                 label="Name"
                 inputProps={{
-                  value: draftContact.name,
+                  value: displayDraftContact.name,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftContact((c) => ({ ...c, name: event.target.value })),
                   "aria-label": "Contact name",
@@ -385,7 +420,7 @@ export function LabelsPage() {
                 id="new-contact-email"
                 label="Email"
                 inputProps={{
-                  value: draftContact.email,
+                  value: displayDraftContact.email,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftContact((c) => ({ ...c, email: event.target.value })),
                   "aria-label": "Contact email address",
@@ -395,7 +430,7 @@ export function LabelsPage() {
                 id="new-contact-company"
                 label="Company"
                 inputProps={{
-                  value: draftContact.company,
+                  value: displayDraftContact.company,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftContact((c) => ({ ...c, company: event.target.value })),
                   "aria-label": "Contact company",
@@ -405,7 +440,7 @@ export function LabelsPage() {
                 id="new-contact-note"
                 label="Note"
                 inputProps={{
-                  value: draftContact.note,
+                  value: displayDraftContact.note,
                   onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                     setDraftContact((c) => ({ ...c, note: event.target.value })),
                   placeholder: "Optional note",
@@ -416,7 +451,7 @@ export function LabelsPage() {
             <label className="gmail-checkbox-label" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
               <input
                 type="checkbox"
-                checked={draftContact.is_vip}
+                checked={displayDraftContact.is_vip}
                 onChange={(event) =>
                   setDraftContact((c) => ({ ...c, is_vip: event.target.checked }))
                 }
@@ -428,7 +463,7 @@ export function LabelsPage() {
               <Button
                 variant="primary"
                 aria-label={isEditingContact ? "Save contact changes" : "Add contact"}
-                disabled={draftContact.name.trim() === "" || draftContact.email.trim() === ""}
+                disabled={displayDraftContact.name.trim() === "" || displayDraftContact.email.trim() === ""}
                 onClick={handleSaveContact}
               >
                 {isEditingContact ? "Save contact" : "Add contact"}

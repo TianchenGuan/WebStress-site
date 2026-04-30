@@ -37,18 +37,37 @@ def simplify_step(step: dict) -> dict:
             "bbox": target.get("bbox"),
         }
 
-    return {
+    if isinstance(targets_raw, dict) and (
+        "role" in targets_raw or "name" in targets_raw or "selector" in targets_raw
+    ):
+        targets = {"ref": simplify_target(targets_raw)}
+    else:
+        targets = {
+            key: simplify_target(targets_raw.get(key))
+            for key in ("ref", "from_ref", "to_ref")
+            if isinstance(targets_raw, dict) and targets_raw.get(key)
+        }
+
+    simplified = {
         "step": step.get("step"),
         "thought": step.get("thought", ""),
         "action": step.get("action"),
-        "targets": {
-            key: simplify_target(targets_raw.get(key))
-            for key in ("ref", "from_ref", "to_ref")
-            if targets_raw.get(key)
-        },
+        "actions": step.get("actions") or [],
+        "raw_actions": step.get("raw_actions") or [],
+        "targets": targets,
+        "action_targets": [
+            simplify_target(target)
+            for target in (step.get("action_targets") or [])
+        ],
+        "action_results": step.get("action_results") or [],
         "status": step.get("status", ""),
         "elapsed_seconds": step.get("elapsed_seconds", 0),
     }
+    if step.get("replay_path"):
+        simplified["replay_path"] = step["replay_path"]
+    if step.get("result_path"):
+        simplified["result_path"] = step["result_path"]
+    return simplified
 
 
 def normalize_route(pathname: str | None, query: str | None) -> str:
@@ -88,7 +107,7 @@ def derive_replay_paths(
     current_path = start_path
     event_idx = 0
     if simplified_steps:
-        simplified_steps[0]["replay_path"] = start_path
+        simplified_steps[0].setdefault("replay_path", start_path)
 
     for idx, step in enumerate(simplified_steps):
         if idx == 0:
@@ -108,7 +127,7 @@ def derive_replay_paths(
                 )
                 event_idx += 1
 
-        step["replay_path"] = current_path
+        step.setdefault("replay_path", current_path)
 
     final_path = current_path
     if start_time is not None:
@@ -126,9 +145,9 @@ def derive_replay_paths(
 
     for idx, step in enumerate(simplified_steps):
         if idx + 1 < len(simplified_steps):
-            step["result_path"] = simplified_steps[idx + 1]["replay_path"]
+            step.setdefault("result_path", simplified_steps[idx + 1]["replay_path"])
         else:
-            step["result_path"] = final_path
+            step.setdefault("result_path", final_path)
 
     return start_path, simplified_steps
 

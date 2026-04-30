@@ -67,91 +67,92 @@ seed:
     mail_order_pharmacy_id: '{output.mail_order_pharmacy_id}'
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
-  # Two-axis plan-change task. `patient` is a SINGLETON on PatientPortalState
-  # (not a list), so `patient.insurance_plan` mutations do NOT appear in
-  # compute_diff. Assert the new plan values via `constraints:` (penalty-only,
-  # read/write assertions on singleton state). The pharmacy default flip is a
-  # standard list-entity update on `state.pharmacies`.
   update:
-    - entity: Pharmacy
-      desc: "Set the mail-order pharmacy as the new default"
-      where:
-        id: {expr: "x == target['mail_order_pharmacy_id']"}
-      changes:
-        is_default: {eq: true}
-    - entity: Pharmacy
-      desc: "Remove default flag from the previous default pharmacy"
-      where:
-        id: {expr: "x == target['default_pharmacy_id']"}
-      changes:
-        is_default: {eq: false}
-  constraints:
-    - desc: "Insurance plan name was updated to the new value"
-      expr: >
-        state.patient.insurance_plan is not None
-        and state.patient.insurance_plan.plan_name == 'Aetna PPO Silver'
-      severity: critical
-    - desc: "Insurance member ID was updated to the new value"
-      expr: >
-        state.patient.insurance_plan is not None
-        and state.patient.insurance_plan.member_id == 'AET-5529103'
-      severity: critical
-    - desc: "Insurance group number was updated to the new value"
-      expr: >
-        state.patient.insurance_plan is not None
-        and state.patient.insurance_plan.group_number == 'GRP-88914'
-      severity: critical
+  - entity: Pharmacy
+    desc: Set the mail-order pharmacy as the new default
+    where:
+      id:
+        expr: x == target['mail_order_pharmacy_id']
+    changes:
+      is_default:
+        eq: true
+  - entity: Pharmacy
+    desc: Remove default flag from the previous default pharmacy
+    where:
+      id:
+        expr: x == target['default_pharmacy_id']
+    changes:
+      is_default:
+        eq: false
+  - entity: patient
+    desc: Insurance plan details updated to the new values
+    where:
+      id: { any: true }
+    changes:
+      insurance_plan:
+        fields:
+          plan_name: { eq: "Aetna PPO Silver" }
+          member_id: { eq: "AET-5529103" }
+          group_number: { eq: "GRP-88914" }
+      phone:
+        expr: "x == initial.patient.phone"
+      email:
+        expr: "x == initial.patient.email"
+      name:
+        expr: "x == initial.patient.name"
   invariant:
-    # Other pharmacies must not have their default flag flipped. Only the
-    # original default and the mail-order pharmacy are legitimate targets.
-    - collection: state.pharmacies
-      filter: "a.id != target['default_pharmacy_id'] and a.id != target['mail_order_pharmacy_id']"
-      preserve: ALL
-    # Pre-existing appointments untouched (no cancellations, no reschedules).
-    - collection: state.appointments
-      filter: "a.id in target['upcoming_ids']"
-      preserve: ALL
-    # Active prescriptions must not be discontinued or mutated.
-    - collection: state.prescriptions
-      filter: "a.id in target['active_rx_ids']"
-      preserve: ALL
-    # No new patient messages; pre-existing messages must remain intact.
-    - collection: state.messages
-      filter: "a.id in {x.id for x in initial.messages}"
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
+  - collection: state.pharmacies
+    filter: a.id != target['default_pharmacy_id'] and a.id != target['mail_order_pharmacy_id']
+    preserve: ALL
+  - collection: state.appointments
+    filter: a.id in target['upcoming_ids']
+    preserve: ALL
+  - collection: state.prescriptions
+    filter: a.id in target['active_rx_ids']
+    preserve: ALL
+  - collection: state.messages
+    filter: a.id in {x.id for x in initial.messages}
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not change default flag on unrelated pharmacies"
-      ref: invariant[0]
-      severity: high
-    - name: "Agent did not cancel or modify existing upcoming appointments"
-      ref: invariant[1]
-      severity: high
-    - name: "Agent did not discontinue or modify active prescriptions"
-      ref: invariant[2]
-      severity: critical
-    - name: "Agent did not send unsolicited messages or alter existing ones"
-      ref: invariant[3]
-      severity: medium
-    - name: "Agent did not modify immunization records"
-      ref: invariant[4]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[5]
-      severity: high
-    - name: "Agent did not touch insurance claims"
-      ref: invariant[6]
-      severity: critical
-    - name: "Agent did not create or modify referrals"
-      ref: invariant[7]
-      severity: high
+  - name: Agent did not change default flag on unrelated pharmacies
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not cancel or modify existing upcoming appointments
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not discontinue or modify active prescriptions
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not send unsolicited messages or alter existing ones
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not modify immunization records
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not touch insurance claims
+    ref: invariant[6]
+    severity: critical
+  - name: Agent did not create or modify referrals
+    ref: invariant[7]
+    severity: high
+  - name: Agent updated insurance plan to the new values
+    ref: update[2]
+    severity: critical
 eval:
   source: server_state
   checks:

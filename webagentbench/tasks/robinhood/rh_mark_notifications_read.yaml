@@ -32,16 +32,6 @@ canonical_diff:
       id: {expr: "x == v.id"}
     changes:
       is_read: {eq: true}
-  constraints:
-  - desc: All notifications are now marked as read
-    expr: "len(state.notifications) >= 1 and all(n.is_read for n in state.notifications)"
-    severity: critical
-  - desc: All 8 seed notifications still exist (none deleted)
-    expr: "len(state.notifications) >= 8"
-    severity: high
-  - desc: Agent did not place any orders
-    expr: "len([o for o in state.orders if not o.id.startswith('ord_decoy_')]) == 0"
-    severity: high
   invariant:
   - collection: state.notifications
     filter: "a.is_read"

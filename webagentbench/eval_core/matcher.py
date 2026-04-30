@@ -46,6 +46,28 @@ def _penalty_for(severity: str) -> float:
     return SEVERITY_PENALTY.get(severity, SEVERITY_PENALTY[Severity.MEDIUM])
 
 
+def _negative_check(
+    desc: str,
+    passed: bool,
+    penalty: float,
+    kind: str,
+    **metadata: Any,
+) -> dict[str, Any]:
+    """Build a negative-check payload with a stable semantic category.
+
+    ``_kind`` is kept for existing consumers. ``kind`` is the public field used
+    by current control-panel renderers and analysis scripts.
+    """
+    return {
+        "desc": desc,
+        "passed": passed,
+        "penalty": penalty,
+        "kind": kind,
+        "_kind": kind,
+        **metadata,
+    }
+
+
 @dataclass
 class MatchReport:
     passed: bool
@@ -113,6 +135,28 @@ def _bipartite_matching(edges: Mapping[int, set[int]], n_left: int) -> dict[int,
     return match_l
 
 
+_LABEL_FIELDS = (
+    "name",
+    "title",
+    "subject",
+    "vaccine_name",
+    "medication",
+    "test_name",
+    "screening_name",
+    "provider_id",
+    "reason",
+    "type",
+)
+
+
+def _label_from_fields(fields: Mapping[str, Any]) -> str | None:
+    for key in _LABEL_FIELDS:
+        value = fields.get(key)
+        if value:
+            return str(value)
+    return None
+
+
 def _candidate_label(entry: DiffEntry) -> str:
     fields: Mapping[str, Any]
     if isinstance(entry, Create):
@@ -121,11 +165,33 @@ def _candidate_label(entry: DiffEntry) -> str:
         fields = entry.last_fields
     else:
         fields = {k: after for k, (_before, after) in entry.field_changes.items()}
-    for key in ("name", "title", "subject", "provider_id", "reason", "type"):
-        value = fields.get(key)
-        if value:
-            return str(value)[:40]
-    return str(getattr(entry, "entity_id", "?"))
+    return (_label_from_fields(fields) or str(getattr(entry, "entity_id", "?")))[:40]
+
+
+def _slot_label(slot: Any, initial: Any, final: Any) -> str:
+    raw = str(slot)
+    if isinstance(slot, Mapping):
+        label = _label_from_fields(slot)
+        if label:
+            raw_id = slot.get("id")
+            return f"{label} ({raw_id})"[:40] if raw_id else label[:40]
+
+    # Many bijection slots are target IDs. Resolve those IDs against the
+    # initial/final state so the control panel shows user-facing labels
+    # (for example vaccine names) instead of opaque internal IDs.
+    if isinstance(slot, (str, int, float)):
+        slot_id = str(slot)
+        for state in (initial, final):
+            for entities in collections_of(state).values():
+                entity = index_by_id(entities).get(slot_id)
+                if not entity:
+                    continue
+                label = _label_from_fields(entity)
+                if label:
+                    return f"{label} ({slot_id})"[:40]
+                return slot_id[:40]
+
+    return raw[:40]
 
 
 def _entry_dict_for_filter(entry: DiffEntry, final: Any = None) -> dict[str, Any]:
@@ -183,6 +249,71 @@ def _update_holds(entry: Any, candidate: Update, targets: Mapping[str, Any],
         if not eval_predicate(pred, _scope(targets, initial, final, value=after.get(name), bijection_var=v, session_start=session_start)):
             return False
     return True
+
+
+def _diagnose_predicate(
+    kind: str, entry: Any, candidate: DiffEntry, ctx: "MatchContext", slot: Any = None,
+) -> str | None:
+    """Return the first failing predicate path (e.g. ``"changes.language"``).
+
+    Used purely for diagnostics when a positive entry fails to match — it
+    walks each ``where:``/``changes:``/``properties:`` predicate one at a time
+    and returns the field path of the first one that evaluates False. Returns
+    ``None`` if all predicates pass (i.e. the candidate actually matches).
+
+    The hot matching path (``_update_holds`` + ``all_field_predicates_hold``)
+    short-circuits on the first failure and returns ``bool``, losing the
+    field name. This helper re-walks the predicates only on failure to recover
+    granular "which field broke" information for failure messages.
+    """
+    scope_kw = dict(bijection_var=slot, session_start=ctx.session_start)
+    if kind == "create" and isinstance(candidate, Create):
+        for name, pred in (get_field(entry, "properties", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=candidate.fields.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"properties.{name}"
+        return None
+    if kind == "update" and isinstance(candidate, Update):
+        before, after = _updated_entity_dicts(candidate, ctx.initial, ctx.final)
+        for name, pred in (get_field(entry, "where", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=before.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"where.{name}"
+        for name, pred in (get_field(entry, "changes", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=after.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"changes.{name}"
+        return None
+    if kind == "delete" and isinstance(candidate, Delete):
+        fields = {"id": candidate.entity_id, **candidate.last_fields}
+        for name, pred in (get_field(entry, "where", {}) or {}).items():
+            scope = _scope(ctx.targets, ctx.initial, ctx.final,
+                           value=fields.get(name), **scope_kw)
+            if not eval_predicate(pred, scope):
+                return f"where.{name}"
+        return None
+    return None
+
+
+def _best_diagnosis(
+    kind: str, entry: Any, candidates: list[DiffEntry], ctx: "MatchContext", slot: Any = None,
+) -> str | None:
+    """Pick the closest near-miss diagnosis from a candidate list.
+
+    For each candidate, run ``_diagnose_predicate`` and return the failure
+    field path. Currently returns the first candidate's diagnosis (good enough
+    for singleton entities like settings/patient, where there is exactly one
+    candidate). Multi-candidate cases (e.g. multiple Update entries on the
+    same collection) take the diagnosis of the first candidate.
+    """
+    for candidate in candidates:
+        diag = _diagnose_predicate(kind, entry, candidate, ctx, slot)
+        if diag is not None:
+            return diag
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -243,14 +374,19 @@ def _match_block(
         violated = any(
             entry.entity == collection
             and (entry.entity, entry.entity_id) not in ctx.matched
+            and (entry.entity, entry.entity_id) not in ctx.near_misses
             and _filter_matches(get_field(inv, "filter"), entry, targets, final)
             for entry in agent_diff
         )
         desc = f"Preserve {get_field(inv, 'collection')}"
-        negative_checks.append({
-            "desc": desc, "passed": not violated,
-            "penalty": SEVERITY_PENALTY[Severity.MEDIUM], "_inv_index": idx,
-        })
+        negative_checks.append(_negative_check(
+            desc,
+            not violated,
+            SEVERITY_PENALTY[Severity.MEDIUM],
+            "invariant",
+            source="protected_state",
+            _inv_index=idx,
+        ))
         if violated:
             ctx.failures.append(Failure("invariant", desc, {"entry_index": idx}))
 
@@ -265,10 +401,13 @@ def _match_block(
             ok = bool(safe_eval(expr_str, {"state": final, "initial": initial, "target": targets, "session_start": session_start}))
         except SafeEvalError:
             ok = False
-        negative_checks.append({
-            "desc": desc, "passed": ok, "penalty": _penalty_for(severity),
-            "_kind": "constraint",
-        })
+        negative_checks.append(_negative_check(
+            desc,
+            ok,
+            _penalty_for(severity),
+            "constraint",
+            severity=severity,
+        ))
         constraint_descs.add(desc)
         constraints_total += 1
         constraints_passed += int(ok)
@@ -315,11 +454,21 @@ def _match_block(
             if entry.entity in positive_cols:
                 desc = f"Unaccounted {type(entry).__name__.lower()} in {entry.entity} (id={entry.entity_id})"
                 penalty = SEVERITY_PENALTY[Severity.MEDIUM]
+                check_kind = "collateral_unaccounted"
             else:
                 desc = f"Unexpected {type(entry).__name__.lower()} on {entry.entity} (id={entry.entity_id}) — collection not mentioned in diff"
                 penalty = SEVERITY_PENALTY[Severity.HIGH]
+                check_kind = "collateral_unexpected"
             ctx.failures.append(Failure("unaccounted", desc, {"entity_id": entry.entity_id}))
-            negative_checks.append({"desc": desc, "passed": False, "penalty": penalty})
+            negative_checks.append(_negative_check(
+                desc,
+                False,
+                penalty,
+                check_kind,
+                source="collateral",
+                entity=entry.entity,
+                entity_id=entry.entity_id,
+            ))
 
     # Named invariants
     _apply_named_invariants(block, ctx.checks, negative_checks, ctx.bijection_excess)
@@ -473,25 +622,48 @@ def _match_entry(
 
         fraction = len(pairing) / len(slots)
         saturated = len(pairing) == len(slots)
+        check_index = len(ctx.checks)
+        check_desc = f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}"
+
+        slot_diagnoses: list[str] = []
+        if not saturated:
+            # For each unfilled slot, diagnose the first failing predicate
+            # against the first available candidate. Surfaces "changes.symbol
+            # failed for slot AAPL" instead of just "matched 1 of 3".
+            unfilled = [i for i in range(len(slots)) if i not in pairing]
+            unpaired_candidates = [c for i, c in enumerate(candidates) if i not in set(pairing.values())]
+            for slot_i in unfilled[:3]:  # cap to 3 to keep messages tractable
+                diag = _best_diagnosis(kind, entry, unpaired_candidates, ctx, slot=slots[slot_i])
+                if diag is not None:
+                    slot_label = _slot_label(slots[slot_i], ctx.initial, ctx.final)
+                    slot_diagnoses.append(f"slot '{slot_label}' failed at {diag}")
+
+        error_msg = None if saturated else f"matched {len(pairing)} of {len(slots)}"
+        if slot_diagnoses:
+            error_msg = f"{error_msg} ({'; '.join(slot_diagnoses)})"
+
         ctx.checks.append({
-            "desc": f"{desc} — {len(pairing)} of {len(slots)} {_CHECK_SUFFIX[kind]}",
+            "desc": check_desc,
             "passed": saturated,
-            "error": None if saturated else f"matched {len(pairing)} of {len(slots)}",
+            "error": error_msg,
         })
         if not saturated:
-            ctx.failures.append(Failure(
-                failure_kind, desc,
-                {"entry_index": idx, "matched": len(pairing), "needed": len(slots)},
-            ))
+            failure_detail: dict[str, Any] = {
+                "entry_index": idx, "matched": len(pairing), "needed": len(slots),
+            }
+            if slot_diagnoses:
+                failure_detail["slot_diagnoses"] = slot_diagnoses
+            ctx.failures.append(Failure(failure_kind, desc, failure_detail))
 
         if kind == "create":
             eligible = {right_i for rights in edges.values() for right_i in rights}
             ctx.bijection_excess[idx] = len(eligible) > len(slots)
             ctx.graphs.append({
-                "desc": desc, "entity": entity, "saturated": saturated,
+                "desc": desc, "check_desc": check_desc, "check_index": check_index,
+                "entry_index": idx, "kind": kind, "entity": entity, "saturated": saturated,
                 "has_excess": ctx.bijection_excess[idx],
                 "slots": [
-                    {"label": str(slot)[:40], "matched_candidate_index": pairing.get(i)}
+                    {"label": _slot_label(slot, ctx.initial, ctx.final), "matched_candidate_index": pairing.get(i)}
                     for i, slot in enumerate(slots)
                 ],
                 "candidates": [
@@ -507,19 +679,31 @@ def _match_entry(
     found = next((c for c in candidates if predicate(c, None)), None)
     if found:
         ctx.matched.add((found.entity, found.entity_id))
+        error_msg = None
     else:
-        ctx.failures.append(Failure(failure_kind, desc, {"entry_index": idx}))
-        # Singleton near-miss: the agent produced an entry on the right
-        # entity+collection but its property predicates failed. Mark the
-        # most-likely candidate (first available) as a near-miss so the
-        # unaccounted collateral sweep doesn't pile a second penalty on top
-        # of the missing-positive failure already recorded above.
-        if candidates:
-            cand = candidates[0]
+        # Diagnose the closest near-miss: which specific where/changes/properties
+        # field broke? Lets consumers see e.g. "changes.language failed" instead
+        # of just "no Update entry matched both where and changes predicates".
+        diag = _best_diagnosis(kind, entry, candidates, ctx, slot=None)
+        detail: dict[str, Any] = {"entry_index": idx}
+        if diag is not None:
+            detail["predicate_field"] = diag
+            error_msg = f"{_SINGLETON_ERROR[kind]} (failed at {diag})"
+        else:
+            error_msg = _SINGLETON_ERROR[kind]
+        ctx.failures.append(Failure(failure_kind, desc, detail))
+        # Singleton near-miss: the agent produced one or more entries on the
+        # right entity+collection but their property predicates all failed.
+        # Mark every such candidate as a near-miss so the unaccounted
+        # collateral sweep doesn't pile per-entry penalties on top of the
+        # missing-positive failure already recorded above. (Without this,
+        # tasks like gmail_escalation_chain that expect 3 distinct sends
+        # would charge -0.15 for every failed candidate beyond the first.)
+        for cand in candidates:
             ctx.near_misses.add((cand.entity, cand.entity_id))
     ctx.checks.append({
         "desc": desc, "passed": found is not None,
-        "error": None if found else _SINGLETON_ERROR[kind],
+        "error": error_msg,
     })
     return (weight if found else 0.0), weight
 
@@ -555,7 +739,14 @@ def _apply_named_invariants(
                     nc["penalty"] = penalty
                     break
         elif kind == "create":
-            negative_checks.append({"desc": name, "passed": not bijection_excess.get(idx, False), "penalty": penalty})
+            negative_checks.append(_negative_check(
+                name,
+                not bijection_excess.get(idx, False),
+                penalty,
+                "excess",
+                source="named_invariant",
+                ref=ref,
+            ))
         elif kind in {"update", "delete"}:
             entries = get_list(block, kind)
             if idx < len(entries):

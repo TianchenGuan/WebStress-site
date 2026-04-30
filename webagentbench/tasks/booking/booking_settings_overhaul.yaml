@@ -31,25 +31,17 @@ seed:
     deal_alerts: false
     newsletter: true
 canonical_diff:
-  constraints:
-    - desc: Currency was changed to EUR
-      expr: "state.settings.currency == 'EUR'"
-      severity: critical
-    - desc: Language was changed to French
-      expr: "state.settings.language == 'French'"
-      severity: critical
-    - desc: Deal alerts were disabled
-      expr: "state.settings.deal_alerts == False"
-      severity: critical
-    - desc: Newsletter was enabled
-      expr: "state.settings.newsletter == True"
-      severity: critical
-    - desc: Email notifications were not accidentally disabled
-      expr: "state.settings.email_notifications == initial.settings.email_notifications"
-      severity: medium
-    - desc: Two-factor authentication was not accidentally toggled
-      expr: "state.settings.two_factor_enabled == initial.settings.two_factor_enabled"
-      severity: medium
+  update:
+    - entity: settings
+      desc: Settings overhaul (currency EUR, language French, deal alerts off, newsletter on)
+      where: { id: { any: true } }
+      changes:
+        currency: { eq: EUR }
+        language: { eq: French }
+        deal_alerts: { eq: false }
+        newsletter: { eq: true }
+        email_notifications: { expr: "x == initial.settings.email_notifications" }
+        two_factor_enabled: { expr: "x == initial.settings.two_factor_enabled" }
   invariant:
     - collection: state.reservations
       preserve: ALL

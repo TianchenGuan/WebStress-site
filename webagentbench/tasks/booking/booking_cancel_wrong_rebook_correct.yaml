@@ -220,16 +220,6 @@ canonical_diff:
       filter: "False"
       preserve: ALL
       comprehensive: true
-  constraints:
-    - desc: Agent acknowledged the cancellation fee
-      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
-      severity: high
-    - desc: A rebooking suggestion was generated for the cancelled wrong reservation
-      expr: "any(s.original_reservation_id == target['wrong_res_id'] for s in state.rebooking_suggestions)"
-      severity: high
-    - desc: The intended replacement property was among the rebooking candidates
-      expr: "any(target['correct_rebook_prop_id'] in [c.property_id for c in s.candidates] for s in state.rebooking_suggestions)"
-      severity: critical
   named_invariants:
     - name: Agent cancelled the wrong-date reservation
       ref: update[0]

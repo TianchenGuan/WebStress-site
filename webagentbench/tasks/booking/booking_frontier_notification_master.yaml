@@ -219,11 +219,12 @@ seed:
     deal_notif_id: '{output.deal_notif_id}'
     review_notif_id: '{output.review_notif_id}'
 canonical_diff:
-  constraints:
-    - desc: SMS notifications enabled
-      expr: "state.settings.sms_notifications == True"
-      severity: medium
   update:
+    - entity: settings
+      desc: SMS notifications enabled
+      where: {id: {any: true}}
+      changes:
+        sms_notifications: {eq: true}
     - entity: Reservation
       desc: Review submission flips rating_submitted on the reviewed reservation
       where:
@@ -329,6 +330,9 @@ canonical_diff:
                      target['deal_notif_id'], target['review_notif_id'])
       preserve: ALL
   named_invariants:
+    - name: SMS notifications enabled
+      ref: update[0]
+      severity: medium
     - name: Agent saved price drop property to Price Drop Deals list
       ref: create[0]
       severity: high

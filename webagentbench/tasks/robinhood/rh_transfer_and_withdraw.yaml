@@ -24,11 +24,45 @@ seed:
     outputs: []
   targets: {}
 canonical_diff:
-  constraints:
-  - desc: A withdrawal of exactly $2,500 (half of $5,000 balance) was initiated
-    expr: "any(t.direction == 'withdrawal' and t.amount == Decimal('2500') for t in state.transfers)"
-    severity: critical
-  - desc: No deposits were made
-    expr: "not any(t.direction == 'deposit' for t in state.transfers)"
-    severity: high
+  create:
+  - entity: transfers
+    desc: $2,500 withdrawal to Wells Fargo savings account
+    properties:
+      direction: {eq: withdrawal}
+      amount: {eq: 2500}
+      status: {in: [pending, completed]}
+      bank_account_id: {any: true}
+      initiated_at: {any: true}
+      completed_at: {any: true}
+  - entity: transactions
+    desc: Withdrawal transaction record
+    properties:
+      type: {eq: withdrawal}
+      amount: {any: true}
+      symbol: {any: true}
+      quantity: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  invariant:
+  - collection: state.transfers
+    filter: "a.direction == 'deposit'"
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
 secondary_primitives: []

@@ -62,20 +62,89 @@ seed:
   targets:
     order_ids: '{output.order_ids}'
 canonical_diff:
-  constraints:
-  - desc: At most one pending order per symbol (duplicates cancelled)
-    expr: "all(len([o for o in state.orders if o.symbol == sym and o.status == 'pending' and not o.id.startswith('ord_decoy_')]) <= 1 for sym in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA'])"
+  # ACTION task: cancel duplicate pending orders, keeping the earliest per
+  # symbol. Bijection enumerates initial.orders that are NOT the earliest
+  # pending non-decoy order for their symbol — those must transition from
+  # pending to cancelled. The unfiltered orders invariant (with
+  # filter:"False" disabled below) is replaced by a filtered invariant that
+  # excludes the duplicate-cancellation set; any other order mutation
+  # (e.g. cancelling AMZN/NVDA/TSLA, or placing new buys) fires it.
+  update:
+  - entity: orders
+    desc: Each duplicate pending order (non-earliest per symbol) cancelled
+    bijection:
+      over: "[o for o in initial.orders if not o.id.startswith('ord_decoy_') and o.status == 'pending' and any(o2.symbol == o.symbol and o2.created_at < o.created_at and not o2.id.startswith('ord_decoy_') and o2.status == 'pending' for o2 in initial.orders)]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      status: {eq: cancelled}
+      cancelled_at: {any: true}
+  invariant:
+  - collection: state.orders
+    # Orders is the positive-target collection — filter "False" disables this
+    # unfiltered invariant so the matched bijection updates aren't double-
+    # penalised. The collateral sweep still flags any unaccounted order
+    # changes (e.g. cancelling AMZN/NVDA/TSLA, or placing new buys).
+    filter: "False"
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.transactions
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  named_invariants:
+  - name: Agent did not cancel non-duplicate orders or place new orders
+    ref: invariant[0]
     severity: critical
-  - desc: At least 4 duplicate orders were cancelled
-    expr: "len([o for o in state.orders if o.status == 'cancelled' and not o.id.startswith('ord_decoy_')]) >= 4"
-    severity: critical
-  - desc: Non-duplicate orders for single-order symbols were not cancelled
-    expr: "not any(o.symbol in ('AMZN', 'NVDA', 'TSLA') and o.status == 'cancelled' and not o.id.startswith('ord_decoy_') for o in state.orders)"
+  - name: Agent did not modify positions
+    ref: invariant[1]
     severity: high
-  - desc: At least one pending order retained for each duplicated symbol
-    expr: "all(len([o for o in state.orders if o.symbol == sym and o.status == 'pending' and not o.id.startswith('ord_decoy_')]) >= 1 for sym in ['AAPL', 'MSFT', 'GOOGL'])"
+  - name: Agent did not create transactions
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not initiate transfers
+    ref: invariant[3]
     severity: high
-  - desc: No new orders were placed during the recovery task
-    expr: "not any(o.side == 'buy' and o.status == 'pending' and not o.id.startswith('ord_decoy_') and o.id not in target['order_ids'] for o in state.orders)"
+  - name: Agent did not modify watchlists
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not modify price alerts
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create notifications
+    ref: invariant[6]
+    severity: low
+  - name: Agent did not modify recurring investments
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not place options orders
+    ref: invariant[8]
+    severity: high
+  - name: Agent did not modify options positions
+    ref: invariant[9]
+    severity: high
+  - name: Agent did not modify tax documents
+    ref: invariant[10]
+    severity: medium
+  - name: Agent did not modify linked banks
+    ref: invariant[11]
     severity: high
 secondary_primitives: []

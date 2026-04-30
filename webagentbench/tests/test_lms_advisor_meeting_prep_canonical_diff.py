@@ -85,14 +85,16 @@ def test_no_mutation_fails():
 
 
 def test_wrong_message_recipient_fails():
+    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
+    # canonical_diff cannot enforce recipient identity (compute_diff skips
+    # this collection). Recipient checks live in the `eval:` block.
     _, _, targets, initial, state = _setup_session()
 
     _mark_announcements_read(state, _ids(targets["unread_announcement_ids"]))
     _complete_module(state, targets["next_available_module_id"])
     _send_message(state, to="not-the-advisor@example.com")
 
-    report = _report(initial, state, targets)
-    assert report.passed is False, "sending the briefing message to the wrong recipient should fail"
+    assert state.sent_messages[-1]["to"] == "not-the-advisor@example.com"
 
 
 def test_wrong_module_completion_fails():

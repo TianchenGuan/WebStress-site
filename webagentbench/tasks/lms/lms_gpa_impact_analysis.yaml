@@ -71,19 +71,17 @@ seed:
     unread_announcement_ids: '{output.unread_announcement_ids}'
 canonical_diff:
   oneof:
-  - constraints:
-    - desc: GPA analysis found at least one course whose projected letter grade would lower cumulative GPA
-      expr: "target['no_risk_flag'] == 'false'"
-      severity: critical
-    update:
+  # Branch discriminator baked into the Update where-clause (was a critical constraint).
+  # Bijection still produces slots; where-clause rejects unless no_risk_flag indicates risk.
+  - update:
     - entity: Assignment
-      desc: Submit improvement_plan.pdf for each risky course's highest-impact unsubmitted assignment
+      desc: Submit improvement_plan.pdf for each risky course's highest-impact unsubmitted assignment (GPA at risk)
       bijection:
         over: "target['improvement_assignment_ids'].split(',') if target['improvement_assignment_ids'] else []"
         variable: v
       where:
         id:
-          expr: "x == v"
+          expr: "x == v and target['no_risk_flag'] == 'false'"
       changes:
         submission_status:
           in:
@@ -152,19 +150,16 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  - constraints:
-    - desc: All courses maintain or improve cumulative GPA
-      expr: "target['no_risk_flag'] == 'true'"
-      severity: critical
-    update:
+  # Branch 2: only matches when no GPA risk.
+  - update:
     - entity: Announcement
-      desc: Mark all unread announcements as read after confirming GPA is safe
+      desc: Mark all unread announcements as read after confirming GPA is safe (no risk)
       bijection:
         over: "target['unread_announcement_ids'].split(',') if target['unread_announcement_ids'] else []"
         variable: v
       where:
         id:
-          expr: "x == v"
+          expr: "x == v and target['no_risk_flag'] == 'true'"
       changes:
         is_read:
           eq: true
@@ -191,6 +186,8 @@ canonical_diff:
     - collection: state.calendar_events
       preserve: ALL
     - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.student
       preserve: ALL
     named_invariants:
     - name: Agent marked unread announcements as read

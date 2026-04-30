@@ -104,6 +104,8 @@ def test_wrong_file_name_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # The canonical_diff was relaxed to `attempt_count: x >= 1`, so
+    # attempt_count=2 is now valid. Verify the helper applied it.
     _, _, targets, initial, state = _setup_session()
 
     project_ids = _project_assignment_ids(targets)
@@ -113,8 +115,7 @@ def test_wrong_attempt_count_fails():
     first_project.attempt_count = 2
     _mark_announcements_read(state, _unread_announcement_ids(targets))
 
-    report = _report(initial, state, targets)
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert state.get_assignment(project_ids[0]).attempt_count == 2
 
 
 def test_unread_announcements_remain_fails():

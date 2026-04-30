@@ -63,7 +63,7 @@ seed:
 canonical_diff:
   create:
     - entity: Appointment
-      desc: "Schedule an in-person annual physical with the PCP"
+      desc: "Schedule an in-person annual physical with the PCP, at least 3 days after lab"
       properties:
         status: {eq: "scheduled"}
         type: {eq: "in-person"}
@@ -71,6 +71,17 @@ canonical_diff:
           expr: "x == target['pcp_id']"
         reason:
           expr: "'physical' in x.lower() or 'annual' in x.lower()"
+        datetime:
+          # Spacing predicate (was a high-severity constraint): physical
+          # must be >= 3 days after the most recent newly-scheduled lab.
+          expr: >-
+            any(
+              (x - lab.datetime).days >= 3
+              for lab in state.appointments
+              if lab.status == 'scheduled'
+              and any(w in (lab.reason or '').lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
+              and lab.id not in {y.id for y in initial.appointments}
+            )
     - entity: Appointment
       desc: "Schedule an in-person pre-visit lab work appointment"
       properties:
@@ -78,35 +89,6 @@ canonical_diff:
         type: {eq: "in-person"}
         reason:
           expr: "any(w in x.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])"
-  constraints:
-    - desc: "Lab work is scheduled at least 3 days before the physical"
-      expr: >
-        all(
-          (pcp.datetime - lab.datetime).days >= 3
-          for pcp in state.appointments
-          if pcp.status == 'scheduled'
-          and pcp.provider_id == target['pcp_id']
-          and ('physical' in pcp.reason.lower() or 'annual' in pcp.reason.lower())
-          and pcp.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-          if lab.status == 'scheduled'
-          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
-          and lab.id not in {x.id for x in initial.appointments}
-        )
-        and any(
-          pcp.status == 'scheduled'
-          and pcp.provider_id == target['pcp_id']
-          and ('physical' in pcp.reason.lower() or 'annual' in pcp.reason.lower())
-          and pcp.id not in {x.id for x in initial.appointments}
-          for pcp in state.appointments
-        )
-        and any(
-          lab.status == 'scheduled'
-          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
-          and lab.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-        )
-      severity: high
   invariant:
     - collection: state.appointments
       filter: "a.id in target['upcoming_ids']"
@@ -122,6 +104,12 @@ canonical_diff:
     - collection: state.claims
       preserve: ALL
     - collection: state.referrals
+      preserve: ALL
+    - collection: state.pharmacies
+      preserve: ALL
+    - collection: state.providers
+      preserve: ALL
+    - collection: state.patient
       preserve: ALL
   named_invariants:
     - name: "Agent did not cancel or modify pre-existing upcoming appointments"

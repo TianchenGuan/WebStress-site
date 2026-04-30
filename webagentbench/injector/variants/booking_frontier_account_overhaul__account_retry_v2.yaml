@@ -1,17 +1,18 @@
 variant_id: booking_frontier_account_overhaul__account_retry_v2
 base_task_id: booking_frontier_account_overhaul
 target_primitive: verification
-description: The first account-profile write fails transiently. The agent must verify the profile change
-  actually persisted.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/booking/account'
     methods:
     - PUT
-    error_count: 1
-    error_status: 503
-    error_message: Temporary failure. Retry the request.
+    fail_count: 1
+    response_body:
+      id: acct_self
+      updated_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once

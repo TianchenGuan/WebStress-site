@@ -30,19 +30,22 @@ seed:
     new_phone: +1-312-555-0198
     new_nationality: GB
 canonical_diff:
-  constraints:
-    - desc: Display name was changed to Jordan A. Parker
-      expr: "state.owner_name == 'Jordan A. Parker'"
-      severity: critical
-    - desc: Phone number was changed to +1-312-555-0198
-      expr: "state.owner_phone == '+1-312-555-0198'"
-      severity: critical
-    - desc: Nationality was changed to GB
-      expr: "state.owner_nationality == 'GB'"
-      severity: critical
-    - desc: Email address was not changed
-      expr: "state.owner_email == initial.owner_email"
-      severity: high
+  update:
+    - entity: owner_name
+      desc: Display name updated
+      where: { id: { eq: "__singleton_owner_name__" } }
+      changes:
+        value: { eq: "Jordan A. Parker" }
+    - entity: owner_phone
+      desc: Phone number updated
+      where: { id: { eq: "__singleton_owner_phone__" } }
+      changes:
+        value: { eq: "+1-312-555-0198" }
+    - entity: owner_nationality
+      desc: Nationality updated
+      where: { id: { eq: "__singleton_owner_nationality__" } }
+      changes:
+        value: { eq: "GB" }
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -57,6 +60,8 @@ canonical_diff:
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
+      preserve: ALL
+    - collection: state.owner_email
       preserve: ALL
   named_invariants:
     - name: Agent did not modify reservations
@@ -80,4 +85,7 @@ canonical_diff:
     - name: Agent did not create or modify notifications
       ref: invariant[6]
       severity: low
+    - name: Email address was not changed
+      ref: invariant[7]
+      severity: high
 secondary_primitives: []

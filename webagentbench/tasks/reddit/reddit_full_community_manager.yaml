@@ -139,6 +139,14 @@ canonical_diff:
     changes:
       is_read:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_comment_sort: { eq: new }
+      email_comment_reply: { eq: false }
+      email_mentions: { eq: false }
   create:
   - entity: Post
     desc: New post created in r/MachineLearning
@@ -197,48 +205,30 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['msg_body']
-  constraints:
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Default comment sort set to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Email comment reply notifications disabled
-    expr: "not state.settings.email_comment_reply"
-    severity: high
-  - desc: Email mention notifications disabled
-    expr: "not state.settings.email_mentions"
-    severity: high
-  - desc: Existing subscriptions preserved
-    expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-    severity: medium
-  - desc: No downvotes cast on posts
-    expr: "not any(p.vote_direction == -1 for p in state.posts)"
-    severity: high
-  - desc: No downvotes cast on comments
-    expr: "not any(c.vote_direction == -1 for c in state.comments)"
-    severity: high
   invariant:
   - collection: state.subreddits
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.posts
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
     preserve: ALL
   - collection: state.sent_messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Subscribed to r/MachineLearning
     ref: update[0]

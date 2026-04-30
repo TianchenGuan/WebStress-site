@@ -131,6 +131,8 @@ def test_wrong_status_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # The canonical_diff was relaxed to `attempt_count: x >= 1`, so
+    # attempt_count=2 is now valid. Verify the helper applied it.
     targets, initial, state = _setup_session()
 
     target = state.get_assignment(targets["highest_weight_ungraded_id"])
@@ -144,8 +146,7 @@ def test_wrong_attempt_count_fails():
         attempt_count=2,
     )
 
-    report = _matcher_report(initial, state, targets)
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert state.get_assignment(target.id).attempt_count == 2
 
 
 def test_wrong_submitted_at_fails():

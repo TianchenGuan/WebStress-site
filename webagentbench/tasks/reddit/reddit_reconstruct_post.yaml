@@ -83,22 +83,6 @@ canonical_diff:
         expr: x == state.owner_username
       flair_text:
         expr: x == target['required_flair']
-  constraints:
-  - desc: No post created in a wrong subreddit
-    expr: not any(p.author_name == state.owner_username and p.id != target['original_post_id'] and p.subreddit_name != 'datascience' and p.id not in [ip.id for ip in initial.posts] for p in state.posts)
-    severity: high
-  - desc: No unrelated posts created during resubmission
-    expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in [ip.id for ip in initial.posts]) == 1
-    severity: medium
-  - desc: No messages sent during resubmission
-    expr: len(state.sent_messages) == len(initial.sent_messages)
-    severity: medium
-  - desc: No comments created during resubmission
-    expr: len(state.comments) == len(initial.comments)
-    severity: medium
-  - desc: No users blocked during resubmission
-    expr: len(state.blocked_users) == len(initial.blocked_users)
-    severity: medium
   invariant:
   - collection: state.subreddits
     preserve: ALL
@@ -115,6 +99,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Resubmitted post with correct flair and preserved body
     ref: create[0]

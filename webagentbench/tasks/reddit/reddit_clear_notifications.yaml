@@ -24,13 +24,22 @@ seed:
     - notification_id
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: All notifications are marked as read
-      expr: "all(n.is_read for n in state.notifications)"
-      severity: high
-    - desc: No notifications were deleted
-      expr: "len(state.notifications) == len(initial.notifications)"
-      severity: high
+  # Positive update + invariants form. The update bijection iterates
+  # every initially-unread notification id and requires the agent to
+  # mark each one as read. Adding this positive entry flips
+  # constraint_only=False, enabling the unaccounted-collateral sweep
+  # over sibling collections (matcher.py:330).
+  update:
+    - entity: Notification
+      collection: notifications
+      bijection:
+        over: "[n.id for n in initial.notifications if not n.is_read]"
+        variable: v
+      desc: "Mark every unread notification as read"
+      where:
+        id: {expr: "x == v"}
+      changes:
+        is_read: {eq: true}
   invariant:
     - collection: state.subreddits
       preserve: ALL
@@ -44,6 +53,13 @@ canonical_diff:
       preserve: ALL
     - collection: state.user_profiles
       preserve: ALL
+    - collection: state.notifications
+      filter: "True"
+      preserve: ALL
+    - collection: state.settings
+      filter: 'False'
+      preserve: ALL
+      comprehensive: true
 eval:
   source: server_state
   checks:

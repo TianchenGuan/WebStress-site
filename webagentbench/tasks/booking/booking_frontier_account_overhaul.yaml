@@ -117,46 +117,6 @@ seed:
     remove_holder: Alex Parker
     prev_default_pm_id: 'pm_1'
 canonical_diff:
-  constraints:
-    - desc: Display name updated to Jordan A. Parker
-      expr: "state.owner_name == 'Jordan A. Parker'"
-      severity: high
-    - desc: Phone updated to +1-312-555-0198
-      expr: "state.owner_phone == '+1-312-555-0198'"
-      severity: medium
-    - desc: Nationality updated to GB
-      expr: "state.owner_nationality == 'GB'"
-      severity: medium
-    - desc: Currency set to EUR
-      expr: "state.settings.currency == 'EUR'"
-      severity: high
-    - desc: Language set to French
-      expr: "state.settings.language == 'French'"
-      severity: medium
-    - desc: Two-factor authentication enabled
-      expr: "state.settings.two_factor_enabled == True"
-      severity: critical
-    - desc: Deal alerts disabled
-      expr: "state.settings.deal_alerts == False"
-      severity: medium
-    - desc: Newsletter enabled
-      expr: "state.settings.newsletter == True"
-      severity: medium
-    - desc: SMS notifications enabled
-      expr: "state.settings.sms_notifications == True"
-      severity: medium
-    - desc: Preferred bed type set to queen
-      expr: "state.travel_preferences.preferred_bed_type == 'queen'"
-      severity: medium
-    - desc: Floor preference set to high
-      expr: "state.travel_preferences.floor_preference == 'high'"
-      severity: medium
-    - desc: Smoking set to false
-      expr: "state.travel_preferences.smoking == False"
-      severity: medium
-    - desc: Halal added to dietary restrictions
-      expr: "'halal' in state.travel_preferences.dietary_restrictions"
-      severity: high
   delete:
     - entity: PaymentMethod
       desc: Remove Mastercard 5555
@@ -169,6 +129,39 @@ canonical_diff:
         id: {expr: "x == target['prev_default_pm_id']"}
       changes:
         is_default: {eq: false}
+    - entity: owner_name
+      desc: Display name updated to Jordan A. Parker
+      where: {id: {eq: "__singleton_owner_name__"}}
+      changes:
+        value: {eq: "Jordan A. Parker"}
+    - entity: owner_phone
+      desc: Phone updated to +1-312-555-0198
+      where: {id: {eq: "__singleton_owner_phone__"}}
+      changes:
+        value: {eq: "+1-312-555-0198"}
+    - entity: owner_nationality
+      desc: Nationality updated to GB
+      where: {id: {eq: "__singleton_owner_nationality__"}}
+      changes:
+        value: {eq: "GB"}
+    - entity: settings
+      desc: Settings — EUR, French, 2FA on, deal alerts off, newsletter on, SMS on
+      where: {id: {any: true}}
+      changes:
+        currency: {eq: EUR}
+        language: {eq: French}
+        two_factor_enabled: {eq: true}
+        deal_alerts: {eq: false}
+        newsletter: {eq: true}
+        sms_notifications: {eq: true}
+    - entity: travel_preferences
+      desc: Travel preferences — queen bed, high floor, no smoking, halal
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_bed_type: {eq: queen}
+        floor_preference: {eq: high}
+        smoking: {eq: false}
+        dietary_restrictions: {expr: "'halal' in x"}
   create:
     - entity: PaymentMethod
       desc: Add new Visa ending 3333 as default
@@ -241,6 +234,21 @@ canonical_diff:
     - name: Agent booked the London hotel Deluxe Room with correct dates
       ref: create[2]
       severity: critical
+    - name: Display name updated
+      ref: update[1]
+      severity: high
+    - name: Phone updated
+      ref: update[2]
+      severity: medium
+    - name: Nationality updated
+      ref: update[3]
+      severity: medium
+    - name: Settings updated
+      ref: update[4]
+      severity: critical
+    - name: Travel preferences updated
+      ref: update[5]
+      severity: high
     - name: Agent did not modify other reservations
       ref: invariant[0]
       severity: high

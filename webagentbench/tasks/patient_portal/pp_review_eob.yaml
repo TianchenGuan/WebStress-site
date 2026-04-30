@@ -1,9 +1,8 @@
 task_id: pp_review_eob
 env_id: patient_portal
 title: Review EOB and Pay Most Recent Claim
-instruction_template: Review the Explanation of Benefits for your most recent approved
-  claim and pay the patient responsibility on that claim in full. Do not pay or appeal
-  any other claim, and do not send any messages.
+instruction_template: Review the Explanation of Benefits for your most recent approved claim and pay the patient responsibility
+  on that claim in full. Do not pay or appeal any other claim, and do not send any messages.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 10
@@ -11,7 +10,7 @@ primary_primitives:
 - state_tracking
 start_path: /billing
 seed:
-  distractors: 8
+  distractors: 14
   steps:
   - use: patient_profile
     params:
@@ -49,8 +48,8 @@ seed:
     - completed_ids
   - use: insurance_claims
     params:
-      approved_count: 2
-      denied_count: 1
+      approved_count: 3
+      denied_count: 3
       processing_count: 1
       with_eob: true
     outputs:
@@ -60,59 +59,57 @@ seed:
   targets:
     approved_claim_ids: '{output.approved_claim_ids}'
 canonical_diff:
-  # Previously used `oneof` with a constraint-only "do nothing" branch
-  # (high-responsibility case). That branch passed vacuously because its
-  # only constraint was an applicability gate on `initial.*` — the agent
-  # scored 1.0 without any observable action (see audit_reports/w09.md
-  # and eval-hardening-playbook §2.6). The task now always requires
-  # payment of the most-recent approved claim.
   update:
-    - entity: InsuranceClaim
-      desc: "Pay the most recent approved claim in full (zero out patient_responsibility)"
-      where:
-        id:
-          expr: >-
-            x == max(
-              target['approved_claim_ids'],
-              key=lambda cid: (initial.get_claim(cid).service_date, cid),
-            )
-      changes:
-        patient_responsibility: {eq: 0}
+  - entity: InsuranceClaim
+    desc: Pay the most recent approved claim in full (zero out patient_responsibility)
+    where:
+      id:
+        expr: "x == max(\n  target['approved_claim_ids'],\n  key=lambda cid: (initial.get_claim(cid).service_date, cid),\n\
+          )"
+    changes:
+      patient_responsibility:
+        eq: 0
   invariant:
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.appointments
-      preserve: ALL
-    - collection: state.prescriptions
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.appointments
+    preserve: ALL
+  - collection: state.prescriptions
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not pay, appeal, or modify other insurance claims"
-      ref: invariant[0]
-      severity: critical
-    - name: "Agent did not create, cancel, or modify appointments"
-      ref: invariant[1]
-      severity: high
-    - name: "Agent did not modify prescriptions"
-      ref: invariant[2]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[3]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[4]
-      severity: high
-    - name: "Agent did not send any patient messages"
-      ref: invariant[5]
-      severity: high
-    - name: "Agent did not touch referrals"
-      ref: invariant[6]
-      severity: high
+  - name: Agent did not pay, appeal, or modify other insurance claims
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not create, cancel, or modify appointments
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify prescriptions
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not send any patient messages
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not touch referrals
+    ref: invariant[6]
+    severity: high
 secondary_primitives: []

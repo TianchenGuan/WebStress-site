@@ -105,6 +105,11 @@ canonical_diff:
     changes:
       is_subscribed:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      default_feed_sort: { eq: top }
   create:
   - entity: Comment
     desc: Exact comment on PF post
@@ -114,13 +119,9 @@ canonical_diff:
       body:
         expr: x == target['pf_comment']
       parent_id:
-        any: true
+        eq: null
       author_name:
         expr: x == state.owner_username
-  constraints:
-  - desc: Feed sort set to top
-    expr: state.settings.default_feed_sort == 'top'
-    severity: high
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -139,6 +140,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Worldnews post upvoted
     ref: update[0]

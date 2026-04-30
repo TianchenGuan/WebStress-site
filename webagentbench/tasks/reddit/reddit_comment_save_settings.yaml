@@ -72,74 +72,74 @@ seed:
       pattern has well-documented issues with testing and concurrency.
 canonical_diff:
   update:
-    - entity: Post
-      desc: Save the target post
-      where:
-        id:
-          expr: "x == target['post_id']"
-      changes:
-        is_saved:
-          eq: true
+  - entity: Post
+    desc: Save the target post
+    where:
+      id:
+        expr: x == target['post_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: settings
+    desc: Comment sort to controversial, auto-play media disabled
+    where: { id: { any: true } }
+    changes:
+      default_comment_sort: { eq: controversial }
+      auto_play_media: { eq: false }
   create:
-    - entity: Comment
-      desc: Post the exact top-level comment
-      properties:
-        post_id:
-          expr: "x == target['post_id']"
-        body:
-          expr: "x == target['top_comment']"
-        parent_id:
-          eq: null
-        author_name:
-          expr: "x == state.owner_username"
-    - entity: Comment
-      desc: Post the reply to the singleton comment
-      properties:
-        post_id:
-          expr: "x == target['post_id']"
-        parent_id:
-          expr: "x == target['reply_target_id']"
-        body:
-          expr: "x == target['reply_text']"
-        author_name:
-          expr: "x == state.owner_username"
-  constraints:
-    - desc: Comment sort set to controversial
-      expr: "state.settings.default_comment_sort == 'controversial'"
-      severity: high
-    - desc: Auto-play media disabled
-      expr: "not state.settings.auto_play_media"
-      severity: high
-    - desc: Target post not voted on
-      expr: "state.get_post(target['post_id']).vote_direction == 0"
-      severity: medium
+  - entity: Comment
+    desc: Post the exact top-level comment
+    properties:
+      post_id:
+        expr: x == target['post_id']
+      body:
+        expr: x == target['top_comment']
+      parent_id:
+        eq: null
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    desc: Post the reply to the singleton comment
+    properties:
+      post_id:
+        expr: x == target['post_id']
+      parent_id:
+        expr: x == target['reply_target_id']
+      body:
+        expr: x == target['reply_text']
+      author_name:
+        expr: x == state.owner_username
   invariant:
-    - collection: state.posts
-      filter: "a.id != target['post_id']"
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.posts
+    filter: a.id != target['post_id']
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent saved the target post
-      ref: update[0]
-      severity: high
-    - name: Agent posted the exact top-level comment
-      ref: create[0]
-      severity: high
-    - name: Agent posted the reply to the singleton comment
-      ref: create[1]
-      severity: high
-    - name: Agent did not modify unrelated posts
-      ref: invariant[0]
-      severity: high
+  - name: Agent saved the target post
+    ref: update[0]
+    severity: high
+  - name: Agent posted the exact top-level comment
+    ref: create[0]
+    severity: high
+  - name: Agent posted the reply to the singleton comment
+    ref: create[1]
+    severity: high
+  - name: Agent did not modify unrelated posts
+    ref: invariant[0]
+    severity: high
 eval:
   source: server_state
   checks:
@@ -161,11 +161,12 @@ eval:
   - expr: state.get_post('{target.post_id}').vote_direction == 0
     desc: Post not voted on
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 5
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 5
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

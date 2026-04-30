@@ -53,7 +53,7 @@ canonical_diff:
     desc: All unread order-fill notifications marked as read
     bijection:
       over: "[n for n in initial.notifications if n.type == 'order_fill' and not n.is_read]"
-      variable: n
+      variable: v
     where:
       id: {expr: "x == v.id"}
     changes:
@@ -63,20 +63,14 @@ canonical_diff:
     desc: Price alert set for each high-slippage stock
     bijection:
       over: "target['high_slippage_symbols']"
-      variable: sym
+      variable: v
     properties:
       symbol: {expr: "x == v"}
       status: {eq: active}
-  constraints:
-  - desc: All order-fill notifications marked as read
-    expr: "all(n.is_read for n in state.notifications if n.type == 'order_fill')"
-    severity: critical
-  - desc: Price alert exists for every high-slippage stock
-    expr: "all(any(a.symbol == sym for a in state.price_alerts) for sym in target['high_slippage_symbols'])"
-    severity: critical
-  - desc: No price alerts for non-high-slippage stocks
-    expr: "all(a.symbol in target['high_slippage_symbols'] for a in state.price_alerts if not a.id.startswith('alert_decoy_'))"
-    severity: high
+  invariant:
+  - collection: state.price_alerts
+    filter: "a.symbol not in target['high_slippage_symbols'] and not a.id.startswith('alert_decoy_')"
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

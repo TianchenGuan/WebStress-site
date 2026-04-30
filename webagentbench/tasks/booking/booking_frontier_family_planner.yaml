@@ -198,17 +198,14 @@ seed:
     review_prop_name: '{output.review_prop_name}'
     review_res_id: '{output.review_res_id}'
 canonical_diff:
-  constraints:
-    - desc: Preferred bed type set to twin
-      expr: "state.travel_preferences.preferred_bed_type == 'twin'"
-      severity: medium
-    - desc: Preferred room type set to family
-      expr: "state.travel_preferences.preferred_room_type == 'family'"
-      severity: medium
-    - desc: Nut-free added to dietary restrictions
-      expr: "'nut-free' in state.travel_preferences.dietary_restrictions"
-      severity: medium
   update:
+    - entity: travel_preferences
+      desc: Travel preferences — twin bed, family room type, nut-free dietary
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_bed_type: {eq: twin}
+        preferred_room_type: {eq: family}
+        dietary_restrictions: {expr: "'nut-free' in x"}
     - entity: Reservation
       desc: Review submission flips rating_submitted on the reviewed reservation
       where:
@@ -335,6 +332,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Travel preferences updated (twin bed, family room, nut-free)
+      ref: update[0]
+      severity: medium
     - name: Agent booked Barcelona Family Resort Family Suite
       ref: create[0]
       severity: critical

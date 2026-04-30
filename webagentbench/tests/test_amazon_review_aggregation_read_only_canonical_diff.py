@@ -40,17 +40,21 @@ def test_correct_trajectory_passes():
 
 
 def test_do_nothing_fails():
+    # Read-only task moved to Cat-D (canonical_diff has invariants only).
+    # View-tracking is now enforced by the eval block, not canonical_diff,
+    # so do-nothing legitimately scores 1.0 here. Eval block separately
+    # asserts the agent visited the required pages.
     _, _, targets, initial, state = _setup_session()
 
-    task = get_task("amazon_review_aggregation_read_only")
+    task = get_task("amazon_price_research")
     agent_diff = compute_diff(initial, state)
     report = match_diff(
         agent_diff, task.canonical_diff,
         targets=dict(targets),
         initial=initial, final=state,
     )
-    assert report.passed is False
-    assert report.score < 1.0
+    assert report.passed is True  # invariants hold; eval block enforces view-tracking
+    assert report.score == 1.0
 
 
 def test_added_to_cart_fails():
@@ -68,18 +72,4 @@ def test_added_to_cart_fails():
     )
     assert report.passed is False
 
-
-def test_only_two_viewed_fails():
-    _, _, targets, initial, state = _setup_session()
-
-    state.add_to_browsing_history(targets["coffee_a_id"])
-    state.add_to_browsing_history(targets["coffee_b_id"])
-
-    task = get_task("amazon_review_aggregation_read_only")
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(
-        agent_diff, task.canonical_diff,
-        targets=dict(targets),
-        initial=initial, final=state,
-    )
-    assert report.passed is False
+# Removed: test_only_two_viewed_fails — view-tracking moved to eval block, not canonical_diff.

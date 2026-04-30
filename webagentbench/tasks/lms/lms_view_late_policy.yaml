@@ -55,21 +55,16 @@ seed:
     latest_announcement_id: '{output.latest_announcement_id}'
 canonical_diff:
   oneof:
-  - constraints:
-    # Branch discriminator — critical acts as a branch guard: _oneof_report_key
-    # filters branches whose critical-constraints are not fully satisfied, so
-    # the matcher reliably selects the applicable branch. Lowering to `low`
-    # breaks this guard (the failed discriminator lands in `failures`,
-    # flipping `passed=False` on an otherwise-correct submission).
-    - desc: Target course allows more than 3 late days
-      expr: "target['allows_late_submit'] == 'true'"
-      severity: critical
-    update:
+  # Branch discriminator baked into the Update where-clause: the predicate
+  # only matches when target['allows_late_submit'] == 'true'. If the
+  # target does NOT allow late submit, the where-clause never holds, this
+  # branch's positive entry fails, and the oneof selector picks branch 2.
+  - update:
     - entity: Assignment
-      desc: Submit the overdue assignment with late_submit.pdf
+      desc: Submit the overdue assignment with late_submit.pdf (target allows late submit)
       where:
         id:
-          expr: "x == target['overdue_assignment_id']"
+          expr: "x == target['overdue_assignment_id'] and target['allows_late_submit'] == 'true'"
       changes:
         submission_status:
           in:
@@ -145,17 +140,14 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  - constraints:
-    # Branch discriminator — critical, matches branch 1. See comment above.
-    - desc: Target course allows 3 or fewer late days
-      expr: "target['allows_late_submit'] != 'true'"
-      severity: critical
-    update:
+  # Branch 2: target does NOT allow late submit. Discriminator baked
+  # into the Update where-clause as in branch 1.
+  - update:
     - entity: Announcement
-      desc: Mark the latest announcement as read
+      desc: Mark the latest announcement as read (target does not allow late submit)
       where:
         id:
-          expr: "x == target['latest_announcement_id']"
+          expr: "x == target['latest_announcement_id'] and target['allows_late_submit'] != 'true'"
       changes:
         is_read:
           eq: true
@@ -182,6 +174,8 @@ canonical_diff:
     - collection: state.calendar_events
       preserve: ALL
     - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.student
       preserve: ALL
     named_invariants:
     - name: Agent marked the latest announcement as read

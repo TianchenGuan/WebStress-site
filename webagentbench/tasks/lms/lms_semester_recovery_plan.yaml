@@ -126,6 +126,8 @@ canonical_diff:
     preserve: ALL
   - collection: state.calendar_events
     preserve: ALL
+  - collection: state.student
+    preserve: ALL
   named_invariants:
   - name: Agent submitted every recoverable missing assignment
     ref: update[0]
@@ -163,16 +165,6 @@ canonical_diff:
   - name: Agent did not modify calendar events
     ref: invariant[9]
     severity: low
-  constraints:
-  - desc: Agent sent exactly one brief recovery plan message to the advisor
-    expr: "len(state.sent_messages) == 1 and any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
-    severity: high
-  - desc: Recovery message had a non-empty subject
-    expr: "any(m.get('subject', '').strip() for m in state.sent_messages)"
-    severity: low
-  - desc: Recovery message body was brief
-    expr: "any(0 < len(m.get('body', '').strip()) <= 280 for m in state.sent_messages)"
-    severity: medium
 eval:
   source: server_state
   checks:

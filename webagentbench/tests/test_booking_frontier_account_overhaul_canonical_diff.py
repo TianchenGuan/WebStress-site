@@ -38,6 +38,11 @@ def _apply_correct_state(targets, state):
     state.travel_preferences.dietary_restrictions = ['halal']
     # Delete the old payment method
     state.remove_payment_method(targets['remove_pm_id'])
+    # Demote previously-default card (mirrors add_payment_method side-effect
+    # when a new is_default=True card is appended).
+    prev_pm = next((pm for pm in state.payment_methods if pm.id == targets['prev_default_pm_id']), None)
+    if prev_pm:
+        prev_pm.is_default = False
     # Add new payment methods
     state.payment_methods.append(PaymentMethod(
         id="pm_new_visa",

@@ -1,17 +1,18 @@
 variant_id: reddit_switch_dark_mode__settings_retry
 base_task_id: reddit_switch_dark_mode
 target_primitive: verification
-description: The first settings update fails transiently. The agent must verify the preference changes
-  actually persisted.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/reddit/settings'
     methods:
     - PUT
-    error_count: 1
-    error_status: 503
-    error_message: Temporary Reddit write failure. Retry the action.
+    fail_count: 1
+    response_body:
+      settings: {}
+      updated_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once

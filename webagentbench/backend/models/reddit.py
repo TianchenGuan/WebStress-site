@@ -216,6 +216,8 @@ class RedditSettings(BaseEntity):
 # ---------------------------------------------------------------------------
 
 class RedditState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("settings",)
+
     owner_username: str
     owner_display_name: str
     owner_avatar_url: str = ""

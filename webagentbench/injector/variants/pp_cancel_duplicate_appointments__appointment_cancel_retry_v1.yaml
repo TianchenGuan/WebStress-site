@@ -1,16 +1,28 @@
 variant_id: pp_cancel_duplicate_appointments__appointment_cancel_retry_v1
 base_task_id: pp_cancel_duplicate_appointments
-target_primitive: backtracking
-description: The first appointment cancellation request returns 503. The agent must confirm the visit is still present and retry the cancellation.
+target_primitive: verification
+description: The first write to cancel returns a fake successful response without persisting. The agent must verify that the
+  duplicate appointment statuses actually changed to cancelled before declaring the task done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/patient_portal/appointments/*/cancel'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary scheduling service failure. Retry the cancellation.
+    fail_count: 1
+    response_body:
+      id: apt_d4f1c823a9
+      provider_id: prov_a82c441f
+      datetime: '2026-06-15T10:00:00+00:00'
+      duration_minutes: 30
+      type: in-person
+      status: cancelled
+      reason: Care follow-up
+      notes: ''
+      linked_referral_id: null
+      pre_auth_status: not_required
+      booked_at: '2026-04-26T08:00:00+00:00'
+      location: Main Campus
     behavior:
       mode: once

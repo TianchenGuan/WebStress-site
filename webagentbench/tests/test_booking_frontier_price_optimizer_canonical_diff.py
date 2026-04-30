@@ -85,6 +85,10 @@ def test_correct_trajectory_passes():
         state.reservations.append(_make_reservation(targets))
         state.saved_lists.append(_make_saved_list(targets))
         state.reviews.append(_make_review(targets))
+        # Mirror route side-effect: flip rating_submitted on reviewed reservation
+        review_res = state.get_reservation(targets['review_res_id'])
+        if review_res:
+            review_res.rating_submitted = True
 
         task = get_task(TASK_ID)
         agent_diff = compute_diff(initial, state)

@@ -44,13 +44,11 @@ seed:
     product_name: '{output.product_name}'
     product_id: '{output.product_id}'
 canonical_diff:
-  constraints:
-  - desc: Target product is in the wishlist
-    expr: "target['product_id'] in state.wishlist"
-    severity: critical
-  - desc: No extra products added to the wishlist
-    expr: "len(state.wishlist) <= len(initial.wishlist) + 1"
-    severity: medium
+  create:
+  - entity: wishlist
+    desc: Target product added to wishlist
+    properties:
+      value: { expr: "x == target['product_id']" }
   invariant:
   - collection: state.products
     preserve: ALL
@@ -73,6 +71,11 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.wishlist
+    filter: "a.value != target['product_id']"
+    preserve: ALL
+  - collection: state.settings
     preserve: ALL
   named_invariants:
   - name: Agent did not modify product catalog
@@ -108,3 +111,9 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

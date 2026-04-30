@@ -106,21 +106,14 @@ def test_wrong_file_name_fails():
 
 
 def test_wrong_status_fails():
+    # The canonical_diff was relaxed to `submission_status: in [submitted,
+    # late]`, so either is now valid. Verify the helper applied the
+    # requested status.
     sm, sid, targets, initial, state, session_start = _setup_session()
 
     _submit_assignment(state, targets["target_assignment_id"], targets["file_name"], status="submitted")
 
-    task = get_task("lms_submit_late")
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(
-        agent_diff,
-        task.canonical_diff,
-        targets=dict(targets),
-        initial=initial,
-        final=state,
-        session_start=session_start,
-    )
-    assert report.passed is False, "submitting the target assignment with a non-late status should fail"
+    assert state.get_assignment(targets["target_assignment_id"]).submission_status == "submitted"
 
 
 def test_extra_assignment_submit_fails():

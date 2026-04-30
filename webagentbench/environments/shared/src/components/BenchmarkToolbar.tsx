@@ -9,6 +9,9 @@ interface EvaluationCheck {
   expr?: string;
   passed: boolean;
   penalty?: number;
+  kind?: string;
+  _kind?: string;
+  source?: string;
 }
 
 interface BijectionSlot {
@@ -25,6 +28,10 @@ interface BijectionCandidate {
 
 interface BijectionGraph {
   desc: string;
+  check_desc?: string;
+  check_index?: number;
+  entry_index?: number;
+  kind?: string;
   entity: string;
   saturated: boolean;
   has_excess: boolean;
@@ -88,7 +95,7 @@ function sessionUrl(envId: string, startPath: string, sessionId: string, current
   const nextUrl = new URL(`${window.location.origin}${envRoot}${startPath}`);
   const preserved = new URLSearchParams(currentSearch);
   // Preserve agent_mode + control=on so reset keeps the recording context.
-  const carry = ["agent_mode", "control"];
+  const carry = ["agent_mode", "control", "hide_toolbar"];
   for (const key of carry) {
     const val = preserved.get(key);
     if (val !== null && !nextUrl.searchParams.has(key)) {
@@ -1173,6 +1180,11 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     [location.search],
   );
 
+  const hideToolbar = useMemo(
+    () => new URLSearchParams(location.search).get("hide_toolbar") === "1",
+    [location.search],
+  );
+
   // When control=on, poll the backend for recording state and start/stop
   // the in-page recorder accordingly. The control tab sets the flag; we
   // just respond to it. No visible UI on this page.
@@ -1359,7 +1371,7 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     return () => window.clearInterval(interval);
   }, [recording]);
 
-  if (agentMode || controlMode || adapter?.mode === "static") {
+  if (agentMode || hideToolbar || adapter?.mode === "static") {
     return null;
   }
 
@@ -1507,6 +1519,52 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
   const checks = evaluation?.checks ?? [];
   const negativeChecks = evaluation?.negative_checks ?? [];
   const bijectionGraphs = evaluation?.bijection_graphs ?? [];
+  const checkKind = (check: EvaluationCheck) => check.kind ?? check._kind ?? "";
+  const isConstraintCheck = (check: EvaluationCheck) => checkKind(check) === "constraint";
+  const isProtectedStateCheck = (check: EvaluationCheck) =>
+    checkKind(check) === "invariant" || check.source === "protected_state";
+  const isCollateralCheck = (check: EvaluationCheck) =>
+    check.source === "collateral" || checkKind(check).startsWith("collateral_");
+  const isExcessCheck = (check: EvaluationCheck) => checkKind(check) === "excess";
+  const constraintChecks = negativeChecks.filter(isConstraintCheck);
+  const protectedStateChecks = negativeChecks.filter(isProtectedStateCheck);
+  const collateralChecks = negativeChecks.filter(isCollateralCheck);
+  const excessChecks = negativeChecks.filter(isExcessCheck);
+  const otherNegativeChecks = negativeChecks.filter(
+    (check) =>
+      !isConstraintCheck(check) &&
+      !isProtectedStateCheck(check) &&
+      !isCollateralCheck(check) &&
+      !isExcessCheck(check),
+  );
+  const renderEvaluationCheck = (check: EvaluationCheck, key: string) => (
+    <div key={key} className={`wab-bench-toolbar__check${check.passed ? " wab-bench-toolbar__check--pass" : " wab-bench-toolbar__check--fail"}`}>
+      {check.passed ? "✓" : `✗ (-${(check.penalty ?? 0).toFixed(2)})`} {check.desc || check.expr}
+    </div>
+  );
+  const renderNegativeSection = (title: string, items: EvaluationCheck[], keyPrefix: string) => (
+    items.length > 0 ? (
+      <>
+        <div className="wab-bench-toolbar__section-title">{title}</div>
+        {items.map((check, index) => renderEvaluationCheck(check, `${keyPrefix}-${index}`))}
+      </>
+    ) : null
+  );
+  const checkGraphIndexes = checks.map((check, index) =>
+    bijectionGraphs
+      .map((graph, graphIndex) => {
+      const graphCheckIndex = typeof graph.check_index === "number" ? graph.check_index : null;
+      const belongs =
+        graphCheckIndex === index ||
+        (graphCheckIndex === null && graph.check_desc === check.desc) ||
+        (graphCheckIndex === null && Boolean(check.desc && graph.desc && check.desc.startsWith(graph.desc)));
+        return belongs ? graphIndex : null;
+      })
+      .filter((graphIndex): graphIndex is number => graphIndex !== null),
+  );
+  const assignedGraphIndexes = new Set(checkGraphIndexes.flat());
+  const graphsForCheck = (index: number) => checkGraphIndexes[index].map((graphIndex) => bijectionGraphs[graphIndex]);
+  const unassignedBijectionGraphs = bijectionGraphs.filter((_, index) => !assignedGraphIndexes.has(index));
   const launchHref = preserveQueryParams("/launch", location.search, ["agent_mode"]);
 
   return (
@@ -1569,26 +1627,36 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
               <span>{evaluation.success ? "PASSED" : "FAILED"}</span>
             </div>
             {checks.length > 0 ? <div className="wab-bench-toolbar__section-title">Checks</div> : null}
-            {checks.map((check, index) => (
-              <div key={`check-${index}`} className={`wab-bench-toolbar__check${check.passed ? " wab-bench-toolbar__check--pass" : " wab-bench-toolbar__check--fail"}`}>
-                {check.passed ? "✓" : "✗"} {check.desc || check.expr}
-              </div>
-            ))}
-            {negativeChecks.length > 0 ? <div className="wab-bench-toolbar__section-title">Negative Checks</div> : null}
-            {negativeChecks.map((check, index) => (
-              <div key={`negative-${index}`} className={`wab-bench-toolbar__check${check.passed ? " wab-bench-toolbar__check--pass" : " wab-bench-toolbar__check--fail"}`}>
-                {check.passed ? "✓" : `✗ (-${(check.penalty ?? 0).toFixed(2)})`} {check.desc || check.expr}
-              </div>
-            ))}
-            {bijectionGraphs.length > 0 ? (
+            {checks.map((check, index) => {
+              const checkGraphs = graphsForCheck(index);
+              return (
+                <div key={`check-wrap-${index}`} className="wab-bench-toolbar__check-group">
+                  {checkGraphs.length > 0 ? (
+                    checkGraphs.map((graph, graphIndex) => (
+                      <BipartiteGraphView key={`check-${index}-bgraph-${graphIndex}`} graph={graph} />
+                    ))
+                  ) : (
+                    <div className={`wab-bench-toolbar__check${check.passed ? " wab-bench-toolbar__check--pass" : " wab-bench-toolbar__check--fail"}`}>
+                      {check.passed ? "✓" : "✗"} {check.desc || check.expr}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {renderNegativeSection("Constraints", constraintChecks, "constraint")}
+            {renderNegativeSection("Protected State", protectedStateChecks, "protected-state")}
+            {renderNegativeSection("Collateral Changes", collateralChecks, "collateral")}
+            {renderNegativeSection("Excess Outputs", excessChecks, "excess")}
+            {renderNegativeSection("Negative Checks", otherNegativeChecks, "negative")}
+            {unassignedBijectionGraphs.length > 0 ? (
               <>
-                <div className="wab-bench-toolbar__section-title">Bipartite Match</div>
-                {bijectionGraphs.map((graph, index) => (
+                <div className="wab-bench-toolbar__section-title">Match Details</div>
+                {unassignedBijectionGraphs.map((graph, index) => (
                   <BipartiteGraphView key={`bgraph-${index}`} graph={graph} />
                 ))}
               </>
             ) : null}
-            {evaluation.reasoning ? (
+            {evaluation.reasoning && checks.length === 0 && negativeChecks.length === 0 && bijectionGraphs.length === 0 ? (
               <pre className="wab-bench-toolbar__reasoning">{evaluation.reasoning}</pre>
             ) : null}
           </div>

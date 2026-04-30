@@ -48,27 +48,11 @@ seed:
 canonical_diff:
   create:
   - entity: options_orders
-    desc: Iron condor with 4 legs on target underlying
+    desc: 4-leg iron condor with proper call/put structure and ~45-day expiry
     properties:
       strategy: {eq: iron_condor}
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: 4-leg iron condor with 2 short and 2 long legs
-    expr: "state.latest_options_order(symbol=target['symbol']) is not None and len(state.latest_options_order(symbol=target['symbol']).legs) == 4 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'sell']) == 2 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'buy']) == 2"
-    severity: critical
-  - desc: Correct call and put structure with protective wings outside short strikes
-    expr: "state.latest_options_order(symbol=target['symbol']) is not None and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.option_type == 'call' and leg.side == 'buy']) == 1 and len([leg for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.option_type == 'put' and leg.side == 'buy']) == 1"
-    severity: critical
-  - desc: Short legs struck near 5% from current price
-    expr: "state.latest_options_order(symbol=target['symbol']) is not None and all(leg.strike >= state.get_stock(target['symbol']).price * Decimal('0.90') and leg.strike <= state.get_stock(target['symbol']).price * Decimal('1.10') for leg in state.latest_options_order(symbol=target['symbol']).legs if leg.side == 'sell')"
-    severity: critical
-  - desc: All legs expire approximately 45 days out (35-55 days)
-    expr: "state.latest_options_order(symbol=target['symbol']) is not None and all(state.days_until(leg.expiration) >= 35 and state.days_until(leg.expiration) <= 55 for leg in state.latest_options_order(symbol=target['symbol']).legs)"
-    severity: critical
-  - desc: No equity orders placed
-    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+      legs: {expr: "len(x) == 4 and len([leg for leg in x if leg['side'] == 'sell']) == 2 and len([leg for leg in x if leg['side'] == 'buy']) == 2 and len([leg for leg in x if leg['option_type'] == 'call' and leg['side'] == 'buy']) == 1 and len([leg for leg in x if leg['option_type'] == 'put' and leg['side'] == 'buy']) == 1 and all(leg['strike'] >= state.get_stock(target['symbol']).price * Decimal('0.90') and leg['strike'] <= state.get_stock(target['symbol']).price * Decimal('1.10') for leg in x if leg['side'] == 'sell') and all(state.days_until(leg['expiration']) >= 35 and state.days_until(leg['expiration']) <= 55 for leg in x)"}
   invariant:
   - collection: state.positions
     preserve: ALL

@@ -105,13 +105,6 @@ canonical_diff:
         expr: x == target['message_body']
       from_user:
         expr: x == state.owner_username
-  constraints:
-  - desc: No decoy posts saved
-    expr: not any(pid in state.saved_post_ids for pid in target['decoy_post_ids'])
-    severity: high
-  - desc: No messages sent to anyone other than ByteRunner
-    expr: all(m.to_user == target['message_post_author'] for m in state.sent_messages if m.id not in {mm.id for mm in initial.sent_messages})
-    severity: medium
   invariant:
   - collection: state.subreddits
     preserve: ALL
@@ -130,6 +123,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Agent saved the Cloudflare target post
     ref: update[0]

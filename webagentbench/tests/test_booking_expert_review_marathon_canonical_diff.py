@@ -18,6 +18,15 @@ def _setup_session(seed: int = 42):
     return sm, sid, dict(targets), initial, state
 
 
+def _flip_rating_submitted(state, targets):
+    for key in ('res_id_1', 'res_id_2', 'res_id_3'):
+        res_id = targets.get(key)
+        if res_id:
+            res = state.get_reservation(res_id)
+            if res is not None:
+                res.rating_submitted = True
+
+
 def _apply_correct_reviews(targets, state):
     now = datetime.now(timezone.utc)
     state.reviews.append(Review(
@@ -62,6 +71,7 @@ def test_correct_trajectory_passes():
     for seed in (0, 3, 42):
         sm, sid, targets, initial, state = _setup_session(seed=seed)
         _apply_correct_reviews(targets, state)
+        _flip_rating_submitted(state, targets)
 
         task = get_task(TASK_ID)
         agent_diff = compute_diff(initial, state)

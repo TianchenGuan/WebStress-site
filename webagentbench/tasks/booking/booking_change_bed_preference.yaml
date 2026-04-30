@@ -22,13 +22,13 @@ seed:
     - updated
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Preferred bed type is set to queen
-      expr: "state.travel_preferences.preferred_bed_type == 'queen'"
-      severity: critical
-    - desc: Smoking preference was not accidentally changed
-      expr: "state.travel_preferences.smoking == initial.travel_preferences.smoking"
-      severity: medium
+  update:
+    - entity: travel_preferences
+      desc: Preferred bed type set to queen
+      where: { id: { eq: "__singleton_travel_preferences__" } }
+      changes:
+        preferred_bed_type: { eq: queen }
+        smoking: { expr: "x == initial.travel_preferences.smoking" }
   invariant:
     - collection: state.reservations
       preserve: ALL

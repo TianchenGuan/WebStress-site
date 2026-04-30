@@ -37,13 +37,71 @@ seed:
           - 185.0
         noise_pct: 0.3
 canonical_diff:
-  constraints:
-  - desc: AAPL GTC limit buy order at approximately 5% below current price
-    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit' and o.time_in_force == 'gtc' and o.limit_price is not None and o.limit_price <= initial.get_stock('AAPL').price * Decimal('0.96') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
-  - desc: Buy 10 AAPL shares
-    expr: "any(o.symbol == 'AAPL' and o.side == 'buy' and o.quantity == 10 and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
+  create:
+  - entity: orders
+    desc: GTC AAPL limit buy filled at $180 or below for 10 shares
+    properties:
+      symbol: {eq: AAPL}
+      side: {eq: buy}
+      order_type: {eq: limit}
+      time_in_force: {eq: gtc}
+      quantity: {eq: 10}
+      limit_price: {expr: "x is not None and float(x) <= 180"}
+      status: {eq: filled}
+      filled_quantity: {eq: 10}
+      filled_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      extended_hours: {any: true}
+  - entity: positions
+    desc: AAPL position created with 10 shares from the filled limit buy
+    properties:
+      symbol: {eq: AAPL}
+      quantity: {eq: 10}
+      avg_cost_basis: {any: true}
+      current_price: {any: true}
+      day_change_pct: {any: true}
+      total_return: {any: true}
+      total_return_pct: {any: true}
+      asset_type: {any: true}
+      name: {any: true}
+      lots: {any: true}
+  - entity: transactions
+    desc: Buy transaction recorded by the AAPL fill
+    properties:
+      type: {eq: buy}
+      symbol: {eq: AAPL}
+      quantity: {eq: 10}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: notifications
+    desc: Order-fill notification emitted by the AAPL buy
+    properties:
+      type: {eq: order_fill}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "(a.side == 'buy' and a.symbol != 'AAPL') or a.side == 'sell'"
+    preserve: ALL
+  - collection: state.positions
+    filter: "a.symbol != 'AAPL'"
+    preserve: ALL
+  - collection: state.transactions
+    filter: "a.symbol is not None and a.symbol != 'AAPL'"
+    preserve: ALL
+  - collection: state.notifications
+    filter: "a.type != 'order_fill'"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, verification by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

@@ -93,10 +93,6 @@ canonical_diff:
           superset:
             - "Needs Review"
             - "Project Alpha"
-  constraints:
-    - desc: Wrong review email does not have Needs Review label
-      expr: "not any(e.id == target['wrong_review_id'] and 'Needs Review' in e.labels for e in state.emails)"
-      severity: high
   invariant:
     - collection: state.emails
       filter: "a.id not in (target['client_email_ids'] + target['review_email_ids'])"
@@ -113,6 +109,8 @@ canonical_diff:
       filter: "a.name not in ['Project Alpha', 'Needs Review', 'Client Feedback']"
       preserve: ALL
     - collection: state.filters
+      preserve: ALL
+    - collection: state.settings
       preserve: ALL
   named_invariants:
     - name: Agent created Project Alpha label

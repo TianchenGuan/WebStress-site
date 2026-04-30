@@ -50,33 +50,15 @@ seed:
 canonical_diff:
   create:
   - entity: options_orders
-    desc: Single-leg covered call sell on AAPL
+    desc: Single-leg covered call sell on AAPL (1 contract, ≥10% OTM, 14-60d)
     properties:
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: Single sell-call leg on AAPL placed
-    expr: "state.latest_options_order(symbol='AAPL') is not None and any(leg.underlying_symbol == 'AAPL' and leg.side == 'sell' and leg.option_type == 'call' for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: critical
-  - desc: Exactly 1 contract sold
-    expr: "state.latest_options_order(symbol='AAPL') is not None and any(leg.quantity == 1 for leg in state.latest_options_order(symbol='AAPL').legs if leg.option_type == 'call' and leg.side == 'sell')"
-    severity: critical
-  - desc: Strike at least 10% above current price
-    expr: "state.latest_options_order(symbol='AAPL') is not None and all(leg.strike >= state.get_stock('AAPL').price * Decimal('1.10') for leg in state.latest_options_order(symbol='AAPL').legs if leg.option_type == 'call' and leg.side == 'sell')"
-    severity: critical
-  - desc: Expiration within 14-60 day range
-    expr: "state.latest_options_order(symbol='AAPL') is not None and all(state.days_until(leg.expiration) >= 14 and state.days_until(leg.expiration) <= 60 for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: critical
-  - desc: AAPL shares not sold
-    expr: "not any(o.side == 'sell' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No put legs in the order
-    expr: "state.latest_options_order(symbol='AAPL') is None or not any(leg.option_type == 'put' for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: high
+      legs: {expr: "all(leg['underlying_symbol'] == 'AAPL' and leg['side'] == 'sell' and leg['option_type'] == 'call' and leg['quantity'] == 1 and leg['strike'] >= state.get_stock('AAPL').price * Decimal('1.10') and state.days_until(leg['expiration']) >= 14 and state.days_until(leg['expiration']) <= 60 for leg in x)"}
   invariant:
   - collection: state.positions
     preserve: ALL
   - collection: state.orders
+    filter: "a.side == 'sell' and a.symbol == 'AAPL'"
     preserve: ALL
   - collection: state.watchlists
     preserve: ALL

@@ -53,19 +53,15 @@ canonical_diff:
     desc: Should-pause recurring investments set to paused
     bijection:
       over: "[r for r in initial.recurring_investments if r.symbol in target['should_pause_symbols'] and not r.id.startswith('ri_decoy_')]"
-      variable: ri
+      variable: v
     where:
       id: {expr: "x == v.id"}
     changes:
       status: {eq: paused}
-  constraints:
-  - desc: No recurring investments paused beyond should-pause list
-    expr: "not any(r.status == 'paused' and r.symbol not in target['should_pause_symbols'] for r in state.recurring_investments if not r.id.startswith('ri_decoy_'))"
-    severity: critical
-  - desc: No trades placed
-    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No new recurring investments created
-    expr: "len([r for r in state.recurring_investments if not r.id.startswith('ri_decoy_')]) == len([r for r in initial.recurring_investments if not r.id.startswith('ri_decoy_')])"
-    severity: high
+  invariant:
+  - collection: state.recurring_investments
+    filter: "a.symbol not in target['should_pause_symbols'] and not a.id.startswith('ri_decoy_')"
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
 secondary_primitives: []

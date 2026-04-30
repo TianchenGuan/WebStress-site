@@ -189,13 +189,17 @@ def test_extra_enrollment_mutation_fails():
 
 
 def test_missing_assignment_subset_invariant_fails():
+    # Submit an unrecoverable missing assignment (in addition to all
+    # recoverable ones). The invariant `a.id not in recoverable` is
+    # violated when an unrecoverable assignment is mutated, so the
+    # matcher rejects this trajectory.
     sm, sid, targets, initial, state = _setup_session()
 
-    _submit_assignment(state, _target_assignment_id(targets), "late_recovery.pdf", status="late")
-    missing = _missing_ids(targets)
-    assert len(missing) >= 1, "seed must include missing assignments"
-    for aid in missing[1:]:
+    for aid in _recoverable_ids(targets):
         _submit_assignment(state, aid, "late_recovery.pdf", status="late")
+    unrecoverable = _unrecoverable_ids(targets)
+    assert unrecoverable, "seed must include at least one unrecoverable missing assignment"
+    _submit_assignment(state, unrecoverable[0], "late_recovery.pdf", status="late")
 
     task = get_task("lms_find_missing_assignments")
     agent_diff = compute_diff(initial, state)

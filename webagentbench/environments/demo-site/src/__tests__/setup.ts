@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom/vitest";
+import type { ReactNode } from "react";
+import { vi } from "vitest";
 
 // Mock next/link as a simple anchor
 vi.mock("next/link", () => ({
@@ -8,7 +10,7 @@ vi.mock("next/link", () => ({
     ...props
   }: {
     href: string;
-    children: React.ReactNode;
+    children: ReactNode;
     [key: string]: unknown;
   }) => {
     const React = require("react");

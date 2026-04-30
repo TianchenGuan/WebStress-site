@@ -97,7 +97,7 @@ canonical_diff:
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule one Referral consultation using the approved, prior-authorized referral at the next available slot for the referred specialist"
+      desc: "Schedule one Referral consultation using the approved referral, after the echocardiogram is booked"
       properties:
         status: {eq: "scheduled"}
         reason: {eq: "Referral consultation"}
@@ -120,37 +120,19 @@ canonical_diff:
         type: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
-        booked_at: {any: true}
+        booked_at:
+          # Booking-order predicate (was a high-severity constraint): the
+          # consultation must be booked AFTER the echocardiogram (echo
+          # booked_at < this consult booked_at).
+          expr: >-
+            any(
+              echo.booked_at < x
+              for echo in state.appointments
+              if echo.status == 'scheduled'
+              and echo.reason == 'Echocardiogram'
+              and echo.id not in {y.id for y in initial.appointments}
+            )
         location: {any: true}
-  constraints:
-    - desc: "The echocardiogram was booked before the referral consultation"
-      expr: >
-        all(
-          echo.booked_at < consult.booked_at
-          for echo in state.appointments
-          if echo.status == 'scheduled'
-          and echo.id not in {x.id for x in initial.appointments}
-          and echo.reason == 'Echocardiogram'
-          and echo.provider_id in target['cardio_provider_ids']
-          for consult in state.appointments
-          if consult.status == 'scheduled'
-          and consult.id not in {x.id for x in initial.appointments}
-          and consult.reason == 'Referral consultation'
-          and consult.linked_referral_id == target['prior_auth_ref_id']
-        )
-        and any(
-          echo.status == 'scheduled'
-          and echo.id not in {x.id for x in initial.appointments}
-          and echo.reason == 'Echocardiogram'
-          for echo in state.appointments
-        )
-        and any(
-          consult.status == 'scheduled'
-          and consult.id not in {x.id for x in initial.appointments}
-          and consult.reason == 'Referral consultation'
-          for consult in state.appointments
-        )
-      severity: high
   invariant:
     - collection: state.appointments
       filter: "a.id in {x.id for x in initial.appointments}"
@@ -166,6 +148,12 @@ canonical_diff:
     - collection: state.lab_results
       preserve: ALL
     - collection: state.claims
+      preserve: ALL
+    - collection: state.pharmacies
+      preserve: ALL
+    - collection: state.providers
+      preserve: ALL
+    - collection: state.patient
       preserve: ALL
   named_invariants:
     - name: "Agent did not cancel or modify pre-existing appointments"

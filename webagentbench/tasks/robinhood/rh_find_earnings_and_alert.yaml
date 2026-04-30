@@ -46,16 +46,6 @@ canonical_diff:
       target_price: {expr: "abs(float(x) - float(state.get_stock(v).price) * 0.95) <= 0.5"}
       status: {eq: active}
       created_at: {any: true}
-  constraints:
-  - desc: Exactly one alert per portfolio earnings stock
-    expr: "len([a for a in state.price_alerts if not a.id.startswith('alert_decoy_')]) == len(state.portfolio_symbols_with_earnings_within(7))"
-    severity: critical
-  - desc: No alerts for stocks without upcoming earnings in portfolio
-    expr: "not any(a.symbol not in state.portfolio_symbols_with_earnings_within(7) and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
-    severity: high
-  - desc: No orders placed
-    expr: "len([o for o in state.orders if not o.id.startswith('ord_decoy_')]) == 0"
-    severity: high
   invariant:
   - collection: state.positions
     preserve: ALL

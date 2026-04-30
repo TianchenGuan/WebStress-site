@@ -116,11 +116,10 @@ canonical_diff:
     changes:
       quantity: {any: true}
       avg_cost_basis: {any: true}
-  constraints:
-  - desc: Agent did not sell best performer or buy worst performer
-    expr: "not any(o.symbol == target['best_symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders) and not any(o.symbol == target['worst_symbol'] and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
+  - collection: state.orders
+    filter: "(a.side == 'sell' and a.symbol == target['best_symbol']) or (a.side == 'buy' and a.symbol == target['worst_symbol'])"
+    preserve: ALL
   - collection: state.positions
     filter: "a.symbol != target['worst_symbol'] and a.symbol != target['best_symbol']"
     preserve: ALL

@@ -128,72 +128,110 @@ seed:
     addr_zip: '60601'
 canonical_diff:
   create:
+  - entity: wishlist
+    desc: Cheapest speaker added to wishlist
+    properties:
+      value:
+        expr: x == target['cheap_pid']
   - entity: Order
     desc: Highest-rated speaker purchased
     properties:
       items:
-        expr: "any(it['product_id'] == target['best_pid'] for it in x)"
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
-      status: {eq: confirmed}
-      subtotal: {any: true}
-      shipping_cost: {any: true}
-      tax: {any: true}
-      total: {any: true}
-      placed_at: {any: true}
-      estimated_delivery: {any: true}
-      promo_code: {any: true}
-      discount: {any: true}
+        expr: any(it['product_id'] == target['best_pid'] for it in x)
+      shipping_address_id:
+        any: true
+      payment_method_id:
+        any: true
+      status:
+        eq: confirmed
+      subtotal:
+        any: true
+      shipping_cost:
+        any: true
+      tax:
+        any: true
+      total:
+        any: true
+      placed_at:
+        any: true
+      estimated_delivery:
+        any: true
+      promo_code:
+        any: true
+      discount:
+        any: true
   - entity: Review
     desc: 4-star review for past delivered product with target title
     properties:
-      product_id: {expr: "x == target['past_pid']"}
-      rating: {eq: 4}
-      title: {expr: "x == target['review_title']"}
-      body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
-      created_at: {any: true}
+      product_id:
+        expr: x == target['past_pid']
+      rating:
+        eq: 4
+      title:
+        expr: x == target['review_title']
+      body:
+        any: true
+      author_name:
+        any: true
+      helpful_count:
+        any: true
+      verified_purchase:
+        any: true
+      created_at:
+        any: true
   - entity: Address
     desc: New default address created (Casey Jordan)
     properties:
-      full_name: {expr: "x == target['addr_name']"}
-      street_address: {expr: "target['addr_street'] in x"}
-      city: {expr: "x == target['addr_city']"}
-      state: {expr: "x == target['addr_state']"}
-      zip_code: {expr: "x == target['addr_zip']"}
-      is_default: {eq: true}
-      apt_suite: {any: true}
-      country: {any: true}
-      phone: {any: true}
+      full_name:
+        expr: x == target['addr_name']
+      street_address:
+        expr: target['addr_street'] in x
+      city:
+        expr: x == target['addr_city']
+      state:
+        expr: x == target['addr_state']
+      zip_code:
+        expr: x == target['addr_zip']
+      is_default:
+        eq: true
+      apt_suite:
+        any: true
+      country:
+        any: true
+      phone:
+        any: true
   update:
   - entity: Product
     desc: Product review_count incremented as side effect (weight 0)
     weight: 0.0
     where:
-      id: {any: true}
+      id:
+        any: true
     changes:
-      review_count: {any: true}
+      review_count:
+        any: true
   - entity: Address
-    desc: Prior default address demoted (side effect of setting a new default, weight 0)
+    desc: Prior default address demoted (side effect of setting a new default, weight
+      0)
     weight: 0.0
     where:
-      id: {any: true}
+      id:
+        any: true
     changes:
-      is_default: {eq: false}
+      is_default:
+        eq: false
   invariant:
   - collection: state.orders
-    filter: "a.id.startswith('order_initial_') or a.id == 'order_1'"
+    filter: a.id.startswith('order_initial_') or a.id == 'order_1'
     preserve: ALL
   - collection: state.addresses
-    filter: "a.full_name != target['addr_name']"
+    filter: a.full_name != target['addr_name']
     preserve: ALL
   - collection: state.products
-    filter: "a.id != target['past_pid']"
+    filter: a.id != target['past_pid']
     preserve: ALL
   - collection: state.reviews
-    filter: "a.product_id != target['past_pid']"
+    filter: a.product_id != target['past_pid']
     preserve: ALL
   - collection: state.cart_items
     preserve: ALL
@@ -209,19 +247,13 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
-  constraints:
-  - desc: Cart is empty after checkout
-    expr: "len(state.cart_items) == 0"
-    severity: medium
-  - desc: Cheapest speaker added to wishlist
-    expr: "target['cheap_pid'] in state.wishlist"
-    severity: high
-  - desc: Best speaker not in wishlist (it was purchased)
-    expr: "target['best_pid'] not in state.wishlist"
-    severity: medium
-  - desc: Mid-rated speaker not purchased
-    expr: "not any(any(it.product_id == target['mid_pid'] for it in o.items) for o in state.orders if o.id.startswith('order_') and not o.id.startswith('order_initial_') and o.id != 'order_1')"
-    severity: medium
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
+  - collection: state.wishlist
+    filter: a.value != target['cheap_pid']
+    preserve: ALL
   named_invariants:
   - name: Agent did not modify other orders
     ref: invariant[0]

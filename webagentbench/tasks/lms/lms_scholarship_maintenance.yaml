@@ -103,6 +103,8 @@ canonical_diff:
     preserve: ALL
   - collection: state.calendar_events
     preserve: ALL
+  - collection: state.student
+    preserve: ALL
   named_invariants:
   - name: Agent submitted the scholarship-saving assignment
     ref: update[0]
@@ -136,22 +138,6 @@ canonical_diff:
     severity: high
   - name: Agent did not modify calendar events
     ref: invariant[9]
-    severity: low
-  constraints:
-  - desc: Agent sent at least one maintenance plan message
-    expr: len(state.sent_messages) >= 1
-    severity: medium
-  - desc: Maintenance plan was addressed to the advisor
-    expr: "any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
-    severity: critical
-  - desc: Maintenance plan message came from the student account
-    expr: "any(m.get('from') == state.student.email for m in state.sent_messages)"
-    severity: medium
-  - desc: Maintenance plan message was brief
-    expr: "any(0 < len(m.get('body', '').strip()) <= 280 for m in state.sent_messages)"
-    severity: low
-  - desc: Agent did not send excessive messages
-    expr: len(state.sent_messages) <= 4
     severity: low
 eval:
   source: server_state

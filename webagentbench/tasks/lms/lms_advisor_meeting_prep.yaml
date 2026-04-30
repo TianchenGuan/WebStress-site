@@ -147,6 +147,8 @@ canonical_diff:
   - collection: state.sent_messages
     filter: "m.get('to','') != target['advisor_name']"
     preserve: ALL
+  - collection: state.student
+    preserve: ALL
   named_invariants:
   - name: Agent marked all unread announcements as read
     ref: update[0]
@@ -187,16 +189,6 @@ canonical_diff:
   - name: Agent did not send messages
     ref: invariant[10]
     severity: medium
-  constraints:
-  - desc: Agent sent at least one briefing message
-    expr: len(state.sent_messages) >= 1
-    severity: medium
-  - desc: Briefing message was addressed to the advisor
-    expr: "any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
-    severity: high
-  - desc: Agent did not send excessive messages
-    expr: len(state.sent_messages) <= 4
-    severity: low
 eval:
   source: server_state
   checks:

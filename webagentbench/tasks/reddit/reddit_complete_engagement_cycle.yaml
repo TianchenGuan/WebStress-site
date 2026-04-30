@@ -102,67 +102,112 @@ seed:
       template you used? I want to implement the same system at my company.
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
-  # Constraint-only form. This task mixes per-entity ops (subscribe,
-  # post, vote, save, comment, reply, message) with an aggregate mark-
-  # all-notifications-read bulk mutation; the latter cannot be expressed
-  # as a positive update bijection without exposing initial notification
-  # ids through targets. The constraint-only path skips the unaccounted
-  # sweep so legitimate aggregate mutations aren't double-flagged.
-  constraints:
-    - desc: Agent subscribed to r/MachineLearning
-      expr: "any(s.name == target['join_sub'] and s.is_subscribed for s in state.subreddits)"
-      severity: high
-    - desc: Agent created post with exact title and body in r/MachineLearning
-      expr: "any(p.subreddit_name == target['join_sub'] and p.title == target['post_title'] and p.body == target['post_body'] and p.author_name == state.owner_username for p in state.posts)"
-      severity: high
-    - desc: Agent upvoted the worldnews post
-      expr: "state.get_post(target['vote_id']).vote_direction == 1"
-      severity: high
-    - desc: Agent saved the todayilearned post
-      expr: "target['save_id'] in state.saved_post_ids"
-      severity: high
-    - desc: Agent posted the exact top-level comment on the programming post
-      expr: "any(c.post_id == target['comment_id'] and c.body == target['comment_text'] and c.author_name == state.owner_username and c.parent_id is None for c in state.comments)"
-      severity: high
-    - desc: Agent posted the exact reply under u/CompileError's comment
-      expr: "any(c.post_id == target['comment_id'] and c.parent_id == target['reply_id'] and c.body == target['reply_text'] and c.author_name == state.owner_username for c in state.comments)"
-      severity: high
-    - desc: Agent sent the exact outreach message to u/LogicLoom
-      expr: "any(m.to_user == target['msg_to'] and m.subject == target['msg_sub'] and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
-      severity: high
-    - desc: All notifications marked as read
-      expr: "state.unread_notification_count() == 0"
-      severity: high
-    - desc: No notifications were deleted
-      expr: "len(state.notifications) == len(initial.notifications)"
-      severity: high
-    - desc: Theme set to dark
-      expr: "state.settings.theme == 'dark'"
-      severity: high
-    - desc: Default comment sort set to new
-      expr: "state.settings.default_comment_sort == 'new'"
-      severity: high
-    - desc: Existing subscriptions preserved (do not unsubscribe)
-      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-      severity: high
-    - desc: No posts were downvoted
-      expr: "not any(p.vote_direction == -1 for p in state.posts)"
-      severity: high
-    - desc: No comments were downvoted
-      expr: "not any(c.vote_direction == -1 for c in state.comments)"
-      severity: medium
-    - desc: No excessive outbound messages sent
-      expr: "len(state.sent_messages) <= len(initial.sent_messages) + 1"
-      severity: medium
-    - desc: No excessive posts created by the owner
-      expr: "sum(1 for p in state.posts if p.author_name == state.owner_username) <= sum(1 for p in initial.posts if p.author_name == state.owner_username) + 1"
-      severity: medium
-    - desc: No users blocked during the workflow
-      expr: "len(state.blocked_users) == len(initial.blocked_users)"
-      severity: medium
+  update:
+  - entity: Notification
+    collection: notifications
+    bijection:
+      over: '[n.id for n in initial.notifications if not n.is_read]'
+      variable: v
+    desc: Mark every unread notification as read
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Post
+    collection: posts
+    desc: Upvote the worldnews target post
+    where:
+      id:
+        expr: x == target['vote_id']
+    changes:
+      vote_direction:
+        eq: 1
+  - entity: Post
+    collection: posts
+    desc: Save the todayilearned target post (do not downvote)
+    where:
+      id:
+        expr: x == target['save_id']
+    changes:
+      is_saved:
+        eq: true
+      vote_direction:
+        expr: x != -1
+  - entity: Subreddit
+    collection: subreddits
+    desc: Subscribe to the join subreddit
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join_sub']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_comment_sort: { eq: new }
+  create:
+  - entity: Post
+    collection: posts
+    desc: Create the post in r/{join_sub} with exact title and body
+    properties:
+      subreddit_name:
+        expr: x == target['join_sub']
+      title:
+        expr: x == target['post_title']
+      body:
+        expr: x == target['post_body']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Comment
+    collection: comments
+    desc: Top-level comment on the programming post with the exact text
+    properties:
+      post_id:
+        expr: x == target['comment_id']
+      body:
+        expr: x == target['comment_text']
+      author_name:
+        expr: x == state.owner_username
+      parent_id:
+        eq: null
+  - entity: Comment
+    collection: comments
+    desc: Reply under u/CompileError's comment with the exact text
+    properties:
+      post_id:
+        expr: x == target['comment_id']
+      parent_id:
+        expr: x == target['reply_id']
+      body:
+        expr: x == target['reply_text']
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: sent_messages
+    desc: Send the outreach message with the exact subject and body
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_sub']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   invariant:
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:
@@ -191,11 +236,12 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 7
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 7
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

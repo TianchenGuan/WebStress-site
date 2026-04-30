@@ -29,7 +29,8 @@ def _setup_session(seed: int):
 
 
 def _cancel_reservation(state, reservation_id: str) -> None:
-    state.cancel_reservation(reservation_id)
+    preview = state.compute_cancel_fee(reservation_id)
+    state.cancel_reservation(reservation_id, fee_accepted=preview["fee_amount"])
 
 
 def _evaluate(task, initial, state, targets):

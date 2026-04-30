@@ -1,12 +1,10 @@
 task_id: pp_treatment_cost_comparison
 env_id: patient_portal
 title: Treatment Cost Comparison
-instruction_template: Review your deductible progress, your existing approved claim
-  balances, and the approved pre-authorized procedure referral. After reviewing those
-  costs, schedule exactly one PCP appointment in the next available slot with the
-  reason exactly "Treatment cost comparison review". Do not send any messages, do
-  not schedule any other appointments, and do not modify prescriptions, claims, or
-  referrals.
+instruction_template: Review your deductible progress, your existing approved claim balances, and the approved pre-authorized
+  procedure referral. After reviewing those costs, schedule exactly one PCP appointment in the next available slot with the
+  reason exactly "Treatment cost comparison review". Do not send any messages, do not schedule any other appointments, and
+  do not modify prescriptions, claims, or referrals.
 difficulty: hard
 time_limit_seconds: 420
 expected_steps: 10
@@ -14,7 +12,7 @@ primary_primitives:
 - state_tracking
 start_path: /billing
 seed:
-  distractors: 10
+  distractors: 14
   steps:
   - use: patient_profile
     params:
@@ -69,8 +67,8 @@ seed:
     - upcoming_ids
   - use: insurance_claims
     params:
-      approved_count: 3
-      denied_count: 1
+      approved_count: 5
+      denied_count: 3
       processing_count: 1
       with_eob: true
     outputs:
@@ -88,66 +86,68 @@ seed:
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
   create:
-    - entity: Appointment
-      desc: "Schedule one PCP appointment at the next available slot for treatment cost comparison review"
-      properties:
-        status: {eq: "scheduled"}
-        provider_id:
-          expr: "x == target['pcp_id']"
-        reason: {eq: "Treatment cost comparison review"}
-        datetime:
-          expr: >
-            x == min(s.datetime for p in initial.providers
-                     if p.id == target['pcp_id'] for s in p.available_slots)
+  - entity: Appointment
+    desc: Schedule one PCP appointment at the next available slot for treatment cost comparison review
+    properties:
+      status:
+        eq: scheduled
+      provider_id:
+        expr: x == target['pcp_id']
+      reason:
+        eq: Treatment cost comparison review
+      datetime:
+        expr: "x == min(s.datetime for p in initial.providers\n         if p.id == target['pcp_id'] for s in p.available_slots)\n"
   invariant:
-    - collection: state.appointments
-      filter: "a.id in target['upcoming_ids']"
-      preserve: ALL
-    - collection: state.prescriptions
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.pharmacies
-      preserve: ALL
-    - collection: state.providers
-      preserve: ALL
+  - collection: state.appointments
+    filter: a.id in target['upcoming_ids']
+    preserve: ALL
+  - collection: state.prescriptions
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not cancel or modify pre-existing appointments"
-      ref: invariant[0]
-      severity: high
-    - name: "Agent did not modify prescriptions"
-      ref: invariant[1]
-      severity: critical
-    - name: "Agent did not modify insurance claims (statuses or balances)"
-      ref: invariant[2]
-      severity: critical
-    - name: "Agent did not modify referrals (including the prior-auth referral)"
-      ref: invariant[3]
-      severity: critical
-    - name: "Agent did not send any messages"
-      ref: invariant[4]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[5]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[6]
-      severity: high
-    - name: "Agent did not modify pharmacies"
-      ref: invariant[7]
-      severity: medium
-    - name: "Agent did not modify providers"
-      ref: invariant[8]
-      severity: medium
-    - name: "Agent did not schedule more than one new PCP appointment"
-      ref: create[0]
-      severity: medium
+  - name: Agent did not cancel or modify pre-existing appointments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify prescriptions
+    ref: invariant[1]
+    severity: critical
+  - name: Agent did not modify insurance claims (statuses or balances)
+    ref: invariant[2]
+    severity: critical
+  - name: Agent did not modify referrals (including the prior-auth referral)
+    ref: invariant[3]
+    severity: critical
+  - name: Agent did not send any messages
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[5]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[6]
+    severity: high
+  - name: Agent did not modify pharmacies
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not modify providers
+    ref: invariant[8]
+    severity: medium
+  - name: Agent did not schedule more than one new PCP appointment
+    ref: create[0]
+    severity: medium
 secondary_primitives: []

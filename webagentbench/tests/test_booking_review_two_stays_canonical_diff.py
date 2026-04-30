@@ -69,11 +69,21 @@ def _make_review2(targets, suffix=""):
     )
 
 
+def _flip_rating_submitted(state, targets, key="reservation_id"):
+    res_id = targets.get(key)
+    if res_id:
+        res = state.get_reservation(res_id)
+        if res is not None:
+            res.rating_submitted = True
+
+
 def test_correct_trajectory_passes():
     for seed in (0, 3, 42):
         targets, initial_snap, initial_dict, state = _setup_session(seed=seed)
         state.reviews.append(_make_review1(targets, suffix=f"_{seed}"))
         state.reviews.append(_make_review2(targets, suffix=f"_{seed}"))
+        _flip_rating_submitted(state, targets, "res_id_1")
+        _flip_rating_submitted(state, targets, "res_id_2")
         report = _run(targets, initial_snap, initial_dict, state)
         assert report.passed is True, f"seed={seed} failures: {report.failures}"
         assert report.score == 1.0, f"seed={seed} expected 1.0, got {report.score}"

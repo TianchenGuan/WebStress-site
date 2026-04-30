@@ -110,6 +110,12 @@ def _apply_all_mutations(state, targets, suffix=""):
         stay_date="2026-05",
         created_at=now,
     ))
+    # Mirror route side-effect: flip rating_submitted on reviewed reservation
+    review_res_id = targets.get('review_res_id')
+    if review_res_id:
+        review_res = state.get_reservation(review_res_id)
+        if review_res is not None:
+            review_res.rating_submitted = True
 
 
 def test_correct_trajectory_passes():

@@ -1,19 +1,22 @@
 variant_id: gmail_update_contact__contacts_retry
 base_task_id: gmail_update_contact
 target_primitive: verification
-description: The first contact mutation fails transiently. The agent must confirm the contact cleanup
-  or note update actually persisted.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/gmail/contacts**'
     methods:
     - POST
     - PUT
     - DELETE
-    error_count: 1
-    error_status: 503
-    error_message: Temporary Gmail write failure. Retry the action.
+    fail_count: 1
+    response_body:
+      contact:
+        id: contact_a8c4d219
+        name: "\u2014"
+        email: "\u2014@example.com"
     behavior:
       mode: once

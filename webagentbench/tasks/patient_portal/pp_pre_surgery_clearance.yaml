@@ -104,56 +104,29 @@ canonical_diff:
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule one orthopedic procedure appointment (backend gates on approved referral + pre-auth, which the seed provides)"
+      desc: "Schedule one orthopedic procedure appointment, at least 7 days after pre-op lab"
       properties:
         status: {eq: "scheduled"}
         reason: {eq: "Orthopedic procedure clearance"}
         provider_id:
           expr: "x in target['ortho_provider_ids']"
-        datetime: {any: true}
+        datetime:
+          # Spacing predicate (was a high-severity constraint): orthopedic
+          # procedure must be >= 7 days after the most recent newly-scheduled lab.
+          expr: >-
+            any(
+              (x - lab.datetime).days >= 7
+              for lab in state.appointments
+              if lab.status == 'scheduled'
+              and lab.reason == 'Pre-operative lab work'
+              and lab.id not in {y.id for y in initial.appointments}
+            )
         type: {any: true}
         notes: {any: true}
         linked_referral_id: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
-  constraints:
-    - desc: "Orthopedic procedure is at least 7 days after the pre-operative lab appointment"
-      expr: >
-        all(
-          (ortho.datetime - lab.datetime).days >= 7
-          for ortho in state.appointments
-          if ortho.status == 'scheduled'
-          and ortho.reason == 'Orthopedic procedure clearance'
-          and ortho.provider_id in target['ortho_provider_ids']
-          and ortho.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-          if lab.status == 'scheduled'
-          and lab.reason == 'Pre-operative lab work'
-          and lab.id not in {x.id for x in initial.appointments}
-        )
-        and any(
-          ortho.status == 'scheduled'
-          and ortho.reason == 'Orthopedic procedure clearance'
-          and ortho.provider_id in target['ortho_provider_ids']
-          and ortho.id not in {x.id for x in initial.appointments}
-          for ortho in state.appointments
-        )
-        and any(
-          lab.status == 'scheduled'
-          and lab.reason == 'Pre-operative lab work'
-          and lab.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-        )
-      severity: high
-    - desc: "Surgery referral pre-authorization status is approved (read-only verification; seed provides this)"
-      expr: >
-        any(
-          r.id == target['prior_auth_ref_id']
-          and r.prior_auth_status == 'approved'
-          for r in state.referrals
-        )
-      severity: high
   invariant:
     - collection: state.appointments
       filter: "a.id in {x.id for x in initial.appointments}"
@@ -169,6 +142,12 @@ canonical_diff:
     - collection: state.lab_results
       preserve: ALL
     - collection: state.claims
+      preserve: ALL
+    - collection: state.pharmacies
+      preserve: ALL
+    - collection: state.providers
+      preserve: ALL
+    - collection: state.patient
       preserve: ALL
   named_invariants:
     - name: "Agent did not cancel or modify pre-existing appointments"

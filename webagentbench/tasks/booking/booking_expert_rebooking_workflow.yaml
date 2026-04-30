@@ -168,126 +168,160 @@ seed:
     check_out: '2026-06-20'
     guests: '2'
 canonical_diff:
-  constraints:
-    - desc: Smoking preference updated to non-smoking
-      expr: "state.travel_preferences.smoking == False"
-      severity: medium
-    - desc: Preferred bed type updated to queen
-      expr: "state.travel_preferences.preferred_bed_type == 'queen'"
-      severity: medium
   update:
-    - entity: Reservation
-      desc: Cancel the original reservation
-      where:
-        id: {expr: "x == target['original_res_id']"}
-      changes:
-        status: {eq: cancelled}
+  - entity: Reservation
+    desc: Cancel the original reservation
+    where:
+      id:
+        expr: x == target['original_res_id']
+    changes:
+      status:
+        eq: cancelled
+  - entity: travel_preferences
+    desc: Smoking off and preferred bed type set to queen
+    where: {id: {eq: "__singleton_travel_preferences__"}}
+    changes:
+      smoking: {eq: false}
+      preferred_bed_type: {eq: queen}
   create:
-    - entity: Reservation
-      desc: Book replacement hotel with same dates using Mastercard
-      properties:
-        property_id: {expr: "x == target['replacement_id']"}
-        property_name: {any: true}
-        room_type_id: {any: true}
-        room_type_name: {any: true}
-        check_in: {eq: "2026-06-15"}
-        check_out: {eq: "2026-06-20"}
-        nights: {eq: 5}
-        guests: {any: true}
-        rooms: {any: true}
-        price_per_night: {any: true}
-        total_price: {any: true}
-        taxes_and_fees: {any: true}
-        currency: {any: true}
-        status: {eq: confirmed}
-        booked_at: {any: true}
-        guest_info: {any: true}
-        payment_method_id: {any: true}
-        cancellation_policy: {any: true}
-        confirmation_number: {any: true}
-        is_genius_deal: {any: true}
-        genius_discount: {any: true}
-        meals_included: {any: true}
-        rating_submitted: {any: true}
-    - entity: Message
-      desc: Feedback message to original hotel about better reviews
-      properties:
-        property_id: {expr: "x == target['original_id']"}
-        property_name: {any: true}
-        reservation_id: {any: true}
-        subject: {eq: "Feedback on Cancellation"}
-        body:
-          expr: "'better reviews' in x.lower()"
-        sender: {eq: guest}
-        read: {any: true}
-        created_at: {any: true}
-    - entity: SavedList
-      desc: Create Upgraded Picks list with replacement hotel
-      properties:
-        name: {eq: "Upgraded Picks"}
-        property_ids:
-          expr: "target['replacement_id'] in x"
-        created_at: {any: true}
-        updated_at: {any: true}
+  - entity: Reservation
+    desc: Book replacement hotel with same dates using Mastercard
+    properties:
+      property_id:
+        expr: x == target['replacement_id']
+      property_name:
+        any: true
+      room_type_id:
+        any: true
+      room_type_name:
+        any: true
+      check_in:
+        eq: '2026-06-15'
+      check_out:
+        eq: '2026-06-20'
+      nights:
+        eq: 5
+      guests:
+        any: true
+      rooms:
+        any: true
+      price_per_night:
+        any: true
+      total_price:
+        any: true
+      taxes_and_fees:
+        any: true
+      currency:
+        any: true
+      status:
+        eq: confirmed
+      booked_at:
+        any: true
+      guest_info:
+        any: true
+      payment_method_id:
+        any: true
+      cancellation_policy:
+        any: true
+      confirmation_number:
+        any: true
+      is_genius_deal:
+        any: true
+      genius_discount:
+        any: true
+      meals_included:
+        any: true
+      rating_submitted:
+        any: true
+  - entity: Message
+    desc: Feedback message to original hotel about better reviews
+    properties:
+      property_id:
+        expr: x == target['original_id']
+      property_name:
+        any: true
+      reservation_id:
+        any: true
+      subject:
+        eq: Feedback on Cancellation
+      body:
+        expr: '''better reviews'' in x.lower()'
+      sender:
+        eq: guest
+      read:
+        any: true
+      created_at:
+        any: true
+  - entity: SavedList
+    desc: Create Upgraded Picks list with replacement hotel
+    properties:
+      name:
+        eq: Upgraded Picks
+      property_ids:
+        expr: target['replacement_id'] in x
+      created_at:
+        any: true
+      updated_at:
+        any: true
   invariant:
-    - collection: state.reservations
-      filter: "a.id != target['original_res_id'] and a.property_id != target['replacement_id']"
-      preserve: ALL
-    - collection: state.messages
-      filter: "a.sender == 'property' or a.property_id != target['original_id']"
-      preserve: ALL
-    - collection: state.saved_lists
-      filter: "a.name != 'Upgraded Picks'"
-      preserve: ALL
-    - collection: state.properties
-      preserve: ALL
-    - collection: state.reviews
-      preserve: ALL
-    - collection: state.payment_methods
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    # Cancelling a reservation auto-generates a rebooking_suggestion
-    # (models/booking.py:752). These are system-only side effects —
-    # the agent has no UI to create them directly.
-    - collection: state.rebooking_suggestions
-      filter: "False"
-      preserve: ALL
-      comprehensive: true
+  - collection: state.reservations
+    filter: a.id != target['original_res_id'] and a.property_id != target['replacement_id']
+    preserve: ALL
+  - collection: state.messages
+    filter: a.sender == 'property' or a.property_id != target['original_id']
+    preserve: ALL
+  - collection: state.saved_lists
+    filter: a.name != 'Upgraded Picks'
+    preserve: ALL
+  - collection: state.properties
+    preserve: ALL
+  - collection: state.reviews
+    preserve: ALL
+  - collection: state.payment_methods
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.rebooking_suggestions
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent cancelled the original reservation
-      ref: update[0]
-      severity: critical
-    - name: Agent booked replacement hotel with same dates
-      ref: create[0]
-      severity: critical
-    - name: Agent sent feedback message to original hotel
-      ref: create[1]
-      severity: medium
-    - name: Agent created Upgraded Picks list with replacement hotel
-      ref: create[2]
-      severity: high
-    - name: Agent did not modify other reservations
-      ref: invariant[0]
-      severity: high
-    - name: Agent only messaged the original hotel
-      ref: invariant[1]
-      severity: medium
-    - name: Agent did not modify other saved lists
-      ref: invariant[2]
-      severity: medium
-    - name: Agent did not modify properties
-      ref: invariant[3]
-      severity: medium
-    - name: Agent did not create or modify reviews
-      ref: invariant[4]
-      severity: low
-    - name: Agent did not modify payment methods
-      ref: invariant[5]
-      severity: high
-    - name: Agent did not create spurious notifications
-      ref: invariant[6]
-      severity: low
-    - name: Rebooking suggestions are system-generated side effects
-      ref: invariant[7]
-      severity: low
+  - name: Agent cancelled the original reservation
+    ref: update[0]
+    severity: critical
+  - name: Travel preferences updated (no smoking, queen bed)
+    ref: update[1]
+    severity: medium
+  - name: Agent booked replacement hotel with same dates
+    ref: create[0]
+    severity: critical
+  - name: Agent sent feedback message to original hotel
+    ref: create[1]
+    severity: medium
+  - name: Agent created Upgraded Picks list with replacement hotel
+    ref: create[2]
+    severity: high
+  - name: Agent did not modify other reservations
+    ref: invariant[0]
+    severity: high
+  - name: Agent only messaged the original hotel
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not modify other saved lists
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not modify properties
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not create or modify reviews
+    ref: invariant[4]
+    severity: low
+  - name: Agent did not modify payment methods
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not create spurious notifications
+    ref: invariant[6]
+    severity: low
+  - name: Rebooking suggestions are system-generated side effects
+    ref: invariant[7]
+    severity: low

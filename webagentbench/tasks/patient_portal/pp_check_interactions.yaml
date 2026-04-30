@@ -1,11 +1,9 @@
 task_id: pp_check_interactions
 env_id: patient_portal
 title: Check Medication Interactions
-instruction_template: Check if any of your active prescriptions have listed drug interactions
-  with each other. In this seed there is an interacting pair, so schedule exactly
-  one follow-up appointment with your PCP at the next available slot. Use the appointment
-  reason exactly "Drug interaction review". Do not send any messages and do not discontinue
-  any medications.
+instruction_template: Check if any of your active prescriptions have listed drug interactions with each other. In this seed
+  there is an interacting pair, so schedule exactly one follow-up appointment with your PCP at the next available slot. Use
+  the appointment reason exactly "Drug interaction review". Do not send any messages and do not discontinue any medications.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 10
@@ -13,7 +11,7 @@ primary_primitives:
 - state_tracking
 start_path: /medications
 seed:
-  distractors: 6
+  distractors: 12
   steps:
   - use: patient_profile
     params:
@@ -46,7 +44,7 @@ seed:
     - default_pharmacy_id
   - use: prescription_cabinet
     params:
-      active_count: 4
+      active_count: 8
       expired_count: 1
       interaction_pair: true
     outputs:
@@ -59,79 +57,82 @@ seed:
     interacting_medications: '{output.interacting_medications}'
 canonical_diff:
   create:
-    - entity: Appointment
-      desc: "Schedule one PCP appointment at the next available slot for interaction review"
-      properties:
-        status: {eq: "scheduled"}
-        provider_id:
-          expr: "x == target['pcp_id']"
-        reason: {eq: "Drug interaction review"}
-        datetime:
-          expr: >
-            x == min(s.datetime for p in initial.providers
-                     if p.id == target['pcp_id'] for s in p.available_slots)
+  - entity: Appointment
+    desc: Schedule one PCP appointment at the next available slot for interaction review
+    properties:
+      status:
+        eq: scheduled
+      provider_id:
+        expr: x == target['pcp_id']
+      reason:
+        eq: Drug interaction review
+      datetime:
+        expr: "x == min(s.datetime for p in initial.providers\n         if p.id == target['pcp_id'] for s in p.available_slots)\n"
   invariant:
-    - collection: state.prescriptions
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
-    - collection: state.appointments
-      filter: "a.id in {x.id for x in initial.appointments}"
-      preserve: ALL
+  - collection: state.prescriptions
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.appointments
+    filter: a.id in {x.id for x in initial.appointments}
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not discontinue or modify prescriptions"
-      ref: invariant[0]
-      severity: critical
-    - name: "Agent did not send any messages"
-      ref: invariant[1]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[2]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[3]
-      severity: high
-    - name: "Agent did not touch insurance claims"
-      ref: invariant[4]
-      severity: critical
-    - name: "Agent did not touch referrals"
-      ref: invariant[5]
-      severity: high
-    - name: "Agent did not cancel or modify pre-existing appointments"
-      ref: invariant[6]
-      severity: high
+  - name: Agent did not discontinue or modify prescriptions
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not send any messages
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[3]
+    severity: high
+  - name: Agent did not touch insurance claims
+    ref: invariant[4]
+    severity: critical
+  - name: Agent did not touch referrals
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not cancel or modify pre-existing appointments
+    ref: invariant[6]
+    severity: high
 eval:
   source: server_state
   checks:
-  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n\
-      \  and a.provider_id == '{target.pcp_id}'\n  and a.reason == 'Drug interaction\
-      \ review'\n  and a.id not in state._initial_snapshot.get('appointments', {})\n\
-      ]) == 1"
+  - expr: "len([\n  a for a in state.appointments\n  if a.status == 'scheduled'\n  and a.provider_id == '{target.pcp_id}'\n\
+      \  and a.reason == 'Drug interaction review'\n  and a.id not in state._initial_snapshot.get('appointments', {})\n])\
+      \ == 1"
     desc: Exactly one PCP interaction-review appointment was scheduled
-  - expr: "any(\n  a.status == 'scheduled'\n  and a.provider_id == '{target.pcp_id}'\n\
-      \  and a.reason == 'Drug interaction review'\n  and a.datetime == min(\n   \
-      \ slot['datetime']\n    for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']\n\
-      \  )\n  and a.id not in state._initial_snapshot.get('appointments', {})\n  for\
-      \ a in state.appointments\n)"
+  - expr: "any(\n  a.status == 'scheduled'\n  and a.provider_id == '{target.pcp_id}'\n  and a.reason == 'Drug interaction\
+      \ review'\n  and a.datetime == min(\n    slot['datetime']\n    for slot in state._initial_snapshot['providers']['{target.pcp_id}']['available_slots']\n\
+      \  )\n  and a.id not in state._initial_snapshot.get('appointments', {})\n  for a in state.appointments\n)"
     desc: The interaction-review appointment used the next available PCP slot
-  - expr: "len([r for r in state.prescriptions\n     if r.id in {target.interacting_rx_ids}\n\
-      \     and r.status == 'active']) == 2"
+  - expr: "len([r for r in state.prescriptions\n     if r.id in {target.interacting_rx_ids}\n     and r.status == 'active'])\
+      \ == 2"
     desc: Both interacting prescriptions remain active
   negative_checks:
-  - expr: "len([\n  m for m in state.messages\n  if m.from_type == 'patient'\n  and\
-      \ m.id not in state._initial_snapshot.get('messages', {})\n]) == 0"
+  - expr: "len([\n  m for m in state.messages\n  if m.from_type == 'patient'\n  and m.id not in state._initial_snapshot.get('messages',\
+      \ {})\n]) == 0"
     desc: Agent did not send any patient messages
     penalty: 0.2
-  - expr: "len([\n  a for a in state.appointments\n  if a.id not in state._initial_snapshot.get('appointments',\
-      \ {})\n]) == 1"
+  - expr: "len([\n  a for a in state.appointments\n  if a.id not in state._initial_snapshot.get('appointments', {})\n]) ==\
+      \ 1"
     desc: Agent created exactly one new appointment
     penalty: 0.15
 secondary_primitives: []

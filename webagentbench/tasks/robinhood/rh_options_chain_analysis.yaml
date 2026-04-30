@@ -33,17 +33,7 @@ canonical_diff:
     desc: Buy 1 TSLA put with highest open interest within 2 weeks
     properties:
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: Bought the correct highest-OI TSLA put within 2 weeks
-    expr: "state.highest_open_interest_contract('TSLA', option_type='put', max_days=14) is not None and any(any(leg.underlying_symbol == 'TSLA' and leg.option_type == 'put' and leg.side == 'buy' and leg.strike == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).strike and leg.expiration == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).expiration for leg in oo.legs) for oo in state.options_orders)"
-    severity: critical
-  - desc: Exactly 1 contract purchased
-    expr: "any(any(leg.quantity == 1 and leg.option_type == 'put' and leg.side == 'buy' and leg.underlying_symbol == 'TSLA' for leg in oo.legs) for oo in state.options_orders)"
-    severity: critical
-  - desc: No equity orders placed
-    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+      legs: {expr: "all(leg['underlying_symbol'] == 'TSLA' and leg['option_type'] == 'put' and leg['side'] == 'buy' and leg['quantity'] == 1 and state.highest_open_interest_contract('TSLA', option_type='put', max_days=14) is not None and leg['strike'] == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).strike and leg['expiration'] == state.highest_open_interest_contract('TSLA', option_type='put', max_days=14).expiration for leg in x)"}
   invariant:
   - collection: state.positions
     preserve: ALL

@@ -53,22 +53,113 @@ seed:
   targets:
     watchlist_name: Income Ideas
 canonical_diff:
-  constraints:
-  - desc: All low-yield positions sold at limit price
-    expr: "all(any(o.side == 'sell' and o.symbol == sym and o.order_type == 'limit' and not o.id.startswith('ord_decoy_') for o in state.orders) for sym in state.positions_below_dividend_yield(Decimal('1')))"
-    severity: critical
-  - desc: Top 3 highest-yield watchlist stocks received buy orders
-    expr: "all(any(o.side == 'buy' and o.symbol == sym and not o.id.startswith('ord_decoy_') for o in state.orders) for sym in state.top_yield_symbols_from_watchlist(target['watchlist_name'], 3))"
-    severity: critical
-  - desc: BND and SCHD received buy orders
-    expr: "any(o.side == 'buy' and o.symbol == 'BND' and not o.id.startswith('ord_decoy_') for o in state.orders) and any(o.side == 'buy' and o.symbol == 'SCHD' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
-  - desc: Only low-yield positions were sold
-    expr: "not any(o.side == 'sell' and o.symbol not in state.positions_below_dividend_yield(Decimal('1')) and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No transfers initiated
-    expr: "len(state.transfers) == 0"
-    severity: high
+  create:
+  - entity: orders
+    desc: Buy order for BND (30% allocation)
+    properties:
+      symbol: {eq: BND}
+      side: {eq: buy}
+      order_type: {any: true}
+      quantity: {any: true}
+      status: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: orders
+    desc: Buy order for SCHD (20% allocation)
+    properties:
+      symbol: {eq: SCHD}
+      side: {eq: buy}
+      order_type: {any: true}
+      quantity: {any: true}
+      status: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: orders
+    desc: Limit sell order for each low-yield position
+    bijection:
+      over: "initial.positions_below_dividend_yield(Decimal('1'))"
+      variable: v
+    properties:
+      symbol: {expr: "x == v"}
+      side: {eq: sell}
+      order_type: {eq: limit}
+      status: {any: true}
+      quantity: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: orders
+    desc: Buy order for each top-3 highest-yield watchlist stock
+    bijection:
+      over: "initial.top_yield_symbols_from_watchlist(target['watchlist_name'], 3)"
+      variable: v
+    properties:
+      symbol: {expr: "x == v"}
+      side: {eq: buy}
+      status: {any: true}
+      order_type: {any: true}
+      quantity: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "a.side == 'sell' and a.symbol not in initial.positions_below_dividend_yield(Decimal('1'))"
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.transactions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.orders
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []
 primitive_thesis: Measures planning, state_tracking, exploration, grounding, verification
   by requiring exact completion of the requested Robinhood workflow while ignoring

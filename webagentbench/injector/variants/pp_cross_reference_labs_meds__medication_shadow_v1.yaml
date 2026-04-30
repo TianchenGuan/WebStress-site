@@ -1,7 +1,9 @@
 variant_id: pp_cross_reference_labs_meds__medication_shadow_v1
 base_task_id: pp_cross_reference_labs_meds
 target_primitive: state_tracking
-description: Extra active medications are added to the cabinet. The agent must keep track of the seeded target medications instead of acting on unrelated but plausible prescriptions.
+description: Extra active medications are added to the cabinet. The agent must keep track of the seeded target medications
+  instead of acting on unrelated but plausible prescriptions. Decoys include boundary-case lookalikes (matching entity type,
+  similar timestamps, and near-threshold values) that force the agent to apply strict filters rather than match by category.
 injections:
 - layer: seed
   params:
@@ -24,4 +26,58 @@ injections:
       last_filled: '2025-01-10T08:00:00+00:00'
       expires_at: '2026-12-01T08:00:00+00:00'
       status: active
+      interactions: []
+    - type: lab_result
+      test_name: Total Cholesterol
+      test_code: 2093-3
+      collected_at: '2026-01-10T08:00:00+00:00'
+      value: '199'
+      unit: mg/dL
+      reference_range: 0-200
+      flag: normal
+      status: resulted
+    - type: lab_result
+      test_name: Glucose Fasting
+      test_code: 1558-6
+      collected_at: '2026-01-12T08:00:00+00:00'
+      value: '100'
+      unit: mg/dL
+      reference_range: 70-99
+      flag: abnormal
+      status: resulted
+    - type: lab_result
+      test_name: Hemoglobin A1c
+      test_code: 4548-4
+      collected_at: '2025-11-30T08:00:00+00:00'
+      value: '5.7'
+      unit: '%'
+      reference_range: 4.0-5.6
+      flag: abnormal
+      status: resulted
+    - type: prescription
+      medication: Atorvastatin 20mg
+      dosage: 20mg
+      frequency: once daily
+      refills_remaining: 1
+      last_filled: '2025-12-20T08:00:00+00:00'
+      expires_at: '2026-05-20T08:00:00+00:00'
+      status: active
+      interactions: []
+    - type: prescription
+      medication: Metformin 500mg
+      dosage: 500mg
+      frequency: twice daily
+      refills_remaining: 0
+      last_filled: '2025-08-01T08:00:00+00:00'
+      expires_at: '2026-07-15T08:00:00+00:00'
+      status: active
+      interactions: []
+    - type: prescription
+      medication: Hydrochlorothiazide 25mg
+      dosage: 25mg
+      frequency: once daily
+      refills_remaining: 0
+      last_filled: '2025-09-15T08:00:00+00:00'
+      expires_at: '2026-02-01T08:00:00+00:00'
+      status: expired
       interactions: []

@@ -46,21 +46,23 @@ canonical_diff:
   - entity: recurring_investments
     desc: Weekly $50 recurring investment for highest yield-on-cost stock
     properties:
-      symbol: {expr: "x == target['best_yield_symbol']"}
-      frequency: {eq: weekly}
-      amount: {expr: "float(x) == 50.0"}
-      status: {eq: active}
-      next_execution_date: {any: true}
-  constraints:
-  - desc: Dividend reinvestment disabled (when low-yield stocks exist)
-    expr: "len(target['low_yield_symbols']) == 0 or state.settings.reinvest_dividends == False"
-    severity: critical
-  - desc: Exactly one weekly $50 recurring investment created
-    expr: "len([r for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 50.0 and r.status == 'active']) == 1"
-    severity: high
-  - desc: No equity orders placed
-    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+      symbol:
+        expr: x == target['best_yield_symbol']
+      frequency:
+        eq: weekly
+      amount:
+        expr: float(x) == 50.0
+      status:
+        eq: active
+      next_execution_date:
+        any: true
+  update:
+  - entity: settings
+    desc: Dividend reinvestment disabled (when low-yield stocks exist)
+    where:
+      id: {any: true}
+    changes:
+      reinvest_dividends: {expr: "len(target['low_yield_symbols']) == 0 or x == False"}
   invariant:
   - collection: state.positions
     preserve: ALL
@@ -71,6 +73,10 @@ canonical_diff:
   - collection: state.price_alerts
     preserve: ALL
   - collection: state.recurring_investments
-    filter: "a.symbol != target['best_yield_symbol']"
+    filter: a.symbol != target['best_yield_symbol']
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []

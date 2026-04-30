@@ -150,13 +150,40 @@ def action_to_trajectory_format(action: dict) -> dict:
     if "click" in action:
         return {"action": "click", "ref": str(action["click"]["index"])}
 
+    if "input" in action:
+        payload = action["input"]
+        result = {"action": "fill", "ref": str(payload["index"]), "value": payload["text"]}
+        if "clear" in payload:
+            result["clear"] = payload["clear"]
+        return result
+
     if "input_text" in action:
         payload = action["input_text"]
         return {"action": "fill", "ref": str(payload["index"]), "value": payload["text"]}
 
+    if "select_dropdown" in action:
+        payload = action["select_dropdown"]
+        return {"action": "select", "ref": str(payload["index"]), "value": payload["text"]}
+
     if "select_option" in action:
         payload = action["select_option"]
         return {"action": "select", "ref": str(payload["index"]), "value": payload["option"]}
+
+    if "dropdown_options" in action:
+        return {"action": "dropdown_options", "ref": str(action["dropdown_options"]["index"])}
+
+    if "scroll" in action:
+        payload = action["scroll"]
+        result: dict[str, Any] = {
+            "action": "scroll",
+            "direction": "down" if payload.get("down", True) else "up",
+        }
+        if "pages" in payload:
+            result["pages"] = payload["pages"]
+        idx = payload.get("index")
+        if idx is not None:
+            result["ref"] = str(idx)
+        return result
 
     for scroll_key in ("scroll_down", "scroll_up", "scroll_left", "scroll_right"):
         if scroll_key in action:
@@ -169,6 +196,25 @@ def action_to_trajectory_format(action: dict) -> dict:
 
     if "send_keys" in action:
         return {"action": "press", "key": action["send_keys"].get("keys", "")}
+
+    if "search_page" in action:
+        return {"action": "search_page", "value": action["search_page"].get("pattern", "")}
+
+    if "find_elements" in action:
+        return {"action": "find_elements", "value": action["find_elements"].get("selector", "")}
+
+    if "find_text" in action:
+        return {"action": "find_text", "value": action["find_text"].get("text", "")}
+
+    if "extract" in action:
+        return {"action": "extract", "value": action["extract"].get("query", "")}
+
+    if "screenshot" in action:
+        payload = action["screenshot"] or {}
+        result = {"action": "screenshot"}
+        if payload.get("file_name"):
+            result["value"] = payload["file_name"]
+        return result
 
     if "wait" in action:
         return {"action": "wait"}
@@ -219,22 +265,23 @@ def dom_element_to_target(tag_name: str, attributes: dict, text: str = "") -> di
 
 # ── 5. build_trajectory_step ─────────────────────────────────────────
 
-_ENV_PATH_RE = re.compile(r"/env/(?:gmail|robinhood)(/[^?]*)")
+_ENV_PATH_RE = re.compile(r"/env/[^/?#]+(?P<path>/[^?#]*)?")
 
 
 def _extract_replay_path(url: str) -> str:
-    """Extract path component after ``/env/gmail`` or ``/env/robinhood``."""
+    """Extract path component after ``/env/{env_id}`` for any environment."""
     m = _ENV_PATH_RE.search(url)
     if not m:
         return "/"
-    path = m.group(1)
+    path = m.group("path") or "/"
     # Normalise trailing slash to bare "/"
     return path if path and path != "/" else "/"
 
 
 def _get_action_index(action: dict) -> int | None:
     """Return the element index referenced by an action, or None."""
-    for key in ("click", "input_text", "select_option",
+    for key in ("click", "input", "input_text", "select_dropdown", "select_option",
+                "dropdown_options", "scroll",
                 "scroll_down", "scroll_up", "scroll_left", "scroll_right"):
         if key in action:
             return action[key].get("index")
@@ -250,29 +297,35 @@ def build_trajectory_step(
     url: str,
     status: str,
     elapsed: float,
+    action_results: list[dict] | None = None,
 ) -> dict:
     """Build one trajectory step matching the demo-site replay format."""
-    # Action conversion
-    if actions:
-        first = actions[0]
-        converted_action = action_to_trajectory_format(first)
-        idx = _get_action_index(first)
-    else:
-        converted_action = {"action": "unknown"}
-        idx = None
+    converted_actions = [action_to_trajectory_format(action) for action in actions]
+    if not converted_actions:
+        # Distinguish "the agent produced no tool call this turn" (noop) from
+        # "the agent produced an action shape we couldn't map" (unknown). The
+        # latter is the real coverage signal; conflating them inflates the
+        # unknown rate in trajectory-quality reports.
+        converted_actions = [{"action": "noop"}]
 
-    # Target lookup
-    targets: dict = {}
-    if idx is not None and idx in dom_elements:
+    def _target_for(action: dict) -> dict:
+        idx = _get_action_index(action)
+        if idx is None or idx not in dom_elements:
+            return {}
         elem = dom_elements[idx]
         if isinstance(elem, tuple):
-            targets = dom_element_to_target(*elem)
-        else:
-            targets = dom_element_to_target(
-                elem.get("tag_name", ""),
-                elem.get("attributes", {}),
-                elem.get("text", ""),
-            )
+            return dom_element_to_target(*elem)
+        return dom_element_to_target(
+            elem.get("tag_name", ""),
+            elem.get("attributes", {}),
+            elem.get("text", ""),
+        )
+
+    action_targets = [_target_for(action) for action in actions]
+
+    # Legacy single-action fields remain for old visualizers/replayers.
+    converted_action = converted_actions[0]
+    targets = action_targets[0] if action_targets else {}
 
     replay_path = _extract_replay_path(url)
 
@@ -280,7 +333,11 @@ def build_trajectory_step(
         "step": step_num,
         "thought": thinking,
         "action": converted_action,
+        "actions": converted_actions,
+        "raw_actions": actions,
         "targets": targets,
+        "action_targets": action_targets,
+        "action_results": action_results or [],
         "status": status,
         "elapsed_seconds": elapsed,
         "replay_path": replay_path,

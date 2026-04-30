@@ -1,11 +1,9 @@
 variant_id: amazon_prime_enable_and_free_shipping__settings_retry
 base_task_id: amazon_prime_enable_and_free_shipping
 target_primitive: backtracking
-description: >
-  The first settings PUT (the one that flips Prime membership to on)
-  returns 503. The agent must notice that Prime was not actually enabled
-  and re-submit the setting before attempting checkout — otherwise the
-  order incurs shipping and the task fails.
+description: "The first settings PUT (the one that flips Prime membership to on) returns 503. The agent must notice that Prime\
+  \ was not actually enabled and re-submit the setting before attempting checkout \u2014 otherwise the order incurs shipping\
+  \ and the task fails.\n"
 injections:
 - layer: network
   params:
@@ -15,6 +13,6 @@ injections:
     - PUT
     error_count: 1
     error_status: 503
-    error_message: Account settings are temporarily unavailable. Retry the request.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

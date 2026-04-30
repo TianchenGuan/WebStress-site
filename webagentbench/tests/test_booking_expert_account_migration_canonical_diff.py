@@ -46,7 +46,7 @@ def _apply_correct_actions(state, targets):
     # Add Amex 4444 (use unique IDs to avoid collision with seeded pm_6)
     pm_amex = PaymentMethod(
         id="pm_new_amex_4444",
-        card_type="American Express",
+        card_type="Amex",
         last_four="4444",
         expiry="09/29",
         holder_name="Jordan A. Parker",
@@ -89,7 +89,7 @@ def test_missing_visa_fails():
     # Add only Amex, not Visa
     pm_amex = PaymentMethod(
         id="pm_new_amex_4444",
-        card_type="American Express",
+        card_type="Amex",
         last_four="4444",
         expiry="09/29",
         holder_name="Jordan A. Parker",

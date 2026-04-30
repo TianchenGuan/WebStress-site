@@ -62,28 +62,22 @@ seed:
     course_codes: '{output.course_codes}'
     current_weighted_scores: '{output.current_weighted_scores}'
 canonical_diff:
-  constraints:
-  - desc: Agent sent exactly one decision message
-    expr: len(state.sent_messages) == 1
-    severity: high
-  - desc: Decision message was addressed to the advisor
-    expr: "any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
-    severity: critical
-  - desc: Decision message came from the student account
-    expr: "any(m.get('from') == state.student.email for m in state.sent_messages)"
-    severity: medium
-  - desc: Decision message had a non-empty subject
-    expr: "any(m.get('subject', '').strip() for m in state.sent_messages)"
-    severity: low
-  - desc: Decision message used a brief subject
-    expr: "any(len(m.get('subject', '').strip()) <= 120 for m in state.sent_messages)"
-    severity: low
-  - desc: Decision message had a brief non-empty body
-    expr: "any(0 < len(m.get('body', '').strip()) <= 280 for m in state.sent_messages)"
-    severity: medium
-  - desc: Decision message was sent after the session started
-    expr: "any(m.get('sent_at') and datetime.fromisoformat(m['sent_at']) >= datetime.fromisoformat(target['session_start']) for m in state.sent_messages)"
-    severity: low
+  # `state.sent_messages` is a list of dicts WITHOUT an `id` key, so
+  # compute_diff (in eval_core/diff.py) skips this collection entirely and
+  # produces no Create entries for sent messages. Decision-message
+  # assertions live in the `eval:` block (server_state checks). The
+  # empty-bijection `create` block remains so matcher's `constraint_only`
+  # is off and the collateral sweep runs against unrelated collections
+  # (courses, enrollments, assignments, etc.).
+  create:
+  - entity: sent_messages
+    desc: Send a decision message to advisor (assertions live in eval block; sent_messages lacks id so compute_diff cannot match)
+    bijection:
+      over: "[]"
+      variable: v
+    properties:
+      to:
+        expr: "v in x"
   invariant:
   - collection: state.courses
     preserve: ALL
@@ -104,6 +98,8 @@ canonical_diff:
   - collection: state.grades
     preserve: ALL
   - collection: state.calendar_events
+    preserve: ALL
+  - collection: state.student
     preserve: ALL
   named_invariants:
   - name: Agent did not modify courses

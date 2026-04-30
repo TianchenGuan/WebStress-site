@@ -97,22 +97,6 @@ canonical_diff:
       variable: v
     where:
       id: {expr: "x == v.id"}
-  constraints:
-  - desc: No stale alerts remain
-    expr: "len(state.stale_alert_symbols()) == 0"
-    severity: critical
-  - desc: No empty watchlists remain
-    expr: "not any(len(wl.symbols) == 0 for wl in state.watchlists)"
-    severity: critical
-  - desc: No overdue recurring investments remain
-    expr: "len(state.overdue_recurring_investments()) == 0"
-    severity: critical
-  - desc: Exactly one deposit of $2,500 initiated
-    expr: "len([t for t in state.transfers if t.direction == 'deposit' and float(t.amount) == 2500.0]) == 1"
-    severity: critical
-  - desc: Non-empty watchlists preserved
-    expr: "state.watchlist_named('My Picks') is not None"
-    severity: high
   invariant:
   - collection: state.positions
     preserve: ALL

@@ -56,25 +56,15 @@ seed:
 canonical_diff:
   create:
   - entity: options_orders
-    desc: Buy-to-close order for expiring call
+    desc: Buy-to-close order for expiring call (within 7 days of expiry)
     properties:
       status: {in: [pending, filled]}
-      legs: {any: true}
+      legs: {expr: "any(leg['side'] == 'buy' and leg['option_type'] == 'call' and state.days_until(leg['expiration']) <= 7 for leg in x)"}
   - entity: options_orders
-    desc: Sell-to-open new call at next expiration
+    desc: Sell-to-open new call at 14-45 days, ~5% OTM
     properties:
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: Bought back the expiring call within 7 days of expiry
-    expr: "any(leg.side == 'buy' and leg.option_type == 'call' and state.days_until(leg.expiration) <= 7 for oo in state.options_orders_for_symbol(target['symbol']) for leg in oo.legs)"
-    severity: critical
-  - desc: Sold new call at 14-45 days out and ~5% OTM
-    expr: "any(leg.side == 'sell' and leg.option_type == 'call' and state.days_until(leg.expiration) >= 14 and state.days_until(leg.expiration) <= 45 and leg.strike >= state.get_stock(target['symbol']).price * Decimal('1.03') and leg.strike <= state.get_stock(target['symbol']).price * Decimal('1.07') for oo in state.options_orders_for_symbol(target['symbol']) for leg in oo.legs)"
-    severity: critical
-  - desc: No equity orders placed
-    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+      legs: {expr: "any(leg['side'] == 'sell' and leg['option_type'] == 'call' and state.days_until(leg['expiration']) >= 14 and state.days_until(leg['expiration']) <= 45 and leg['strike'] >= state.get_stock(target['symbol']).price * Decimal('1.03') and leg['strike'] <= state.get_stock(target['symbol']).price * Decimal('1.07') for leg in x)"}
   invariant:
   - collection: state.positions
     preserve: ALL

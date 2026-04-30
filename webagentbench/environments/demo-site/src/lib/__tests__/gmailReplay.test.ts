@@ -20,6 +20,10 @@ import { buildGmailReplayStepStates } from "../gmailReplay";
 import type { GmailReplayStepState } from "../gmailReplay";
 import { gmailMutator } from "@webagentbench/gmail/mutator";
 
+function getQueryParams(route: string) {
+  return new URL(`https://example.test${route}`).searchParams;
+}
+
 function makeFixture() {
   return {
     env_id: "gmail",
@@ -137,6 +141,16 @@ describe("buildGmailReplayStepStates", () => {
 
   // 9d: click action on email thread
   it("click on Open thread triggers email read mutation", () => {
+    const fixture = makeFixture();
+    (gmailMutator as any).mockImplementation(
+      (state: any, method: string, path: string, body?: any, query?: any) => {
+        if (method === "GET" && path === "emails") {
+          return { response: { items: fixture.emails } };
+        }
+        return { response: {} };
+      },
+    );
+
     const steps = [
       makeStep({
         step: 0,
@@ -146,7 +160,7 @@ describe("buildGmailReplayStepStates", () => {
       }),
     ];
 
-    buildGmailReplayStepStates(makeFixture() as any, steps);
+    buildGmailReplayStepStates(fixture as any, steps);
 
     // Should have called gmailMutator to mark email as read
     expect(gmailMutator).toHaveBeenCalledWith(
@@ -331,5 +345,153 @@ describe("buildGmailReplayStepStates", () => {
       }),
       undefined,
     );
+  });
+
+  it("prefers the next replay path when result_path is stale", () => {
+    const steps = [
+      makeStep({
+        step: 0,
+        action: { action: "click", ref: 1 },
+        targets: { ref: { role: "button", name: "Compose a new message" } },
+        replay_path: "/inbox",
+        result_path: "/inbox",
+        status: "",
+      }),
+      makeStep({
+        step: 1,
+        action: { action: "fill", ref: 2, value: "alice@example.com" },
+        targets: { ref: { role: "textbox", name: "Recipients" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+    ];
+
+    const result = buildGmailReplayStepStates(makeFixture() as any, steps);
+    expect(result[0].displayRoute).toContain("/compose");
+  });
+
+  it("does not apply failed fill actions to replay drafts", () => {
+    const steps = [
+      makeStep({
+        step: 0,
+        action: { action: "fill", ref: 1, value: "should-not-stick@example.com" },
+        targets: { ref: { role: "textbox", name: "Recipients" } },
+        replay_path: "/compose",
+        status: "ERROR: ValueError: Received an empty action.",
+      }),
+    ];
+
+    const result = buildGmailReplayStepStates(makeFixture() as any, steps);
+    const params = getQueryParams(result[0].displayRoute);
+
+    expect(params.get("replayTo")).toBeNull();
+  });
+
+  it("shows in-progress search text in the shell query string before submit", () => {
+    const steps = [
+      makeStep({
+        step: 0,
+        action: { action: "fill", ref: 1, value: "vendor security" },
+        targets: { ref: { role: "searchbox", name: "Search mail" } },
+        replay_path: "/inbox?label=inbox",
+        status: "",
+      }),
+    ];
+
+    const result = buildGmailReplayStepStates(makeFixture() as any, steps);
+    const params = getQueryParams(result[0].displayRoute);
+
+    expect(params.get("q")).toBe("vendor security");
+  });
+
+  it("emits compose replay params for cc, bcc, subject, and attachments", () => {
+    const steps = [
+      makeStep({
+        step: 0,
+        action: { action: "click", ref: 1 },
+        targets: { ref: { role: "button", name: "Compose a new message" } },
+        replay_path: "/inbox",
+        status: "",
+      }),
+      makeStep({
+        step: 1,
+        action: { action: "click", ref: 2 },
+        targets: { ref: { role: "button", name: "Show CC field" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+      makeStep({
+        step: 2,
+        action: { action: "click", ref: 3 },
+        targets: { ref: { role: "button", name: "Show BCC field" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+      makeStep({
+        step: 3,
+        action: { action: "fill", ref: 4, value: "cc@example.com" },
+        targets: { ref: { role: "textbox", name: "Carbon copy recipients" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+      makeStep({
+        step: 4,
+        action: { action: "fill", ref: 5, value: "bcc@example.com" },
+        targets: { ref: { role: "textbox", name: "Blind carbon copy recipients" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+      makeStep({
+        step: 5,
+        action: { action: "fill", ref: 6, value: "Replay subject" },
+        targets: { ref: { role: "textbox", name: "Email subject" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+      makeStep({
+        step: 6,
+        action: { action: "fill", ref: 7, value: "notes.txt" },
+        targets: { ref: { role: "textbox", name: "Attachment filenames" } },
+        replay_path: "/compose",
+        status: "",
+      }),
+    ];
+
+    const result = buildGmailReplayStepStates(makeFixture() as any, steps);
+    const params = getQueryParams(result[6].displayRoute);
+
+    expect(params.get("replayShowCc")).toBe("1");
+    expect(params.get("replayShowBcc")).toBe("1");
+    expect(params.get("replayCc")).toBe("cc@example.com");
+    expect(params.get("replayBcc")).toBe("bcc@example.com");
+    expect(params.get("replaySubject")).toBe("Replay subject");
+    expect(params.get("replayAttachments")).toBe("notes.txt");
+  });
+
+  it("emits replay params for unsaved settings and contacts drafts", () => {
+    const settingsSteps = [
+      makeStep({
+        step: 0,
+        action: { action: "fill", ref: 1, value: "Regards, Team" },
+        targets: { ref: { role: "textbox", name: "Email signature" } },
+        replay_path: "/settings",
+        status: "",
+      }),
+    ];
+    const contactSteps = [
+      makeStep({
+        step: 0,
+        action: { action: "fill", ref: 2, value: "Priya Patel" },
+        targets: { ref: { role: "textbox", name: "Contact name" } },
+        replay_path: "/labels",
+        status: "",
+      }),
+    ];
+
+    const settingsResult = buildGmailReplayStepStates(makeFixture() as any, settingsSteps);
+    const contactResult = buildGmailReplayStepStates(makeFixture() as any, contactSteps);
+
+    expect(getQueryParams(settingsResult[0].displayRoute).get("replaySignature")).toBe("Regards, Team");
+    expect(getQueryParams(contactResult[0].displayRoute).get("replayContactName")).toBe("Priya Patel");
   });
 });

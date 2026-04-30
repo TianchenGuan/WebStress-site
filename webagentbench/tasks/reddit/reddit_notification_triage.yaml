@@ -51,47 +51,59 @@ seed:
     action_msg_id: '{output.message_id}'
     reply_text: Thanks for the invite! I'd be happy to help moderate. Count me in.
 canonical_diff:
-  # Constraint-only form. Mark-all-notifications-read and mark-all-messages-read
-  # are aggregate mutations best scored via constraints; a mixed positive+
-  # constraint block would fire spurious unaccounted failures on every
-  # mark-read update.
-  constraints:
-  - desc: All notifications marked as read
-    expr: state.unread_notification_count() == 0
-    severity: high
-  - desc: Target message from u/{target.action_msg_from} marked as read
-    expr: state.get_message(target['action_msg_id']).is_read
-    severity: high
-  - desc: Reply sent with exact required text
-    expr: any(m.to_user == target['action_msg_from'] and m.body == target['reply_text'] and m.from_user == state.owner_username for m in state.sent_messages)
-    severity: high
-  - desc: All inbox messages marked as read
-    expr: state.unread_message_count() == 0
-    severity: high
-  - desc: Email on comment replies disabled
-    expr: not state.settings.email_comment_reply
-    severity: high
-  - desc: Email on post replies not accidentally changed
-    expr: state.settings.email_post_reply == initial.settings.email_post_reply
-    severity: medium
-  - desc: Email on mentions not accidentally changed
-    expr: state.settings.email_mentions == initial.settings.email_mentions
-    severity: medium
-  - desc: Theme not accidentally changed
-    expr: state.settings.theme == initial.settings.theme
-    severity: medium
-  - desc: No messages deleted
-    expr: len(state.messages) == len(initial.messages)
-    severity: medium
-  - desc: No excessive outbound messages beyond the single reply
-    expr: len(state.sent_messages) <= len(initial.sent_messages) + 1
-    severity: medium
-  - desc: No posts created by the owner
-    expr: sum(1 for p in state.posts if p.author_name == state.owner_username) == sum(1 for p in initial.posts if p.author_name == state.owner_username)
-    severity: medium
+  update:
+  - entity: Notification
+    desc: All initially-unread notifications marked as read
+    bijection:
+      over: '[n.id for n in initial.notifications if not n.is_read]'
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Message
+    collection: state.messages
+    desc: All initially-unread inbox messages marked as read
+    bijection:
+      over: '[m.id for m in initial.messages if not m.is_read]'
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      email_comment_reply: { eq: false }
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: Reply composed to the target message sender with exact required text
+    properties:
+      to_user:
+        expr: x == target['action_msg_from']
+      body:
+        expr: x == target['reply_text']
+      from_user:
+        expr: x == state.owner_username
   invariant:
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:

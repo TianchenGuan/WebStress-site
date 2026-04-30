@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
@@ -73,6 +73,15 @@ class ChatMessage(BaseModel):
 
 
 class BaseEnvState(BaseModel):
+    # Top-level fields the canonical_diff system should NOT walk: framework
+    # bookkeeping (env/task ids, timestamps), event logs (audit, chat), and
+    # other metadata that mutates on every request. Subclasses extend this
+    # tuple to silence env-specific noise (id_counters, password_hash, etc.).
+    DIFF_IGNORE_FIELDS: ClassVar[tuple[str, ...]] = (
+        "env_id", "task_id", "created_at", "updated_at",
+        "audit_log", "benchmark_state", "chat",
+    )
+
     env_id: str
     task_id: str
     created_at: datetime = Field(default_factory=utc_now)

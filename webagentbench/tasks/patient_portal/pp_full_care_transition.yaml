@@ -1,12 +1,10 @@
 task_id: pp_full_care_transition
 env_id: patient_portal
 title: Full Care Continuity Review
-instruction_template: 'Complete a continuity-of-care review across your active providers:
-  1) Schedule exactly one PCP appointment with reason "Care continuity review", 2)
-  Schedule exactly one cardiology appointment with reason "Cardiology continuity visit",
-  3) Schedule exactly one endocrinology appointment with reason "Endocrinology continuity
-  visit". Do not send any messages, do not cancel any existing specialist appointments,
-  and do not modify any prescriptions.'
+instruction_template: 'Complete a continuity-of-care review across your active providers: 1) Schedule exactly one PCP appointment
+  with reason "Care continuity review", 2) Schedule exactly one cardiology appointment with reason "Cardiology continuity
+  visit", 3) Schedule exactly one endocrinology appointment with reason "Endocrinology continuity visit". Do not send any
+  messages, do not cancel any existing specialist appointments, and do not modify any prescriptions.'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 50
@@ -14,7 +12,7 @@ primary_primitives:
 - exploration
 start_path: /
 seed:
-  distractors: 10
+  distractors: 14
   steps:
   - use: patient_profile
     params:
@@ -55,7 +53,7 @@ seed:
     - default_pharmacy_id
   - use: prescription_cabinet
     params:
-      active_count: 5
+      active_count: 9
       expired_count: 1
       interaction_pair: true
     outputs:
@@ -73,7 +71,7 @@ seed:
     - pending_ref_ids
   - use: appointment_history
     params:
-      upcoming_count: 3
+      upcoming_count: 5
       completed_count: 3
     outputs:
     - upcoming_ids
@@ -85,105 +83,121 @@ seed:
     active_rx_ids: '{output.active_rx_ids}'
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
-  # Positive signals: three distinct new Appointments — one PCP, one
-  # cardiology, one endocrinology — each with the required exact reason
-  # string. Specialist appointments are bound to the seeded specialist
-  # provider sets; PCP is bound to target.pcp_id. All three are required
-  # to be status=scheduled.
   create:
-    - entity: Appointment
-      desc: "Schedule one PCP continuity-review appointment"
-      properties:
-        status: {eq: "scheduled"}
-        provider_id:
-          expr: "x == target['pcp_id']"
-        reason: {eq: "Care continuity review"}
-        datetime: {any: true}
-        type: {any: true}
-        notes: {any: true}
-        linked_referral_id: {any: true}
-        pre_auth_status: {any: true}
-        booked_at: {any: true}
-        location: {any: true}
-    - entity: Appointment
-      desc: "Schedule one cardiology continuity visit"
-      properties:
-        status: {eq: "scheduled"}
-        provider_id:
-          expr: "x in target['cardio_provider_ids']"
-        reason: {eq: "Cardiology continuity visit"}
-        datetime: {any: true}
-        type: {any: true}
-        notes: {any: true}
-        linked_referral_id: {any: true}
-        pre_auth_status: {any: true}
-        booked_at: {any: true}
-        location: {any: true}
-    - entity: Appointment
-      desc: "Schedule one endocrinology continuity visit"
-      properties:
-        status: {eq: "scheduled"}
-        provider_id:
-          expr: "x in target['endo_provider_ids']"
-        reason: {eq: "Endocrinology continuity visit"}
-        datetime: {any: true}
-        type: {any: true}
-        notes: {any: true}
-        linked_referral_id: {any: true}
-        pre_auth_status: {any: true}
-        booked_at: {any: true}
-        location: {any: true}
+  - entity: Appointment
+    desc: Schedule one PCP continuity-review appointment
+    properties:
+      status:
+        eq: scheduled
+      provider_id:
+        expr: x == target['pcp_id']
+      reason:
+        eq: Care continuity review
+      datetime:
+        any: true
+      type:
+        any: true
+      notes:
+        any: true
+      linked_referral_id:
+        any: true
+      pre_auth_status:
+        any: true
+      booked_at:
+        any: true
+      location:
+        any: true
+  - entity: Appointment
+    desc: Schedule one cardiology continuity visit
+    properties:
+      status:
+        eq: scheduled
+      provider_id:
+        expr: x in target['cardio_provider_ids']
+      reason:
+        eq: Cardiology continuity visit
+      datetime:
+        any: true
+      type:
+        any: true
+      notes:
+        any: true
+      linked_referral_id:
+        any: true
+      pre_auth_status:
+        any: true
+      booked_at:
+        any: true
+      location:
+        any: true
+  - entity: Appointment
+    desc: Schedule one endocrinology continuity visit
+    properties:
+      status:
+        eq: scheduled
+      provider_id:
+        expr: x in target['endo_provider_ids']
+      reason:
+        eq: Endocrinology continuity visit
+      datetime:
+        any: true
+      type:
+        any: true
+      notes:
+        any: true
+      linked_referral_id:
+        any: true
+      pre_auth_status:
+        any: true
+      booked_at:
+        any: true
+      location:
+        any: true
   invariant:
-    # Existing appointments (upcoming + completed history) must not be
-    # cancelled or modified. The three creates above are scoped to IDs
-    # not in the initial snapshot, so filtering over initial.appointments
-    # ids is equivalent to "preserve every pre-existing appointment".
-    - collection: state.appointments
-      filter: "a.id in {x.id for x in initial.appointments}"
-      preserve: ALL
-    # Prescriptions untouched — explicit instruction ("do not modify any
-    # prescriptions").
-    - collection: state.prescriptions
-      preserve: ALL
-    # No messages sent — explicit instruction ("do not send any messages").
-    - collection: state.messages
-      preserve: ALL
-    # Referrals are seeded as context (approved cardio/endo referrals are
-    # available) but the instruction does not ask the agent to create or
-    # modify them.
-    - collection: state.referrals
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.pharmacies
-      preserve: ALL
+  - collection: state.appointments
+    filter: a.id in {x.id for x in initial.appointments}
+    preserve: ALL
+  - collection: state.prescriptions
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not cancel or modify pre-existing appointments"
-      ref: invariant[0]
-      severity: high
-    - name: "Agent did not modify any prescriptions"
-      ref: invariant[1]
-      severity: high
-    - name: "Agent did not send any messages"
-      ref: invariant[2]
-      severity: high
-    - name: "Agent did not create or modify referrals"
-      ref: invariant[3]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[4]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[5]
-      severity: high
-    - name: "Agent did not touch insurance claims"
-      ref: invariant[6]
-      severity: critical
-    - name: "Agent did not modify pharmacies"
-      ref: invariant[7]
-      severity: medium
+  - name: Agent did not cancel or modify pre-existing appointments
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify any prescriptions
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not send any messages
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not create or modify referrals
+    ref: invariant[3]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[5]
+    severity: high
+  - name: Agent did not touch insurance claims
+    ref: invariant[6]
+    severity: critical
+  - name: Agent did not modify pharmacies
+    ref: invariant[7]
+    severity: medium
 secondary_primitives: []

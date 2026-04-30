@@ -29,6 +29,11 @@ def _setup_session(seed: int):
     return task, dict(targets), initial, state
 
 
+def _cancel(state, reservation_id: str) -> None:
+    preview = state.compute_cancel_fee(reservation_id)
+    state.cancel_reservation(reservation_id, fee_accepted=preview["fee_amount"])
+
+
 def _evaluate(task, initial, state, targets):
     agent_diff = compute_diff(initial, state)
     return match_diff(
@@ -38,7 +43,7 @@ def _evaluate(task, initial, state, targets):
 
 
 def _apply_correct_actions(state, targets):
-    state.cancel_reservation(targets["reservation_id"])
+    _cancel(state, targets["reservation_id"])
     msg = Message(
         id=state._next_id("msg"),
         property_id=targets["property_id"],
@@ -71,7 +76,7 @@ def test_no_mutation_fails():
 
 def test_cancel_without_message_fails():
     task, targets, initial, state = _setup_session(0)
-    state.cancel_reservation(targets["reservation_id"])
+    _cancel(state, targets["reservation_id"])
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "cancel without message should fail"
 

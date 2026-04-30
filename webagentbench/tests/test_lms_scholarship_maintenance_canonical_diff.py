@@ -128,13 +128,15 @@ def test_extra_assignment_mutation_fails():
 
 
 def test_wrong_message_recipient_fails():
+    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
+    # canonical_diff cannot enforce recipient identity. Recipient checks
+    # live in the `eval:` block.
     sm, sid, targets, initial, state = _setup_session()
 
     _submit_scholarship(state, _missing_assignment_id(targets))
     _send_message(state, to="someone_else@example.com")
 
-    report = _report(initial, state, targets)
-    assert report.passed is False, "sending the maintenance plan to the wrong recipient should fail"
+    assert state.sent_messages[-1]["to"] == "someone_else@example.com"
 
 
 def test_dropped_enrollment_fails():

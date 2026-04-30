@@ -35,6 +35,11 @@ def _apply_correct_state(targets, state):
             res.check_in = '2026-07-20'
             res.check_out = '2026-07-25'
             res.guest_info.special_requests = 'late checkout'
+    # Demote the previously-default card (mirrors add_payment_method side-effect
+    # when a new is_default=True card is added).
+    prev_pm = next((pm for pm in state.payment_methods if pm.id == targets['prev_default_pm_id']), None)
+    if prev_pm:
+        prev_pm.is_default = False
     state.payment_methods.append(PaymentMethod(
         id="pm_visa7777",
         card_type="Visa",
@@ -81,6 +86,10 @@ def _apply_correct_state(targets, state):
         traveled_with="couple",
         created_at=now,
     ))
+    # Mirror route side-effect: flip rating_submitted on reviewed reservation
+    review_res = state.get_reservation(targets['review_res_id'])
+    if review_res:
+        review_res.rating_submitted = True
     state.saved_lists.append(SavedList(
         id="sl_2026_fav",
         name="2026 Favorites",

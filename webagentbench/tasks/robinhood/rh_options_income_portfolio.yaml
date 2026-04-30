@@ -71,22 +71,57 @@ seed:
     outputs: []
   targets: {}
 canonical_diff:
-  constraints:
-  - desc: Covered call placed for every 100+ share position with an options chain
-    expr: "len([sym for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains]) >= 1 and all(any(any(leg.underlying_symbol == sym and leg.side == 'sell' and leg.option_type == 'call' for leg in oo.legs) for oo in state.options_orders_for_symbol(sym)) for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains)"
-    severity: critical
-  - desc: Cash-secured put placed for every sub-100-share position with an options chain
-    expr: "len([p for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains]) >= 1 and all(any(any(leg.underlying_symbol == p.symbol and leg.side == 'sell' and leg.option_type == 'put' for leg in oo.legs) for oo in state.options_orders_for_symbol(p.symbol)) for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains)"
-    severity: critical
-  - desc: No long option legs bought
-    expr: "not any(any(leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders if not oo.id.startswith('opt_decoy_'))"
-    severity: high
-  - desc: No equity orders placed
-    expr: "not any(o.side in ('buy', 'sell') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No transfers initiated
-    expr: "len(state.transfers) == 0"
-    severity: high
+  create:
+  - entity: options_orders
+    desc: Covered call placed for every 100+ share position with an options chain
+    bijection:
+      over: "[sym for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains]"
+      variable: v
+    properties:
+      legs: {expr: "any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'call' for leg in x)"}
+      status: {in: [filled, pending]}
+      strategy: {any: true}
+  - entity: options_orders
+    desc: Cash-secured put placed for every sub-100-share position with an options chain
+    bijection:
+      over: "[p.symbol for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains]"
+      variable: v
+    properties:
+      legs: {expr: "any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'put' for leg in x)"}
+      status: {in: [filled, pending]}
+      strategy: {any: true}
+  invariant:
+  - collection: state.options_orders
+    filter: "any(leg.side == 'buy' for leg in a.legs) and not a.id.startswith('opt_decoy_')"
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.options_orders
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.options_positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, exploration, grounding, verification
   by requiring exact completion of the requested Robinhood workflow while ignoring

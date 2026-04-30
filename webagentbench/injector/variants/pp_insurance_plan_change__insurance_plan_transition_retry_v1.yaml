@@ -1,27 +1,39 @@
 variant_id: pp_insurance_plan_change__insurance_plan_transition_retry_v1
 base_task_id: pp_insurance_plan_change
-target_primitive: backtracking
-description: The insurance plan transition hits one transient write failure on the plan update and one on the default-pharmacy update. The agent must retry both and verify the transition completed.
+target_primitive: verification
+description: The first write to insurance returns a fake successful response without persisting. The agent must verify that
+  the insurance plan_name actually changed in the profile before declaring the task done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/patient_portal/profile/insurance'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary insurance profile failure. Retry the insurance update.
-    behavior:
-      mode: once
-- layer: network
-  params:
-    action: error_then_success
-    url_pattern: '**/api/env/patient_portal/profile/pharmacy/*/set-default'
-    methods:
-    - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary pharmacy profile failure. Retry the default-pharmacy update.
+    fail_count: 1
+    response_body:
+      id: pat_c8a4f1b9d2
+      name: "\u2014"
+      sex: female
+      dob: '1985-03-12'
+      phone: (217) 555-1234
+      email: patient@example.com
+      insurance_plan:
+        plan_name: BlueCross PPO Standard
+        member_id: BC-22184790
+        group_number: G-44218
+        copay: '20.00'
+        deductible: '1000.00'
+        deductible_met: '0.00'
+      pcp_id: prov_a82c441f
+      allergies: []
+      conditions: []
+      pharmacy_ids: []
+      emergency_contact:
+        name: ''
+        phone: ''
+        relationship: ''
+      applicable_screenings: []
+      default_pharmacy: null
     behavior:
       mode: once

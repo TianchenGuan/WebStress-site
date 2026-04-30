@@ -59,6 +59,23 @@ seed:
     alternative_product_ids: '{output.alternative_product_ids}'
     oos_names_str: Ultrabook Laptop Sleeve 14-inch, Wireless Mouse Travel Edition
 canonical_diff:
+  delete:
+  - entity: wishlist
+    desc: Out-of-stock wishlist item removed
+    bijection:
+      over: "target['oos_product_ids']"
+      variable: v
+    where:
+      value: { expr: "x == v" }
+  create:
+  - entity: wishlist
+    desc: In-stock replacement from OOS category added
+    bijection:
+      over: "target['oos_product_ids']"
+      variable: v
+    properties:
+      value:
+        expr: "x not in {y for y in initial.wishlist} and any(p.id == x and p.in_stock and p.category == target['category_of_oos'] for p in state.products)"
   invariant:
   - collection: state.products
     preserve: ALL
@@ -82,22 +99,11 @@ canonical_diff:
     preserve: ALL
   - collection: state.notifications
     preserve: ALL
-  constraints:
-  - desc: Every out-of-stock wishlist item was removed
-    expr: "all(pid not in state.wishlist for pid in target['oos_product_ids'])"
-    severity: critical
-  - desc: The in-stock wishlist item was kept in the wishlist
-    expr: "all(pid in state.wishlist for pid in target['in_stock_kept_id'])"
-    severity: high
-  - desc: Wishlist size unchanged (one replacement per removed OOS item)
-    expr: "len(state.wishlist) == len(initial.wishlist)"
-    severity: medium
-  - desc: Replacements added must be in-stock items in the OOS category
-    expr: "all(any(p.id == pid and p.in_stock and p.category == target['category_of_oos'] for p in state.products) for pid in state.wishlist if pid not in target['oos_product_ids'] and pid not in {x for x in initial.wishlist})"
-    severity: high
-  - desc: At least one new wishlist entry was added from the OOS category
-    expr: "any(pid not in {x for x in initial.wishlist} for pid in state.wishlist)"
-    severity: high
+  - collection: state.wishlist
+    filter: "a.value not in target['oos_product_ids'] and a.value not in target['alternative_product_ids']"
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
   - name: Agent did not modify product catalog
     ref: invariant[0]
@@ -132,3 +138,9 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

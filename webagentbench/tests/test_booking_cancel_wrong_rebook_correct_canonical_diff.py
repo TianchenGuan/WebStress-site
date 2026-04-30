@@ -29,6 +29,11 @@ def _setup_session(seed: int):
     return task, dict(targets), initial, state
 
 
+def _cancel(state, reservation_id: str) -> None:
+    preview = state.compute_cancel_fee(reservation_id)
+    state.cancel_reservation(reservation_id, fee_accepted=preview["fee_amount"])
+
+
 def _evaluate(task, initial, state, targets):
     agent_diff = compute_diff(initial, state)
     return match_diff(
@@ -38,7 +43,7 @@ def _evaluate(task, initial, state, targets):
 
 
 def _apply_correct_actions(state, targets):
-    state.cancel_reservation(targets["wrong_res_id"])
+    _cancel(state, targets["wrong_res_id"])
     state.modify_reservation(
         targets["correct_res_id"],
         special_requests="Extra pillows and hypoallergenic bedding please. Celebrating anniversary.",
@@ -63,7 +68,7 @@ def test_no_mutation_fails():
 
 def test_cancel_wrong_reservation_only_fails():
     task, targets, initial, state = _setup_session(0)
-    state.cancel_reservation(targets["wrong_res_id"])
+    _cancel(state, targets["wrong_res_id"])
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "cancel only without modify should fail"
 
@@ -71,7 +76,7 @@ def test_cancel_wrong_reservation_only_fails():
 def test_wrong_cancel_target_fails():
     task, targets, initial, state = _setup_session(0)
     # Cancel the correct reservation instead of the wrong one
-    state.cancel_reservation(targets["correct_res_id"])
+    _cancel(state, targets["correct_res_id"])
     state.modify_reservation(
         targets["wrong_res_id"],
         special_requests="Extra pillows and hypoallergenic bedding. Celebrating anniversary.",

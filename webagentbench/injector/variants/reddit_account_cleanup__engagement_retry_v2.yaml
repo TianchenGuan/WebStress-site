@@ -1,9 +1,8 @@
 variant_id: reddit_account_cleanup__engagement_retry_v2
 base_task_id: reddit_account_cleanup
 target_primitive: backtracking
-description: The first comment-creation POST on the news post fails transiently. The
-  agent must verify the comment landed and retry if it did not. The pattern targets
-  the comments endpoint specifically so the single error budget is spent on the
+description: The first comment-creation POST on the news post fails transiently. The agent must verify the comment landed
+  and retry if it did not. The pattern targets the comments endpoint specifically so the single error budget is spent on the
   intended backtracking target, not on the earlier unsave bulk operations.
 injections:
 - layer: network
@@ -14,6 +13,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Temporary failure. Retry the request.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

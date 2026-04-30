@@ -95,13 +95,15 @@ canonical_diff:
       is_saved:
         eq: true
   - entity: Post
-    desc: Programming post saved
+    desc: Programming post saved (do not vote)
     where:
       id:
         expr: x == target['prog_id']
     changes:
       is_saved:
         eq: true
+      vote_direction:
+        eq: 0
   - entity: Notification
     desc: All unread notifications marked as read
     bijection:
@@ -113,6 +115,11 @@ canonical_diff:
     changes:
       is_read:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      default_feed_sort: { eq: top }
   create:
   - entity: Comment
     desc: Comment on science post with exact text
@@ -137,41 +144,29 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['msg_body']
-  constraints:
-  - desc: Feed sort set to top
-    expr: state.settings.default_feed_sort == 'top'
-    severity: high
-  - desc: Off-topic post recorded in hidden_post_ids
-    expr: "target['hide_id'] in state.hidden_post_ids"
-    severity: high
-  - desc: Science post recorded in saved_post_ids
-    expr: "target['sci_id'] in state.saved_post_ids"
-    severity: high
-  - desc: Programming post recorded in saved_post_ids
-    expr: "target['prog_id'] in state.saved_post_ids"
-    severity: high
-  - desc: Programming post was not voted on
-    expr: "state.get_post(target['prog_id']).vote_direction == 0"
-    severity: medium
   invariant:
   - collection: state.subreddits
     preserve: ALL
   - collection: state.posts
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
     preserve: ALL
   - collection: state.sent_messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Off-topic post hidden
     ref: update[0]
@@ -239,11 +234,12 @@ eval:
   - expr: len(state.hidden_post_ids) <= 1
     desc: Only one post hidden
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 3
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
 env_id: reddit

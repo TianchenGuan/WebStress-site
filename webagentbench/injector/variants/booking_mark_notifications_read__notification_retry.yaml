@@ -1,17 +1,18 @@
 variant_id: booking_mark_notifications_read__notification_retry
 base_task_id: booking_mark_notifications_read
 target_primitive: verification
-description: The first mark-all-read request fails transiently. The agent must verify unread notifications
-  are gone and retry if they remain.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/booking/notifications/read-all'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary booking API failure. Retry the action.
+    fail_count: 1
+    response_body:
+      updated: 0
+      marked_read: 0
     behavior:
       mode: once

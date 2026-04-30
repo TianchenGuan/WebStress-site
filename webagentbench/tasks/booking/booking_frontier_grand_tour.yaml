@@ -209,14 +209,13 @@ seed:
     review_prop_name: '{output.review_prop_name}'
     review_res_id: '{output.review_res_id}'
 canonical_diff:
-  constraints:
-    - desc: Preferred currency updated to EUR
-      expr: "state.travel_preferences.preferred_currency == 'EUR' or state.settings.currency == 'EUR'"
-      severity: medium
-    - desc: Preferred bed type updated to king
-      expr: "state.travel_preferences.preferred_bed_type == 'king'"
-      severity: medium
   update:
+    - entity: travel_preferences
+      desc: Preferred currency EUR and king bed
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_currency: {eq: EUR}
+        preferred_bed_type: {eq: king}
     - entity: Reservation
       desc: Review submission flips rating_submitted on the reviewed reservation
       where:
@@ -354,6 +353,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Travel preferences updated (EUR, king bed)
+      ref: update[0]
+      severity: medium
     - name: Agent created Grand Tour 2026 list with all three hotels
       ref: create[0]
       severity: high

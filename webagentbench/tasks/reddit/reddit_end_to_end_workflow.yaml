@@ -221,6 +221,19 @@ canonical_diff:
     changes:
       is_read:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      compact_view: { eq: true }
+      default_comment_sort: { eq: new }
+      show_online_status: { eq: false }
+      email_comment_reply: { eq: false }
+      email_post_reply: { eq: false }
+      email_mentions: { eq: false }
+      email_messages: { eq: false }
+      email_digest: { eq: false }
   create:
   - entity: Post
     desc: New post created in r/MachineLearning
@@ -267,61 +280,31 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['mb']
-  constraints:
-  - desc: CryptoSkeptic was blocked
-    expr: "target['block_user'] in state.blocked_users"
-    severity: high
-  - desc: Only CryptoSkeptic was blocked
-    expr: "state.blocked_users == [target['block_user']]"
-    severity: medium
-  - desc: CryptoSkeptic's post was added to hidden_post_ids
-    expr: "target['block_post_id'] in state.hidden_post_ids"
-    severity: high
-  - desc: Programming post was added to saved_post_ids
-    expr: "target['prog_id'] in state.saved_post_ids"
-    severity: high
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Compact view enabled
-    expr: state.settings.compact_view == True
-    severity: high
-  - desc: Comment sort set to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Show online status disabled
-    expr: state.settings.show_online_status == False
-    severity: high
-  - desc: All email notifications disabled
-    expr: "not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages and not state.settings.email_digest"
-    severity: high
-  - desc: Existing subscriptions preserved
-    expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-    severity: medium
-  - desc: Existing saved posts preserved
-    expr: "all(pid in state.saved_post_ids for pid in target['initial_saved_ids'])"
-    severity: medium
   invariant:
   - collection: state.subreddits
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.posts
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Subscribed to r/MachineLearning
     ref: update[0]
@@ -423,11 +406,12 @@ eval:
   - expr: all(pid in state.saved_post_ids for pid in {target.initial_saved_ids})
     desc: Existing saved posts were preserved
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) == 1
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) == 1
     desc: No extra direct messages were sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      4
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 4
     desc: No extra posts were created beyond the required MachineLearning post
     penalty: 0.15
   - expr: sum(1 for c in state.comments if c.author_name == state.owner_username and

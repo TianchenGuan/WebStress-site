@@ -61,26 +61,98 @@ seed:
   targets:
     watchlist_name: Growth Picks
 canonical_diff:
-  constraints:
-  - desc: Sell orders placed for tax-loss harvesting
-    expr: "any(o.side == 'sell' and o.status in ('filled', 'pending') and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
-  - desc: Protective put purchased for AAPL collar
-    expr: "any(o.status in ('filled', 'pending') and any(leg.side == 'buy' and leg.option_type == 'put' and leg.underlying_symbol == 'AAPL' for leg in o.legs) for o in state.options_orders)"
-    severity: critical
-  - desc: Covered call sold for AAPL collar
-    expr: "any(o.status in ('filled', 'pending') and any(leg.side == 'sell' and leg.option_type == 'call' and leg.underlying_symbol == 'AAPL' for leg in o.legs) for o in state.options_orders)"
-    severity: critical
-  - desc: Three weekly $100 recurring investments created for watchlist stocks
-    expr: "sum(1 for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 100.0 and r.status == 'active' and not r.id.startswith('ri_decoy_')) >= 3"
-    severity: critical
-  - desc: Recurring investments target watchlist symbols
-    expr: "all(r.symbol in ['SQ', 'PLTR', 'NVDA'] for r in state.recurring_investments if r.frequency == 'weekly' and float(r.amount) == 100.0 and r.status == 'active' and not r.id.startswith('ri_decoy_'))"
-    severity: high
-  - desc: AAPL (protected stock) not sold in tax-loss harvesting
-    expr: "not any(o.side == 'sell' and o.symbol == 'AAPL' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No transfers initiated
-    expr: "len(state.transfers) == 0"
-    severity: high
+  create:
+  - entity: recurring_investments
+    desc: Weekly $100 recurring investment for SQ
+    properties:
+      symbol: {eq: SQ}
+      amount: {expr: "float(x) == 100.0"}
+      frequency: {eq: weekly}
+      status: {eq: active}
+      next_execution_date: {any: true}
+      history: {any: true}
+  - entity: recurring_investments
+    desc: Weekly $100 recurring investment for PLTR
+    properties:
+      symbol: {eq: PLTR}
+      amount: {expr: "float(x) == 100.0"}
+      frequency: {eq: weekly}
+      status: {eq: active}
+      next_execution_date: {any: true}
+      history: {any: true}
+  - entity: recurring_investments
+    desc: Weekly $100 recurring investment for NVDA
+    properties:
+      symbol: {eq: NVDA}
+      amount: {expr: "float(x) == 100.0"}
+      frequency: {eq: weekly}
+      status: {eq: active}
+      next_execution_date: {any: true}
+      history: {any: true}
+  - entity: orders
+    desc: At least one sell order placed for tax-loss harvesting (not on AAPL)
+    properties:
+      side: {eq: sell}
+      status: {in: [filled, pending]}
+      symbol: {expr: "x != 'AAPL'"}
+      order_type: {any: true}
+      quantity: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: options_orders
+    desc: Protective put leg on AAPL (collar component)
+    properties:
+      status: {in: [filled, pending]}
+      legs: {expr: "any(leg['side'] == 'buy' and leg['option_type'] == 'put' and leg['underlying_symbol'] == 'AAPL' for leg in x)"}
+      strategy: {any: true}
+  - entity: options_orders
+    desc: Covered call leg on AAPL (collar component)
+    properties:
+      status: {in: [filled, pending]}
+      legs: {expr: "any(leg['side'] == 'sell' and leg['option_type'] == 'call' and leg['underlying_symbol'] == 'AAPL' for leg in x)"}
+      strategy: {any: true}
+  invariant:
+  - collection: state.orders
+    filter: "a.side == 'sell' and a.symbol == 'AAPL'"
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.transactions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.orders
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.options_orders
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.options_positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []

@@ -57,8 +57,40 @@ seed:
   targets:
     total_active_before: '{output.total_active_before}'
 canonical_diff:
-  constraints:
-  - desc: All recurring investments remain active (no stocks dropped 30%+, so no change needed)
-    expr: "all(r.status == 'active' for r in state.recurring_investments if not r.id.startswith('ri_decoy_'))"
-    severity: critical
+  update:
+  - entity: recurring_investments
+    desc: No-op slot to enable collateral sweep on read-only verify task
+    bijection:
+      over: "[]"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      status: {eq: paused}
+  invariant:
+  - collection: state.recurring_investments
+    filter: "True"
+    preserve: ALL
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.transactions
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
 secondary_primitives: []

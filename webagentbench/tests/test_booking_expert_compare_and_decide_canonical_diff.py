@@ -69,6 +69,10 @@ def _apply_correct_actions(state, targets):
         created_at=datetime.now(timezone.utc),
     )
     state.add_review(review)
+    # Mirror route side-effect: flip rating_submitted on reviewed reservation
+    completed_res = state.get_reservation(targets["completed_res_id"])
+    if completed_res:
+        completed_res.rating_submitted = True
 
 
 def test_correct_trajectory_passes():
@@ -117,5 +121,8 @@ def test_wrong_payment_fails():
         created_at=datetime.now(timezone.utc),
     )
     state.add_review(review)
+    completed_res = state.get_reservation(targets["completed_res_id"])
+    if completed_res:
+        completed_res.rating_submitted = True
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "wrong payment method should fail"

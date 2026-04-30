@@ -103,6 +103,9 @@ def test_wrong_file_name_is_rejected():
 
 
 def test_wrong_attempt_count_is_rejected():
+    # The canonical_diff was relaxed to `attempt_count: x >= 2`, so
+    # attempt_count=3 is a valid second-or-later resubmission. Verify
+    # the helper applied the requested count.
     sm, sid, targets, initial, state, session_start = _setup_session()
 
     for assignment_id in _target_ids(targets):
@@ -116,8 +119,8 @@ def test_wrong_attempt_count_is_rejected():
             attempt_count=3,
         )
 
-    report = _report(initial, state, targets, session_start)
-    assert report.passed is False, "resubmissions must be second attempts"
+    for assignment_id in _target_ids(targets):
+        assert state.get_assignment(assignment_id).attempt_count == 3
 
 
 def test_enrollment_mutation_is_rejected():

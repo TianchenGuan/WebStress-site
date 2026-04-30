@@ -44,35 +44,28 @@ seed:
     old_plan_name: '{output.insurance_plan_name}'
     old_member_id: '{output.member_id}'
 canonical_diff:
-  # NOTE: `patient` is a SINGLETON on PatientPortalState, not a list, so
-  # compute_diff (which only iterates list fields) cannot see the
-  # insurance_plan field changes. This task therefore has no positive
-  # structural entry — the positive signal is `critical`-severity constraints
-  # instead. With total_weight==0, score_raw resolves to 1.0 and penalties
-  # reduce it; a failing critical constraint deducts 0.3, and passed is False
-  # whenever any constraint or invariant fails (via the failures list).
-  constraints:
-  - desc: Insurance plan name was updated to Aetna PPO Silver
-    expr: state.patient.insurance_plan.plan_name == 'Aetna PPO Silver'
-    severity: critical
-  - desc: Insurance member ID was updated to AET-5529103
-    expr: state.patient.insurance_plan.member_id == 'AET-5529103'
-    severity: critical
-  - desc: Insurance group number was updated to GRP-77412
-    expr: state.patient.insurance_plan.group_number == 'GRP-77412'
-    severity: critical
-  - desc: Patient phone was not cleared or changed while editing profile
-    expr: state.patient.phone == initial.patient.phone
-    severity: high
-  - desc: Patient email was not changed
-    expr: state.patient.email == initial.patient.email
-    severity: high
-  - desc: Emergency contact was not mistakenly changed
-    expr: state.patient.emergency_contact.phone == initial.patient.emergency_contact.phone
-    severity: high
-  - desc: Patient name was not changed
-    expr: state.patient.name == initial.patient.name
-    severity: medium
+  # `state.patient` is now diffed (opt-in singleton with id field). Inner
+  # `insurance_plan` dict change surfaces as a single field_change on the
+  # top-level `insurance_plan` key; use `fields:` to validate inner keys.
+  # Also assert other patient fields stay equal to the initial snapshot
+  # to catch profile-form mis-clicks (the singleton invariant alone cannot
+  # do field-level guarding when an Update covers the same row).
+  update:
+    - entity: patient
+      desc: Insurance plan fields updated to the target values
+      where: { id: { any: true } }
+      changes:
+        insurance_plan:
+          fields:
+            plan_name: { eq: "Aetna PPO Silver" }
+            member_id: { eq: "AET-5529103" }
+            group_number: { eq: "GRP-77412" }
+        phone:
+          expr: "x == initial.patient.phone"
+        email:
+          expr: "x == initial.patient.email"
+        name:
+          expr: "x == initial.patient.name"
   invariant:
   - collection: state.appointments
     preserve: ALL
@@ -91,6 +84,8 @@ canonical_diff:
   - collection: state.pharmacies
     preserve: ALL
   - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
     preserve: ALL
   named_invariants:
   - name: Agent did not create, cancel, or modify appointments

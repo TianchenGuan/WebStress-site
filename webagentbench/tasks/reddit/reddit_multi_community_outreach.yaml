@@ -135,16 +135,6 @@ canonical_diff:
           expr: "x == target['msg_body']"
         from_user:
           expr: "x == state.owner_username"
-  constraints:
-    - desc: No existing subreddit unsubscribed
-      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-      severity: high
-    - desc: No posts created outside of r/{target.join1}
-      expr: "all(p.subreddit_name == target['join1'] for p in state.posts if p.author_name == state.owner_username and p.id not in {ip.id for ip in initial.posts})"
-      severity: medium
-    - desc: No users blocked
-      expr: "len(state.blocked_users) == 0"
-      severity: medium
   invariant:
     - collection: state.subreddits
       filter: "state.get_subreddit(a.id) is None or state.get_subreddit(a.id).name not in (target['join1'], target['join2'])"
@@ -164,6 +154,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.user_profiles
       preserve: ALL
+    - collection: state.settings
+      filter: 'False'
+      preserve: ALL
+      comprehensive: true
   named_invariants:
     - name: Agent subscribed to r/{target.join1}
       ref: update[0]

@@ -1,18 +1,20 @@
 variant_id: amazon_cart_management__cart_update_retry
 base_task_id: amazon_cart_management
 target_primitive: verification
-description: The first cart edit fails transiently. The agent must verify the quantity or removal actually
-  stuck before moving on.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/amazon/cart/**'
     methods:
     - PUT
     - DELETE
-    error_count: 1
-    error_status: 503
-    error_message: Temporary write failure. Retry the action.
+    fail_count: 1
+    response_body:
+      items: []
+      subtotal: '0.00'
+      updated_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once

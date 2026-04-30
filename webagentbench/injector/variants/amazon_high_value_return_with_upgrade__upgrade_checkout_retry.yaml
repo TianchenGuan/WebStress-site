@@ -1,12 +1,9 @@
 variant_id: amazon_high_value_return_with_upgrade__upgrade_checkout_retry
 base_task_id: amazon_high_value_return_with_upgrade
 target_primitive: backtracking
-description: >
-  The first checkout POST fails with 503 after the return has been
-  filed. The agent must detect that the upgrade order did not land,
-  re-submit checkout, and not close out the task on the first failed
-  call — otherwise only half of the cascade (return without upgrade)
-  ships and the second positive check fails.
+description: "The first checkout POST fails with 503 after the return has been filed. The agent must detect that the upgrade\
+  \ order did not land, re-submit checkout, and not close out the task on the first failed call \u2014 otherwise only half\
+  \ of the cascade (return without upgrade) ships and the second positive check fails.\n"
 injections:
 - layer: network
   params:
@@ -16,6 +13,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Checkout temporarily unavailable. Retry the order.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

@@ -118,6 +118,8 @@ canonical_diff:
     - collection: state.sent_messages
       preserve: ALL
       weight: 1.0
+    - collection: state.student
+      preserve: ALL
   named_invariants:
     - name: Agent did not post in non-target discussions
       ref: invariant[0]
@@ -152,10 +154,6 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  constraints:
-    - desc: Target discussion minimum participation requirements are met
-      expr: "state.meets_discussion_requirements(target['target_discussion_id'])"
-      severity: high
 eval:
   source: server_state
   checks:

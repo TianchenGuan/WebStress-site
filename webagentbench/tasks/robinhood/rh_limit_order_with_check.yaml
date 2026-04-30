@@ -55,17 +55,10 @@ canonical_diff:
       trail_amount: {any: true}
       trail_pct: {any: true}
       extended_hours: {any: true}
-  constraints:
-  - desc: Exactly one AMZN buy order placed
-    expr: "len([o for o in state.orders if o.symbol == 'AMZN' and o.side == 'buy' and not o.id.startswith('ord_decoy_')]) == 1"
-    severity: high
-  - desc: No buy orders on symbols other than AMZN
-    expr: "not any(o.symbol != 'AMZN' and o.side == 'buy' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: No sell orders placed
-    expr: "not any(o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: medium
   invariant:
+  - collection: state.orders
+    filter: "(a.side == 'buy' and a.symbol != 'AMZN') or a.side == 'sell'"
+    preserve: ALL
   - collection: state.positions
     preserve: ALL
   - collection: state.watchlists

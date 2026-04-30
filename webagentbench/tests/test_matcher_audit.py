@@ -1201,3 +1201,45 @@ def test_singleton_create_near_miss_not_double_penalised() -> None:
     assert not unaccounted_failures, (
         f"Unaccounted failure piled on near-miss Create: {unaccounted_failures}"
     )
+
+
+def test_near_miss_create_does_not_trip_same_collection_invariant() -> None:
+    """A wrong-but-clearly-attempted output should not also look like collateral.
+
+    This is the synthetic version of the noisy Gmail pattern where a sent email
+    misses one predicate and then also triggers ``Preserve state.sent``. The
+    positive create failure is enough signal; the same entry should not be
+    reported again as protected-state damage.
+    """
+    from webagentbench.evaluator_diff import Create
+
+    initial, final, targets = _task_with_real_initial()
+    block = CanonicalDiff.model_validate({
+        "create": [{
+            "entity": "SentEmail",
+            "collection": "state.sent",
+            "desc": "Send required email",
+            "properties": {"subject": {"eq": "Required subject"}},
+        }],
+        "invariant": [{
+            "collection": "state.sent",
+            "filter": "True",
+            "preserve": "ALL",
+        }],
+    })
+    diff = [
+        Create(
+            entity="sent",
+            entity_id="sent_1",
+            fields={"id": "sent_1", "subject": "Wrong subject"},
+        )
+    ]
+
+    report = match_diff(diff, block, targets=targets, initial=initial, final=final)
+
+    assert any(f.kind == "missing_create" for f in report.failures)
+    assert not any(f.kind == "invariant" for f in report.failures), report.failures
+    assert not any(
+        not nc["passed"] and nc.get("kind") == "invariant"
+        for nc in report.negative_checks
+    ), report.negative_checks

@@ -88,6 +88,13 @@ def _apply_all_mutations(state, targets, suffix=""):
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     ))
+    # Mirror route side-effect: flip rating_submitted on each reviewed reservation
+    for key in ('res_id_1', 'res_id_2', 'res_id_3', 'res_id_4'):
+        res_id = targets.get(key)
+        if res_id:
+            res = state.get_reservation(res_id)
+            if res is not None:
+                res.rating_submitted = True
 
 
 def test_correct_trajectory_passes():

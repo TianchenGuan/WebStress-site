@@ -91,30 +91,34 @@ canonical_diff:
       variable: v
     where:
       id: {expr: "x == v.id"}
-  constraints:
-  - desc: Discrepancy Review watchlist contains mismatch symbol
-    expr: "state.watchlist_named('Discrepancy Review') is not None and target['mismatch_symbol'] in state.watchlist_symbols('Discrepancy Review')"
-    severity: critical
-  - desc: No stale alerts remain
-    expr: "len(state.stale_alert_symbols()) == 0"
-    severity: critical
-  - desc: No overdue recurring investments remain
-    expr: "len(state.overdue_recurring_investments()) == 0"
-    severity: critical
-  - desc: All notifications marked read
-    expr: "all(n.is_read for n in state.notifications)"
-    severity: critical
-  - desc: No orders placed during audit
-    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
   - collection: state.positions
+    preserve: ALL
+  - collection: state.orders
     preserve: ALL
   - collection: state.price_alerts
     filter: "a.symbol in initial.owned_symbols() and not a.id.startswith('alert_decoy_')"
     preserve: ALL
   - collection: state.recurring_investments
     filter: "a.id not in [x.id for x in initial.overdue_recurring_investments()] and not a.id.startswith('ri_decoy_')"
+    preserve: ALL
+  - collection: state.notifications
+    filter: "a.is_read"
+    preserve: ALL
+  - collection: state.watchlists
+    filter: "a.name != 'Discrepancy Review'"
+    preserve: ALL
+  - collection: state.transactions
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
     preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, exploration, patience, grounding

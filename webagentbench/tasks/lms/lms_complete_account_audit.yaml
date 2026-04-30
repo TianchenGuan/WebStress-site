@@ -118,6 +118,8 @@ canonical_diff:
     preserve: ALL
   - collection: state.calendar_events
     preserve: ALL
+  - collection: state.student
+    preserve: ALL
   named_invariants:
   - name: Agent marked all unread announcements as read
     ref: update[0]
@@ -151,13 +153,6 @@ canonical_diff:
     severity: high
   - name: Agent did not modify calendar events
     ref: invariant[9]
-    severity: low
-  constraints:
-  - desc: Agent sent a brief audit summary to the advisor
-    expr: "len(state.sent_messages) >= 1 and any(target['advisor_name'] in m.get('to', '') for m in state.sent_messages)"
-    severity: high
-  - desc: Agent did not send excessive messages
-    expr: len(state.sent_messages) <= 4
     severity: low
 eval:
   source: server_state

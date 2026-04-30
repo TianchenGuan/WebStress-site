@@ -62,16 +62,6 @@ canonical_diff:
       variable: v
     where:
       id: {expr: "x == v.id"}
-  constraints:
-  - desc: No duplicate symbols among active recurring investments
-    expr: "len(set(ri.symbol for ri in state.recurring_investments if ri.status == 'active')) == len([ri for ri in state.recurring_investments if ri.status == 'active'])"
-    severity: critical
-  - desc: Each duplicate symbol has a monthly active recurring investment
-    expr: "all(any(ri.symbol == sym and ri.status == 'active' and ri.frequency == 'monthly' for ri in state.recurring_investments) for sym in target['duplicate_symbols'])"
-    severity: critical
-  - desc: No equity orders placed
-    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
   - collection: state.recurring_investments
     filter: "a.symbol not in target['duplicate_symbols'] and not a.id.startswith('ri_decoy_')"

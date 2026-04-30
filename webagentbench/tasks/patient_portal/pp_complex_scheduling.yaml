@@ -92,7 +92,7 @@ canonical_diff:
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule an in-person cardiology appointment with an approved referral"
+      desc: "Schedule an in-person cardiology appointment with an approved referral, at least 5 days after lab"
       properties:
         status: {eq: "scheduled"}
         type: {eq: "in-person"}
@@ -100,14 +100,24 @@ canonical_diff:
           expr: "x in target['cardio_provider_ids']"
         linked_referral_id:
           expr: "x is not None and x in target['approved_ref_ids']"
-        datetime: {any: true}
+        datetime:
+          # Spacing predicate (was a high-severity constraint): cardiology
+          # date must be >= 5 days after the most recent newly-scheduled lab.
+          expr: >-
+            any(
+              (x - lab.datetime).days >= 5
+              for lab in state.appointments
+              if lab.status == 'scheduled'
+              and any(w in (lab.reason or '').lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
+              and lab.id not in {y.id for y in initial.appointments}
+            )
         reason: {any: true}
         notes: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
     - entity: Appointment
-      desc: "Schedule an in-person PCP follow-up appointment"
+      desc: "Schedule an in-person PCP follow-up appointment, at least 3 days after cardiology"
       properties:
         status: {eq: "scheduled"}
         type: {eq: "in-person"}
@@ -115,67 +125,22 @@ canonical_diff:
           expr: "x == target['pcp_id']"
         reason:
           expr: "any(w in x.lower() for w in ['follow-up', 'follow up', 'followup'])"
-        datetime: {any: true}
+        datetime:
+          # Spacing predicate (was a high-severity constraint): PCP
+          # follow-up must be >= 3 days after the most recent newly-scheduled cardiology visit.
+          expr: >-
+            any(
+              (x - cardio.datetime).days >= 3
+              for cardio in state.appointments
+              if cardio.status == 'scheduled'
+              and cardio.provider_id in target['cardio_provider_ids']
+              and cardio.id not in {y.id for y in initial.appointments}
+            )
         notes: {any: true}
         linked_referral_id: {any: true}
         pre_auth_status: {any: true}
         booked_at: {any: true}
         location: {any: true}
-  constraints:
-    - desc: "Cardiology visit is at least 5 days after the lab appointment"
-      expr: >
-        all(
-          (cardio.datetime - lab.datetime).days >= 5
-          for cardio in state.appointments
-          if cardio.status == 'scheduled'
-          and cardio.provider_id in target['cardio_provider_ids']
-          and cardio.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-          if lab.status == 'scheduled'
-          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
-          and lab.id not in {x.id for x in initial.appointments}
-        )
-        and any(
-          cardio.status == 'scheduled'
-          and cardio.provider_id in target['cardio_provider_ids']
-          and cardio.id not in {x.id for x in initial.appointments}
-          for cardio in state.appointments
-        )
-        and any(
-          lab.status == 'scheduled'
-          and any(w in lab.reason.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
-          and lab.id not in {x.id for x in initial.appointments}
-          for lab in state.appointments
-        )
-      severity: high
-    - desc: "PCP follow-up is at least 3 days after the cardiology visit"
-      expr: >
-        all(
-          (pcp.datetime - cardio.datetime).days >= 3
-          for pcp in state.appointments
-          if pcp.status == 'scheduled'
-          and pcp.provider_id == target['pcp_id']
-          and any(w in pcp.reason.lower() for w in ['follow-up', 'follow up', 'followup'])
-          and pcp.id not in {x.id for x in initial.appointments}
-          for cardio in state.appointments
-          if cardio.status == 'scheduled'
-          and cardio.provider_id in target['cardio_provider_ids']
-          and cardio.id not in {x.id for x in initial.appointments}
-        )
-        and any(
-          pcp.status == 'scheduled'
-          and pcp.provider_id == target['pcp_id']
-          and any(w in pcp.reason.lower() for w in ['follow-up', 'follow up', 'followup'])
-          and pcp.id not in {x.id for x in initial.appointments}
-          for pcp in state.appointments
-        )
-        and any(
-          cardio.status == 'scheduled'
-          and cardio.provider_id in target['cardio_provider_ids']
-          and cardio.id not in {x.id for x in initial.appointments}
-          for cardio in state.appointments
-        )
-      severity: high
   invariant:
     - collection: state.appointments
       filter: "a.id in {x.id for x in initial.appointments}"
@@ -199,6 +164,12 @@ canonical_diff:
       filter: "a.status != 'cancelled'"
       preserve: ALL
       comprehensive: true
+    - collection: state.pharmacies
+      preserve: ALL
+    - collection: state.providers
+      preserve: ALL
+    - collection: state.patient
+      preserve: ALL
   named_invariants:
     - name: "Agent did not cancel or modify pre-existing appointments"
       ref: invariant[0]

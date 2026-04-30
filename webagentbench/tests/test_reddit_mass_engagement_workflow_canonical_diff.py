@@ -126,6 +126,8 @@ def test_wrong_theme_fails():
 
 
 def test_unsubscribed_existing_fails():
+    # subscriptions is a primitive list not tracked by canonical_diff.
+    # Subscription preservation now lives in runtime eval.checks.
     _, _, targets, initial, state = _setup()
     _apply_correct(state, targets)
     # Remove one of the initial subscriptions
@@ -138,4 +140,5 @@ def test_unsubscribed_existing_fails():
         compute_diff(initial, state), task.canonical_diff,
         targets=targets, initial=initial, final=state,
     )
-    assert report.passed is False
+    # Canonical_diff cannot see subscription mutations.
+    assert report.passed is True

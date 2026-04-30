@@ -64,113 +64,105 @@ seed:
       raw SQL with a thin query builder is simpler and more performant.
 canonical_diff:
   update:
-    - entity: Post
-      desc: Funny post hidden
-      where:
-        id:
-          expr: "x == target['hide_id']"
-      changes:
-        is_hidden:
-          eq: true
-    - entity: Post
-      desc: Science post saved
-      where:
-        id:
-          expr: "x == target['save_id']"
-      changes:
-        is_saved:
-          eq: true
-    # For each previously-saved meme post, its is_saved flag flips false.
-    # The bijection over target.meme_ids gives us one update per meme; the
-    # matcher requires saturation so the agent must unsave every one.
-    # (Bijection loop variable is always exposed as `v` in expressions
-    # regardless of the declared `variable:` name, per evaluator_diff.py.)
-    - entity: Post
-      desc: Meme post unsaved
-      bijection:
-        over: "target['meme_ids']"
-        variable: v
-      where:
-        id:
-          expr: "x == v"
-      changes:
-        is_saved:
-          eq: false
+  - entity: Post
+    desc: Funny post hidden
+    where:
+      id:
+        expr: x == target['hide_id']
+    changes:
+      is_hidden:
+        eq: true
+  - entity: Post
+    desc: Science post saved
+    where:
+      id:
+        expr: x == target['save_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Meme post unsaved
+    bijection:
+      over: target['meme_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_saved:
+        eq: false
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      default_feed_sort: { eq: new }
+      compact_view: { eq: true }
   create:
-    - entity: Post
-      desc: Post created in r/programming with exact title and body
-      properties:
-        subreddit_name:
-          eq: "programming"
-        title:
-          expr: "x == target['create_title']"
-        body:
-          expr: "x == target['create_body']"
-        author_name:
-          expr: "x == state.owner_username"
-  constraints:
-    - desc: No saved meme posts remain
-      expr: "not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)"
-      severity: high
-    - desc: saved_post_ids includes the science post
-      expr: "target['save_id'] in state.saved_post_ids"
-      severity: high
-    - desc: Default feed sort set to new
-      expr: "state.settings.default_feed_sort == 'new'"
-      severity: high
-    - desc: Compact view enabled
-      expr: "state.settings.compact_view == True"
-      severity: high
+  - entity: Post
+    desc: Post created in r/programming with exact title and body
+    properties:
+      subreddit_name:
+        eq: programming
+      title:
+        expr: x == target['create_title']
+      body:
+        expr: x == target['create_body']
+      author_name:
+        expr: x == state.owner_username
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.posts
-      filter: "True"
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent hid the funny post
-      ref: update[0]
-      severity: high
-    - name: Agent saved the science post
-      ref: update[1]
-      severity: high
-    - name: Agent unsaved every meme post
-      ref: update[2]
-      severity: high
-    - name: Agent created the exact programming write-up
-      ref: create[0]
-      severity: high
-    - name: Agent did not modify subreddit memberships
-      ref: invariant[0]
-      severity: medium
-    - name: Agent did not mutate posts unrelated to hide/save/unsave/create
-      ref: invariant[1]
-      severity: high
-    - name: Agent did not create, delete, or modify comments
-      ref: invariant[2]
-      severity: medium
-    - name: Agent did not touch inbox messages
-      ref: invariant[3]
-      severity: medium
-    - name: Agent did not send any direct messages
-      ref: invariant[4]
-      severity: medium
-    - name: Agent did not touch notifications
-      ref: invariant[5]
-      severity: low
-    - name: Agent did not modify user profiles
-      ref: invariant[6]
-      severity: low
+  - name: Agent hid the funny post
+    ref: update[0]
+    severity: high
+  - name: Agent saved the science post
+    ref: update[1]
+    severity: high
+  - name: Agent unsaved every meme post
+    ref: update[2]
+    severity: high
+  - name: Agent created the exact programming write-up
+    ref: create[0]
+    severity: high
+  - name: Agent did not modify subreddit memberships
+    ref: invariant[0]
+    severity: medium
+  - name: Agent did not mutate posts unrelated to hide/save/unsave/create
+    ref: invariant[1]
+    severity: high
+  - name: Agent did not create, delete, or modify comments
+    ref: invariant[2]
+    severity: medium
+  - name: Agent did not touch inbox messages
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not send any direct messages
+    ref: invariant[4]
+    severity: medium
+  - name: Agent did not touch notifications
+    ref: invariant[5]
+    severity: low
+  - name: Agent did not modify user profiles
+    ref: invariant[6]
+    severity: low
 eval:
   source: server_state
   checks:

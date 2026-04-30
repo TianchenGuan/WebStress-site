@@ -136,26 +136,29 @@ seed:
     review_res_id: '{output.review_res_id}'
     prev_default_pm_id: 'pm_1'
 canonical_diff:
-  constraints:
-    - desc: Phone number updated to +1-415-555-0200
-      expr: "state.owner_phone == '+1-415-555-0200'"
-      severity: medium
-    - desc: Address updated to 200 Market St
-      expr: "'200 Market St' in state.owner_address"
-      severity: medium
-    - desc: Currency changed to EUR
-      expr: "state.settings.currency == 'EUR'"
-      severity: high
-    - desc: Two-factor authentication enabled
-      expr: "state.settings.two_factor_enabled == True"
-      severity: critical
-    - desc: Preferred bed type set to king
-      expr: "state.travel_preferences.preferred_bed_type == 'king'"
-      severity: medium
-    - desc: Gluten-free added to dietary restrictions
-      expr: "'gluten-free' in state.travel_preferences.dietary_restrictions"
-      severity: medium
   update:
+    - entity: owner_phone
+      desc: Phone number updated to +1-415-555-0200
+      where: {id: {eq: "__singleton_owner_phone__"}}
+      changes:
+        value: {eq: "+1-415-555-0200"}
+    - entity: owner_address
+      desc: Address updated to 200 Market St
+      where: {id: {eq: "__singleton_owner_address__"}}
+      changes:
+        value: {expr: "'200 Market St' in x"}
+    - entity: settings
+      desc: Currency EUR and 2FA enabled
+      where: {id: {any: true}}
+      changes:
+        currency: {eq: EUR}
+        two_factor_enabled: {eq: true}
+    - entity: travel_preferences
+      desc: Preferred bed king and gluten-free dietary
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_bed_type: {eq: king}
+        dietary_restrictions: {expr: "'gluten-free' in x"}
     - entity: Reservation
       desc: Cancel Hotel Provenza Eixample reservation
       where:
@@ -292,11 +295,23 @@ canonical_diff:
       preserve: ALL
       comprehensive: true
   named_invariants:
-    - name: Agent cancelled Hotel Provenza reservation
+    - name: Phone updated
       ref: update[0]
+      severity: medium
+    - name: Address updated
+      ref: update[1]
+      severity: medium
+    - name: Settings updated (EUR, 2FA)
+      ref: update[2]
+      severity: critical
+    - name: Travel preferences updated (king bed, gluten-free)
+      ref: update[3]
+      severity: medium
+    - name: Agent cancelled Hotel Provenza reservation
+      ref: update[4]
       severity: critical
     - name: Agent modified Madrid reservation with new dates and special request
-      ref: update[1]
+      ref: update[5]
       severity: high
     - name: Agent added new Visa 7777 as default
       ref: create[0]

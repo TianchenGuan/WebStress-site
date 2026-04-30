@@ -83,7 +83,102 @@
   .eval-checks li { padding: 4px 0; font-size: 13px; }
   .eval-checks li.pass::before { content: "✓ "; color: #1a7f37; font-weight: 700; }
   .eval-checks li.fail::before { content: "✗ "; color: #cf222e; font-weight: 700; }
+  .eval-checks li.graph-only::before { content: ""; }
   .eval-checks li.neg { color: #9a6700; }
+  .eval-check-group { margin-bottom: 10px; }
+  .eval-graph {
+    margin: 6px 0 10px 0;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+    color: #1f2328;
+  }
+  .eval-graph-head {
+    padding: 8px 10px;
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .eval-graph-meta { font-weight: 500; color: #656d76; margin-top: 3px; }
+  .eval-graph-labels {
+    display: grid;
+    grid-template-columns: 240px 96px 240px;
+    justify-content: center;
+    gap: 0;
+    padding: 6px 0;
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    color: #656d76;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .eval-graph-scroll { overflow-x: auto; background: #fff; }
+  .eval-graph-canvas {
+    position: relative;
+    width: 576px;
+    margin: 0 auto;
+  }
+  .eval-graph-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+  .eval-node {
+    position: absolute;
+    width: 240px;
+    height: 46px;
+    padding: 5px 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .eval-node-label {
+    color: #1f2328;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .eval-node.ok { background: #dafbe1; border-color: #4ac26b; }
+  .eval-node.fail { background: #ffebe9; border-color: #ff8182; }
+  .eval-node.warn { background: #fff8c5; border-color: #d4a72c; }
+  .eval-node.neutral { background: #f6f8fa; border-color: #d0d7de; }
+  .eval-node.ghost { background: #f6f8fa; border-style: dashed; color: #656d76; }
+  .pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid #d0d7de;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill.ok { color: #116329; background: #dafbe1; border-color: #4ac26b; }
+  .pill.fail { color: #a40e26; background: #ffebe9; border-color: #ff8182; }
+  .pill.warn { color: #9a6700; background: #fff8c5; border-color: #d4a72c; }
+  .pill.neutral { color: #57606a; background: #f6f8fa; }
+  .eval-reasoning {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.45;
+    max-height: 180px;
+    overflow: auto;
+  }
   .session-id { font-family: monospace; font-size: 11px; color: #656d76; }
 </style>
 </head>
@@ -293,28 +388,229 @@
   function renderEvalResult(data, ok) {
     var container = document.getElementById("eval-result-container");
     var success = ok && data.success;
-    var score = typeof data.final_score === "number" ? data.final_score.toFixed(2) : "?";
+    var rawScore = typeof data.final_score === "number" ? data.final_score : data.score;
+    var score = typeof rawScore === "number" ? rawScore.toFixed(2) : "?";
+    var checks = data.checks || [];
+    var negativeChecks = data.negative_checks || [];
+    var graphs = data.bijection_graphs || [];
+    var checkGraphIndexes = checks.map(function(check, index) {
+      var out = [];
+      graphs.forEach(function(graph, graphIndex) {
+        var graphCheckIndex = typeof graph.check_index === "number" ? graph.check_index : null;
+        var desc = check.desc || check.expr || "";
+        var belongs =
+          graphCheckIndex === index ||
+          (graphCheckIndex === null && graph.check_desc === desc) ||
+          (graphCheckIndex === null && desc && graph.desc && desc.indexOf(graph.desc) === 0);
+        if (belongs) out.push(graphIndex);
+      });
+      return out;
+    });
+    var assigned = {};
+    checkGraphIndexes.forEach(function(indexes) {
+      indexes.forEach(function(i) { assigned[i] = true; });
+    });
     var html = "<div class='eval-result " + (success ? "pass" : "fail") + "'>";
     html += "<div class='eval-score'>" + score + " " + (success ? "PASSED" : "FAILED") + "</div>";
-    if (data.checks && data.checks.length) {
+    if (checks.length) {
       html += "<div style='font-weight:600;margin-top:8px'>Checks</div><ul class='eval-checks'>";
-      data.checks.forEach(function(c) {
-        html += "<li class='" + (c.passed ? "pass" : "fail") + "'>" + escapeHtml(c.desc || "") + "</li>";
+      checks.forEach(function(c, index) {
+        var graphIndexes = checkGraphIndexes[index];
+        html += "<li class='" + (graphIndexes.length ? "graph-only" : (c.passed ? "pass" : "fail")) + "'>";
+        html += "<div class='eval-check-group'>";
+        if (!graphIndexes.length) {
+          html += escapeHtml(c.desc || c.expr || "");
+        }
+        graphIndexes.forEach(function(graphIndex) {
+          html += renderBijectionGraph(graphs[graphIndex]);
+        });
+        html += "</div></li>";
       });
       html += "</ul>";
     }
-    if (data.negative_checks && data.negative_checks.length) {
-      var failed = data.negative_checks.filter(function(n) { return !n.passed; });
-      if (failed.length) {
-        html += "<div style='font-weight:600;margin-top:8px'>Negative checks (triggered)</div><ul class='eval-checks'>";
-        failed.forEach(function(n) {
-          html += "<li class='fail neg'>(-" + (n.penalty || 0).toFixed(2) + ") " + escapeHtml(n.desc || "") + "</li>";
-        });
-        html += "</ul>";
-      }
+    var unassigned = graphs.filter(function(_, index) { return !assigned[index]; });
+    if (unassigned.length) {
+      html += "<div style='font-weight:600;margin-top:8px'>Match Details</div>";
+      unassigned.forEach(function(graph) { html += renderBijectionGraph(graph); });
+    }
+    function negativeKind(n) {
+      return n.kind || n._kind || "";
+    }
+    function renderNegativeSection(title, items) {
+      if (!items.length) return "";
+      var section = "<div style='font-weight:600;margin-top:8px'>" + escapeHtml(title) + "</div><ul class='eval-checks'>";
+      items.forEach(function(n) {
+        var prefix = n.passed ? "" : "(-" + (n.penalty || 0).toFixed(2) + ") ";
+        section += "<li class='" + (n.passed ? "pass" : "fail neg") + "'>" + prefix + escapeHtml(n.desc || n.expr || "") + "</li>";
+      });
+      section += "</ul>";
+      return section;
+    }
+    if (negativeChecks.length) {
+      var constraints = negativeChecks.filter(function(n) { return negativeKind(n) === "constraint"; });
+      var protectedState = negativeChecks.filter(function(n) { return negativeKind(n) === "invariant" || n.source === "protected_state"; });
+      var collateral = negativeChecks.filter(function(n) { return n.source === "collateral" || negativeKind(n).indexOf("collateral_") === 0; });
+      var excess = negativeChecks.filter(function(n) { return negativeKind(n) === "excess"; });
+      var other = negativeChecks.filter(function(n) {
+        var kind = negativeKind(n);
+        return kind !== "constraint" &&
+          kind !== "invariant" &&
+          kind !== "excess" &&
+          n.source !== "protected_state" &&
+          n.source !== "collateral" &&
+          kind.indexOf("collateral_") !== 0;
+      });
+      html += renderNegativeSection("Constraints", constraints);
+      html += renderNegativeSection("Protected State", protectedState);
+      html += renderNegativeSection("Collateral Changes", collateral);
+      html += renderNegativeSection("Excess Outputs", excess);
+      html += renderNegativeSection("Negative Checks", other);
+    }
+    if (data.reasoning && !checks.length && !negativeChecks.length && !graphs.length) {
+      html += "<pre class='eval-reasoning'>" + escapeHtml(data.reasoning) + "</pre>";
     }
     html += "</div>";
     container.innerHTML = html;
+  }
+
+  function renderBijectionGraph(graph) {
+    if (!graph) return "";
+    var slots = graph.slots || [];
+    var candidates = graph.candidates || [];
+    var matched = slots.filter(function(s) { return s.matched_candidate_index !== null && s.matched_candidate_index !== undefined; }).length;
+    var excess = candidates.filter(function(c) { return c.is_excess; }).length;
+    var invalid = candidates.filter(function(c) { return (c.matched_slot_index === null || c.matched_slot_index === undefined) && !c.is_excess; }).length;
+    var order = candidateOrder(graph);
+    var rowCount = Math.max(slots.length, order.length, 1);
+    var dims = graphDims(rowCount);
+    var html = "<div class='eval-graph'>";
+    html += "<div class='eval-graph-head'>" + escapeHtml(graph.desc || "Match details");
+    html += "<div class='eval-graph-meta'>" + matched + "/" + slots.length + " matched";
+    if (excess) html += " · " + excess + " excess";
+    if (invalid) html += " · " + invalid + " invalid";
+    html += "</div></div>";
+    html += "<div class='eval-graph-labels'><div>Required</div><div>Match</div><div>Agent Produced</div></div>";
+    html += "<div class='eval-graph-scroll'><div class='eval-graph-canvas' style='height:" + dims.height + "px'>";
+    html += renderGraphSvg(graph, order, dims);
+    slots.forEach(function(slot, i) { html += renderSlotNode(slot, i, dims); });
+    order.forEach(function(candidateIndex, rowIndex) {
+      html += renderCandidateNode(candidates[candidateIndex], candidateIndex, rowIndex, dims);
+    });
+    slots.forEach(function(slot, i) {
+      if (slot.matched_candidate_index !== null && slot.matched_candidate_index !== undefined) return;
+      if (i < order.length) return;
+      html += renderGhostNode(i, dims);
+    });
+    html += "</div></div></div>";
+    return html;
+  }
+
+  function graphDims(rowCount) {
+    var rowH = 46;
+    var rowGap = 8;
+    var topPad = 12;
+    var sideW = 240;
+    var edgeW = 96;
+    var width = sideW * 2 + edgeW;
+    var height = topPad * 2 + rowCount * rowH + Math.max(0, rowCount - 1) * rowGap;
+    return { rowH: rowH, rowGap: rowGap, topPad: topPad, sideW: sideW, edgeW: edgeW, width: width, height: height };
+  }
+
+  function rowTop(row, dims) {
+    return dims.topPad + row * (dims.rowH + dims.rowGap);
+  }
+
+  function rowMid(row, dims) {
+    return rowTop(row, dims) + dims.rowH / 2;
+  }
+
+  function renderGraphSvg(graph, order, dims) {
+    var slots = graph.slots || [];
+    var candidates = graph.candidates || [];
+    var candidateRow = {};
+    order.forEach(function(candidateIndex, rowIndex) { candidateRow[candidateIndex] = rowIndex; });
+    var leftX = dims.sideW;
+    var rightX = dims.sideW + dims.edgeW;
+    var midX = (leftX + rightX) / 2;
+    var html = "<svg class='eval-graph-svg' width='" + dims.width + "' height='" + dims.height + "'>";
+    (graph.edges_possible || []).forEach(function(edge, index) {
+      var slotIndex = edge[0];
+      var candidateIndex = edge[1];
+      var matching = slots[slotIndex] && slots[slotIndex].matched_candidate_index === candidateIndex;
+      if (matching || candidateRow[candidateIndex] === undefined) return;
+      html += "<path d='M " + leftX + " " + rowMid(slotIndex, dims) + " C " + midX + " " + rowMid(slotIndex, dims) + ", " + midX + " " + rowMid(candidateRow[candidateIndex], dims) + ", " + rightX + " " + rowMid(candidateRow[candidateIndex], dims) + "' stroke='#c8d1dc' stroke-width='1' stroke-dasharray='3 3' fill='none'/>";
+    });
+    slots.forEach(function(slot, slotIndex) {
+      var candidateIndex = slot.matched_candidate_index;
+      if (candidateIndex === null || candidateIndex === undefined || candidateRow[candidateIndex] === undefined) return;
+      html += "<path d='M " + leftX + " " + rowMid(slotIndex, dims) + " C " + midX + " " + rowMid(slotIndex, dims) + ", " + midX + " " + rowMid(candidateRow[candidateIndex], dims) + ", " + rightX + " " + rowMid(candidateRow[candidateIndex], dims) + "' stroke='#1a7f37' stroke-width='2' fill='none'/>";
+      var y = rowMid(candidateRow[candidateIndex], dims);
+      html += "<polygon points='" + (rightX - 7) + "," + (y - 4) + " " + rightX + "," + y + " " + (rightX - 7) + "," + (y + 4) + "' fill='#1a7f37'/>";
+    });
+    slots.forEach(function(slot, slotIndex) {
+      var fill = slot.matched_candidate_index === null || slot.matched_candidate_index === undefined ? "#cf222e" : "#1a7f37";
+      html += "<circle cx='" + leftX + "' cy='" + rowMid(slotIndex, dims) + "' r='5' fill='" + fill + "' stroke='#fff' stroke-width='1.5'/>";
+    });
+    order.forEach(function(candidateIndex, rowIndex) {
+      var candidate = candidates[candidateIndex] || {};
+      var matched = candidate.matched_slot_index !== null && candidate.matched_slot_index !== undefined;
+      var fill = matched ? "#1a7f37" : (candidate.is_excess ? "#bf8700" : "#8c959f");
+      html += "<circle cx='" + rightX + "' cy='" + rowMid(rowIndex, dims) + "' r='5' fill='" + fill + "' stroke='#fff' stroke-width='1.5'/>";
+    });
+    html += "</svg>";
+    return html;
+  }
+
+  function candidateOrder(graph) {
+    var slots = graph.slots || [];
+    var candidates = graph.candidates || [];
+    var placed = new Array(Math.max(slots.length, candidates.length)).fill(null);
+    var used = {};
+    slots.forEach(function(slot, i) {
+      var candidateIndex = slot.matched_candidate_index;
+      if (candidateIndex !== null && candidateIndex !== undefined) {
+        placed[i] = candidateIndex;
+        used[candidateIndex] = true;
+      }
+    });
+    var tail = slots.length;
+    candidates.forEach(function(_, index) {
+      if (used[index]) return;
+      while (tail < placed.length && placed[tail] !== null) tail++;
+      if (tail >= placed.length) placed.push(index);
+      else placed[tail] = index;
+      tail++;
+    });
+    return placed.filter(function(x) { return x !== null; });
+  }
+
+  function renderSlotNode(slot, row, dims) {
+    var matched = slot && slot.matched_candidate_index !== null && slot.matched_candidate_index !== undefined;
+    var cls = matched ? "ok" : "fail";
+    return "<div class='eval-node " + cls + "' title='" + escapeHtml(slot ? slot.label || "" : "") + "' style='left:0;top:" + rowTop(row, dims) + "px'>" +
+      "<div class='eval-node-label'>" + escapeHtml(slot ? slot.label || "" : "") + "</div>" +
+      "<span class='pill " + cls + "'>" + (matched ? "matched" : "missing") + "</span>" +
+      "</div>";
+  }
+
+  function renderCandidateNode(candidate, candidateIndex, row, dims) {
+    if (!candidate) return "";
+    var matched = candidate.matched_slot_index !== null && candidate.matched_slot_index !== undefined;
+    var cls = matched ? "ok" : (candidate.is_excess ? "warn" : "neutral");
+    var label = matched ? "matched" : (candidate.is_excess ? "excess" : "invalid");
+    var left = dims.sideW + dims.edgeW;
+    return "<div class='eval-node " + cls + "' title='" + escapeHtml(candidate.label || candidate.id || "") + "' style='left:" + left + "px;top:" + rowTop(row, dims) + "px'>" +
+      "<div class='eval-node-label'>" + escapeHtml(candidate.label || candidate.id || "") + "</div>" +
+      "<span class='pill " + cls + "'>" + label + "</span>" +
+      "</div>";
+  }
+
+  function renderGhostNode(row, dims) {
+    var left = dims.sideW + dims.edgeW;
+    return "<div class='eval-node ghost' style='left:" + left + "px;top:" + rowTop(row, dims) + "px'>" +
+      "<div class='eval-node-label'>— nothing —</div>" +
+      "<span class='pill fail'>missing</span>" +
+      "</div>";
   }
 
   function escapeHtml(s) {

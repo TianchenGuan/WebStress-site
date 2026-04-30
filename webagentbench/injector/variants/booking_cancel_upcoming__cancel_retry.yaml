@@ -1,8 +1,8 @@
 variant_id: booking_cancel_upcoming__cancel_retry
 base_task_id: booking_cancel_upcoming
 target_primitive: backtracking
-description: The first cancellation request fails transiently. The agent must verify the reservation status
-  and retry the cancel action.
+description: The first cancellation request fails transiently. The agent must verify the reservation status and retry the
+  cancel action.
 injections:
 - layer: network
   params:
@@ -12,6 +12,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Temporary booking API failure. Retry the action.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

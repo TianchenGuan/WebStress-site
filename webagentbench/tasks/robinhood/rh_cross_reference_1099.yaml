@@ -69,19 +69,9 @@ canonical_diff:
     properties:
       symbol: {expr: "x == v"}
       target_price: {expr: "abs(float(x) - float(target['reported_cost_bases'][v])) < 0.01"}
-      condition: {any: true}
+      condition: {expr: "(x == 'above' and state.get_stock(v).price < Decimal(str(target['reported_cost_bases'][v]))) or (x == 'below' and state.get_stock(v).price > Decimal(str(target['reported_cost_bases'][v])))"}
       status: {eq: active}
       created_at: {any: true}
-  constraints:
-  - desc: Each alert uses the correct condition relative to current price
-    expr: "all(any(a.symbol == v and ((a.condition == 'above' and state.get_stock(v).price < a.target_price) or (a.condition == 'below' and state.get_stock(v).price > a.target_price)) and not a.id.startswith('alert_decoy_') for a in state.price_alerts) for v in target['discrepancy_symbols'])"
-    severity: critical
-  - desc: No alerts for non-discrepancy symbols
-    expr: "not any(a.symbol not in target['discrepancy_symbols'] and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
-    severity: high
-  - desc: No equity orders placed
-    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
   - collection: state.price_alerts
     filter: "a.symbol not in target['discrepancy_symbols']"

@@ -417,6 +417,14 @@ class BookingSettings(BaseEntity):
 
 
 class BookingState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = (
+        "settings", "travel_preferences",
+    )
+    DIFF_DIFFABLE_SCALARS: ClassVar[tuple[str, ...]] = (
+        "owner_name", "owner_email", "owner_phone",
+        "owner_nationality", "owner_date_of_birth", "owner_gender", "owner_address",
+    )
+
     owner_name: str
     owner_email: str
     owner_phone: str = ""

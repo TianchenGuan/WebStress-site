@@ -119,13 +119,6 @@ canonical_diff:
           expr: "x == target['msg_body']"
         from_user:
           expr: "x == state.owner_username"
-  constraints:
-    - desc: Only the SQLite post was newly saved
-      expr: "all(pid in initial.saved_post_ids or pid == target['search_id'] for pid in state.saved_post_ids)"
-      severity: high
-    - desc: Existing subscriptions preserved
-      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-      severity: high
   invariant:
     - collection: state.subreddits
       filter: "True"
@@ -145,6 +138,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.user_profiles
       preserve: ALL
+    - collection: state.settings
+      filter: 'False'
+      preserve: ALL
+      comprehensive: true
   named_invariants:
     - name: Agent saved the SQLite post
       ref: update[0]

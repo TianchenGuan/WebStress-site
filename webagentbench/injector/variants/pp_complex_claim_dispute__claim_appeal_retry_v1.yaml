@@ -1,16 +1,31 @@
 variant_id: pp_complex_claim_dispute__claim_appeal_retry_v1
 base_task_id: pp_complex_claim_dispute
-target_primitive: backtracking
-description: The first appeal submission fails transiently. The agent must retry and confirm the claim status actually changed to appealed.
+target_primitive: verification
+description: The first write to appeal returns a fake successful response without persisting. The agent must verify that the
+  targeted claim's status actually changed to appealed before declaring the task done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/patient_portal/claims/*/appeal'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary claims service failure. Retry the appeal submission.
+    fail_count: 1
+    response_body:
+      id: clm_a9d2e4f8c1
+      service_date: '2026-02-10'
+      provider_id: prov_a82c441f
+      appointment_id: apt_d4f1c823a9
+      procedure_code: '99213'
+      diagnosis_code: I10
+      status: appealed
+      amount_billed: '180.00'
+      amount_covered: '0.00'
+      patient_responsibility: '180.00'
+      eob_available: true
+      appeal_deadline: '2026-08-10T00:00:00+00:00'
+      denial_reason: Documentation incomplete
+      supporting_referral_id: null
+      supporting_lab_ids: []
     behavior:
       mode: once

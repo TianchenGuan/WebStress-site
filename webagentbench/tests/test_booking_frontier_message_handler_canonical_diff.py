@@ -58,6 +58,15 @@ def _apply_correct_state(targets, state):
         sender="guest",
         created_at=now,
     ))
+    state.messages.append(Message(
+        id="msg_dubai_confirm",
+        property_id=targets['book_prop_id'],
+        property_name="Dubai Marina Luxury Hotel",
+        subject="Booking confirmation",
+        body="I have booked your hotel and am looking forward to my stay.",
+        sender="guest",
+        created_at=now,
+    ))
     state.reservations.append(Reservation(
         id="res_dubai",
         property_id=targets['book_prop_id'],

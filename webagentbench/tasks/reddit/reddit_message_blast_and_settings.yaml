@@ -28,52 +28,59 @@ seed:
       EST. Topics include fine-tuning techniques and deployment best practices. RSVP
       by replying to this message.
 canonical_diff:
-  # Constraint-only form. Mark-all-notifications-read is an aggregate
-  # mutation over every Notification entity; enumerating per-entity
-  # positive diffs would be unwieldy. Expressed as constraints so the
-  # unaccounted sweep is skipped (spec §3.6 / Class 10).
-  constraints:
-    - desc: Sent ML-meetup message to u/NeuralNexus with exact body
-      expr: "any(m.to_user == 'NeuralNexus' and m.subject == 'ML meetup' and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
-      severity: high
-    - desc: Sent ML-meetup message to u/ByteRunner with exact body
-      expr: "any(m.to_user == 'ByteRunner' and m.subject == 'ML meetup' and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
-      severity: high
-    - desc: Sent ML-meetup message to u/DataWizard42 with exact body
-      expr: "any(m.to_user == 'DataWizard42' and m.subject == 'ML meetup' and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)"
-      severity: high
-    - desc: Exactly three ML-meetup messages sent (no extras)
-      expr: "sum(1 for m in state.sent_messages if m.from_user == state.owner_username and m.subject == 'ML meetup') == 3"
-      severity: high
-    - desc: All notifications marked read
-      expr: "state.unread_notification_count() == 0"
-      severity: high
-    - desc: Theme set to dark
-      expr: "state.settings.theme == 'dark'"
-      severity: high
-    - desc: Show active communities disabled
-      expr: "not state.settings.show_active_communities"
-      severity: high
-    - desc: Feed sort set to new
-      expr: "state.settings.default_feed_sort == 'new'"
-      severity: high
-    - desc: No messages sent to unintended recipients
-      expr: "all(m.to_user in {'NeuralNexus', 'ByteRunner', 'DataWizard42'} for m in state.sent_messages if m.from_user == state.owner_username and m.id not in {im.id for im in initial.sent_messages})"
-      severity: medium
-    - desc: No users blocked
-      expr: "len(state.blocked_users) == 0"
-      severity: medium
+  create:
+  - entity: Message
+    collection: sent_messages
+    bijection:
+      over: '[''NeuralNexus'', ''ByteRunner'', ''DataWizard42'']'
+      variable: v
+    desc: Send the ML-meetup message to each of the three recipients
+    properties:
+      to_user:
+        expr: x == v
+      subject:
+        eq: ML meetup
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
+      parent_id:
+        eq: null
+  update:
+  - entity: Notification
+    collection: notifications
+    bijection:
+      over: '[n.id for n in initial.notifications if not n.is_read]'
+      variable: v
+    desc: Mark every unread notification as read
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      show_active_communities: { eq: false }
+      default_feed_sort: { eq: new }
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.posts
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:
@@ -96,8 +103,8 @@ eval:
       and m.subject == 'ML meetup') <= 3
     desc: Exactly 3 messages sent
     penalty: 0.2
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

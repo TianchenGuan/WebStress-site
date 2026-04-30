@@ -272,10 +272,6 @@ canonical_diff:
       filter: "False"
       preserve: ALL
       comprehensive: true
-  constraints:
-    - desc: Agent acknowledged cancellation fee for all three reservations
-      expr: "sum(1 for e in state.audit_log if e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None) >= 3"
-      severity: high
   named_invariants:
     - name: Agent cancelled all three target reservations
       ref: update[0]

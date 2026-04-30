@@ -15,19 +15,12 @@ seed:
   steps: []
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Theme changed to dark
-      expr: "state.settings.theme == 'dark'"
-      severity: high
-    - desc: Feed sort unchanged
-      expr: "state.settings.default_feed_sort == initial.settings.default_feed_sort"
-      severity: medium
-    - desc: Compact view unchanged
-      expr: "state.settings.compact_view == initial.settings.compact_view"
-      severity: medium
-    - desc: Privacy settings unchanged
-      expr: "state.settings.show_online_status == initial.settings.show_online_status"
-      severity: medium
+  update:
+    - entity: settings
+      desc: Theme set to dark
+      where: { id: { any: true } }
+      changes:
+        theme: { eq: dark }
   invariant:
     - collection: state.subreddits
       preserve: ALL

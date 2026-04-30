@@ -1,7 +1,9 @@
 variant_id: pp_transfer_prescription__pharmacy_shadow_v1
 base_task_id: pp_transfer_prescription
 target_primitive: grounding
-description: The pharmacy list includes lookalike retail and mail-order entries. The agent must verify the exact pharmacy instead of choosing by brand family alone.
+description: The pharmacy list includes lookalike retail and mail-order entries. The agent must verify the exact pharmacy
+  instead of choosing by brand family alone. Decoys include boundary-case lookalikes (matching entity type, similar timestamps,
+  and near-threshold values) that force the agent to apply strict filters rather than match by category.
 injections:
 - layer: seed
   params:
@@ -20,3 +22,49 @@ injections:
       is_default: false
       is_mail_order: true
       cost_per_90day_supply: '62.00'
+    - type: pharmacy
+      name: 'Walgreens Pharmacy #4012'
+      address: 421 Elm Street, Springfield, IL 62701
+      phone: (217) 555-4012
+      is_default: false
+      is_mail_order: false
+    - type: pharmacy
+      name: CVS Mail Order Service
+      address: PO Box 8800, Tempe, AZ 85284
+      phone: (800) 555-2727
+      is_default: false
+      is_mail_order: true
+      cost_per_90day_supply: '58.00'
+    - type: pharmacy
+      name: 'Walgreens #2044 Drive Through'
+      address: 11 Cedar St Suite B, Springfield, IL 62705
+      phone: (217) 555-2044
+      is_default: false
+      is_mail_order: false
+    - type: prescription
+      medication: Atorvastatin 20mg
+      dosage: 20mg
+      frequency: once daily
+      refills_remaining: 1
+      last_filled: '2025-12-20T08:00:00+00:00'
+      expires_at: '2026-05-20T08:00:00+00:00'
+      status: active
+      interactions: []
+    - type: prescription
+      medication: Metformin 500mg
+      dosage: 500mg
+      frequency: twice daily
+      refills_remaining: 0
+      last_filled: '2025-08-01T08:00:00+00:00'
+      expires_at: '2026-07-15T08:00:00+00:00'
+      status: active
+      interactions: []
+    - type: prescription
+      medication: Hydrochlorothiazide 25mg
+      dosage: 25mg
+      frequency: once daily
+      refills_remaining: 0
+      last_filled: '2025-09-15T08:00:00+00:00'
+      expires_at: '2026-02-01T08:00:00+00:00'
+      status: expired
+      interactions: []

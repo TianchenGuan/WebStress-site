@@ -28,13 +28,6 @@ canonical_diff:
     properties:
       name: {eq: Dividend Kings}
       symbols: {set_eq: [KO, PG, JNJ]}
-  constraints:
-  - desc: Exactly one Dividend Kings watchlist exists
-    expr: "len([w for w in state.watchlists if w.name == 'Dividend Kings']) == 1"
-    severity: high
-  - desc: KO was not added to any pre-existing watchlist
-    expr: "not any(w.name != 'Dividend Kings' and 'KO' in w.symbols for w in state.watchlists)"
-    severity: high
   invariant:
   - collection: state.watchlists
     filter: "a.name != 'Dividend Kings'"

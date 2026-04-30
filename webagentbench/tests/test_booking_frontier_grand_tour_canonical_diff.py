@@ -121,6 +121,10 @@ def _apply_correct_state(targets, state):
         traveled_with="couple",
         created_at=now,
     ))
+    # Mirror route side-effect: flip rating_submitted on reviewed reservation
+    review_res = state.get_reservation(targets['review_res_id'])
+    if review_res:
+        review_res.rating_submitted = True
 
 
 def test_correct_trajectory_passes():

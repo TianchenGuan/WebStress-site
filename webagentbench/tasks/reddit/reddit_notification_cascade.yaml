@@ -156,69 +156,119 @@ seed:
     wn_comment: Renewables are finally delivering on their promise. This is the turning
       point.
 canonical_diff:
-  # Constraint-only form. This task mixes per-entity ops with aggregate
-  # mark-all-read bulk mutations; the latter cannot be expressed as a
-  # positive update bijection without exposing initial inbox/notif ids
-  # through targets. The constraint-only path skips the unaccounted
-  # sweep so legitimate aggregate mutations aren't double-flagged.
-  constraints:
-  - desc: All notifications marked read
-    expr: state.unread_notification_count() == 0
-    severity: high
-  - desc: All messages marked read
-    expr: state.unread_message_count() == 0
-    severity: high
-  - desc: Replied to u/{target.r_from} with required body
-    expr: any(m.to_user == target['r_from'] and target['r_body'] in m.body and m.from_user == state.owner_username for m in state.sent_messages)
-    severity: high
-  - desc: Spam message with subject "{target.del_sub}" deleted
-    expr: not any(m.id == target['del_id'] for m in state.messages)
-    severity: high
-  - desc: Worldnews post upvoted
-    expr: state.get_post(target['wn_id']).vote_direction == 1
-    severity: high
-  - desc: Worldnews post saved
-    expr: target['wn_id'] in state.saved_post_ids
-    severity: high
-  - desc: Commented on worldnews post with required text
-    expr: any(c.post_id == target['wn_id'] and target['c1'] in c.body and c.author_name == state.owner_username for c in state.comments)
-    severity: high
-  - desc: Programming post saved
-    expr: target['prog_id'] in state.saved_post_ids
-    severity: high
-  - desc: Subscribed to r/{target.join}
-    expr: any(s.name == target['join'] and s.is_subscribed for s in state.subreddits)
-    severity: high
-  - desc: Post created in r/{target.join} with required title
-    expr: any(p.subreddit_name == target['join'] and target['pt'] in p.title and p.author_name == state.owner_username for p in state.posts)
-    severity: high
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Feed sort set to new
-    expr: state.settings.default_feed_sort == 'new'
-    severity: high
-  - desc: Email for messages disabled
-    expr: state.settings.email_messages == False
-    severity: high
-  - desc: Original subscriptions preserved (do not unsubscribe)
-    expr: all(sid in state.subscriptions for sid in target['initial_subscriptions'])
-    severity: high
-  - desc: No extra messages deleted beyond the designated spam
-    expr: len(state.messages) >= len(initial.messages) - 1
-    severity: medium
-  - desc: No excessive outbound messages
-    expr: len(state.sent_messages) <= len(initial.sent_messages) + 2
-    severity: medium
-  - desc: No excessive posts created by the owner
-    expr: sum(1 for p in state.posts if p.author_name == state.owner_username) <= sum(1 for p in initial.posts if p.author_name == state.owner_username) + 2
-    severity: medium
-  - desc: No users blocked
-    expr: len(state.blocked_users) == len(initial.blocked_users)
-    severity: medium
+  update:
+  - entity: Notification
+    desc: All initially-unread notifications marked as read
+    bijection:
+      over: '[n.id for n in initial.notifications if not n.is_read]'
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Message
+    collection: state.messages
+    desc: All initially-unread inbox messages marked as read (excluding the spam target
+      that gets deleted)
+    bijection:
+      over: '[m.id for m in initial.messages if not m.is_read and m.id != target[''del_id'']]'
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_read:
+        eq: true
+  - entity: Post
+    desc: Worldnews target post upvoted and saved
+    where:
+      id:
+        expr: x == target['wn_id']
+    changes:
+      vote_direction:
+        eq: 1
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Programming target post saved
+    where:
+      id:
+        expr: x == target['prog_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Subreddit
+    desc: Subscribed to r/{target.join}
+    where:
+      id:
+        expr: state.get_subreddit(x).name == target['join']
+    changes:
+      is_subscribed:
+        eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_feed_sort: { eq: new }
+      email_messages: { eq: false }
+  create:
+  - entity: Comment
+    desc: Commented on worldnews post with required text
+    properties:
+      post_id:
+        expr: x == target['wn_id']
+      body:
+        expr: target['c1'] in x
+      author_name:
+        expr: x == state.owner_username
+  - entity: Post
+    desc: Post created in r/{target.join} with required title
+    properties:
+      subreddit_name:
+        expr: x == target['join']
+      title:
+        expr: target['pt'] in x
+      author_name:
+        expr: x == state.owner_username
+  - entity: Message
+    collection: state.sent_messages
+    desc: Reply sent to u/{target.r_from} with required body
+    properties:
+      to_user:
+        expr: x == target['r_from']
+      body:
+        expr: target['r_body'] in x
+      from_user:
+        expr: x == state.owner_username
+  delete:
+  - entity: Message
+    collection: state.messages
+    desc: Spam message with target del_id removed from inbox
+    where:
+      id:
+        expr: x == target['del_id']
   invariant:
+  - collection: state.subreddits
+    filter: 'True'
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.comments
+    filter: 'True'
+    preserve: ALL
+  - collection: state.messages
+    filter: 'True'
+    preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:
@@ -253,11 +303,12 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: No existing subscriptions removed (instruction says do not unsubscribe)
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 2
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: not any(e.action.startswith('reddit.user.block') or e.action.startswith('reddit.user.unblock')

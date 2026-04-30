@@ -78,11 +78,10 @@ canonical_diff:
     desc: Target symbol position fully liquidated and removed
     where:
       symbol: {expr: "x == target['symbol']"}
-  constraints:
-  - desc: No other symbols were sold
-    expr: "not any(o.symbol != target['symbol'] and o.side == 'sell' and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
   invariant:
+  - collection: state.orders
+    filter: "a.side == 'sell' and a.symbol != target['symbol']"
+    preserve: ALL
   - collection: state.positions
     filter: "a.symbol != target['symbol']"
     preserve: ALL

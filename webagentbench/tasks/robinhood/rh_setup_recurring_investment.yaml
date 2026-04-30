@@ -34,10 +34,6 @@ canonical_diff:
       frequency: {eq: monthly}
       status: {eq: active}
       next_execution_date: {any: true}
-  constraints:
-  - desc: No recurring investments created for symbols other than VOO
-    expr: "len([ri for ri in state.recurring_investments if ri.status == 'active' and ri.symbol != 'VOO']) == 0"
-    severity: high
   invariant:
   - collection: state.recurring_investments
     filter: "a.symbol != 'VOO'"

@@ -31,21 +31,11 @@ seed:
 canonical_diff:
   update:
   - entity: watchlists
-    desc: KO added to the Dividend Kings watchlist
+    desc: KO added to the Dividend Kings watchlist (and only KO)
     where:
       name: {eq: Dividend Kings}
     changes:
-      symbols: {any: true}
-  constraints:
-  - desc: KO is in the Dividend Kings watchlist
-    expr: "'KO' in state.watchlist_symbols('Dividend Kings')"
-    severity: critical
-  - desc: Exactly one symbol in Dividend Kings
-    expr: "len(state.watchlist_symbols('Dividend Kings')) == 1"
-    severity: high
-  - desc: PEP and PG not added to Dividend Kings
-    expr: "not any(s in state.watchlist_symbols('Dividend Kings') for s in ['PEP', 'PG'])"
-    severity: high
+      symbols: {set_eq: ["KO"]}
   invariant:
   - collection: state.watchlists
     filter: "a.name != 'Dividend Kings'"

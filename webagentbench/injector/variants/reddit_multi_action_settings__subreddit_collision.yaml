@@ -1,7 +1,9 @@
 variant_id: reddit_multi_action_settings__subreddit_collision
 base_task_id: reddit_multi_action_settings
 target_primitive: grounding
-description: "Composite degradation: (a) r/Trueworldnews and r/Worldnews (case-diff) sit beside the real r/worldnews with near-matching subscriber counts; (b) the first settings-save PUT returns 500 once. The agent must act in the correct sub AND verify the settings change persisted."
+description: 'Composite degradation: (a) r/Trueworldnews and r/Worldnews (case-diff) sit beside the real r/worldnews with
+  near-matching subscriber counts; (b) the first settings-save PUT returns 500 once. The agent must act in the correct sub
+  AND verify the settings change persisted.'
 injections:
 - layer: seed
   params:
@@ -10,12 +12,14 @@ injections:
     - type: subreddit
       name: Trueworldnews
       display_name: r/Trueworldnews
-      description: A place for major news from around the world, excluding US-internal news. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      description: A place for major news from around the world, excluding US-internal news. Self-declared 'original' or 'rebooted'
+        community that often appears in search beside the real sub.
       subscribers: 43937120
     - type: subreddit
       name: Worldnews
       display_name: r/Worldnews
-      description: A place for major news from around the world, excluding US-internal news. Case-differing sibling community — distinct URL, near-identical display to the real sub.
+      description: "A place for major news from around the world, excluding US-internal news. Case-differing sibling community\
+        \ \u2014 distinct URL, near-identical display to the real sub."
       subscribers: 19370128
     - type: post
       subreddit: Trueworldnews
@@ -32,6 +36,6 @@ injections:
     - PUT
     error_count: 1
     error_status: 500
-    error_message: Settings service returned an internal error. Please retry saving your settings.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

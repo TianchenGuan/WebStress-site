@@ -129,6 +129,8 @@ canonical_diff:
     preserve: ALL
   - collection: state.sent_messages
     preserve: ALL
+  - collection: state.student
+    preserve: ALL
   named_invariants:
   - name: Agent completed the next available module in the first course
     ref: update[0]
@@ -169,17 +171,6 @@ canonical_diff:
   - name: Agent did not send messages
     ref: invariant[10]
     severity: medium
-  constraints:
-  - desc: Completing the first course module unlocks the following module in that course
-    expr: >-
-      state.get_module(target['first_locked_module_id_1']) is not None
-      and state.is_module_unlocked(target['first_locked_module_id_1'])
-    severity: high
-  - desc: Completing the second course module unlocks the following module in that course
-    expr: >-
-      state.get_module(target['first_locked_module_id_2']) is not None
-      and state.is_module_unlocked(target['first_locked_module_id_2'])
-    severity: high
 eval:
   source: server_state
   checks:

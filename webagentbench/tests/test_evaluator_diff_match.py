@@ -118,6 +118,35 @@ def test_bijection_unsaturated_fails():
     assert report.passed is False
 
 
+def test_bijection_graph_links_to_check_and_resolves_slot_labels():
+    cd = _diff({
+        "create": [{
+            "entity": "appointments",
+            "desc": "Schedule overdue vaccines",
+            "bijection": {"over": "target['due_ids']", "variable": "v"},
+            "properties": {"vaccine_ref": {"expr": "x == v"}},
+        }],
+    })
+    targets = {"due_ids": ["imm_1", "imm_2"]}
+    final_state = {
+        "appointments": [],
+        "immunizations": [
+            {"id": "imm_1", "vaccine_name": "MMR"},
+            {"id": "imm_2", "vaccine_name": "Tdap"},
+        ],
+    }
+    agent_diff = [
+        Create(entity="appointments", entity_id="a1", fields={"vaccine_ref": "imm_1"}),
+    ]
+    report = match_diff(agent_diff, cd, targets=targets, initial=None, final=final_state)
+    assert report.passed is False
+    graph = report.bijection_graphs[0]
+    assert graph["check_index"] == 0
+    assert graph["check_desc"] == report.checks[0]["desc"]
+    assert graph["slots"][0]["label"] == "MMR (imm_1)"
+    assert graph["slots"][1]["label"] == "Tdap (imm_2)"
+
+
 def test_bijection_empty_target_requires_zero_creates():
     cd = _diff({
         "create": [{

@@ -190,6 +190,12 @@ canonical_diff:
     changes:
       is_read:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      default_comment_sort: { eq: new }
   create:
   - entity: Comment
     desc: Top-level comment on worldnews post
@@ -247,42 +253,30 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['mb']
-  constraints:
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Comment sort set to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Existing subscriptions preserved
-    expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-    severity: medium
-  - desc: No downvotes cast on any post
-    expr: "not any(p.vote_direction == -1 for p in state.posts)"
-    severity: high
-  - desc: No downvotes cast on any comment
-    expr: "not any(c.vote_direction == -1 for c in state.comments)"
-    severity: high
   invariant:
   - collection: state.subreddits
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.posts
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.messages
     preserve: ALL
   - collection: state.sent_messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.notifications
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Subscribed to r/MachineLearning
     ref: update[0]
@@ -345,11 +339,12 @@ eval:
   - expr: all(sid in state.subscriptions for sid in {target.initial_subscriptions})
     desc: Existing subs preserved
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 4
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 4
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

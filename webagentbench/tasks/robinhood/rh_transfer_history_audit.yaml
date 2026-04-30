@@ -48,13 +48,49 @@ seed:
     outputs: []
   targets: {}
 canonical_diff:
-  constraints:
-  - desc: Active weekly $200 VTI recurring investment created
-    expr: "any(ri.symbol == 'VTI' and ri.frequency == 'weekly' and ri.amount == Decimal('200') and ri.status == 'active' for ri in state.recurring_investments)"
-    severity: critical
-  - desc: $3,000 deposit made if withdrawals exceeded deposits (passes if deposits already exceed withdrawals without it)
-    expr: "state.total_transferred('deposit') > state.total_transferred('withdrawal') or any(t.direction == 'deposit' and t.amount == Decimal('3000') for t in state.transfers)"
-    severity: critical
+  create:
+  - entity: recurring_investments
+    desc: Active weekly $200 VTI recurring investment
+    properties:
+      symbol: {eq: VTI}
+      frequency: {eq: weekly}
+      amount: {eq: 200}
+      status: {eq: active}
+  - entity: transfers
+    desc: $3,000 deposit when initial withdrawals exceeded deposits
+    bijection:
+      over: "['NEEDED'] if initial.total_transferred('withdrawal') >= initial.total_transferred('deposit') else []"
+      variable: tag
+    properties:
+      direction: {eq: deposit}
+      amount: {eq: 3000}
+      status: {any: true}
+      bank_account_id: {any: true}
+      initiated_at: {any: true}
+      completed_at: {any: true}
+  invariant:
+  - collection: state.orders
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.transactions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, verification, planning by requiring the
   agent to analyze transfer history and take conditional action based on the findings.

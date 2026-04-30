@@ -35,26 +35,23 @@ seed:
   targets:
     new_phone: (555) 867-5309
 canonical_diff:
-  # NOTE: `patient` is a SINGLETON on PatientPortalState, not a list, so
-  # compute_diff (which only iterates list fields) cannot see the phone-field
-  # change. This task therefore has no positive structural entry — the
-  # positive signal is a `critical`-severity constraint instead. With
-  # total_weight==0, score_raw resolves to 1.0 and penalties reduce it; a
-  # failing critical constraint deducts 0.3, and passed is False whenever
-  # any constraint or invariant fails (via the failures list).
-  constraints:
-  - desc: Patient phone was updated to the target value
-    expr: state.patient.phone == target['new_phone']
-    severity: critical
-  - desc: Emergency contact phone was not mistakenly changed
-    expr: state.patient.emergency_contact.phone == initial.patient.emergency_contact.phone
-    severity: high
-  - desc: Patient email was not changed
-    expr: state.patient.email == initial.patient.email
-    severity: high
-  - desc: Patient name was not changed
-    expr: state.patient.name == initial.patient.name
-    severity: medium
+  # `state.patient` is now diffed (opt-in singleton with id field). Phone
+  # change appears as Update("patient", "<id>", {phone: ...}). Field-level
+  # `expr: x == initial.patient.<field>` guards untouched fields because
+  # the singleton invariant cannot do field-level guarding when an Update
+  # already covers the same row.
+  update:
+    - entity: patient
+      desc: Patient phone updated to the target value
+      where: { id: { any: true } }
+      changes:
+        phone: { eq: "(555) 867-5309" }
+        email:
+          expr: "x == initial.patient.email"
+        name:
+          expr: "x == initial.patient.name"
+        emergency_contact:
+          expr: "x.get('phone') == initial.patient.emergency_contact.phone"
   invariant:
   - collection: state.appointments
     preserve: ALL
@@ -73,6 +70,8 @@ canonical_diff:
   - collection: state.pharmacies
     preserve: ALL
   - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
     preserve: ALL
   named_invariants:
   - name: Agent did not create, cancel, or modify appointments

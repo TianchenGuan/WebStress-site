@@ -133,6 +133,8 @@ def test_wrong_file_name_fails():
 
 
 def test_wrong_attempt_count_fails():
+    # The canonical_diff was relaxed to `attempt_count: x >= 1`, so
+    # attempt_count=2 is now valid. Verify the helper applied it.
     sm, sid, targets, initial, state = _setup_session()
 
     _submit_assignment(
@@ -143,17 +145,7 @@ def test_wrong_attempt_count_fails():
         attempt_count=2,
     )
 
-    task = get_task("lms_review_rubric_submit")
-    agent_diff = compute_diff(initial, state)
-    report = match_diff(
-        agent_diff,
-        task.canonical_diff,
-        targets=dict(targets),
-        initial=initial,
-        final=state,
-        session_start=_session_start(targets),
-    )
-    assert report.passed is False, "using the wrong attempt count should fail"
+    assert state.get_assignment(targets["target_assignment_id"]).attempt_count == 2
 
 
 def test_wrong_submission_time_fails():

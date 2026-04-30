@@ -67,44 +67,60 @@ seed:
     msg_body: Found two great posts today - one on Intel 18A and one on walking and
       longevity. Check them out!
 canonical_diff:
-  # Constraint-only form: the task includes "unsave any posts from r/memes",
-  # which requires mutating every seed-saved memes post. The specific IDs are
-  # not exposed as targets, so a bijection would require seed-builder
-  # extension. Using constraints keeps the diff self-contained and scores on
-  # the aggregate outcome (spec §3.6 / Class 10).
-  constraints:
-  - desc: All memes posts unsaved
-    expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)
-    severity: high
-  - desc: Intel 18A post saved
-    expr: target['save1_id'] in state.saved_post_ids and state.get_post(target['save1_id']).is_saved
-    severity: high
-  - desc: Walking post saved
-    expr: target['save2_id'] in state.saved_post_ids and state.get_post(target['save2_id']).is_saved
-    severity: high
-  - desc: Walking post upvoted
-    expr: state.get_post(target['save2_id']).vote_direction == 1
-    severity: high
-  - desc: Default feed sort set to top
-    expr: state.settings.default_feed_sort == 'top'
-    severity: high
-  - desc: Default comment sort set to new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
-  - desc: Exact message sent to NeuralNexus
-    expr: any(m.to_user == target['msg_to'] and m.subject == target['msg_subject'] and m.body == target['msg_body'] and m.from_user == state.owner_username for m in state.sent_messages)
-    severity: high
-  - desc: Intel post not voted on (instruction only says save)
-    expr: state.get_post(target['save1_id']).vote_direction == 0
-    severity: low
-  - desc: Non-memes previously-saved posts still saved
-    expr: all(pid in state.saved_post_ids for pid in initial.saved_post_ids if initial.get_post(pid) and initial.get_post(pid).subreddit_name != 'memes')
-    severity: medium
-  - desc: No users blocked
-    expr: len(state.blocked_users) == 0
-    severity: medium
+  update:
+  - entity: Post
+    desc: All saved posts in r/memes were unsaved
+    bijection:
+      over: '[p.id for p in initial.posts if p.is_saved and p.subreddit_name == ''memes'']'
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      is_saved:
+        eq: false
+  - entity: Post
+    desc: Intel 18A post saved (technology target)
+    where:
+      id:
+        expr: x == target['save1_id']
+    changes:
+      is_saved:
+        eq: true
+  - entity: Post
+    desc: Walking post saved and upvoted (science target)
+    where:
+      id:
+        expr: x == target['save2_id']
+    changes:
+      is_saved:
+        eq: true
+      vote_direction:
+        eq: 1
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      default_feed_sort: { eq: top }
+      default_comment_sort: { eq: new }
+  create:
+  - entity: Message
+    collection: state.sent_messages
+    desc: Exact health/tech roundup message sent to NeuralNexus
+    properties:
+      to_user:
+        expr: x == target['msg_to']
+      subject:
+        expr: x == target['msg_subject']
+      body:
+        expr: x == target['msg_body']
+      from_user:
+        expr: x == state.owner_username
   invariant:
   - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
     preserve: ALL
@@ -114,6 +130,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 eval:
   source: server_state
   checks:
@@ -136,11 +156,12 @@ eval:
   - expr: state.get_post('{target.save1_id}').vote_direction == 0
     desc: Intel post not voted on
     penalty: 0.1
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 3
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

@@ -41,17 +41,6 @@ seed:
     - notif_c
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Only the read flag was changed on existing notifications
-      expr: >-
-        all(
-          n.title == i.title and n.message == i.message and n.type == i.type
-          and n.related_id == i.related_id and n.created_at == i.created_at
-          for i in initial.notifications
-          for n in state.notifications
-          if n.id == i.id
-        )
-      severity: high
   update:
     - entity: Notification
       desc: Mark every previously-unread notification as read

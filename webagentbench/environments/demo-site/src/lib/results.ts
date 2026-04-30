@@ -32,14 +32,19 @@ export interface ResultSummary {
 }
 
 export interface TrajectoryStep {
+  [key: string]: unknown;
   step: number;
   thought: string;
   action: Record<string, unknown>;
+  actions?: Array<Record<string, unknown>>;
+  raw_actions?: Array<Record<string, unknown>>;
   targets: {
     ref?: TrajectoryTarget;
     from_ref?: TrajectoryTarget;
     to_ref?: TrajectoryTarget;
   };
+  action_targets?: TrajectoryTarget[];
+  action_results?: Array<Record<string, unknown>>;
   status: string;
   elapsed_seconds: number;
   replay_path?: string;

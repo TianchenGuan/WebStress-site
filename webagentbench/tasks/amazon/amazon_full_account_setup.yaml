@@ -63,69 +63,109 @@ canonical_diff:
   - entity: Address
     desc: Home address added (Seattle)
     properties:
-      street_address: {substring: "200 Pine"}
-      city: {eq: "Seattle"}
-      state: {eq: "WA"}
-      full_name: {any: true}
-      zip_code: {any: true}
-      is_default: {any: true}
-      apt_suite: {any: true}
-      country: {any: true}
-      phone: {any: true}
+      street_address:
+        substring: 200 Pine
+      city:
+        eq: Seattle
+      state:
+        eq: WA
+      full_name:
+        any: true
+      zip_code:
+        any: true
+      is_default:
+        any: true
+      apt_suite:
+        any: true
+      country:
+        any: true
+      phone:
+        any: true
   - entity: Address
     desc: Office address added (Bellevue)
     properties:
-      street_address: {substring: "800 Corporate"}
-      city: {eq: "Bellevue"}
-      state: {eq: "WA"}
-      full_name: {any: true}
-      zip_code: {any: true}
-      is_default: {any: true}
-      apt_suite: {any: true}
-      country: {any: true}
-      phone: {any: true}
+      street_address:
+        substring: 800 Corporate
+      city:
+        eq: Bellevue
+      state:
+        eq: WA
+      full_name:
+        any: true
+      zip_code:
+        any: true
+      is_default:
+        any: true
+      apt_suite:
+        any: true
+      country:
+        any: true
+      phone:
+        any: true
   - entity: PaymentMethod
     desc: New payment method added
     properties:
-      card_type: {any: true}
-      last_four: {any: true}
-      expiry: {any: true}
-      holder_name: {any: true}
-      is_default: {any: true}
+      card_type:
+        any: true
+      last_four:
+        any: true
+      expiry:
+        any: true
+      holder_name:
+        any: true
+      is_default:
+        any: true
   - entity: Order
-    desc: New order for the monitor, shipping to the Office (Bellevue) address, using the new payment method
+    desc: New order for the monitor, shipping to the Office (Bellevue) address, using
+      the new payment method
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+        expr: any(it['product_id'] == target['product_id'] for it in x)
       shipping_address_id:
-        expr: "any('800 Corporate' in a.street_address for a in state.addresses if a.id == x)"
+        expr: any('800 Corporate' in a.street_address for a in state.addresses if
+          a.id == x)
       payment_method_id:
-        expr: "x not in [p.id for p in initial.payment_methods]"
-      status: {any: true}
-      subtotal: {any: true}
-      shipping_cost: {any: true}
-      tax: {any: true}
-      total: {any: true}
-      placed_at: {any: true}
-      estimated_delivery: {any: true}
-      promo_code: {any: true}
-      discount: {any: true}
-  constraints:
-  - desc: One-click ordering is enabled
-    expr: "state.settings.one_click_enabled == True"
-    severity: high
-  - desc: Deal-alert emails are turned on
-    expr: "state.settings.deal_alerts_email == True"
-    severity: high
+        expr: x not in [p.id for p in initial.payment_methods]
+      status:
+        any: true
+      subtotal:
+        any: true
+      shipping_cost:
+        any: true
+      tax:
+        any: true
+      total:
+        any: true
+      placed_at:
+        any: true
+      estimated_delivery:
+        any: true
+      promo_code:
+        any: true
+      discount:
+        any: true
+  update:
+  - entity: settings
+    collection: state.settings
+    desc: One-click ordering enabled and deal-alert emails turned on
+    where:
+      id:
+        any: true
+    changes:
+      one_click_enabled:
+        eq: true
+      deal_alerts_email:
+        eq: true
   invariant:
   - collection: state.addresses
-    filter: "'200 Pine' not in a.street_address and '800 Corporate' not in a.street_address"
+    filter: '''200 Pine'' not in a.street_address and ''800 Corporate'' not in a.street_address'
     preserve: ALL
   - collection: state.payment_methods
-    filter: "a.id in [p.id for p in initial.payment_methods]"
+    filter: a.id in [p.id for p in initial.payment_methods]
     preserve: ALL
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    filter: not any(it.get('product_id') == target['product_id'] for it in (a.items
+      or []))
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -142,6 +182,12 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
+  - collection: state.wishlist
     preserve: ALL
   named_invariants:
   - name: Agent did not modify other saved addresses
@@ -177,3 +223,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[12]
+    severity: medium

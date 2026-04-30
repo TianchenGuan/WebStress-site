@@ -69,6 +69,10 @@ def _apply_correct_actions(state, targets):
         created_at=datetime.now(timezone.utc),
     )
     state.add_review(review)
+    # Mirror route side-effect: flip rating_submitted on reviewed reservation
+    review_res = state.get_reservation(targets["review_res_id"])
+    if review_res:
+        review_res.rating_submitted = True
     # 4. Update preferences
     state.travel_preferences.preferred_bed_type = "queen"
     state.travel_preferences.dietary_restrictions.append("halal")
@@ -119,6 +123,9 @@ def test_wrong_room_fails():
         created_at=datetime.now(timezone.utc),
     )
     state.add_review(review)
+    review_res = state.get_reservation(targets["review_res_id"])
+    if review_res:
+        review_res.rating_submitted = True
     state.travel_preferences.preferred_bed_type = "queen"
     state.travel_preferences.dietary_restrictions.append("halal")
     report = _evaluate(task, initial, state, targets)

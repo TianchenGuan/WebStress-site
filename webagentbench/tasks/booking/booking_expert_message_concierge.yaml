@@ -133,19 +133,12 @@ seed:
     msg_id_2: '{output.msg_id_2}'
     msg_id_3: '{output.msg_id_3}'
 canonical_diff:
-  constraints:
-    - desc: Preferred bed type updated to king
-      expr: "state.travel_preferences.preferred_bed_type == 'king'"
-      severity: high
-    - desc: Three original messages are marked as read
-      expr: >-
-        all(
-          m.read == True
-          for m in state.messages
-          if m.id in (target['msg_id_1'], target['msg_id_2'], target['msg_id_3'])
-        )
-      severity: high
   update:
+    - entity: travel_preferences
+      desc: Preferred bed type set to king
+      where: {id: {eq: "__singleton_travel_preferences__"}}
+      changes:
+        preferred_bed_type: {eq: king}
     - entity: Message
       desc: Mark first original message as read
       where:
@@ -227,6 +220,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Preferred bed type updated to king
+      ref: update[0]
+      severity: high
     - name: Agent replied to hotel_1 with correct arrival information
       ref: create[0]
       severity: high

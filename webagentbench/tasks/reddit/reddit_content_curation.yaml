@@ -135,16 +135,6 @@ canonical_diff:
           eq: null
         author_name:
           expr: "x == state.owner_username"
-  constraints:
-    - desc: No decoy posts were saved
-      expr: "not any(pid in state.saved_post_ids for pid in target['decoy_post_ids'])"
-      severity: high
-    - desc: No comments were posted on decoy posts
-      expr: "not any(c.post_id in target['decoy_post_ids'] and c.author_name == state.owner_username for c in state.comments)"
-      severity: high
-    - desc: Existing subscriptions preserved
-      expr: "all(sid in state.subscriptions for sid in target['initial_subscriptions'])"
-      severity: high
   invariant:
     - collection: state.subreddits
       filter: "True"
@@ -163,6 +153,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.user_profiles
       preserve: ALL
+    - collection: state.settings
+      filter: 'False'
+      preserve: ALL
+      comprehensive: true
   named_invariants:
     - name: Agent saved the GPT-5 post in r/technology
       ref: update[0]

@@ -41,17 +41,10 @@ canonical_diff:
       quantity: {any: true}
       description: {any: true}
       timestamp: {any: true}
-  constraints:
-  - desc: Exactly one deposit was initiated
-    expr: "len([t for t in state.transfers if t.direction == 'deposit']) == 1"
-    severity: high
-  - desc: Total deposited amount is exactly $500
-    expr: "sum(t.amount for t in state.transfers if t.direction == 'deposit') == 500"
-    severity: critical
-  - desc: No withdrawals were initiated
-    expr: "not any(t.direction == 'withdrawal' for t in state.transfers)"
-    severity: high
   invariant:
+  - collection: state.transfers
+    filter: "a.direction == 'withdrawal'"
+    preserve: ALL
   - collection: state.positions
     preserve: ALL
   - collection: state.orders

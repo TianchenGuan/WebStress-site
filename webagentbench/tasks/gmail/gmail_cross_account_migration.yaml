@@ -63,221 +63,227 @@ seed:
     raj_email_id: '{output.raj_email_id}'
 canonical_diff:
   create:
-    - entity: labels
-      desc: Create SRE/Oncall label
-      count: 1
-      properties:
-        name:
-          eq: SRE/Oncall
-    - entity: labels
-      desc: Create SRE/Postmortems label
-      count: 1
-      properties:
-        name:
-          eq: SRE/Postmortems
-    - entity: labels
-      desc: Create SRE/Capacity label
-      count: 1
-      properties:
-        name:
-          eq: SRE/Capacity
-    - entity: labels
-      desc: Create DevOps/Legacy label
-      count: 1
-      properties:
-        name:
-          eq: DevOps/Legacy
-    - entity: labels
-      desc: Create DevOps/Archived label
-      count: 1
-      properties:
-        name:
-          eq: DevOps/Archived
-    - entity: filters
-      desc: Create PagerDuty filter for SRE/Oncall
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@alerts.pagerduty.io"
-        add_labels:
-          superset:
-            - SRE/Oncall
-        star:
-          eq: true
-        never_spam:
-          eq: true
-    - entity: filters
-      desc: Create Postmortem filter for SRE/Postmortems
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@postmortem.incident.io"
-        add_labels:
-          superset:
-            - SRE/Postmortems
-    - entity: filters
-      desc: Create Buildkite filter for DevOps/Legacy
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@ci.buildkite.com"
-        add_labels:
-          superset:
-            - DevOps/Legacy
-        mark_read:
-          eq: true
-    - entity: filters
-      desc: Create CloudWatch filter for SRE/Capacity
-      count: 1
-      properties:
-        from_addresses:
-          superset:
-            - "*@capacity.cloudwatch.io"
-        add_labels:
-          superset:
-            - SRE/Capacity
-        star:
-          eq: true
-    - entity: contacts
-      desc: Add Yuki Tanaka contact
-      count: 1
-      properties:
-        email:
-          eq: yuki.tanaka@sre.company.io
-    - entity: contacts
-      desc: Add Omar Hassan contact
-      count: 1
-      properties:
-        email:
-          eq: omar.hassan@sre.company.io
-    - entity: contacts
-      desc: Add Lin Zhao contact
-      count: 1
-      properties:
-        email:
-          eq: lin.zhao@infra.company.io
-    - entity: contacts
-      desc: Add Carlos Reyes contact
-      count: 1
-      properties:
-        email:
-          eq: carlos.reyes@infra.company.io
-    - entity: sent
-      desc: Forward Q4 Capacity Planning email to successor
-      count: 1
-      properties:
-        forwarded_from_id:
-          expr: "x == target['capacity_email_id']"
-        to:
-          expr: "'successor@company.io' in x"
-    - entity: sent
-      desc: Forward Incident 2847 RCA email to successor
-      count: 1
-      properties:
-        forwarded_from_id:
-          expr: "x == target['incident_email_id']"
-        to:
-          expr: "'successor@company.io' in x"
-    - entity: sent
-      desc: Forward CI Migration Proposal v3 email to successor
-      count: 1
-      properties:
-        forwarded_from_id:
-          expr: "x == target['ci_v3_email_id']"
-        to:
-          expr: "'successor@company.io' in x"
-    - entity: sent
-      desc: Reply to migration coordinator confirming completion
-      count: 1
-      properties:
-        in_reply_to:
-          expr: "x == target['checklist_email_id']"
-        body:
-          substring_all:
-            - Migration complete
+  - entity: labels
+    desc: Create SRE/Oncall label
+    count: 1
+    properties:
+      name:
+        eq: SRE/Oncall
+  - entity: labels
+    desc: Create SRE/Postmortems label
+    count: 1
+    properties:
+      name:
+        eq: SRE/Postmortems
+  - entity: labels
+    desc: Create SRE/Capacity label
+    count: 1
+    properties:
+      name:
+        eq: SRE/Capacity
+  - entity: labels
+    desc: Create DevOps/Legacy label
+    count: 1
+    properties:
+      name:
+        eq: DevOps/Legacy
+  - entity: labels
+    desc: Create DevOps/Archived label
+    count: 1
+    properties:
+      name:
+        eq: DevOps/Archived
+  - entity: filters
+    desc: Create PagerDuty filter for SRE/Oncall
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@alerts.pagerduty.io'
+      add_labels:
+        superset:
+        - SRE/Oncall
+      star:
+        eq: true
+      never_spam:
+        eq: true
+  - entity: filters
+    desc: Create Postmortem filter for SRE/Postmortems
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@postmortem.incident.io'
+      add_labels:
+        superset:
+        - SRE/Postmortems
+  - entity: filters
+    desc: Create Buildkite filter for DevOps/Legacy
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@ci.buildkite.com'
+      add_labels:
+        superset:
+        - DevOps/Legacy
+      mark_read:
+        eq: true
+  - entity: filters
+    desc: Create CloudWatch filter for SRE/Capacity
+    count: 1
+    properties:
+      from_addresses:
+        superset:
+        - '*@capacity.cloudwatch.io'
+      add_labels:
+        superset:
+        - SRE/Capacity
+      star:
+        eq: true
+  - entity: contacts
+    desc: Add Yuki Tanaka contact
+    count: 1
+    properties:
+      email:
+        eq: yuki.tanaka@sre.company.io
+  - entity: contacts
+    desc: Add Omar Hassan contact
+    count: 1
+    properties:
+      email:
+        eq: omar.hassan@sre.company.io
+  - entity: contacts
+    desc: Add Lin Zhao contact
+    count: 1
+    properties:
+      email:
+        eq: lin.zhao@infra.company.io
+  - entity: contacts
+    desc: Add Carlos Reyes contact
+    count: 1
+    properties:
+      email:
+        eq: carlos.reyes@infra.company.io
+  - entity: sent
+    desc: Forward Q4 Capacity Planning email to successor
+    count: 1
+    properties:
+      forwarded_from_id:
+        expr: x == target['capacity_email_id']
+      to:
+        expr: '''successor@company.io'' in x'
+  - entity: sent
+    desc: Forward Incident 2847 RCA email to successor
+    count: 1
+    properties:
+      forwarded_from_id:
+        expr: x == target['incident_email_id']
+      to:
+        expr: '''successor@company.io'' in x'
+  - entity: sent
+    desc: Forward CI Migration Proposal v3 email to successor
+    count: 1
+    properties:
+      forwarded_from_id:
+        expr: x == target['ci_v3_email_id']
+      to:
+        expr: '''successor@company.io'' in x'
+  - entity: sent
+    desc: Reply to migration coordinator confirming completion
+    count: 1
+    properties:
+      in_reply_to:
+        expr: x == target['checklist_email_id']
+      body:
+        substring_all:
+        - Migration complete
   delete:
-    - entity: labels
-      desc: Delete DevOps/Pipelines label
-      where:
-        name:
-          eq: DevOps/Pipelines
+  - entity: labels
+    desc: Delete DevOps/Pipelines label
+    where:
+      name:
+        eq: DevOps/Pipelines
   update:
-    - entity: contacts
-      desc: Update Mia Foster contact note
-      where:
-        id:
-          expr: "x == target['mia_contact_id']"
-      changes:
-        note:
-          eq: "Transitioned to SRE platform team"
-    - entity: contacts
-      desc: Update Noah Kim contact note
-      where:
-        id:
-          expr: "x == target['noah_contact_id']"
-      changes:
-        note:
-          eq: "Retained as DevOps legacy maintainer"
-    - entity: emails
-      desc: Archive all DevOps/Pipelines emails
-      bijection:
-        over: "target['pipeline_email_ids']"
-        variable: v
-      where:
-        id:
-          expr: "x == v"
-      changes:
-        archived:
-          eq: true
-  constraints:
-    - desc: Display density set to compact
-      expr: "state.settings.display_density == 'compact'"
-      severity: high
-    - desc: Undo send delay set to 10 seconds
-      expr: "state.settings.undo_send_seconds == 10"
-      severity: high
-    - desc: Page size set to 100
-      expr: "state.settings.max_page_size == 100"
-      severity: high
+  - entity: contacts
+    desc: Update Mia Foster contact note
+    where:
+      id:
+        expr: x == target['mia_contact_id']
+    changes:
+      note:
+        eq: Transitioned to SRE platform team
+  - entity: contacts
+    desc: Update Noah Kim contact note
+    where:
+      id:
+        expr: x == target['noah_contact_id']
+    changes:
+      note:
+        eq: Retained as DevOps legacy maintainer
+  - entity: emails
+    desc: Archive all DevOps/Pipelines emails
+    bijection:
+      over: target['pipeline_email_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      archived:
+        eq: true
+  - entity: settings
+    desc: Display density, undo send delay, and page size updated per checklist
+    where:
+      id: { any: true }
+    changes:
+      display_density: { eq: compact }
+      undo_send_seconds: { eq: 10 }
+      max_page_size: { eq: 100 }
   invariant:
-    - collection: state.emails
-      filter: "a.id not in target['pipeline_email_ids']"
-      preserve: ALL
-    - collection: state.drafts
-      preserve: ALL
-    - collection: state.sent
-      filter: "True"
-      preserve: ALL
-    - collection: state.deleted
-      preserve: ALL
-    - collection: state.contacts
-      filter: "a.id not in [target['mia_contact_id'], target['noah_contact_id']]"
-      preserve: ALL
-    - collection: state.labels
-      filter: "a.name not in ['SRE/Oncall', 'SRE/Postmortems', 'SRE/Capacity', 'DevOps/Legacy', 'DevOps/Archived', 'DevOps/Pipelines']"
-      preserve: ALL
-    - collection: state.filters
-      filter: "True"
-      preserve: ALL
+  - collection: state.emails
+    filter: a.id not in target['pipeline_email_ids']
+    preserve: ALL
+  - collection: state.drafts
+    preserve: ALL
+  - collection: state.sent
+    filter: 'True'
+    preserve: ALL
+  - collection: state.deleted
+    preserve: ALL
+  - collection: state.contacts
+    filter: a.id not in [target['mia_contact_id'], target['noah_contact_id']]
+    preserve: ALL
+  - collection: state.labels
+    filter: a.name not in ['SRE/Oncall', 'SRE/Postmortems', 'SRE/Capacity', 'DevOps/Legacy',
+      'DevOps/Archived', 'DevOps/Pipelines']
+    preserve: ALL
+  - collection: state.filters
+    filter: 'True'
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent created all required labels
-      ref: create[0]
-      severity: high
-    - name: Agent created all required filters
-      ref: create[5]
-      severity: high
-    - name: Agent added all required contacts
-      ref: create[9]
-      severity: high
-    - name: Agent forwarded the 3 required threads
-      ref: create[13]
-      severity: high
-    - name: Agent sent the completion reply
-      ref: create[16]
-      severity: high
-    - name: Agent archived all Pipelines emails
-      ref: update[2]
-      severity: high
+  - name: Agent created all required labels
+    ref: create[0]
+    severity: high
+  - name: Agent created all required filters
+    ref: create[5]
+    severity: high
+  - name: Agent added all required contacts
+    ref: create[9]
+    severity: high
+  - name: Agent forwarded the 3 required threads
+    ref: create[13]
+    severity: high
+  - name: Agent sent the completion reply
+    ref: create[16]
+    severity: high
+  - name: Agent archived all Pipelines emails
+    ref: update[2]
+    severity: high
+  - name: Agent updated display density, undo send delay, and page size
+    ref: update[3]
+    severity: high

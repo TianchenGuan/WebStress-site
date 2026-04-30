@@ -46,20 +46,7 @@ canonical_diff:
     properties:
       strategy: {eq: covered_call}
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: One sold call leg on AAPL with correct expiry and strike
-    expr: "state.latest_options_order(symbol='AAPL') is not None and any(leg.side == 'sell' and leg.option_type == 'call' and leg.underlying_symbol == 'AAPL' and leg.strike >= state.get_stock('AAPL').price * Decimal('1.08') and leg.strike <= state.get_stock('AAPL').price * Decimal('1.12') for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: critical
-  - desc: Expiration between 25 and 35 days from today
-    expr: "state.latest_options_order(symbol='AAPL') is not None and all(state.days_until(leg.expiration) >= 25 and state.days_until(leg.expiration) <= 35 for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: critical
-  - desc: Exactly 1 contract sold
-    expr: "state.latest_options_order(symbol='AAPL') is not None and all(leg.quantity == 1 for leg in state.latest_options_order(symbol='AAPL').legs)"
-    severity: high
-  - desc: No equity orders placed
-    expr: "all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+      legs: {expr: "all(leg['side'] == 'sell' and leg['option_type'] == 'call' and leg['underlying_symbol'] == 'AAPL' and leg['strike'] >= state.get_stock('AAPL').price * Decimal('1.08') and leg['strike'] <= state.get_stock('AAPL').price * Decimal('1.12') and state.days_until(leg['expiration']) >= 25 and state.days_until(leg['expiration']) <= 35 and leg['quantity'] == 1 for leg in x)"}
   invariant:
   - collection: state.positions
     preserve: ALL

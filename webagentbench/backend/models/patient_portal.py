@@ -178,6 +178,8 @@ class Pharmacy(BaseEntity):
 
 
 class PatientPortalState(BaseEnvState):
+    DIFF_DIFFABLE_SINGLETONS: ClassVar[tuple[str, ...]] = ("patient",)
+
     env_id: str = "patient_portal"
 
     # Domain entities

@@ -1,9 +1,8 @@
 task_id: pp_renew_expiring_rx
 env_id: patient_portal
 title: Renew Expiring Prescriptions
-instruction_template: Identify all prescriptions expiring within the next 30 days.
-  For each one that has 0 refills remaining, request a renewal. Do not request renewals
-  for prescriptions that still have refills available.
+instruction_template: Identify all prescriptions expiring within the next 30 days. For each one that has 0 refills remaining,
+  request a renewal. Do not request renewals for prescriptions that still have refills available.
 difficulty: hard
 time_limit_seconds: 300
 expected_steps: 18
@@ -11,7 +10,7 @@ primary_primitives:
 - state_tracking
 start_path: /medications
 seed:
-  distractors: 10
+  distractors: 14
   steps:
   - use: patient_profile
     params:
@@ -43,10 +42,10 @@ seed:
     - default_pharmacy_id
   - use: prescription_cabinet
     params:
-      active_count: 3
+      active_count: 4
       expired_count: 1
       zero_refill_count: 1
-      expiring_soon_count: 3
+      expiring_soon_count: 4
       expiring_zero_refill_count: 2
     outputs:
     - active_rx_ids
@@ -70,79 +69,93 @@ seed:
     all_msg_ids: '{output.all_msg_ids}'
 canonical_diff:
   update:
-    - entity: Prescription
-      desc: "Flip each expiring zero-refill prescription to pending_renewal"
-      bijection:
-        over: "target['expiring_zero_refill_rx_ids']"
-        variable: v
-      where:
-        id: {expr: "x == v"}
-      changes:
-        status: {eq: "pending_renewal"}
+  - entity: Prescription
+    desc: Flip each expiring zero-refill prescription to pending_renewal
+    bijection:
+      over: target['expiring_zero_refill_rx_ids']
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      status:
+        eq: pending_renewal
   create:
-    - entity: ClinicalMessage
-      desc: "Submit a structured renewal request per expiring zero-refill rx (category=rx_renewal, linked to the prescription)"
-      bijection:
-        over: "target['expiring_zero_refill_rx_ids']"
-        variable: v
-      properties:
-        from_type: {eq: "patient"}
-        category: {eq: "rx_renewal"}
-        linked_entity_id: {expr: "x == v"}
-        linked_entity_type: {eq: "prescription"}
-        is_read: {eq: true}
-        provider_id:
-          expr: >-
-            x in [r.provider_id for r in initial.prescriptions if r.id == v]
-        subject: {any: true}
-        body: {any: true}
-        thread_id: {any: true}
-        is_urgent: {any: true}
+  - entity: ClinicalMessage
+    desc: Submit a structured renewal request per expiring zero-refill rx (category=rx_renewal, linked to the prescription)
+    bijection:
+      over: target['expiring_zero_refill_rx_ids']
+      variable: v
+    properties:
+      from_type:
+        eq: patient
+      category:
+        eq: rx_renewal
+      linked_entity_id:
+        expr: x == v
+      linked_entity_type:
+        eq: prescription
+      is_read:
+        eq: true
+      provider_id:
+        expr: x in [r.provider_id for r in initial.prescriptions if r.id == v]
+      subject:
+        any: true
+      body:
+        any: true
+      thread_id:
+        any: true
+      is_urgent:
+        any: true
   invariant:
-    - collection: state.prescriptions
-      filter: "a.id not in target['expiring_zero_refill_rx_ids']"
-      preserve: ALL
-    - collection: state.messages
-      filter: "a.id in target['all_msg_ids']"
-      preserve: ALL
-    - collection: state.appointments
-      preserve: ALL
-    - collection: state.immunizations
-      preserve: ALL
-    - collection: state.lab_results
-      preserve: ALL
-    - collection: state.claims
-      preserve: ALL
-    - collection: state.referrals
-      preserve: ALL
-    - collection: state.pharmacies
-      preserve: ALL
+  - collection: state.prescriptions
+    filter: a.id not in target['expiring_zero_refill_rx_ids']
+    preserve: ALL
+  - collection: state.messages
+    filter: a.id in target['all_msg_ids']
+    preserve: ALL
+  - collection: state.appointments
+    preserve: ALL
+  - collection: state.immunizations
+    preserve: ALL
+  - collection: state.lab_results
+    preserve: ALL
+  - collection: state.claims
+    preserve: ALL
+  - collection: state.referrals
+    preserve: ALL
+  - collection: state.pharmacies
+    preserve: ALL
+  - collection: state.providers
+    preserve: ALL
+  - collection: state.patient
+    preserve: ALL
   named_invariants:
-    - name: "Agent did not renew, discontinue, or modify prescriptions that still have refills"
-      ref: invariant[0]
-      severity: high
-    - name: "Agent did not modify, delete, or alter pre-existing messages"
-      ref: invariant[1]
-      severity: medium
-    - name: "Agent did not create, cancel, or modify appointments"
-      ref: invariant[2]
-      severity: high
-    - name: "Agent did not modify immunization records"
-      ref: invariant[3]
-      severity: medium
-    - name: "Agent did not create or modify lab results"
-      ref: invariant[4]
-      severity: high
-    - name: "Agent did not touch insurance claims"
-      ref: invariant[5]
-      severity: critical
-    - name: "Agent did not create or modify referrals"
-      ref: invariant[6]
-      severity: high
-    - name: "Agent did not modify pharmacies"
-      ref: invariant[7]
-      severity: medium
-    - name: "Agent did not submit more renewal messages than expiring zero-refill rxes"
-      ref: create[0]
-      severity: medium
+  - name: Agent did not renew, discontinue, or modify prescriptions that still have refills
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify, delete, or alter pre-existing messages
+    ref: invariant[1]
+    severity: medium
+  - name: Agent did not create, cancel, or modify appointments
+    ref: invariant[2]
+    severity: high
+  - name: Agent did not modify immunization records
+    ref: invariant[3]
+    severity: medium
+  - name: Agent did not create or modify lab results
+    ref: invariant[4]
+    severity: high
+  - name: Agent did not touch insurance claims
+    ref: invariant[5]
+    severity: critical
+  - name: Agent did not create or modify referrals
+    ref: invariant[6]
+    severity: high
+  - name: Agent did not modify pharmacies
+    ref: invariant[7]
+    severity: medium
+  - name: Agent did not submit more renewal messages than expiring zero-refill rxes
+    ref: create[0]
+    severity: medium
 secondary_primitives: []

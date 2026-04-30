@@ -1,7 +1,9 @@
 variant_id: pp_respond_to_provider__message_shadow_v1
 base_task_id: pp_respond_to_provider
 target_primitive: grounding
-description: Near-miss provider threads with similar subjects are added to the inbox. The agent must distinguish the seeded action-driving message from older, similarly worded notes.
+description: Near-miss provider threads with similar subjects are added to the inbox. The agent must distinguish the seeded
+  action-driving message from older, similarly worded notes. Decoys include boundary-case lookalikes (matching entity type,
+  similar timestamps, and near-threshold values) that force the agent to apply strict filters rather than match by category.
 injections:
 - layer: seed
   params:
@@ -19,3 +21,21 @@ injections:
       body: This lookalike note is informational only. Verify the exact provider thread before acting.
       timestamp: '2025-02-12T10:15:00+00:00'
       is_read: false
+    - type: message
+      category: billing
+      subject: "Claim resolved \u2014 informational only"
+      body: This older billing thread has already been resolved and does not require action.
+      timestamp: '2025-09-15T08:00:00+00:00'
+      is_read: true
+    - type: message
+      category: clinical
+      subject: "Sample request \u2014 provider absent"
+      body: Reply not needed; the sending provider is no longer with the practice.
+      timestamp: '2025-10-01T08:00:00+00:00'
+      is_read: false
+    - type: message
+      category: rx_renewal
+      subject: "Renewal already processed \u2014 earlier thread"
+      body: This renewal request was completed in a prior cycle and is included for context only.
+      timestamp: '2025-11-20T08:00:00+00:00'
+      is_read: true

@@ -1,7 +1,8 @@
 variant_id: pp_resolve_specialist_conflicts__appointment_reschedule_retry_v1
 base_task_id: pp_resolve_specialist_conflicts
 target_primitive: backtracking
-description: The first reschedule request returns 503. The agent must verify the original appointment still holds and retry the reschedule.
+description: The first reschedule request returns 503. The agent must verify the original appointment still holds and retry
+  the reschedule.
 injections:
 - layer: network
   params:
@@ -11,6 +12,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Temporary scheduling service failure. Retry the reschedule request.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

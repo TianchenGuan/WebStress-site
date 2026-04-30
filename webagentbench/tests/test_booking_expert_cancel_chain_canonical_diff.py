@@ -29,6 +29,11 @@ def _setup_session(seed: int):
     return task, dict(targets), initial, state
 
 
+def _cancel(state, reservation_id: str) -> None:
+    preview = state.compute_cancel_fee(reservation_id)
+    state.cancel_reservation(reservation_id, fee_accepted=preview["fee_amount"])
+
+
 def _evaluate(task, initial, state, targets):
     agent_diff = compute_diff(initial, state)
     return match_diff(
@@ -40,9 +45,9 @@ def _evaluate(task, initial, state, targets):
 def _apply_correct_actions(state, targets):
     from datetime import datetime, timezone
     # Cancel all three
-    state.cancel_reservation(targets["cancel_res_id_1"])
-    state.cancel_reservation(targets["cancel_res_id_2"])
-    state.cancel_reservation(targets["cancel_res_id_3"])
+    _cancel(state, targets["cancel_res_id_1"])
+    _cancel(state, targets["cancel_res_id_2"])
+    _cancel(state, targets["cancel_res_id_3"])
     # Send messages
     for pid, subject, body in [
         (targets["cancel_id_1"], "Cancellation - Medical Emergency",
@@ -89,7 +94,7 @@ def test_no_mutation_fails():
 def test_keep_reservation_also_cancelled_fails():
     task, targets, initial, state = _setup_session(0)
     _apply_correct_actions(state, targets)
-    state.cancel_reservation(targets["keep_res_id"])  # shouldn't cancel this
+    _cancel(state, targets["keep_res_id"])  # shouldn't cancel this
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "cancelling the keep reservation should fail"
 
@@ -98,8 +103,8 @@ def test_missing_one_cancel_fails():
     task, targets, initial, state = _setup_session(0)
     # Only cancel 2 of 3
     from datetime import datetime, timezone
-    state.cancel_reservation(targets["cancel_res_id_1"])
-    state.cancel_reservation(targets["cancel_res_id_2"])
+    _cancel(state, targets["cancel_res_id_1"])
+    _cancel(state, targets["cancel_res_id_2"])
     for pid, subject, body in [
         (targets["cancel_id_1"], "Cancellation - Medical Emergency", "Medical emergency."),
         (targets["cancel_id_2"], "Cancellation - Work Conflict", "Work conference."),

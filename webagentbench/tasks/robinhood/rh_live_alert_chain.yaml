@@ -42,13 +42,89 @@ seed:
           - 910.0
         noise_pct: 0.3
 canonical_diff:
-  constraints:
-  - desc: NVDA above-$900 price alert created
-    expr: "any(a.symbol == 'NVDA' and a.condition == 'above' and a.target_price >= Decimal('895') and a.target_price <= Decimal('905') and not a.id.startswith('alert_decoy_') for a in state.price_alerts)"
-    severity: critical
-  - desc: 5 NVDA shares bought after alert triggered
-    expr: "any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity == 5 and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: critical
+  create:
+  - entity: price_alerts
+    desc: NVDA above-$900 price alert created
+    properties:
+      symbol: {eq: NVDA}
+      condition: {eq: above}
+      target_price: {expr: "Decimal('895') <= Decimal(str(x)) <= Decimal('905')"}
+      status: {any: true}
+      created_at: {any: true}
+  - entity: orders
+    desc: 5 NVDA shares bought after alert triggered (tech ≤ 60% branch)
+    properties:
+      symbol: {eq: NVDA}
+      side: {eq: buy}
+      quantity: {eq: 5}
+      status: {any: true}
+      order_type: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: transactions
+    desc: Buy transaction recorded for NVDA
+    properties:
+      type: {eq: buy}
+      symbol: {eq: NVDA}
+      quantity: {any: true}
+      amount: {any: true}
+      description: {any: true}
+      timestamp: {any: true}
+  - entity: notifications
+    desc: Order fill notifications fired by the NVDA buy
+    bijection:
+      over: "[n for n in state.notifications if n.id not in [ix.id for ix in initial.notifications]]"
+      variable: v
+    properties:
+      type: {any: true}
+      title: {any: true}
+      message: {any: true}
+      timestamp: {any: true}
+      is_read: {any: true}
+      action_url: {any: true}
+  update:
+  - entity: positions
+    desc: Existing NVDA position increased by buy (if held before)
+    bijection:
+      over: "[p for p in initial.positions if p.symbol == 'NVDA']"
+      variable: v
+    where:
+      id: {expr: "x == v.id"}
+    changes:
+      quantity: {any: true}
+  invariant:
+  - collection: state.positions
+    filter: "a.symbol != 'NVDA'"
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    filter: "a.symbol != 'NVDA'"
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.transactions
+    filter: "a.symbol != 'NVDA'"
+    preserve: ALL
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, state_tracking, grounding, verification
   by requiring exact completion of the requested Robinhood workflow while ignoring

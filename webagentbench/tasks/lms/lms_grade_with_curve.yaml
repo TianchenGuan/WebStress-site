@@ -64,19 +64,16 @@ seed:
     unread_announcement_ids: '{output.unread_announcement_ids}'
 canonical_diff:
   oneof:
-  - constraints:
-    - desc: Curving the midterm changes the letter grade
-      expr: "target['curve_changes_letter'] == 'true'"
-      severity: critical
-    update:
+  # Branch discriminator baked into the Update where-clause (was a critical constraint).
+  - update:
     - entity: Announcement
-      desc: Mark the unread target-course announcement as read
+      desc: Mark the unread target-course announcement as read (curve changes letter grade)
       bijection:
         over: "target['unread_announcement_ids'].split(',')[:1] if target['unread_announcement_ids'] else []"
         variable: v
       where:
         id:
-          expr: "x == v"
+          expr: "x == v and target['curve_changes_letter'] == 'true'"
       changes:
         is_read:
           eq: true
@@ -141,16 +138,13 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  - constraints:
-    - desc: Curving the midterm does not change the letter grade
-      expr: "target['curve_changes_letter'] == 'false'"
-      severity: critical
-    update:
+  # Branch 2: only matches when curve does not change letter grade.
+  - update:
     - entity: Assignment
-      desc: Submit the midterm appeal file for the exam assignment
+      desc: Submit the midterm appeal file for the exam assignment (curve does not change letter)
       where:
         id:
-          expr: "x == target['exam_assignment_id']"
+          expr: "x == target['exam_assignment_id'] and target['curve_changes_letter'] == 'false'"
       changes:
         submission_status:
           in:
@@ -185,6 +179,8 @@ canonical_diff:
     - collection: state.calendar_events
       preserve: ALL
     - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.student
       preserve: ALL
     named_invariants:
     - name: Agent submitted the exam appeal file

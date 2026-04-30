@@ -1,7 +1,10 @@
 variant_id: reddit_community_engagement__subreddit_collision
 base_task_id: reddit_community_engagement
 target_primitive: grounding
-description: "Composite degradation: (a) two sibling communities (r/Ask_Reddit and r/TrueAskReddit, using distinct naming attacks) mirror r/AskReddit's subscriber count and description, plus a same-title decoy post; (b) the first subscribe POST silently no-ops and the first post-submit returns 503 once. The agent must ground in the correct sub AND verify each mutation landed."
+description: 'Composite degradation: (a) two sibling communities (r/Ask_Reddit and r/TrueAskReddit, using distinct naming
+  attacks) mirror r/AskReddit''s subscriber count and description, plus a same-title decoy post; (b) the first subscribe POST
+  silently no-ops and the first post-submit returns 503 once. The agent must ground in the correct sub AND verify each mutation
+  landed.'
 injections:
 - layer: seed
   params:
@@ -10,12 +13,14 @@ injections:
     - type: subreddit
       name: Ask_Reddit
       display_name: r/Ask_Reddit
-      description: r/AskReddit is the place to ask and answer thought-provoking questions. Underscored sibling — distinct URL slug, same branding.
+      description: "r/AskReddit is the place to ask and answer thought-provoking questions. Underscored sibling \u2014 distinct\
+        \ URL slug, same branding."
       subscribers: 54076860
     - type: subreddit
       name: TrueAskReddit
       display_name: r/TrueAskReddit
-      description: r/AskReddit is the place to ask and answer thought-provoking questions. Self-declared 'original' or 'rebooted' community that often appears in search beside the real sub.
+      description: r/AskReddit is the place to ask and answer thought-provoking questions. Self-declared 'original' or 'rebooted'
+        community that often appears in search beside the real sub.
       subscribers: 23840336
     - type: post
       subreddit: Ask_Reddit
@@ -41,6 +46,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Reddit is temporarily unable to accept new posts. Please retry.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

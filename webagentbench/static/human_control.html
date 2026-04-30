@@ -372,7 +372,7 @@ async function startWarm() {
     const sep = startPath.includes("?") ? "&" : "?";
     const envUrl = `${envBaseUrl(CTX.env)}${startPath}${sep}session=${encodeURIComponent(
       CTX.sessionId,
-    )}&control=on`;
+    )}&control=on&hide_toolbar=1`;
     if (envWindow && !envWindow.closed) {
       envWindow.location.href = envUrl;
     } else {
@@ -754,7 +754,7 @@ function reopenEnvTab() {
     .then((s) => {
       const sp = s.start_path || "/";
       const sep = sp.includes("?") ? "&" : "?";
-      const envUrl = `${envBaseUrl(CTX.env)}${sp}${sep}session=${encodeURIComponent(CTX.sessionId)}&control=on`;
+      const envUrl = `${envBaseUrl(CTX.env)}${sp}${sep}session=${encodeURIComponent(CTX.sessionId)}&control=on&hide_toolbar=1`;
       window.open(envUrl, `wab-env-${CTX.env}`, "noopener=no");
     })
     .catch(() => {});

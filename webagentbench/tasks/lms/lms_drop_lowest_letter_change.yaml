@@ -64,16 +64,13 @@ seed:
     latest_announcement_id: '{output.latest_announcement_id}'
 canonical_diff:
   oneof:
-  - constraints:
-    - desc: Dropping the lowest homework changes the letter grade
-      expr: "target['drop_changes_letter'] == 'true'"
-      severity: critical
-    update:
+  # Branch discriminator baked into Update where-clause (was a critical constraint).
+  - update:
     - entity: Assignment
-      desc: Submit the lowest-scoring homework with letter_grade_report.pdf
+      desc: Submit the lowest-scoring homework with letter_grade_report.pdf (drop changes letter grade)
       where:
         id:
-          expr: "x == target['lowest_hw_id']"
+          expr: "x == target['lowest_hw_id'] and target['drop_changes_letter'] == 'true'"
       changes:
         submission_status:
           in:
@@ -146,16 +143,13 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  - constraints:
-    - desc: Dropping the lowest homework does not change the letter grade
-      expr: "target['drop_changes_letter'] == 'false'"
-      severity: critical
-    update:
+  # Branch 2: only matches when dropping does not change the letter grade.
+  - update:
     - entity: Announcement
-      desc: Mark the latest announcement as read
+      desc: Mark the latest announcement as read (drop does not change letter grade)
       where:
         id:
-          expr: "x == target['latest_announcement_id']"
+          expr: "x == target['latest_announcement_id'] and target['drop_changes_letter'] == 'false'"
       changes:
         is_read:
           eq: true
@@ -182,6 +176,8 @@ canonical_diff:
     - collection: state.calendar_events
       preserve: ALL
     - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.student
       preserve: ALL
     named_invariants:
     - name: Agent marked the latest announcement as read

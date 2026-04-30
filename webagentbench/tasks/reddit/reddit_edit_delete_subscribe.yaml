@@ -76,29 +76,30 @@ canonical_diff:
       is_subscribed:
         eq: true
   - entity: Post
-    desc: Edit the target post body
+    desc: Edit the target post body to exactly target.edit_body
     where:
       id:
-        expr: "x == target['edit_id']"
+        expr: x == target['edit_id']
     changes:
       body:
-        expr: "'After 6 months' in (x or '')"
+        expr: x == target['edit_body']
       is_edited:
         eq: true
   - entity: Comment
     desc: Delete the target comment
     where:
       id:
-        expr: "x == target['del_comment_id']"
+        expr: x == target['del_comment_id']
     changes:
       is_removed:
         eq: true
       body:
-        eq: "[deleted]"
-  constraints:
-  - desc: Comment sort new
-    expr: state.settings.default_comment_sort == 'new'
-    severity: high
+        eq: '[deleted]'
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      default_comment_sort: { eq: new }
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -117,6 +118,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Subscribed to r/Piracy
     ref: update[0]
@@ -142,11 +147,12 @@ eval:
   - expr: not state.get_post('{target.edit_id}').is_removed
     desc: Post not deleted
     penalty: 0.5
-  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
+  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count',
+      0)
     desc: No messages sent when none required
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

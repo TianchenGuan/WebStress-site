@@ -133,10 +133,6 @@ canonical_diff:
       estimated_delivery: {any: true}
       promo_code: {any: true}
       discount: {any: true}
-  constraints:
-  - desc: Cart is empty after placing the upgrade order
-    expr: "len(state.cart_items) == 0"
-    severity: medium
   invariant:
   - collection: state.orders
     filter: "not any(it.get('product_id') == target['upgrade_product_id'] for it in (a.items or []))"
@@ -159,6 +155,12 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.cart_items
+    preserve: ALL
+  - collection: state.wishlist
+    preserve: ALL
+  - collection: state.settings
     preserve: ALL
   named_invariants:
   - name: Agent did not modify other orders
@@ -191,3 +193,12 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[9]
     severity: low
+  - name: Agent did not leave items in cart after checkout
+    ref: invariant[10]
+    severity: medium
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium
+  - name: Agent did not modify account settings
+    ref: invariant[12]
+    severity: medium

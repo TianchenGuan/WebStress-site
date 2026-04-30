@@ -1,11 +1,9 @@
 variant_id: amazon_negative_review_return_cascade__return_retry
 base_task_id: amazon_negative_review_return_cascade
 target_primitive: backtracking
-description: >
-  The first return POST returns 503. With three returns to file in a
-  row, the agent must notice the failure, back out, and retry the first
-  return before moving on to the next — skipping over a failed call
-  would leave one of the three required returns missing.
+description: "The first return POST returns 503. With three returns to file in a row, the agent must notice the failure, back\
+  \ out, and retry the first return before moving on to the next \u2014 skipping over a failed call would leave one of the\
+  \ three required returns missing.\n"
 injections:
 - layer: network
   params:
@@ -15,6 +13,6 @@ injections:
     - POST
     error_count: 1
     error_status: 503
-    error_message: Returns service temporarily unavailable. Retry.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

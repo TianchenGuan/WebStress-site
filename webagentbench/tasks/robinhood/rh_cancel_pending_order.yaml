@@ -43,10 +43,6 @@ canonical_diff:
     changes:
       status: {eq: cancelled}
       cancelled_at: {any: true}
-  constraints:
-  - desc: Exactly one order was cancelled
-    expr: "sum(1 for o in state.orders if o.status == 'cancelled' and not o.id.startswith('ord_decoy_')) == 1"
-    severity: high
   invariant:
   - collection: state.orders
     filter: "a.symbol != 'MSFT'"

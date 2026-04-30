@@ -1,7 +1,9 @@
 variant_id: pp_compare_lab_trends__lab_shadow_v1
 base_task_id: pp_compare_lab_trends
 target_primitive: grounding
-description: Older abnormal lab results and a similar results note are injected into the portal. The agent must ground its action in the seeded current lab signal, not the lookalikes.
+description: Older abnormal lab results and a similar results note are injected into the portal. The agent must ground its
+  action in the seeded current lab signal, not the lookalikes. Decoys include boundary-case lookalikes (matching entity type,
+  similar timestamps, and near-threshold values) that force the agent to apply strict filters rather than match by category.
 injections:
 - layer: seed
   params:
@@ -30,3 +32,30 @@ injections:
       subject: Older results clarification
       body: This archived note references prior lab work and is not the newest result requiring action.
       timestamp: '2025-01-21T12:00:00+00:00'
+    - type: lab_result
+      test_name: Total Cholesterol
+      test_code: 2093-3
+      collected_at: '2026-01-10T08:00:00+00:00'
+      value: '199'
+      unit: mg/dL
+      reference_range: 0-200
+      flag: normal
+      status: resulted
+    - type: lab_result
+      test_name: Glucose Fasting
+      test_code: 1558-6
+      collected_at: '2026-01-12T08:00:00+00:00'
+      value: '100'
+      unit: mg/dL
+      reference_range: 70-99
+      flag: abnormal
+      status: resulted
+    - type: lab_result
+      test_name: Hemoglobin A1c
+      test_code: 4548-4
+      collected_at: '2025-11-30T08:00:00+00:00'
+      value: '5.7'
+      unit: '%'
+      reference_range: 4.0-5.6
+      flag: abnormal
+      status: resulted

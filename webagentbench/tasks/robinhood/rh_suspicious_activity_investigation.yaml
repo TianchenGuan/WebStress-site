@@ -58,16 +58,54 @@ seed:
     suspicious_order_ids: '{output.suspicious_order_ids}'
     suspicious_location: '{output.suspicious_location}'
 canonical_diff:
-  constraints:
-  - desc: All suspicious orders cancelled
-    expr: "all(any(o.id == order_id and o.status == 'cancelled' for o in state.orders) for order_id in target['suspicious_order_ids'])"
-    severity: critical
-  - desc: Two-factor authentication set to authenticator app
-    expr: "state.settings.two_factor_method == 'authenticator'"
-    severity: critical
-  - desc: No non-suspicious orders were cancelled
-    expr: "not any(o.status == 'cancelled' and o.id not in target['suspicious_order_ids'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+  update:
+  - entity: orders
+    desc: Each suspicious order cancelled
+    bijection:
+      over: list(target['suspicious_order_ids'])
+      variable: v
+    where:
+      id:
+        expr: x == v
+    changes:
+      status:
+        eq: cancelled
+  - entity: settings
+    desc: Two-factor authentication set to authenticator app
+    where:
+      id: {any: true}
+    changes:
+      two_factor_method: {eq: authenticator}
+  invariant:
+  - collection: state.orders
+    filter: a.id not in target['suspicious_order_ids']
+    preserve: ALL
+  - collection: state.positions
+    preserve: ALL
+  - collection: state.transactions
+    preserve: ALL
+  - collection: state.transfers
+    preserve: ALL
+  - collection: state.watchlists
+    preserve: ALL
+  - collection: state.price_alerts
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.recurring_investments
+    preserve: ALL
+  - collection: state.options_orders
+    preserve: ALL
+  - collection: state.options_positions
+    preserve: ALL
+  - collection: state.tax_documents
+    preserve: ALL
+  - collection: state.linked_banks
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []
 primitive_thesis: Measures exploration, state_tracking, verification, planning, backtracking
   by requiring exact completion of the requested Robinhood workflow while ignoring

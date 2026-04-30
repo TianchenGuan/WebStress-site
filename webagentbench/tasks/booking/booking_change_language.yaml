@@ -22,16 +22,14 @@ seed:
     - updated
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Language preference is set to French
-      expr: "state.settings.language == 'French'"
-      severity: critical
-    - desc: Currency was not changed from its initial value
-      expr: "state.settings.currency == initial.settings.currency"
-      severity: medium
-    - desc: Two-factor authentication was not accidentally toggled
-      expr: "state.settings.two_factor_enabled == initial.settings.two_factor_enabled"
-      severity: medium
+  update:
+    - entity: settings
+      desc: Language preference set to French
+      where: { id: { any: true } }
+      changes:
+        language: { eq: French }
+        currency: { expr: "x == initial.settings.currency" }
+        two_factor_enabled: { expr: "x == initial.settings.two_factor_enabled" }
   invariant:
     - collection: state.reservations
       preserve: ALL

@@ -1,8 +1,8 @@
 variant_id: rh_setup_recurring_investment__recurring_retry
 base_task_id: rh_setup_recurring_investment
 target_primitive: backtracking
-description: The first recurring-investment creation fails transiently. The agent must verify the schedule
-  exists and retry if it does not.
+description: The first recurring-investment creation fails transiently. The agent must verify the schedule exists and retry
+  if it does not.
 injections:
 - layer: network
   params:
@@ -13,6 +13,6 @@ injections:
     - PUT
     error_count: 1
     error_status: 503
-    error_message: Temporary Robinhood write failure. Retry the action.
+    error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once

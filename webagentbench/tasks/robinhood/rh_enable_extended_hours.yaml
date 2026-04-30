@@ -13,14 +13,15 @@ seed:
   steps: []
   targets: {}
 canonical_diff:
-  constraints:
-  - desc: Extended hours trading is enabled in account settings
-    expr: "state.settings.extended_hours_enabled == True"
-    severity: critical
-  - desc: Agent did not place any orders
-    expr: "len(state.orders) == 0 or all(o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
+  update:
+    - entity: settings
+      desc: Extended hours trading enabled
+      where: { id: { any: true } }
+      changes:
+        extended_hours_enabled: { eq: true }
   invariant:
+  - collection: state.orders
+    preserve: ALL
   - collection: state.positions
     preserve: ALL
   - collection: state.watchlists

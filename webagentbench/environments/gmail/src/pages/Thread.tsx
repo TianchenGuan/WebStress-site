@@ -22,6 +22,10 @@ export function isThreadLabelApplied(
   );
 }
 
+function splitAddresses(value: string | null) {
+  return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
 export function ThreadPage() {
   const { emailId } = useParams();
   const { api, notify, refreshMailbox, summary } = useGmailLayout();
@@ -36,6 +40,14 @@ export function ThreadPage() {
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const labelMenuRef = useRef<HTMLDivElement>(null);
+  const isReplayMode = searchParams.get("replay") === "1";
+  const replayComposeMode = searchParams.get("replayCompose");
+  const replayLabelMenuOpen = isReplayMode && searchParams.get("replayLabelMenu") === "1";
+  const replayCreatingLabel = isReplayMode && searchParams.get("replayCreateLabel") === "1";
+  const replayLabelName = searchParams.get("replayLabelName") ?? "";
+  const displayLabelMenuOpen = isReplayMode ? replayLabelMenuOpen : labelMenuOpen;
+  const displayCreatingLabel = isReplayMode ? replayCreatingLabel : creatingLabel;
+  const displayNewLabelName = isReplayMode ? replayLabelName : newLabelName;
 
   const withErrorToast = async (fn: () => Promise<void>) => {
     try {
@@ -53,40 +65,39 @@ export function ThreadPage() {
     }
     api.getThread(emailId).then(async (response) => {
       setThread(response);
-      // Mirror real Gmail: opening a thread auto-marks all unread
-      // messages in it as read. This avoids the situation where eval
-      // checks expect is_read==true but no UI affordance exists for
-      // per-thread mark-as-read (see audit doc GM-3).
-      const unreadIds = response.thread
-        .filter((email) => !email.is_read)
-        .map((email) => email.id);
-      if (unreadIds.length > 0) {
-        await Promise.all(unreadIds.map((id) => api.markRead(id).catch(() => undefined)));
-      }
       await refreshMailbox();
     });
   }, [api, emailId, refreshMailbox]);
 
-  // Replay mode: auto-open reply form with pre-filled values
+  // Replay mode: keep reply/forward forms aligned with the replay step.
   useEffect(() => {
-    const mode = searchParams.get("replayCompose");
-    const replayBody = searchParams.get("replayBody");
-    if ((mode === "reply" || mode === "replyAll") && thread && !replyingTo) {
-      const lastEmail = thread.thread[thread.thread.length - 1];
-      if (lastEmail) {
-        setReplyingTo(lastEmail);
-        setReplyAllMode(mode === "replyAll");
-      }
+    if (!isReplayMode || !thread) {
+      return;
     }
-    if (mode === "forward" && thread && !forwardingEmail) {
-      const lastEmail = thread.thread[thread.thread.length - 1];
-      if (lastEmail) setForwardingEmail(lastEmail);
+
+    const lastEmail = thread.thread[thread.thread.length - 1];
+    if (!lastEmail) {
+      return;
     }
-    // Clear reply if replay mode is removed
-    if (!mode && !replayBody) {
-      // Don't clear user-initiated replies
+
+    if (replayComposeMode === "reply" || replayComposeMode === "replyAll") {
+      setReplyingTo(lastEmail);
+      setReplyAllMode(replayComposeMode === "replyAll");
+      setForwardingEmail(null);
+      return;
     }
-  }, [searchParams, thread, replyingTo, forwardingEmail]);
+
+    if (replayComposeMode === "forward") {
+      setReplyingTo(null);
+      setReplyAllMode(false);
+      setForwardingEmail(lastEmail);
+      return;
+    }
+
+    setReplyingTo(null);
+    setReplyAllMode(false);
+    setForwardingEmail(null);
+  }, [isReplayMode, replayComposeMode, thread]);
 
   // Close label menu on outside click
   useEffect(() => {
@@ -269,16 +280,16 @@ export function ThreadPage() {
             >
               <IconLabel />
             </button>
-            {labelMenuOpen && (
+            {displayLabelMenuOpen && (
               <div className="gmail-label-menu" role="menu" aria-label="Label menu">
-                {creatingLabel ? (
+                {displayCreatingLabel ? (
                   <div className="gmail-label-menu__create-form">
                     <div className="gmail-label-menu__title">Create new label:</div>
                     <input
                       type="text"
                       className="gmail-label-menu__input"
                       aria-label="New label name"
-                      value={newLabelName}
+                      value={displayNewLabelName}
                       onChange={(e) => setNewLabelName(e.target.value)}
                       autoFocus
                     />
@@ -287,9 +298,9 @@ export function ThreadPage() {
                         type="button"
                         className="gmail-label-menu__form-btn gmail-label-menu__form-btn--create"
                         aria-label="Create label"
-                        disabled={!newLabelName.trim()}
+                        disabled={!displayNewLabelName.trim()}
                         onClick={async () => {
-                          const name = newLabelName.trim();
+                          const name = displayNewLabelName.trim();
                           if (!name || !thread) return;
                           await api.createLabel({ name, color: "#1a73e8" });
                           // Apply to all emails in thread
@@ -390,17 +401,28 @@ export function ThreadPage() {
           submitLabel="Send reply"
           autoScrollIntoView
           initialValue={{
-            to: [replyingTo.from_addr],
-            cc: replyAllMode
-              ? [...replyingTo.to, ...replyingTo.cc].filter(
+            to: splitAddresses(searchParams.get("replayTo")).length > 0
+              ? splitAddresses(searchParams.get("replayTo"))
+              : [replyingTo.from_addr],
+            cc: searchParams.has("replayCc")
+              ? splitAddresses(searchParams.get("replayCc"))
+              : replyAllMode
+                ? [...replyingTo.to, ...replyingTo.cc].filter(
                   (addr) => addr !== "avery.quinn@thornton.com" && addr !== replyingTo.from_addr,
                 )
-              : [],
-            subject: replyingTo.subject.startsWith("Re:") ? replyingTo.subject : `Re: ${replyingTo.subject}`,
-            body: searchParams.get("replayBody") || `\n\nOn ${new Date(replyingTo.timestamp).toLocaleString()}, ${replyingTo.from_name} wrote:\n${replyingTo.body}`,
+                : [],
+            bcc: splitAddresses(searchParams.get("replayBcc")),
+            subject: searchParams.get("replaySubject")
+              ?? (replyingTo.subject.startsWith("Re:") ? replyingTo.subject : `Re: ${replyingTo.subject}`),
+            body: searchParams.has("replayBody")
+              ? (searchParams.get("replayBody") ?? "")
+              : `\n\nOn ${new Date(replyingTo.timestamp).toLocaleString()}, ${replyingTo.from_name} wrote:\n${replyingTo.body}`,
+            attachments: splitAddresses(searchParams.get("replayAttachments")),
             reply_to: replyingTo.id,
             thread_id: replyingTo.thread_id,
           }}
+          forceShowCc={searchParams.get("replayShowCc") === "1"}
+          forceShowBcc={searchParams.get("replayShowBcc") === "1"}
           onCancel={() => {
             setReplyingTo(null);
             setReplyAllMode(false);
@@ -415,10 +437,16 @@ export function ThreadPage() {
           submitLabel="Forward"
           autoScrollIntoView
           initialValue={{
-            to: [],
-            subject: forwardingEmail.subject.startsWith("Fwd:") ? forwardingEmail.subject : `Fwd: ${forwardingEmail.subject}`,
-            body: "",
+            to: splitAddresses(searchParams.get("replayTo")),
+            cc: splitAddresses(searchParams.get("replayCc")),
+            bcc: splitAddresses(searchParams.get("replayBcc")),
+            subject: searchParams.get("replaySubject")
+              ?? (forwardingEmail.subject.startsWith("Fwd:") ? forwardingEmail.subject : `Fwd: ${forwardingEmail.subject}`),
+            body: searchParams.has("replayBody") ? (searchParams.get("replayBody") ?? "") : "",
+            attachments: splitAddresses(searchParams.get("replayAttachments")),
           }}
+          forceShowCc={searchParams.get("replayShowCc") === "1"}
+          forceShowBcc={searchParams.get("replayShowBcc") === "1"}
           onCancel={() => setForwardingEmail(null)}
           onSubmit={sendForward}
         />

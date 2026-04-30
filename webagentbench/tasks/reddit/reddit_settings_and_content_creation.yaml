@@ -45,6 +45,19 @@ canonical_diff:
     changes:
       is_subscribed:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      compact_view: { eq: true }
+      show_online_status: { eq: false }
+      default_feed_sort: { eq: top }
+      default_comment_sort: { eq: controversial }
+      email_comment_reply: { eq: false }
+      email_post_reply: { eq: false }
+      email_mentions: { eq: false }
+      email_messages: { eq: false }
   create:
   - entity: Post
     desc: Exact Python post created with required title and body
@@ -57,37 +70,6 @@ canonical_diff:
         expr: x == target['post_body']
       author_name:
         expr: x == state.owner_username
-  constraints:
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Compact view enabled
-    expr: state.settings.compact_view == True
-    severity: high
-  - desc: Show online status disabled
-    expr: state.settings.show_online_status == False
-    severity: high
-  - desc: Default feed sort set to top
-    expr: state.settings.default_feed_sort == 'top'
-    severity: high
-  - desc: Default comment sort set to controversial
-    expr: state.settings.default_comment_sort == 'controversial'
-    severity: high
-  - desc: All four email notification toggles disabled
-    expr: not state.settings.email_comment_reply and not state.settings.email_post_reply and not state.settings.email_mentions and not state.settings.email_messages
-    severity: high
-  - desc: NSFW content settings unchanged
-    expr: state.settings.show_nsfw == initial.settings.show_nsfw
-    severity: medium
-  - desc: Language settings unchanged
-    expr: state.settings.language == initial.settings.language
-    severity: medium
-  - desc: Country settings unchanged
-    expr: state.settings.country == initial.settings.country
-    severity: medium
-  - desc: Existing subscriptions preserved
-    expr: all(sid in state.subscriptions for sid in target['initial_subscriptions'])
-    severity: medium
   invariant:
   - collection: state.subreddits
     filter: 'True'
@@ -105,6 +87,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Agent subscribed to r/Piracy
     ref: update[0]
@@ -143,11 +129,12 @@ eval:
   - expr: state.settings.show_nsfw == False
     desc: NSFW unchanged
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 2
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

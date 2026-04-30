@@ -7,6 +7,8 @@ import type { ComposePayload } from "../types";
 interface ComposeFormProps {
   title?: string;
   initialValue?: Partial<ComposePayload>;
+  forceShowCc?: boolean;
+  forceShowBcc?: boolean;
   onCancel?: () => void;
   onSubmit: (payload: ComposePayload) => Promise<void> | void;
   submitLabel?: string;
@@ -44,6 +46,8 @@ export function splitAddresses(value: string) {
 export function ComposeForm({
   title = "Compose",
   initialValue,
+  forceShowCc = false,
+  forceShowBcc = false,
   onCancel,
   onSubmit,
   submitLabel = "Send",
@@ -56,29 +60,43 @@ export function ComposeForm({
       formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [autoScrollIntoView]);
+  const toInit = typeof initialValue?.to === "string" ? initialValue.to : (initialValue?.to ?? []).join(", ");
   const initialCc = typeof initialValue?.cc === "string" ? initialValue.cc : (initialValue?.cc ?? []).join(", ");
   const initialBcc = typeof initialValue?.bcc === "string" ? initialValue.bcc : (initialValue?.bcc ?? []).join(", ");
+  const initialAttachments = typeof initialValue?.attachments === "string"
+    ? initialValue.attachments
+    : (initialValue?.attachments ?? []).join(", ");
 
-  const toInit = typeof initialValue?.to === "string" ? initialValue.to : (initialValue?.to ?? []).join(", ");
   const [to, setTo] = useState(toInit);
   const [cc, setCc] = useState(initialCc);
   const [bcc, setBcc] = useState(initialBcc);
   const [subject, setSubject] = useState(initialValue?.subject ?? "");
   const [body, setBody] = useState(initialValue?.body ?? "");
-  const [attachmentNames, setAttachmentNames] = useState(typeof initialValue?.attachments === "string" ? initialValue.attachments : (initialValue?.attachments ?? []).join(", "));
+  const [attachmentNames, setAttachmentNames] = useState(initialAttachments);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCc, setShowCc] = useState(initialCc.length > 0);
-  const [showBcc, setShowBcc] = useState(initialBcc.length > 0);
+  const [showCc, setShowCc] = useState(forceShowCc || initialCc.length > 0);
+  const [showBcc, setShowBcc] = useState(forceShowBcc || initialBcc.length > 0);
 
   // Sync from replay params when initialValue changes (replay stepping)
   useEffect(() => {
-    const newTo = typeof initialValue?.to === "string" ? initialValue.to : (initialValue?.to ?? []).join(", ");
-    if (newTo) setTo(newTo);
-    if (initialValue?.subject) setSubject(initialValue.subject);
-    if (initialValue?.body) setBody(initialValue.body);
-    const newCc = typeof initialValue?.cc === "string" ? initialValue.cc : (initialValue?.cc ?? []).join(", ");
-    if (newCc) { setCc(newCc); setShowCc(true); }
-  }, [initialValue?.to, initialValue?.cc, initialValue?.subject, initialValue?.body]);
+    setTo(toInit);
+    setCc(initialCc);
+    setBcc(initialBcc);
+    setSubject(initialValue?.subject ?? "");
+    setBody(initialValue?.body ?? "");
+    setAttachmentNames(initialAttachments);
+    setShowCc(forceShowCc || initialCc.length > 0);
+    setShowBcc(forceShowBcc || initialBcc.length > 0);
+  }, [
+    toInit,
+    initialCc,
+    initialBcc,
+    initialAttachments,
+    initialValue?.subject,
+    initialValue?.body,
+    forceShowCc,
+    forceShowBcc,
+  ]);
 
   const parsedAttachments = useMemo(
     () => splitAddresses(attachmentNames),

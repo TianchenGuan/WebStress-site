@@ -33,22 +33,15 @@ seed:
 canonical_diff:
   create:
   - entity: options_orders
-    desc: Single-leg call buy on AAPL
+    desc: Single-leg call buy on AAPL (1 contract)
     properties:
       strategy: {eq: single}
       status: {in: [pending, filled]}
-      legs: {any: true}
-  constraints:
-  - desc: Call option order is on AAPL
-    expr: "any(any(leg.underlying_symbol == 'AAPL' and leg.option_type == 'call' and leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders if not oo.id.startswith('oo_decoy_'))"
-    severity: critical
-  - desc: Exactly 1 contract purchased
-    expr: "any(any(leg.quantity == 1 and leg.option_type == 'call' and leg.side == 'buy' and leg.underlying_symbol == 'AAPL' for leg in oo.legs) for oo in state.options_orders)"
-    severity: critical
-  - desc: No put options bought
-    expr: "not any(any(leg.option_type == 'put' and leg.side == 'buy' for leg in oo.legs) for oo in state.options_orders)"
-    severity: high
+      legs: {expr: "all(leg['underlying_symbol'] == 'AAPL' and leg['option_type'] == 'call' and leg['side'] == 'buy' and leg['quantity'] == 1 for leg in x)"}
   invariant:
+  - collection: state.options_orders
+    filter: "any(leg.option_type == 'put' and leg.side == 'buy' for leg in a.legs)"
+    preserve: ALL
   - collection: state.positions
     preserve: ALL
   - collection: state.orders

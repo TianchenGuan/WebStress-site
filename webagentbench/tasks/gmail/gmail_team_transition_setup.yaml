@@ -36,82 +36,93 @@ seed:
     dana_email: '{output.dana_email}'
 canonical_diff:
   create:
-    - entity: labels
-      desc: Create Platform/Incidents label
-      count: 1
-      properties:
-        name:
-          eq: Platform/Incidents
-    - entity: labels
-      desc: Create Platform/Deploys label
-      count: 1
-      properties:
-        name:
-          eq: Platform/Deploys
-    - entity: contacts
-      desc: Add Priya Nair as contact
-      count: 1
-      properties:
-        email:
-          expr: "x == target['priya_email']"
-    - entity: contacts
-      desc: Add Sam Whitfield as contact
-      count: 1
-      properties:
-        email:
-          expr: "x == target['sam_email']"
-    - entity: contacts
-      desc: Add Kenji Ota as contact
-      count: 1
-      properties:
-        email:
-          expr: "x == target['kenji_email']"
+  - entity: labels
+    desc: Create Platform/Incidents label
+    count: 1
+    properties:
+      name:
+        eq: Platform/Incidents
+  - entity: labels
+    desc: Create Platform/Deploys label
+    count: 1
+    properties:
+      name:
+        eq: Platform/Deploys
+  - entity: contacts
+    desc: Add Priya Nair as contact
+    count: 1
+    properties:
+      email:
+        expr: x == target['priya_email']
+  - entity: contacts
+    desc: Add Sam Whitfield as contact
+    count: 1
+    properties:
+      email:
+        expr: x == target['sam_email']
+  - entity: contacts
+    desc: Add Kenji Ota as contact
+    count: 1
+    properties:
+      email:
+        expr: x == target['kenji_email']
+  update:
+  - entity: settings
+    desc: Display density changed to comfortable
+    where:
+      id: { any: true }
+    changes:
+      display_density: { eq: comfortable }
   delete:
-    - entity: labels
-      desc: Delete Growth/Experiments label
-      where:
-        name:
-          eq: Growth/Experiments
-  constraints:
-    - desc: Display density changed to comfortable
-      expr: "state.settings.display_density == 'comfortable'"
-      severity: high
+  - entity: labels
+    desc: Delete Growth/Experiments label
+    where:
+      name:
+        eq: Growth/Experiments
   invariant:
-    - collection: state.emails
-      preserve: ALL
-    - collection: state.drafts
-      preserve: ALL
-    - collection: state.sent
-      preserve: ALL
-    - collection: state.deleted
-      preserve: ALL
-    - collection: state.contacts
-      filter: "True"
-      preserve: ALL
-    - collection: state.labels
-      filter: "a.name != 'Growth/Experiments' and a.name != 'Platform/Incidents' and a.name != 'Platform/Deploys'"
-      preserve: ALL
-    - collection: state.filters
-      preserve: ALL
+  - collection: state.emails
+    preserve: ALL
+  - collection: state.drafts
+    preserve: ALL
+  - collection: state.sent
+    preserve: ALL
+  - collection: state.deleted
+    preserve: ALL
+  - collection: state.contacts
+    filter: 'True'
+    preserve: ALL
+  - collection: state.labels
+    filter: a.name != 'Growth/Experiments' and a.name != 'Platform/Incidents' and
+      a.name != 'Platform/Deploys'
+    preserve: ALL
+  - collection: state.filters
+    preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
-    - name: Agent created Platform/Incidents label
-      ref: create[0]
-      severity: high
-    - name: Agent created Platform/Deploys label
-      ref: create[1]
-      severity: high
-    - name: Agent added Priya Nair as contact
-      ref: create[2]
-      severity: high
-    - name: Agent added Sam Whitfield as contact
-      ref: create[3]
-      severity: high
-    - name: Agent added Kenji Ota as contact
-      ref: create[4]
-      severity: high
-    - name: Agent deleted Growth/Experiments label
-      ref: delete[0]
-      severity: high
-    - name: Agent did not modify inbox emails
-      ref: invariant[0]
-      severity: high
+  - name: Agent created Platform/Incidents label
+    ref: create[0]
+    severity: high
+  - name: Agent created Platform/Deploys label
+    ref: create[1]
+    severity: high
+  - name: Agent added Priya Nair as contact
+    ref: create[2]
+    severity: high
+  - name: Agent added Sam Whitfield as contact
+    ref: create[3]
+    severity: high
+  - name: Agent added Kenji Ota as contact
+    ref: create[4]
+    severity: high
+  - name: Agent deleted Growth/Experiments label
+    ref: delete[0]
+    severity: high
+  - name: Agent updated display density to comfortable
+    ref: update[0]
+    severity: high
+  - name: Agent did not modify inbox emails
+    ref: invariant[0]
+    severity: high

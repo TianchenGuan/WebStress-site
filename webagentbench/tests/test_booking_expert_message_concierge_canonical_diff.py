@@ -21,10 +21,20 @@ def _setup_session(seed: int = 42):
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
     state.travel_preferences.preferred_bed_type = 'king'
-    # Mark messages as read
+    # Mark targeted messages as read.
+    target_ids = {targets['msg_id_1'], targets['msg_id_2'], targets['msg_id_3']}
     for msg in state.messages:
-        if msg.id in (targets['msg_id_1'], targets['msg_id_2'], targets['msg_id_3']):
+        if msg.id in target_ids:
             msg.read = True
+    # Also mark one additional property-origin message read to satisfy the
+    # lenient update[4] entry "Any property-origin message may be marked read
+    # while reviewing the inbox" in the YAML.
+    extra_marked = False
+    for msg in state.messages:
+        if (msg.sender == 'property' and not msg.read
+                and msg.id not in target_ids and not extra_marked):
+            msg.read = True
+            extra_marked = True
     # Create replies
     state.messages.append(Message(
         id="msg_reply1",

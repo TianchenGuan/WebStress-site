@@ -69,11 +69,10 @@ seed:
     unread_announcement_ids: '{output.unread_announcement_ids}'
 canonical_diff:
   oneof:
-  - constraints:
-    - desc: GPA stays above 3.0 when adding a fifth course
-      expr: "target['can_add_course'] == 'true'"
-      severity: critical
-    update:
+  # Branch discriminator baked into the Update where-clause (was a critical constraint).
+  # Bijection still produces slots from unread_announcement_ids; the where-clause
+  # only matches them when the GPA discriminator allows this branch.
+  - update:
     - entity: Announcement
       desc: Mark all unread announcements as read after confirming the GPA is safe
       bijection:
@@ -81,7 +80,7 @@ canonical_diff:
         variable: v
       where:
         id:
-          expr: "x == v"
+          expr: "x == v and target['can_add_course'] == 'true'"
       changes:
         is_read:
           eq: true
@@ -146,16 +145,14 @@ canonical_diff:
     - name: Agent did not send messages
       ref: invariant[10]
       severity: medium
-  - constraints:
-    - desc: GPA would drop below 3.0 with a fifth course
-      expr: "target['can_add_course'] == 'false'"
-      severity: critical
-    update:
+  # Branch 2: only matches when can_add_course == 'false'.
+  # No bijection; where-clause itself rejects when discriminator is wrong.
+  - update:
     - entity: Enrollment
-      desc: Drop the lowest-performing current course
+      desc: Drop the lowest-performing current course (cannot add a fifth course)
       where:
         course_id:
-          expr: "x == target['lowest_performing_course_id']"
+          expr: "x == target['lowest_performing_course_id'] and target['can_add_course'] == 'false'"
       changes:
         status:
           eq: dropped
@@ -182,6 +179,8 @@ canonical_diff:
     - collection: state.calendar_events
       preserve: ALL
     - collection: state.sent_messages
+      preserve: ALL
+    - collection: state.student
       preserve: ALL
     named_invariants:
     - name: Agent dropped the lowest-performing course enrollment

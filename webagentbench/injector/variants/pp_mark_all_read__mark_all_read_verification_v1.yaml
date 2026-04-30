@@ -1,7 +1,8 @@
 variant_id: pp_mark_all_read__mark_all_read_verification_v1
 base_task_id: pp_mark_all_read
 target_primitive: verification
-description: The first per-message mark-as-read request returns a fake success while leaving the message unread on the server. The UI opens threads and calls POST /messages/{msg_id}/read per message, so this targets the endpoint the UI actually hits. The agent must verify the unread state (reload inbox / check badge) and retry.
+description: "The first attempt to mark a message as read returns a fake success without persisting. The agent must verify\
+  \ all messages actually have is_read=True in the messages list \u2014 trusting the optimistic UI alone leaves messages unread."
 injections:
 - layer: network
   params:
@@ -11,6 +12,16 @@ injections:
     - POST
     fail_count: 1
     response_body:
-      ok: true
+      id: msg_4f9b1a2c8e
+      from_type: patient
+      provider_id: prov_a82c441f
+      subject: Acknowledgement
+      body: Marked as read.
+      thread_id: thread_d2a8f3c1
+      timestamp: '2026-04-26T08:00:00+00:00'
+      is_read: true
+      category: clinical
+      linked_entity_id: null
+      linked_entity_type: null
     behavior:
       mode: once

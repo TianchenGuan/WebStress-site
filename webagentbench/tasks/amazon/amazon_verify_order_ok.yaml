@@ -48,19 +48,13 @@ seed:
     product_id: '{output.product_id}'
     order_id: '{output.order_id}'
 canonical_diff:
-  constraints:
-  - desc: Agent inspected the target order before deciding
-    expr: "target['order_id'] in state.viewed_order_ids"
-    severity: critical
-  - desc: Order was not cancelled (correct behavior since address and item are fine)
-    expr: "any(o.id == target['order_id'] and o.status != 'cancelled' for o in state.orders)"
-    severity: critical
-  - desc: No new returns filed when none required
-    expr: "len(state.returns) <= len(initial.returns)"
-    severity: high
-  - desc: No extra orders placed beyond the existing target order
-    expr: "len(state.orders) == len(initial.orders)"
-    severity: medium
+  # READ-ONLY task (verify-and-do-nothing): Cat-D shape — only invariants,
+  # no positive entries, no constraints. The view-tracking constraint
+  # (viewed_order_ids) is dropped because compute_diff cannot observe it;
+  # that signal lives in the eval block (audit_log) instead.
+  # Order/return/cart preservation is subsumed by the unfiltered invariants
+  # below — any cancellation, extra order, or return creation will fire as
+  # an invariant violation.
   invariant:
   - collection: state.orders
     preserve: ALL
@@ -83,6 +77,8 @@ canonical_diff:
   - collection: state.gift_cards
     preserve: ALL
   - collection: state.notifications
+    preserve: ALL
+  - collection: state.wishlist
     preserve: ALL
   named_invariants:
   - name: Agent did not cancel the order or modify any order status
@@ -118,3 +114,6 @@ canonical_diff:
   - name: Agent did not create notifications
     ref: invariant[10]
     severity: low
+  - name: Agent did not modify wishlist
+    ref: invariant[11]
+    severity: medium

@@ -32,7 +32,12 @@ def _run(targets, initial_snap, initial_dict, state):
 
 def _apply_account_setup(state, targets, suffix=""):
     """Apply all account setup changes."""
-    # Add Visa 9999 as default (don't change existing cards' is_default flags)
+    # Demote any existing default cards (mirrors add_payment_method side-effect
+    # when a new is_default=True card is appended).
+    for pm in state.payment_methods:
+        if pm.is_default:
+            pm.is_default = False
+    # Add Visa 9999 as default
     visa_9999 = PaymentMethod(
         id=f"pm_visa9999{suffix}",
         card_type="Visa",

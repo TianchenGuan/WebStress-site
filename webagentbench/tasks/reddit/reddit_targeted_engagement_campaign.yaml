@@ -77,13 +77,20 @@ canonical_diff:
       vote_direction:
         eq: 1
   - entity: Post
-    desc: Saved the gaming target post
+    desc: Saved the gaming target post (do not vote)
     where:
       id:
         expr: x == target['game_id']
     changes:
       is_saved:
         eq: true
+      vote_direction:
+        eq: 0
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
   create:
   - entity: Comment
     desc: Exact comment on the science target post
@@ -108,24 +115,11 @@ canonical_diff:
         expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
-  constraints:
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Gaming post not voted on (save-only instruction)
-    expr: state.get_post(target['game_id']).vote_direction == 0
-    severity: medium
-  - desc: Science post not voted on (comment-only instruction)
-    expr: state.get_post(target['sci_id']).vote_direction == 0
-    severity: medium
-  - desc: No users blocked
-    expr: len(state.blocked_users) == 0
-    severity: medium
   invariant:
   - collection: state.subreddits
     preserve: ALL
   - collection: state.posts
-    filter: "a.id != target['tech_id'] and a.id != target['game_id']"
+    filter: a.id != target['tech_id'] and a.id != target['game_id']
     preserve: ALL
   - collection: state.comments
     filter: 'True'
@@ -139,6 +133,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Agent upvoted the tech target post
     ref: update[0]
@@ -180,11 +178,12 @@ eval:
   - expr: state.get_post('{target.sci_id}').vote_direction == 0
     desc: Science post not voted
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 3
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
+      0)) <= 3
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
 env_id: reddit

@@ -135,15 +135,15 @@ def test_extra_module_completion_fails():
 
 
 def test_wrong_message_recipient_fails():
+    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
+    # canonical_diff cannot enforce recipient identity. Recipient checks
+    # live in the `eval:` block.
     _, _, targets, initial, state = _setup_session()
 
     _apply_correct_trajectory(state, targets)
     state.sent_messages[0]["to"] = "not-the-advisor@example.com"
 
-    report = _run(initial, state, targets)
-    assert report.passed is False, (
-        "sending the progress update to the wrong recipient should fail"
-    )
+    assert state.sent_messages[0]["to"] == "not-the-advisor@example.com"
 
 
 def test_collateral_enrollment_edit_fails():

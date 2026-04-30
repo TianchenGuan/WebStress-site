@@ -47,29 +47,43 @@ seed:
       GOOGL: 20
       AMZN: 10
 canonical_diff:
-  constraints:
-  - desc: At least one sell order placed to reduce overweight positions
-    expr: "len([o for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_')]) >= 1"
-    severity: critical
-  - desc: At least one buy order placed to increase underweight positions
-    expr: "len([o for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')]) >= 1"
-    severity: critical
-  - desc: Portfolio moved closer to target allocation
-    expr: "state.allocation_error_vs_targets(target['target_allocation']) < state.allocation_error_vs_targets_initial(target['target_allocation'])"
-    severity: critical
-  - desc: Allocation within 15% total error band of target
-    expr: "state.allocation_error_vs_targets(target['target_allocation']) <= Decimal('15')"
-    severity: high
-  - desc: All target symbols retain non-zero positions
-    expr: "all(state.get_position(sym) is not None and state.get_position(sym).quantity > Decimal('0') for sym in target['target_allocation'])"
-    severity: high
-  - desc: Did not trade symbols outside target allocation set
-    expr: "not any(o.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] and not o.id.startswith('ord_decoy_') for o in state.orders)"
-    severity: high
-  - desc: Did not buy and sell the same symbol
-    expr: "(set(o.symbol for o in state.orders if o.side == 'buy' and not o.id.startswith('ord_decoy_')) & set(o.symbol for o in state.orders if o.side == 'sell' and not o.id.startswith('ord_decoy_'))) == set()"
-    severity: medium
+  create:
+  - entity: orders
+    desc: Sell order placed to reduce overweight positions
+    properties:
+      side: {eq: sell}
+      symbol: {in: [AAPL, MSFT, GOOGL, AMZN]}
+      order_type: {any: true}
+      quantity: {any: true}
+      status: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
+  - entity: orders
+    desc: Buy order placed to increase underweight positions
+    properties:
+      side: {eq: buy}
+      symbol: {in: [AAPL, MSFT, GOOGL, AMZN]}
+      order_type: {any: true}
+      quantity: {any: true}
+      status: {any: true}
+      limit_price: {any: true}
+      stop_price: {any: true}
+      filled_quantity: {any: true}
+      filled_price: {any: true}
+      trail_amount: {any: true}
+      trail_pct: {any: true}
+      time_in_force: {any: true}
+      extended_hours: {any: true}
   invariant:
+  - collection: state.orders
+    filter: "a.symbol not in ['AAPL', 'MSFT', 'GOOGL', 'AMZN']"
+    preserve: ALL
   - collection: state.watchlists
     preserve: ALL
   - collection: state.price_alerts
@@ -78,6 +92,22 @@ canonical_diff:
     preserve: ALL
   - collection: state.transfers
     preserve: ALL
+  - collection: state.notifications
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.transactions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.positions
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
+  - collection: state.orders
+    filter: "False"
+    preserve: ALL
+    comprehensive: true
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

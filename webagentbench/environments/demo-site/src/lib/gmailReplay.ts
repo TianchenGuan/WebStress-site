@@ -4,6 +4,7 @@ import type { TrajectoryStep, TrajectoryTarget } from "./results";
 
 const DEFAULT_ROUTE = "/inbox?label=inbox";
 const INBOX_PAGE_SIZE = 16;
+const CONTACTS_PAGE_SIZE = 8;
 
 type GmailEmail = GmailFixture["emails"][number];
 type GmailLabel = GmailFixture["labels"][number];
@@ -57,6 +58,8 @@ interface ReplayDrafts {
     company: string;
     note: string;
     isVip: boolean;
+    editingId: string | null;
+    page: number;
   };
   settings: {
     activeTab: string;
@@ -64,6 +67,8 @@ interface ReplayDrafts {
     filterWizardOpen: boolean;
     filterWizardStep: "criteria" | "actions";
     filter: FilterDraft;
+    renamingLabelId: string | null;
+    renameLabelDraft: string;
   };
 }
 
@@ -346,6 +351,8 @@ function createInitialDrafts(state: GmailFixture): ReplayDrafts {
       company: "",
       note: "",
       isVip: false,
+      editingId: null,
+      page: 1,
     },
     settings: {
       activeTab: "General",
@@ -353,33 +360,76 @@ function createInitialDrafts(state: GmailFixture): ReplayDrafts {
       filterWizardOpen: false,
       filterWizardStep: "criteria",
       filter: { ...EMPTY_FILTER_DRAFT },
+      renamingLabelId: null,
+      renameLabelDraft: "",
     },
   };
 }
 
+function setReplayParam(searchParams: URLSearchParams, key: string, value: string | null | undefined) {
+  if (value == null || value === "") {
+    searchParams.delete(key);
+    return;
+  }
+
+  searchParams.set(key, value);
+}
+
+function applyComposeReplayParams(
+  searchParams: URLSearchParams,
+  compose: ComposeDraft | null,
+  includeMode: boolean,
+) {
+  if (includeMode && compose && compose.mode !== "compose") {
+    searchParams.set("replayCompose", compose.mode);
+  } else {
+    searchParams.delete("replayCompose");
+  }
+
+  setReplayParam(searchParams, "replayTo", compose?.to);
+  setReplayParam(searchParams, "replayCc", compose?.cc);
+  setReplayParam(searchParams, "replayBcc", compose?.bcc);
+  setReplayParam(searchParams, "replaySubject", compose?.subject);
+  setReplayParam(searchParams, "replayBody", compose?.body);
+  setReplayParam(searchParams, "replayAttachments", compose?.attachments);
+
+  if (compose?.showCc) {
+    searchParams.set("replayShowCc", "1");
+  } else {
+    searchParams.delete("replayShowCc");
+  }
+
+  if (compose?.showBcc) {
+    searchParams.set("replayShowBcc", "1");
+  } else {
+    searchParams.delete("replayShowBcc");
+  }
+}
+
 function withReplayParams(route: string, drafts: ReplayDrafts) {
   const { pathname, searchParams } = parseRoute(route);
+  searchParams.set("replay", "1");
 
   // Search: show search results after "Run search" was clicked
   if (drafts.searchActive && drafts.searchQuery) {
-    return buildRoute("/search", new URLSearchParams({ q: drafts.searchQuery }));
+    return buildRoute("/search", new URLSearchParams({ q: drafts.searchQuery, replay: "1" }));
+  }
+
+  if (drafts.searchQuery) {
+    searchParams.set("q", drafts.searchQuery);
+  } else if (pathname !== "/search") {
+    searchParams.delete("q");
   }
 
   if (pathname === "/thread") {
-    return route;
+    return buildRoute(pathname, searchParams);
   }
 
   if (pathname.startsWith("/thread/")) {
     if (drafts.compose && drafts.compose.mode !== "compose") {
-      searchParams.set("replayCompose", drafts.compose.mode);
-      if (drafts.compose.body) searchParams.set("replayBody", drafts.compose.body);
-      else searchParams.delete("replayBody");
-      if (drafts.compose.to) searchParams.set("replayTo", drafts.compose.to);
-      else searchParams.delete("replayTo");
+      applyComposeReplayParams(searchParams, drafts.compose, true);
     } else {
-      searchParams.delete("replayCompose");
-      searchParams.delete("replayBody");
-      searchParams.delete("replayTo");
+      applyComposeReplayParams(searchParams, null, true);
     }
 
     if (drafts.thread.labelMenuOpen || drafts.thread.creatingLabel) {
@@ -405,21 +455,38 @@ function withReplayParams(route: string, drafts: ReplayDrafts) {
 
   // Compose page — pass draft fields so the Compose UI can display them
   if (pathname === "/compose" || drafts.compose) {
-    if (drafts.compose) {
-      if (drafts.compose.to) searchParams.set("replayTo", drafts.compose.to);
-      else searchParams.delete("replayTo");
-      if (drafts.compose.cc) searchParams.set("replayCc", drafts.compose.cc);
-      else searchParams.delete("replayCc");
-      if (drafts.compose.subject) searchParams.set("replaySubject", drafts.compose.subject);
-      else searchParams.delete("replaySubject");
-      if (drafts.compose.body) searchParams.set("replayBody", drafts.compose.body);
-      else searchParams.delete("replayBody");
-    } else {
-      ["replayTo", "replayCc", "replaySubject", "replayBody"].forEach((k) => searchParams.delete(k));
-    }
+    applyComposeReplayParams(searchParams, drafts.compose, false);
     if (pathname === "/compose") {
       return buildRoute(pathname, searchParams);
     }
+  }
+
+  if (pathname === "/labels") {
+    setReplayParam(searchParams, "replayNewLabelName", drafts.labelsPage.name);
+    setReplayParam(searchParams, "replayContactName", drafts.contacts.name);
+    setReplayParam(searchParams, "replayContactEmail", drafts.contacts.email);
+    setReplayParam(searchParams, "replayContactCompany", drafts.contacts.company);
+    setReplayParam(searchParams, "replayContactNote", drafts.contacts.note);
+
+    if (drafts.contacts.isVip) {
+      searchParams.set("replayContactVip", "1");
+    } else {
+      searchParams.delete("replayContactVip");
+    }
+
+    if (drafts.contacts.editingId) {
+      searchParams.set("replayContactEditId", drafts.contacts.editingId);
+    } else {
+      searchParams.delete("replayContactEditId");
+    }
+
+    if (drafts.contacts.page > 1) {
+      searchParams.set("replayContactPage", String(drafts.contacts.page));
+    } else {
+      searchParams.delete("replayContactPage");
+    }
+
+    return buildRoute(pathname, searchParams);
   }
 
   if (pathname === "/settings") {
@@ -427,6 +494,63 @@ function withReplayParams(route: string, drafts: ReplayDrafts) {
       searchParams.set("tab", drafts.settings.activeTab);
     } else {
       searchParams.delete("tab");
+    }
+
+    setReplayParam(searchParams, "replaySignature", drafts.settings.values.signature);
+    setReplayParam(
+      searchParams,
+      "replayVacationMessage",
+      drafts.settings.values.vacation_responder_message ?? "",
+    );
+    setReplayParam(
+      searchParams,
+      "replayForwardingAddress",
+      drafts.settings.values.forwarding_address ?? "",
+    );
+    setReplayParam(
+      searchParams,
+      "replayUndoSendSeconds",
+      drafts.settings.values.undo_send_seconds != null
+        ? String(drafts.settings.values.undo_send_seconds)
+        : null,
+    );
+    setReplayParam(
+      searchParams,
+      "replayMaxPageSize",
+      drafts.settings.values.max_page_size != null
+        ? String(drafts.settings.values.max_page_size)
+        : null,
+    );
+    setReplayParam(searchParams, "replayLanguage", drafts.settings.values.language ?? "");
+    setReplayParam(
+      searchParams,
+      "replayDefaultReplyBehavior",
+      drafts.settings.values.default_reply_behavior ?? "",
+    );
+    setReplayParam(
+      searchParams,
+      "replayDisplayDensity",
+      drafts.settings.values.display_density ?? "",
+    );
+
+    if (drafts.settings.values.vacation_responder_enabled) {
+      searchParams.set("replayVacationEnabled", "1");
+    } else {
+      searchParams.delete("replayVacationEnabled");
+    }
+
+    if (drafts.settings.values.send_and_archive) {
+      searchParams.set("replaySendAndArchive", "1");
+    } else {
+      searchParams.delete("replaySendAndArchive");
+    }
+
+    if (drafts.settings.renamingLabelId) {
+      searchParams.set("replayRenameLabelId", drafts.settings.renamingLabelId);
+      setReplayParam(searchParams, "replayRenameLabelDraft", drafts.settings.renameLabelDraft);
+    } else {
+      searchParams.delete("replayRenameLabelId");
+      searchParams.delete("replayRenameLabelDraft");
     }
 
     if (drafts.settings.filterWizardOpen) {
@@ -488,6 +612,7 @@ function applyRequest(
 
 function applyFill(
   drafts: ReplayDrafts,
+  state: GmailFixture,
   route: string | undefined,
   target: TrajectoryTarget | null,
   value: unknown,
@@ -554,7 +679,11 @@ function applyFill(
 
   // Rename label — store the new name, actual rename applies on click "Save"/"Rename"
   if (field.startsWith("Rename label ")) {
-    drafts.labelsPage.name = stringValue;
+    const labelName = field.slice("Rename label ".length);
+    const label = findLabelByName(state, labelName);
+    drafts.settings.activeTab = "Labels";
+    drafts.settings.renamingLabelId = label?.id ?? null;
+    drafts.settings.renameLabelDraft = stringValue;
     return;
   }
 
@@ -833,6 +962,22 @@ function applyClick(
     return;
   }
 
+  if (field.startsWith("Edit contact ")) {
+    const contact = findContactByName(state, field.slice("Edit contact ".length));
+    if (contact) {
+      drafts.contacts = {
+        name: contact.name,
+        email: contact.email,
+        company: contact.company ?? "",
+        note: contact.note ?? "",
+        isVip: Boolean(contact.is_vip),
+        editingId: contact.id,
+        page: drafts.contacts.page,
+      };
+    }
+    return;
+  }
+
   if (field.startsWith("Delete label ")) {
     const label = findLabelByName(state, field.slice("Delete label ".length));
     if (label) {
@@ -909,6 +1054,8 @@ function applyClick(
       company: "",
       note: "",
       isVip: false,
+      editingId: null,
+      page: drafts.contacts.page,
     };
     return;
   }
@@ -992,16 +1139,59 @@ function applyClick(
   }
 
   if (field === "Save contact changes") {
-    // Contact edit save — the actual mutation happens through applyRequest
-    // but we don't track per-field edits, just acknowledge the click
+    if (!drafts.contacts.editingId) return;
+    applyRequest(state, "PUT", `contacts/${drafts.contacts.editingId}`, {
+      name: drafts.contacts.name,
+      email: drafts.contacts.email,
+      company: drafts.contacts.company,
+      note: drafts.contacts.note,
+      is_vip: drafts.contacts.isVip,
+    });
+    drafts.contacts = {
+      name: "",
+      email: "",
+      company: "",
+      note: "",
+      isVip: false,
+      editingId: null,
+      page: drafts.contacts.page,
+    };
     return;
   }
 
   if (field === "Cancel contact editing") {
+    drafts.contacts = {
+      name: "",
+      email: "",
+      company: "",
+      note: "",
+      isVip: false,
+      editingId: null,
+      page: drafts.contacts.page,
+    };
     return;
   }
 
   if (field === "Next contacts page" || field === "Previous contacts page") {
+    const totalPages = Math.max(1, Math.ceil(state.contacts.length / CONTACTS_PAGE_SIZE));
+    drafts.contacts.page = field === "Next contacts page"
+      ? Math.min(totalPages, drafts.contacts.page + 1)
+      : Math.max(1, drafts.contacts.page - 1);
+    return;
+  }
+
+  if (field === "Save" && drafts.settings.activeTab === "Labels" && drafts.settings.renamingLabelId) {
+    applyRequest(state, "PUT", `labels/${drafts.settings.renamingLabelId}`, {
+      name: drafts.settings.renameLabelDraft.trim(),
+    });
+    drafts.settings.renamingLabelId = null;
+    drafts.settings.renameLabelDraft = "";
+    return;
+  }
+
+  if (field === "Cancel" && drafts.settings.activeTab === "Labels" && drafts.settings.renamingLabelId) {
+    drafts.settings.renamingLabelId = null;
+    drafts.settings.renameLabelDraft = "";
     return;
   }
 
@@ -1126,45 +1316,51 @@ export function buildGmailReplayStepStates(
     const target = stepTarget(step);
     const route = step.replay_path ?? DEFAULT_ROUTE;
     const action = String(step.action?.action ?? "");
+    const status = String(step.status ?? "").trim();
+    const shouldApplyAction =
+      status === ""
+      || /^success\b/i.test(status)
+      || /^finish\b/i.test(status);
 
-    switch (action) {
-      case "fill":
-        applyFill(drafts, route, target, step.action?.value);
-        break;
-      case "check":
-        applyCheck(drafts, target);
-        break;
-      case "select":
-      case "select_option":
-        applySelect(drafts, target, step.action?.value);
-        break;
-      case "click":
-      case "dblclick":
-        applyClick(state, drafts, route, target);
-        break;
-      case "clear":
-        // Clear a form field — reset the draft value
-        applyFill(drafts, route, target, "");
-        break;
-      case "scroll":
-      case "hover":
-      case "press":
-      case "focus":
-      case "noop":
-      case "think":
-      case "finish":
-      case "report_infeasible":
-        // Visual-only actions — no state mutation needed
-        break;
-      default:
-        break;
+    if (shouldApplyAction) {
+      switch (action) {
+        case "fill":
+          applyFill(drafts, state, route, target, step.action?.value);
+          break;
+        case "check":
+          applyCheck(drafts, target);
+          break;
+        case "select":
+        case "select_option":
+          applySelect(drafts, target, step.action?.value);
+          break;
+        case "click":
+        case "dblclick":
+          applyClick(state, drafts, route, target);
+          break;
+        case "clear":
+          applyFill(drafts, state, route, target, "");
+          break;
+        case "scroll":
+        case "hover":
+        case "press":
+        case "focus":
+        case "noop":
+        case "think":
+        case "finish":
+        case "report_infeasible":
+          // Visual-only actions — no state mutation needed
+          break;
+        default:
+          break;
+      }
     }
 
-    // Use the NEXT step's replay_path as the result route (where the agent
-    // ended up after this action), falling back to current step's result_path
+    // The next step's replay_path reflects the page the agent actually saw
+    // after this action. result_path is often stale in exported trajectories.
     const resultRoute =
-      step.result_path ||
       (i + 1 < steps.length ? steps[i + 1].replay_path : undefined) ||
+      step.result_path ||
       route;
     const displayRoute = withReplayParams(resultRoute, drafts);
 

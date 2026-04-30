@@ -33,14 +33,9 @@ canonical_diff:
       target_price: {eq: 180}
       status: {eq: active}
       created_at: {any: true}
-  constraints:
-  - desc: Exactly one GOOGL above $180 alert exists
-    expr: "len([a for a in state.price_alerts if a.symbol == 'GOOGL' and a.condition == 'above' and a.target_price == 180]) == 1"
-    severity: high
-  - desc: Agent did not place any orders
-    expr: "len([o for o in state.orders if not o.id.startswith('ord_decoy_')]) == 0"
-    severity: high
   invariant:
+  - collection: state.orders
+    preserve: ALL
   - collection: state.price_alerts
     filter: "a.symbol != 'GOOGL'"
     preserve: ALL

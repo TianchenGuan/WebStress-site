@@ -193,11 +193,7 @@ canonical_diff:
   - entity: Notification
     desc: All unread notifications marked as read
     bijection:
-      # Iterate over all initially-unread notification ids (which
-      # includes any decoys injected pre-session-snapshot) so the
-      # "Mark all read" action satisfies the bijection regardless of
-      # whether a notification_shadow_v2 variant added extra unreads.
-      over: "[n.id for n in initial.notifications if not n.is_read]"
+      over: '[n.id for n in initial.notifications if not n.is_read]'
       variable: v
     where:
       id:
@@ -220,10 +216,22 @@ canonical_diff:
     desc: Posts by the target block_user were hidden
     where:
       author_name:
-        expr: "x == target['block_user']"
+        expr: x == target['block_user']
     changes:
       is_hidden:
         eq: true
+  - entity: settings
+    desc: Settings updated
+    where: { id: { any: true } }
+    changes:
+      theme: { eq: dark }
+      show_online_status: { eq: false }
+      allow_followers: { eq: false }
+      show_active_communities: { eq: false }
+      email_comment_reply: { eq: false }
+      email_post_reply: { eq: false }
+      email_mentions: { eq: false }
+      email_messages: { eq: false }
   delete:
   - entity: Message
     collection: state.messages
@@ -231,68 +239,29 @@ canonical_diff:
     where:
       id:
         expr: x == target['del_id']
-  constraints:
-  - desc: Blocked target block_user
-    expr: "target['block_user'] in state.blocked_users"
-    severity: high
-  - desc: Only the specified block_user was blocked
-    expr: "state.blocked_users == [target['block_user']]"
-    severity: medium
-  - desc: All memes subreddit posts unsaved
-    expr: "not any(p.is_saved and p.subreddit_name == target['leave_sub'] for p in state.posts)"
-    severity: high
-  - desc: Memes subreddit removed from subscriptions list
-    expr: "not any(state.get_subreddit(sid) and state.get_subreddit(sid).name == target['leave_sub'] for sid in state.subscriptions)"
-    severity: high
-  - desc: Worldnews post id recorded in saved_post_ids
-    expr: "target['wn_id'] in state.saved_post_ids"
-    severity: high
-  - desc: Theme set to dark
-    expr: state.settings.theme == 'dark'
-    severity: high
-  - desc: Show online status disabled
-    expr: state.settings.show_online_status == False
-    severity: high
-  - desc: Allow followers disabled
-    expr: state.settings.allow_followers == False
-    severity: high
-  - desc: Show active communities disabled
-    expr: state.settings.show_active_communities == False
-    severity: high
-  - desc: Email comment reply notifications disabled
-    expr: "not state.settings.email_comment_reply"
-    severity: high
-  - desc: Email post reply notifications disabled
-    expr: "not state.settings.email_post_reply"
-    severity: high
-  - desc: Email mention notifications disabled
-    expr: "not state.settings.email_mentions"
-    severity: high
-  - desc: Email message notifications disabled
-    expr: "not state.settings.email_messages"
-    severity: high
-  - desc: All CryptoSkeptic posts are hidden
-    expr: "all(p.is_hidden for p in state.posts if p.author_name == target['block_user'])"
-    severity: medium
   invariant:
   - collection: state.subreddits
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.posts
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.comments
     preserve: ALL
   - collection: state.messages
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.sent_messages
     preserve: ALL
   - collection: state.notifications
-    filter: "True"
+    filter: 'True'
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    filter: 'False'
+    preserve: ALL
+    comprehensive: true
   named_invariants:
   - name: Worldnews target post upvoted and saved
     ref: update[0]
@@ -358,11 +327,12 @@ eval:
   - expr: len(state.blocked_users) <= 2
     desc: No excessive users blocked
     penalty: 0.15
-  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
+  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count',
+      0)
     desc: No messages sent when none required
     penalty: 0.1
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
+      p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.1
   - expr: not any(e.action.startswith('reddit.post.') and e.action != 'reddit.post.vote'

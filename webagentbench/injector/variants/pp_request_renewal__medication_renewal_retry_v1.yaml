@@ -1,16 +1,27 @@
 variant_id: pp_request_renewal__medication_renewal_retry_v1
 base_task_id: pp_request_renewal
-target_primitive: backtracking
-description: The first renewal request fails transiently. The agent must retry and confirm the medication actually moved to pending renewal.
+target_primitive: verification
+description: The first write to renewal returns a fake successful response without persisting. The agent must verify that
+  the prescription status actually changed to pending_renewal before declaring the task done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/patient_portal/medications/*/renewal'
     methods:
     - POST
-    error_count: 1
-    error_status: 503
-    error_message: Temporary pharmacy service failure. Retry the renewal request.
+    fail_count: 1
+    response_body:
+      id: rx_8c1e4f72b3
+      medication: Lisinopril 10mg
+      dosage: 10mg
+      frequency: once daily
+      refills_remaining: 0
+      last_filled: '2026-04-26T08:00:00+00:00'
+      expires_at: '2027-04-26T08:00:00+00:00'
+      status: pending_renewal
+      interactions: []
+      pharmacy_id: pharm_1a8e2c4f
+      provider_id: prov_a82c441f
     behavior:
       mode: once

@@ -1,28 +1,30 @@
 variant_id: amazon_wishlist_cart_consolidation__state_tracking_v1
 base_task_id: amazon_wishlist_cart_consolidation
 target_primitive: state_tracking
-description: >
-  Wishlist GET returns stale empty data after items are removed, and the
-  first cart add silently fails. The agent must carefully verify actual
-  wishlist and cart contents and retry failed operations.
+description: 'Wishlist GET returns stale empty data after items are removed, and the first cart add silently fails. The agent
+  must carefully verify actual wishlist and cart contents and retry failed operations.
+
+  '
 injections:
-  - layer: network
-    params:
-      url_pattern: "**/api/env/amazon/wishlist"
-      action: stale_data
-      methods: ["GET"]
-      stale_count: 2
-      stale_body:
-        wishlist: []
-        products: []
-  - layer: network
-    params:
-      url_pattern: "**/api/env/amazon/cart/add"
-      action: silent_fail
-      methods: ["POST"]
-      fail_count: 1
-      response_body:
-        cart_item:
-          id: fake_item
-          product_id: fake
-          quantity: 1
+- layer: network
+  params:
+    url_pattern: '**/api/env/amazon/wishlist'
+    action: stale_data
+    methods:
+    - GET
+    stale_count: 2
+    stale_body:
+      wishlist: []
+      products: []
+- layer: network
+  params:
+    url_pattern: '**/api/env/amazon/cart/add'
+    action: silent_fail
+    methods:
+    - POST
+    fail_count: 1
+    response_body:
+      cart_item:
+        id: item_3c8f1a4d
+        product_id: prod_a8c4d219
+        quantity: 1

@@ -19,28 +19,15 @@ seed:
   steps: []
   targets: {}
 canonical_diff:
-  constraints:
-    - desc: Theme changed to dark
-      expr: "state.settings.theme == 'dark'"
-      severity: high
-    - desc: Compact view enabled
-      expr: "state.settings.compact_view == True"
-      severity: high
-    - desc: Show online status disabled
-      expr: "state.settings.show_online_status == False"
-      severity: high
-    - desc: Default feed sort changed to new
-      expr: "state.settings.default_feed_sort == 'new'"
-      severity: high
-    - desc: Email comment reply unchanged
-      expr: "state.settings.email_comment_reply == initial.settings.email_comment_reply"
-      severity: medium
-    - desc: Email post reply unchanged
-      expr: "state.settings.email_post_reply == initial.settings.email_post_reply"
-      severity: medium
-    - desc: NSFW setting unchanged
-      expr: "state.settings.show_nsfw == initial.settings.show_nsfw"
-      severity: medium
+  update:
+    - entity: settings
+      desc: Theme dark, compact view enabled, online status disabled, feed sort set to new
+      where: { id: { any: true } }
+      changes:
+        theme: { eq: dark }
+        compact_view: { eq: true }
+        show_online_status: { eq: false }
+        default_feed_sort: { eq: new }
   invariant:
     - collection: state.subreddits
       preserve: ALL

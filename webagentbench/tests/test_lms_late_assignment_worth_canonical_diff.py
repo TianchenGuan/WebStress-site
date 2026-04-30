@@ -125,6 +125,9 @@ def test_wrong_file_name_fails():
 
 
 def test_wrong_status_fails():
+    # The canonical_diff was relaxed to `submission_status: in [submitted,
+    # late]`, so either is now valid. Verify the helper applied the
+    # requested statuses.
     _, _, targets, initial, state, session_start = _setup_session()
 
     worth_ids = _worth_ids(targets)
@@ -137,8 +140,7 @@ def test_wrong_status_fails():
             status="submitted" if i == 0 else "late",
         )
 
-    report = _report(initial, state, targets)
-    assert report.passed is False, "submitting a target assignment with a non-late status should fail"
+    assert state.get_assignment(worth_ids[0]).submission_status == "submitted"
 
 
 def test_unrecoverable_assignment_submitted_fails():

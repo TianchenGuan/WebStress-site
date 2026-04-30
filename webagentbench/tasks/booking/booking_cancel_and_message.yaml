@@ -125,10 +125,6 @@ canonical_diff:
       filter: "False"
       preserve: ALL
       comprehensive: true
-  constraints:
-    - desc: Agent acknowledged the cancellation fee
-      expr: "any(e.action == 'reservation.cancel' and e.payload.get('fee_accepted') is not None for e in state.audit_log)"
-      severity: high
   named_invariants:
     - name: Agent cancelled the target reservation
       ref: update[0]

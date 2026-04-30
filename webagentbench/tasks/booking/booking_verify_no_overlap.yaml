@@ -125,10 +125,21 @@ seed:
     res_id_2: '{output.res_id_2}'
     res_id_3: '{output.res_id_3}'
 canonical_diff:
-  constraints:
-    - desc: All seeded reservations remain confirmed and unmodified (no overlaps detected, no-op task)
-      expr: "all(r.status == 'confirmed' for r in state.reservations if r.id in (target['res_id_1'], target['res_id_2'], target['res_id_3']))"
-      severity: critical
+  # Read-only no-op task: no state mutation expected anywhere. The no-op
+  # bijection-over-empty update entry below puts `notifications` into
+  # positive_cols so the matcher's collateral sweep runs and any unaccounted
+  # write (cancellation, message send, etc.) is caught.
+  update:
+    - entity: notifications
+      desc: "Internal: enable collateral sweep (no expected notification mutation)"
+      weight: 0
+      bijection:
+        over: "[]"
+        variable: v
+      where:
+        id: {expr: "x == v.id"}
+      changes:
+        read: {eq: true}
   invariant:
     - collection: state.reservations
       preserve: ALL
@@ -143,6 +154,7 @@ canonical_diff:
     - collection: state.payment_methods
       preserve: ALL
     - collection: state.notifications
+      filter: "True"  # no-op update[0] above produces no slots; preserve all notifications
       preserve: ALL
   named_invariants:
     - name: Agent did not cancel or modify any reservation when no overlap exists

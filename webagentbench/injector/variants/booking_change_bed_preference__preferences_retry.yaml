@@ -1,17 +1,19 @@
 variant_id: booking_change_bed_preference__preferences_retry
 base_task_id: booking_change_bed_preference
 target_primitive: verification
-description: The first travel-preferences update fails transiently. The agent must verify the new bed
-  preference actually stuck before moving on.
+description: First write returns a fake successful response without persisting. The agent must verify the change actually
+  took effect on the real backend (e.g., re-fetch the entity and check the field) before declaring done.
 injections:
 - layer: network
   params:
-    action: error_then_success
+    action: silent_fail
     url_pattern: '**/api/env/booking/preferences'
     methods:
     - PUT
-    error_count: 1
-    error_status: 503
-    error_message: Temporary booking API failure. Retry the action.
+    fail_count: 1
+    response_body:
+      bed_preference: any
+      other_prefs: {}
+      updated_at: '2026-04-26T08:00:00+00:00'
     behavior:
       mode: once
