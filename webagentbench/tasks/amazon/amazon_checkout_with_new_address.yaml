@@ -54,12 +54,18 @@ canonical_diff:
   - entity: Order
     desc: New order placed using the new shipping address
     properties:
-      items: {any: true}
+      items:
+        expr: "len(x) == len(initial.cart_items) and {it['product_id'] for it in x}
+          == {ci.product_id for ci in initial.cart_items} and all(any(ci.product_id
+          == it['product_id'] and ci.quantity == it['quantity'] for ci in initial.cart_items)
+          for it in x)"
       shipping_address_id:
-        expr: "any(a.id == x and a.full_name == target['recipient_name'] for a in state.addresses)"
+        expr: "any(a.id == x and a.full_name == target['recipient_name'] for a in
+          state.addresses)"
       payment_method_id:
-        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods)"
-      status: {any: true}
+        expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four == '4242' for
+          p in state.payment_methods)"
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -84,7 +90,8 @@ canonical_diff:
     filter: "a.full_name != target['recipient_name']"
     preserve: ALL
   - collection: state.orders
-    filter: "not any(addr.id == a.shipping_address_id and addr.full_name == target['recipient_name'] for addr in state.addresses)"
+    filter: "not any(addr.id == a.shipping_address_id and addr.full_name == target['recipient_name']
+      for addr in state.addresses)"
     preserve: ALL
   - collection: state.products
     preserve: ALL

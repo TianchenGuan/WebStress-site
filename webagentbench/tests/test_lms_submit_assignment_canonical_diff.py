@@ -1,5 +1,7 @@
 """End-to-end tests for lms_submit_assignment canonical_diff."""
 
+from datetime import datetime, timezone
+
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -23,6 +25,7 @@ def _submit_assignment(state, assignment_id: str, file_name: str, status: str = 
             assignment.submission_status = status
             assignment.file_name = file_name
             assignment.attempt_count += 1
+            assignment.submitted_at = datetime.now(timezone.utc)
             return
     raise ValueError(f"assignment {assignment_id!r} not found")
 
@@ -95,6 +98,70 @@ def test_wrong_file_name_fails():
         final=state,
     )
     assert report.passed is False, "submitting the target assignment with the wrong file should fail"
+
+
+def test_missing_submission_timestamp_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    _submit_assignment(state, targets["target_assignment_id"], targets["file_name"])
+    state.get_assignment(targets["target_assignment_id"]).submitted_at = None
+
+    task = get_task("lms_submit_assignment")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "submission without backend timestamp should fail"
+
+
+def test_missing_attempt_increment_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    _submit_assignment(state, targets["target_assignment_id"], targets["file_name"])
+    state.get_assignment(targets["target_assignment_id"]).attempt_count = initial.get_assignment(
+        targets["target_assignment_id"]
+    ).attempt_count
+
+    task = get_task("lms_submit_assignment")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "submission without attempt-count increment should fail"
+
+
+def test_extra_sent_message_fails():
+    sm, sid, targets, initial, state = _setup_session()
+
+    _submit_assignment(state, targets["target_assignment_id"], targets["file_name"])
+    state.sent_messages.append(
+        {
+            "to": "advisor@example.com",
+            "subject": "Unrequested update",
+            "body": "This task did not ask for a message.",
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "from": state.student.email,
+        }
+    )
+
+    task = get_task("lms_submit_assignment")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff,
+        task.canonical_diff,
+        targets=dict(targets),
+        initial=initial,
+        final=state,
+    )
+    assert report.passed is False, "unrequested sent messages should fail"
 
 
 def test_extra_assignment_submit_fails():

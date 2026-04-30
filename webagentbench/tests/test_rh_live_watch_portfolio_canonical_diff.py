@@ -1,5 +1,6 @@
 """Tests for rh_live_watch_portfolio canonical_diff."""
 
+from webagentbench.backend.price_engine import cascade_update
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -15,6 +16,7 @@ def _setup(seed=42):
 
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup()
+    cascade_update(state, state._price_engine.advance(18), state._price_engine)
     best = targets["best_symbol"]
     pos = state.get_position(best)
     if pos:
@@ -27,6 +29,7 @@ def test_correct_trajectory_passes():
 
 def test_selling_wrong_symbol_fails():
     sm, sid, targets, initial, state = _setup()
+    cascade_update(state, state._price_engine.advance(18), state._price_engine)
     best = targets["best_symbol"]
     wrong = next((p for p in state.positions if p.symbol != best and not p.id.startswith("pos_decoy_")), None)
     if wrong:
@@ -35,3 +38,15 @@ def test_selling_wrong_symbol_fails():
     task = get_task("rh_live_watch_portfolio")
     report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)
     assert report.passed is False, "selling wrong symbol should fail"
+
+
+def test_selling_before_portfolio_trigger_fails():
+    sm, sid, targets, initial, state = _setup()
+    best = targets["best_symbol"]
+    pos = state.get_position(best)
+    if pos:
+        state.place_order(symbol=best, side="sell", order_type="market", quantity=pos.quantity)
+
+    task = get_task("rh_live_watch_portfolio")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff, targets=targets, initial=initial, final=state)
+    assert report.passed is False, "selling before the portfolio crosses $14,700 should fail"

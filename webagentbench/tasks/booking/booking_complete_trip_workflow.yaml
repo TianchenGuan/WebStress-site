@@ -154,7 +154,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -172,7 +175,7 @@ canonical_diff:
         scores: {any: true}
         title: {eq: "Lovely Barcelona stay"}
         positive: {expr: "'las ramblas' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: family}
@@ -205,6 +208,8 @@ canonical_diff:
       filter: "a.property_id != target['review_prop_id']"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_prop_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.messages
       preserve: ALL

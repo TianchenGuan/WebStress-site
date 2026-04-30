@@ -48,12 +48,13 @@ seed:
 canonical_diff:
   create:
   - entity: ReturnRequest
-    desc: Return request filed for the target order and product with a defective-style reason
+    desc: Return request filed for the target order and product with reason defective
     properties:
       order_id: {expr: "x == target['order_id']"}
       product_id: {expr: "x == target['product_id']"}
-      reason: {substring: "defective"}
-      status: {any: true}
+      reason: {eq: defective}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}

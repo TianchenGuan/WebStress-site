@@ -82,7 +82,11 @@ canonical_diff:
       forwarded_from_id:
         expr: x == target['update_ids'][0]
       to:
-        expr: target['team_digest_email'] in x
+        expr: x == [target['team_digest_email']]
+      cc:
+        eq: []
+      bcc:
+        eq: []
   - entity: sent
     desc: Forward update email B to team digest
     count: 1
@@ -90,7 +94,11 @@ canonical_diff:
       forwarded_from_id:
         expr: x == target['update_ids'][1]
       to:
-        expr: target['team_digest_email'] in x
+        expr: x == [target['team_digest_email']]
+      cc:
+        eq: []
+      bcc:
+        eq: []
   - entity: labels
     desc: Create Q1 Active label
     count: 1
@@ -216,10 +224,24 @@ canonical_diff:
   - collection: state.filters
     filter: 'True'
     preserve: ALL
-  - collection: state.settings
-    filter: 'False'
-    preserve: ALL
-    comprehensive: true
+  constraints:
+  - desc: Agent did not change unrelated settings
+    severity: critical
+    expr: >-
+      state.settings.signature == initial.settings.signature
+      and state.settings.forwarding_address == initial.settings.forwarding_address
+      and state.settings.display_density == initial.settings.display_density
+      and state.settings.vacation_responder_enabled == initial.settings.vacation_responder_enabled
+      and state.settings.vacation_responder_message == initial.settings.vacation_responder_message
+      and state.settings.auto_advance == initial.settings.auto_advance
+      and state.settings.language == initial.settings.language
+      and state.settings.input_tools_enabled == initial.settings.input_tools_enabled
+      and state.settings.right_to_left == initial.settings.right_to_left
+      and state.settings.undo_send_seconds == initial.settings.undo_send_seconds
+      and state.settings.default_reply_behavior == initial.settings.default_reply_behavior
+      and state.settings.hover_actions_enabled == initial.settings.hover_actions_enabled
+      and state.settings.send_and_archive == initial.settings.send_and_archive
+      and state.settings.default_text_style == initial.settings.default_text_style
   named_invariants:
   - name: Agent forwarded update emails to team digest
     ref: create[0]

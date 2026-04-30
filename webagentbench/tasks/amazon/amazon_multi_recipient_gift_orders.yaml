@@ -141,11 +141,12 @@ canonical_diff:
     desc: Gift 1 shipped to Jamie
     properties:
       items:
-        expr: "any(it['product_id'] == target['gift_pid_1'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['gift_pid_1'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
         expr: "any(a.id == x and a.full_name == target['recip_1_name'] for a in state.addresses)"
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -158,11 +159,12 @@ canonical_diff:
     desc: Gift 2 shipped to Taylor
     properties:
       items:
-        expr: "any(it['product_id'] == target['gift_pid_2'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['gift_pid_2'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
         expr: "any(a.id == x and a.full_name == target['recip_2_name'] for a in state.addresses)"
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -175,11 +177,13 @@ canonical_diff:
     desc: Gift 3 shipped to an existing (non-Jamie, non-Taylor) address
     properties:
       items:
-        expr: "any(it['product_id'] == target['gift_pid_3'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['gift_pid_3'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
-        expr: "any(a.id == x and a.full_name not in [target['recip_1_name'], target['recip_2_name']] for a in state.addresses)"
+        expr: "any(a.id == x and a.full_name not in [target['recip_1_name'], target['recip_2_name']]
+          for a in state.addresses)"
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

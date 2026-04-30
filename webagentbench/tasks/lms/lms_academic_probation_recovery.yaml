@@ -77,7 +77,7 @@ canonical_diff:
                 initial.get_assignment(aid).weight_category
               ].weight,
               initial.get_assignment(aid).points_possible,
-              -initial.get_assignment(aid).due_at.timestamp(),
+              initial.get_assignment(aid).due_at.timestamp(),
             ),
           )
     changes:
@@ -87,6 +87,10 @@ canonical_diff:
         - late
       file_name:
         eq: recovery_priority.pdf
+      attempt_count:
+        expr: "x >= 1"
+      submitted_at:
+        expr: "x is not None"
   invariant:
   - collection: state.assignments
     filter: "not (a.file_name == 'recovery_priority.pdf' and a.submission_status in ('submitted', 'late'))"
@@ -111,6 +115,16 @@ canonical_diff:
     preserve: ALL
   - collection: state.student
     preserve: ALL
+  constraints:
+  - desc: Agent sent a recovery plan message to the advisor
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and (m.get('subject', '') or '').strip() and (m.get('body', '') or '').strip() for m in state.sent_messages)"
+    severity: critical
+  - desc: Advisor message came from the student account
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and m.get('from') == state.student.email for m in state.sent_messages)"
+    severity: high
+  - desc: Agent did not send excessive messages
+    expr: "len(state.sent_messages) <= 3"
+    severity: medium
   named_invariants:
   - name: Agent submitted the most critical missing assignment
     ref: update[0]

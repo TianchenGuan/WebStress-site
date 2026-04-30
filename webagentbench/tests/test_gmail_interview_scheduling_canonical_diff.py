@@ -68,3 +68,21 @@ def test_wrong_slot_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong slot should fail"
+
+
+def test_missing_interviewer_cc_fails():
+    """The reply must CC all three interviewers exactly."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Interview Slots",
+        body="Confirmed: Wednesday, 2:00 PM",
+        to=[targets["lisa_email"]],
+        cc=[targets["marco_singh_email"], targets["priya_email"]],
+        in_reply_to=targets["hr_slots_email_id"],
+    )
+
+    task = get_task('gmail_interview_scheduling')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "missing interviewer CC should fail"

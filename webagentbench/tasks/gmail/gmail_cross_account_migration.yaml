@@ -98,10 +98,10 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@alerts.pagerduty.io'
       add_labels:
-        superset:
+        set_eq:
         - SRE/Oncall
       star:
         eq: true
@@ -112,20 +112,20 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@postmortem.incident.io'
       add_labels:
-        superset:
+        set_eq:
         - SRE/Postmortems
   - entity: filters
     desc: Create Buildkite filter for DevOps/Legacy
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@ci.buildkite.com'
       add_labels:
-        superset:
+        set_eq:
         - DevOps/Legacy
       mark_read:
         eq: true
@@ -134,10 +134,10 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@capacity.cloudwatch.io'
       add_labels:
-        superset:
+        set_eq:
         - SRE/Capacity
       star:
         eq: true
@@ -172,7 +172,11 @@ canonical_diff:
       forwarded_from_id:
         expr: x == target['capacity_email_id']
       to:
-        expr: '''successor@company.io'' in x'
+        expr: x == ['successor@company.io']
+      cc:
+        eq: []
+      bcc:
+        eq: []
   - entity: sent
     desc: Forward Incident 2847 RCA email to successor
     count: 1
@@ -180,7 +184,11 @@ canonical_diff:
       forwarded_from_id:
         expr: x == target['incident_email_id']
       to:
-        expr: '''successor@company.io'' in x'
+        expr: x == ['successor@company.io']
+      cc:
+        eq: []
+      bcc:
+        eq: []
   - entity: sent
     desc: Forward CI Migration Proposal v3 email to successor
     count: 1
@@ -188,16 +196,25 @@ canonical_diff:
       forwarded_from_id:
         expr: x == target['ci_v3_email_id']
       to:
-        expr: '''successor@company.io'' in x'
+        expr: x == ['successor@company.io']
+      cc:
+        eq: []
+      bcc:
+        eq: []
   - entity: sent
     desc: Reply to migration coordinator confirming completion
     count: 1
     properties:
       in_reply_to:
         expr: x == target['checklist_email_id']
+      to:
+        expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['checklist_email_id'])]"
+      cc:
+        eq: []
+      bcc:
+        eq: []
       body:
-        substring_all:
-        - Migration complete
+        expr: "x == 'Migration complete. 5 labels configured, 4 filters created, 4 contacts added, 2 contacts updated, ' + str(target['archive_count']) + ' emails archived, 3 threads forwarded, 3 settings updated.'"
   delete:
   - entity: labels
     desc: Delete DevOps/Pipelines label
@@ -261,10 +278,22 @@ canonical_diff:
   - collection: state.filters
     filter: 'True'
     preserve: ALL
-  - collection: state.settings
-    filter: 'False'
-    preserve: ALL
-    comprehensive: true
+  constraints:
+  - desc: Agent did not change unrelated settings
+    severity: critical
+    expr: >-
+      state.settings.signature == initial.settings.signature
+      and state.settings.forwarding_address == initial.settings.forwarding_address
+      and state.settings.vacation_responder_enabled == initial.settings.vacation_responder_enabled
+      and state.settings.vacation_responder_message == initial.settings.vacation_responder_message
+      and state.settings.auto_advance == initial.settings.auto_advance
+      and state.settings.language == initial.settings.language
+      and state.settings.input_tools_enabled == initial.settings.input_tools_enabled
+      and state.settings.right_to_left == initial.settings.right_to_left
+      and state.settings.default_reply_behavior == initial.settings.default_reply_behavior
+      and state.settings.hover_actions_enabled == initial.settings.hover_actions_enabled
+      and state.settings.send_and_archive == initial.settings.send_and_archive
+      and state.settings.default_text_style == initial.settings.default_text_style
   named_invariants:
   - name: Agent created all required labels
     ref: create[0]

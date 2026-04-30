@@ -93,3 +93,61 @@ def test_wrong_phrase_on_board_reply_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong phrase on board reply should fail"
+
+
+def test_reply_all_requires_exact_engineering_ccs():
+    """Omitting the engineering CC list on the reply-all message fails."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Board Strategy Review",
+        body="Acknowledged, will prepare the revised deck by Friday.",
+        to=[targets["sender_email"]],
+        in_reply_to=targets["thread_a_msg_id"],
+    )
+    state.send_email(
+        subject="Re: Sprint 14 Retro",
+        body="Adding capacity planning to next sprint scope.",
+        to=[targets["sender_email"]],
+        cc=[],
+        in_reply_to=targets["thread_b_msg_id"],
+    )
+    state.forward_email(
+        targets["thread_c_msg_id"],
+        to=[targets["delegate_email"]],
+        body="Please review and sign by EOD Wednesday.",
+    )
+
+    task = get_task('gmail_multi_recipient_policy')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "missing reply-all CCs should fail"
+
+
+def test_exact_reply_phrase_rejects_extra_text():
+    """Exact phrase replies should not pass with appended prose."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Board Strategy Review",
+        body="Acknowledged, will prepare the revised deck by Friday. Extra note.",
+        to=[targets["sender_email"]],
+        in_reply_to=targets["thread_a_msg_id"],
+    )
+    state.send_email(
+        subject="Re: Sprint 14 Retro",
+        body="Adding capacity planning to next sprint scope.",
+        to=[targets["sender_email"]],
+        cc=targets["eng_cc_emails"],
+        in_reply_to=targets["thread_b_msg_id"],
+    )
+    state.forward_email(
+        targets["thread_c_msg_id"],
+        to=[targets["delegate_email"]],
+        body="Please review and sign by EOD Wednesday.",
+    )
+
+    task = get_task('gmail_multi_recipient_policy')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra text on exact reply should fail"

@@ -41,11 +41,14 @@ canonical_diff:
     properties:
       product_id: {expr: "x == target['product_id']"}
       rating: {eq: 5}
-      title: {substring: "Absolutely love it"}
+      title: {eq: "Absolutely love it"}
       body: {expr: "len(x) > 10"}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Product
@@ -54,7 +57,9 @@ canonical_diff:
     where:
       id: {expr: "x == target['product_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product_id'])
+          + 1"
   invariant:
   - collection: state.products
     filter: "a.id != target['product_id']"

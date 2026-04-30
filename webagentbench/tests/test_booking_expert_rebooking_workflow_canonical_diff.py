@@ -22,6 +22,7 @@ def _setup_session(seed: int = 42):
 
 def _apply_correct_state(targets, state):
     now = datetime.now(timezone.utc)
+    replacement_price = min(rt.price_per_night for rt in state.get_property(targets['replacement_id']).room_types if rt.is_available and rt.max_occupancy >= int(targets['guests']))
     state.travel_preferences.smoking = False
     state.travel_preferences.preferred_bed_type = 'queen'
     # Cancel original reservation
@@ -41,14 +42,14 @@ def _apply_correct_state(targets, state):
         nights=5,
         guests=2,
         rooms=1,
-        price_per_night=150.0,
+        price_per_night=replacement_price,
         total_price=750.0,
         taxes_and_fees=75.0,
         currency="USD",
         status="confirmed",
         booked_at=now,
         guest_info=ReservationGuest(full_name="Jordan Parker", email="test@test.com"),
-        payment_method_id="pm_1",
+        payment_method_id="pm_2",
         cancellation_policy=CancellationPolicy(),
         confirmation_number="CONF_REBOOK",
         is_genius_deal=False,

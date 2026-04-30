@@ -1,6 +1,8 @@
 """End-to-end tests for booking_verify_no_overlap canonical_diff.
 
-Constraints-only no-op task. All 3 reservations must remain confirmed.
+Task now seeds res_1 (Jun 10-15, booked 20 days ago) overlapping res_2
+(Jun 12-17, booked 5 days ago). Agent must cancel the more recently booked
+res_2 while leaving res_1 and res_3 untouched.
 """
 
 from webagentbench.backend.state import SessionManager
@@ -26,9 +28,15 @@ def _run(targets, initial_snap, initial_dict, state):
 
 
 def test_correct_trajectory_passes():
-    """No-op: all reservations remain confirmed, no mutations needed."""
+    """Cancel the more recently booked overlapping reservation (res_2)."""
     for seed in (0, 3, 42):
         targets, initial_snap, initial_dict, state = _setup_session(seed=seed)
+        # res_1 (Jun 10-15, booked 20 days ago) overlaps res_2 (Jun 12-17, booked 5 days ago).
+        # The more recently booked is res_2 — cancel it by directly setting status
+        # (bypasses the fee-check API and its room-availability side effects).
+        res2 = next(r for r in state.reservations if r.id == targets['res_id_2'])
+        res2.status = 'cancelled'
+        state.touch()
         report = _run(targets, initial_snap, initial_dict, state)
         assert report.passed is True, f"seed={seed} failures: {report.failures}"
         assert report.score == 1.0, f"seed={seed} expected 1.0, got {report.score}"

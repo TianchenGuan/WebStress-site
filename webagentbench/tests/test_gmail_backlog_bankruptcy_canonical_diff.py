@@ -102,3 +102,51 @@ def test_missing_spam_deletion_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing spam deletion should fail"
+
+
+def test_personal_reply_extra_text_fails():
+    """Rule 3 requires exactly the canned text for personal replies."""
+    _, _, targets, initial, state = _setup_session()
+    for eid in targets["spam_ids"]:
+        state.delete_email(eid)
+    state.forward_email(targets["escalation_fwd_ids"][0], to=["infra-lead@thornton.com"])
+    state.forward_email(targets["escalation_fwd_ids"][1], to=["cfo-office@thornton.com"])
+    state.forward_email(targets["escalation_fwd_ids"][2], to=["support-mgr@thornton.com"])
+    state.send_email(
+        subject="Re: Welcome back",
+        body="Thanks for reaching out! I'm back in the office as of today. Let's connect this week. Extra.",
+        to=["friend@gmail.com"],
+        in_reply_to=targets["personal_friend_id"],
+        thread_id="thread_friend",
+    )
+    state.send_email(
+        subject="Re: Catching up",
+        body="Thanks for reaching out! I'm back in the office as of today. Let's connect this week.",
+        to=["mentor@stanford.edu"],
+        in_reply_to=targets["personal_mentor_id"],
+        thread_id="thread_mentor",
+    )
+    state.ensure_label("Action Item")
+    for eid in targets["action_item_ids"]:
+        state.toggle_star(eid, is_starred=True)
+        state.apply_label(eid, "Action Item", action='add')
+    for eid in targets["fyi_ids"]:
+        state.archive_email(eid)
+    state.create_filter(FilterRule(
+        id='f_a1_extra', name='dailyoffers', from_addresses=['*@dailyoffers.net'],
+        archive=True, mark_read=True,
+    ))
+    state.create_filter(FilterRule(
+        id='f_a2_extra', name='prizecentral', from_addresses=['*@prizecentral.net'],
+        archive=True, mark_read=True,
+    ))
+    state.create_filter(FilterRule(
+        id='f_b_extra', name='review filter', subject_keywords=['review'],
+        star=True, add_labels=['Action Item'],
+    ))
+
+    task = get_task('gmail_backlog_bankruptcy')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra canned reply text should fail"

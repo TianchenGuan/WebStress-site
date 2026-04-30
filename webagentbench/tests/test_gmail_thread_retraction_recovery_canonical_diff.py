@@ -76,3 +76,28 @@ def test_missing_correction_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing correction should fail"
+
+
+def test_initial_forward_requires_required_body():
+    """The first forward must include the instructed body."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Atlas decision",
+        body="Forwarding Option B.",
+        to=[targets["ravi_menon_email"]],
+        forwarded_from_id=targets["atlas_msg_4_id"],
+    )
+    state.send_email(
+        subject="CORRECTION: Atlas decision",
+        body=(
+            "Please disregard my previous forward. The decision has been reversed. "
+            "The correct decision is Option A, not Option B."
+        ),
+        to=[targets["ravi_menon_email"]],
+    )
+
+    task = get_task('gmail_thread_retraction_recovery')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "wrong initial forward body should fail"

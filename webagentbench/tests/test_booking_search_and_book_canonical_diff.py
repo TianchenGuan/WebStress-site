@@ -45,8 +45,8 @@ def _make_correct_reservation(targets, state, suffix=""):
         status="confirmed",
         booked_at=datetime.now(timezone.utc),
         guest_info=ReservationGuest(
-            full_name="Test User",
-            email="test@example.com",
+            full_name=state.owner_name,
+            email=state.owner_email,
         ),
         payment_method_id=pm.id,
         cancellation_policy=CancellationPolicy(),

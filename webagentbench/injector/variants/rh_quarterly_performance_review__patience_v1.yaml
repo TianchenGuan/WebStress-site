@@ -9,8 +9,17 @@ injections:
 - layer: network
   params:
     action: error_then_success
-    url_pattern: "**/api/env/robinhood/alerts"
-    methods: ["PUT", "PATCH"]
+    url_pattern: "**/api/env/robinhood/notifications/read-all"
+    methods: ["POST"]
+    error_status: 503
+    error_count: 2
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: error_then_success
+    url_pattern: "**/api/env/robinhood/notifications/*/read"
+    methods: ["POST"]
     error_status: 503
     error_count: 2
     behavior:

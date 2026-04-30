@@ -65,3 +65,23 @@ def test_wrong_body_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing required phrases should fail"
+
+
+def test_extra_body_text_fails():
+    """The correction reply requires the exact text, not a longer message."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Q2 Planning Sync — Time Proposal",
+        body=(
+            "Disregard my previous confirmation. "
+            "The correct time is Thursday, 2:00 PM. Thanks!"
+        ),
+        to=[targets["hana_email"]],
+        in_reply_to=targets["cancellation_email_id"],
+    )
+
+    task = get_task('gmail_schedule_recovery')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra body text should fail"

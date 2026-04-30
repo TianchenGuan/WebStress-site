@@ -29,7 +29,7 @@ def _apply_correct(state, targets):
         subject="Re: " + targets["reply1_sub"],
         body=targets["reply1_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["reply1_id"], context="",
     ))
     # 4. Reply 2
     state.sent_messages.append(Message(
@@ -38,7 +38,7 @@ def _apply_correct(state, targets):
         subject="Re: " + targets["reply2_sub"],
         body=targets["reply2_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["reply2_id"], context="",
     ))
     # 5. Delete spam message
     state.messages = [m for m in state.messages if m.id != targets["delete_id"]]
@@ -93,7 +93,7 @@ def test_missing_delete_fails():
         subject="Re: " + targets["reply1_sub"],
         body=targets["reply1_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["reply1_id"], context="",
     ))
     state.sent_messages.append(Message(
         id="msg_reply2", from_user=state.owner_username,
@@ -101,7 +101,7 @@ def test_missing_delete_fails():
         subject="Re: " + targets["reply2_sub"],
         body=targets["reply2_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["reply2_id"], context="",
     ))
     state.sent_messages.append(Message(
         id="msg_new", from_user=state.owner_username,

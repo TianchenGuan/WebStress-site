@@ -92,3 +92,21 @@ def test_wrong_section_in_email_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong section content should fail"
+
+
+def test_extra_executive_recipient_fails():
+    """The executive-status email must go only to the CTO and CEO."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    executive_email = next(
+        sent for sent in state.sent
+        if sent.subject == "Atlas Update - Executive Status (March 2026)"
+    )
+    executive_email.to.append(targets["pm_email"])
+    state.touch()
+
+    task = get_task('gmail_cross_functional_distribution')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra executive recipient should fail"

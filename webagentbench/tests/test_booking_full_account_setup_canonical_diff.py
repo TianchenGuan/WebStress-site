@@ -131,3 +131,11 @@ def test_no_mutation_fails():
     report = _run(targets, initial_snap, initial_dict, state)
     assert report.passed is False, "no mutation should fail"
     assert report.score < 1.0
+
+
+def test_missing_default_payment_pointer_fails():
+    targets, initial_snap, initial_dict, state = _setup_session()
+    _apply_account_setup(state, targets)
+    state.settings.default_payment_id = initial_snap.settings.default_payment_id
+    report = _run(targets, initial_snap, initial_dict, state)
+    assert report.passed is False, "new default card must also update settings.default_payment_id"

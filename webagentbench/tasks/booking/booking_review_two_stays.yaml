@@ -160,7 +160,7 @@ canonical_diff:
         scores: {any: true}
         title: {expr: "'Exceptional experience' in x"}
         positive: {expr: "'outstanding service' in x.lower() and 'beautiful' in x.lower()"}
-        negative: {any: true}
+        negative: {eq: ""}
         room_type: {any: true}
         travel_purpose: {eq: leisure}
         traveled_with: {eq: couple}
@@ -195,6 +195,8 @@ canonical_diff:
       filter: "a.id not in (target['res_id_1'], target['res_id_2'])"
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['prop_id_1'], target['prop_id_2'])"
+      comprehensive: true
       preserve: ALL
     - collection: state.saved_lists
       preserve: ALL

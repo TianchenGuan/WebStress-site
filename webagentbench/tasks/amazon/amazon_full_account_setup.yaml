@@ -64,15 +64,15 @@ canonical_diff:
     desc: Home address added (Seattle)
     properties:
       street_address:
-        substring: 200 Pine
+        eq: 200 Pine St
       city:
         eq: Seattle
       state:
         eq: WA
       full_name:
-        any: true
+        eq: Home
       zip_code:
-        any: true
+        eq: '98101'
       is_default:
         any: true
       apt_suite:
@@ -85,15 +85,15 @@ canonical_diff:
     desc: Office address added (Bellevue)
     properties:
       street_address:
-        substring: 800 Corporate
+        eq: 800 Corporate Blvd
       city:
         eq: Bellevue
       state:
         eq: WA
       full_name:
-        any: true
+        eq: Office
       zip_code:
-        any: true
+        eq: '98004'
       is_default:
         any: true
       apt_suite:
@@ -116,18 +116,19 @@ canonical_diff:
       is_default:
         any: true
   - entity: Order
-    desc: New order for the monitor, shipping to the Office (Bellevue) address, using
-      the new payment method
+    desc: New order for the monitor, shipping to the Office (Bellevue) address,
+      using the new payment method
     properties:
       items:
-        expr: any(it['product_id'] == target['product_id'] for it in x)
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
-        expr: any('800 Corporate' in a.street_address for a in state.addresses if
-          a.id == x)
+        expr: any('800 Corporate' in a.street_address for a in state.addresses
+          if a.id == x)
       payment_method_id:
         expr: x not in [p.id for p in initial.payment_methods]
       status:
-        any: true
+        eq: confirmed
       subtotal:
         any: true
       shipping_cost:
@@ -164,8 +165,8 @@ canonical_diff:
     filter: a.id in [p.id for p in initial.payment_methods]
     preserve: ALL
   - collection: state.orders
-    filter: not any(it.get('product_id') == target['product_id'] for it in (a.items
-      or []))
+    filter: not any(it.get('product_id') == target['product_id'] for it in
+      (a.items or []))
     preserve: ALL
   - collection: state.products
     preserve: ALL

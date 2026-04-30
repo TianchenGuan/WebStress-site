@@ -1,8 +1,7 @@
 task_id: reddit_post_edit_settings
 env_id: reddit
 title: Create Post, Edit, and Update Settings
-instruction_template: '1. Create a text post in r/MachineLearning with title exactly:
-  "{target.post_title}" and body exactly: "{target.post_body}"
+instruction_template: '1. Create a text post in r/MachineLearning with title exactly: "{target.post_title}" and body exactly: "{target.post_body}"
 
 
   2. After creating the post, edit its body to exactly: "{target.edited_body}"
@@ -34,8 +33,7 @@ seed:
   targets:
     post_title: 'Scaling Laws for Neural Machine Translation: An Empirical Study'
     post_body: Draft - will update with results.
-    edited_body: We find that translation quality scales predictably with model size,
-      dataset size, and compute budget. Full paper and code linked in comments.
+    edited_body: We find that translation quality scales predictably with model size, dataset size, and compute budget. Full paper and code linked in comments.
     join_sub: Piracy
 canonical_diff:
   update:
@@ -49,10 +47,10 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      default_comment_sort: { eq: new }
+      theme: {eq: dark}
+      default_comment_sort: {eq: new}
   create:
   - entity: Post
     desc: New post created in r/MachineLearning with exact title and edited body
@@ -67,6 +65,10 @@ canonical_diff:
         expr: x == state.owner_username
       is_edited:
         eq: true
+      post_type:
+        eq: text
+      url:
+        eq: ''
   invariant:
   - collection: state.subreddits
     filter: a.id != state.get_subreddit_by_name(target['join_sub']).id
@@ -101,15 +103,23 @@ canonical_diff:
   - name: Existing posts not modified or deleted
     ref: invariant[1]
     severity: high
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and
+      state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
-  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}'
-      and p.author_name == state.owner_username for p in state.posts)
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.author_name == state.owner_username for p in state.posts)
     desc: Post created in r/ML
-  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}'
-      and p.author_name == state.owner_username and p.is_edited and p.body == '{target.edited_body}'
-      for p in state.posts)
+  - expr: any(p.subreddit_name == 'MachineLearning' and p.title == '{target.post_title}' and p.author_name == state.owner_username and p.is_edited and p.body == '{target.edited_body}' for p in state.posts)
     desc: Post was edited with the exact required body
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
@@ -118,19 +128,16 @@ eval:
   - expr: any(s.name == 'Piracy' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/Piracy
   negative_checks:
-  - expr: not any(p.author_name == state.owner_username and p.subreddit_name not in
-      ('MachineLearning', 'technology', 'Python', 'personalfinance') for p in state.posts)
+  - expr: not any(p.author_name == state.owner_username and p.subreddit_name not in ('MachineLearning', 'technology', 'Python', 'personalfinance') for p in state.posts)
     desc: No posts in wrong subs
     penalty: 0.2
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 2
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 2
     desc: No extra messages were sent
     penalty: 0.15
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.post.create'\n  and e.payload.get('subreddit')\
-      \ != 'MachineLearning'\n  for e in state.audit_log)"
+  - expr: "not any(\n  e.action == 'reddit.post.create'\n  and e.payload.get('subreddit') != 'MachineLearning'\n  for e in state.audit_log)"
     desc: No posts were created outside r/MachineLearning during the workflow
     penalty: 0.15
   - expr: sum(1 for e in state.audit_log if e.action == 'reddit.post.create') == 1

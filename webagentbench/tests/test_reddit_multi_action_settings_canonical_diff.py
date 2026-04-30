@@ -96,8 +96,6 @@ def test_extra_unsubscribe_fails():
 
 
 def test_wrong_block_target_fails():
-    # blocked_users is a primitive list not tracked by canonical_diff.
-    # Block-target verification now lives in runtime eval.checks.
     _, _, targets, initial, state = _setup()
     _apply_correct(state, targets)
     # Swap blocked user
@@ -108,5 +106,4 @@ def test_wrong_block_target_fails():
         compute_diff(initial, state), task.canonical_diff,
         targets=targets, initial=initial, final=state,
     )
-    # Canonical_diff cannot see blocked_users mutations.
-    assert report.passed is True
+    assert report.passed is False

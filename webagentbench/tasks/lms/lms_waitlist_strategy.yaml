@@ -62,22 +62,6 @@ seed:
     course_codes: '{output.course_codes}'
     current_weighted_scores: '{output.current_weighted_scores}'
 canonical_diff:
-  # `state.sent_messages` is a list of dicts WITHOUT an `id` key, so
-  # compute_diff (in eval_core/diff.py) skips this collection entirely and
-  # produces no Create entries for sent messages. Decision-message
-  # assertions live in the `eval:` block (server_state checks). The
-  # empty-bijection `create` block remains so matcher's `constraint_only`
-  # is off and the collateral sweep runs against unrelated collections
-  # (courses, enrollments, assignments, etc.).
-  create:
-  - entity: sent_messages
-    desc: Send a decision message to advisor (assertions live in eval block; sent_messages lacks id so compute_diff cannot match)
-    bijection:
-      over: "[]"
-      variable: v
-    properties:
-      to:
-        expr: "v in x"
   invariant:
   - collection: state.courses
     preserve: ALL
@@ -101,6 +85,16 @@ canonical_diff:
     preserve: ALL
   - collection: state.student
     preserve: ALL
+  constraints:
+  - desc: Agent sent a decision message to the advisor
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and (m.get('subject', '') or '').strip() and (m.get('body', '') or '').strip() for m in state.sent_messages)"
+    severity: critical
+  - desc: Advisor message came from the student account
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and m.get('from') == state.student.email for m in state.sent_messages)"
+    severity: high
+  - desc: Agent did not send excessive messages
+    expr: "len(state.sent_messages) <= 4"
+    severity: medium
   named_invariants:
   - name: Agent did not modify courses
     ref: invariant[0]

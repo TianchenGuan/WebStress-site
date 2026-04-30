@@ -80,8 +80,14 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['unresolved_first_msg_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['unresolved_first_msg_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring: "Received. Escalating to engineering lead now."
+          eq: "Received. Escalating to engineering lead now."
         forwarded_from_id:
           eq: null
     - entity: sent
@@ -91,9 +97,13 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['unresolved_first_msg_id']"
         to:
-          expr: "target['team_lead_email'] in x"
+          expr: "x == [target['team_lead_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring: "Unresolved payment timeout on Order #88421"
+          regex: "^Unresolved payment timeout on Order #88421\\. Please investigate and assign an engineer\\.\\n\\nForwarded message from"
     - entity: sent
       desc: Forward original issue message to director with correct body
       count: 1
@@ -101,9 +111,13 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['unresolved_first_msg_id']"
         to:
-          expr: "target['director_email'] in x"
+          expr: "x == [target['director_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring: "Escalated to"
+          expr: "x.startswith('Escalated to ' + target['team_lead_name'] + ' per protocol. Order #88421 payment timeout remains unresolved.\\n\\nForwarded message from')"
   update:
     - entity: emails
       desc: Star the original issue email from reporter

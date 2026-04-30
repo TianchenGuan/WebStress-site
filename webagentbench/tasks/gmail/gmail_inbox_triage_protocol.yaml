@@ -62,13 +62,23 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['security_email_id']"
         to:
-          expr: "target['escalation_email'] in x"
+          expr: "x == [target['escalation_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Reply to onboarding email with confirmation phrase
       count: 1
       properties:
         in_reply_to:
           expr: "x == target['onboarding_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['onboarding_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['confirmation_phrase'] in x"
         forwarded_from_id:

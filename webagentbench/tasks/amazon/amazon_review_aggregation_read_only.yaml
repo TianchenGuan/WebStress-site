@@ -89,11 +89,8 @@ seed:
     coffee_c_id: '{output.coffee_c_id}'
     coffee_c_name: OXO Brew 8-Cup Coffee Maker
 canonical_diff:
-  # READ-ONLY task: Cat-D shape — only invariants, no positive entries, no
-  # constraints. View-tracking constraints (recently_viewed) are dropped
-  # because compute_diff cannot observe them; that signal lives in the
-  # eval block (audit_log) instead. Cart/orders/wishlist enforcement is
-  # subsumed by the unfiltered invariants below.
+  # READ-ONLY task: preserve Amazon state while requiring observable page-view
+  # evidence from the final state's browsing/recently-viewed data.
   invariant:
   - collection: state.products
     preserve: ALL
@@ -119,6 +116,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.wishlist
     preserve: ALL
+  constraints:
+  - desc: Agent viewed all three target coffee maker product pages
+    expr: "all(pid in state.recently_viewed for pid in [target['coffee_a_id'], target['coffee_b_id'], target['coffee_c_id']])"
+    severity: critical
   named_invariants:
   - name: Agent did not modify product catalog
     ref: invariant[0]

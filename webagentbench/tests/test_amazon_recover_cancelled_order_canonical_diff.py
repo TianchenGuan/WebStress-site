@@ -18,6 +18,8 @@ def _setup_session(seed: int = 42):
 
 
 def _reorder(state, targets):
+    for item in list(state.cart_items):
+        state.remove_from_cart(item.id)
     state.add_to_cart(targets["product_id"], quantity=1)
     state.place_order(
         shipping_address_id=targets["address_id"],

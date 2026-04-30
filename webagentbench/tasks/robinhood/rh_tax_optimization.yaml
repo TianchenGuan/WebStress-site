@@ -1,9 +1,10 @@
 task_id: rh_tax_optimization
 env_id: robinhood
 title: Tax-Loss Harvesting to Offset Gains
-instruction_template: You have short-term capital gains this year. Find positions
-  with unrealized losses that you have held for more than 30 days (to avoid wash sale
-  conflicts with recent purchases). Sell enough losing positions to offset your gains.
+instruction_template: You have short-term capital gains this year. Find
+  positions with unrealized losses that you have held for more than 30 days (to
+  avoid wash sale conflicts with recent purchases). Sell enough losing positions
+  to offset your gains.
 difficulty: expert
 time_limit_seconds: 400
 expected_steps: 20
@@ -101,13 +102,15 @@ canonical_diff:
   - entity: positions
     desc: Fully-sold loss positions removed from portfolio
     bijection:
-      over: "[p for p in initial.positions if p.symbol in target['loss_symbols'] and p.symbol not in target['recent_buy_symbols']]"
+      over: "[p for p in initial.positions if p.symbol in target['loss_symbols'] and
+        p.symbol not in target['recent_buy_symbols']]"
       variable: v
     where:
       id: {expr: "x == v.id"}
   invariant:
   - collection: state.orders
-    filter: "a.side == 'sell' and (a.symbol not in target['loss_symbols'] or a.symbol in target['recent_buy_symbols'])"
+    filter: "a.side == 'sell' and (a.symbol not in target['loss_symbols'] or a.symbol
+      in target['recent_buy_symbols'])"
     preserve: ALL
   - collection: state.positions
     filter: "a.symbol not in target['loss_symbols']"
@@ -134,7 +137,14 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: Tax optimization sell orders filled completely
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders]) and any(o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders] for o in state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, backtracking, verification by
-  requiring exact completion of the requested Robinhood workflow while ignoring distractor
-  account state.
+primitive_thesis: Measures state_tracking, planning, backtracking, verification
+  by requiring exact completion of the requested Robinhood workflow while
+  ignoring distractor account state.

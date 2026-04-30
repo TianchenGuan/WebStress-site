@@ -71,6 +71,27 @@ def _collect_eval_exprs(task: dict) -> list[tuple[str, str, str]]:
     return items
 
 
+def _canonical_create_properties(task: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return every canonical_diff create-property map, including oneof blocks."""
+    canonical = task.get("canonical_diff") or {}
+    blocks = [canonical]
+    blocks.extend(canonical.get("oneof") or [])
+    properties: list[dict[str, Any]] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        for entry in block.get("create") or []:
+            if isinstance(entry, dict):
+                props = entry.get("properties") or {}
+                if isinstance(props, dict):
+                    properties.append(props)
+    return properties
+
+
+def _predicate_mentions_target(predicate: Any, target_name: str) -> bool:
+    return target_name in str(predicate)
+
+
 def _load_emitted_audit_actions() -> set[str]:
     """Return concrete audit action names emitted by backend code."""
 
@@ -361,7 +382,15 @@ def test_single_email_forward_tasks_check_original_email_identity() -> None:
             expr for expr_tid, kind, expr in _collect_eval_exprs(task)
             if expr_tid == tid and kind == "check"
         ]
-        if not any("forwarded_from_id" in expr and "{target.target_email_id}" in expr for expr in positive_exprs):
+        legacy_grounded = any(
+            "forwarded_from_id" in expr and "{target.target_email_id}" in expr
+            for expr in positive_exprs
+        )
+        canonical_grounded = any(
+            _predicate_mentions_target(props.get("forwarded_from_id"), "target_email_id")
+            for props in _canonical_create_properties(task)
+        )
+        if not (legacy_grounded or canonical_grounded):
             violations.append(
                 f"[{tid}] single-email forward task lacks a positive check grounded on "
                 "forwarded_from_id == {target.target_email_id}"
@@ -375,7 +404,22 @@ def _expected_response_keys(url_pattern: str) -> set[str] | None:
     """Infer the real top-level response key for a Gmail mutation endpoint."""
     normalized = url_pattern.rstrip("*").rstrip("/")
 
-    if "/api/env/robinhood/settings" in normalized or "/api/env/robinhood/security/2fa" in normalized:
+    if "/api/env/amazon/cart" in normalized:
+        return {"cart_item"}
+    if "/api/env/amazon/products/" in normalized and "/reviews" in normalized:
+        return {"review"}
+    if "/api/env/amazon/returns" in normalized:
+        return {"return"}
+    if "/api/env/booking/notifications/read-all" in normalized:
+        return {"ok", "marked_read"}
+    if (
+        "/api/env/booking/account" in normalized
+        or "/api/env/booking/preferences" in normalized
+        or "/api/env/booking/reviews" in normalized
+        or "/api/env/booking/settings" in normalized
+        or "/api/env/robinhood/settings" in normalized
+        or "/api/env/robinhood/security/2fa" in normalized
+    ):
         return None
     if "/api/env/lms/messages/send" in normalized:
         return {"message"}

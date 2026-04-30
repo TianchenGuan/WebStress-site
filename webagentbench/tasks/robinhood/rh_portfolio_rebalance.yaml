@@ -108,7 +108,16 @@ canonical_diff:
     filter: "False"
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: Final portfolio allocation is close to the requested 40/30/20/10 target
+    expr: "state.allocation_error_vs_targets(target['target_allocation']) <= Decimal('3')"
+    severity: critical
+  - desc: All portfolio rebalance stock orders filled
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.id not in [io.id for io in initial.orders]) and any(o.id
+      not in [io.id for io in initial.orders] for o in state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, grounding by requiring exact
-  completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+primitive_thesis: Measures state_tracking, planning, grounding by requiring
+  exact completion of the requested Robinhood workflow while ignoring distractor
+  account state.

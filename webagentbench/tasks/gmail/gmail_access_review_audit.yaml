@@ -16,7 +16,8 @@ time_limit_seconds: 480
 expected_steps: 40
 primary_primitives:
 - grounding
-secondary_primitives: []
+secondary_primitives:
+- state_tracking
 start_path: /inbox
 seed:
   distractors: 40
@@ -47,13 +48,15 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "target['compose_to'] in x"
+          expr: "x == [target['compose_to']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
-          expr: "target['compose_subject'] in x"
+          expr: "x == target['compose_subject']"
         body:
-          substring_all:
-            - rbrown
-            - tjones
+          expr: "all(u in x for u in target['departed_usernames']) and target['decoy_username'] not in x"
         in_reply_to:
           eq: null
         forwarded_from_id:

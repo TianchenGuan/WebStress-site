@@ -85,15 +85,18 @@ canonical_diff:
       holder_name: {any: true}
       is_default: {any: true}
   - entity: Order
-    desc: Gift order placed for the target product, shipping to recipient, using the new payment method
+    desc: Gift order placed for the target product, shipping to recipient, using
+      the new payment method
     properties:
       items:
-        expr: "any(it['product_id'] == target['gift_product_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['gift_product_id'] and
+          x[0]['quantity'] == 1"
       shipping_address_id:
-        expr: "any(a.full_name == target['recipient_name'] for a in state.addresses if a.id == x)"
+        expr: "any(a.full_name == target['recipient_name'] for a in state.addresses
+          if a.id == x)"
       payment_method_id:
         expr: "x not in [p.id for p in initial.payment_methods]"
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -107,7 +110,8 @@ canonical_diff:
     filter: "a.full_name != target['recipient_name']"
     preserve: ALL
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['gift_product_id'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['gift_product_id'] for it in (a.items
+      or []))"
     preserve: ALL
   - collection: state.payment_methods
     filter: "a.id in [p.id for p in initial.payment_methods]"

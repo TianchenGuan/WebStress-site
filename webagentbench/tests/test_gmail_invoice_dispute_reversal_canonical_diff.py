@@ -22,14 +22,14 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Invoice",
         body="This invoice exceeds our processing limit and is rejected.",
-        to=[],
+        to=[state.get_email(targets["hawthorne_email_id"]).from_addr],
         in_reply_to=targets["hawthorne_email_id"],
     )
     # Rejection reply to Ridgeline (over limit, no exception)
     state.send_email(
         subject="Re: Invoice",
         body="This invoice exceeds our processing limit and is rejected.",
-        to=[],
+        to=[state.get_email(targets["ridgeline_email_id"]).from_addr],
         in_reply_to=targets["ridgeline_email_id"],
     )
     # Correction to Hawthorne (CFO approved exception)
@@ -39,7 +39,7 @@ def _apply_all_correct_mutations(state, targets):
             f"Please disregard our previous rejection. "
             f"Invoice #{targets['approved_invoice_number']} has been approved under a one-time exception."
         ),
-        to=[],
+        to=[state.get_email(targets["hawthorne_email_id"]).from_addr],
         in_reply_to=targets["hawthorne_email_id"],
     )
     # Confirmation to CFO
@@ -49,7 +49,7 @@ def _apply_all_correct_mutations(state, targets):
             f"Exception applied for {targets['approved_vendor_name']} "
             f"invoice #{targets['approved_invoice_number']}."
         ),
-        to=[],
+        to=[state.get_email(targets["cfo_approval_email_id"]).from_addr],
         in_reply_to=targets["cfo_approval_email_id"],
     )
     # Star CFO approval email
@@ -88,20 +88,20 @@ def test_missing_correction_to_hawthorne_fails():
     state.send_email(
         subject="Re: Invoice",
         body="This invoice exceeds our processing limit and is rejected.",
-        to=[],
+        to=[state.get_email(targets["hawthorne_email_id"]).from_addr],
         in_reply_to=targets["hawthorne_email_id"],
     )
     state.send_email(
         subject="Re: Invoice",
         body="This invoice exceeds our processing limit and is rejected.",
-        to=[],
+        to=[state.get_email(targets["ridgeline_email_id"]).from_addr],
         in_reply_to=targets["ridgeline_email_id"],
     )
     # Skip correction to Hawthorne
     state.send_email(
         subject="Re: Exception",
         body=f"Exception applied for {targets['approved_vendor_name']}.",
-        to=[],
+        to=[state.get_email(targets["cfo_approval_email_id"]).from_addr],
         in_reply_to=targets["cfo_approval_email_id"],
     )
     state.toggle_star(targets["cfo_approval_email_id"], is_starred=True)

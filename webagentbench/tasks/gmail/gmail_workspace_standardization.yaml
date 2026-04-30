@@ -45,10 +45,10 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@alerts.monitoring.io'
       add_labels:
-        superset:
+        set_eq:
         - Ops/Critical
       star:
         eq: true
@@ -59,10 +59,10 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@billing.vendorpay.com'
       add_labels:
-        superset:
+        set_eq:
         - Finance/Invoices
       never_spam:
         eq: true
@@ -71,10 +71,10 @@ canonical_diff:
     count: 1
     properties:
       from_addresses:
-        superset:
+        set_eq:
         - '*@receipts.expensecloud.com'
       add_labels:
-        superset:
+        set_eq:
         - Finance/Receipts
   - entity: labels
     desc: Create Ops/Critical label with show_if_unread visibility
@@ -143,10 +143,22 @@ canonical_diff:
   - collection: state.filters
     filter: a.id != target['existing_filter_id']
     preserve: ALL
-  - collection: state.settings
-    filter: 'False'
-    preserve: ALL
-    comprehensive: true
+  constraints:
+  - desc: Agent did not change unrelated settings
+    severity: critical
+    expr: >-
+      state.settings.signature == initial.settings.signature
+      and state.settings.forwarding_address == initial.settings.forwarding_address
+      and state.settings.vacation_responder_enabled == initial.settings.vacation_responder_enabled
+      and state.settings.vacation_responder_message == initial.settings.vacation_responder_message
+      and state.settings.auto_advance == initial.settings.auto_advance
+      and state.settings.language == initial.settings.language
+      and state.settings.input_tools_enabled == initial.settings.input_tools_enabled
+      and state.settings.right_to_left == initial.settings.right_to_left
+      and state.settings.default_reply_behavior == initial.settings.default_reply_behavior
+      and state.settings.hover_actions_enabled == initial.settings.hover_actions_enabled
+      and state.settings.send_and_archive == initial.settings.send_and_archive
+      and state.settings.default_text_style == initial.settings.default_text_style
   named_invariants:
   - name: Agent created alerts.monitoring.io filter
     ref: create[0]

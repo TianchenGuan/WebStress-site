@@ -1,6 +1,8 @@
 """End-to-end tests for gmail_verify_inbox_clean canonical_diff.
 
-This is a read-only verification task — the correct trajectory is to do nothing.
+Task now seeds 2 unreplied VIP emails. The correct trajectory is to reply
+to each of the unreplied emails, leaving already-replied emails and decoy
+emails untouched.
 """
 
 from webagentbench.backend.state import SessionManager
@@ -21,8 +23,16 @@ def _setup_session(seed: int = 42):
 
 
 def test_correct_trajectory_passes():
-    """Do nothing — inbox is already clean, score=1.0."""
+    """Reply to each unreplied VIP email — score=1.0."""
     _, _, targets, initial, state = _setup_session()
+    # Send a reply to each of the 2 unreplied VIP emails.
+    for eid in targets['unreplied_email_ids']:
+        state.send_email(
+            subject="Re: Acknowledged",
+            body="Thank you, I have received your email.",
+            to=[targets['vip_email']],
+            in_reply_to=eid,
+        )
     task = get_task('gmail_verify_inbox_clean')
     agent_diff = compute_diff(initial, state)
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
@@ -55,3 +65,16 @@ def test_sending_email_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "sending email should violate preserve-sent invariant"
+
+
+def test_unreplied_vip_baseline_fails():
+    """The no-op path is only accepted when every target VIP email already has a reply."""
+    _, _, targets, initial, state = _setup_session()
+    state.sent = [sent for sent in state.sent if sent.in_reply_to != targets["vip_email_ids"][0]]
+    state.touch()
+
+    task = get_task('gmail_verify_inbox_clean')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unreplied VIP email should fail the no-op sentinel"

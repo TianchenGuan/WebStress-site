@@ -107,6 +107,13 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: TSLA take-profit order filled at or above the $260 trigger
+    expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type ==
+      'limit' and o.status == 'filled' and o.filled_tick is not None and
+      o.filled_price is not None and o.filled_price >= Decimal('260') for o in
+      state.orders)
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, grounding by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

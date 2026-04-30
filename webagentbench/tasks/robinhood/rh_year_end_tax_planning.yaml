@@ -1,10 +1,11 @@
 task_id: rh_year_end_tax_planning
 env_id: robinhood
 title: Year-End Tax-Loss Harvesting and Re-Entry Plan
-instruction_template: It is year-end. Calculate your total realized gains from the
-  1099 preview (both short-term and long-term). Find unrealized losses you can harvest
-  without triggering wash sales. Execute the harvesting sells. Set up monthly $100
-  recurring investments to re-enter those positions after 31 days.
+instruction_template: It is year-end. Calculate your total realized gains from
+  the 1099 preview (both short-term and long-term). Find unrealized losses you
+  can harvest without triggering wash sales. Execute the harvesting sells. Set
+  up monthly $100 recurring investments to re-enter those positions after 31
+  days.
 difficulty: frontier
 time_limit_seconds: 550
 expected_steps: 35
@@ -113,13 +114,15 @@ canonical_diff:
   - entity: positions
     desc: Fully-sold loss positions removed from portfolio
     bijection:
-      over: "[p for p in initial.positions if p.symbol in target['loss_symbols'] and p.symbol not in target['recent_buy_symbols']]"
+      over: "[p for p in initial.positions if p.symbol in target['loss_symbols'] and
+        p.symbol not in target['recent_buy_symbols']]"
       variable: v
     where:
       id: {expr: "x == v.id"}
   invariant:
   - collection: state.orders
-    filter: "a.side == 'sell' and (a.symbol not in target['loss_symbols'] or a.symbol in target['recent_buy_symbols'])"
+    filter: "a.side == 'sell' and (a.symbol not in target['loss_symbols'] or a.symbol
+      in target['recent_buy_symbols'])"
     preserve: ALL
   - collection: state.positions
     filter: "a.symbol not in target['loss_symbols']"
@@ -147,7 +150,14 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: Year-end harvest sell orders filled completely
+    expr: all(o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders if o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders]) and any(o.side == 'sell' and o.id not in [io.id for io in
+      initial.orders] for o in state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures state_tracking, planning, backtracking, verification, patience
-  by requiring exact completion of the requested Robinhood workflow while ignoring
-  distractor account state.
+primitive_thesis: Measures state_tracking, planning, backtracking, verification,
+  patience by requiring exact completion of the requested Robinhood workflow
+  while ignoring distractor account state.

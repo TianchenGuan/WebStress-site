@@ -88,6 +88,15 @@ canonical_diff:
                   key=lambda aid: (initial.get_appointment(aid).booked_at, aid),
                 )
           changes:
+            provider_id:
+              expr: >-
+                x == initial.get_appointment(
+                  max(
+                    target['conflict_apt_ids'],
+                    key=lambda aid: (initial.get_appointment(aid).booked_at, aid),
+                  )
+                ).provider_id
+            status: {eq: scheduled}
             datetime:
               expr: >-
                 x == min(

@@ -1,5 +1,7 @@
 """End-to-end tests for lms_multi_assignment_dependency canonical_diff."""
 
+from datetime import datetime, timezone
+
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -45,6 +47,7 @@ def _submit_assignment(state, assignment_id: str, file_name: str) -> None:
     assignment.submission_status = "submitted"
     assignment.file_name = file_name
     assignment.attempt_count += 1
+    assignment.submitted_at = datetime.now(timezone.utc)
 
 
 def _submit_peer_review(

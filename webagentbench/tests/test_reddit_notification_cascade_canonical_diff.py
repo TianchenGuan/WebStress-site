@@ -29,7 +29,7 @@ def _apply_correct_trajectory(targets, state):
         subject=f"Re: {targets['r_sub']}",
         body=targets["r_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["r_id"], context="",
     ))
     # 4. Delete spam
     state.messages = [m for m in state.messages if m.id != targets["del_id"]]
@@ -100,6 +100,16 @@ def test_wrong_reply_body_fails():
     _apply_correct_trajectory(targets, state)
     # Tamper with the reply body
     state.sent_messages[-1].body = "Wrong reply text"
+    task = get_task("reddit_notification_cascade")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_unthreaded_reply_fails():
+    _, _, targets, initial, state = _setup()
+    _apply_correct_trajectory(targets, state)
+    state.sent_messages[-1].parent_id = None
     task = get_task("reddit_notification_cascade")
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)

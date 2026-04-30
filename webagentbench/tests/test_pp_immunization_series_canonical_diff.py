@@ -121,6 +121,28 @@ def test_partial_fails():
     assert report.passed is False
 
 
+def test_doses_spaced_less_than_30_days_fail():
+    """Remaining dose appointments must be at least 30 days apart."""
+    sm, sid, targets, initial, state = _setup_session()
+    slots = targets["remaining_dose_slots"]
+    assert len(slots) >= 2, "seed needs >=2 remaining doses for this test"
+
+    for i, slot in enumerate(slots):
+        state.appointments.append(_make_appt(
+            id=f"appt_new_too_close_{i}",
+            provider_id=targets["series_admin_provider_id"],
+            reason=f"Hepatitis B vaccine — {slot}",
+            when=_dt_in_series_window(targets, 7 + i * 14),
+        ))
+
+    report = _run(targets, initial, state)
+    assert report.passed is False
+    assert any(
+        "30 days" in check["desc"] and check["passed"] is False
+        for check in report.negative_checks
+    )
+
+
 def test_no_mutation_fails():
     """Do-nothing trajectory must not earn positive score."""
     sm, sid, targets, initial, state = _setup_session()

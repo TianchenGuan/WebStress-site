@@ -2,15 +2,11 @@ task_id: reddit_inbox_triage_and_engage
 title: Inbox Triage and Targeted Engagement
 instruction_template: '1. Mark all notifications as read.
 
-  2. Go to Messages. Read all unread messages. Reply to u/{target.reply_from}''s
-  message (the one with subject "{target.reply_subject}") using the message''s Reply
-  button so the reply subject becomes "Re: {target.reply_subject}". Reply body exactly:
-  "{target.reply_body}"
+  2. Go to Messages. Read all unread messages. Reply to u/{target.reply_from}''s message (the one with subject "{target.reply_subject}") using the message''s Reply button so the reply subject becomes "Re: {target.reply_subject}". Reply body exactly: "{target.reply_body}"
 
   3. Delete the message with subject "{target.delete_subject}".
 
-  4. Navigate to r/{target.sub} and find "{target.post_title}". Upvote it and comment
-  with exactly: "{target.comment_text}"
+  4. Navigate to r/{target.sub} and find "{target.post_title}". Upvote it and comment with exactly: "{target.comment_text}"
 
   5. Save that post.
 
@@ -59,14 +55,14 @@ seed:
   targets:
     reply_from: '{output.reply_msg_from}'
     reply_subject: '{output.reply_msg_subject}'
+    reply_msg_id: '{output.reply_msg_id}'
     reply_body: Count me in! What time and where should we meet?
     delete_subject: '{output.delete_msg_subject}'
     delete_msg_id: '{output.delete_msg_id}'
     sub: '{output.subreddit_name}'
     post_title: '{output.post_title}'
     post_id: '{output.post_id}'
-    comment_text: This is a great explainer. The relationship between ISO and noise
-      is something beginners always struggle with.
+    comment_text: This is a great explainer. The relationship between ISO and noise is something beginners always struggle with.
 canonical_diff:
   # Positive form. Bijection updates over initially-unread messages and
   # notifications express the bulk mark-all-read mutations, the spam
@@ -74,82 +70,93 @@ canonical_diff:
   # Adding these flips constraint_only=False so the
   # unaccounted-collateral sweep runs (matcher.py:330).
   update:
-    - entity: Notification
-      collection: notifications
-      bijection:
-        over: "[n.id for n in initial.notifications if not n.is_read]"
-        variable: v
-      desc: "Mark every unread notification as read"
-      where:
-        id: {expr: "x == v"}
-      changes:
-        is_read: {eq: true}
-    - entity: Message
-      collection: messages
-      bijection:
+  - entity: Notification
+    collection: notifications
+    bijection:
+      over: "[n.id for n in initial.notifications if not n.is_read]"
+      variable: v
+    desc: "Mark every unread notification as read"
+    where:
+      id: {expr: "x == v"}
+    changes:
+      is_read: {eq: true}
+  - entity: Message
+    collection: messages
+    bijection:
         # Exclude the spam message (which is deleted, not updated).
-        over: "[m.id for m in initial.messages if not m.is_read and m.id != target['delete_msg_id']]"
-        variable: v
-      desc: "Mark every unread non-spam inbox message as read"
-      where:
-        id: {expr: "x == v"}
-      changes:
-        is_read: {eq: true}
-    - entity: Post
-      collection: posts
-      desc: "Upvote and save the engagement-target post"
-      where:
-        id:
-          expr: "x == target['post_id']"
-      changes:
-        vote_direction: {eq: 1}
-        is_saved: {eq: true}
+      over: "[m.id for m in initial.messages if not m.is_read and m.id != target['delete_msg_id']]"
+      variable: v
+    desc: "Mark every unread non-spam inbox message as read"
+    where:
+      id: {expr: "x == v"}
+    changes:
+      is_read: {eq: true}
+  - entity: Post
+    collection: posts
+    desc: "Upvote and save the engagement-target post"
+    where:
+      id:
+        expr: "x == target['post_id']"
+    changes:
+      vote_direction: {eq: 1}
+      is_saved: {eq: true}
   delete:
-    - entity: Message
-      collection: messages
-      desc: "Delete the spam message identified by target.delete_msg_id"
-      where:
-        id:
-          expr: "x == target['delete_msg_id']"
+  - entity: Message
+    collection: messages
+    desc: "Delete the spam message identified by target.delete_msg_id"
+    where:
+      id:
+        expr: "x == target['delete_msg_id']"
   create:
-    - entity: Message
-      collection: sent_messages
-      desc: "Reply to the inbox message with the exact subject and body"
-      properties:
-        to_user:
-          expr: "x == target['reply_from']"
-        body:
-          expr: "x == target['reply_body']"
-        from_user:
-          expr: "x == state.owner_username"
-    - entity: Comment
-      collection: comments
-      desc: "Comment on the engagement-target post with the exact text"
-      properties:
-        post_id:
-          expr: "x == target['post_id']"
-        body:
-          expr: "x == target['comment_text']"
-        author_name:
-          expr: "x == state.owner_username"
-        parent_id:
-          eq: null
+  - entity: Message
+    collection: sent_messages
+    desc: "Reply to the inbox message with the exact subject and body"
+    properties:
+      to_user:
+        expr: "x == target['reply_from']"
+      subject:
+        expr: "x == 'Re: ' + target['reply_subject']"
+      body:
+        expr: "x == target['reply_body']"
+      from_user:
+        expr: "x == state.owner_username"
+      parent_id:
+        expr: "x == target['reply_msg_id']"
+  - entity: Comment
+    collection: comments
+    desc: "Comment on the engagement-target post with the exact text"
+    properties:
+      post_id:
+        expr: "x == target['post_id']"
+      body:
+        expr: "x == target['comment_text']"
+      author_name:
+        expr: "x == state.owner_username"
+      parent_id:
+        eq:
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
-    - collection: state.settings
-      filter: 'False'
-      preserve: ALL
-      comprehensive: true
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
+  constraints:
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.unread_notification_count() == 0
     desc: Notifications cleared
-  - expr: any(m.to_user == '{target.reply_from}' and "Count me in" in m.body for m
-      in state.sent_messages)
+  - expr: any(m.to_user == '{target.reply_from}' and "Count me in" in m.body for m in state.sent_messages)
     desc: Reply sent
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam deleted
@@ -157,8 +164,7 @@ eval:
     desc: Post upvoted
   - expr: '''{target.post_id}'' in state.saved_post_ids'
     desc: Post saved
-  - expr: any(c.post_id == '{target.post_id}' and "ISO and noise" in c.body for c
-      in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and "ISO and noise" in c.body for c in state.comments)
     desc: Comment posted
   negative_checks:
   - expr: len(state.messages) >= 4
@@ -167,8 +173,7 @@ eval:
   - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 9
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

@@ -1,10 +1,7 @@
 task_id: reddit_message_management
 env_id: reddit
 title: Message Inbox Management
-instruction_template: 'Go to your Messages inbox. Mark all messages as read. Then
-  find the message with subject "{target.delete_subject}" and delete it. Finally,
-  compose a new message to u/{target.new_msg_to} with subject "{target.new_msg_subject}"
-  and body exactly: "{target.new_msg_body}"'
+instruction_template: 'Go to your Messages inbox. Mark all messages as read. Then find the message with subject "{target.delete_subject}" and delete it. Finally, compose a new message to u/{target.new_msg_to} with subject "{target.new_msg_subject}" and body exactly: "{target.new_msg_body}"'
 difficulty: medium
 time_limit_seconds: 300
 expected_steps: 18
@@ -31,8 +28,7 @@ seed:
     delete_subject: '{output.message_subject}'
     new_msg_to: DataWizard42
     new_msg_subject: Quick question about data pipelines
-    new_msg_body: Hi! I saw you work with data pipelines. What tool do you recommend
-      for orchestrating ETL jobs - Airflow or Prefect?
+    new_msg_body: Hi! I saw you work with data pipelines. What tool do you recommend for orchestrating ETL jobs - Airflow or Prefect?
 canonical_diff:
   # Positive form. Three positive entries express the per-entity diffs
   # (mark-unread inbox messages as read via bijection; delete the spam
@@ -40,54 +36,56 @@ canonical_diff:
   # constraint_only=False so the unaccounted-collateral sweep runs on
   # sibling collections (matcher.py:330).
   update:
-    - entity: Message
-      collection: messages
-      bijection:
+  - entity: Message
+    collection: messages
+    bijection:
         # Exclude the spam message (which is deleted, not updated).
-        over: "[m.id for m in initial.messages if not m.is_read and m.id != target['delete_msg_id']]"
-        variable: v
-      desc: "Mark every unread non-spam inbox message as read"
-      where:
-        id: {expr: "x == v"}
-      changes:
-        is_read: {eq: true}
+      over: "[m.id for m in initial.messages if not m.is_read and m.id != target['delete_msg_id']]"
+      variable: v
+    desc: "Mark every unread non-spam inbox message as read"
+    where:
+      id: {expr: "x == v"}
+    changes:
+      is_read: {eq: true}
   delete:
-    - entity: Message
-      collection: messages
-      desc: "Delete the spam message identified by target.delete_msg_id"
-      where:
-        id:
-          expr: "x == target['delete_msg_id']"
+  - entity: Message
+    collection: messages
+    desc: "Delete the spam message identified by target.delete_msg_id"
+    where:
+      id:
+        expr: "x == target['delete_msg_id']"
   create:
-    - entity: Message
-      collection: sent_messages
-      desc: "Compose the new data-pipelines message to the requested recipient"
-      properties:
-        to_user:
-          expr: "x == target['new_msg_to']"
-        subject:
-          expr: "x == target['new_msg_subject']"
-        body:
-          expr: "x == target['new_msg_body']"
-        from_user:
-          expr: "x == state.owner_username"
-        parent_id:
-          eq: null
+  - entity: Message
+    collection: sent_messages
+    desc: "Compose the new data-pipelines message to the requested recipient"
+    properties:
+      to_user:
+        expr: "x == target['new_msg_to']"
+      subject:
+        expr: "x == target['new_msg_subject']"
+      body:
+        expr: "x == target['new_msg_body']"
+      from_user:
+        expr: "x == state.owner_username"
+      parent_id:
+        eq:
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.posts
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
-    - collection: state.settings
-      filter: 'False'
-      preserve: ALL
-      comprehensive: true
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.comments
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
+  constraints:
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
@@ -95,8 +93,7 @@ eval:
     desc: All messages marked as read
   - expr: not any(m.id == '{target.delete_msg_id}' for m in state.messages)
     desc: Spam message was deleted
-  - expr: any(m.to_user == "DataWizard42" and m.subject == "Quick question about data
-      pipelines" and ("Airflow or Prefect" in m.body) for m in state.sent_messages)
+  - expr: any(m.to_user == "DataWizard42" and m.subject == "Quick question about data pipelines" and ("Airflow or Prefect" in m.body) for m in state.sent_messages)
     desc: New message sent with correct content
   negative_checks:
   - expr: len(state.messages) >= 4
@@ -105,8 +102,7 @@ eval:
   - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 5
     desc: No excessive messages sent
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

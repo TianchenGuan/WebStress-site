@@ -78,3 +78,17 @@ def test_missing_recipient_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing recipient should fail"
+
+
+def test_extra_recipient_fails():
+    """The conflict email must not include extra recipients beyond the three named recipients."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.sent[0].to.append("extra@example.com")
+    state.touch()
+
+    task = get_task('gmail_thread_merge_conflict')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra recipient should fail"

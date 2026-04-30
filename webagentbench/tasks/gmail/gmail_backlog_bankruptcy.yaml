@@ -115,18 +115,28 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['personal_friend_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['personal_friend_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - back in the office
+          eq: "Thanks for reaching out! I'm back in the office as of today. Let's connect this week."
     - entity: sent
       desc: Reply to mentor with canned text
       count: 1
       properties:
         in_reply_to:
           expr: "x == target['personal_mentor_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['personal_mentor_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - back in the office
+          eq: "Thanks for reaching out! I'm back in the office as of today. Let's connect this week."
     - entity: sent
       desc: Forward Datacenter Migration thread to infra-lead
       count: 1
@@ -134,7 +144,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['escalation_fwd_ids'][0]"
         to:
-          expr: "'infra-lead@thornton.com' in x"
+          expr: "x == ['infra-lead@thornton.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Q2 Revenue thread to cfo-office
       count: 1
@@ -142,7 +156,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['escalation_fwd_ids'][1]"
         to:
-          expr: "'cfo-office@thornton.com' in x"
+          expr: "x == ['cfo-office@thornton.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward Customer Complaint thread to support-mgr
       count: 1
@@ -150,13 +168,17 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['escalation_fwd_ids'][2]"
         to:
-          expr: "'support-mgr@thornton.com' in x"
+          expr: "x == ['support-mgr@thornton.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: filters
       desc: Create filter A1 for dailyoffers.net
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "*@dailyoffers.net"
         archive:
           eq: true
@@ -167,7 +189,7 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "*@prizecentral.net"
         archive:
           eq: true
@@ -178,12 +200,12 @@ canonical_diff:
       count: 1
       properties:
         subject_keywords:
-          superset:
+          set_eq:
             - review
         star:
           eq: true
         add_labels:
-          superset:
+          set_eq:
             - Action Item
     - entity: deleted
       desc: Each spam email moved to trash

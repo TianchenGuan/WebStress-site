@@ -17,6 +17,7 @@ def test_correct_trajectory_passes():
     state.blocked_users.append(targets["block_user"])
     # Hide post
     state.get_post(targets["hide_id"]).is_hidden = True
+    state.hidden_post_ids.append(targets["hide_id"])
     # Save PF post
     state.get_post(targets["save_id"]).is_saved = True
     state.saved_post_ids.append(targets["save_id"])
@@ -34,6 +35,21 @@ def test_correct_trajectory_passes():
 
 def test_no_mutation_fails():
     _, _, targets, initial, state = _setup()
+    task = get_task("reddit_block_and_cleanup")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False
+
+
+def test_hidden_post_primitive_list_required():
+    _, _, targets, initial, state = _setup()
+    state.blocked_users.append(targets["block_user"])
+    state.get_post(targets["hide_id"]).is_hidden = True
+    state.get_post(targets["save_id"]).is_saved = True
+    state.saved_post_ids.append(targets["save_id"])
+    state.messages = [m for m in state.messages if m.id != targets["delete_msg_id"]]
+    state.settings.allow_followers = False
+    state.settings.show_online_status = False
     task = get_task("reddit_block_and_cleanup")
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)

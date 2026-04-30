@@ -26,6 +26,13 @@ def _complete_module(state, module_id: str, *, complete_all_items: bool = True) 
     module.status = "completed"
 
 
+def _unlock_module(state, module_id: str) -> None:
+    module = state.get_module(module_id)
+    if module is None:
+        raise ValueError(f"module {module_id!r} not found")
+    module.status = "available"
+
+
 def _run(targets, initial, state):
     task = get_task("lms_cross_course_prerequisites")
     agent_diff = compute_diff(initial, state)
@@ -43,6 +50,8 @@ def test_correct_trajectory_passes():
 
     _complete_module(state, targets["next_available_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
 
     assert state.is_module_unlocked(targets["first_locked_module_id_1"])
     assert state.is_module_unlocked(targets["first_locked_module_id_2"])
@@ -64,6 +73,7 @@ def test_only_one_course_completed_fails():
     _sm, _sid, targets, initial, state = _setup_session()
 
     _complete_module(state, targets["next_available_module_id_1"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
 
     report = _run(targets, initial, state)
     assert report.passed is False, "completing only one course should fail"
@@ -74,6 +84,8 @@ def test_incomplete_content_fails():
 
     _complete_module(state, targets["next_available_module_id_1"], complete_all_items=False)
     _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
 
     report = _run(targets, initial, state)
     assert report.passed is False, (
@@ -86,6 +98,7 @@ def test_wrong_module_completed_fails():
 
     _complete_module(state, targets["first_locked_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
 
     report = _run(targets, initial, state)
     assert report.passed is False, "completing the wrong module should fail"
@@ -96,6 +109,8 @@ def test_extra_module_completion_fails():
 
     _complete_module(state, targets["next_available_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
     # Pick a module that is NOT in the exclusion set for either course.
     excluded = {
         targets["next_available_module_id_1"], targets["first_locked_module_id_1"],
@@ -118,9 +133,22 @@ def test_collateral_course_edit_fails():
 
     _complete_module(state, targets["next_available_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
     state.courses[0].title = "Collateral course edit"
 
     report = _run(targets, initial, state)
     assert report.passed is False, (
         "editing an unrelated course should violate the course invariant"
     )
+
+
+def test_missing_following_module_unlock_fails():
+    _sm, _sid, targets, initial, state = _setup_session()
+
+    _complete_module(state, targets["next_available_module_id_1"])
+    _complete_module(state, targets["next_available_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_1"])
+
+    report = _run(targets, initial, state)
+    assert report.passed is False, "both following modules must be unlocked"

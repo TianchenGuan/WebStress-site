@@ -74,7 +74,11 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "'admin@company.org' in x"
+          expr: "x == ['admin@company.org']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           eq: "Filter conflict report"
         body:
@@ -106,20 +110,20 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "reviews@github-frontend.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Frontend/Reviews
     - entity: filters
       desc: Create filter for design@figma with Frontend/Design label and star
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "design@figma.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Frontend/Design
         star:
           eq: true
@@ -128,10 +132,10 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "alerts@pagerduty.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Backend/Alerts
         star:
           eq: true
@@ -142,20 +146,20 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "metrics@grafana.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Backend/Metrics
     - entity: filters
       desc: Create filter for pipelines@airflow with Data/Pipelines label and archive
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "pipelines@airflow.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Data/Pipelines
         archive:
           eq: true
@@ -164,20 +168,20 @@ canonical_diff:
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "notebooks@jupyter.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Data/Notebooks
     - entity: filters
       desc: Create filter for queries@warehouse with Data/Queries label and mark read
       count: 1
       properties:
         from_addresses:
-          superset:
+          set_eq:
             - "queries@warehouse.company.org"
         add_labels:
-          superset:
+          set_eq:
             - Data/Queries
         mark_read:
           eq: true

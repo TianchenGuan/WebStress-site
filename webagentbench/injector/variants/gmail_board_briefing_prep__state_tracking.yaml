@@ -2,15 +2,11 @@ variant_id: gmail_board_briefing_prep__state_tracking_v1
 base_task_id: gmail_board_briefing_prep
 target_primitive: state_tracking
 description: >
-  Scrambles timestamps, injects exact-topic decoys from the wrong senders, and
-  adds 12 topical distractors that share the task keywords. This forces the
-  agent to track which sender matches which topic (not just search by keyword)
-  and to remember which emails it has already processed.
+  Injects exact-topic decoys from the wrong senders and adds 12 topical
+  distractors that share the task keywords. This forces the agent to track which
+  sender matches which topic (not just search by keyword) and to remember which
+  emails it has already processed without changing the "most recent" target.
 injections:
-- layer: server
-  params:
-    action: scramble_timestamps
-    seed: 55
 - layer: seed
   params:
     action: add_confusing_decoys

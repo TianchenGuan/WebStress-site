@@ -671,16 +671,28 @@ def build_cross_functional_distribution(ctx: SeedContext, params: dict[str, Any]
 
 @_register("verify_inbox_clean")
 def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[str, Any]:
-    """Create 6 emails from a VIP sender — ALL already read with replies in
-    state.sent.  Also create 4 decoy unread emails from other senders.
-    Tests whether the agent correctly determines no VIP emails need replies."""
+    """Create emails from a VIP sender.
+
+    By default (unreplied_count=2) creates 4 already-replied VIP emails and
+    2 unreplied unread VIP emails that the agent must reply to, plus 4 decoy
+    unread emails from other senders.
+
+    Params
+    ------
+    unreplied_count : int  -- number of VIP emails left WITHOUT a sent reply
+                             (default 2).  Set to 0 for the legacy all-replied
+                             no-op variant.
+    """
 
     vip_name = "Catherine Morales"
     vip_email = "catherine.morales@partnergroup.com"
 
-    # --- 6 VIP emails, all read, all replied ---
+    unreplied_count = int(params.get("unreplied_count", 2))
+
+    # --- VIP emails: first N are replied, last unreplied_count are NOT ---
     vip_thread_ids: list[str] = []
     vip_email_ids: list[str] = []
+    unreplied_email_ids: list[str] = []
     subjects = [
         "Partnership agreement draft",
         "Follow-up on Q2 deliverables",
@@ -689,7 +701,11 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
         "Budget allocation questions",
         "Vendor intro — Apex Solutions",
     ]
-    for i, subj in enumerate(subjects):
+    total_vip = len(subjects)
+    replied_subjects = subjects[:total_vip - unreplied_count]
+    unreplied_subjects = subjects[total_vip - unreplied_count:]
+
+    for i, subj in enumerate(replied_subjects):
         tid = ctx.next_id("thread")
         vip_thread_ids.append(tid)
         msg = ctx.email(
@@ -701,7 +717,7 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Please let me know your thoughts when you have a moment.",
                 signoff_name="Catherine",
             ),
-            timestamp=ctx.now - timedelta(hours=24 + i * 3),
+            timestamp=ctx.now - timedelta(hours=48 + i * 3),
             thread_id=tid,
             labels=["inbox"],
             is_read=True,
@@ -709,7 +725,7 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
         ctx.base["emails"].append(msg)
         vip_email_ids.append(msg.id)
 
-        # Create a reply in state.sent for each VIP email
+        # Create a reply in state.sent for each already-replied VIP email
         reply = Email(
             id=ctx.next_id("email"),
             from_name=ctx.owner_name,
@@ -718,11 +734,11 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
             cc=[],
             subject=f"Re: {subj}",
             body=ctx.format_email_body(
-                f"Thanks for sending this over, Catherine. I've reviewed it.",
+                "Thanks for sending this over, Catherine. I've reviewed it.",
                 "I'll follow up if anything else comes up.",
                 signoff_name=ctx.first_name(ctx.owner_name),
             ),
-            timestamp=ctx.now - timedelta(hours=20 + i * 3),
+            timestamp=ctx.now - timedelta(hours=44 + i * 3),
             is_read=True,
             labels=["sent"],
             thread_id=tid,
@@ -730,6 +746,27 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
             attachments=[],
         )
         ctx.base["sent"].append(reply)
+
+    for i, subj in enumerate(unreplied_subjects):
+        tid = ctx.next_id("thread")
+        vip_thread_ids.append(tid)
+        msg = ctx.email(
+            from_name=vip_name,
+            from_addr=vip_email,
+            subject=subj,
+            body=ctx.format_email_body(
+                f"Hi, just wanted to touch base on {subj.lower()}.",
+                "Please let me know your thoughts when you have a moment.",
+                signoff_name="Catherine",
+            ),
+            timestamp=ctx.now - timedelta(hours=6 + i * 4),
+            thread_id=tid,
+            labels=["inbox"],
+            is_read=False,
+        )
+        ctx.base["emails"].append(msg)
+        vip_email_ids.append(msg.id)
+        unreplied_email_ids.append(msg.id)
 
     # --- 4 decoy unread emails from OTHER senders (NOT from VIP) ---
     decoy_senders = [
@@ -750,7 +787,7 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
                 "Could you review the attached notes?",
                 signoff_name=ctx.first_name(dname),
             ),
-            timestamp=ctx.now - timedelta(hours=6 + j * 2),
+            timestamp=ctx.now - timedelta(hours=10 + j * 2),
             thread_id=dtid,
             labels=["inbox"],
             is_read=False,
@@ -761,7 +798,7 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
 
     ctx.ensure_contact(vip_name, vip_email, is_vip=True)
 
-    # Count sent emails so eval can verify no new ones were added
+    # Count sent emails so eval can verify the correct number were added
     initial_sent_count = len(ctx.base.get("sent", []))
 
     return {
@@ -769,8 +806,10 @@ def build_verify_inbox_clean(ctx: SeedContext, params: dict[str, Any]) -> dict[s
         "vip_email": vip_email,
         "total_vip_count": len(vip_email_ids),
         "vip_email_ids": vip_email_ids,
+        "unreplied_email_ids": unreplied_email_ids,
         "decoy_email_ids": decoy_email_ids,
         "initial_sent_count": initial_sent_count,
+        "unreplied_count": unreplied_count,
     }
 
 

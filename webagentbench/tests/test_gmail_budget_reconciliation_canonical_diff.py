@@ -71,3 +71,27 @@ def test_wrong_correction_values_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing correction values should fail"
+
+
+def test_reply_all_on_summary_fails():
+    """The correction reply must not include the summary thread's CC recipients."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Budget Summary",
+        body=f"Corrections: value 1 should be {targets['correct_value_1']}, value 2 should be {targets['correct_value_2']}",
+        to=[targets["summary_author_email"]],
+        cc=["cfo@example.com"],
+        in_reply_to=targets["summary_id"],
+        thread_id="thread_summary",
+    )
+    for eid in targets["dept_ids"]:
+        state.toggle_star(eid, is_starred=True)
+    state.ensure_label("Budget Verified")
+    for eid in targets["all_budget_ids"]:
+        state.apply_label(eid, "Budget Verified", action='add')
+
+    task = get_task('gmail_budget_reconciliation')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "reply-all CC should fail"

@@ -19,6 +19,30 @@ def _task(task_id: str) -> Any:
 
 def _exprs(task_id: str, phase: str | None = None) -> list[str]:
     task = _task(task_id)
+    cd = getattr(task, "canonical_diff", None)
+    if cd is not None:
+        blocks = list(cd.oneof) if cd.oneof else [cd]
+        chunks: list[str] = []
+        for block in blocks:
+            for entry in [*block.create, *block.update, *block.delete]:
+                for pred_map in (
+                    getattr(entry, "properties", None),
+                    getattr(entry, "where", None),
+                    getattr(entry, "changes", None),
+                ):
+                    if pred_map:
+                        chunks.append(str(pred_map))
+                bijection = getattr(entry, "bijection", None)
+                if bijection is not None:
+                    chunks.append(bijection.over)
+            for inv in block.invariant:
+                chunks.append(inv.collection)
+                if inv.filter:
+                    chunks.append(inv.filter)
+            for constraint in block.constraints:
+                chunks.append(constraint.expr)
+        return chunks
+
     ev = getattr(task, "eval", None)
     if ev is None:
         return []
@@ -34,6 +58,20 @@ def _exprs(task_id: str, phase: str | None = None) -> list[str]:
 
 def _descs(task_id: str, phase: str | None = None) -> list[str]:
     task = _task(task_id)
+    cd = getattr(task, "canonical_diff", None)
+    if cd is not None:
+        blocks = list(cd.oneof) if cd.oneof else [cd]
+        chunks: list[str] = []
+        for block in blocks:
+            for entry in [*block.create, *block.update, *block.delete]:
+                if getattr(entry, "desc", None):
+                    chunks.append(entry.desc)
+            for constraint in block.constraints:
+                chunks.append(constraint.desc)
+            for named in block.named_invariants:
+                chunks.append(named.name)
+        return chunks
+
     ev = getattr(task, "eval", None)
     if ev is None:
         return []
@@ -224,12 +262,12 @@ def test_amazon_order_integrity_tasks_require_exact_order_contents() -> None:
 def test_lms_reporting_tasks_bind_recipient_and_required_facts() -> None:
     """LMS reporting tasks must prove the message went to the right recipient."""
     recipient_bound = {
-        "lms_check_assignment_grade": ("target_assignment_id", "announcement"),
-        "lms_check_course_grade": ("target_course_id", "announcement"),
-        "lms_calculate_weighted_grade": ("target_course_id", "announcement"),
-        "lms_compare_course_grades": ("lower_grade_course_id", "dropped"),
+        "lms_check_assignment_grade": ("score_below_70", "unsubmitted_hw_id", "announcement"),
+        "lms_check_course_grade": ("grade_below_80", "unsubmitted_hw_id", "announcement"),
+        "lms_calculate_weighted_grade": ("has_discrepancy", "most_recent_graded_id", "announcement"),
+        "lms_compare_course_grades": ("lower_grade_enrollment_id", "dropped"),
         "lms_find_next_deadline": ("next_deadline_assignment_id", "early_draft"),
-        "lms_grade_with_curve": ("exam_assignment_id", "curve"),
+        "lms_grade_with_curve": ("curve_changes_letter", "exam_assignment_id", "curve"),
     }
     for task_id, required_tokens in recipient_bound.items():
         blob = "\n".join(_exprs(task_id)).lower()
@@ -255,16 +293,16 @@ def test_robinhood_alert_and_limit_tasks_bind_trigger_math_and_order_timing() ->
     """Robinhood evaluators must prove the requested price math and sequence."""
     checks = {
             "rh_limit_order_with_check": ("limit_price", "decimal('0.95')", "exactly one amzn"),
-            "rh_find_earnings_and_alert": ("portfolio_symbols_with_earnings_within(7)", "decimal('0.95')"),
+            "rh_find_earnings_and_alert": ("portfolio_symbols_with_earnings_within(7)", "0.95"),
             "rh_live_alert_and_buy": ("triggered_at", "created_at > a.triggered_at"),
             "rh_live_alert_and_sell": ("triggered_at",),
             "rh_live_alert_chain": ("sector_pct('technology')", "nvda"),
             "rh_live_cross_stock_alert": ("triggered_at", "max(a.triggered_at"),
-            "rh_live_watch_portfolio": ("portfolio_value >= decimal('15000')", "get_position('{target.best_symbol}') is none"),
+            "rh_live_watch_portfolio": ("decimal('14700')", "get_position(target['best_symbol']) is none"),
             "rh_live_buy_the_dip": ("filled_tick", "filled_price is not none and o.filled_price <= decimal('180')"),
             "rh_live_watch_and_buy": ("filled_tick", "price_at_tick('aapl', o.filled_tick) < decimal('182')"),
-        "rh_live_watch_spread": ("filled_tick", "price_at_tick('tsla', o.filled_tick) >"),
-        "rh_live_intraday_reversal": ("filled_tick", "price_at_tick('nvda', o.filled_tick - 1) < decimal('845')"),
+        "rh_live_watch_spread": ("filled_tick", "price_at_tick('tsla',", "decimal('255')"),
+        "rh_live_intraday_reversal": ("filled_tick", "price_at_tick('nvda',", "decimal('845')"),
         }
     for task_id, required_tokens in checks.items():
         blob = "\n".join(_exprs(task_id) + _descs(task_id)).lower()
@@ -275,10 +313,10 @@ def test_robinhood_alert_and_limit_tasks_bind_trigger_math_and_order_timing() ->
 def test_patient_portal_claim_and_screening_tasks_bind_exact_target_sets() -> None:
     """Patient portal tasks must reject partial or wrong-claim completions."""
     checks = {
-        "pp_pay_claim": ("state._initial_snapshot['claims']", "approved_claim_ids"),
-        "pp_dispute_claim": ("state._initial_snapshot['claims']", "denied_claim_ids"),
-        "pp_reconcile_billing": ("appointment_id", "completed_ids", "category == 'billing'"),
-        "pp_preventive_screening_review": ("screening_name.lower() in m.body.lower()", "next_due"),
+        "pp_pay_claim": ("initial.get_claim", "approved_claim_ids"),
+        "pp_dispute_claim": ("initial.get_claim", "denied_claim_ids"),
+        "pp_reconcile_billing": ("billing_provider_ids", "missing claim review"),
+        "pp_preventive_screening_review": ("overdue_screening_names", "messages"),
     }
     for task_id, required_tokens in checks.items():
         blob = "\n".join(_exprs(task_id)).lower()

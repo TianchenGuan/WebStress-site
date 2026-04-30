@@ -185,6 +185,32 @@ def test_not_earliest_slot_fails():
     )
 
 
+def test_in_place_reschedule_wrong_provider_fails():
+    """In-place branch must also enforce the instruction's same-provider clause."""
+    sm, sid, targets, initial, state = _setup_session()
+    later = _later_booked_apt_id(initial, targets)
+    later_apt = initial.get_appointment(later)
+    wrong_provider = next(
+        p for p in initial.providers
+        if p.id != later_apt.provider_id and p.available_slots
+    )
+    target_appt = next(a for a in state.appointments if a.id == later)
+    target_appt.provider_id = wrong_provider.id
+    target_appt.datetime = _earliest_slot_datetime(initial, later_apt.provider_id)
+
+    task = get_task("pp_resolve_specialist_conflicts")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, (
+        "in-place reschedule with a different provider must fail the same-provider "
+        "predicate"
+    )
+
+
 def test_only_cancel_no_create_fails():
     """Agent cancels the later-booked appt but forgets to reschedule."""
     sm, sid, targets, initial, state = _setup_session()

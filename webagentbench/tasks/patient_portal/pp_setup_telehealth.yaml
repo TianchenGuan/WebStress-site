@@ -60,6 +60,8 @@ canonical_diff:
       changes:
         type: {eq: "telehealth"}
         status: {eq: "scheduled"}
+        provider_id:
+          expr: "x == initial.get_appointment(target['next_appointment_id']).provider_id"
         datetime:
           expr: >
             x == min(

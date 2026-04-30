@@ -38,6 +38,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == v"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == v)]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['status_phrase'] in x"
         forwarded_from_id:

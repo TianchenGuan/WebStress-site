@@ -97,3 +97,62 @@ def test_wrong_forward_recipient_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong forward recipient should fail"
+
+
+def test_resignation_forward_requires_exact_recipients():
+    """Forwarding resignation to both required recipients plus an extra recipient fails."""
+    _, _, targets, initial, state = _setup_session()
+    state.forward_email(
+        targets["thread_1_msg_id"],
+        to=[targets["hr_director_email"]],
+        body="Forwarding for confidential review. Do not reply-all on the original thread.",
+    )
+    state.send_email(
+        subject="Re: Benefits Enrollment - Dental Plan Question",
+        body=(f"Your employee ID is {targets['employee_id']}. "
+              f"HR will process the dental enrollment within 5 business days."),
+        to=[targets["benefits_requester_email"]],
+        in_reply_to=targets["thread_2_msg_id"],
+    )
+    state.forward_email(
+        targets["thread_3_msg_id"],
+        to=[targets["vp_email"], targets["hr_director_email"], targets["employee_email"]],
+        body="Resignation received. Backfill planning needed.",
+    )
+    state.toggle_star(targets["thread_3_msg_id"], is_starred=True)
+    state.archive_email(targets["thread_4_msg_id"])
+
+    task = get_task('gmail_sensitive_hr_routing')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra resignation forward recipient should fail"
+
+
+def test_benefits_reply_requires_full_exact_phrase():
+    """Containing the employee ID alone is insufficient for the benefits reply."""
+    _, _, targets, initial, state = _setup_session()
+    state.forward_email(
+        targets["thread_1_msg_id"],
+        to=[targets["hr_director_email"]],
+        body="Forwarding for confidential review. Do not reply-all on the original thread.",
+    )
+    state.send_email(
+        subject="Re: Benefits Enrollment - Dental Plan Question",
+        body=f"Your employee ID is {targets['employee_id']}.",
+        to=[targets["benefits_requester_email"]],
+        in_reply_to=targets["thread_2_msg_id"],
+    )
+    state.forward_email(
+        targets["thread_3_msg_id"],
+        to=[targets["vp_email"], targets["hr_director_email"]],
+        body="Resignation received. Backfill planning needed.",
+    )
+    state.toggle_star(targets["thread_3_msg_id"], is_starred=True)
+    state.archive_email(targets["thread_4_msg_id"])
+
+    task = get_task('gmail_sensitive_hr_routing')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "partial benefits reply should fail"

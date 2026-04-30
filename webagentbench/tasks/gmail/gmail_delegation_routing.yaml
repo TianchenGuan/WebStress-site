@@ -49,7 +49,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['budget_id']"
         to:
-          expr: "target['cfo_email'] in x"
+          expr: "x == [target['cfo_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward tech email to CTO
       count: 1
@@ -57,7 +61,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['tech_id']"
         to:
-          expr: "target['cto_email'] in x"
+          expr: "x == [target['cto_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
     - entity: sent
       desc: Forward complaint email to support lead with manager BCC
       count: 1
@@ -65,9 +73,11 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['complaint_id']"
         to:
-          expr: "target['support_lead_email'] in x"
+          expr: "x == [target['support_lead_email']]"
+        cc:
+          eq: []
         bcc:
-          expr: "target['manager_email'] in x"
+          expr: "x == [target['manager_email']]"
     - entity: labels
       desc: Create the Delegated label
       count: 1

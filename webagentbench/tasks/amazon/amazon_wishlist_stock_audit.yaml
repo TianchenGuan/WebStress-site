@@ -151,11 +151,10 @@ canonical_diff:
     desc: New order placed containing all three in-stock wishlist items
     properties:
       items:
-        expr: any(it['product_id'] == target['in1'] for it in x) and any(it['product_id']
-          == target['in2'] for it in x) and any(it['product_id'] == target['in3']
-          for it in x)
+        expr: "len(x) == 3 and {it['product_id'] for it in x} == {target['in1'], target['in2'],
+          target['in3']} and all(it['quantity'] == 1 for it in x)"
       status:
-        any: true
+        eq: confirmed
       shipping_address_id:
         any: true
       payment_method_id:
@@ -194,9 +193,10 @@ canonical_diff:
         expr: x == target['out3']
   invariant:
   - collection: state.orders
-    filter: not (any(it.get('product_id') == target['in1'] for it in (a.items or []))
-      and any(it.get('product_id') == target['in2'] for it in (a.items or [])) and
-      any(it.get('product_id') == target['in3'] for it in (a.items or [])))
+    filter: not (any(it.get('product_id') == target['in1'] for it in (a.items or
+      [])) and any(it.get('product_id') == target['in2'] for it in (a.items or
+      [])) and any(it.get('product_id') == target['in3'] for it in (a.items or
+      [])))
     preserve: ALL
   - collection: state.products
     preserve: ALL
@@ -219,7 +219,8 @@ canonical_diff:
   - collection: state.cart_items
     preserve: ALL
   - collection: state.wishlist
-    filter: "a.value not in [target['out1'], target['out2'], target['out3'], target['in1'], target['in2'], target['in3']]"
+    filter: "a.value not in [target['out1'], target['out2'], target['out3'], target['in1'],
+      target['in2'], target['in3']]"
     preserve: ALL
   - collection: state.settings
     preserve: ALL

@@ -55,6 +55,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['hawthorne_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['hawthorne_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring: "exceeds our processing limit and is rejected"
         forwarded_from_id:
@@ -65,6 +71,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['ridgeline_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['ridgeline_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring: "exceeds our processing limit and is rejected"
         forwarded_from_id:
@@ -75,6 +87,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['hawthorne_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['hawthorne_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring_all:
             - "disregard our previous rejection"
@@ -87,6 +105,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['cfo_approval_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['cfo_approval_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           substring: "Exception applied"
         forwarded_from_id:

@@ -66,3 +66,20 @@ def test_wrong_recipient_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong recipient should fail"
+
+
+def test_missing_attendee_cc_fails():
+    """The organizer confirmation must CC all attendees."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Meeting Confirmation",
+        body=f"Confirmed for {targets['correct_time']} in {targets['room_name']}.",
+        to=[targets["organizer_email"]],
+        cc=targets["attendee_emails"][:-1],
+    )
+
+    task = get_task('gmail_meeting_negotiation')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "missing attendee CC should fail"

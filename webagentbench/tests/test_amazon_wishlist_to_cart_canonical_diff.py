@@ -91,3 +91,22 @@ def test_only_one_item_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_wrong_quantity_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    state.add_to_cart(targets["product_id"], quantity=2)
+    state.add_to_cart(targets["product_id_2"], quantity=1)
+    addr = next(a for a in state.addresses if a.full_name == "Jordan Parker" and a.street_address == "742 Evergreen Terrace")
+    pm = next(p for p in state.payment_methods if p.card_type == "Visa" and p.last_four == "4242")
+    state.place_order(shipping_address_id=addr.id, payment_method_id=pm.id)
+
+    task = get_task("amazon_wishlist_to_cart")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

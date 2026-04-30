@@ -48,9 +48,12 @@ canonical_diff:
       side: {eq: buy}
       order_type: {eq: limit}
       limit_price: {expr: "x is not None and Decimal(str(x)) <= Decimal('400')"}
-      status: {any: true}
-      quantity: {any: true}
-      filled_quantity: {any: true}
+      status:
+        eq: filled
+      quantity:
+        eq: 1
+      filled_quantity:
+        eq: 1
       filled_price: {any: true}
       stop_price: {any: true}
       trail_amount: {any: true}
@@ -63,10 +66,14 @@ canonical_diff:
       symbol: {eq: MSFT}
       side: {eq: sell}
       order_type: {eq: stop}
-      stop_price: {expr: "x is not None and abs(Decimal(str(x)) - Decimal('380')) < Decimal('5')"}
-      status: {any: true}
-      quantity: {any: true}
-      filled_quantity: {any: true}
+      stop_price: {expr: "x is not None and abs(Decimal(str(x)) - Decimal('380'))
+          < Decimal('5')"}
+      status:
+        eq: pending
+      quantity:
+        eq: 1
+      filled_quantity:
+        eq: 0
       filled_price: {any: true}
       limit_price: {any: true}
       trail_amount: {any: true}
@@ -79,16 +86,69 @@ canonical_diff:
       symbol: {eq: MSFT}
       side: {eq: sell}
       order_type: {eq: limit}
-      limit_price: {expr: "x is not None and abs(Decimal(str(x)) - Decimal('430')) < Decimal('5')"}
-      status: {any: true}
-      quantity: {any: true}
-      filled_quantity: {any: true}
+      limit_price: {expr: "x is not None and abs(Decimal(str(x)) - Decimal('430'))
+          < Decimal('5')"}
+      status:
+        eq: pending
+      quantity:
+        eq: 1
+      filled_quantity:
+        eq: 0
       filled_price: {any: true}
       stop_price: {any: true}
       trail_amount: {any: true}
       trail_pct: {any: true}
       time_in_force: {any: true}
       extended_hours: {any: true}
+  - entity: positions
+    desc: MSFT position created by filled bracket entry buy
+    properties:
+      symbol:
+        eq: MSFT
+      quantity:
+        eq: 1
+      avg_cost_basis:
+        any: true
+      current_price:
+        any: true
+      day_change_pct:
+        any: true
+      total_return:
+        any: true
+      total_return_pct:
+        any: true
+      asset_type:
+        any: true
+      name:
+        any: true
+      lots:
+        any: true
+  - entity: transactions
+    desc: Buy transaction recorded by the MSFT entry fill
+    properties:
+      type:
+        eq: buy
+      symbol:
+        eq: MSFT
+      quantity:
+        eq: 1
+      amount:
+        any: true
+      description:
+        any: true
+      timestamp:
+        any: true
+  - entity: notifications
+    desc: Order-fill notification emitted by the MSFT entry buy
+    properties:
+      type:
+        eq: order_fill
+      title:
+        any: true
+      message:
+        any: true
+      timestamp:
+        any: true
   invariant:
   - collection: state.positions
     filter: "a.symbol != 'MSFT'"
@@ -109,7 +169,21 @@ canonical_diff:
     preserve: ALL
   - collection: state.options_orders
     preserve: ALL
+  - collection: state.transactions
+    filter: a.symbol != 'MSFT'
+    preserve: ALL
+  - collection: state.notifications
+    filter: a.type != 'order_fill'
+    preserve: ALL
+  constraints:
+  - desc: Bracket entry buy filled before exit orders were placed
+    expr: any(o.symbol == 'MSFT' and o.side == 'buy' and o.order_type == 'limit'
+      and o.status == 'filled' and o.filled_quantity == Decimal('1') for o in
+      state.orders) and all(o.status == 'pending' and o.filled_quantity ==
+      Decimal('0') for o in state.orders if o.symbol == 'MSFT' and o.side ==
+      'sell' and o.id not in [io.id for io in initial.orders])
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures planning, state_tracking, patience, verification by requiring
-  exact completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+primitive_thesis: Measures planning, state_tracking, patience, verification by
+  requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

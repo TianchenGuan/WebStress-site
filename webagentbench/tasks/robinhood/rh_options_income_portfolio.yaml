@@ -25,10 +25,26 @@ seed:
       - TSLA
       - META
     outputs: []
-  - use: portfolio_diverse
+  - use: portfolio_basic
     params:
-      position_count: 6
-      mixed_quantities: true
+      stocks:
+      - AAPL
+      - MSFT
+      - GOOGL
+      - AMZN
+      - TSLA
+      quantities:
+      - '120'
+      - '100'
+      - '150'
+      - '45'
+      - '30'
+      cost_bases:
+      - '165.00'
+      - '380.00'
+      - '155.00'
+      - '170.00'
+      - '210.00'
     outputs: []
   - use: options_chain
     params:
@@ -75,21 +91,21 @@ canonical_diff:
   - entity: options_orders
     desc: Covered call placed for every 100+ share position with an options chain
     bijection:
-      over: "[sym for sym in state.position_symbols_at_or_above_shares(Decimal('100')) if sym in state.options_chains]"
+      over: "[sym for sym in initial.position_symbols_at_or_above_shares(Decimal('100')) if sym in initial.options_chains]"
       variable: v
     properties:
-      legs: {expr: "any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'call' for leg in x)"}
+      legs: {expr: "len(x) == 1 and any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'call' and leg['quantity'] == 1 for leg in x)"}
       status: {in: [filled, pending]}
-      strategy: {any: true}
+      strategy: {eq: covered_call}
   - entity: options_orders
     desc: Cash-secured put placed for every sub-100-share position with an options chain
     bijection:
-      over: "[p.symbol for p in state.positions if p.quantity < Decimal('100') and p.symbol in state.options_chains]"
+      over: "[p.symbol for p in initial.positions if p.quantity < Decimal('100') and p.symbol in initial.options_chains]"
       variable: v
     properties:
-      legs: {expr: "any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'put' for leg in x)"}
+      legs: {expr: "len(x) == 1 and any(leg['underlying_symbol'] == v and leg['side'] == 'sell' and leg['option_type'] == 'put' and leg['quantity'] == 1 for leg in x)"}
       status: {in: [filled, pending]}
-      strategy: {any: true}
+      strategy: {eq: single}
   invariant:
   - collection: state.options_orders
     filter: "any(leg.side == 'buy' for leg in a.legs) and not a.id.startswith('opt_decoy_')"

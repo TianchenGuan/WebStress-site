@@ -53,10 +53,13 @@ canonical_diff:
     desc: New order placed for target product and then cancelled
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id'] and x[0]['quantity']
+          == 1"
       status: {eq: cancelled}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
+      shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker'
+          and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
+      payment_method_id: {expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four
+          == '4242' for p in state.payment_methods)"}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -67,7 +70,8 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items
+      or []))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

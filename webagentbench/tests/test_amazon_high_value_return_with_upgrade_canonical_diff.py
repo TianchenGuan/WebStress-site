@@ -115,3 +115,17 @@ def test_wrong_return_reason_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_partial_upgrade_reason_fails():
+    _, _, targets, initial, state = _setup_session()
+    _complete(state, targets, return_reason="Upgrading")
+
+    task = get_task("amazon_high_value_return_with_upgrade")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

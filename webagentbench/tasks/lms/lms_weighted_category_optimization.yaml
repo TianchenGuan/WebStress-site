@@ -64,6 +64,10 @@ canonical_diff:
         - late
       file_name:
         eq: category_boost.pdf
+      attempt_count:
+        expr: "x >= initial.get_assignment(target['worst_category_assignment_id']).attempt_count + 1"
+      submitted_at:
+        expr: "x is not None"
   invariant:
   - collection: state.assignments
     filter: "a.id != target['worst_category_assignment_id']"
@@ -88,6 +92,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.sent_messages
     preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
   - name: Agent submitted the worst-category assignment
     ref: update[0]

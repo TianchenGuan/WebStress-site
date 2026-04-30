@@ -109,3 +109,19 @@ def test_wrong_product_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_pending_order_status_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    order = _enable_prime_and_order(state, targets)
+    order.status = "pending"
+
+    task = get_task("amazon_prime_enable_and_free_shipping")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

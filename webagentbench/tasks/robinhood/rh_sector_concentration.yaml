@@ -40,8 +40,8 @@ seed:
       - '60'
       - '25'
       - '10'
-      - '15'
-      - '20'
+      - '150'
+      - '200'
       cost_bases:
       - '170.00'
       - '380.00'
@@ -188,6 +188,13 @@ canonical_diff:
     preserve: ALL
   - collection: state.tax_documents
     preserve: ALL
+  constraints:
+  - desc: Technology sector concentration is brought to at or below 50%
+    expr: "state.sector_pct('Technology') <= Decimal('50')"
+    severity: critical
+  - desc: Concentration-reduction sell and SCHD buy orders are filled
+    expr: "any(o.symbol == target['largest_tech_symbol'] and o.side == 'sell' and o.status == 'filled' and o.filled_quantity == o.quantity for o in state.orders if o.id not in [io.id for io in initial.orders]) and any(o.symbol == target['buy_symbol'] and o.side == 'buy' and o.status == 'filled' and o.filled_quantity == o.quantity for o in state.orders if o.id not in [io.id for io in initial.orders])"
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures state_tracking, planning, grounding by requiring exact
   completion of the requested Robinhood workflow while ignoring distractor account

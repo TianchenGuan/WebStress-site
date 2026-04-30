@@ -27,7 +27,7 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Onboarding Checklist",
         body=targets["confirmation_phrase"],
-        to=[],
+        to=[state.get_email(targets["onboarding_email_id"]).from_addr],
         in_reply_to=targets["onboarding_email_id"],
     )
     # Star and label Finance Review on invoice email
@@ -77,7 +77,7 @@ def test_forward_wrong_security_email_fails():
     state.send_email(
         subject="Re: Onboarding",
         body=targets["confirmation_phrase"],
-        to=[],
+        to=[state.get_email(targets["onboarding_email_id"]).from_addr],
         in_reply_to=targets["onboarding_email_id"],
     )
     state.ensure_label("Finance Review")

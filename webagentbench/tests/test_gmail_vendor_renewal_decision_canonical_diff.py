@@ -90,3 +90,16 @@ def test_wrong_vendor_forwarded_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "forwarding wrong vendor should fail"
+
+
+def test_recommendation_extra_text_fails():
+    """The procurement recommendation body is specified exactly."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.sent[0].body += " Extra note."
+
+    task = get_task('gmail_vendor_renewal_decision')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra recommendation text should fail"

@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from webagentbench.backend.price_engine import cascade_update
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
 from webagentbench.tasks._registry import get_task
@@ -19,6 +20,7 @@ def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup()
     state.create_price_alert(symbol="XOM", condition="above", target_price=Decimal("120"))
     state.create_price_alert(symbol="CVX", condition="below", target_price=Decimal("145"))
+    cascade_update(state, {"XOM": Decimal("121.00"), "CVX": Decimal("144.00")}, state._price_engine)
     pos_xom = state.get_position("XOM")
     if pos_xom:
         state.place_order(symbol="XOM", side="sell", order_type="market", quantity=pos_xom.quantity)

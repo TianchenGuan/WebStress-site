@@ -29,7 +29,7 @@ def _apply_correct(targets, state):
         subject=f"Re: {targets['action_msg_subject']}",
         body=targets["reply_text"],
         created_at=datetime.now(timezone.utc),
-        is_read=True, parent_id=None, context="",
+        is_read=True, parent_id=targets["action_msg_id"], context="",
     ))
     # Disable email comment reply
     state.settings.email_comment_reply = False

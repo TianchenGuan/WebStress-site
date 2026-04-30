@@ -13,8 +13,6 @@ Trajectories covered:
 - only create, no cancel → partial
 """
 
-from datetime import timedelta
-
 from webagentbench.backend.models.patient_portal import Appointment
 from webagentbench.backend.state import SessionManager
 from webagentbench.evaluator_diff import compute_diff, match_diff
@@ -48,26 +46,44 @@ def _make_appt(**kwargs) -> Appointment:
     return Appointment(**kwargs)
 
 
-def _non_conflicting_time(initial, targets):
-    """Pick a datetime that doesn't collide with any other upcoming appt."""
-    target_apt = next(a for a in initial.appointments if a.id == targets["specialist_apt_id"])
+def _target_derm_provider(initial, targets):
+    target_apt = next(a for a in initial.appointments if a.id == targets["target_apt_id"])
+    provider = next(p for p in initial.providers if p.id == target_apt.provider_id)
+    assert provider.specialty == "dermatology"
+    return provider
+
+
+def _approved_derm_referral_id(initial, targets):
+    approved = set(targets["approved_ref_ids"])
+    for r in initial.referrals:
+        if r.id in approved and r.status == "approved" and r.to_specialty == "dermatology":
+            return r.id
+    raise AssertionError("seed did not produce an approved dermatology referral")
+
+
+def _non_conflicting_slot(initial, targets):
+    """Pick an actual target-dermatologist slot that doesn't collide."""
+    provider = _target_derm_provider(initial, targets)
     others = [a for a in initial.appointments
               if a.status == "scheduled"
               and a.id in targets["upcoming_ids"]
-              and a.id != targets["specialist_apt_id"]]
-    latest = max((a.datetime for a in others + [target_apt]), default=target_apt.datetime)
-    return latest + timedelta(days=14)
+              and a.id != targets["target_apt_id"]]
+    occupied = {a.datetime for a in others}
+    slot = next((s for s in provider.available_slots if s.datetime not in occupied), None)
+    assert slot is not None, "seed did not produce a non-conflicting dermatology slot"
+    return slot.datetime
 
 
 def test_correct_trajectory_passes():
     sm, sid, targets, initial, state = _setup_session()
-    _cancel(state, targets["specialist_apt_id"])
-    new_time = _non_conflicting_time(initial, targets)
-    orig = next(a for a in initial.appointments if a.id == targets["specialist_apt_id"])
+    _cancel(state, targets["target_apt_id"])
+    new_time = _non_conflicting_slot(initial, targets)
+    orig = next(a for a in initial.appointments if a.id == targets["target_apt_id"])
     state.appointments.append(_make_appt(
         id="appt_reschedule_new",
         provider_id=orig.provider_id,
         datetime=new_time,
+        linked_referral_id=_approved_derm_referral_id(initial, targets),
     ))
 
     task = get_task("pp_cancel_reschedule")
@@ -84,14 +100,15 @@ def test_correct_trajectory_passes():
 def test_wrong_target_cancelled_fails():
     """Agent cancels a non-target upcoming appointment and creates a replacement."""
     sm, sid, targets, initial, state = _setup_session()
-    other_id = next(i for i in targets["upcoming_ids"] if i != targets["specialist_apt_id"])
+    other_id = next(i for i in targets["upcoming_ids"] if i != targets["target_apt_id"])
     _cancel(state, other_id)
-    new_time = _non_conflicting_time(initial, targets)
-    orig = next(a for a in initial.appointments if a.id == targets["specialist_apt_id"])
+    new_time = _non_conflicting_slot(initial, targets)
+    orig = next(a for a in initial.appointments if a.id == targets["target_apt_id"])
     state.appointments.append(_make_appt(
         id="appt_new_wrong_cancel",
         provider_id=orig.provider_id,
         datetime=new_time,
+        linked_referral_id=_approved_derm_referral_id(initial, targets),
     ))
 
     task = get_task("pp_cancel_reschedule")
@@ -110,16 +127,17 @@ def test_wrong_target_cancelled_fails():
 def test_replacement_conflicts_with_other_upcoming_fails():
     """Agent cancels correctly but schedules the replacement at an existing upcoming time."""
     sm, sid, targets, initial, state = _setup_session()
-    _cancel(state, targets["specialist_apt_id"])
+    _cancel(state, targets["target_apt_id"])
     other = next(a for a in initial.appointments
                  if a.id in targets["upcoming_ids"]
-                 and a.id != targets["specialist_apt_id"]
+                 and a.id != targets["target_apt_id"]
                  and a.status == "scheduled")
-    orig = next(a for a in initial.appointments if a.id == targets["specialist_apt_id"])
+    orig = next(a for a in initial.appointments if a.id == targets["target_apt_id"])
     state.appointments.append(_make_appt(
         id="appt_reschedule_collision",
         provider_id=orig.provider_id,
         datetime=other.datetime,
+        linked_referral_id=_approved_derm_referral_id(initial, targets),
     ))
 
     task = get_task("pp_cancel_reschedule")
@@ -138,7 +156,7 @@ def test_replacement_conflicts_with_other_upcoming_fails():
 def test_only_cancel_no_replacement_fails():
     """Agent cancels but never schedules a replacement."""
     sm, sid, targets, initial, state = _setup_session()
-    _cancel(state, targets["specialist_apt_id"])
+    _cancel(state, targets["target_apt_id"])
 
     task = get_task("pp_cancel_reschedule")
     agent_diff = compute_diff(initial, state)
@@ -154,12 +172,13 @@ def test_only_cancel_no_replacement_fails():
 def test_only_create_no_cancel_fails():
     """Agent schedules a new appt but forgets to cancel the original."""
     sm, sid, targets, initial, state = _setup_session()
-    new_time = _non_conflicting_time(initial, targets)
-    orig = next(a for a in initial.appointments if a.id == targets["specialist_apt_id"])
+    new_time = _non_conflicting_slot(initial, targets)
+    orig = next(a for a in initial.appointments if a.id == targets["target_apt_id"])
     state.appointments.append(_make_appt(
         id="appt_new_no_cancel",
         provider_id=orig.provider_id,
         datetime=new_time,
+        linked_referral_id=_approved_derm_referral_id(initial, targets),
     ))
 
     task = get_task("pp_cancel_reschedule")
@@ -171,3 +190,28 @@ def test_only_create_no_cancel_fails():
     )
     assert report.passed is False, "update[0] unmatched without the cancel mutation"
     assert report.score < 1.0
+
+
+def test_replacement_with_wrong_provider_fails():
+    """Replacement must stay with the seeded dermatology provider/referral slot."""
+    sm, sid, targets, initial, state = _setup_session()
+    _cancel(state, targets["target_apt_id"])
+    wrong = next(
+        p for p in initial.providers
+        if p.id != _target_derm_provider(initial, targets).id and p.available_slots
+    )
+    state.appointments.append(_make_appt(
+        id="appt_wrong_provider",
+        provider_id=wrong.id,
+        datetime=wrong.available_slots[0].datetime,
+        linked_referral_id=_approved_derm_referral_id(initial, targets),
+    ))
+
+    task = get_task("pp_cancel_reschedule")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, "wrong replacement provider must fail"

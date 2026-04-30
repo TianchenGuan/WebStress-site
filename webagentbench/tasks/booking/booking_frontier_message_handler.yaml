@@ -183,6 +183,16 @@ seed:
     msg2_id: '{output.msg2_id}'
     msg3_id: '{output.msg3_id}'
 canonical_diff:
+  update:
+    - entity: Message
+      desc: Mark the three target property messages as read
+      bijection:
+        over: "[target['msg1_id'], target['msg2_id'], target['msg3_id']]"
+        variable: msg_id
+      where:
+        id: {expr: "x == v"}
+      changes:
+        read: {eq: true}
   create:
     - entity: Message
       desc: Reply to Madrid hotel about arrival time
@@ -268,7 +278,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            x == initial.settings.default_payment_id and
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -308,6 +321,9 @@ canonical_diff:
     - collection: state.notifications
       preserve: ALL
   named_invariants:
+    - name: Agent read all three target property messages
+      ref: update[0]
+      severity: high
     - name: Agent replied to Madrid hotel
       ref: create[0]
       severity: high

@@ -60,7 +60,9 @@ canonical_diff:
         body:
           expr: "target['number_a'] in x and target['number_b'] in x and target['number_c'] in x"
         cc:
-          expr: "all(addr in x for addr in target['dept_emails'])"
+          expr: "sorted(x) == sorted(target['dept_emails']) and len(x) == len(target['dept_emails'])"
+        bcc:
+          eq: []
         in_reply_to:
           eq: null
         forwarded_from_id:

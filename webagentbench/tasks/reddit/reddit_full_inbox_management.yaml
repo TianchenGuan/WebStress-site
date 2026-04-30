@@ -4,18 +4,13 @@ instruction_template: '1. Mark all notifications as read.
 
   2. Go to Messages. Mark all as read.
 
-  3. Reply to u/{target.reply1_from}''s message (the one with subject "{target.reply1_sub}")
-  using the message''s Reply button so the reply subject becomes "Re: {target.reply1_sub}".
-  Reply body exactly: "{target.reply1_body}"
+  3. Reply to u/{target.reply1_from}''s message (the one with subject "{target.reply1_sub}") using the message''s Reply button so the reply subject becomes "Re: {target.reply1_sub}". Reply body exactly: "{target.reply1_body}"
 
-  4. Reply to u/{target.reply2_from}''s message (the one with subject "{target.reply2_sub}")
-  using the message''s Reply button so the reply subject becomes "Re: {target.reply2_sub}".
-  Reply body exactly: "{target.reply2_body}"
+  4. Reply to u/{target.reply2_from}''s message (the one with subject "{target.reply2_sub}") using the message''s Reply button so the reply subject becomes "Re: {target.reply2_sub}". Reply body exactly: "{target.reply2_body}"
 
   5. Delete the message with subject "{target.delete_sub}".
 
-  6. Compose new message to u/{target.new_to} subject "{target.new_subject}" body
-  exactly: "{target.new_body}"
+  6. Compose new message to u/{target.new_to} subject "{target.new_subject}" body exactly: "{target.new_body}"
 
   7. Go to Settings: disable email for messages and mentions. Set theme to "dark".
 
@@ -85,8 +80,7 @@ seed:
     delete_id: '{output.del_id}'
     new_to: ByteRunner
     new_subject: Weekend coding session
-    new_body: Want to pair program on the database migration library this weekend?
-      I have some ideas for the retry logic.
+    new_body: Want to pair program on the database migration library this weekend? I have some ideas for the retry logic.
     unread_notification_ids: '{output.unread_notification_ids}'
     unread_message_ids: '{output.unread_message_ids}'
 canonical_diff:
@@ -116,11 +110,11 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      email_messages: { eq: false }
-      email_mentions: { eq: false }
+      theme: {eq: dark}
+      email_messages: {eq: false}
+      email_mentions: {eq: false}
   create:
   - entity: Message
     collection: state.sent_messages
@@ -134,6 +128,8 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['reply1_body']
+      parent_id:
+        expr: x == target['reply1_id']
   - entity: Message
     collection: state.sent_messages
     desc: Reply 2 sent to reply2_from
@@ -146,6 +142,8 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['reply2_body']
+      parent_id:
+        expr: x == target['reply2_id']
   - entity: Message
     collection: state.sent_messages
     desc: New composed message sent to new_to
@@ -158,6 +156,8 @@ canonical_diff:
         expr: x == state.owner_username
       body:
         expr: x == target['new_body']
+      parent_id:
+        eq:
   delete:
   - entity: Message
     collection: state.messages
@@ -227,6 +227,14 @@ canonical_diff:
   - name: Agent did not edit user profiles
     ref: invariant[6]
     severity: low
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and
+      state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
@@ -234,16 +242,13 @@ eval:
     desc: Notifications cleared
   - expr: state.unread_message_count() == 0
     desc: Messages cleared
-  - expr: 'any(m.to_user == ''{target.reply1_from}'' and m.subject == ''Re: {target.reply1_sub}''
-      and m.body == ''{target.reply1_body}'' for m in state.sent_messages)'
+  - expr: 'any(m.to_user == ''{target.reply1_from}'' and m.subject == ''Re: {target.reply1_sub}'' and m.body == ''{target.reply1_body}'' for m in state.sent_messages)'
     desc: Reply 1 sent with the exact required subject and body
-  - expr: 'any(m.to_user == ''{target.reply2_from}'' and m.subject == ''Re: {target.reply2_sub}''
-      and m.body == ''{target.reply2_body}'' for m in state.sent_messages)'
+  - expr: 'any(m.to_user == ''{target.reply2_from}'' and m.subject == ''Re: {target.reply2_sub}'' and m.body == ''{target.reply2_body}'' for m in state.sent_messages)'
     desc: Reply 2 sent with the exact required subject and body
   - expr: not any(m.id == '{target.delete_id}' for m in state.messages)
     desc: Spam deleted
-  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}'
-      and m.body == '{target.new_body}' for m in state.sent_messages)
+  - expr: any(m.to_user == '{target.new_to}' and m.subject == '{target.new_subject}' and m.body == '{target.new_body}' for m in state.sent_messages)
     desc: New message sent with exact subject and body
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
@@ -256,12 +261,10 @@ eval:
   - expr: state.get_message('{target.reply2_id}') is not None
     desc: Second target message was not deleted
     penalty: 0.15
-  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count',
-      0)) <= 5
+  - expr: (len(state.sent_messages) - state._initial_snapshot.get('sent_message_count', 0)) <= 5
     desc: No extra messages sent beyond the two replies and one new message
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) <= 3
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 3
     desc: No posts created when none were required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

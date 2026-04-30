@@ -83,3 +83,16 @@ def test_missing_label_deletion_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing label deletion should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Display density is the only setting this task may change."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.settings.language = 'French'
+
+    task = get_task('gmail_team_transition_setup')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"

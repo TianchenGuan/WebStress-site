@@ -1,8 +1,9 @@
 task_id: rh_live_watch_portfolio
 env_id: robinhood
 title: Watch Portfolio Value and Sell Winner
-instruction_template: Monitor your total portfolio value. When it crosses above $14,700,
-  sell your most profitable position by total return percentage to lock in gains.
+instruction_template: Monitor your total portfolio value. When it crosses above
+  $14,700, sell your most profitable position by total return percentage to lock
+  in gains.
 difficulty: hard
 time_limit_seconds: 280
 expected_steps: 18
@@ -37,7 +38,7 @@ seed:
         - - 0
           - 189.0
         - - 18
-          - 225.0
+          - 228.0
         - - 30
           - 222.0
         noise_pct: 0.3
@@ -88,6 +89,21 @@ canonical_diff:
     filter: "False"
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: Most-profitable position sell order filled
+    expr: any(o.symbol == target['best_symbol'] and o.side == 'sell' and
+      o.status == 'filled' and o.filled_quantity == o.quantity for o in
+      state.orders)
+    severity: critical
+  - desc: Portfolio value crossed the $14,700 trigger before selling
+    expr: sum(state.get_stock(p.symbol).price * p.quantity for p in
+      initial.positions if state.get_stock(p.symbol) is not None) >=
+      Decimal('14700')
+    severity: critical
+  - desc: Most-profitable position fully liquidated
+    expr: state.get_position(target['best_symbol']) is None
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures patience, state_tracking, planning by requiring exact completion
-  of the requested Robinhood workflow while ignoring distractor account state.
+primitive_thesis: Measures patience, state_tracking, planning by requiring exact
+  completion of the requested Robinhood workflow while ignoring distractor
+  account state.

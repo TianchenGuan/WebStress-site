@@ -57,6 +57,12 @@ canonical_diff:
       properties:
         in_reply_to:
           expr: "x == target['mismatched_vendor_email_id']"
+        to:
+          expr: "x == [next(e.from_addr for e in initial.emails if e.id == target['mismatched_vendor_email_id'])]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
           expr: "target['correct_po_for_mismatched'] in x"
         forwarded_from_id:

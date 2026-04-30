@@ -91,6 +91,20 @@ def test_wrong_reason_fails():
     assert report.passed is False
 
 
+def test_partial_quality_reason_fails():
+    _, _, targets, initial, state = _setup_session()
+    _file_all_returns(state, targets, reason="Quality issue")
+
+    task = get_task("amazon_negative_review_return_cascade")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
 def test_return_on_positive_reviewed_fails():
     """Filing an extra return on a positively-reviewed product should violate invariant."""
     _, _, targets, initial, state = _setup_session()

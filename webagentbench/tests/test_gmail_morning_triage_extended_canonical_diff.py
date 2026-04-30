@@ -24,14 +24,14 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject="Re: Project Update",
         body=targets["reply_phrase_a"],
-        to=[],
+        to=[state.get_email(targets["reply_a_id"]).from_addr],
         in_reply_to=targets["reply_a_id"],
     )
     # Reply to email from reply_b_sender_name confirming receipt
     state.send_email(
         subject="Re: Update",
         body="Confirmed, received.",
-        to=[],
+        to=[state.get_email(targets["reply_b_id"]).from_addr],
         in_reply_to=targets["reply_b_id"],
     )
     # Create Action Required label
@@ -77,13 +77,13 @@ def test_missing_action_required_label_fails():
     state.send_email(
         subject="Re: Project Update",
         body=targets["reply_phrase_a"],
-        to=[],
+        to=[state.get_email(targets["reply_a_id"]).from_addr],
         in_reply_to=targets["reply_a_id"],
     )
     state.send_email(
         subject="Re: Update",
         body="Confirmed.",
-        to=[],
+        to=[state.get_email(targets["reply_b_id"]).from_addr],
         in_reply_to=targets["reply_b_id"],
     )
     # Star urgent emails but don't apply the label (and don't create it)

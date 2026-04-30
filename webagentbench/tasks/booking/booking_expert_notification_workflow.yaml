@@ -213,14 +213,16 @@ canonical_diff:
         nights: {eq: 4}
         guests: {eq: 2}
         rooms: {any: true}
-        price_per_night: {any: true}
+        price_per_night: {expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['second_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= 2)"}
         total_price: {any: true}
         taxes_and_fees: {any: true}
         currency: {any: true}
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Amex' and pm.last_four == '1234' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}

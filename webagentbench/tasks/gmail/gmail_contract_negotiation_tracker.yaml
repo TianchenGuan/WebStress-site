@@ -49,15 +49,22 @@ canonical_diff:
       count: 1
       properties:
         to:
-          expr: "'nora.zhang@ops.thornton.com' in x"
+          expr: "x == ['nora.zhang@ops.thornton.com']"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         subject:
           eq: "Contract Status — Lattice Works"
         body:
-          substring_all:
-            - "Open items:"
-            - liability cap
-            - renewal pricing
-            - support response time
+          expr: >-
+            'Open items:' in x
+            and 'liability cap' in x
+            and 'renewal pricing' in x
+            and 'support response time' in x
+            and target['liability_cap_concern'] in x
+            and target['renewal_pricing_concern'] in x
+            and target['support_response_concern'] in x
         in_reply_to:
           eq: null
     - entity: labels

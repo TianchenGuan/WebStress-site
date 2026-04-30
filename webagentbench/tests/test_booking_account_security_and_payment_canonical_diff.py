@@ -111,3 +111,11 @@ def test_missing_2fa_fails():
     state.add_payment_method(new_pm)
     report = _evaluate(task, initial, state, targets)
     assert report.passed is False, "missing 2FA should fail"
+
+
+def test_missing_default_payment_pointer_fails():
+    task, targets, initial, state = _setup_session(0)
+    _apply_correct_mutations(state, targets)
+    state.settings.default_payment_id = next(pm.id for pm in initial.payment_methods if pm.is_default)
+    report = _evaluate(task, initial, state, targets)
+    assert report.passed is False, "new default card must also update settings.default_payment_id"

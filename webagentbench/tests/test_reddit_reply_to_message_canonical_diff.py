@@ -23,7 +23,10 @@ def _setup_session(seed: int = 42):
     return sm, sid, dict(targets), initial, state
 
 
-def _reply(state, *, to: str, subject: str, body: str, msg_id: str = "msg_new") -> Message:
+def _reply(
+    state, *, to: str, subject: str, body: str,
+    parent_id: str | None, msg_id: str = "msg_new",
+) -> Message:
     msg = Message(
         id=msg_id,
         from_user=state.owner_username,
@@ -32,7 +35,7 @@ def _reply(state, *, to: str, subject: str, body: str, msg_id: str = "msg_new") 
         body=body,
         created_at=datetime.now(timezone.utc),
         is_read=False,
-        parent_id=None,
+        parent_id=parent_id,
         context="",
     )
     state.sent_messages.append(msg)
@@ -44,7 +47,8 @@ def test_correct_trajectory_passes():
     inbox_msg = state.get_message(targets["message_id"])
     inbox_msg.is_read = True
     _reply(state, to=targets["from_user"],
-           subject=f"Re: {targets['message_subject']}", body=BODY)
+           subject=f"Re: {targets['message_subject']}", body=BODY,
+           parent_id=targets["message_id"])
     task = get_task("reddit_reply_to_message")
     report = match_diff(
         compute_diff(initial, state), task.canonical_diff,
@@ -69,7 +73,8 @@ def test_wrong_recipient_fails():
     inbox_msg = state.get_message(targets["message_id"])
     inbox_msg.is_read = True
     _reply(state, to="SomeoneElse",
-           subject=f"Re: {targets['message_subject']}", body=BODY)
+           subject=f"Re: {targets['message_subject']}", body=BODY,
+           parent_id=targets["message_id"])
     task = get_task("reddit_reply_to_message")
     report = match_diff(
         compute_diff(initial, state), task.canonical_diff,
@@ -81,7 +86,23 @@ def test_wrong_recipient_fails():
 def test_did_not_mark_read_fails():
     _, _, targets, initial, state = _setup_session()
     _reply(state, to=targets["from_user"],
-           subject=f"Re: {targets['message_subject']}", body=BODY)
+           subject=f"Re: {targets['message_subject']}", body=BODY,
+           parent_id=targets["message_id"])
+    task = get_task("reddit_reply_to_message")
+    report = match_diff(
+        compute_diff(initial, state), task.canonical_diff,
+        targets=targets, initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
+def test_unthreaded_direct_message_fails():
+    _, _, targets, initial, state = _setup_session()
+    inbox_msg = state.get_message(targets["message_id"])
+    inbox_msg.is_read = True
+    _reply(state, to=targets["from_user"],
+           subject=f"Re: {targets['message_subject']}", body=BODY,
+           parent_id=None)
     task = get_task("reddit_reply_to_message")
     report = match_diff(
         compute_diff(initial, state), task.canonical_diff,

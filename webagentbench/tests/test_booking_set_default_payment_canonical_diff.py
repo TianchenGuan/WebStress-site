@@ -29,8 +29,9 @@ def _run(targets, initial_snap, initial_dict, state):
 def _set_default_to_amex(state):
     """Set the Amex card ending in 1234 as the default payment."""
     amex = next(pm for pm in state.payment_methods if pm.card_type == 'Amex' and pm.last_four == '1234')
+    for pm in state.payment_methods:
+        pm.is_default = pm.id == amex.id
     state.settings.default_payment_id = amex.id
-    # Don't change is_default flags — only the settings pointer is checked by canonical_diff
 
 
 def test_correct_trajectory_passes():
@@ -45,6 +46,8 @@ def test_correct_trajectory_passes():
 def test_wrong_card_fails():
     targets, initial_snap, initial_dict, state = _setup_session()
     visa = next(pm for pm in state.payment_methods if pm.card_type == 'Visa')
+    for pm in state.payment_methods:
+        pm.is_default = pm.id == visa.id
     state.settings.default_payment_id = visa.id
     report = _run(targets, initial_snap, initial_dict, state)
     assert report.passed is False, "wrong card type as default should fail"
@@ -55,3 +58,11 @@ def test_no_mutation_fails():
     report = _run(targets, initial_snap, initial_dict, state)
     assert report.passed is False, "no mutation should fail"
     assert report.score < 1.0
+
+
+def test_missing_payment_method_flag_fails():
+    targets, initial_snap, initial_dict, state = _setup_session()
+    amex = next(pm for pm in state.payment_methods if pm.card_type == 'Amex' and pm.last_four == '1234')
+    state.settings.default_payment_id = amex.id
+    report = _run(targets, initial_snap, initial_dict, state)
+    assert report.passed is False, "settings pointer alone should not satisfy the backend side effect"

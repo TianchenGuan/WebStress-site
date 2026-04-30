@@ -1,10 +1,11 @@
 task_id: rh_live_intraday_reversal
 env_id: robinhood
 title: Intraday Reversal Buy
-instruction_template: Watch NVDA's price. It will decline from around $875 toward
-  the low $840s then recover. Once the price has dropped below $845 and shows at least
-  2 consecutive rising ticks (each tick higher than the previous), buy 5 shares at
-  market price. Do not buy while the price is still falling.
+instruction_template: Watch NVDA's price. It will decline from around $875
+  toward the low $840s then recover. Once the price has dropped below $845 and
+  shows at least 2 consecutive rising ticks (each tick higher than the
+  previous), buy 5 shares at market price. Do not buy while the price is still
+  falling.
 difficulty: expert
 time_limit_seconds: 350
 expected_steps: 22
@@ -44,7 +45,8 @@ seed:
 canonical_diff:
   create:
   - entity: orders
-    desc: Market buy of 5 NVDA shares placed at the reversal (after price drops below $845 with 2 consecutive rising ticks)
+    desc: Market buy of 5 NVDA shares placed at the reversal (after price drops
+      below $845 with 2 consecutive rising ticks)
     properties:
       symbol: {eq: NVDA}
       side: {eq: buy}
@@ -121,7 +123,22 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: NVDA reversal market buy filled for 5 shares
+    expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type ==
+      'market' and o.quantity == Decimal('5') and o.status == 'filled' and
+      o.filled_quantity == o.quantity for o in state.orders)
+    severity: critical
+  - desc: NVDA buy waited for below-$845 price and two rising ticks
+    expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.order_type ==
+      'market' and o.filled_tick is not None and o.filled_tick >= 2 and
+      state._price_engine.price_at_tick('NVDA', o.filled_tick - 2) <
+      Decimal('845') and state._price_engine.price_at_tick('NVDA',
+      o.filled_tick - 2) < state._price_engine.price_at_tick('NVDA',
+      o.filled_tick - 1) < state._price_engine.price_at_tick('NVDA',
+      o.filled_tick) for o in state.orders)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures patience, state_tracking, grounding, verification by requiring
-  exact completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+primitive_thesis: Measures patience, state_tracking, grounding, verification by
+  requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

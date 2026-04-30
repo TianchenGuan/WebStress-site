@@ -73,3 +73,13 @@ def test_missing_resubmitted_prefix_fails():
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
     assert report.passed is False
+
+
+def test_extra_resubmitted_body_suffix_fails():
+    _, _, targets, initial, state = _setup()
+    _apply_correct(targets, state)
+    state.posts[-1].body = f"[Resubmitted] {targets['original_body']} Extra update."
+    task = get_task("reddit_reconstruct_post")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False

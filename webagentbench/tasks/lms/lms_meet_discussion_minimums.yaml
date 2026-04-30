@@ -120,6 +120,10 @@ canonical_diff:
       weight: 1.0
     - collection: state.student
       preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
     - name: Agent did not post in non-target discussions
       ref: invariant[0]

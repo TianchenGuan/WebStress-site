@@ -172,6 +172,29 @@ def test_missing_refill_fails():
     )
 
 
+def test_refill_side_effects_must_match_backend_decrement():
+    """Bumping last_filled without decrementing exactly one refill must fail."""
+    sm, sid, targets, initial, state = _setup_session()
+
+    _do_full_compliance(state, targets)
+    victim_id = targets["expiring_with_refills_rx_ids"][0]
+    initial_rx = _get_rx(initial, victim_id)
+    state_rx = _get_rx(state, victim_id)
+    state_rx.refills_remaining = initial_rx.refills_remaining
+
+    task = get_task('pp_full_preventive_compliance')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, (
+        "refill updates must decrement refills_remaining by exactly one "
+        "and advance last_filled"
+    )
+
+
 def test_status_flip_without_renewal_message_fails():
     """Renewal status flipped but no rx_renewal ClinicalMessage created.
     create[2] bijection unsaturated -> passed=False."""

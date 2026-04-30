@@ -78,3 +78,40 @@ def test_wrong_order_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_non_pending_return_status_fails():
+    _, _, targets, initial, state = _setup_session()
+    ret = state.request_return(
+        order_id=targets["order_id"],
+        order_item_index=0,
+        reason="defective",
+    )
+    ret.status = "approved"
+
+    task = get_task("amazon_return_item")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
+def test_defective_substring_reason_fails():
+    _, _, targets, initial, state = _setup_session()
+    state.request_return(
+        order_id=targets["order_id"],
+        order_item_index=0,
+        reason="not_defective",
+    )
+
+    task = get_task("amazon_return_item")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

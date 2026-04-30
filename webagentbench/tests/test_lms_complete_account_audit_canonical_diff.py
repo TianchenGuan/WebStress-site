@@ -113,28 +113,33 @@ def test_wrong_announcement_mutation_fails():
 
 
 def test_wrong_recipient_fails():
-    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so the
-    # matcher cannot enforce recipient identity via canonical_diff.
-    # Recipient checks live in the `eval:` block.
     _, _, targets, initial, state = _setup_session()
 
     _read_unread_announcements(state, targets)
     _send_message(state, to="not-the-advisor@example.com")
 
-    assert state.sent_messages[-1]["to"] == "not-the-advisor@example.com"
+    report = _match(initial, state, targets)
+    assert report.passed is False, "messaging a non-advisor should fail"
+
+
+def test_missing_message_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _read_unread_announcements(state, targets)
+
+    report = _match(initial, state, targets)
+    assert report.passed is False, "completing the audit without an advisor message should fail"
 
 
 def test_excess_messages_fails():
-    # Excess-message counts cannot be enforced via canonical_diff because
-    # sent_messages is list[dict] without ids. Excess-message limits live
-    # in the `eval:` block as a negative_check.
     _, _, targets, initial, state = _setup_session()
 
     _read_unread_announcements(state, targets)
     for index in range(5):
         _send_message(state, to=targets["advisor_name"] if index == 0 else f"advisor-{index}@example.com")
 
-    assert len(state.sent_messages) == 5
+    report = _match(initial, state, targets)
+    assert report.passed is False, "sending more than four messages should fail"
 
 
 def test_collateral_collection_mutation_fails():

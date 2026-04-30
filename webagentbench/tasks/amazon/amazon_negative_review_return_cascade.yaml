@@ -67,7 +67,8 @@ seed:
     negative_reviewed_product_ids: '{output.negative_product_ids}'
     order_ids_for_returns: '{output.negative_order_ids}'
     positive_product_id: '{output.positive_product_ids}'
-    reviewed_names_str: Wireless Earbuds Standard, Bamboo Kitchen Utensils Set, Travel Yoga Mat
+    reviewed_names_str: Wireless Earbuds Standard, Bamboo Kitchen Utensils Set,
+      Travel Yoga Mat
 canonical_diff:
   create:
   - entity: ReturnRequest
@@ -78,9 +79,11 @@ canonical_diff:
     properties:
       product_id: {expr: "x == v"}
       order_id:
-        expr: "x in target['order_ids_for_returns'] and any(o.id == x and any(it.product_id == v for it in o.items) for o in state.orders)"
-      reason: {expr: "'quality' in x.lower() or 'expectation' in x.lower()"}
-      status: {any: true}
+        expr: "x in target['order_ids_for_returns'] and any(o.id == x and any(it.product_id
+          == v for it in o.items) for o in state.orders)"
+      reason: {eq: "Quality below expectations"}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}

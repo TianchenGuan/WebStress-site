@@ -31,7 +31,7 @@ def _apply_correct(state, targets):
         subject=f"Re: {targets['r_sub']}",
         body=targets["r_body"],
         created_at=datetime.now(timezone.utc),
-        is_read=False, parent_id=None, context="",
+        is_read=False, parent_id=targets["r_id"], context="",
     ))
     # 4. Delete spam
     state.messages = [m for m in state.messages if m.id != targets["del_id"]]
@@ -127,6 +127,21 @@ def test_wrong_settings_theme_fails():
     _, _, targets, initial, state = _setup()
     _apply_correct(state, targets)
     state.settings.theme = "light"
+    task = get_task("reddit_inbox_driven_engagement")
+    report = match_diff(
+        compute_diff(initial, state), task.canonical_diff,
+        targets=targets, initial=initial, final=state,
+    )
+    assert report.passed is False
+
+
+def test_missing_required_save_fails():
+    _, _, targets, initial, state = _setup()
+    _apply_correct(state, targets)
+    wn = state.get_post(targets["wn_id"])
+    wn.is_saved = False
+    if targets["wn_id"] in state.saved_post_ids:
+        state.saved_post_ids.remove(targets["wn_id"])
     task = get_task("reddit_inbox_driven_engagement")
     report = match_diff(
         compute_diff(initial, state), task.canonical_diff,

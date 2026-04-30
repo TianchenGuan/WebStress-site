@@ -178,7 +178,9 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          x == initial.settings.default_payment_id and
+          any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:
@@ -188,7 +190,7 @@ canonical_diff:
       genius_discount:
         any: true
       meals_included:
-        any: true
+        eq: breakfast
       rating_submitted:
         any: true
   - entity: SavedList

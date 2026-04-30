@@ -1,16 +1,10 @@
 task_id: reddit_verify_inbox_clean
 env_id: reddit
-title: Audit Inbox and Leave Legitimate Messages Alone
-instruction_template: "Audit every message in your inbox. A message is legitimate\
-  \ if any of the following apply: (a) the sender is a moderator account such as\
-  \ u/ModTeam, (b) the message body references a previous interaction of yours (a\
-  \ post, comment, or meeting you were part of), or (c) the sender's username appears\
-  \ elsewhere in your activity. Delete only messages that are clearly spam from unknown\
-  \ senders. If every message turns out to be legitimate, do nothing — do not delete,\
-  \ block, or reply. The evaluator will verify that no legitimate message was removed.\n"
+title: Audit Inbox and Delete Spam Messages
+instruction_template: "Audit every message in your inbox. A message is legitimate if any of the following apply: (a) the sender is a moderator account such as u/ModTeam, (b) the message body references a previous interaction of yours (a post, comment, or meeting you were part of), or (c) the sender's username appears elsewhere in your activity. Delete messages that are clearly spam from unknown senders with no connection to your activity. The evaluator will verify that no legitimate message was removed and that all spam messages were deleted.\n"
 difficulty: easy
 time_limit_seconds: 120
-expected_steps: 8
+expected_steps: 10
 primary_primitives:
 - grounding
 secondary_primitives: []
@@ -33,8 +27,7 @@ seed:
     params:
       from_user: TechHelper
       subject: 'Re: Build help request'
-      body: I'd recommend the Ryzen 7 5800X3D for your use case. Great price-to-performance
-        ratio.
+      body: I'd recommend the Ryzen 7 5800X3D for your use case. Great price-to-performance ratio.
       is_read: false
     outputs:
     - msg2_id
@@ -44,70 +37,71 @@ seed:
     params:
       from_user: StudyBuddy
       subject: Study group meetup this Saturday
-      body: Hey! We're meeting at the library at 2pm. Bring your notes from chapter
-        7.
+      body: Hey! We're meeting at the library at 2pm. Bring your notes from chapter 7.
       is_read: false
     outputs:
     - msg3_id
     - msg3_subject
     - msg3_from
+  - use: target_message
+    params:
+      from_user: crypto_gains_2025
+      subject: 'LIMITED OFFER: 10x your crypto in 7 days!'
+      body: Click here to claim your free tokens and triple your investment instantly. This offer expires soon. Join 50,000 winners today!
+      is_read: false
+    outputs:
+    - spam1_id
+    - spam1_subject
+    - spam1_from
+  - use: target_message
+    params:
+      from_user: prize_winner_alerts
+      subject: You have been selected! Claim your $500 gift card
+      body: Congratulations! You have been randomly selected to receive a $500 Amazon gift card. Click the link below to claim before it expires.
+      is_read: false
+    outputs:
+    - spam2_id
+    - spam2_subject
+    - spam2_from
   targets:
     msg1_id: '{output.msg1_id}'
     msg2_id: '{output.msg2_id}'
     msg3_id: '{output.msg3_id}'
+    spam1_id: '{output.spam1_id}'
+    spam2_id: '{output.spam2_id}'
+    spam_ids:
+    - '{output.spam1_id}'
+    - '{output.spam2_id}'
 canonical_diff:
-  # READ-ONLY task: Cat-D shape — only invariants, no positive entries, no
-  # constraints. Any deletion, block, or other mutation surfaces as an
-  # invariant violation. The "no users blocked" check is now an unfiltered
-  # invariant on state.blocked_users (a primitive string list).
+  delete:
+  - entity: Message
+    collection: messages
+    bijection:
+      over: "target['spam_ids']"
+      variable: v
+    desc: Delete each spam message from unknown senders
+    where:
+      id: {expr: "x == v"}
   invariant:
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.posts
-      preserve: ALL
-    - collection: state.comments
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
-    - collection: state.settings
-      filter: 'False'
-      preserve: ALL
-      comprehensive: true
-eval:
-  source: server_state
-  checks:
-  - expr: 'any(m.id == ''{target.msg1_id}'' for m in state.messages)
-
-      '
-    desc: Message from ModTeam still exists in inbox
-  - expr: 'any(m.id == ''{target.msg2_id}'' for m in state.messages)
-
-      '
-    desc: Message from TechHelper still exists in inbox
-  - expr: 'any(m.id == ''{target.msg3_id}'' for m in state.messages)
-
-      '
-    desc: Message from StudyBuddy still exists in inbox
-  - expr: 'len(state.messages) >= 3
-
-      '
-    desc: All three messages are still present in the inbox
-  negative_checks:
-  - expr: 'not any( e.action == ''reddit.message.delete'' and e.payload.get(''message_id'')
-      in [''{target.msg1_id}'', ''{target.msg2_id}'', ''{target.msg3_id}''] for e
-      in state.audit_log)
-
-      '
-    desc: No known-contact messages were deleted
-    penalty: 0.5
-  - expr: 'len(state.blocked_users) == 0
-
-      '
-    desc: No users were blocked
-    penalty: 0.3
+  - collection: state.messages
+    filter: "a.id in [target['msg1_id'], target['msg2_id'], target['msg3_id']]"
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
+  constraints:
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
+  named_invariants:
+  - name: Legitimate messages were not deleted or modified
+    ref: invariant[0]
+    severity: critical
+  - name: Agent did not send any messages
+    ref: invariant[1]
+    severity: high

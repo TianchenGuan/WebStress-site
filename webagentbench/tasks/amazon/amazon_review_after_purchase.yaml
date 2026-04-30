@@ -51,15 +51,19 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed for the target product using the required address and payment
+    desc: New order placed for the target product using the required address and
+      payment
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id'] and x[0]['quantity']
+          == 1"
       shipping_address_id:
-        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen Terrace' for a in state.addresses if a.id == x)"
+        expr: "any(a.full_name == 'Jordan Parker' and a.street_address == '742 Evergreen
+          Terrace' for a in state.addresses if a.id == x)"
       payment_method_id:
-        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods if p.id == x)"
-      status: {any: true}
+        expr: "any(p.card_type == 'Visa' and p.last_four == '4242' for p in state.payment_methods
+          if p.id == x)"
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -73,11 +77,14 @@ canonical_diff:
     properties:
       product_id: {expr: "x == target['product_id']"}
       rating: {eq: 5}
-      title: {substring: "Absolutely love"}
-      body: {any: true}
-      author_name: {any: true}
-      helpful_count: {any: true}
-      verified_purchase: {any: true}
+      title: {expr: "x == target['review_title']"}
+      body: {expr: "len(x.strip()) >= 20 and 'love' in x.lower()"}
+      author_name:
+        expr: "x == state.owner_name"
+      helpful_count:
+        eq: 0
+      verified_purchase:
+        eq: true
       created_at: {any: true}
   update:
   - entity: Product
@@ -86,10 +93,13 @@ canonical_diff:
     where:
       id: {expr: "x == target['product_id']"}
     changes:
-      review_count: {any: true}
+      review_count:
+        expr: "x == next(p.review_count for p in initial.products if p.id == target['product_id'])
+          + 1"
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['product_id'] for it in (a.items
+      or []))"
     preserve: ALL
   - collection: state.products
     filter: "a.id != target['product_id']"

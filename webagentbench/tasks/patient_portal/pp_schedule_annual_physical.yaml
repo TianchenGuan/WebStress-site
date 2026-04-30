@@ -70,7 +70,7 @@ canonical_diff:
         provider_id:
           expr: "x == target['pcp_id']"
         reason:
-          expr: "'physical' in x.lower() or 'annual' in x.lower()"
+          eq: "Annual physical"
         datetime:
           # Spacing predicate (was a high-severity constraint): physical
           # must be >= 3 days after the most recent newly-scheduled lab.
@@ -79,7 +79,8 @@ canonical_diff:
               (x - lab.datetime).days >= 3
               for lab in state.appointments
               if lab.status == 'scheduled'
-              and any(w in (lab.reason or '').lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])
+              and lab.provider_id == target['pcp_id']
+              and (lab.reason or '') == 'pre-physical lab work'
               and lab.id not in {y.id for y in initial.appointments}
             )
     - entity: Appointment
@@ -87,8 +88,10 @@ canonical_diff:
       properties:
         status: {eq: "scheduled"}
         type: {eq: "in-person"}
+        provider_id:
+          expr: "x == target['pcp_id']"
         reason:
-          expr: "any(w in x.lower() for w in ['lab', 'blood', 'pre-visit', 'bloodwork'])"
+          eq: "pre-physical lab work"
   invariant:
     - collection: state.appointments
       filter: "a.id in target['upcoming_ids']"

@@ -1,16 +1,13 @@
 task_id: reddit_discover_subscribe_post
 env_id: reddit
 title: Discover Community and Create Content
-instruction_template: 'Search for communities about "machine learning". Find r/MachineLearning
-  and subscribe to it.
+instruction_template: 'Search for communities about "machine learning". Find r/MachineLearning and subscribe to it.
 
 
-  Then create a text post in r/MachineLearning with title exactly: "{target.post_title}"
-  and body exactly: "{target.post_body}"
+  Then create a text post in r/MachineLearning with title exactly: "{target.post_title}" and body exactly: "{target.post_body}"
 
 
-  Next, navigate to r/{target.comment_sub} and find the post "{target.comment_post_title}".
-  Add a comment with exactly: "{target.comment_text}"
+  Next, navigate to r/{target.comment_sub} and find the post "{target.comment_post_title}". Add a comment with exactly: "{target.comment_text}"
 
 
   Finally, save that post.
@@ -46,13 +43,11 @@ seed:
     - comment_sub
   targets:
     post_title: 'Understanding LoRA: A practical guide to parameter-efficient fine-tuning'
-    post_body: I wrote a tutorial that walks through LoRA from first principles with
-      working code examples. Feedback welcome!
+    post_body: I wrote a tutorial that walks through LoRA from first principles with working code examples. Feedback welcome!
     comment_sub: '{output.comment_sub}'
     comment_post_title: '{output.comment_post_title}'
     comment_post_id: '{output.comment_post_id}'
-    comment_text: Great benchmarks! Have you tried running these with uvicorn workers
-      scaled to match the Django process count? That would make the comparison fairer.
+    comment_text: Great benchmarks! Have you tried running these with uvicorn workers scaled to match the Django process count? That would make the comparison fairer.
     initial_subscriptions: '{output.subscriptions}'
 canonical_diff:
   update:
@@ -79,18 +74,24 @@ canonical_diff:
       subreddit_name:
         eq: MachineLearning
       title:
-        eq: 'Understanding LoRA: A practical guide to parameter-efficient fine-tuning'
+        expr: x == target['post_title']
       author_name:
         expr: x == state.owner_username
+      body:
+        expr: x == target['post_body']
+      post_type:
+        eq: text
+      url:
+        eq: ''
   - entity: Comment
     desc: Comment on FastAPI post
     properties:
       post_id:
         expr: x == target['comment_post_id']
       body:
-        substring: uvicorn workers
+        expr: x == target['comment_text']
       parent_id:
-        any: true
+        eq:
       author_name:
         expr: x == state.owner_username
   invariant:
@@ -111,6 +112,8 @@ canonical_diff:
     preserve: ALL
   - collection: state.user_profiles
     preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
   - name: Subscribed to r/ML
     ref: update[0]
@@ -124,17 +127,27 @@ canonical_diff:
   - name: Comment on FastAPI post
     ref: create[1]
     severity: high
+  constraints:
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed to r/ML
-  - expr: 'any(p.subreddit_name == "MachineLearning" and p.title == "Understanding
-      LoRA: A practical guide to parameter-efficient fine-tuning" and p.author_name
-      == state.owner_username for p in state.posts)'
+  - expr: 'any(p.subreddit_name == "MachineLearning" and p.title == "Understanding LoRA: A practical guide to parameter-efficient fine-tuning" and p.author_name == state.owner_username for p in state.posts)'
     desc: Post created in r/ML
-  - expr: any(c.post_id == '{target.comment_post_id}' and "uvicorn workers" in c.body
-      and c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.comment_post_id}' and "uvicorn workers" in c.body and c.author_name == state.owner_username for c in state.comments)
     desc: Comment on FastAPI post
   - expr: '''{target.comment_post_id}'' in state.saved_post_ids'
     desc: FastAPI post saved
@@ -145,8 +158,7 @@ eval:
   - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
     desc: No messages sent when none required
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <=
-      2
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) <= 2
     desc: No excessive posts created
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

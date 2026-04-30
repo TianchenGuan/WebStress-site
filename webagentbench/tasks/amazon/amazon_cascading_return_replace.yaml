@@ -113,7 +113,8 @@ canonical_diff:
       order_id: {expr: "x == target['order_1']"}
       product_id: {expr: "x == target['ret_pid_1']"}
       reason: {eq: defective}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -125,7 +126,8 @@ canonical_diff:
       order_id: {expr: "x == target['order_2']"}
       product_id: {expr: "x == target['ret_pid_2']"}
       reason: {eq: wrong_item}
-      status: {any: true}
+      status:
+        eq: pending
       refund_amount: {any: true}
       order_item_index: {any: true}
       product_name: {any: true}
@@ -135,7 +137,8 @@ canonical_diff:
     desc: Replacement order containing the replacement product
     properties:
       items:
-        expr: "any(it['product_id'] == target['replace_pid'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['replace_pid'] and x[0]['quantity']
+          == 1"
       status: {eq: confirmed}
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
@@ -149,7 +152,8 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['replace_pid'] for it in (a.items or []))"
+    filter: "not any(it.get('product_id') == target['replace_pid'] for it in (a.items
+      or []))"
     preserve: ALL
   - collection: state.returns
     filter: "a.order_id != target['order_1'] and a.order_id != target['order_2']"

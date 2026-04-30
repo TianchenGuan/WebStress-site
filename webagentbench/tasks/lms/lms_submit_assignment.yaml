@@ -58,6 +58,10 @@ canonical_diff:
         submission_status: {in: [submitted, late]}
         file_name:
           expr: "x == target['file_name']"
+        attempt_count:
+          expr: "x >= initial.get_assignment(target['target_assignment_id']).attempt_count + 1"
+        submitted_at:
+          expr: "x is not None"
   invariant:
     - collection: state.assignments
       filter: "a.id != target['target_assignment_id']"
@@ -82,6 +86,10 @@ canonical_diff:
       preserve: ALL
     - collection: state.sent_messages
       preserve: ALL
+  constraints:
+  - desc: Agent did not send messages
+    expr: "len(state.sent_messages) == 0"
+    severity: medium
   named_invariants:
     - name: Agent did not modify other assignments
       ref: invariant[0]

@@ -1,9 +1,7 @@
 task_id: reddit_save_comments
 env_id: reddit
 title: Save Specific Comments
-instruction_template: Navigate to r/{target.subreddit_name} and open the post titled
-  "{target.post_title}". Find and save the comment by u/{target.save_author} that
-  says "{target.save_snippet}". Do not save any other comments or posts.
+instruction_template: Navigate to r/{target.subreddit_name} and open the post titled "{target.post_title}". Find and save the comment by u/{target.save_author} that says "{target.save_snippet}". Do not save any other comments or posts.
 difficulty: medium
 time_limit_seconds: 180
 expected_steps: 12
@@ -27,8 +25,7 @@ seed:
   - use: target_comment
     params:
       post_id: '{output.post_id}'
-      body: Max out your Roth IRA first ($7,000 for 2026), then put the rest in a
-        total market index fund like VTI. Keep 3-6 months expenses in a HYSA.
+      body: Max out your Roth IRA first ($7,000 for 2026), then put the rest in a total market index fund like VTI. Keep 3-6 months expenses in a HYSA.
       author: DataWizard42
       score: 4200
     outputs:
@@ -49,37 +46,43 @@ seed:
     save_snippet: Max out your Roth IRA first
 canonical_diff:
   update:
-    - entity: Comment
-      desc: Save the target comment
-      where:
-        id:
-          expr: "x == target['comment_id']"
-      changes:
-        is_saved:
-          eq: true
+  - entity: Comment
+    desc: Save the target comment
+    where:
+      id:
+        expr: "x == target['comment_id']"
+    changes:
+      is_saved:
+        eq: true
   invariant:
-    - collection: state.comments
-      filter: "a.id != target['comment_id']"
-      preserve: ALL
-    - collection: state.posts
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.comments
+    filter: "a.id != target['comment_id']"
+    preserve: ALL
+  - collection: state.posts
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
-    - name: Agent saved the target comment
-      ref: update[0]
-      severity: high
-    - name: Agent did not modify other comments
-      ref: invariant[0]
-      severity: high
+  - name: Agent saved the target comment
+    ref: update[0]
+    severity: high
+  - name: Agent did not modify other comments
+    ref: invariant[0]
+    severity: high
+  constraints:
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
 eval:
   source: server_state
   checks:

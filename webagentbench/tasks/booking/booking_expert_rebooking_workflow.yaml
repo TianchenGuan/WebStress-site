@@ -206,7 +206,7 @@ canonical_diff:
       rooms:
         any: true
       price_per_night:
-        any: true
+        expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['replacement_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= int(target['guests']))"
       total_price:
         any: true
       taxes_and_fees:
@@ -220,7 +220,8 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          any(pm.id == x and pm.card_type == 'Mastercard' and pm.last_four == '8888' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:

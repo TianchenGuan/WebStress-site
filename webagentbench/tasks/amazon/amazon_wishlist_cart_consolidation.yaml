@@ -156,16 +156,16 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed containing both cart items and the two cheap wishlist items
+    desc: New order placed containing both cart items and the two cheap wishlist
+      items
     properties:
       items:
-        expr: any(it['product_id'] == target['cart1'] for it in x) and any(it['product_id']
-          == target['cart2'] for it in x) and any(it['product_id'] == target['cheap1']
-          for it in x) and any(it['product_id'] == target['cheap2'] for it in x) and
-          not any(it['product_id'] == target['exp1'] for it in x) and not any(it['product_id']
-          == target['exp2'] for it in x)
+        expr: "len(x) == 4 and {it['product_id'] for it in x} == {target['cart1'],
+          target['cart2'], target['cheap1'], target['cheap2']} and not any(it['product_id']
+          in [target['exp1'], target['exp2']] for it in x) and all(it['quantity']
+          == 1 for it in x)"
       status:
-        any: true
+        eq: confirmed
       shipping_address_id:
         any: true
       payment_method_id:
@@ -221,9 +221,9 @@ canonical_diff:
         expr: x == target['exp2']
   invariant:
   - collection: state.orders
-    filter: not (any(it.get('product_id') == target['cart1'] for it in (a.items or
-      [])) and any(it.get('product_id') == target['cheap1'] for it in (a.items or
-      [])))
+    filter: not (any(it.get('product_id') == target['cart1'] for it in (a.items
+      or [])) and any(it.get('product_id') == target['cheap1'] for it in
+      (a.items or [])))
     preserve: ALL
   - collection: state.products
     preserve: ALL

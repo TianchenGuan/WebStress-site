@@ -141,6 +141,30 @@ canonical_diff:
         eq: completed
       content_items:
         expr: "all(item.get('completed') is True for item in x)"
+  - entity: Module
+    desc: Unlock the next advanced module in the first course after completing its follow-up module
+    where:
+      id:
+        expr: "x == target['module_ids_course_1'].split(',')[3].strip()"
+    changes:
+      status:
+        eq: available
+  - entity: Module
+    desc: Unlock the follow-up module in the second course
+    where:
+      id:
+        expr: "x == target['first_locked_module_id_2']"
+    changes:
+      status:
+        eq: available
+  - entity: Module
+    desc: Unlock the follow-up module in the third course
+    where:
+      id:
+        expr: "x == target['first_locked_module_id_3']"
+    changes:
+      status:
+        eq: available
   invariant:
   # Allow the backend's prerequisite-unlock cascade: completing a module
   # flips later locked modules in the same course to status='available'.
@@ -168,10 +192,18 @@ canonical_diff:
     preserve: ALL
   - collection: state.calendar_events
     preserve: ALL
-  - collection: state.sent_messages
-    preserve: ALL
   - collection: state.student
     preserve: ALL
+  constraints:
+  - desc: Agent sent a progress update to the advisor
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and (m.get('subject', '') or '').strip() and (m.get('body', '') or '').strip() for m in state.sent_messages)"
+    severity: critical
+  - desc: Advisor message came from the student account
+    expr: "any(target['advisor_name'] in (m.get('to', '') or '') and m.get('from') == state.student.email for m in state.sent_messages)"
+    severity: high
+  - desc: Agent sent exactly one progress update
+    expr: "len(state.sent_messages) == 1"
+    severity: high
   named_invariants:
   - name: Agent completed the next available module in the first course
     ref: update[0]
@@ -184,6 +216,15 @@ canonical_diff:
     severity: high
   - name: Agent completed the next available module in the third course
     ref: update[3]
+    severity: high
+  - name: Agent unlocked the next advanced module in the first course
+    ref: update[4]
+    severity: high
+  - name: Agent unlocked the follow-up module in the second course
+    ref: update[5]
+    severity: high
+  - name: Agent unlocked the follow-up module in the third course
+    ref: update[6]
     severity: high
   - name: Agent did not modify other modules
     ref: invariant[0]
@@ -215,9 +256,6 @@ canonical_diff:
   - name: Agent did not modify calendar events
     ref: invariant[9]
     severity: low
-  - name: Agent did not send messages
-    ref: invariant[10]
-    severity: medium
 eval:
   source: server_state
   checks:

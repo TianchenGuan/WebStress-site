@@ -544,9 +544,11 @@ class RobinhoodState(BaseEnvState):
     def default_bank(self) -> LinkedBank | None:
         return next((b for b in self.linked_banks if b.is_default), None)
 
+    @property
     def pending_orders(self) -> list[Order]:
         return [o for o in self.orders if o.status == "pending"]
 
+    @property
     def filled_orders(self) -> list[Order]:
         return [o for o in self.orders if o.status == "filled"]
 

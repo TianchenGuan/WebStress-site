@@ -296,7 +296,7 @@ def test_scramble_timestamps_preserves_datetime_values() -> None:
     assert state.touched is True
 
 
-class _EvalTask:
+class _LegacyEvalOnlyTask:
     eval = EvalConfig(
         checks=[Check(expr="True", desc="positive passes")],
         negative_checks=[
@@ -306,32 +306,33 @@ class _EvalTask:
     )
 
 
-def test_evaluator_caps_negative_penalties() -> None:
+def test_evaluator_rejects_legacy_eval_only_tasks() -> None:
     result = evaluate(
-        _EvalTask(),
+        _LegacyEvalOnlyTask(),
         server_state=SimpleNamespace(),
         targets={},
         trajectory=[],
     )
 
-    assert result["score"] == pytest.approx(0.05)
-    assert "capped at 0.95" in result["reasoning"]
+    assert result["success"] is False
+    assert result["score"] == pytest.approx(0.0)
+    assert "Legacy eval.checks are no longer supported" in result["reasoning"]
 
 
 class _BenchmarkStateTask:
-    eval = EvalConfig(
-        checks=[
-            Check(
-                expr=(
+    canonical_diff = {
+        "constraints": [
+            {
+                "desc": "search event recorded",
+                "expr": (
                     "any(event.get('type') == 'search_submit' and 'budget' in "
                     "str(event.get('detail', {}).get('query', '')).lower() "
                     "for event in state.benchmark_state.get('events', []))"
                 ),
-                desc="search event recorded",
-            )
+                "severity": "critical",
+            }
         ],
-        negative_checks=[],
-    )
+    }
 
 
 def test_evaluator_can_check_client_benchmark_state_events() -> None:
@@ -428,7 +429,9 @@ def test_thread_detective_ignores_quoted_conflicting_times() -> None:
     server_state = SimpleNamespace(
         sent=[
             SimpleNamespace(
+                id="sent_1",
                 to=["sofia.rivera@vertexlab.io"],
+                cc=[],
                 body=(
                     "11:00 AM works on my side, so let's confirm that.\n\n"
                     "On 3/2/2026, 3:20:00 AM, Sofia Rivera wrote:\n"
@@ -436,8 +439,10 @@ def test_thread_detective_ignores_quoted_conflicting_times() -> None:
                 ),
                 in_reply_to="email_123",
                 thread_id="thread_456",
+                forwarded_from_id=None,
             )
-        ]
+        ],
+        _initial_state_copy=SimpleNamespace(sent=[]),
     )
     server_state.get_email = lambda _email_id: SimpleNamespace(is_read=True)
 

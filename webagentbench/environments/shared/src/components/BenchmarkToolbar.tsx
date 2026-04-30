@@ -179,6 +179,10 @@ function applyClientInjections(
     const params = injections[i].params ?? {};
     const action = typeof params.action === "string" ? params.action : "";
     const actionSeed = seed ^ ((i + 1) * 0x9e3779b1);
+    const shouldApply = (probability: unknown, index: number) => {
+      const p = typeof probability === "number" ? probability : 1;
+      return seededQuantile(actionSeed, index) <= p;
+    };
 
     // ----- Legacy actions (preserved) -----
     if (action === "scramble_aria") {
@@ -241,6 +245,86 @@ function applyClientInjections(
         flags[flag] = value;
         w.__wabFeatureFlags = flags;
       }
+    } else if (action === "hide_navigation") {
+      const selectors = Array.isArray(params.selectors)
+        ? params.selectors.map(String)
+        : [String(params.selector ?? "nav a, .bk-tab")];
+      const behavior = (params.behavior ?? {}) as Record<string, unknown>;
+      const probability = behavior.hide_probability ?? 1;
+      selectors.forEach((selector, selectorIndex) => {
+        Array.from(document.querySelectorAll<HTMLElement>(selector)).forEach((el, idx) => {
+          if (!shouldApply(probability, selectorIndex * 1000 + idx)) return;
+          const oldDisplay = el.style.display;
+          el.style.display = "none";
+          teardowns.push(() => { el.style.display = oldDisplay; });
+        });
+      });
+    } else if (action === "inject_visual_noise") {
+      const mutations = Array.isArray(params.mutations) ? params.mutations : [];
+      mutations.forEach((raw, mutationIndex) => {
+        const mutation = (raw ?? {}) as Record<string, unknown>;
+        const selector = String(mutation.selector ?? "main");
+        const behavior = String(mutation.behavior ?? "outline_noise");
+        const probability = mutation.probability ?? 1;
+        Array.from(document.querySelectorAll<HTMLElement>(selector)).forEach((el, idx) => {
+          if (!shouldApply(probability, mutationIndex * 1000 + idx)) return;
+          if (behavior === "shuffle_child_order") {
+            const children = Array.from(el.children);
+            const original = children.map((child) => child);
+            children
+              .map((child, childIndex) => ({ child, rank: seededQuantile(actionSeed, idx * 100 + childIndex) }))
+              .sort((a, b) => a.rank - b.rank)
+              .forEach(({ child }) => el.appendChild(child));
+            teardowns.push(() => { original.forEach((child) => el.appendChild(child)); });
+          } else {
+            const oldOutline = el.style.outline;
+            el.style.outline = "1px dashed rgba(220, 38, 38, 0.25)";
+            teardowns.push(() => { el.style.outline = oldOutline; });
+          }
+        });
+      });
+    } else if (action === "mutate_displayed_text") {
+      const mutations = Array.isArray(params.mutations) ? params.mutations : [];
+      mutations.forEach((raw, mutationIndex) => {
+        const mutation = (raw ?? {}) as Record<string, unknown>;
+        const selector = String(mutation.selector ?? "");
+        const behavior = String(mutation.behavior ?? "replace_text");
+        const probability = mutation.probability ?? 1;
+        if (!selector) return;
+        Array.from(document.querySelectorAll<HTMLElement>(selector)).forEach((el, idx) => {
+          if (!shouldApply(probability, mutationIndex * 1000 + idx)) return;
+          const oldText = el.textContent ?? "";
+          if (behavior === "inflate_stars") {
+            el.textContent = oldText.replace(/\b4(\.0)?\b/, "5").replace(/★★★★(?!★)/, "★★★★★");
+          } else if (typeof mutation.text === "string") {
+            el.textContent = mutation.text;
+          }
+          teardowns.push(() => { el.textContent = oldText; });
+        });
+      });
+    } else if (action === "inject_confirmation_dialogs") {
+      const behavior = (params.behavior ?? {}) as Record<string, unknown>;
+      const confirmOn = Array.isArray(behavior.confirm_on) ? behavior.confirm_on.map(String) : [];
+      const message = String(behavior.message ?? "Are you sure?");
+      const matchesTarget = (el: HTMLElement | null) => {
+        if (!el || confirmOn.length === 0) return true;
+        const form = el.closest("form") as HTMLFormElement | null;
+        const href = (el.closest("a") as HTMLAnchorElement | null)?.href ?? "";
+        const actionAttr = form?.action ?? "";
+        const text = `${href} ${actionAttr} ${window.location.pathname} ${el.textContent ?? ""}`.toLowerCase();
+        return confirmOn.some((needle) => text.includes(needle.toLowerCase()));
+      };
+      const handler = (e: Event) => {
+        const el = e.target as HTMLElement | null;
+        if (!matchesTarget(el)) return;
+        if (!window.confirm(message)) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+      };
+      listen(document, "click", handler as EventListener, true);
+      listen(document, "submit", handler as EventListener, true);
     }
 
     // ----- Action fidelity -----

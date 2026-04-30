@@ -24,7 +24,7 @@ def _apply_all_correct_mutations(state, targets):
         state.send_email(
             subject="Re: VIP",
             body=targets["status_phrase"],
-            to=[],
+            to=[state.get_email(eid).from_addr],
             in_reply_to=eid,
         )
         state.toggle_star(eid, is_starred=True)
@@ -70,7 +70,7 @@ def test_wrong_status_phrase_fails():
         state.send_email(
             subject="Re: VIP",
             body="I'll get back to you soon.",  # wrong phrase
-            to=[],
+            to=[state.get_email(eid).from_addr],
             in_reply_to=eid,
         )
         state.toggle_star(eid, is_starred=True)

@@ -23,7 +23,7 @@ def test_correct_trajectory_passes():
     state.send_email(
         subject="Re: Meeting Tomorrow at 2pm",
         body="I'll be there. Thanks!",
-        to=["bob.martinez@example.com"],
+        to=[state.get_email(targets["target_email_id"]).from_addr],
         thread_id=targets["target_thread_id"],
         in_reply_to=targets["target_email_id"],
     )
@@ -53,7 +53,7 @@ def test_wrong_body_fails():
     state.send_email(
         subject="Re: Meeting Tomorrow at 2pm",
         body="I can't make it.",  # wrong body
-        to=["bob.martinez@example.com"],
+        to=[state.get_email(targets["target_email_id"]).from_addr],
         thread_id=targets["target_thread_id"],
         in_reply_to=targets["target_email_id"],
     )
@@ -65,13 +65,31 @@ def test_wrong_body_fails():
     assert report.passed is False, "wrong body should fail"
 
 
+def test_wrong_recipient_fails():
+    """Reply body in the right thread but sent to the wrong recipient must fail."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Re: Meeting Tomorrow at 2pm",
+        body="I'll be there. Thanks!",
+        to=["someone-else@example.com"],
+        thread_id=targets["target_thread_id"],
+        in_reply_to=targets["target_email_id"],
+    )
+
+    task = get_task('gmail_reply_simple')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "wrong reply recipient should fail"
+
+
 def test_wrong_thread_fails():
     """Reply to correct email but with wrong thread_id — identity check fails."""
     _, _, targets, initial, state = _setup_session()
     state.send_email(
         subject="Re: Meeting Tomorrow at 2pm",
         body="I'll be there. Thanks!",
-        to=["bob.martinez@example.com"],
+        to=[state.get_email(targets["target_email_id"]).from_addr],
         thread_id="thread_wrong_99",  # wrong thread
         in_reply_to=targets["target_email_id"],
     )

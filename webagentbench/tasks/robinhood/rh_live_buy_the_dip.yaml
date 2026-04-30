@@ -102,6 +102,12 @@ canonical_diff:
     preserve: ALL
   - collection: state.transfers
     preserve: ALL
+  constraints:
+  - desc: AAPL limit buy filled only after price reached the $180 threshold
+    expr: any(o.symbol == 'AAPL' and o.side == 'buy' and o.order_type == 'limit'
+      and o.status == 'filled' and o.filled_tick is not None and o.filled_price
+      is not None and o.filled_price <= Decimal('180') for o in state.orders)
+    severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, verification by requiring exact completion
   of the requested Robinhood workflow while ignoring distractor account state.

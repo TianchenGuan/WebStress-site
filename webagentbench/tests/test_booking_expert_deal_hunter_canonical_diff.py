@@ -50,6 +50,7 @@ def _apply_correct_actions(state, targets):
         rooms=1,
         payment_method_id="pm_1",
         guest_info=ReservationGuest(full_name=state.owner_name, email=state.owner_email),
+        meals_included="breakfast",
     )
     sl = state.create_saved_list("Amsterdam Deals")
     for pid in [targets["prop_id_1"], targets["prop_id_2"], targets["prop_id_3"]]:

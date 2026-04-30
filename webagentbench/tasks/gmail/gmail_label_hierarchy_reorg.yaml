@@ -83,8 +83,7 @@ canonical_diff:
           expr: "x == target['blocked_email_id']"
       changes:
         labels:
-          superset:
-            - "Engineering/Blocked"
+          expr: "set(x) == ((set(next(e.labels for e in initial.emails if e.id == target['blocked_email_id'])) - {'Projects', 'Engineering/Active'}) | {'Engineering/Blocked'})"
     - entity: emails
       desc: Move review emails from Engineering/Active to Engineering/Review
       bijection:
@@ -95,8 +94,7 @@ canonical_diff:
           expr: "x == v"
       changes:
         labels:
-          superset:
-            - "Engineering/Review"
+          expr: "set(x) == ((set(next(e.labels for e in initial.emails if e.id == v)) - {'Projects', 'Engineering/Active'}) | {'Engineering/Review'})"
     - entity: emails
       desc: Remaining Projects emails updated to Engineering/Active by rename
       bijection:
@@ -107,8 +105,7 @@ canonical_diff:
           expr: "x == v"
       changes:
         labels:
-          superset:
-            - "Engineering/Active"
+          expr: "set(x) == ((set(next(e.labels for e in initial.emails if e.id == v)) - {'Projects'}) | {'Engineering/Active'})"
     - entity: emails
       desc: Archive-Projects emails updated to Engineering/Completed by rename
       bijection:
@@ -119,8 +116,7 @@ canonical_diff:
           expr: "x == v"
       changes:
         labels:
-          superset:
-            - "Engineering/Completed"
+          expr: "set(x) == ((set(next(e.labels for e in initial.emails if e.id == v)) - {'Archive-Projects'}) | {'Engineering/Completed'})"
   create:
     - entity: labels
       desc: Create Engineering/Blocked label (show in label list, show in message list)

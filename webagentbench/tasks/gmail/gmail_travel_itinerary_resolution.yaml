@@ -51,7 +51,7 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['flight_rebooked_email_id']"
         to:
-          expr: "'travel.assistant@ops.thornton.com' in x"
+          expr: "x == ['travel.assistant@ops.thornton.com']"
         cc:
           eq: []
         bcc:
@@ -63,7 +63,7 @@ canonical_diff:
         forwarded_from_id:
           expr: "x == target['hotel_denver_email_id']"
         to:
-          expr: "'travel.assistant@ops.thornton.com' in x"
+          expr: "x == ['travel.assistant@ops.thornton.com']"
         cc:
           eq: []
         bcc:
@@ -75,7 +75,7 @@ canonical_diff:
         from_addresses:
           expr: "target['airline_sender'] in x"
         add_labels:
-          superset:
+          set_eq:
             - Travel
     - entity: labels
       desc: Create Travel label

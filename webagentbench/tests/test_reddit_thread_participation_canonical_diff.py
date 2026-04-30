@@ -50,3 +50,33 @@ def test_no_mutation_fails():
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
     assert report.passed is False
+
+
+def test_nested_reply_must_stay_on_target_post():
+    _, _, targets, initial, state = _setup()
+    state.get_post(targets["post_id"]).vote_direction = 1
+    state.get_comment(targets["save_comment_id"]).is_saved = True
+    state.saved_comment_ids.append(targets["save_comment_id"])
+    state.get_comment(targets["downvote_comment_id"]).vote_direction = -1
+    wrong_post_id = next(p.id for p in state.posts if p.id != targets["post_id"])
+    state.comments.append(Comment(
+        id="comment_new1", post_id=targets["post_id"], parent_id=None,
+        author_name=state.owner_username, body=targets["comment1_text"],
+        score=1, created_at=datetime.now(timezone.utc),
+        is_edited=False, edited_at=None, is_removed=False, is_collapsed=False,
+        is_saved=False, is_submitter=False, vote_direction=0, depth=0,
+        awards=[], flair_text=None,
+    ))
+    state.comments.append(Comment(
+        id="comment_new2", post_id=wrong_post_id,
+        parent_id=targets["reply_target_id"],
+        author_name=state.owner_username, body=targets["reply_text"],
+        score=1, created_at=datetime.now(timezone.utc),
+        is_edited=False, edited_at=None, is_removed=False, is_collapsed=False,
+        is_saved=False, is_submitter=False, vote_direction=0, depth=1,
+        awards=[], flair_text=None,
+    ))
+    task = get_task("reddit_thread_participation")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False

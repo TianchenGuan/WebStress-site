@@ -54,7 +54,7 @@ def test_patient_portal_variants_endpoint_exposes_generated_yaml_batch(client: T
     assert any(
         v.get("filename") == "pp_mark_all_read__messages_list_stale_v1.yaml"
         and v.get("base_task_id") == "pp_mark_all_read"
-        and v.get("target_primitive") == "exploration"
+        and v.get("target_primitive") == "verification"
         for v in variants
     )
     assert any(

@@ -1,10 +1,12 @@
 """End-to-end tests for rh_verify_no_action_needed canonical_diff.
 
-Task: Review recurring investments; since none dropped 30%+, take no action.
+Task: VOO (cost_basis=650, current~437, -33%) and SCHD (cost_basis=120,
+current~78, -35%) have dropped >30% from purchase price. Agent must pause
+those two recurring investments while leaving AAPL and MSFT untouched.
 
 Verifies:
-  - Taking no action passes (all RIs remain active).
-  - Incorrectly pausing an RI fails.
+  - Pausing VOO and SCHD RIs passes.
+  - Leaving RIs unchanged fails (missing required pauses).
 """
 
 from webagentbench.backend.state import SessionManager
@@ -25,9 +27,12 @@ def _setup_session(seed: int = 42):
 
 
 def test_no_action_passes():
-    """Correct behavior: no stocks dropped 30%+, so no RI changes needed."""
+    """Correct behavior: pause VOO and SCHD RIs (both dropped >30%)."""
     sm, sid, targets, initial, state = _setup_session()
-    # No state changes
+    # VOO dropped ~33% and SCHD dropped ~35% from purchase price — pause both.
+    for ri in state.recurring_investments:
+        if ri.symbol in ("VOO", "SCHD"):
+            state.update_recurring_investment(ri.id, status="paused")
 
     task = get_task("rh_verify_no_action_needed")
     agent_diff = compute_diff(initial, state)
@@ -41,11 +46,12 @@ def test_no_action_passes():
 
 
 def test_pausing_ri_fails():
-    """Agent incorrectly pauses a recurring investment when none should be paused."""
+    """Pausing only AAPL (wrong target) while missing VOO/SCHD should fail."""
     sm, sid, targets, initial, state = _setup_session()
-    ri = next((r for r in state.recurring_investments if r.status == "active" and not r.id.startswith("ri_decoy_")), None)
-    if ri:
-        state.update_recurring_investment(ri.id, status="paused")
+    # Pause AAPL (which should NOT be paused) while leaving VOO/SCHD active.
+    aapl_ri = next((r for r in state.recurring_investments if r.symbol == "AAPL"), None)
+    if aapl_ri:
+        state.update_recurring_investment(aapl_ri.id, status="paused")
 
     task = get_task("rh_verify_no_action_needed")
     agent_diff = compute_diff(initial, state)
@@ -54,4 +60,4 @@ def test_pausing_ri_fails():
         targets=dict(targets),
         initial=initial, final=state,
     )
-    assert report.passed is False, "pausing an RI should fail"
+    assert report.passed is False, "pausing AAPL instead of VOO/SCHD should fail"

@@ -62,7 +62,8 @@ canonical_diff:
       status: {any: true}
       created_at: {any: true}
   - entity: orders
-    desc: META sell order placed (bearish response when below-$480 alert triggers)
+    desc: META sell order placed (bearish response when below-$480 alert
+      triggers)
     properties:
       symbol: {eq: META}
       side: {eq: sell}
@@ -130,7 +131,24 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: META below-$480 alert triggered
+    expr: any(a.symbol == 'META' and a.condition == 'below' and
+      Decimal(str(a.target_price)) == Decimal('480') and a.status == 'triggered'
+      for a in state.price_alerts)
+    severity: critical
+  - desc: META sell order filled after bearish alert
+    expr: any(o.symbol == 'META' and o.side == 'sell' and o.quantity ==
+      Decimal('5') and o.status == 'filled' and o.filled_quantity == o.quantity
+      for o in state.orders)
+    severity: critical
+  - desc: META sell order was created after the below-$480 alert triggered
+    expr: any(a.symbol == 'META' and a.condition == 'below' and a.triggered_at
+      is not None and any(o.symbol == 'META' and o.side == 'sell' and
+      o.created_at > a.triggered_at for o in state.orders) for a in
+      state.price_alerts)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures planning, patience, state_tracking, grounding by requiring
-  exact completion of the requested Robinhood workflow while ignoring distractor account
-  state.
+primitive_thesis: Measures planning, patience, state_tracking, grounding by
+  requiring exact completion of the requested Robinhood workflow while ignoring
+  distractor account state.

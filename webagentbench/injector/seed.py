@@ -16,6 +16,7 @@ Targets all primitives, especially:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 import random as _random
 
@@ -45,7 +46,7 @@ def apply_seed_injection(state: Any, params: dict[str, Any], *, rng=None) -> Non
     elif action == "hide_in_non_obvious_location":
         _hide_in_non_obvious_location(state, params, rng=rng)
     # Robinhood seed actions
-    elif action == "add_decoy_notifications":
+    elif action in {"add_decoy_notifications", "inject_distractor_notifications"}:
         _rh_add_decoy_notifications(state, params, rng=rng)
     elif action == "add_noise_orders":
         _rh_add_noise_orders(state, params, rng=rng)
@@ -60,6 +61,8 @@ def apply_seed_injection(state: Any, params: dict[str, Any], *, rng=None) -> Non
         _inject_adversarial_content(state, params, rng=rng)
     elif action == "inflate_target_content":
         _inflate_target_content(state, params, rng=rng)
+    elif action == "dynamic_availability":
+        _booking_dynamic_availability(state, params, rng=rng)
 
 
 def _entity_rng(rng: Any, seed: int) -> Any:
@@ -128,16 +131,27 @@ def _coerce_date(value: Any) -> date | None:
     return None
 
 
+def _coerce_decimal(value: Any, default: Any = None) -> Any:
+    if value is None:
+        return default
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return default
+
+
 def _latest_state_timestamp(state: Any, fallback: datetime) -> datetime:
     if not hasattr(state, "emails"):
         return fallback
 
-    latest = fallback
+    latest: datetime | None = None
     for email in getattr(state, "emails", []):
         timestamp = _coerce_timestamp(getattr(email, "timestamp", None))
-        if timestamp is not None and timestamp > latest:
+        if timestamp is not None and (latest is None or timestamp > latest):
             latest = timestamp
-    return latest
+    return latest or fallback
 
 
 def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> None:
@@ -889,7 +903,7 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                         appointment_id=spec.get("appointment_id", default_appointment_id),
                         procedure_code=spec.get("procedure_code", "99213"),
                         diagnosis_code=spec.get("diagnosis_code", "Z00.00"),
-                        amount_billed=spec.get("amount_billed", "175.00"),
+                        amount_billed=_coerce_decimal(spec.get("amount_billed"), Decimal("175.00")),
                         appeal_deadline=_coerce_timestamp(spec.get("appeal_deadline")) or datetime(2025, 3, 1, tzinfo=timezone.utc),
                     )
                 claim.service_date = _coerce_date(spec.get("service_date")) or date(2025, 1, 10)
@@ -898,9 +912,12 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                 claim.procedure_code = spec.get("procedure_code", claim.procedure_code)
                 claim.diagnosis_code = spec.get("diagnosis_code", claim.diagnosis_code)
                 claim.status = spec.get("status", claim.status)
-                claim.amount_billed = spec.get("amount_billed", claim.amount_billed)
-                claim.amount_covered = spec.get("amount_covered", claim.amount_covered)
-                claim.patient_responsibility = spec.get("patient_responsibility", claim.patient_responsibility)
+                claim.amount_billed = _coerce_decimal(spec.get("amount_billed"), claim.amount_billed)
+                claim.amount_covered = _coerce_decimal(spec.get("amount_covered"), claim.amount_covered)
+                claim.patient_responsibility = _coerce_decimal(
+                    spec.get("patient_responsibility"),
+                    claim.patient_responsibility,
+                )
                 claim.eob_available = bool(spec.get("eob_available", claim.eob_available))
                 claim.appeal_deadline = _coerce_timestamp(spec.get("appeal_deadline")) or claim.appeal_deadline
                 claim.denial_reason = spec.get("denial_reason", claim.denial_reason)
@@ -925,8 +942,11 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                 pharmacy.phone = spec.get("phone", pharmacy.phone)
                 pharmacy.is_default = bool(spec.get("is_default", False))
                 pharmacy.is_mail_order = bool(spec.get("is_mail_order", pharmacy.is_mail_order))
-                pharmacy.dispensing_fee = spec.get("dispensing_fee", pharmacy.dispensing_fee)
-                pharmacy.cost_per_90day_supply = spec.get("cost_per_90day_supply", pharmacy.cost_per_90day_supply)
+                pharmacy.dispensing_fee = _coerce_decimal(spec.get("dispensing_fee"), pharmacy.dispensing_fee)
+                pharmacy.cost_per_90day_supply = _coerce_decimal(
+                    spec.get("cost_per_90day_supply"),
+                    pharmacy.cost_per_90day_supply,
+                )
                 state.pharmacies.insert(0, pharmacy)
                 continue
 
@@ -1073,6 +1093,14 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                 for course in state.courses:
                     if course.title == course_title:
                         return course
+            source_review_id = spec.get("source_review_id") or spec.get("peer_review_id")
+            if source_review_id and hasattr(state, "get_peer_review") and hasattr(state, "get_assignment"):
+                review = state.get_peer_review(source_review_id)
+                assignment = state.get_assignment(review.assignment_id) if review is not None else None
+                if assignment is not None and hasattr(state, "get_course"):
+                    course = state.get_course(assignment.course_id)
+                    if course is not None:
+                        return course
             return course_template
 
         def _pick_weight_category(course: Any, spec: dict[str, Any]) -> str:
@@ -1152,7 +1180,10 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
             discussion.due_at = _coerce_timestamp(spec.get("due_at")) or (_latest_lms_timestamp() + timedelta(days=7))
             discussion.min_posts = int(spec.get("min_posts", discussion.min_posts))
             discussion.min_replies = int(spec.get("min_replies", discussion.min_replies))
-            discussion.points_possible = spec.get("points_possible", discussion.points_possible)
+            discussion.points_possible = _coerce_decimal(
+                spec.get("points_possible"),
+                discussion.points_possible,
+            )
             discussion.weight_category = _pick_weight_category(course, spec)
             return discussion, True
 
@@ -1253,9 +1284,12 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                     assignment.title = spec.get("title", assignment.title)
                     assignment.type = spec.get("assignment_type", assignment.type)
                     assignment.due_at = due_at
-                    assignment.points_possible = spec.get("points_possible", assignment.points_possible)
+                    assignment.points_possible = _coerce_decimal(
+                        spec.get("points_possible"),
+                        assignment.points_possible,
+                    )
                     assignment.submission_status = spec.get("submission_status", "not_submitted")
-                    assignment.score = spec.get("score", None)
+                    assignment.score = _coerce_decimal(spec.get("score"), None)
                     assignment.feedback = spec.get("feedback", None)
                     assignment.attempt_count = int(spec.get("attempt_count", 0))
                     assignment.max_attempts = int(spec.get("max_attempts", assignment.max_attempts))
@@ -1331,6 +1365,11 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
 
                 if item_type == "peer_review":
                     assignment_id = spec.get("assignment_id")
+                    source_review_id = spec.get("source_review_id") or spec.get("peer_review_id")
+                    if not assignment_id and source_review_id and hasattr(state, "get_peer_review"):
+                        source_review = state.get_peer_review(source_review_id)
+                        if source_review is not None:
+                            assignment_id = source_review.assignment_id
                     if not assignment_id:
                         assignment_id = next(
                             (assignment.id for assignment in state.assignments if assignment.course_id == course.id),
@@ -1844,19 +1883,23 @@ def _alias_entities(state: Any, params: dict[str, Any], *, rng=None) -> None:
             if not alias_name:
                 continue
             original_name = entity.get("original_name", alias_name)
+            existing_user_ids = {profile.id for profile in state.user_profiles}
+            user_id = _state_next_id(state, "user", rng=_rng, fallback_seed=108)
+            while user_id in existing_user_ids:
+                user_id = _state_next_id(state, "user", rng=_rng, fallback_seed=108)
             profile_template = next(
                 (profile for profile in state.user_profiles if profile.username == original_name),
                 template_profile,
             )
             if profile_template is not None:
                 profile = profile_template.model_copy(deep=True)
-                profile.id = _state_next_id(state, "user", rng=_rng, fallback_seed=108)
+                profile.id = user_id
                 profile.username = alias_name
                 profile.display_name = entity.get("display_name", alias_name)
                 profile.about = entity.get("about", profile.about)
             else:
                 profile = UserProfile(
-                    id=_state_next_id(state, "user", rng=_rng, fallback_seed=108),
+                    id=user_id,
                     username=alias_name,
                     display_name=entity.get("display_name", alias_name),
                     about=entity.get("about", ""),
@@ -2003,6 +2046,24 @@ def _rh_add_decoy_notifications(state: Any, params: dict[str, Any], *, rng=None)
             timestamp=utc_now(),
             is_read=decoy.get("is_read", False),
         ))
+
+
+def _booking_dynamic_availability(state: Any, params: dict[str, Any], *, rng=None) -> None:
+    """Apply a deterministic, solvable Booking availability perturbation."""
+    if not hasattr(state, "properties"):
+        return
+    _rng = _entity_rng(rng, int(params.get("seed", 42)))
+    candidates = []
+    for prop in getattr(state, "properties", []):
+        for room in getattr(prop, "room_types", []):
+            if getattr(room, "is_available", False) and int(getattr(room, "rooms_left", 0) or 0) > 1:
+                candidates.append(room)
+    if not candidates:
+        return
+    room = candidates[_rng.randrange(len(candidates))]
+    room.rooms_left = max(1, int(room.rooms_left) - int(params.get("reduce_by", 1)))
+    if hasattr(state, "touch"):
+        state.touch()
 
 
 def _rh_add_noise_orders(state: Any, params: dict[str, Any], *, rng=None) -> None:

@@ -53,13 +53,22 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed with the four kept cart items (removed items absent, updated quantities correct)
+    desc: New order placed with the four kept cart items (removed items absent,
+      updated quantities correct)
     properties:
       items:
-        expr: "any(it['product_name'] == target['qty_item1'] and it['quantity'] == int(target['qty1']) for it in x) and any(it['product_name'] == target['qty_item2'] and it['quantity'] == int(target['qty2']) for it in x) and any(it['product_name'] == 'Wireless Gaming Mouse' for it in x) and any(it['product_name'] == 'Cable Management Kit' for it in x) and not any(it['product_name'] == target['remove_item1'] for it in x) and not any(it['product_name'] == target['remove_item2'] for it in x)"
-      status: {any: true}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
+        expr: "len(x) == 4 and any(it['product_name'] == target['qty_item1'] and it['quantity']
+          == int(target['qty1']) for it in x) and any(it['product_name'] == target['qty_item2']
+          and it['quantity'] == int(target['qty2']) for it in x) and any(it['product_name']
+          == 'Wireless Gaming Mouse' and it['quantity'] == 1 for it in x) and any(it['product_name']
+          == 'Cable Management Kit' and it['quantity'] == 1 for it in x) and not any(it['product_name']
+          == target['remove_item1'] for it in x) and not any(it['product_name'] ==
+          target['remove_item2'] for it in x)"
+      status: {eq: confirmed}
+      shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker'
+          and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
+      payment_method_id: {expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four
+          == '4242' for p in state.payment_methods)"}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -101,7 +110,9 @@ canonical_diff:
       product_name: {eq: Cable Management Kit}
   invariant:
   - collection: state.orders
-    filter: "not (any(it.get('product_name') == target['qty_item1'] for it in (a.items or [])) and any(it.get('product_name') == target['qty_item2'] for it in (a.items or [])))"
+    filter: "not (any(it.get('product_name') == target['qty_item1'] for it in (a.items
+      or [])) and any(it.get('product_name') == target['qty_item2'] for it in (a.items
+      or [])))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

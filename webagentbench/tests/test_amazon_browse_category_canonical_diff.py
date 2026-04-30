@@ -78,3 +78,18 @@ def test_excess_fails():
         initial=initial, final=state,
     )
     assert report.passed is False
+
+
+def test_wrong_quantity_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    state.add_to_cart(targets["cheapest_id"], quantity=2)
+
+    task = get_task("amazon_browse_category")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False

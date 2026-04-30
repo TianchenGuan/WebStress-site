@@ -1,24 +1,24 @@
 variant_id: reddit_discover_subscribe_post__subreddit_collision
 base_task_id: reddit_discover_subscribe_post
 target_primitive: grounding
-description: "Composite degradation: (a) r/Py_thon (underscored) and r/NewPython (successor) mimic r/Python's branding with near-matching subscriber counts and descriptions; (b) the first subscribe call silently no-ops. The agent must ground on the exact r/Python AND verify the subscribe actually landed."
+description: "Composite degradation: (a) r/Machine_Learning and r/MachineLearningHub mimic r/MachineLearning's branding with near-matching subscriber counts and descriptions; (b) the first subscribe call silently no-ops. The agent must ground on the exact r/MachineLearning and verify the subscribe actually landed."
 injections:
 - layer: seed
   params:
     action: add_confusing_decoys
     decoys:
     - type: subreddit
-      name: Py_thon
-      display_name: r/Py_thon
-      description: News about the programming language Python. Underscored sibling — distinct URL slug, same branding.
-      subscribers: 1302000
+      name: Machine_Learning
+      display_name: r/Machine_Learning
+      description: Research papers, tooling, and applied machine learning discussion. Underscored sibling with a distinct URL slug and similar branding.
+      subscribers: 3120000
     - type: subreddit
-      name: NewPython
-      display_name: r/NewPython
-      description: News about the programming language Python. Splinter community claiming to be the modern successor of the real sub.
-      subscribers: 574000
+      name: MachineLearningHub
+      display_name: r/MachineLearningHub
+      description: Community hub for machine learning papers, tutorials, and project discussion that appears beside the real subreddit in search.
+      subscribers: 1860000
     - type: post
-      subreddit: Py_thon
+      subreddit: Machine_Learning
       title: Interesting discussion thread
       author: shadow_mod
       score: 144
@@ -31,5 +31,21 @@ injections:
     methods:
     - POST
     fail_count: 1
+    response_body:
+      subreddit:
+        id: sub_fake_machinelearning
+        name: MachineLearning
+        display_name: r/MachineLearning
+        description: Machine learning research, projects, and discussion.
+        public_description: Machine learning research, projects, and discussion.
+        subscriber_count: 3600000
+        active_users: 4200
+        created_at: '2026-04-26T08:00:00+00:00'
+        icon_url: ''
+        banner_url: ''
+        is_nsfw: false
+        is_subscribed: true
+        rules: []
+        flairs: []
     behavior:
       mode: once

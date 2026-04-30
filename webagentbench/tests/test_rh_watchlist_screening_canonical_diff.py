@@ -109,3 +109,28 @@ def test_missing_order_fails():
         initial=initial, final=state,
     )
     assert report.passed is False, "missing orders for passing symbols should fail bijection"
+
+
+def test_wrong_quantity_fails():
+    """Agent places correctly priced orders but not the requested ~$500 sizing."""
+    sm, sid, targets, initial, state = _setup_session()
+    passing = targets["passing_symbols"]
+    assert passing, "seed must have at least one passing symbol"
+
+    for sym in passing:
+        price = state.get_stock(sym).price
+        limit_price = (price * Decimal("0.97")).quantize(Decimal("0.01"))
+        correct_qty = max(1, int(Decimal("500") / price))
+        state.place_order(
+            symbol=sym, side="buy", order_type="limit",
+            quantity=Decimal(correct_qty + 1), limit_price=limit_price,
+        )
+
+    task = get_task("rh_watchlist_screening")
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(
+        agent_diff, task.canonical_diff,
+        targets=dict(targets),
+        initial=initial, final=state,
+    )
+    assert report.passed is False, "incorrect $500 sizing should fail"

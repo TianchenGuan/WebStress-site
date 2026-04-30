@@ -99,11 +99,13 @@ canonical_diff:
     desc: Order 1 ships target product 1 to the new Portland address
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id_dest1'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id_dest1'] and
+          x[0]['quantity'] == 1"
       shipping_address_id:
-        expr: "any(a.id == x and a.full_name == target['new_name'] and a.city == target['new_city'] for a in state.addresses)"
+        expr: "any(a.id == x and a.full_name == target['new_name'] and a.city == target['new_city']
+          for a in state.addresses)"
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -116,11 +118,13 @@ canonical_diff:
     desc: Order 2 ships target product 2 to a different (existing) address
     properties:
       items:
-        expr: "any(it['product_id'] == target['product_id_dest2'] for it in x)"
+        expr: "len(x) == 1 and x[0]['product_id'] == target['product_id_dest2'] and
+          x[0]['quantity'] == 1"
       shipping_address_id:
-        expr: "any(a.id == x and not (a.full_name == target['new_name'] and a.city == target['new_city']) for a in state.addresses)"
+        expr: "any(a.id == x and not (a.full_name == target['new_name'] and a.city
+          == target['new_city']) for a in state.addresses)"
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

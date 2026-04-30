@@ -115,3 +115,32 @@ def test_missing_label_creation_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing label creation should fail"
+
+
+def test_unrelated_setting_change_fails():
+    """Migration may only change the three instructed settings."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.settings.language = 'French'
+
+    task = get_task('gmail_cross_account_migration')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "unrelated settings should be preserved"
+
+
+def test_completion_reply_wrong_archive_count_fails():
+    """The migration completion reply must include the seed-specific archive count."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    state.sent[-1].body = (
+        "Migration complete. 5 labels configured, 4 filters created, 4 contacts added, "
+        "2 contacts updated, 999 emails archived, 3 threads forwarded, 3 settings updated."
+    )
+
+    task = get_task('gmail_cross_account_migration')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "wrong archive count in completion reply should fail"

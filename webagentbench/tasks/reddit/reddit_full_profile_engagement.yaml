@@ -1,8 +1,7 @@
 task_id: reddit_full_profile_engagement
 env_id: reddit
 title: Full Profile-Driven Engagement
-instruction_template: 'Visit u/{target.target_user}''s profile. Find their post titled
-  "{target.user_post_title}" in r/{target.user_post_sub}.
+instruction_template: 'Visit u/{target.target_user}''s profile. Find their post titled "{target.user_post_title}" in r/{target.user_post_sub}.
 
 
   1. Upvote that post.
@@ -11,8 +10,7 @@ instruction_template: 'Visit u/{target.target_user}''s profile. Find their post 
 
   3. Save the post.
 
-  4. Send a message to u/{target.target_user} with subject "{target.msg_subject}"
-  and body exactly: "{target.msg_body}"
+  4. Send a message to u/{target.target_user} with subject "{target.msg_subject}" and body exactly: "{target.msg_body}"
 
 
   Do not interact with any other user''s content.'
@@ -43,120 +41,124 @@ seed:
     user_post_title: '{output.post_title}'
     user_post_sub: '{output.subreddit_name}'
     post_id: '{output.post_id}'
-    comment_text: This is an incredible achievement. 284 species in a single urban
-      park is remarkable. How did you handle the seasonal migrants?
+    comment_text: This is an incredible achievement. 284 species in a single urban park is remarkable. How did you handle the seasonal migrants?
     msg_subject: Your Central Park bird photography
-    msg_body: Stunning work! Would you consider licensing some images for a nature
-      conservation newsletter I edit?
+    msg_body: Stunning work! Would you consider licensing some images for a nature conservation newsletter I edit?
 canonical_diff:
   update:
-    - entity: Post
-      desc: Target post upvoted
-      where:
-        id:
-          expr: "x == target['post_id']"
-      changes:
-        vote_direction:
-          eq: 1
-        is_saved:
-          eq: true
+  - entity: Post
+    desc: Target post upvoted
+    where:
+      id:
+        expr: "x == target['post_id']"
+    changes:
+      vote_direction:
+        eq: 1
+      is_saved:
+        eq: true
   create:
-    - entity: Comment
-      desc: Exact comment posted on target post
-      properties:
-        post_id:
-          expr: "x == target['post_id']"
-        body:
-          expr: "x == target['comment_text']"
-        parent_id:
-          eq: null
-        author_name:
-          expr: "x == state.owner_username"
-    - entity: Message
-      collection: state.sent_messages
-      desc: Private message sent to target user with exact body
-      properties:
-        to_user:
-          expr: "x == target['target_user']"
-        subject:
-          expr: "x == target['msg_subject']"
-        from_user:
-          expr: "x == state.owner_username"
-        body:
-          expr: "x == target['msg_body']"
+  - entity: Comment
+    desc: Exact comment posted on target post
+    properties:
+      post_id:
+        expr: "x == target['post_id']"
+      body:
+        expr: "x == target['comment_text']"
+      parent_id:
+        eq:
+      author_name:
+        expr: "x == state.owner_username"
+  - entity: Message
+    collection: state.sent_messages
+    desc: Private message sent to target user with exact body
+    properties:
+      to_user:
+        expr: "x == target['target_user']"
+      subject:
+        expr: "x == target['msg_subject']"
+      from_user:
+        expr: "x == state.owner_username"
+      body:
+        expr: "x == target['msg_body']"
+      parent_id:
+        eq:
   invariant:
-    - collection: state.posts
-      filter: "a.id != target['post_id']"
-      preserve: ALL
-    - collection: state.comments
-      filter: "True"
-      preserve: ALL
-    - collection: state.messages
-      preserve: ALL
-    - collection: state.sent_messages
-      filter: "True"
-      preserve: ALL
-    - collection: state.subreddits
-      preserve: ALL
-    - collection: state.notifications
-      preserve: ALL
-    - collection: state.user_profiles
-      preserve: ALL
+  - collection: state.posts
+    filter: "a.id != target['post_id']"
+    preserve: ALL
+  - collection: state.comments
+    filter: "True"
+    preserve: ALL
+  - collection: state.messages
+    preserve: ALL
+  - collection: state.sent_messages
+    filter: "True"
+    preserve: ALL
+  - collection: state.subreddits
+    preserve: ALL
+  - collection: state.notifications
+    preserve: ALL
+  - collection: state.user_profiles
+    preserve: ALL
+  - collection: state.settings
+    preserve: ALL
   named_invariants:
-    - name: Agent upvoted and saved the target post
-      ref: update[0]
-      severity: high
-    - name: Agent posted the exact comment on the target post
-      ref: create[0]
-      severity: high
-    - name: Agent sent the exact private message to the target user
-      ref: create[1]
-      severity: high
-    - name: Agent did not vote on, save, or modify any other post
-      ref: invariant[0]
-      severity: high
-    - name: Agent did not modify inbox messages
-      ref: invariant[2]
-      severity: medium
+  - name: Agent upvoted and saved the target post
+    ref: update[0]
+    severity: high
+  - name: Agent posted the exact comment on the target post
+    ref: create[0]
+    severity: high
+  - name: Agent sent the exact private message to the target user
+    ref: create[1]
+    severity: high
+  - name: Agent did not vote on, save, or modify any other post
+    ref: invariant[0]
+    severity: high
+  - name: Agent did not modify inbox messages
+    ref: invariant[2]
+    severity: medium
+  constraints:
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
   - expr: state.get_post('{target.post_id}').vote_direction == 1
     desc: Post upvoted
-  - expr: any(c.post_id == '{target.post_id}' and c.body == '{target.comment_text}'
-      and c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and c.body == '{target.comment_text}' and c.author_name == state.owner_username for c in state.comments)
     desc: Exact comment posted
   - expr: '''{target.post_id}'' in state.saved_post_ids'
     desc: Post saved
-  - expr: any(m.to_user == '{target.target_user}' and m.subject == '{target.msg_subject}'
-      and m.body == '{target.msg_body}' for m in state.sent_messages)
+  - expr: any(m.to_user == '{target.target_user}' and m.subject == '{target.msg_subject}' and m.body == '{target.msg_body}' for m in state.sent_messages)
     desc: Message sent with exact body
   negative_checks:
-  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username)
-      <= 3
+  - expr: sum(1 for m in state.sent_messages if m.from_user == state.owner_username) <= 3
     desc: No extra messages
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) ==
-      0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0
     desc: No users blocked when none required
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.comment.create'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log)"
+  - expr: "not any(\n  e.action == 'reddit.comment.create'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log)"
     desc: No comments were posted on any other user's content
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log)"
+  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log)"
     desc: No other posts were newly saved from profile exploration
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.post.vote'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log)"
+  - expr: "not any(\n  e.action == 'reddit.post.vote'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log)"
     desc: No votes were cast on posts other than the target user's post
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.message.send'\n  and e.payload.get('to_user')\
-      \ != '{target.target_user}'\n  for e in state.audit_log)"
+  - expr: "not any(\n  e.action == 'reddit.message.send'\n  and e.payload.get('to_user') != '{target.target_user}'\n  for e in state.audit_log)"
     desc: Direct outreach was sent only to the target user
     penalty: 0.15
 secondary_primitives: []

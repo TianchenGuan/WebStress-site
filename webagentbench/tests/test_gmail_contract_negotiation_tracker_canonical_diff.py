@@ -69,3 +69,27 @@ def test_missing_open_items_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "missing open items should fail"
+
+
+def test_missing_quoted_concern_fails():
+    """Open terms without the exact objection quotes are incomplete."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Contract Status — Lattice Works",
+        body=(
+            "Open items:\n"
+            "- liability cap\n"
+            "- renewal pricing\n"
+            "- support response time"
+        ),
+        to=["nora.zhang@ops.thornton.com"],
+    )
+    state.ensure_label("Lattice Works Contract")
+    for eid in targets["all_negotiation_email_ids"]:
+        state.apply_label(eid, "Lattice Works Contract", action='add')
+
+    task = get_task('gmail_contract_negotiation_tracker')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "missing quoted concerns should fail"

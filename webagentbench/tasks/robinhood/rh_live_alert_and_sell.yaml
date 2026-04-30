@@ -1,8 +1,8 @@
 task_id: rh_live_alert_and_sell
 env_id: robinhood
 title: Alert-Triggered Market Sell
-instruction_template: Set a price alert for TSLA when it goes above $270. When the
-  alert triggers, sell your entire TSLA position at market price.
+instruction_template: Set a price alert for TSLA when it goes above $270. When
+  the alert triggers, sell your entire TSLA position at market price.
 difficulty: medium
 time_limit_seconds: 200
 expected_steps: 10
@@ -121,6 +121,24 @@ canonical_diff:
   - collection: state.notifications
     filter: "False"
     preserve: ALL
+  constraints:
+  - desc: TSLA above-$270 alert triggered
+    expr: any(a.symbol == 'TSLA' and a.condition == 'above' and
+      Decimal(str(a.target_price)) >= Decimal('270') and a.status == 'triggered'
+      for a in state.price_alerts)
+    severity: critical
+  - desc: TSLA full-position market sell filled
+    expr: any(o.symbol == 'TSLA' and o.side == 'sell' and o.order_type ==
+      'market' and o.quantity == Decimal('10') and o.status == 'filled' and
+      o.filled_quantity == o.quantity for o in state.orders)
+    severity: critical
+  - desc: TSLA sell order was created after the alert triggered
+    expr: any(a.symbol == 'TSLA' and a.condition == 'above' and a.triggered_at
+      is not None and any(o.symbol == 'TSLA' and o.side == 'sell' and
+      o.created_at > a.triggered_at for o in state.orders) for a in
+      state.price_alerts)
+    severity: critical
 secondary_primitives: []
-primitive_thesis: Measures planning, patience, grounding by requiring exact completion
-  of the requested Robinhood workflow while ignoring distractor account state.
+primitive_thesis: Measures planning, patience, grounding by requiring exact
+  completion of the requested Robinhood workflow while ignoring distractor
+  account state.

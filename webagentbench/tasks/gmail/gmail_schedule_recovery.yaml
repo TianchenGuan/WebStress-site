@@ -61,10 +61,14 @@ canonical_diff:
             x in [target['proposal_email_id'],
                   target['cancellation_email_id'],
                   target['user_confirmation_email_id']]
+        to:
+          expr: "x == [target['hana_email']]"
+        cc:
+          eq: []
+        bcc:
+          eq: []
         body:
-          substring_all:
-            - Disregard my previous confirmation
-            - "Thursday, 2:00 PM"
+          eq: "Disregard my previous confirmation. The correct time is Thursday, 2:00 PM."
         forwarded_from_id:
           eq: null
   invariant:

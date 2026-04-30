@@ -27,3 +27,13 @@ def test_no_mutation_fails():
     report = match_diff(compute_diff(initial, state), task.canonical_diff,
                         targets=targets, initial=initial, final=state)
     assert report.passed is False
+
+
+def test_unmentioned_setting_change_fails():
+    _, _, targets, initial, state = _setup()
+    state.settings.theme = "dark"
+    state.settings.compact_view = True
+    task = get_task("reddit_switch_dark_mode")
+    report = match_diff(compute_diff(initial, state), task.canonical_diff,
+                        targets=targets, initial=initial, final=state)
+    assert report.passed is False

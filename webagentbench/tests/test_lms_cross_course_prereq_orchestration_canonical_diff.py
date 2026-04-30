@@ -28,6 +28,13 @@ def _complete_module(state, module_id: str, *, complete_all_items: bool = True) 
     module.status = "completed"
 
 
+def _unlock_module(state, module_id: str) -> None:
+    module = state.get_module(module_id)
+    if module is None:
+        raise ValueError(f"module {module_id!r} not found")
+    module.status = "available"
+
+
 def _send_progress_message(state, targets, *, to: str) -> None:
     state.sent_messages.append(
         {
@@ -62,6 +69,10 @@ def _apply_correct_trajectory(state, targets):
     _complete_module(state, targets["first_locked_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
     _complete_module(state, targets["next_available_module_id_3"])
+    course_1_modules = [mid.strip() for mid in targets["module_ids_course_1"].split(",")]
+    _unlock_module(state, course_1_modules[3])
+    _unlock_module(state, targets["first_locked_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_3"])
     _send_progress_message(state, targets, to=targets["advisor_name"])
 
 
@@ -89,6 +100,10 @@ def test_incomplete_module_content_fails():
     _complete_module(state, targets["first_locked_module_id_1"])
     _complete_module(state, targets["next_available_module_id_2"])
     _complete_module(state, targets["next_available_module_id_3"])
+    course_1_modules = [mid.strip() for mid in targets["module_ids_course_1"].split(",")]
+    _unlock_module(state, course_1_modules[3])
+    _unlock_module(state, targets["first_locked_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_3"])
     _send_progress_message(state, targets, to=targets["advisor_name"])
 
     report = _run(initial, state, targets)
@@ -104,6 +119,9 @@ def test_wrong_module_id_fails():
     _complete_module(state, targets["first_locked_module_id_1"])
     _complete_module(state, targets["first_locked_module_id_2"])
     _complete_module(state, targets["next_available_module_id_3"])
+    course_1_modules = [mid.strip() for mid in targets["module_ids_course_1"].split(",")]
+    _unlock_module(state, course_1_modules[3])
+    _unlock_module(state, targets["first_locked_module_id_3"])
     _send_progress_message(state, targets, to=targets["advisor_name"])
 
     report = _run(initial, state, targets)
@@ -135,15 +153,54 @@ def test_extra_module_completion_fails():
 
 
 def test_wrong_message_recipient_fails():
-    # `state.sent_messages` is `list[dict[str, Any]]` (no `id` key), so
-    # canonical_diff cannot enforce recipient identity. Recipient checks
-    # live in the `eval:` block.
     _, _, targets, initial, state = _setup_session()
 
     _apply_correct_trajectory(state, targets)
     state.sent_messages[0]["to"] = "not-the-advisor@example.com"
 
-    assert state.sent_messages[0]["to"] == "not-the-advisor@example.com"
+    report = _run(initial, state, targets)
+    assert report.passed is False, "messaging a non-advisor should fail"
+
+
+def test_missing_message_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _complete_module(state, targets["next_available_module_id_1"])
+    _complete_module(state, targets["first_locked_module_id_1"])
+    _complete_module(state, targets["next_available_module_id_2"])
+    _complete_module(state, targets["next_available_module_id_3"])
+    course_1_modules = [mid.strip() for mid in targets["module_ids_course_1"].split(",")]
+    _unlock_module(state, course_1_modules[3])
+    _unlock_module(state, targets["first_locked_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_3"])
+
+    report = _run(initial, state, targets)
+    assert report.passed is False, "completing modules without a progress message should fail"
+
+
+def test_missing_advanced_unlock_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _complete_module(state, targets["next_available_module_id_1"])
+    _complete_module(state, targets["first_locked_module_id_1"])
+    _complete_module(state, targets["next_available_module_id_2"])
+    _complete_module(state, targets["next_available_module_id_3"])
+    _unlock_module(state, targets["first_locked_module_id_2"])
+    _unlock_module(state, targets["first_locked_module_id_3"])
+    _send_progress_message(state, targets, to=targets["advisor_name"])
+
+    report = _run(initial, state, targets)
+    assert report.passed is False, "advanced module unlocked by the first-course chain must be present"
+
+
+def test_excess_messages_fails():
+    _, _, targets, initial, state = _setup_session()
+
+    _apply_correct_trajectory(state, targets)
+    _send_progress_message(state, targets, to=targets["advisor_name"])
+
+    report = _run(initial, state, targets)
+    assert report.passed is False, "sending more than one progress update should fail"
 
 
 def test_collateral_enrollment_edit_fails():

@@ -70,11 +70,8 @@ seed:
     monitor_b_name: '{output.product_name_monitor_b}'
     monitor_b_id: '{output.product_id_monitor_b}'
 canonical_diff:
-  # READ-ONLY task: Cat-D shape — only invariants, no positive entries, no
-  # constraints. View-tracking constraints (recently_viewed) are dropped
-  # because compute_diff cannot observe them; that signal lives in the
-  # eval block (audit_log) instead. Cart/orders/wishlist enforcement is
-  # subsumed by the unfiltered invariants below.
+  # READ-ONLY task: preserve Amazon state while requiring observable page-view
+  # evidence from the final state's browsing/recently-viewed data.
   invariant:
   - collection: state.products
     preserve: ALL
@@ -100,6 +97,10 @@ canonical_diff:
     preserve: ALL
   - collection: state.wishlist
     preserve: ALL
+  constraints:
+  - desc: Agent viewed both target monitor product pages
+    expr: "all(pid in state.recently_viewed for pid in [target['monitor_a_id'], target['monitor_b_id']])"
+    severity: critical
   named_invariants:
   - name: Agent did not modify product catalog
     ref: invariant[0]

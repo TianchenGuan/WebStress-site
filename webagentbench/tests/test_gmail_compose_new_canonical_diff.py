@@ -75,3 +75,19 @@ def test_wrong_subject_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "wrong subject should fail"
+
+
+def test_extra_body_text_fails():
+    """The instruction binds the full body text, so extra prose is not compliant."""
+    _, _, targets, initial, state = _setup_session()
+    state.send_email(
+        subject="Weekly Report",
+        body="Hi Alice, please find the weekly report attached. Best regards. Extra note.",
+        to=["alice@thornton.com"],
+    )
+
+    task = get_task('gmail_compose_new')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra body text should fail"

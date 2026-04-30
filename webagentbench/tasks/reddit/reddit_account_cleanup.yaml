@@ -7,15 +7,13 @@ instruction_template: 'Complete this account cleanup:
   1. Go to your Saved page and unsave all posts that are from r/{target.unsave_sub}.
 
 
-  2. Go to Settings and switch theme to "dark", disable "Show online status", and
-  set default comment sort to "new".
+  2. Go to Settings and switch theme to "dark", disable "Show online status", and set default comment sort to "new".
 
 
   3. Unsubscribe from r/{target.leave_sub}.
 
 
-  4. Navigate to r/{target.comment_sub} and find the post "{target.comment_post_title}".
-  Add a comment with exactly: "{target.comment_text}"
+  4. Navigate to r/{target.comment_sub} and find the post "{target.comment_post_title}". Add a comment with exactly: "{target.comment_text}"
 
 
   Do not change notification settings.'
@@ -59,8 +57,7 @@ seed:
     comment_sub: news
     comment_post_title: '{output.post_title}'
     comment_post_id: '{output.post_id}'
-    comment_text: This is a landmark decision. Digital privacy has been in a legal
-      gray area for far too long.
+    comment_text: This is a landmark decision. Digital privacy has been in a legal gray area for far too long.
     meme_post_ids: '{output.meme_post_ids}'
 canonical_diff:
   update:
@@ -85,11 +82,11 @@ canonical_diff:
         eq: false
   - entity: settings
     desc: Theme dark, online status hidden, default comment sort to new
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
-      show_online_status: { eq: false }
-      default_comment_sort: { eq: new }
+      theme: {eq: dark}
+      show_online_status: {eq: false}
+      default_comment_sort: {eq: new}
   create:
   - entity: Comment
     desc: Post the exact comment on the news post
@@ -99,7 +96,7 @@ canonical_diff:
       body:
         expr: x == target['comment_text']
       parent_id:
-        eq: null
+        eq:
       author_name:
         expr: x == state.owner_username
   invariant:
@@ -128,11 +125,27 @@ canonical_diff:
   - name: Agent posted the exact comment on the news post
     ref: create[0]
     severity: high
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities == initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and
+      state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
+  - expr: sorted(state.blocked_users) == sorted(initial.blocked_users)
+    desc: Blocked users preserved when blocking is not requested
+    severity: high
 eval:
   source: server_state
   checks:
-  - expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for
-      p in state.posts)
+  - expr: not any(p.subreddit_name == 'memes' and p.id in state.saved_post_ids for p in state.posts)
     desc: All memes posts unsaved
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
@@ -142,20 +155,16 @@ eval:
     desc: Comment sort new
   - expr: any(s.name == 'memes' and not s.is_subscribed for s in state.subreddits)
     desc: Left r/memes
-  - expr: any(c.post_id == '{target.comment_post_id}' and c.body == "This is a landmark
-      decision. Digital privacy has been in a legal gray area for far too long." and
-      c.author_name == state.owner_username for c in state.comments)
+  - expr: any(c.post_id == '{target.comment_post_id}' and c.body == "This is a landmark decision. Digital privacy has been in a legal gray area for far too long." and c.author_name == state.owner_username for c in state.comments)
     desc: Exact comment on news post
   negative_checks:
   - expr: state.settings.email_comment_reply == True
     desc: Notification settings unchanged
     penalty: 0.15
-  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count',
-      0)
+  - expr: len(state.sent_messages) == state._initial_snapshot.get('sent_message_count', 0)
     desc: No messages sent when none required
     penalty: 0.15
-  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and
-      p.id not in state._initial_snapshot.get('posts', {})) == 0
+  - expr: sum(1 for p in state.posts if p.author_name == state.owner_username and p.id not in state._initial_snapshot.get('posts', {})) == 0
     desc: No posts created when none required
     penalty: 0.15
   - expr: len(state.blocked_users) == 0

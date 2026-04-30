@@ -107,10 +107,15 @@ canonical_diff:
     desc: New order placed containing only the two cheap wishlist items
     properties:
       items:
-        expr: "any(it['product_id'] == target['cheap_id_1'] for it in x) and any(it['product_id'] == target['cheap_id_2'] for it in x) and not any(it['product_id'] == target['expensive_id_1'] for it in x) and not any(it['product_id'] == target['expensive_id_2'] for it in x)"
-      status: {any: true}
-      shipping_address_id: {any: true}
-      payment_method_id: {any: true}
+        expr: "len(x) == 2 and {it['product_id'] for it in x} == {target['cheap_id_1'],
+          target['cheap_id_2']} and not any(it['product_id'] in [target['expensive_id_1'],
+          target['expensive_id_2']] for it in x) and all(it['quantity'] == 1 for it
+          in x)"
+      status: {eq: confirmed}
+      shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker'
+          and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
+      payment_method_id: {expr: "any(p.id == x and p.card_type == 'Visa' and p.last_four
+          == '4242' for p in state.payment_methods)"}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}
@@ -121,7 +126,9 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not (any(it.get('product_id') == target['cheap_id_1'] for it in (a.items or [])) and any(it.get('product_id') == target['cheap_id_2'] for it in (a.items or [])))"
+    filter: "not (any(it.get('product_id') == target['cheap_id_1'] for it in (a.items
+      or [])) and any(it.get('product_id') == target['cheap_id_2'] for it in (a.items
+      or [])))"
     preserve: ALL
   - collection: state.products
     preserve: ALL

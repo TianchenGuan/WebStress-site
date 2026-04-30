@@ -1,12 +1,10 @@
 task_id: reddit_profile_engage_message
 title: Profile Research and Outreach
-instruction_template: '1. Visit u/{target.user}''s profile. Find their post "{target.user_post}"
-  in r/{target.user_sub}. Upvote and save it.
+instruction_template: '1. Visit u/{target.user}''s profile. Find their post "{target.user_post}" in r/{target.user_sub}. Upvote and save it.
 
   2. Comment on it with exactly: "{target.comment}"
 
-  3. Send u/{target.user} a message with subject "{target.msg_sub}" and body exactly:
-  "{target.msg_body}"
+  3. Send u/{target.user} a message with subject "{target.msg_sub}" and body exactly: "{target.msg_body}"
 
   4. Subscribe to r/{target.join}.
 
@@ -23,8 +21,7 @@ seed:
   - use: target_post
     params:
       subreddit: dataisbeautiful
-      title: I analyzed 10 years of Stack Overflow survey data and found surprising
-        trends
+      title: I analyzed 10 years of Stack Overflow survey data and found surprising trends
       body: Interactive dashboard in comments.
       author: DataWizard42
       score: 28000
@@ -44,11 +41,9 @@ seed:
     user_post: '{output.post_title}'
     user_sub: '{output.subreddit_name}'
     post_id: '{output.post_id}'
-    comment: Incredible analysis. The decline in jQuery usage inversely correlated
-      with React adoption is fascinating.
+    comment: Incredible analysis. The decline in jQuery usage inversely correlated with React adoption is fascinating.
     msg_sub: Your SO survey analysis
-    msg_body: Would you be open to sharing the raw dataset? I would love to build
-      on your analysis.
+    msg_body: Would you be open to sharing the raw dataset? I would love to build on your analysis.
     join: MachineLearning
 canonical_diff:
   update:
@@ -72,9 +67,9 @@ canonical_diff:
         eq: true
   - entity: settings
     desc: Settings updated
-    where: { id: { any: true } }
+    where: {id: {any: true}}
     changes:
-      theme: { eq: dark }
+      theme: {eq: dark}
   create:
   - entity: Comment
     desc: Exact comment posted on target post
@@ -86,7 +81,7 @@ canonical_diff:
       author_name:
         expr: x == state.owner_username
       parent_id:
-        eq: null
+        eq:
   - entity: Message
     collection: state.sent_messages
     desc: Outreach message sent to u/{target.user} with exact subject and body
@@ -99,6 +94,8 @@ canonical_diff:
         expr: x == target['msg_body']
       from_user:
         expr: x == state.owner_username
+      parent_id:
+        eq:
   invariant:
   - collection: state.subreddits
     filter: a.id != state.get_subreddit_by_name(target['join']).id
@@ -141,6 +138,20 @@ canonical_diff:
   - name: Existing comments not altered or deleted
     ref: invariant[2]
     severity: medium
+  constraints:
+  - expr: state.settings.default_feed_sort == initial.settings.default_feed_sort and state.settings.default_comment_sort == initial.settings.default_comment_sort and state.settings.show_nsfw == initial.settings.show_nsfw and state.settings.blur_nsfw == initial.settings.blur_nsfw and state.settings.open_links_in_new_tab == initial.settings.open_links_in_new_tab and state.settings.compact_view == initial.settings.compact_view and state.settings.email_comment_reply == initial.settings.email_comment_reply and state.settings.email_post_reply == initial.settings.email_post_reply and state.settings.email_mentions == initial.settings.email_mentions and state.settings.email_messages == initial.settings.email_messages and state.settings.email_digest == initial.settings.email_digest and state.settings.show_online_status == initial.settings.show_online_status and state.settings.allow_followers == initial.settings.allow_followers and state.settings.show_active_communities ==
+      initial.settings.show_active_communities and state.settings.country == initial.settings.country and state.settings.language == initial.settings.language and state.settings.auto_play_media == initial.settings.auto_play_media and state.settings.reduce_animations == initial.settings.reduce_animations
+    desc: Unmentioned settings preserved
+    severity: high
+  - expr: sorted(state.subscriptions) == sorted([s.id for s in state.subreddits if s.is_subscribed])
+    desc: Subscription primitive list matches subreddit subscription flags
+    severity: high
+  - expr: sorted(state.saved_post_ids) == sorted([p.id for p in state.posts if p.is_saved])
+    desc: Saved-post primitive list matches saved post flags
+    severity: high
+  - expr: sorted(state.saved_comment_ids) == sorted([c.id for c in state.comments if c.is_saved])
+    desc: Saved-comment primitive list matches saved comment flags
+    severity: high
 eval:
   source: server_state
   checks:
@@ -148,39 +159,31 @@ eval:
     desc: Post upvoted
   - expr: '''{target.post_id}'' in state.saved_post_ids'
     desc: Post saved
-  - expr: any(c.post_id == '{target.post_id}' and c.body == '{target.comment}' for
-      c in state.comments)
+  - expr: any(c.post_id == '{target.post_id}' and c.body == '{target.comment}' for c in state.comments)
     desc: Comment posted
-  - expr: "any(\n  m.to_user == '{target.user}'\n  and m.subject == '{target.msg_sub}'\n\
-      \  and m.body == '{target.msg_body}'\n  for m in state.sent_messages\n)"
+  - expr: "any(\n  m.to_user == '{target.user}'\n  and m.subject == '{target.msg_sub}'\n  and m.body == '{target.msg_body}'\n  for m in state.sent_messages\n)"
     desc: Message sent
   - expr: any(s.name == 'MachineLearning' and s.is_subscribed for s in state.subreddits)
     desc: Subscribed ML
   - expr: state.settings.theme == 'dark'
     desc: Theme dark
   negative_checks:
-  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.message.send') ==
-      1
+  - expr: sum(1 for e in state.audit_log if e.action == 'reddit.message.send') == 1
     desc: Exactly one outreach message was sent
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.message.send'\n  and e.payload.get('to_user')\
-      \ != '{target.user}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.message.send'\n  and e.payload.get('to_user') != '{target.user}'\n  for e in state.audit_log\n)"
     desc: No message was sent to the wrong user
     penalty: 0.15
-  - expr: "not any(\n  e.action == 'reddit.comment.create'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.comment.create'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log\n)"
     desc: No comment was posted on the wrong submission
     penalty: 0.1
-  - expr: "not any(\n  e.action == 'reddit.post.vote'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.post.vote'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log\n)"
     desc: No unrelated post was voted on
     penalty: 0.1
-  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id')\
-      \ != '{target.post_id}'\n  for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action == 'reddit.post.save'\n  and e.payload.get('post_id') != '{target.post_id}'\n  for e in state.audit_log\n)"
     desc: No unrelated post was saved
     penalty: 0.1
-  - expr: "not any(\n  e.action in ['reddit.post.create', 'reddit.user.block']\n \
-      \ for e in state.audit_log\n)"
+  - expr: "not any(\n  e.action in ['reddit.post.create', 'reddit.user.block']\n  for e in state.audit_log\n)"
     desc: No new posts or user blocks were created during the outreach workflow
     penalty: 0.1
 env_id: reddit

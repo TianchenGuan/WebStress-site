@@ -389,7 +389,7 @@ canonical_diff:
       rooms:
         any: true
       price_per_night:
-        any: true
+        expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['winner_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= 2)"
       total_price:
         any: true
       taxes_and_fees:
@@ -403,7 +403,9 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          x == initial.settings.default_payment_id and
+          any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:
@@ -438,7 +440,7 @@ canonical_diff:
       rooms:
         any: true
       price_per_night:
-        any: true
+        expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['venice_prop_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= 2)"
       total_price:
         any: true
       taxes_and_fees:
@@ -452,7 +454,9 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          x == initial.settings.default_payment_id and
+          any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:
@@ -487,7 +491,7 @@ canonical_diff:
       rooms:
         any: true
       price_per_night:
-        any: true
+        expr: "x == min(rt.price_per_night for p in initial.properties if p.id == target['paris_prop_id'] for rt in p.room_types if rt.is_available and rt.max_occupancy >= 2)"
       total_price:
         any: true
       taxes_and_fees:
@@ -501,7 +505,9 @@ canonical_diff:
       guest_info:
         any: true
       payment_method_id:
-        any: true
+        expr: >-
+          x == initial.settings.default_payment_id and
+          any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
       cancellation_policy:
         any: true
       confirmation_number:
@@ -586,6 +592,8 @@ canonical_diff:
       and a.property_id != target['paris_prop_id'] and a.id != target['review_res_id']
     preserve: ALL
   - collection: state.properties
+    filter: "a.id not in (target['review_prop_id'],)"
+    comprehensive: true
     preserve: ALL
   - collection: state.reviews
     filter: a.property_id != target['review_prop_id']
@@ -604,6 +612,14 @@ canonical_diff:
     filter: 'False'
     preserve: ALL
     comprehensive: true
+  constraints:
+  - desc: Combined all-in total for the three new bookings is at most 2100
+    expr: >-
+      sum(
+        r.total_price for r in state.reservations
+        if r.property_id in (target['winner_id'], target['venice_prop_id'], target['paris_prop_id'])
+      ) <= target['combined_budget']
+    severity: critical
   named_invariants:
   - name: Preferred currency updated to EUR
     ref: update[0]

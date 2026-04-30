@@ -123,10 +123,19 @@ canonical_diff:
     desc: Order has the required rebuilt cart contents
     properties:
       items:
-        expr: "any(it['product_name'] == 'Wireless Mouse Pro' and it['quantity'] == 3 for it in x) and any(it['product_name'] == 'Glass Food Containers' and it['quantity'] == 2 for it in x) and any(it['product_name'] == 'Bamboo Notebook Stand' for it in x) and any(it['product_name'] == 'Running Headband 3-Pack' for it in x) and any(it['product_name'] == 'LED Book Light' for it in x) and any(it['product_id'] == target['new_pid_1'] for it in x) and any(it['product_id'] == target['new_pid_2'] for it in x) and all(it['product_name'] not in ['Cotton Bath Towel Set', 'Yoga Strap Set', 'Vitamin D3 Supplement'] for it in x)"
+        expr: "len(x) == 7 and any(it['product_name'] == 'Wireless Mouse Pro' and
+          it['quantity'] == 3 for it in x) and any(it['product_name'] == 'Glass Food
+          Containers' and it['quantity'] == 2 for it in x) and any(it['product_name']
+          == 'Bamboo Notebook Stand' and it['quantity'] == 1 for it in x) and any(it['product_name']
+          == 'Running Headband 3-Pack' and it['quantity'] == 1 for it in x) and any(it['product_name']
+          == 'LED Book Light' and it['quantity'] == 1 for it in x) and any(it['product_id']
+          == target['new_pid_1'] and it['quantity'] == 1 for it in x) and any(it['product_id']
+          == target['new_pid_2'] and it['quantity'] == 1 for it in x) and all(it['product_name']
+          not in ['Cotton Bath Towel Set', 'Yoga Strap Set', 'Vitamin D3 Supplement']
+          for it in x)"
       shipping_address_id: {any: true}
       payment_method_id: {any: true}
-      status: {any: true}
+      status: {eq: confirmed}
       subtotal: {any: true}
       shipping_cost: {any: true}
       tax: {any: true}

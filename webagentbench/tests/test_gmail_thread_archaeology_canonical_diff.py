@@ -31,7 +31,7 @@ def _apply_all_correct_mutations(state, targets):
     state.send_email(
         subject=f"Re: {targets['thread_subject']}",
         body="I have delegated this action item.",
-        to=[targets["assignee_email"]],
+        to=[state.get_email(targets["thread_email_id"]).from_addr],
         in_reply_to=targets["thread_email_id"],
     )
     # Star thread email and apply Pending Action label
@@ -76,7 +76,7 @@ def test_wrong_forward_recipient_fails():
     state.send_email(
         subject=f"Re: {targets['thread_subject']}",
         body="I have delegated this.",
-        to=[targets["wrong_person_email"]],
+        to=[state.get_email(targets["thread_email_id"]).from_addr],
         in_reply_to=targets["thread_email_id"],
     )
     state.toggle_star(targets["thread_email_id"], is_starred=True)
@@ -87,3 +87,18 @@ def test_wrong_forward_recipient_fails():
     report = match_diff(agent_diff, task.canonical_diff, targets=targets,
                         initial=initial, final=state)
     assert report.passed is False, "forwarding to wrong person should fail"
+
+
+def test_forward_extra_cc_fails():
+    """The delegation forward must CC exactly the manager and nobody else."""
+    _, _, targets, initial, state = _setup_session()
+    _apply_all_correct_mutations(state, targets)
+    forward = next(sent for sent in state.sent if sent.forwarded_from_id == targets["thread_email_id"])
+    forward.cc.append("extra-manager@example.com")
+    state.touch()
+
+    task = get_task('gmail_thread_archaeology')
+    agent_diff = compute_diff(initial, state)
+    report = match_diff(agent_diff, task.canonical_diff, targets=targets,
+                        initial=initial, final=state)
+    assert report.passed is False, "extra forward CC should fail"

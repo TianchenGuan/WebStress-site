@@ -151,6 +151,13 @@ canonical_diff:
       desc: Currency EUR and 2FA enabled
       where: {id: {any: true}}
       changes:
+        default_payment_id:
+          expr: >-
+            x == next(
+              (pm.id for pm in state.payment_methods
+               if pm.card_type == 'Visa' and pm.last_four == '7777' and pm.is_default),
+              ''
+            )
         currency: {eq: EUR}
         two_factor_enabled: {eq: true}
     - entity: travel_preferences
@@ -214,7 +221,9 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
-        payment_method_id: {any: true}
+        payment_method_id:
+          expr: >-
+            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '7777' and pm.is_default for pm in state.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}
@@ -270,6 +279,8 @@ canonical_diff:
         a.property_id != target['book_id']
       preserve: ALL
     - collection: state.properties
+      filter: "a.id not in (target['review_prop_id'],)"
+      comprehensive: true
       preserve: ALL
     - collection: state.reviews
       filter: "a.property_id != target['review_prop_id']"
