@@ -267,8 +267,17 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
             state.watchlists = [w for w in state.watchlists if w.name != name]
             mutated = True
 
-    elif action == "inject_distractor_notifications":
-        if hasattr(state, "notifications"):
+    elif action in {"inject_notifications", "inject_distractor_notifications"}:
+        if hasattr(state, "add_notification"):
+            for spec in params.get("notifications", []) or []:
+                state.add_notification(
+                    type=spec.get("type", "deal_alert"),
+                    title=spec.get("title", "Notification"),
+                    message=spec.get("message", spec.get("body", "")),
+                    related_id=spec.get("related_id"),
+                )
+                mutated = True
+        elif hasattr(state, "notifications"):
             from webagentbench.backend.models.robinhood import Notification
             from webagentbench.backend.models.base import utc_now
             rng = random.Random(params.get("seed", 42))

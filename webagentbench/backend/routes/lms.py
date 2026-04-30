@@ -406,6 +406,14 @@ def evaluate_session(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/degradation/{session_id}")
+def get_client_degradation(session_id: str) -> dict[str, Any]:
+    """Return client-layer degradation injections for a session."""
+    from ...injector.middleware import get_client_injections
+    injections = get_client_injections(session_id)
+    return {"session_id": session_id, "client_injections": injections}
+
+
 @router.get("/variants")
 def list_variants() -> list[dict[str, Any]]:
     """List available degradation variants for the LMS environment."""

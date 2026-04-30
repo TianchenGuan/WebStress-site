@@ -30,12 +30,20 @@ _SESSION_CLIENT: dict[str, list[dict]] = {}    # session_id → client injection
 _CALL_COUNTERS: dict[str, dict[str, int]] = {} # session_id → per-pattern counters
 _EXPIRED_SESSIONS: dict[str, set[int]] = {}    # session_id → expired inj indices
 _RATE_LIMITED: dict[str, dict[int, float]] = {}  # session_id → {inj_idx: cooldown_until_call}
+_STALE_CACHE: dict[str, dict[str, tuple[float, int, Any]]] = {}
+_STALE_DATA: dict[str, dict[str, tuple[int, Any]]] = {}
+
+_REQUEST_TIME_LEGACY_ACTIONS = {"slow_responses", "stale_cache", "modify_response"}
 
 
 def register_session_degradation(session_id: str, injections: list[dict]) -> None:
     """Store degradation config for a session (network + client)."""
     unregister_session_degradation(session_id)
-    network = [inj for inj in injections if inj.get("layer") == "network"]
+    network = [
+        inj for inj in injections
+        if inj.get("layer") == "network"
+        or (inj.get("params", {}).get("action") in _REQUEST_TIME_LEGACY_ACTIONS)
+    ]
     client = [inj for inj in injections if inj.get("layer") == "client"]
     if network:
         _SESSION_NETWORK[session_id] = network
@@ -56,6 +64,8 @@ def unregister_session_degradation(session_id: str) -> None:
     _CALL_COUNTERS.pop(session_id, None)
     _EXPIRED_SESSIONS.pop(session_id, None)
     _RATE_LIMITED.pop(session_id, None)
+    _STALE_CACHE.pop(session_id, None)
+    _STALE_DATA.pop(session_id, None)
 
 
 def clear_all_degradations() -> None:
@@ -110,11 +120,75 @@ def _url_matches_pattern(url: str, pattern: str) -> bool:
     return bool(re.match(regex, clean))
 
 
+def _legacy_endpoint_match(url: str, method: str, params: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the matching legacy endpoint spec for Booking-era variants."""
+    clean = url.split("?")[0].split("#")[0]
+    for endpoint in params.get("endpoints", []) or []:
+        wanted_method = endpoint.get("method")
+        if wanted_method and method != wanted_method:
+            continue
+        pattern = str(endpoint.get("path_pattern", ".*"))
+        try:
+            if re.search(pattern, clean):
+                return endpoint
+        except re.error:
+            if pattern in clean:
+                return endpoint
+    return None
+
+
 def _get_counter(session_id: str, key: str) -> int:
     """Increment and return per-session counter."""
     counters = _CALL_COUNTERS.setdefault(session_id, {})
     counters[key] = counters.get(key, 0) + 1
     return counters[key]
+
+
+async def _json_response_from_downstream(response: Response) -> tuple[Response, Any | None]:
+    """Read a JSON downstream response and return a reusable clone."""
+    chunks: list[bytes] = []
+    async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+        chunks.append(chunk)
+    body = b"".join(chunks)
+    try:
+        content = json.loads(body.decode("utf-8")) if body else None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers={
+                k: v for k, v in response.headers.items()
+                if k.lower() != "content-length"
+            },
+        ), None
+    headers = {
+        k: v for k, v in response.headers.items()
+        if k.lower() not in {"content-length", "content-type"}
+    }
+    clone: Response = JSONResponse(
+        status_code=response.status_code,
+        content=content,
+        headers=headers or None,
+    )
+    return clone, content
+
+
+def _apply_response_modifications(content: Any, modifications: dict[str, Any]) -> Any:
+    """Apply small, deterministic response tweaks used by legacy variants."""
+    if not isinstance(content, dict):
+        return content
+    out = dict(content)
+    page_size = modifications.get("page_size_override")
+    if page_size is not None and isinstance(out.get("results"), list):
+        try:
+            page_size_int = max(int(page_size), 1)
+        except (TypeError, ValueError):
+            page_size_int = 5
+        out["results"] = out["results"][:page_size_int]
+        out["page_size"] = page_size_int
+        total = int(out.get("total", len(out["results"])) or 0)
+        out["total_pages"] = max(1, (total + page_size_int - 1) // page_size_int)
+    return out
 
 
 def _coerce_non_negative_int(value: Any, default: int = 0) -> int:
@@ -331,8 +405,13 @@ class DegradationMiddleware(BaseHTTPMiddleware):
             params = inj.get("params", {})
             action = params.get("action", "")
             url_pattern = params.get("url_pattern", "**/*")
+            legacy_endpoint = None
 
-            if not _url_matches_pattern(url, url_pattern):
+            if action in _REQUEST_TIME_LEGACY_ACTIONS:
+                legacy_endpoint = _legacy_endpoint_match(url, method, params)
+                if legacy_endpoint is None:
+                    continue
+            elif not _url_matches_pattern(url, url_pattern):
                 continue
 
             # For method-filtered actions, check the method BEFORE
@@ -369,6 +448,8 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                 se_methods = params.get("methods")
                 if se_methods and method not in set(se_methods):
                     continue
+            elif action in _REQUEST_TIME_LEGACY_ACTIONS:
+                pass
 
             behavior = params.get("behavior", {})
             mode = behavior.get("mode", "once")
@@ -417,6 +498,11 @@ class DegradationMiddleware(BaseHTTPMiddleware):
 
                 if should_delay:
                     await asyncio.sleep(delay_ms / 1000)
+
+            elif action == "slow_responses":
+                endpoint_delay = int((legacy_endpoint or {}).get("delay_ms", params.get("delay_ms", 0)) or 0)
+                if endpoint_delay > 0:
+                    await asyncio.sleep(endpoint_delay / 1000)
 
             elif action == "error_then_success":
                 error_status = params.get("error_status", 503)
@@ -473,7 +559,7 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     )
 
             elif action == "stale_data":
-                stale_body = params.get("stale_body", {})
+                stale_body = params.get("stale_body")
                 should_stale = False
 
                 if mode == "intermittent":
@@ -484,10 +570,55 @@ class DegradationMiddleware(BaseHTTPMiddleware):
                     should_stale = call_num <= stale_count
 
                 if should_stale:
+                    if stale_body is None:
+                        stale_key = f"{inj_idx}:{url_pattern}"
+                        cached_stale = _STALE_DATA.setdefault(session_id, {}).get(stale_key)
+                        if cached_stale:
+                            status_code, content = cached_stale
+                            return JSONResponse(status_code=status_code, content=content)
+                        response = await call_next(request)
+                        cloned = await _json_response_from_downstream(response)
+                        clone, content = cloned
+                        if content is None:
+                            return clone
+                        _STALE_DATA.setdefault(session_id, {})[stale_key] = (clone.status_code, content)
+                        return clone
                     return JSONResponse(
                         status_code=200,
                         content=stale_body,
                     )
+
+            elif action == "stale_cache":
+                duration_ms = int((legacy_endpoint or {}).get("stale_duration_ms", params.get("stale_duration_ms", 5000)) or 5000)
+                cache_key = f"{inj_idx}:{(legacy_endpoint or {}).get('path_pattern', url_pattern)}"
+                cached = _STALE_CACHE.setdefault(session_id, {}).get(cache_key)
+                now = time.time()
+                if cached and cached[0] > now:
+                    _, status_code, content = cached
+                    return JSONResponse(status_code=status_code, content=content)
+                response = await call_next(request)
+                cloned = await _json_response_from_downstream(response)
+                clone, content = cloned
+                if content is None:
+                    return clone
+                _STALE_CACHE.setdefault(session_id, {})[cache_key] = (
+                    now + duration_ms / 1000,
+                    clone.status_code,
+                    content,
+                )
+                return clone
+
+            elif action == "modify_response":
+                response = await call_next(request)
+                cloned = await _json_response_from_downstream(response)
+                clone, content = cloned
+                if content is None:
+                    return clone
+                modified = _apply_response_modifications(
+                    content,
+                    (legacy_endpoint or {}).get("modifications", params.get("modifications", {})) or {},
+                )
+                return JSONResponse(status_code=clone.status_code, content=modified)
 
             elif action == "misleading_success":
                 # Server returns a louder lie: 200 with a body that claims the

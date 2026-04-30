@@ -51,6 +51,16 @@ def _variant_signature(variant: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
+def _contains_target_placeholder(value: Any) -> bool:
+    if isinstance(value, str):
+        return "{target." in value
+    if isinstance(value, dict):
+        return any(_contains_target_placeholder(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_target_placeholder(item) for item in value)
+    return False
+
+
 def test_lms_variant_inventory_covers_all_tasks(client: TestClient) -> None:
     response = client.get("/api/env/lms/variants")
     assert response.status_code == 200, response.text
@@ -79,7 +89,7 @@ def test_lms_variant_inventory_covers_all_tasks(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("path", _variant_paths(), ids=lambda path: path.name)
-def test_lms_variant_yaml_is_well_formed_and_creatable(path: Path) -> None:
+def test_lms_variant_yaml_is_well_formed_and_creatable(path: Path, client: TestClient) -> None:
     variant = _load_variant(path)
 
     required_keys = {"variant_id", "base_task_id", "target_primitive", "injections"}
@@ -116,6 +126,16 @@ def test_lms_variant_yaml_is_well_formed_and_creatable(path: Path) -> None:
         assert state.degradation["base_task_id"] == variant["base_task_id"]
         assert state.degradation["target_primitive"] == variant["target_primitive"]
         assert session["instruction"].strip()
+        assert not _contains_target_placeholder(state.degradation), (
+            f"{path.name} left an unresolved target placeholder in the applied degradation"
+        )
+
+        if any(injection.get("layer") == "client" for injection in injections):
+            response = client.get(f"/api/env/lms/degradation/{session['session_id']}")
+            assert response.status_code == 200, response.text
+            assert response.json().get("client_injections"), (
+                f"{path.name} defines a client injection but the LMS UI cannot fetch it"
+            )
     finally:
         app.state.session_manager.destroy(session["session_id"])
 
