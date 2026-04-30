@@ -7,6 +7,7 @@ injections:
 - layer: seed
   params:
     action: add_noise_orders
+    multiplier: 2
     orders:
     - symbol: AAPL
       side: buy
@@ -23,3 +24,17 @@ injections:
       order_type: limit
       quantity: 9
       status: pending
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders/*/cancel'
+    methods:
+    - POST
+    - DELETE
+    fail_count: 1
+    success_body:
+      success: true
+      status: cancelled
+      message: Order cancelled.
+    behavior:
+      mode: once

@@ -11,7 +11,7 @@ injections:
   params:
     action: delay
     url_pattern: "**/api/env/robinhood/positions"
-    delay_ms: 2000
+    delay_ms: 3000
     behavior:
       mode: progressive
       stages:
@@ -20,3 +20,15 @@ injections:
       - delay_ms: 3000
         after_call: 6
       - delay_ms: 2000
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

@@ -10,11 +10,24 @@ injections:
 - layer: seed
   params:
     action: add_decoy_notifications
-    count: 4
+    count: 6
     theme: "security_alert"
 - layer: seed
   params:
     action: add_noise_orders
-    count: 3
+    count: 5
     side: "buy"
     symbols: ["NVDA", "AMD", "PLTR"]
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders/*/cancel'
+    methods:
+    - POST
+    - DELETE
+    fail_count: 1
+    success_body:
+      success: true
+      status: cancelled
+    behavior:
+      mode: once

@@ -10,6 +10,7 @@ injections:
 - layer: seed
   params:
     action: add_noise_orders
+    multiplier: 2
     orders:
     - symbol: AAPL
       side: buy
@@ -39,3 +40,15 @@ injections:
       limit_price: "172.00"
       time_in_force: day
       status: pending
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

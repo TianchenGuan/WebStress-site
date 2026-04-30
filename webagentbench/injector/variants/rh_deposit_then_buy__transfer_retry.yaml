@@ -14,3 +14,16 @@ injections:
     error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/transfers'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Transfer submitted.
+      toast: Your deposit is being processed.
+    behavior:
+      mode: once

@@ -14,3 +14,16 @@ injections:
     error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order placed.
+      toast: Your order has been submitted.
+    behavior:
+      mode: once

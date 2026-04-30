@@ -11,7 +11,7 @@ injections:
   params:
     action: add_noise_orders
     symbols: ["TSLA", "MSFT", "META"]
-    count: 5
+    count: 8
 - layer: server
   params:
     action: inject_distractor_notifications
@@ -20,3 +20,15 @@ injections:
     - "MSFT stop-loss triggered at $410.00"
     - "Your META order was partially filled"
     - "Price alert: NFLX crossed $650"
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 2
+    success_body:
+      success: true
+      message: Limit order submitted.
+    behavior:
+      mode: once

@@ -10,13 +10,31 @@ injections:
     url_pattern: '**/api/env/robinhood/settings'
     methods:
     - PUT
-    fail_count: 1
+    fail_count: 2
     response_body:
       id: settings_1
       display_theme: light
       default_order_type: market
       reinvest_dividends: true
       extended_hours_enabled: true
+      biometric_login: false
+      two_factor_method: none
+      notification_prefs: {}
+    behavior:
+      mode: once
+- layer: network
+  params:
+    action: stale_data
+    url_pattern: '**/api/env/robinhood/settings'
+    methods:
+    - GET
+    stale_count: 1
+    stale_body:
+      id: settings_1
+      display_theme: light
+      default_order_type: market
+      reinvest_dividends: true
+      extended_hours_enabled: false
       biometric_login: false
       two_factor_method: none
       notification_prefs: {}

@@ -5,6 +5,25 @@ on the server side so they work for BOTH Playwright agents AND human browsers.
 
 When a session has network degradations configured, this middleware intercepts
 matching API requests and applies the effects before the real handler runs.
+
+Supported actions (used by `params.action` in a variant's network injection):
+    delay               — sleep before forwarding (modes: once, intermittent,
+                          progressive, tail_latency, correlated_window,
+                          write_only_slow)
+    error_then_success  — return N HTTP errors then let the request through
+    silent_fail         — fake a 200 response without forwarding to the handler
+    misleading_success  — like silent_fail, but the body advertises success
+                          ("toast: Saved.") so the agent must verify the
+                          backing state to detect the lie
+    stale_data          — return cached or pre-canned body for first N GETs
+    concurrent_modification — return 409 with an optional latest snapshot
+    rate_limit          — allow burst_limit calls then return 429 for
+                          cooldown_calls more
+    session_expiry      — after expire_after_calls calls return 401 until
+                          a request to reauth_path clears it
+    slow_responses / stale_cache / modify_response — legacy Booking-era
+                          shapes kept for back-compat. Prefer the modern
+                          equivalents above for new variants.
 """
 
 from __future__ import annotations

@@ -10,6 +10,7 @@ injections:
 - layer: seed
   params:
     action: add_noise_orders
+    multiplier: 2
     orders:
     - symbol: MSFT
       side: buy
@@ -39,3 +40,15 @@ injections:
       condition: below
       target_price: 390.00
       message: "MSFT approaching your limit — existing buy order at $395 may fill soon"
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

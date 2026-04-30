@@ -14,3 +14,15 @@ injections:
     error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/security/2fa'
+    methods:
+    - PUT
+    fail_count: 1
+    success_body:
+      success: true
+      message: 2FA settings updated.
+    behavior:
+      mode: once

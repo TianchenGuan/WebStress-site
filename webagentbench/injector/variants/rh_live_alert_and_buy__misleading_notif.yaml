@@ -7,6 +7,7 @@ injections:
 - layer: seed
   params:
     action: add_decoy_notifications
+    multiplier: 2
     decoys:
     - type: price_alert
       title: AAPLX threshold hit
@@ -16,3 +17,15 @@ injections:
       title: AAPL volatility spike
       message: AAPL moved sharply, but this notice is not the same as the requested trigger condition.
       is_read: false
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

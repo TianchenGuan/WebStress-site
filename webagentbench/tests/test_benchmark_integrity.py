@@ -170,15 +170,30 @@ def test_incident_postmortem_exploration_variant_hides_corrected_email() -> None
     assert corrected_email.labels == ["updates"]
 
 
-def test_hide_prerequisite_variants_always_specify_label_name() -> None:
+def test_hide_prerequisite_variants_always_specify_a_target() -> None:
+    """Each hide_prerequisite injection must declare what to remove.
+
+    Two valid shapes (see webagentbench/injector/server.py):
+        legacy: label_name: "Foo"
+        multi:  prerequisites: [{kind, name|email|key, ...}, ...]
+    """
     variants_dir = Path(__file__).resolve().parents[1] / "injector" / "variants"
 
     for path in variants_dir.glob("*.yaml"):
         data = yaml.safe_load(path.read_text()) or {}
         for injection in data.get("injections", []):
             params = injection.get("params", {})
-            if params.get("action") == "hide_prerequisite":
-                assert params.get("label_name"), f"{path.name} is missing label_name"
+            if params.get("action") != "hide_prerequisite":
+                continue
+            has_legacy = bool(params.get("label_name"))
+            prereqs = params.get("prerequisites") or []
+            has_multi = isinstance(prereqs, list) and any(
+                isinstance(p, dict) and (p.get("name") or p.get("email") or p.get("key"))
+                for p in prereqs
+            )
+            assert has_legacy or has_multi, (
+                f"{path.name} is missing label_name or prerequisites"
+            )
 
 
 def test_gmail_stale_email_and_search_variants_use_paginated_items_schema() -> None:

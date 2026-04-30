@@ -142,12 +142,60 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
             mutated = True
 
     elif action == "hide_prerequisite":
-        label_name = params.get("label_name")
-        if label_name and hasattr(state, "labels"):
-            state.labels = [lab for lab in state.labels if lab.name != label_name]
-            mutated = True
+        # Two call shapes:
+        #   (legacy) label_name: "Foo"
+        #   (multi)  prerequisites: [{kind: label|contact|filter, name|email: ...}, ...]
+        # Multi mode lets a single Planning task force the agent to recreate
+        # several missing pieces (e.g. label + contact + filter) instead of
+        # one. Legacy callers keep working.
+        prerequisites = params.get("prerequisites")
+        legacy_label = params.get("label_name")
+        if legacy_label and not prerequisites:
+            prerequisites = [{"kind": "label", "name": legacy_label}]
+        for prereq in prerequisites or []:
+            if not isinstance(prereq, dict):
+                continue
+            kind = str(prereq.get("kind", "label")).lower()
+            if kind == "label":
+                name = prereq.get("name")
+                if name and hasattr(state, "labels"):
+                    state.labels = [lab for lab in state.labels if lab.name != name]
+                    mutated = True
+            elif kind == "contact":
+                # Match by email if provided, otherwise by exact name.
+                email_match = prereq.get("email")
+                name_match = prereq.get("name")
+                if hasattr(state, "contacts") and (email_match or name_match):
+                    state.contacts = [
+                        c for c in state.contacts
+                        if (email_match and getattr(c, "email", None) != email_match)
+                        or (not email_match and name_match and getattr(c, "name", None) != name_match)
+                    ] if email_match else [
+                        c for c in state.contacts if getattr(c, "name", None) != name_match
+                    ]
+                    mutated = True
+            elif kind == "filter":
+                name = prereq.get("name") or prereq.get("query")
+                if hasattr(state, "filters") and name:
+                    state.filters = [
+                        f for f in state.filters
+                        if getattr(f, "name", None) != name
+                        and getattr(f, "query", None) != name
+                    ]
+                    mutated = True
 
     elif action == "inject_distractor_emails":
+        # ARCHITECTURAL NOTE (kept in server.py, not seed.py):
+        # This action lives at the server layer because the injector
+        # pipeline (apply.py) runs seed-layer first, then server-layer.
+        # Several Gmail variants pair this distractor injection with
+        # OTHER server-layer state mutations (`scramble_timestamps`,
+        # `shuffle_contacts`) that must run AFTER the initial seed pool
+        # is in place. Moving it to the seed layer would break that
+        # ordering — the timestamps would be scrambled before the
+        # distractors arrived, leaving the distractors with un-scrambled
+        # base timestamps. Keeping it server-layer preserves the "all
+        # post-seed mutations together" invariant.
         count = params.get("count", 5)
         subject_prefix = params.get("subject_prefix", "")
         if hasattr(state, "emails") and state.emails:
@@ -224,16 +272,96 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
                 mutated = True
 
     elif action == "corrupt_state":
-        # Modify an email field to create inconsistency agent must detect
-        email_id = params.get("email_id")
-        field = params.get("field", "subject")
-        new_value = params.get("value", "CORRUPTED")
-        if email_id and hasattr(state, "emails"):
-            for email in state.emails:
-                if email.id == email_id:
-                    setattr(email, field, new_value)
-                    mutated = True
-                    break
+        # Multiple call shapes (Gmail and Robinhood):
+        #   (legacy gmail)  email_id, field, value
+        #   (multi gmail)   corruptions: [{email_id, field, value}, ...]
+        #   (swap gmail)    swap: {email_id_a, email_id_b, fields: [...]}
+        #   (rh single)     target: positions|orders, target_id, field, value
+        #   (rh multi)      corruptions: [{target: positions|orders, target_id, field, value}, ...]
+        #   (rh swap)       swap: {target: positions|orders, target_id_a, target_id_b, fields: [...]}
+        # Swap exchanges the listed fields between two existing records so
+        # the surface still looks internally consistent (no NULLs, no
+        # obvious placeholder strings) — both halves still type-check.
+        # That's harder than a single `value="CORRUPTED"` write because
+        # nothing dangles.
+
+        def _by_id(items: list, eid: str) -> Any | None:
+            for e in items:
+                if getattr(e, "id", None) == eid:
+                    return e
+            return None
+
+        def _resolve_collection(target_kind: str | None) -> list | None:
+            kind = (target_kind or "").lower()
+            if kind in {"", "email", "emails"} and hasattr(state, "emails"):
+                return state.emails
+            if kind in {"position", "positions"} and hasattr(state, "positions"):
+                return state.positions
+            if kind in {"order", "orders"} and hasattr(state, "orders"):
+                return state.orders
+            if kind in {"notification", "notifications"} and hasattr(state, "notifications"):
+                return state.notifications
+            return None
+
+        # Build the corruption list. Legacy Gmail call (email_id+field+value)
+        # is normalized into the multi shape so the loop below covers both.
+        corruptions = list(params.get("corruptions") or [])
+        if not corruptions:
+            eid = params.get("email_id")
+            if eid is not None:
+                corruptions = [{
+                    "email_id": eid,
+                    "field": params.get("field", "subject"),
+                    "value": params.get("value", "CORRUPTED"),
+                }]
+            else:
+                tid = params.get("target_id")
+                if tid is not None:
+                    corruptions = [{
+                        "target": params.get("target", "emails"),
+                        "target_id": tid,
+                        "field": params.get("field"),
+                        "value": params.get("value"),
+                    }]
+
+        for spec in corruptions:
+            if not isinstance(spec, dict):
+                continue
+            # Spec resolution: prefer explicit `target`/`target_id`,
+            # fall back to legacy `email_id`.
+            collection = _resolve_collection(spec.get("target"))
+            if collection is None:
+                # Legacy email shape.
+                if hasattr(state, "emails"):
+                    collection = state.emails
+                else:
+                    continue
+            record_id = spec.get("target_id") or spec.get("email_id")
+            target = _by_id(collection, record_id) if record_id else None
+            if target is None:
+                continue
+            field = spec.get("field")
+            if field and hasattr(target, field):
+                setattr(target, field, spec.get("value"))
+                mutated = True
+
+        swap = params.get("swap")
+        if isinstance(swap, dict):
+            collection = _resolve_collection(swap.get("target"))
+            if collection is None and hasattr(state, "emails"):
+                collection = state.emails
+            id_a = swap.get("target_id_a") or swap.get("email_id_a")
+            id_b = swap.get("target_id_b") or swap.get("email_id_b")
+            a = _by_id(collection or [], id_a) if id_a else None
+            b = _by_id(collection or [], id_b) if id_b else None
+            fields = swap.get("fields") or []
+            if a is not None and b is not None:
+                for field in fields:
+                    if hasattr(a, field) and hasattr(b, field):
+                        tmp = getattr(a, field)
+                        setattr(a, field, getattr(b, field))
+                        setattr(b, field, tmp)
+                        mutated = True
 
     # --- Robinhood server actions ---
 
@@ -262,10 +390,36 @@ def apply_server_injection(state: Any, params: dict[str, Any]) -> None:
             mutated = True
 
     elif action == "hide_watchlist":
-        name = params.get("watchlist_name")
-        if name and hasattr(state, "watchlists"):
-            state.watchlists = [w for w in state.watchlists if w.name != name]
-            mutated = True
+        # Two call shapes (mirrors hide_prerequisite):
+        #   (legacy) watchlist_name: "Foo"
+        #   (multi)  prerequisites: [{kind: watchlist|setting, name|key: ..., default?: any}, ...]
+        # Setting-kind clears a per-account preference (e.g.
+        # `extended_hours_enabled`, `position_threshold_alert_pct`) so the
+        # agent must re-set it as part of the task plan.
+        prerequisites = params.get("prerequisites")
+        legacy_watchlist = params.get("watchlist_name")
+        if legacy_watchlist and not prerequisites:
+            prerequisites = [{"kind": "watchlist", "name": legacy_watchlist}]
+        for prereq in prerequisites or []:
+            if not isinstance(prereq, dict):
+                continue
+            kind = str(prereq.get("kind", "watchlist")).lower()
+            if kind == "watchlist":
+                name = prereq.get("name")
+                if name and hasattr(state, "watchlists"):
+                    state.watchlists = [w for w in state.watchlists if w.name != name]
+                    mutated = True
+            elif kind == "setting":
+                key = prereq.get("key") or prereq.get("name")
+                if key and hasattr(state, "settings"):
+                    settings = getattr(state, "settings", None)
+                    default = prereq.get("default")
+                    if isinstance(settings, dict):
+                        settings[key] = default
+                        mutated = True
+                    elif hasattr(settings, key):
+                        setattr(settings, key, default)
+                        mutated = True
 
     elif action in {"inject_notifications", "inject_distractor_notifications"}:
         if hasattr(state, "add_notification"):
