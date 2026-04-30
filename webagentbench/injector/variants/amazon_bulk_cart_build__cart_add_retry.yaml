@@ -2,17 +2,79 @@ variant_id: amazon_bulk_cart_build__cart_add_retry
 base_task_id: amazon_bulk_cart_build
 target_primitive: backtracking
 description: >
-  Each of the first two cart-add POSTs returns a fake 200 that echoes the
-  agent's own product_id and quantity in a coherent cart_item body, so a
-  verify-via-response-body trust path appears to succeed. The first three
-  /cart GETs also return a stale snapshot containing four "Pending sync —
-  refresh" placeholder items, so a verify-via-cart-page nav also looks fine.
-  The real backend cart stays empty, the placed order has zero matching
-  items, and canonical_diff's "len(items) == 4" predicate fails. Recovery:
-  a hard refresh (or 4th cart visit) returns the real empty cart — the
-  agent then knows to re-add. Bounded extra actions: the agent can place
-  4 real adds + checkout in ≤ 5 follow-ups.
+  Three-layer entity-identity verification trap (lessons from
+  weilicao's RH "Lever C" + TianchenGuan's booking round-3):
+  (a) cart starts pre-poisoned with 4 cart_items whose product_names
+      match the task's target products but whose product_ids point to
+      decoy SKUs (same name, distinct catalog entry, lower price) — so
+      a verify-by-name pass succeeds while the canonical product_id
+      check fails.
+  (b) the first two /cart/add POSTs silent-fail with a templated body
+      that echoes the agent's own request product_id/quantity (defeats
+      the trust-the-cart-add-response verify path).
+  (c) the first /checkout POST misleading-successes with a fake order
+      body so even a clean recovery is undone unless the agent verifies
+      the order persisted via /orders.
+  canonical_diff requires `len(items) == 4 AND specific product_ids`,
+  so any path that doesn't (i) clean the poisoned cart AND (ii) verify
+  the order landed will fail. Recovery exists (clear cart, re-add 4,
+  re-checkout) but requires explicit entity-id verification, not just
+  label matching.
 injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    # Step 1: inject 4 decoy PRODUCTS with the same names as the targets.
+    # Because state.products gets these inserted at index 0, the cart_item
+    # name-lookup below picks the decoy first.
+    - type: product
+      name: '{target.product_1}'
+      brand: GenericAccessories
+      seller: ResellerHub
+      category: Electronics
+      price: 9.99
+      rating: 4.1
+      review_count: 120
+    - type: product
+      name: '{target.product_2}'
+      brand: GenericAccessories
+      seller: ResellerHub
+      category: Electronics
+      price: 19.99
+      rating: 4.0
+      review_count: 95
+    - type: product
+      name: '{target.product_3}'
+      brand: GenericAccessories
+      seller: ResellerHub
+      category: Electronics
+      price: 7.49
+      rating: 4.2
+      review_count: 230
+    - type: product
+      name: '{target.product_4}'
+      brand: GenericAccessories
+      seller: ResellerHub
+      category: Electronics
+      price: 24.99
+      rating: 3.9
+      review_count: 78
+    # Step 2: pre-populate cart with 4 items at the EXPECTED quantities,
+    # but referencing the decoy products (auto-resolved via the name
+    # lookup, which now matches the decoy at state.products[0..3]).
+    - type: cart_item
+      product_name: '{target.product_1}'
+      quantity: 2
+    - type: cart_item
+      product_name: '{target.product_2}'
+      quantity: 1
+    - type: cart_item
+      product_name: '{target.product_3}'
+      quantity: 3
+    - type: cart_item
+      product_name: '{target.product_4}'
+      quantity: 1
 - layer: network
   params:
     action: silent_fail
@@ -33,43 +95,23 @@ injections:
       mode: once
 - layer: network
   params:
-    action: stale_data
-    url_pattern: '**/api/env/amazon/cart'
-    stale_count: 5
-    stale_body:
-      items:
-      - id: cart_pending_1
-        product_id: prod_pending_1
-        product_name: 'Pending sync — refresh to view'
-        quantity: 1
-        unit_price: 0.0
-        variant_selections: {}
-        added_at: '2026-04-26T08:00:00+00:00'
-      - id: cart_pending_2
-        product_id: prod_pending_2
-        product_name: 'Pending sync — refresh to view'
-        quantity: 1
-        unit_price: 0.0
-        variant_selections: {}
-        added_at: '2026-04-26T08:00:00+00:00'
-      - id: cart_pending_3
-        product_id: prod_pending_3
-        product_name: 'Pending sync — refresh to view'
-        quantity: 1
-        unit_price: 0.0
-        variant_selections: {}
-        added_at: '2026-04-26T08:00:00+00:00'
-      - id: cart_pending_4
-        product_id: prod_pending_4
-        product_name: 'Pending sync — refresh to view'
-        quantity: 1
-        unit_price: 0.0
-        variant_selections: {}
-        added_at: '2026-04-26T08:00:00+00:00'
-      totals:
+    action: misleading_success
+    url_pattern: '**/api/env/amazon/checkout'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      order:
+        id: order_pending_fake
+        items: []
+        shipping_address_id: ''
+        payment_method_id: ''
         subtotal: 0.0
-        shipping: 0.0
+        shipping_cost: 0.0
         tax: 0.0
         discount: 0.0
-        gift_card_applied: 0.0
         total: 0.0
+        status: confirmed
+        placed_at: '2026-04-26T08:00:00+00:00'
+        estimated_delivery: 'Arriving in 3 days'
+        promo_code:
