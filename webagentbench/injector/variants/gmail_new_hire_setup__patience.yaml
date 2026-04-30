@@ -8,20 +8,32 @@ injections:
   params:
     action: delay
     url_pattern: '**/api/env/gmail/labels'
-    delay_ms: 3000
+    delay_ms: 4500
     behavior:
       mode: progressive
       stages:
       - after_call: 1
-        delay_ms: 1000
+        delay_ms: 1500
       - after_call: 2
-        delay_ms: 2000
-      - after_call: 3
         delay_ms: 3000
+      - after_call: 3
+        delay_ms: 4500
 - layer: network
   params:
     action: delay
     url_pattern: '**/api/env/gmail/filters'
+    delay_ms: 4500
+    behavior:
+      mode: progressive
+      stages:
+      - after_call: 1
+        delay_ms: 2250
+      - after_call: 2
+        delay_ms: 3750
+- layer: network
+  params:
+    action: delay
+    url_pattern: '**/api/env/gmail/contacts'
     delay_ms: 3000
     behavior:
       mode: progressive
@@ -29,16 +41,4 @@ injections:
       - after_call: 1
         delay_ms: 1500
       - after_call: 2
-        delay_ms: 2500
-- layer: network
-  params:
-    action: delay
-    url_pattern: '**/api/env/gmail/contacts'
-    delay_ms: 2000
-    behavior:
-      mode: progressive
-      stages:
-      - after_call: 1
-        delay_ms: 1000
-      - after_call: 2
-        delay_ms: 2000
+        delay_ms: 3000

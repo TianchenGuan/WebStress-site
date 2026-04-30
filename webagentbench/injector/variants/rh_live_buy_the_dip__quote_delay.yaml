@@ -8,23 +8,35 @@ injections:
   params:
     action: delay
     url_pattern: '**/api/env/robinhood/prices**'
-    delay_ms: 2200
+    delay_ms: 3300
     behavior:
       mode: progressive
       stages:
       - after_call: 0
-        delay_ms: 1100
+        delay_ms: 1650
       - after_call: 3
-        delay_ms: 2200
+        delay_ms: 3300
 - layer: network
   params:
     action: delay
     url_pattern: '**/api/env/robinhood/stocks/*/chart**'
-    delay_ms: 2200
+    delay_ms: 3300
     behavior:
       mode: progressive
       stages:
       - after_call: 0
-        delay_ms: 1100
+        delay_ms: 1650
       - after_call: 3
-        delay_ms: 2200
+        delay_ms: 3300
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

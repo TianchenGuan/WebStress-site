@@ -14,10 +14,16 @@ injections:
 - layer: server
   params:
     action: hide_watchlist
-    watchlist_name: "My First List"
+    prerequisites:
+    - kind: watchlist
+      name: "My First List"
+    - kind: setting
+      key: position_threshold_alert_pct
+      default: null
 - layer: seed
   params:
     action: add_confusing_positions
+    multiplier: 2
     positions:
       - symbol: "PEP"
         quantity: "15"

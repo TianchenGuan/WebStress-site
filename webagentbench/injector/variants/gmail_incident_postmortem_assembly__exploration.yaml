@@ -15,21 +15,21 @@ injections:
       page_size: 25
       pages: 1
       query: ''
-    stale_count: 2
+    stale_count: 3
     behavior:
       mode: once
 - layer: network
   params:
     action: delay
     url_pattern: '**/api/env/gmail/emails'
-    delay_ms: 3000
+    delay_ms: 4500
     behavior:
       mode: progressive
       stages:
       - after_call: 2
-        delay_ms: 3000
+        delay_ms: 4500
       - after_call: 3
-        delay_ms: 5000
+        delay_ms: 7000
 - layer: seed
   params:
     action: hide_in_non_obvious_location

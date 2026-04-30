@@ -10,7 +10,7 @@ injections:
 - layer: seed
   params:
     action: add_noise_orders
-    count: 4
+    count: 6
     side: "buy"
     symbols: ["AAPL", "MSFT", "GOOGL", "AMZN"]
 - layer: seed
@@ -23,3 +23,15 @@ injections:
       - symbol: "META"
         condition: "below"
         target_price: 200.00
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/orders'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      message: Order submitted.
+    behavior:
+      mode: once

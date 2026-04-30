@@ -15,3 +15,16 @@ injections:
     error_message: Service temporarily unavailable. (HTTP 503)
     behavior:
       mode: once
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/notifications/read-all'
+    methods:
+    - POST
+    fail_count: 1
+    success_body:
+      success: true
+      updated: 0
+      message: All notifications marked as read.
+    behavior:
+      mode: once

@@ -11,6 +11,7 @@ injections:
 - layer: seed
   params:
     action: add_noise_orders
+    multiplier: 2
     orders:
       - symbol: AAPL
         side: buy
@@ -34,6 +35,7 @@ injections:
 - layer: seed
   params:
     action: add_decoy_notifications
+    multiplier: 2
     decoys:
       - type: recurring_investment
         title: "AAPL Recurring Investment Executed"
@@ -41,3 +43,24 @@ injections:
       - type: recurring_investment
         title: "MSFT Recurring Investment Executed"
         message: "Your monthly $50.00 MSFT investment purchased 0.122 shares at $410.15."
+- layer: seed
+  params:
+    action: add_misleading_alert
+    alerts:
+    - symbol: VTI
+      condition: below
+      target_price: 200.00
+      status: triggered
+- layer: network
+  params:
+    action: misleading_success
+    url_pattern: '**/api/env/robinhood/recurring/*'
+    methods:
+    - DELETE
+    - PATCH
+    fail_count: 1
+    success_body:
+      success: true
+      status: deleted
+    behavior:
+      mode: once

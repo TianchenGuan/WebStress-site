@@ -7,6 +7,7 @@ injections:
 - layer: seed
   params:
     action: add_decoy_notifications
+    multiplier: 2
     decoys:
     - type: recurring_investment
       title: Recurring investment review suggested
@@ -18,3 +19,8 @@ injections:
       message: A dividend ETF moved sharply today. This does not necessarily mean the recurring plan needs
         adjustment.
       is_read: false
+- layer: server
+  params:
+    action: inject_distractor_notifications
+    count: 5
+    types: ['margin_call', 'price_alert']
