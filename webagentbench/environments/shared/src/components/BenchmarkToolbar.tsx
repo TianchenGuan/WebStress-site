@@ -1301,8 +1301,33 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
     [location.search],
   );
 
+  // Toolbar visibility is opt-out-and-sticky.
+  //
+  //   ?hide_toolbar=1   — explicit hide (admin override / agent flow legacy)
+  //   ?human_mode=1     — human-recording flow (annotators must NOT see the
+  //                       toolbar — see GUIDELINES.md §2 "no UI leakage")
+  //
+  // Once either flag is observed in any URL of this tab, we stash it in
+  // sessionStorage. SPAs inside the env can re-navigate and drop the query
+  // string; without persistence, the toolbar would reappear and leak primitive
+  // labels / Evaluate buttons / "← Launcher" link to the annotator. Storage
+  // is per-tab (sessionStorage), so the persistence dies when the env tab
+  // closes — opening a fresh tab to a non-human URL still shows the toolbar.
   const hideToolbar = useMemo(
-    () => new URLSearchParams(location.search).get("hide_toolbar") === "1",
+    () => {
+      const params = new URLSearchParams(location.search);
+      const fromUrl =
+        params.get("hide_toolbar") === "1" || params.get("human_mode") === "1";
+      try {
+        if (fromUrl) {
+          sessionStorage.setItem("wab.hide_toolbar", "1");
+          return true;
+        }
+        return sessionStorage.getItem("wab.hide_toolbar") === "1";
+      } catch {
+        return fromUrl;
+      }
+    },
     [location.search],
   );
 
