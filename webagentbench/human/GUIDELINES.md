@@ -32,7 +32,7 @@ The study has two annotator tiers. Check which one you are:
 | Your role | Who | Load | Notes |
 |---|---|---|---|
 | **Primary (full-load)** | Weili, Michael, Xunjian, Tianchen | 70 task-conditions each → 140 attempts (cold + warm) | You cover both clean + intervention across 3–4 environments. You are the primary human reference. |
-| **Duplicate (limited-load, Amazon team)** | Keagan, Kyle, Royce, Daisy | 8–9 task-conditions each → 16–18 attempts | You re-record a subset of task-conditions that a primary annotator already did. Your traces are compared against theirs to estimate human-reference stability and catch task ambiguity. You don't need to match what the primary did — just record naturally. |
+| **Duplicate (limited-load, Amazon team)** | Keagan, Kyle, Royce, Daisy | 8–9 task-conditions each → 16–18 attempts | You re-record a subset of task-conditions that a primary annotator already did. This is a **lightweight duplicate-human stability audit** — 35 duplicated task-conditions in total (one per environment × difficulty cell), split across the four of you. Your traces are compared against the primary annotator's to estimate human-reference stability and catch task ambiguity. You don't need to match what the primary did — just record naturally. |
 
 Both tiers use the same launcher and follow the same rules below. The dashboard automatically filters to your assigned set when you type your name.
 

@@ -2,13 +2,18 @@
 
 This file summarizes the task assignment generated from `webagentbench_human_panel_v2_140.yaml`.
 
+The full WebAgentBench benchmark currently has **519 base tasks** across 7 sandbox websites
+(full agent evaluation = 519 × 2 = 1038 task-conditions). The human plan covers a curated
+140-base-task panel — 4 base tasks per environment × difficulty cell. See [`PLAN_STATUS.md`](./PLAN_STATUS.md)
+for the audited frozen state.
+
 ## Interpretation
 
 - The primary panel contains **140 base tasks**.
 - Each base task has **2 task-conditions**: `clean` and `intervention`.
 - Each assigned task-condition is recorded twice by the same annotator: `cold` then `warm`.
 - Therefore the primary workload is **140 × 2 task-conditions × 2 attempts = 560 attempts**.
-- The duplicate subset contains **35 task-conditions**, not 35 base tasks. Each duplicate task-condition is recorded `cold` and `warm` by a second independent annotator, giving **35 × 2 = 70 attempts**.
+- The **lightweight duplicate-human stability audit** contains **35 duplicated task-conditions**, not 35 base tasks (one duplicated task-condition in every environment × difficulty cell). Each duplicated task-condition is recorded `cold` and `warm` by a second independent annotator, giving **35 × 2 = 70 attempts**.
 - Total expected recorded attempts: **630**.
 
 

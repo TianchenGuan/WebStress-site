@@ -8,6 +8,8 @@
 
 You'll record a fixed set of tasks under two conditions (`clean` + `intervention`), each twice (`cold` → `warm`), on your own laptop, and commit the traces back to the repo as a PR. A full-load annotator has 70 task-conditions = 140 attempts; a duplicate annotator has 8–9 task-conditions = 16–18 attempts.
 
+The plan covers a curated 140-base-task panel out of the **519-task full benchmark** — 7 sandbox websites × 5 difficulty levels × 4 base tasks per cell. Across the four full-load annotators that gives **560 primary attempts**, plus a **lightweight duplicate-human stability audit** of 35 task-conditions × 2 attempts = **70 duplicate attempts**, for **630 total expected attempts**. See [PLAN_STATUS.md](./PLAN_STATUS.md) for the current frozen state.
+
 The launcher handles everything: start backend + env dev servers, open a dashboard filtered to your assignments, step you through cold → warm, and optionally a 30-second feedback form.
 
 ## TL;DR
