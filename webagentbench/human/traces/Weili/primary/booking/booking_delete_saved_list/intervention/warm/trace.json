@@ -1,0 +1,167 @@
+{
+  "metadata": {
+    "assignment_id": "primary::booking_delete_saved_list::intervention",
+    "assignment_role": "primary",
+    "annotator": "Weili",
+    "base_task_id": "booking_delete_saved_list",
+    "env": "booking",
+    "difficulty": "easy",
+    "condition": "intervention",
+    "attempt_type": "warm",
+    "seed": 42,
+    "intervention_variant_id": "booking_delete_saved_list__list_twin",
+    "intervention_variant_yaml": "webagentbench/injector/variants/booking_delete_saved_list__list_twin.yaml",
+    "title": "Delete a Saved List",
+    "session_id": "booking_booking_delete_saved_list_b2082cd8b5",
+    "recorded_at": "2026-05-02T04:54:26.715377+00:00",
+    "started_at_ms": 1777697658268,
+    "ended_at_ms": 1777697666480,
+    "wall_clock_ms": 8212,
+    "raw_event_count": 1,
+    "audit_entry_count": 2,
+    "final_score": 1.0,
+    "pass": true,
+    "viewport": {
+      "width": 1440,
+      "height": 812,
+      "dpr": 2
+    },
+    "client_metadata": {
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "pathname": "/saved"
+    }
+  },
+  "events": [
+    {
+      "step": 1,
+      "type": "click",
+      "timestamp_ms": 4486,
+      "url": "/env/booking/saved?session=booking_booking_delete_saved_list_b2082cd8b5&control=on&hide_toolbar=1&human_mode=1",
+      "detail": {
+        "element": {
+          "tag": "button",
+          "role": "",
+          "bid": "",
+          "text": "Delete",
+          "ariaLabel": "Delete list Weekend Getaways",
+          "selector": "button.bk-btn.bk-btn--danger.bk-btn--sm"
+        },
+        "x": 806,
+        "y": 506
+      }
+    }
+  ],
+  "audit_log": [
+    {
+      "timestamp": "2026-05-02 04:54:23.907433+00:00",
+      "action": "saved_list.delete",
+      "payload": {
+        "list_id": "list_1"
+      },
+      "summary": "SavedList:list_1",
+      "snapshot": {
+        "task_id": "booking_delete_saved_list",
+        "audit_entries": 1,
+        "counts": {
+          "properties": 192,
+          "reservations": 15,
+          "reviews": 583,
+          "saved_lists": 9,
+          "payment_methods": 4,
+          "messages": 12,
+          "notifications": 15,
+          "unread_notifications": 9,
+          "search_history": 10,
+          "recently_viewed": 12
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02 04:54:25.728759+00:00",
+      "action": "benchmark_state.capture",
+      "payload": {
+        "keys": []
+      },
+      "summary": "Captured client benchmark state",
+      "snapshot": {
+        "completed": false
+      }
+    }
+  ],
+  "resolved_targets": {
+    "list_id": "list_1",
+    "list_name": "Weekend Getaways",
+    "session_start": "2025-07-07T13:05:00+00:00"
+  },
+  "evaluation": {
+    "score": 1,
+    "final_score": 1,
+    "success": true,
+    "reasoning": "Score: 1.000; success=True\nPassed 1/1 checks.\n  [PASS] Agent deleted the target saved list\nAll negative checks passed (no penalties).\nFinal score: 1.000 | Success: True",
+    "checks": [
+      {
+        "desc": "Agent deleted the target saved list",
+        "passed": true,
+        "error": null
+      }
+    ],
+    "negative_checks": [
+      {
+        "desc": "Agent did not delete or modify other saved lists",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify reservations",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify properties",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not create or modify reviews",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not send or modify messages",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify payment methods",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not create notifications",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      }
+    ]
+  }
+}

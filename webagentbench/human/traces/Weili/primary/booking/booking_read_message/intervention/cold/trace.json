@@ -1,0 +1,168 @@
+{
+  "metadata": {
+    "assignment_id": "primary::booking_read_message::intervention",
+    "assignment_role": "primary",
+    "annotator": "Weili",
+    "base_task_id": "booking_read_message",
+    "env": "booking",
+    "difficulty": "easy",
+    "condition": "intervention",
+    "attempt_type": "cold",
+    "seed": 42,
+    "intervention_variant_id": "booking_read_message__message_twin",
+    "intervention_variant_yaml": "webagentbench/injector/variants/booking_read_message__message_twin.yaml",
+    "title": "Read an Unread Message from a Hotel",
+    "session_id": "booking_booking_read_message_87c14521de",
+    "recorded_at": "2026-05-02T05:25:55.434413+00:00",
+    "started_at_ms": 1777699551215,
+    "ended_at_ms": 1777699554484,
+    "wall_clock_ms": 3269,
+    "raw_event_count": 1,
+    "audit_entry_count": 2,
+    "final_score": 1.0,
+    "pass": true,
+    "viewport": {
+      "width": 1440,
+      "height": 812,
+      "dpr": 2
+    },
+    "client_metadata": {
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "pathname": "/messages"
+    }
+  },
+  "events": [
+    {
+      "step": 1,
+      "type": "click",
+      "timestamp_ms": 1303,
+      "url": "/env/booking/messages?session=booking_booking_read_message_87c14521de&control=on&hide_toolbar=1&human_mode=1",
+      "detail": {
+        "element": {
+          "tag": "div",
+          "role": "",
+          "bid": "",
+          "text": "Your upcoming stay - important informationDear guest, we would like to inform yo",
+          "ariaLabel": "",
+          "selector": "div"
+        },
+        "x": 655,
+        "y": 410
+      }
+    }
+  ],
+  "audit_log": [
+    {
+      "timestamp": "2026-05-02 05:25:53.575973+00:00",
+      "action": "message.read",
+      "payload": {
+        "message_id": "msg_1"
+      },
+      "summary": "Message:msg_1",
+      "snapshot": {
+        "task_id": "booking_read_message",
+        "audit_entries": 1,
+        "counts": {
+          "properties": 194,
+          "reservations": 15,
+          "reviews": 583,
+          "saved_lists": 5,
+          "payment_methods": 4,
+          "messages": 14,
+          "notifications": 15,
+          "unread_notifications": 9,
+          "search_history": 10,
+          "recently_viewed": 12
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02 05:25:54.659315+00:00",
+      "action": "benchmark_state.capture",
+      "payload": {
+        "keys": []
+      },
+      "summary": "Captured client benchmark state",
+      "snapshot": {
+        "completed": false
+      }
+    }
+  ],
+  "resolved_targets": {
+    "message_id": "msg_1",
+    "message_subject": "Your upcoming stay - important information",
+    "property_name": "Alpine Lodge Retreat",
+    "session_start": "2025-07-07T13:05:00+00:00"
+  },
+  "evaluation": {
+    "score": 1,
+    "final_score": 1,
+    "success": true,
+    "reasoning": "Score: 1.000; success=True\nPassed 1/1 checks.\n  [PASS] Agent marked the target message as read\nAll negative checks passed (no penalties).\nFinal score: 1.000 | Success: True",
+    "checks": [
+      {
+        "desc": "Agent marked the target message as read",
+        "passed": true,
+        "error": null
+      }
+    ],
+    "negative_checks": [
+      {
+        "desc": "Agent did not modify other messages",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify reservations",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify properties",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not create or modify reviews",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify saved lists",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify payment methods",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not create or modify notifications",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "annotator": "Weili",
+  "aid": "primary::booking_find_genius_deal::clean",
+  "clarity": 3,
+  "realism": 3,
+  "fun_value": 3,
+  "intervention_naturalness": null,
+  "suspected_bug": true,
+  "ambiguous_instruction": false,
+  "alternate_valid_strategy": false,
+  "comments": "Chic & Basic Born wins by a huge margin, and there may be other real Barcelona hotels in that JSON with Genius discounts that also beat $797.\n\nThis is an eval bug. The task instruction says \"find the cheapest Genius-discounted property \u2026 at most $800\", but the grader's canonical_diff (booking_find_genius_deal.yaml:182) requires property_id == target['property_id'] \u2014 i.e., it only accepts Barcelona Genius Boutique. A correct \"find the cheapest\" answer (Chic & Basic Born) would be graded as failing. The YAML doesn't set skip_real_hotels, so the real-hotels distractor pool is loaded into the same Barcelona search.",
+  "submitted_at": "2026-05-02T06:22:15.205253+00:00"
+}

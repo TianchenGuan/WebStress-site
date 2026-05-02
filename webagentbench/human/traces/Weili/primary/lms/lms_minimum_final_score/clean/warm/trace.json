@@ -1,0 +1,275 @@
+{
+  "metadata": {
+    "assignment_id": "primary::lms_minimum_final_score::clean",
+    "assignment_role": "primary",
+    "annotator": "Weili",
+    "base_task_id": "lms_minimum_final_score",
+    "env": "lms",
+    "difficulty": "hard",
+    "condition": "clean",
+    "attempt_type": "warm",
+    "seed": 42,
+    "intervention_variant_id": null,
+    "intervention_variant_yaml": null,
+    "title": "Calculate Minimum Final Exam Score for a B",
+    "session_id": "lms_lms_minimum_final_score_59e4e07638",
+    "recorded_at": "2026-05-02T14:11:05.441422+00:00",
+    "started_at_ms": 1777731050250,
+    "ended_at_ms": 1777731065117,
+    "wall_clock_ms": 14867,
+    "raw_event_count": 5,
+    "audit_entry_count": 3,
+    "final_score": 1.0,
+    "pass": true,
+    "viewport": {
+      "width": 1440,
+      "height": 812,
+      "dpr": 2
+    },
+    "client_metadata": {
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "pathname": "/courses"
+    }
+  },
+  "events": [
+    {
+      "step": 1,
+      "type": "click",
+      "timestamp_ms": 1108,
+      "url": "/env/lms/courses?session=lms_lms_minimum_final_score_59e4e07638&control=on&hide_toolbar=1&human_mode=1",
+      "detail": {
+        "element": {
+          "tag": "div",
+          "role": "",
+          "bid": "",
+          "text": "Introduction to Computer Science",
+          "ariaLabel": "",
+          "selector": "div"
+        },
+        "x": 255,
+        "y": 191
+      }
+    },
+    {
+      "step": 2,
+      "type": "navigate",
+      "timestamp_ms": 1203,
+      "url": "/env/lms/courses/course_1?session=lms_lms_minimum_final_score_59e4e07638&control=on",
+      "detail": {
+        "url": "/env/lms/courses/course_1?session=lms_lms_minimum_final_score_59e4e07638&control=on"
+      }
+    },
+    {
+      "step": 3,
+      "type": "click",
+      "timestamp_ms": 7977,
+      "url": "/env/lms/courses/course_1?session=lms_lms_minimum_final_score_59e4e07638&control=on",
+      "detail": {
+        "element": {
+          "tag": "button",
+          "role": "tab",
+          "bid": "",
+          "text": "Grades",
+          "ariaLabel": "Grades",
+          "selector": "button.wab-tabs__trigger"
+        },
+        "x": 719,
+        "y": 182
+      }
+    },
+    {
+      "step": 4,
+      "type": "click",
+      "timestamp_ms": 9465,
+      "url": "/env/lms/courses/course_1?session=lms_lms_minimum_final_score_59e4e07638&control=on",
+      "detail": {
+        "element": {
+          "tag": "button",
+          "role": "",
+          "bid": "",
+          "text": "Drop Course",
+          "ariaLabel": "Drop course CS101",
+          "selector": "button.lms-btn.lms-btn--secondary"
+        },
+        "x": 1255,
+        "y": 91
+      }
+    },
+    {
+      "step": 5,
+      "type": "click",
+      "timestamp_ms": 10691,
+      "url": "/env/lms/courses/course_1?session=lms_lms_minimum_final_score_59e4e07638&control=on",
+      "detail": {
+        "element": {
+          "tag": "button",
+          "role": "",
+          "bid": "",
+          "text": "Confirm",
+          "ariaLabel": "Confirm drop course CS101",
+          "selector": "button.lms-btn.lms-btn--primary"
+        },
+        "x": 1171,
+        "y": 85
+      }
+    }
+  ],
+  "audit_log": [
+    {
+      "timestamp": "2026-05-02 14:11:01.841206+00:00",
+      "action": "lms.course.drop",
+      "payload": {
+        "course_id": "course_1",
+        "enrollment_id": "enrollment_1"
+      },
+      "summary": "Dropped course CS101",
+      "snapshot": {}
+    },
+    {
+      "timestamp": "2026-05-02 14:11:04.417037+00:00",
+      "action": "benchmark_state.capture",
+      "payload": {
+        "keys": []
+      },
+      "summary": "Captured client benchmark state",
+      "snapshot": {
+        "completed": false
+      }
+    },
+    {
+      "timestamp": "2026-05-02 14:11:05.437627+00:00",
+      "action": "lms.trajectory.save",
+      "payload": {
+        "steps": 0
+      },
+      "summary": "Saved trajectory with 0 steps",
+      "snapshot": {}
+    }
+  ],
+  "resolved_targets": {
+    "course_code": "CS101",
+    "target_course_id": "course_1",
+    "final_exam_assignment_id": "assignment_5",
+    "min_score_achievable": "false",
+    "session_start": "2025-07-07T13:05:00+00:00"
+  },
+  "evaluation": {
+    "score": 1,
+    "final_score": 1,
+    "success": true,
+    "reasoning": "Score: 1.000; success=True\nPassed 1/1 checks.\n  [PASS] Agent dropped the target course enrollment\nAll negative checks passed (no penalties).\nFinal score: 1.000 | Success: True",
+    "checks": [
+      {
+        "desc": "Agent dropped the target course enrollment",
+        "passed": true,
+        "error": null
+      }
+    ],
+    "negative_checks": [
+      {
+        "desc": "Agent did not modify assignments",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify course records",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify other enrollments",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify modules",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify discussions",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not create or edit discussion posts",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not alter peer reviews",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify announcements",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify grades",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify calendar events",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not send messages",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Preserve state.student",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not send messages",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "constraint",
+        "_kind": "constraint",
+        "severity": "medium"
+      }
+    ]
+  }
+}

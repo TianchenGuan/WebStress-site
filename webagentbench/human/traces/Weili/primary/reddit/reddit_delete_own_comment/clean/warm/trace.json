@@ -1,0 +1,237 @@
+{
+  "metadata": {
+    "assignment_id": "primary::reddit_delete_own_comment::clean",
+    "assignment_role": "primary",
+    "annotator": "Weili",
+    "base_task_id": "reddit_delete_own_comment",
+    "env": "reddit",
+    "difficulty": "easy",
+    "condition": "clean",
+    "attempt_type": "warm",
+    "seed": 42,
+    "intervention_variant_id": null,
+    "intervention_variant_yaml": null,
+    "title": "Delete Your Own Comment",
+    "session_id": "reddit_reddit_delete_own_comment_900d97c6dd",
+    "recorded_at": "2026-05-02T16:12:12.484701+00:00",
+    "started_at_ms": 1777738321407,
+    "ended_at_ms": 1777738332146,
+    "wall_clock_ms": 10739,
+    "raw_event_count": 5,
+    "audit_entry_count": 2,
+    "final_score": 1.0,
+    "pass": true,
+    "viewport": {
+      "width": 1440,
+      "height": 812,
+      "dpr": 2
+    },
+    "client_metadata": {
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "pathname": "/feed"
+    }
+  },
+  "events": [
+    {
+      "step": 1,
+      "type": "click",
+      "timestamp_ms": 5315,
+      "url": "/env/reddit/feed?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on&hide_toolbar=1&human_mode=1",
+      "detail": {
+        "element": {
+          "tag": "a",
+          "role": "",
+          "bid": "",
+          "text": "r/worldnews",
+          "ariaLabel": "r/worldnews",
+          "selector": "a.wab-sidebar__link"
+        },
+        "x": 116,
+        "y": 494
+      }
+    },
+    {
+      "step": 2,
+      "type": "navigate",
+      "timestamp_ms": 5407,
+      "url": "/env/reddit/r/worldnews?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on",
+      "detail": {
+        "url": "/env/reddit/r/worldnews?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on"
+      }
+    },
+    {
+      "step": 3,
+      "type": "click",
+      "timestamp_ms": 6125,
+      "url": "/env/reddit/r/worldnews?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on",
+      "detail": {
+        "element": {
+          "tag": "h3",
+          "role": "link",
+          "bid": "",
+          "text": "Global renewable energy capacity surpasses coal for the first time",
+          "ariaLabel": "",
+          "selector": "h3.post-card__title"
+        },
+        "x": 372,
+        "y": 300
+      }
+    },
+    {
+      "step": 4,
+      "type": "navigate",
+      "timestamp_ms": 6302,
+      "url": "/env/reddit/post/post_134?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on",
+      "detail": {
+        "url": "/env/reddit/post/post_134?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on"
+      }
+    },
+    {
+      "step": 5,
+      "type": "click",
+      "timestamp_ms": 7472,
+      "url": "/env/reddit/post/post_134?session=reddit_reddit_delete_own_comment_900d97c6dd&control=on",
+      "detail": {
+        "element": {
+          "tag": "button",
+          "role": "",
+          "bid": "",
+          "text": "Delete",
+          "ariaLabel": "Delete comment by TechNomad_42",
+          "selector": "button.comment-action.comment-action--danger"
+        },
+        "x": 511,
+        "y": 556
+      }
+    }
+  ],
+  "audit_log": [
+    {
+      "timestamp": "2026-05-02 16:12:09.544591+00:00",
+      "action": "reddit.comment.delete",
+      "payload": {
+        "comment_id": "comment_1973"
+      },
+      "summary": "Comment:comment_1973",
+      "snapshot": {
+        "task_id": "reddit_delete_own_comment",
+        "audit_entries": 1,
+        "counts": {
+          "subreddits": 27,
+          "subscriptions": 12,
+          "posts": 137,
+          "comments": 1973,
+          "messages": 5,
+          "sent_messages": 2,
+          "notifications": 5,
+          "saved_posts": 4,
+          "saved_comments": 0,
+          "hidden_posts": 0,
+          "blocked_users": 0,
+          "unread_messages": 2,
+          "unread_notifications": 3,
+          "post_karma": 15243,
+          "comment_karma": 28891
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02 16:12:11.180233+00:00",
+      "action": "benchmark_state.capture",
+      "payload": {
+        "keys": []
+      },
+      "summary": "Captured client benchmark state",
+      "snapshot": {
+        "completed": false
+      }
+    }
+  ],
+  "resolved_targets": {
+    "subreddit_name": "worldnews",
+    "post_title": "Global renewable energy capacity surpasses coal for the first time",
+    "post_id": "post_134",
+    "comment_id": "comment_1973",
+    "comment_snippet": "This is misleading",
+    "session_start": "2025-07-07T13:05:00+00:00"
+  },
+  "evaluation": {
+    "score": 1,
+    "final_score": 1,
+    "success": true,
+    "reasoning": "Score: 1.000; success=True\nPassed 1/1 checks.\n  [PASS] Agent deleted the target comment\nAll negative checks passed (no penalties).\nFinal score: 1.000 | Success: True",
+    "checks": [
+      {
+        "desc": "Agent deleted the target comment",
+        "passed": true,
+        "error": null
+      }
+    ],
+    "negative_checks": [
+      {
+        "desc": "Agent did not modify any other comments",
+        "passed": true,
+        "penalty": 0.2,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not delete or modify the post itself",
+        "passed": true,
+        "penalty": 0.3,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify subreddits",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify messages",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not send messages",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify notifications",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Agent did not modify user profiles",
+        "passed": true,
+        "penalty": 0.1,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      },
+      {
+        "desc": "Preserve state.settings",
+        "passed": true,
+        "penalty": 0.15,
+        "kind": "invariant",
+        "_kind": "invariant",
+        "source": "protected_state"
+      }
+    ]
+  }
+}
