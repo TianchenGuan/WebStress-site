@@ -257,15 +257,18 @@ def test_booking_add_payment_negative_check_penalizes_removed_payment_method() -
 
 
 @pytest.mark.skip(reason=(
-    "Eval gap: canonical_diff has named_invariants like 'Agent did not "
-    "tamper with existing payment methods' with filter that excludes "
-    "explicitly-allowed pm_ids, but the matcher does not currently report "
-    "a delete-violation when the agent removes a non-allowed payment "
-    "method from state.payment_methods. Verified 2026-05-01: removing "
-    "pm_2 (Mastercard 8888 — not in allowed list) leaves the negative "
-    "check passed=True. Needs investigation in eval_core.matcher's "
-    "delete-detection path before this test can run. See follow-up: "
-    "tighten preserve:ALL semantics for filtered invariants."
+    "Design gap: when a canonical Delete fails to find its target (because "
+    "the agent deleted the WRONG entity), every same-collection candidate "
+    "is added to ctx.near_misses to avoid double-charging the missing-Delete "
+    "failure. The invariant check then skips near_misses, so the wrong "
+    "deletion goes unflagged even when it matches the invariant's filter. "
+    "Verified 2026-05-01: removing pm_2 (Mastercard 8888 — clearly outside "
+    "the filter's allowed list) leaves the negative check passed=True. "
+    "Tried a Delete-only carve-out from the near_miss exemption — broke "
+    "test_near_miss_create_does_not_trip_same_collection_invariant which "
+    "documents the OPPOSITE policy (near-misses must NOT also flag invariants). "
+    "Needs a coherent answer to 'is wrong-target deletion a near-miss or a "
+    "separate concern?' — current near_miss semantics conflate the two."
 ))
 @pytest.mark.parametrize(
     ("task_id", "allowed_target", "desc"),

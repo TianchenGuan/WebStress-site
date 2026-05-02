@@ -82,12 +82,19 @@ import pytest
 
 
 @pytest.mark.skip(reason=(
-    "canonical_diff refactor: the invariant filter for state.notifications "
-    "now reads `a.read == False or any(k not in ('id', 'read') for k in "
-    "a.__dict__)`. Because every notification has fields beyond id/read, "
-    "the filter always evaluates True for already-read notifications, so "
-    "title mutations on them are excluded from the collateral sweep. "
-    "Detecting title-only modifications requires tightening the YAML."
+    "Design gap: when a canonical Update matches a candidate, the entire "
+    "candidate is added to ctx.matched — even if the candidate carries "
+    "field changes beyond what the spec declares. So agent updates that "
+    "set `read: True` PLUS modify `title` slip past the collateral sweep "
+    "(matched entries are exempt) and the invariant filter never gets to "
+    "see the title delta. Tried two ad-hoc fixes (2026-05-01) that both "
+    "regressed real tasks: (a) per-YAML `strict_changes: true` flag is "
+    "annotation pollution and breaks the 'incidental side-effects are OK' "
+    "design (placing an order also bumps buying_power, etc.); (b) global "
+    "strict-subset check breaks 40+ tests across RH/Gmail/LMS for the "
+    "same reason. Needs a coherent answer to 'how does canonical_diff "
+    "express mutation EXCLUSIVITY' — likely a separate construct that "
+    "doesn't conflate 'expected change shape' with 'allowed change set'."
 ))
 def test_modify_title_fails():
     task, targets, initial, state = _setup_session(0)
