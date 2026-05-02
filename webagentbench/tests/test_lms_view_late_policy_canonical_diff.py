@@ -1,5 +1,6 @@
 """End-to-end tests for lms_view_late_policy canonical_diff."""
 
+from decimal import Decimal
 from datetime import timedelta
 
 from webagentbench.backend.state import SessionManager
@@ -17,6 +18,38 @@ def _setup_session(seed: int):
     initial = sm.get_initial_snapshot(sid)
     state = sm.get_state(sid)
     return sm, sid, dict(targets), initial, state
+
+
+def _setup_strict_session(seed: int):
+    """Materialize the task and override the overdue course's late policy to
+    be strict (max_late_days=3, penalty=0.15), forcing the false-branch.
+
+    The course_catalog seeder rotates lenient/moderate/strict presets and
+    selects ``target_course_id`` deterministically — under current code the
+    overdue assignment always lands on a lenient/moderate course (verified
+    seeds 0..200), so we can't reach the false-branch by seed alone. This
+    helper mutates state + initial snapshot + targets together so the
+    matcher sees a self-consistent strict-policy world.
+    """
+    sm, sid, targets, _, state = _setup_session(seed)
+
+    def _force_strict(s):
+        overdue_assignment = s.get_assignment(targets["overdue_assignment_id"])
+        overdue_course = next(c for c in s.courses if c.id == overdue_assignment.course_id)
+        overdue_course.syllabus.late_policy.max_late_days = 3
+        overdue_course.syllabus.late_policy.penalty_per_day = Decimal("0.15")
+
+    # Mutate live state AND SessionManager's stored initial snapshot so the
+    # override is part of the baseline both `compute_diff` and the matcher's
+    # invariant check see — otherwise the override itself surfaces as a
+    # spurious "Preserve state.courses" diff.
+    _force_strict(state)
+    initial = sm.get_initial_snapshot(sid)
+    _force_strict(initial)
+    state._initial_snapshot = state.state_snapshot()
+
+    targets["allows_late_submit"] = "false"
+    return sm, sid, targets, initial, state
 
 
 def _submit_overdue_assignment(state, targets, *, file_name: str = "late_submit.pdf") -> None:
@@ -71,17 +104,12 @@ def test_late_submit_branch_passes():
 
 
 def test_read_announcement_branch_passes():
-    # Both branches discriminate on `target['allows_late_submit']`. The
-    # current course_catalog seeder produces `allows_late_submit='true'`
-    # for all seeds 0..999 (vary_late_policies still leaves the target
-    # course on the late-allowed branch), so we cannot exercise the
-    # read-announcement branch via a deterministic seed. If a future
-    # seeder change produces a `false`-branch seed, replace this skip
-    # with the original assertion.
-    sm, sid, targets, initial, state = _setup_session(seed=1)
-    if targets["allows_late_submit"] == "true":
-        import pytest
-        pytest.skip("no seed produces allows_late_submit='false' under current seeder")
+    # The seeder doesn't produce allows_late_submit='false' deterministically
+    # (verified seeds 0..200), so we override the overdue course's late
+    # policy to strict and re-snapshot — exercises the read-announcement
+    # branch end-to-end.
+    sm, sid, targets, initial, state = _setup_strict_session(seed=1)
+    assert targets["allows_late_submit"] == "false"
 
     _mark_latest_announcement_read(state, targets)
 
@@ -100,14 +128,12 @@ def test_wrong_branch_on_submit_seed_fails():
 
 
 def test_wrong_branch_on_announcement_seed_fails():
-    # Both branches discriminate on `target['allows_late_submit']`. No
-    # deterministic seed produces `allows_late_submit='false'` (see
-    # rationale in test_read_announcement_branch_passes); the wrong-
-    # branch case for the read branch is therefore unreachable.
-    sm, sid, targets, initial, state = _setup_session(seed=1)
-    if targets["allows_late_submit"] == "true":
-        import pytest
-        pytest.skip("no seed produces allows_late_submit='false' under current seeder")
+    # On the strict-policy branch (allows_late_submit='false'), submitting
+    # the overdue assignment should fail — only marking the announcement
+    # as read is acceptable. Uses the same overdue-course override as
+    # test_read_announcement_branch_passes.
+    sm, sid, targets, initial, state = _setup_strict_session(seed=1)
+    assert targets["allows_late_submit"] == "false"
 
     _submit_overdue_assignment(state, targets)
 

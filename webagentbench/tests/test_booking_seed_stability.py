@@ -220,11 +220,6 @@ def test_enable_2fa_scores_perfectly() -> None:
     assert result["score"] >= 0.9
 
 
-@pytest.mark.skip(reason=(
-    "canonical_diff refactor: booking_view_reservation no longer enforces "
-    "the audit_log entry as a constraint. With invariants-only YAML, a no-op "
-    "final state passes regardless of audit_log payload."
-))
 def test_view_reservation_needs_audit_entry() -> None:
     """booking_view_reservation requires a reservation.view audit entry."""
     _, state, targets, _ = _materialize("booking_view_reservation")
@@ -262,11 +257,15 @@ def test_booking_add_payment_negative_check_penalizes_removed_payment_method() -
 
 
 @pytest.mark.skip(reason=(
-    "canonical_diff refactor: the dedicated 'No wrong payment methods deleted' / "
-    "'Did not delete any payment method other than X' negative checks were dropped. "
-    "Equivalent wrong-deletion detection now lives in named invariants like "
-    "'Agent did not tamper with existing payment methods', but the description "
-    "no longer binds to a specific target id."
+    "Eval gap: canonical_diff has named_invariants like 'Agent did not "
+    "tamper with existing payment methods' with filter that excludes "
+    "explicitly-allowed pm_ids, but the matcher does not currently report "
+    "a delete-violation when the agent removes a non-allowed payment "
+    "method from state.payment_methods. Verified 2026-05-01: removing "
+    "pm_2 (Mastercard 8888 — not in allowed list) leaves the negative "
+    "check passed=True. Needs investigation in eval_core.matcher's "
+    "delete-detection path before this test can run. See follow-up: "
+    "tighten preserve:ALL semantics for filtered invariants."
 ))
 @pytest.mark.parametrize(
     ("task_id", "allowed_target", "desc"),
@@ -274,12 +273,12 @@ def test_booking_add_payment_negative_check_penalizes_removed_payment_method() -
         (
             "booking_expert_account_migration",
             "alex_pm_id",
-            "Did not delete any payment method other than Alex Parker's Mastercard",
+            "Agent did not remove or modify other payment methods",
         ),
         (
             "booking_frontier_payment_and_booking",
             "remove_pm_id",
-            "No wrong payment methods were deleted",
+            "Agent did not tamper with existing payment methods",
         ),
     ],
 )
