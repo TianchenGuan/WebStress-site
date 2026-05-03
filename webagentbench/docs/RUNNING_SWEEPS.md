@@ -130,6 +130,42 @@ sbatch scripts/sweep_templates/pixel_sweep.sbatch
 
 ---
 
+## Parallelism
+
+| harness | within-job parallelism | across-job parallelism |
+|---|---|---|
+| **Stock** | ✅ `CONCURRENCY=N` env var (default 4). Each parallel episode owns its own Browser + temp dir, ~400 MB RAM + 1 CPU core | ✅ submit multiple sbatch jobs (different ports auto) |
+| **Pixel** | ❌ rejected — Playwright's sync API isn't thread-safe | ✅ slurm array sharding (see below) |
+
+### Stock — tune concurrency
+```bash
+# 8-way parallelism (uses 8 CPU cores, ~3.2 GB RAM)
+MODEL=us.anthropic.claude-sonnet-4-6 PROVIDER=bedrock \
+PICKS=scripts/sweep_picks/primbench_v2_full.json \
+CONCURRENCY=8 \
+sbatch scripts/sweep_templates/stock_sweep.sbatch
+```
+Note: Bedrock TPM caps real parallelism (opus throttles even at concurrency=4
+sometimes). Drop to 2 if you see `ThrottlingException` in the log.
+
+### Pixel — slurm array sharding
+Pixel mode parallelism is process-level, not thread-level. Submit as a
+slurm array; each array task handles 1/N of the picks file.
+
+```bash
+# 8 parallel shards on the same model
+MODEL=claude-opus-4-7 PROVIDER=anthropic \
+PICKS=scripts/sweep_picks/primbench_v2_full.json OUTNAME=opus_47 \
+sbatch --array=0-7 scripts/sweep_templates/pixel_sweep.sbatch
+
+# Each shard writes to /usr/xtmp/$USER/wab-runs/pixel-opus_47-<JOBID>/shard_NN/
+# When all complete, merge:
+python scripts/pixel_aggregate.py /usr/xtmp/$USER/wab-runs/pixel-opus_47-<JOBID>
+```
+
+The template auto-detects `SLURM_ARRAY_TASK_ID` / `SLURM_ARRAY_TASK_COUNT`
+and passes them as `--shard-id` / `--shard-of` to the runner.
+
 ## Important: don't run (1) and (2) in parallel
 
 Both hit Bedrock; opus 4.7 and sonnet 4.6 share the same TPM quota and

@@ -17,6 +17,12 @@
 #   GPT     → 1600 × 900 (OpenAI CUA recommendation)
 #   Gemini  → 1280 × 720 (default)
 #
+# Pixel mode rejects in-process concurrency (Playwright sync API isn't
+# thread-safe). Real parallelism: launch as a slurm array job, e.g.
+#   sbatch --array=0-7 ... pixel_sweep.sbatch
+# Each array task is one shard; output lands in shard_NN/. Aggregate
+# afterwards with `python scripts/pixel_aggregate.py <run-dir>`.
+#
 # Required env vars:
 #   MODEL    — model id (provider-specific)
 #   PROVIDER — anthropic | openai | gemini | openrouter | bedrock
@@ -72,13 +78,24 @@ done
 OUT_DIR="/usr/xtmp/$USER/wab-runs/pixel-${OUTNAME}-${SLURM_JOB_ID}"
 
 export PYTHONUNBUFFERED=1
+# Slurm array → shard plumbing. SLURM_ARRAY_TASK_ID is automatically set
+# when launched as `sbatch --array=0-N`; pixel_run_picks already reads it
+# as the default for --shard-id, so we just need to pass --shard-of when
+# arrayed.
+SHARD_ARGS=""
+if [ -n "${SLURM_ARRAY_TASK_COUNT:-}" ]; then
+  SHARD_ARGS="--shard-of $SLURM_ARRAY_TASK_COUNT --shard-id $SLURM_ARRAY_TASK_ID"
+  echo "Sharding: this is shard $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT"
+fi
+
 # Defaults: --timeout 1200 --max-steps 60 (commit dbc59360)
 python -u scripts/pixel_run_picks.py \
   --picks "$PICKS" \
   --model "$MODEL" \
   --provider "$PROVIDER" \
   --backend-port "$BACKEND_PORT" \
-  --output-dir "$OUT_DIR"
+  --output-dir "$OUT_DIR" \
+  $SHARD_ARGS
 
 echo
 echo "=== Complete ($(date)) ==="
