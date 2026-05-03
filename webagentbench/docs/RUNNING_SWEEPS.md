@@ -88,11 +88,12 @@ OUTNAME=sonnet_46 \
 sbatch scripts/sweep_templates/stock_sweep.sbatch
 ```
 
-### (3) Pixel × opus 4.7 — native Anthropic API
+### (3) Pixel × opus 4.7
 
-Smoke-verified at viewport 1024×768 (Anthropic XGA), 7 steps for a
-typical task, 100% `<think>` block emission.
+Smoke-verified at viewport 1024×768 (Anthropic XGA), 7 steps for a typical
+task, 100% `<think>` block emission. Two equivalent ways to route the calls:
 
+**Option A — native Anthropic API** (recommended; sidesteps Bedrock TPM throttle):
 ```bash
 MODEL=claude-opus-4-7 \
 PROVIDER=anthropic \
@@ -101,11 +102,22 @@ OUTNAME=opus_47 \
 sbatch scripts/sweep_templates/pixel_sweep.sbatch
 ```
 
-### (4) Pixel × gpt-5.4 — native OpenAI API
+**Option B — Bedrock** (use when ANTHROPIC_API_KEY isn't available; serialize
+with sweep (1) via `--dependency=afterany` to avoid TPM contention):
+```bash
+MODEL=us.anthropic.claude-opus-4-7 \
+PROVIDER=bedrock \
+PICKS=scripts/sweep_picks/primbench_v2_full.json \
+OUTNAME=opus_47 \
+sbatch scripts/sweep_templates/pixel_sweep.sbatch
+```
+
+### (4) Pixel × gpt-5.4
 
 Smoke-verified at viewport 1600×900 (OpenAI CUA recommendation), 7 steps,
 100% `<think>` emission.
 
+**Option A — native OpenAI API** (recommended):
 ```bash
 MODEL=gpt-5.4 \
 PROVIDER=openai \
@@ -114,12 +126,18 @@ OUTNAME=gpt_54 \
 sbatch scripts/sweep_templates/pixel_sweep.sbatch
 ```
 
-### (5) Pixel × gemini-3.1-pro — native Gemini API
+**Option B — OpenRouter** (when OPENAI_API_KEY isn't available):
+```bash
+MODEL=openai/gpt-5.4 PROVIDER=openrouter ...
+```
+
+### (5) Pixel × gemini-3.1-pro
 
 Note: native Gemini API exposes the model as `gemini-3-pro-preview` (no
 `.1` suffix); same underlying weights as OpenRouter's
 `google/gemini-3.1-pro-preview`.
 
+**Option A — native Gemini API** (recommended):
 ```bash
 MODEL=gemini-3-pro-preview \
 PROVIDER=gemini \
@@ -127,6 +145,17 @@ PICKS=scripts/sweep_picks/primbench_v2_full.json \
 OUTNAME=gemini_3_pro \
 sbatch scripts/sweep_templates/pixel_sweep.sbatch
 ```
+
+**Option B — OpenRouter** (when GEMINI_API_KEY isn't available):
+```bash
+MODEL=google/gemini-3.1-pro-preview PROVIDER=openrouter ...
+```
+
+> **Note**: The pixel harness supports the same provider list as stock —
+> `bedrock`, `anthropic`, `anthropic_bedrock`, `openai`, `gemini`,
+> `openrouter`. Use whichever API key you have. Native APIs are recommended
+> for the 3 model families above only because they avoid Bedrock's shared
+> TPM quota and route directly without the OpenRouter middleman tax.
 
 ---
 
