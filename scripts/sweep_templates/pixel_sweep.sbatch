@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=pixel-sweep
+#SBATCH --partition=compsci
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=10G
+#SBATCH --time=24:00:00
+#SBATCH --output=/usr/xtmp/%u/wab-logs/pixel-sweep-%j.out
+#SBATCH --error=/usr/xtmp/%u/wab-logs/pixel-sweep-%j.err
+
+# Generic pixel-mode (BrowserGym + PixelLLMAgent) sweep template. Pass
+# model + provider + picks via env vars. Examples in
+# webagentbench/docs/RUNNING_SWEEPS.md.
+#
+# Per-model viewport is auto-applied:
+#   Claude  → 1024 × 768 (Anthropic XGA recommendation)
+#   GPT     → 1600 × 900 (OpenAI CUA recommendation)
+#   Gemini  → 1280 × 720 (default)
+#
+# Required env vars:
+#   MODEL    — model id (provider-specific)
+#   PROVIDER — anthropic | openai | gemini | openrouter | bedrock
+#   PICKS    — path to picks JSON
+# Optional:
+#   OUTNAME — output dir suffix; defaults to a slug of MODEL_PROVIDER
+
+set -euo pipefail
+: "${MODEL:?MODEL env var required (e.g. claude-opus-4-7)}"
+: "${PROVIDER:?PROVIDER env var required (e.g. anthropic)}"
+: "${PICKS:?PICKS env var required (path to picks JSON)}"
+[ -f "$PICKS" ] || { echo "ERROR: picks file not found: $PICKS"; exit 1; }
+
+SLUG="$(echo "${MODEL}_${PROVIDER}" | tr '/.:' '___' | tr ' ' '_')"
+OUTNAME="${OUTNAME:-$SLUG}"
+
+export HF_HOME=/usr/xtmp/$USER/.cache/huggingface
+export TORCH_HOME=/usr/xtmp/$USER/.cache/torch
+export PIP_CACHE_DIR=/usr/xtmp/$USER/.cache/pip
+mkdir -p /usr/xtmp/$USER/wab-logs "$HF_HOME" "$PIP_CACHE_DIR"
+
+ROOT=/home/users/tg295/projects/LLMOS
+cd "$ROOT"
+source .venv/bin/activate
+set -a; source webagentbench/.env; set +a
+
+BACKEND_PORT=$(( 9400 + (SLURM_JOB_ID % 600) ))
+N_PICKS=$(python3 -c "import json; print(len(json.load(open('$PICKS'))))")
+echo "=== Pixel-VLM sweep: $MODEL via $PROVIDER × $N_PICKS picks ==="
+echo "Job $SLURM_JOB_ID on $(hostname), backend :$BACKEND_PORT"
+echo "Picks: $PICKS"
+echo "Output: /usr/xtmp/$USER/wab-runs/pixel-${OUTNAME}-${SLURM_JOB_ID}"
+
+# Pixel mode goes through BrowserGym _ensure_server() which requires
+# WEBAGENTBENCH_CONTROLLER_SECRET when an externally-managed server is
+# detected (anti-collision guard).
+export WEBAGENTBENCH_CONTROLLER_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
+export WEBAGENTBENCH_AUTO_BUILD_FRONTENDS=0
+
+python -m uvicorn webagentbench.app:app \
+  --host 127.0.0.1 --port "$BACKEND_PORT" --log-level warning \
+  > /usr/xtmp/$USER/wab-logs/backend-${SLURM_JOB_ID}.log 2>&1 &
+BPID=$!
+trap "kill $BPID 2>/dev/null || true" EXIT INT TERM
+
+READY=0
+for i in $(seq 1 120); do
+  curl -sf "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1 && { READY=1; echo "backend ready after ${i}s"; break; }
+  sleep 1
+done
+[ "$READY" = "0" ] && { echo "ERROR: backend /health never came up"; tail -40 /usr/xtmp/$USER/wab-logs/backend-${SLURM_JOB_ID}.log; exit 1; }
+
+OUT_DIR="/usr/xtmp/$USER/wab-runs/pixel-${OUTNAME}-${SLURM_JOB_ID}"
+
+export PYTHONUNBUFFERED=1
+# Defaults: --timeout 1200 --max-steps 60 (commit dbc59360)
+python -u scripts/pixel_run_picks.py \
+  --picks "$PICKS" \
+  --model "$MODEL" \
+  --provider "$PROVIDER" \
+  --backend-port "$BACKEND_PORT" \
+  --output-dir "$OUT_DIR"
+
+echo
+echo "=== Complete ($(date)) ==="
+echo "Results: $OUT_DIR"

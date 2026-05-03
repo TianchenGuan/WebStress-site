@@ -798,6 +798,20 @@ as of this writing. Auth uses the long-term API key
 (`AWS_BEDROCK_API_KEY` in `.env`) which `pixel_agent.py` mirrors into
 `AWS_BEARER_TOKEN_BEDROCK` (the env var boto3 reads).
 
+## Running Production Sweeps
+
+For full PrimBench sweeps with any model + provider (Bedrock, native Anthropic,
+native OpenAI, native Gemini, OpenRouter), use the two generic sbatch templates
+under `scripts/sweep_templates/` and consult [`docs/RUNNING_SWEEPS.md`](docs/RUNNING_SWEEPS.md)
+for prerequisites, the 5 canonical sweeps to run, and post-sweep aggregation.
+
+Quick example — stock browser-use × sonnet-4-6:
+```bash
+MODEL=us.anthropic.claude-sonnet-4-6 PROVIDER=bedrock \
+  PICKS=scripts/sweep_picks/primbench_v2_full.json \
+  sbatch scripts/sweep_templates/stock_sweep.sbatch
+```
+
 ## Results And Artifacts
 
 Sample review artifacts checked into this repo live under [results/webagentbench/](results/webagentbench/). For the current local artifact layout and naming, see [results/webagentbench/README.md](results/webagentbench/README.md).
