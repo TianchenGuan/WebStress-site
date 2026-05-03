@@ -54,6 +54,7 @@ def make_env(
     server_host: str = "127.0.0.1",
     server_port: int = 8080,
     action_subsets: list[str] | None = None,
+    viewport: tuple[int, int] | None = None,
     **kwargs: Any,
 ) -> BrowserEnv:
     """Create a BrowserGym environment for a WebAgentBench task.
@@ -75,14 +76,18 @@ def make_env(
 
     action_set = HighLevelActionSet(subsets=action_subsets, multiaction=False)
 
+    task_kwargs: dict[str, Any] = {
+        "task_id": task_id,
+        "degradation": degradation,
+        "server_host": server_host,
+        "server_port": server_port,
+    }
+    if viewport is not None:
+        task_kwargs["viewport"] = viewport
+
     return BrowserEnv(
         task_entrypoint=WebAgentBenchTask,
-        task_kwargs={
-            "task_id": task_id,
-            "degradation": degradation,
-            "server_host": server_host,
-            "server_port": server_port,
-        },
+        task_kwargs=task_kwargs,
         headless=headless,
         action_mapping=action_set.to_python_code,
         **kwargs,

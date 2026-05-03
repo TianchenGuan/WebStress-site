@@ -927,9 +927,25 @@ async def run_episode(
     for p in (downloads_path, user_data_dir, traces_dir):
         p.mkdir(parents=True, exist_ok=True)
 
+    # Per-model viewport: Anthropic computer-use trained on 1024×768 (XGA);
+    # OpenAI's CUA on 1600×900; Gemini/Qwen flexible at 1280×720.
+    # _viewport_for_model lives in pixel_eval to avoid cross-import cycles —
+    # we duplicate the dispatch here (small + branch-stable).
+    pl = (provider or "").lower(); ml = (model or "").lower()
+    # Order matters: qwen runs on Bedrock too — match it BEFORE the
+    # "pl == 'bedrock'" branch claims it.
+    if "qwen" in ml:
+        vw, vh = 1280, 720
+    elif "claude" in ml or "anthropic" in pl or pl == "bedrock":
+        vw, vh = 1024, 768
+    elif "gpt" in ml or pl == "openai":
+        vw, vh = 1600, 900
+    else:
+        vw, vh = 1280, 720
+
     browser = Browser(
         headless=headless,
-        viewport={"width": 1280, "height": 720},
+        viewport={"width": vw, "height": vh},
         highlight_elements=False,
         allowed_domains=[server_host, "localhost"],
         user_data_dir=user_data_dir,
@@ -1065,6 +1081,7 @@ async def run_episode(
         "model": model,
         "provider": provider,
         "harness": "stock-browser-use",
+        "viewport": [vw, vh],
         "elapsed_seconds": elapsed,
         "completed": completed,
         "steps": n_steps,

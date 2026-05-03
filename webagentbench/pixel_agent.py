@@ -411,7 +411,11 @@ class PixelLLMAgent:
         provider: str = "gemini",
         base_url: str | None = None,
         api_key: str | None = None,
-        temperature: float | None = 0.0,
+        # Default `None` so we don't break newer models that deprecate
+        # the temperature param (claude-opus-4-7+, gpt-5.x). Pass an
+        # explicit value when reproducibility is critical AND the model
+        # still accepts it (e.g. gemini-3-flash, claude-opus-4-6).
+        temperature: float | None = None,
         normalize_coordinates: bool = True,
         max_history_steps: int = 6,
         request_timeout: float = 120.0,
@@ -469,10 +473,16 @@ class PixelLLMAgent:
             if self._is_bedrock:
                 self._bedrock_converse(probe_messages)
             else:
+                # GPT-5 family rejects `max_tokens` — must use `max_completion_tokens`.
+                token_field = (
+                    "max_completion_tokens"
+                    if (self.model or "").startswith("gpt-5") or "/gpt-5" in (self.model or "")
+                    else "max_tokens"
+                )
                 kwargs = {
                     "model": self.model,
                     "messages": probe_messages,
-                    "max_tokens": 8,
+                    token_field: 8,
                 }
                 if self.temperature is not None:
                     kwargs["temperature"] = self.temperature
@@ -708,10 +718,17 @@ class PixelLLMAgent:
         # max_tokens=2048 is high enough for any single coord-action response
         # (typical: <100 tokens) but won't truncate reasoning when models
         # interleave a <think> block before the action.
+        # GPT-5 family rejects `max_tokens` — they require `max_completion_tokens`.
+        # OpenAI's other models still accept `max_tokens`. Detect by model id.
+        token_field = (
+            "max_completion_tokens"
+            if (self.model or "").startswith("gpt-5") or "/gpt-5" in (self.model or "")
+            else "max_tokens"
+        )
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 2048,
+            token_field: 2048,
         }
         if self.temperature is not None:
             kwargs["temperature"] = self.temperature

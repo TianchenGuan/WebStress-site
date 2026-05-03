@@ -81,6 +81,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         degradation: str | None = None,
         server_host: str = _DEFAULT_HOST,
         server_port: int = _DEFAULT_PORT,
+        viewport: tuple[int, int] | None = None,
     ):
         super().__init__(seed)
         self._wab_seed = seed  # preserve the actual seed for session creation
@@ -98,8 +99,12 @@ class WebAgentBenchTask(AbstractBrowserTask):
         self._initial_chat_count = -1  # track initial chat messages to avoid false termination
         self._forwarded_chat_count = 0  # number of agent chat messages already pushed to state.chat
 
-        # BrowserGym task properties
-        self.viewport = {"width": 1280, "height": 720}
+        # BrowserGym task properties — viewport is per-model when caller passes one
+        # (Anthropic recommends 1024×768; OpenAI recommends 1600×900; Gemini/Qwen
+        # are flexible at 1280×720). pixel_eval._viewport_for_model() picks per
+        # provider/model.
+        vw, vh = viewport if viewport else (1280, 720)
+        self.viewport = {"width": vw, "height": vh}
         self.slow_mo = 0
         self.timeout = 10000
 

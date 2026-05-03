@@ -82,6 +82,31 @@ def _normalize_for_model(provider: str, model: str) -> bool:
     return True
 
 
+def _viewport_for_model(provider: str, model: str) -> tuple[int, int]:
+    """Recommended viewport (w, h) per model family.
+
+    Each VLM has a sweet-spot resolution from its training. Running outside
+    that range reduces grounding quality (Anthropic downsamples >XGA, OpenAI's
+    CUA was trained at 1600×900). PrimBench v2 used 1280×720 for all models;
+    follow-up sweeps (commit f2*) can use per-model viewports for fairness.
+
+    - Claude (Anthropic computer-use docs):     1024 × 768
+    - GPT-5.x / GPT-4o (OpenAI CUA docs):       1600 × 900
+    - Gemini / Qwen / default:                  1280 × 720
+    """
+    p = (provider or "").lower()
+    m = (model or "").lower()
+    # Order matters: qwen runs on Bedrock too — match it BEFORE the
+    # "p == 'bedrock'" branch claims it.
+    if "qwen" in m:
+        return (1280, 720)
+    if "claude" in m or "anthropic" in p or p == "bedrock":
+        return (1024, 768)
+    if "gpt" in m or p == "openai":
+        return (1600, 900)
+    return (1280, 720)
+
+
 # =============================================================================
 # Variant path resolution
 # =============================================================================
@@ -125,6 +150,7 @@ def _run_episode_sync(
 
     variant_path = _resolve_variant_path(variant_filename)
     normalize = _normalize_for_model(provider, model)
+    viewport = _viewport_for_model(provider, model)
 
     env = make_env(
         task_id=task_id,
@@ -134,6 +160,7 @@ def _run_episode_sync(
         server_port=backend_port,
         # Pixel-mode action subsets: include navigation + chat + infeasible reporting.
         action_subsets=["coord", "chat", "tab", "nav", "infeas"],
+        viewport=viewport,
     )
 
     agent = PixelLLMAgent(
@@ -198,6 +225,7 @@ def _run_episode_sync(
             "provider": provider,
             "harness": "pixel-vlm",
             "normalize_coordinates": normalize,
+            "viewport": list(viewport),
             "elapsed_seconds": elapsed,
             "completed": completed,
             "steps": episode.get("steps", 0),
