@@ -49,13 +49,12 @@ except Exception:
 
 # Bump browser-use's Chrome-launch timeouts. Default is 30s per event, which
 # reliably fails on contended slurm nodes, shared CI runners, or any machine
-# where 2+ Chromes start in parallel (we've seen ~1/3 jobs hit the 30s
-# timeout on 6-way parallel smoke). 90s is enough headroom in practice;
-# Chrome that hasn't booted after 90s is genuinely stuck, not slow. These
-# are read by browser_use/browser/events.py `_get_timeout(env, default)`,
-# so explicit values in the environment still win.
-os.environ.setdefault("TIMEOUT_BrowserStartEvent", "90")
-os.environ.setdefault("TIMEOUT_BrowserLaunchEvent", "90")
+# where 2+ Chromes start in parallel. 180s gives Bedrock-routed Claude headroom
+# while still failing fast on genuinely-stuck Chromes. These are read by
+# browser_use/browser/events.py `_get_timeout(env, default)`, so explicit
+# values in the environment still win.
+os.environ.setdefault("TIMEOUT_BrowserStartEvent", "180")
+os.environ.setdefault("TIMEOUT_BrowserLaunchEvent", "180")
 
 # browser-use 0.12.6 also has a *separate* 30s timeout hardcoded inside
 # `LocalBrowserWatchdog._wait_for_cdp_url` (no env-var hook): it polls
@@ -131,7 +130,12 @@ def _effective_banned(
 
 
 _DEFAULT_MAX_STEPS = 60
-_DEFAULT_TIMEOUT = 600
+# 1200s task wall-clock + 240s/step covers Bedrock-routed Claude (≈40s/step
+# observed on PrimBench v2). Faster providers finish well under this and don't
+# pay any cost. PrimBench v2 used 600s/120s and clipped opus to ~14 effective
+# steps — see scripts/aggregate_primbench_v2.py output for the analysis.
+_DEFAULT_TIMEOUT = 1200
+_DEFAULT_STEP_TIMEOUT = 240
 
 
 # =============================================================================
@@ -854,7 +858,7 @@ async def run_episode(
     use_thinking: bool = True,
     max_actions_per_step: int = 4,
     max_failures: int = 3,
-    step_timeout: int = 120,
+    step_timeout: int = _DEFAULT_STEP_TIMEOUT,
     extra_banned_actions: list[str] | None = None,
     # --- Trajectory output (on by default — same schema as browseruse_eval, plus `screenshot`) ---
     record_trajectory: bool = True,
@@ -1214,7 +1218,7 @@ async def run_evaluation(
     use_thinking: bool = True,
     max_actions_per_step: int = 4,
     max_failures: int = 3,
-    step_timeout: int = 120,
+    step_timeout: int = _DEFAULT_STEP_TIMEOUT,
     extra_banned_actions: list[str] | None = None,
     record_trajectory: bool = True,
     trajectory_screenshots: bool = True,
@@ -1355,7 +1359,7 @@ def main():
                    help="disable AgentBrain planner step")
     p.add_argument("--max-actions-per-step", type=int, default=4)
     p.add_argument("--max-failures", type=int, default=3)
-    p.add_argument("--step-timeout", type=int, default=120)
+    p.add_argument("--step-timeout", type=int, default=_DEFAULT_STEP_TIMEOUT)
     p.add_argument("--ban-action", action="append", default=None,
                    metavar="NAME",
                    help="ban an additional action beyond the default list (repeatable)")

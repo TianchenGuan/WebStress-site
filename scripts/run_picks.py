@@ -100,6 +100,7 @@ async def _run_one(
                 frontend_port=args.frontend_port,
                 max_steps=args.max_steps,
                 timeout_seconds=args.timeout,
+                step_timeout=args.step_timeout,
                 max_actions_per_step=args.max_actions_per_step,
                 verbose=False,
                 record_trajectory=args.record_trajectory,
@@ -132,7 +133,11 @@ async def _main() -> None:
     p.add_argument("--frontend-port", type=int, default=8080)
     p.add_argument("--server-host", default="127.0.0.1")
     p.add_argument("--max-steps", type=int, default=40)
-    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--timeout", type=int, default=1200,
+                   help="per-task wall-clock timeout (default 1200s)")
+    p.add_argument("--step-timeout", type=int, default=240,
+                   help="per-step LLM+action timeout in browser-use (default 240s, "
+                        "covers Bedrock-routed Claude at ~40s/step)")
     p.add_argument("--max-actions-per-step", type=int, default=4)
     p.add_argument(
         "--output-dir",

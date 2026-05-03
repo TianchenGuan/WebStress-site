@@ -113,8 +113,8 @@ async def _main() -> None:
     p.add_argument("--backend-port", type=int, default=8080)
     p.add_argument("--frontend-port", type=int, default=8080)
     p.add_argument("--server-host", default="127.0.0.1")
-    p.add_argument("--max-steps", type=int, default=20)
-    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--max-steps", type=int, default=60)
+    p.add_argument("--timeout", type=int, default=1200)
     p.add_argument(
         "--output-dir",
         default="webagentbench/results/pixel_run_picks_out",

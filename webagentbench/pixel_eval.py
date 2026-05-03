@@ -49,8 +49,11 @@ except Exception:
     pass
 
 
-_DEFAULT_MAX_STEPS = 20
-_DEFAULT_TIMEOUT = 600
+_DEFAULT_MAX_STEPS = 60
+# Doubled from the original 600s — pixel mode also runs Bedrock-routed Claude
+# at ~40s/step, which clipped opus to ~14 effective steps in PrimBench v2.
+# Faster providers finish well under this and don't pay any cost.
+_DEFAULT_TIMEOUT = 1200
 
 
 # =============================================================================

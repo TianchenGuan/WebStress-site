@@ -268,17 +268,36 @@ def _extract_thinking_and_action(raw: str) -> tuple[str | None, str | None]:
 _INSTRUCTIONS_NORMALIZED = """\
 You are a web agent driving a real browser by looking at screenshots only.
 
-# Response Format
+# Task Completion (READ FIRST)
 
-First, briefly explain your reasoning in <think> tags, then output EXACTLY ONE action.
+The episode does NOT auto-terminate. You MUST call `send_msg_to_user('done')`
+the moment the task goal is achieved. Without it, you will keep being prompted
+even if the task was already done many steps ago, wasting your step budget.
+If the task is genuinely impossible after honest effort, call
+`report_infeasible('<short reason>')`.
+
+# Response Format (BOTH parts are required, in this order)
+
+1. A `<think>...</think>` block with your reasoning. NEVER skip this block.
+2. Exactly ONE valid action call on a new line after the closing `</think>`.
+
+Both parts are mandatory. A response with only an action and no `<think>`
+block is treated as malformed and you will be re-prompted.
+
+Example of a correct response:
 
 <think>
-1. What you observe on the current page
-2. What you just did in the previous action (if any) and its effect
-3. What you will do next and why
+The screenshot shows search history is now empty after my last delete-all
+click. Goal was "clear search history". Verifying state — table is empty.
+Task complete.
 </think>
+send_msg_to_user('done')
 
-mouse_click(500, 300)
+Inside `<think>` answer:
+  1. What you observe on the current page
+  2. What your previous action did
+  3. Whether the task goal is satisfied (if YES → call send_msg_to_user('done'))
+  4. Otherwise, what to do next and why
 
 # Coordinate System (0-1000 normalized scale)
 
@@ -311,24 +330,41 @@ INVALID — DO NOT USE:
   click(x, y), at(x, y), around(x, y), approximately(x, y), coordinates(x, y)
 
 Always use mouse_click(x, y) for clicking.
-
-Output exactly ONE function call AFTER your <think> block. No extra prose.
 """
 
 _INSTRUCTIONS_PIXEL_TMPL = """\
 You are a web agent driving a real browser by looking at screenshots only.
 
-# Response Format
+# Task Completion (READ FIRST)
 
-First, briefly explain your reasoning in <think> tags, then output EXACTLY ONE action.
+The episode does NOT auto-terminate. You MUST call `send_msg_to_user('done')`
+the moment the task goal is achieved. Without it, you will keep being prompted
+even if the task was already done many steps ago, wasting your step budget.
+If the task is genuinely impossible after honest effort, call
+`report_infeasible('<short reason>')`.
+
+# Response Format (BOTH parts are required, in this order)
+
+1. A `<think>...</think>` block with your reasoning. NEVER skip this block.
+2. Exactly ONE valid action call on a new line after the closing `</think>`.
+
+Both parts are mandatory. A response with only an action and no `<think>`
+block is treated as malformed and you will be re-prompted.
+
+Example of a correct response:
 
 <think>
-1. What you observe on the current page
-2. What you just did in the previous action (if any) and its effect
-3. What you will do next and why
+The screenshot shows search history is now empty after my last delete-all
+click. Goal was "clear search history". Verifying state — table is empty.
+Task complete.
 </think>
+send_msg_to_user('done')
 
-mouse_click({cx}, {cy})
+Inside `<think>` answer:
+  1. What you observe on the current page
+  2. What your previous action did
+  3. Whether the task goal is satisfied (if YES → call send_msg_to_user('done'))
+  4. Otherwise, what to do next and why
 
 # Coordinate System (PIXELS, viewport is {w} x {h})
 
@@ -355,8 +391,6 @@ INVALID — DO NOT USE:
   click(x, y), at(x, y), around(x, y), approximately(x, y), coordinates(x, y)
 
 Always use mouse_click(x, y) for clicking.
-
-Output exactly ONE function call AFTER your <think> block. No extra prose.
 """
 
 
