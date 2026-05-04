@@ -53,6 +53,8 @@ _STALE_CACHE: dict[str, dict[str, tuple[float, int, Any]]] = {}
 _STALE_DATA: dict[str, dict[str, tuple[int, Any]]] = {}
 
 _REQUEST_TIME_LEGACY_ACTIONS = {"slow_responses", "stale_cache", "modify_response"}
+_BENCHMARK_API_PREFIXES = ("/api/control", "/api/human")
+_BENCHMARK_ENV_ENDPOINTS = {"degradation", "evaluate", "session", "trajectory"}
 
 
 def register_session_degradation(session_id: str, injections: list[dict]) -> None:
@@ -430,6 +432,19 @@ def _extract_session_from_cookie(cookies: str) -> str | None:
     return None
 
 
+def _is_benchmark_control_plane_path(path: str) -> bool:
+    """Return true for benchmark instrumentation APIs that must not be degraded."""
+    if path in {"/manifest", "/health"}:
+        return True
+    if path.startswith(_BENCHMARK_API_PREFIXES):
+        return True
+
+    parts = [part for part in path.split("/") if part]
+    if len(parts) >= 4 and parts[0] == "api" and parts[1] == "env":
+        return parts[3] in _BENCHMARK_ENV_ENDPOINTS
+    return False
+
+
 class DegradationMiddleware(BaseHTTPMiddleware):
     """FastAPI middleware that applies network degradation effects server-side.
 
@@ -441,6 +456,9 @@ class DegradationMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if _is_benchmark_control_plane_path(request.url.path):
+            return await call_next(request)
+
         session_id = (
             request.query_params.get("session_id")
             or request.query_params.get("session")

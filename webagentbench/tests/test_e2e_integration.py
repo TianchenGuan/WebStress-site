@@ -322,6 +322,32 @@ class TestNetworkDelay:
         assert r.status_code == 200
         assert elapsed >= 0.4, f"Expected >=400ms delay, got {elapsed*1000:.0f}ms"
 
+    def test_benchmark_control_polling_is_not_delayed_by_env_referer(self, client: TestClient):
+        session = _create_session(client, degradation={
+            "variant_id": "test_legacy_broad_delay",
+            "base_task_id": "gmail_star_email",
+            "target_primitive": "patience",
+            "description": "test",
+            "injections": [{
+                "layer": "server",
+                "params": {
+                    "action": "slow_responses",
+                    "endpoints": [{
+                        "path_pattern": ".*",
+                        "delay_ms": 500,
+                    }],
+                },
+            }],
+        })
+        sid = session["session_id"]
+
+        t0 = time.monotonic()
+        r = client.get(f"/api/control/{sid}/record-state", headers=_referer(sid))
+        elapsed = time.monotonic() - t0
+
+        assert r.status_code == 200
+        assert elapsed < 0.2, f"Control polling should bypass env delay, got {elapsed*1000:.0f}ms"
+
 
 # ── 4. Network degradation: silent_fail ─────────────────────────────────
 
