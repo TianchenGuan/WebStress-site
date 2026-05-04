@@ -1044,13 +1044,32 @@ def _build_assignment_battery(ctx: LMSSeedContext, params: dict[str, Any]) -> di
                 course_plan_assignment_id = a["id"]
                 break
 
-    # ── unsubmitted_hw_id: first unsubmitted homework assignment ──
-    # Prefer homework; fall back to any not_submitted so the target is always populated.
+    # ── unsubmitted_hw_id: first unsubmitted assignment ──
+    # 4-tier preference so the target stays inside the course the user is told
+    # to focus on (target_course_id), keeping the catch-up flow scoped:
+    #   1) homework in target course   (best — matches "homework catch-up" intent)
+    #   2) any not_submitted in target course
+    #   3) homework in any course
+    #   4) any not_submitted anywhere   (last-resort fallback)
     unsubmitted_hw_id = ""
-    for a in all_assignments:
+    target_scoped = (
+        [a for a in all_assignments if a["course_id"] == target_course_id]
+        if target_course_id else []
+    )
+    for a in target_scoped:
         if a["submission_status"] == "not_submitted" and a["type"] == "homework":
             unsubmitted_hw_id = a["id"]
             break
+    if not unsubmitted_hw_id:
+        for a in target_scoped:
+            if a["submission_status"] == "not_submitted":
+                unsubmitted_hw_id = a["id"]
+                break
+    if not unsubmitted_hw_id:
+        for a in all_assignments:
+            if a["submission_status"] == "not_submitted" and a["type"] == "homework":
+                unsubmitted_hw_id = a["id"]
+                break
     if not unsubmitted_hw_id:
         for a in all_assignments:
             if a["submission_status"] == "not_submitted":

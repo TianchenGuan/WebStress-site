@@ -3,7 +3,7 @@ env_id: lms
 title: Check Overall Course Grade
 instruction_template: >-
   Navigate to the grades page for {target.course_code}. If your weighted grade
-  is below 80%, submit the next unsubmitted homework assignment with file
+  is below 80%, submit the next unsubmitted assignment in that course with file
   'catch_up.pdf'. If your weighted grade is 80% or above, mark the course's
   latest announcement as read to confirm you have reviewed your standing.
 difficulty: easy
@@ -65,7 +65,7 @@ canonical_diff:
     # Branch discriminator baked into Update where-clause (was a critical constraint).
     - update:
         - entity: Assignment
-          desc: Submit the next unsubmitted homework with catch_up.pdf (grade below 80%)
+          desc: Submit the next unsubmitted assignment with catch_up.pdf (grade below 80%)
           where:
             id:
               expr: "x == target['unsubmitted_hw_id'] and target['grade_below_80'] == 'true'"
@@ -111,7 +111,7 @@ canonical_diff:
           expr: "len(state.sent_messages) == 0"
           severity: medium
       named_invariants:
-        - name: Agent submitted the catch-up homework
+        - name: Agent submitted the catch-up assignment
           ref: update[0]
           severity: high
         - name: Agent did not modify other assignments
