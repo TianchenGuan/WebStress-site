@@ -206,7 +206,13 @@ class AmazonSeedRunner:
         # 2. Add baseline catalog FIRST so builder steps can design
         #    products that beat everything already in the catalog
         #    (e.g. highest-rated, cheapest, biggest discount).
-        self._add_baseline_catalog(ctx, per_category=5)
+        #    Tasks can opt out via ``seed.skip_real_products`` when the
+        #    real-products pool would dominate / collide with the seeded
+        #    target (e.g. "highest-rated in Books under $X" — the catalog
+        #    has dozens of Books capped at 4.6, so a featured product
+        #    rated 4.5 is no longer the prompt-correct answer).
+        if not getattr(seed_cfg, "skip_real_products", False):
+            self._add_baseline_catalog(ctx, per_category=5)
 
         # 3. Add generic distractors (product catalog padding)
         self._add_generic_distractors(ctx, count=seed_cfg.distractors)

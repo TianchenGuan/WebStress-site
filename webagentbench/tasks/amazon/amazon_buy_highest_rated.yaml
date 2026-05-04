@@ -42,11 +42,22 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: Order placed for the highest-rated product
+    desc: Order placed for any highest-rated product in the target category
     properties:
+      # Tie-tolerant: accept ANY product whose rating equals the maximum rating
+      # in the target category. Under most seeds the seeded featured product
+      # wins uniquely, but if multiple products tie at the top, every tied
+      # product is a valid answer.
       items:
-        expr: "len(x) == 1 and x[0]['product_id'] == target['best_product_id'] and
-          x[0]['quantity'] == 1"
+        expr: >-
+          len(x) == 1 and x[0]['quantity'] == 1
+          and any(
+            p.id == x[0]['product_id'] and p.category == target['category']
+            and p.rating == max(
+              q.rating for q in initial.products if q.category == target['category']
+            )
+            for p in initial.products
+          )
       status: {eq: confirmed}
       shipping_address_id:
         expr: "any(a.id == x and a.full_name == 'Jordan Parker' and a.street_address
@@ -64,8 +75,19 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['best_product_id'] for it in (a.items
-      or []))"
+    # Tie-tolerant: allow new orders that contain any highest-rated product
+    # in the target category.
+    filter: >-
+      not any(
+        any(
+          p.id == it.get('product_id') and p.category == target['category']
+          and p.rating == max(
+            q.rating for q in initial.products if q.category == target['category']
+          )
+          for p in initial.products
+        )
+        for it in (a.items or [])
+      )
     preserve: ALL
   - collection: state.products
     preserve: ALL

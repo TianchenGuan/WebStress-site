@@ -168,6 +168,16 @@ export function BuyCard({ symbol, price, name }: BuyCardProps) {
             More Options
           </Button>
         </Link>
+        <Link to={preserveQueryParams(`/stocks/${symbol}/options`, location.search)}>
+          <Button
+            variant="secondary"
+            className="rh-buy-card__advanced"
+            aria-label={`Trade options on ${symbol}`}
+            data-testid={`buy-card-trade-options-${symbol}`}
+          >
+            Trade Options
+          </Button>
+        </Link>
         <Link to={preserveQueryParams(`/alerts?symbol=${encodeURIComponent(symbol)}`, location.search)}>
           <Button variant="secondary" className="rh-buy-card__advanced" aria-label={`Set alert for ${symbol}`}>
             Set Alert

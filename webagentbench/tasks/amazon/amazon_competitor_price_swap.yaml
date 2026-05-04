@@ -18,6 +18,14 @@ secondary_primitives:
 start_path: /orders
 seed:
   distractors: 12
+  # Skip the real-products distractor pool: amazon_real_products.json injects
+  # 10+ real "headphones" entries priced below the seeded $34.99 cheapest
+  # qualifying alternative, all with rating >= 4.0. Since the grader hard-codes
+  # `target['cheapest_qualifying_id']`, an agent that correctly picks the
+  # genuinely-cheapest qualifying alternative would be graded as fail. The
+  # seed already provides the controlled comparison set (original + cheapest
+  # qualifying + cheap-but-low-rating decoy + premium decoy).
+  skip_real_products: true
   actors: {}
   steps:
   - use: featured_product

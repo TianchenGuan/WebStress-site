@@ -96,8 +96,6 @@ export function OrdersPage() {
       ) : (
         <div className="orders-list">
           {orders.map((order) => {
-            const isDelivered = order.status.toLowerCase() === "delivered";
-            const isConfirmed = order.status.toLowerCase() === "confirmed";
             const isCancelled = order.status.toLowerCase() === "cancelled";
 
             return (
@@ -196,7 +194,15 @@ export function OrdersPage() {
                       </button>
                     )}
 
-                    {isConfirmed && !isCancelled && (
+                    {/* Cancel is allowed by the backend for any status that is
+                        not yet shipped/delivered/cancelled. The previous gate
+                        (``isConfirmed`` only) hid the affordance for orders in
+                        ``pending`` state, which annotators reported as
+                        "didn't find a place to cancel it". */}
+                    {!isCancelled &&
+                      !["shipped", "out_for_delivery", "delivered"].includes(
+                        order.status.toLowerCase(),
+                      ) && (
                       <button
                         className="amazon-btn amazon-btn--cancel"
                         onClick={() => handleCancelOrder(order.id)}

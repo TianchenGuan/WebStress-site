@@ -5,14 +5,17 @@ import { preserveQueryParams } from "@webagentbench/shared";
 import type { Address, Order } from "../types";
 import { useAmazonLayout } from "../context";
 
+const CANCELLABLE_STATUSES = new Set(["pending", "confirmed", "processing"]);
+
 export function OrderConfirmationPage() {
   const { orderId } = useParams<{ orderId: string }>();
-  const { api } = useAmazonLayout();
+  const { api, notify } = useAmazonLayout();
   const location = useLocation();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -169,6 +172,38 @@ export function OrderConfirmationPage() {
           >
             Continue shopping
           </Link>
+          {CANCELLABLE_STATUSES.has(order.status.toLowerCase()) && (
+            <button
+              type="button"
+              className="amazon-btn amazon-btn--cancel"
+              data-action="cancel-order"
+              data-order-id={order.id}
+              aria-label={`Cancel order ${order.id}`}
+              disabled={cancelling}
+              onClick={async () => {
+                if (!order) return;
+                setCancelling(true);
+                try {
+                  const updated = await api.cancelOrder(order.id);
+                  setOrder(updated);
+                  notify(
+                    "Order Cancelled",
+                    `Order #${order.id} has been cancelled.`,
+                  );
+                } catch {
+                  setOrder({ ...order, status: "cancelled" });
+                  notify(
+                    "Order Cancelled (simulated)",
+                    `Order #${order.id} has been cancelled.`,
+                  );
+                } finally {
+                  setCancelling(false);
+                }
+              }}
+            >
+              {cancelling ? "Cancelling..." : "Cancel Order"}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -261,10 +261,10 @@ canonical_diff:
         status: {eq: confirmed}
         booked_at: {any: true}
         guest_info: {any: true}
+        # Prompt requires Mastercard ending in 8888 for the Rome booking.
         payment_method_id:
           expr: >-
-            x == initial.settings.default_payment_id and
-            any(pm.id == x and pm.card_type == 'Visa' and pm.last_four == '4242' for pm in initial.payment_methods)
+            any(pm.id == x and pm.card_type == 'Mastercard' and pm.last_four == '8888' for pm in initial.payment_methods)
         cancellation_policy: {any: true}
         confirmation_number: {any: true}
         is_genius_deal: {any: true}

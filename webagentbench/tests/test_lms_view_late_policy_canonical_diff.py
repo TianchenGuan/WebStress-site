@@ -145,10 +145,16 @@ def test_extra_mutation_fails():
     sm, sid, targets, initial, state = _setup_session(seed=0)
 
     _submit_overdue_assignment(state, targets)
-    _mark_latest_announcement_read(state, targets)
+    # Inject a *real* unrelated mutation (title rewrite) rather than a benign
+    # is_read flip: opening an unrelated announcement is now treated as a
+    # read-as-write side-effect and intentionally exempted from the
+    # "Preserve announcements" invariant. To keep this regression test
+    # meaningful, we mutate a non-noise field instead.
+    other = state.get_announcement(targets["latest_announcement_id"])
+    other.title = f"{other.title} (edited)"
 
     report = _matcher_report(initial, state, targets)
     assert report.passed is False, (
-        "submitting the overdue assignment and marking the announcement read "
-        "should violate the branch-specific invariant"
+        "submitting the overdue assignment and editing an unrelated "
+        "announcement should violate the branch-specific invariant"
     )

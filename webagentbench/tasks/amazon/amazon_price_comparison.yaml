@@ -96,11 +96,22 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: New order placed containing the best-value target product
+    desc: Order for any highest-rated product in target category priced $50-$100
     properties:
+      # Tie-tolerant: accept ANY product in the target category, priced $50-$100,
+      # whose rating equals the maximum rating among qualifying products.
       items:
-        expr: "len(x) == 1 and x[0]['product_id'] == target['best_value_id'] and x[0]['quantity']
-          == 1"
+        expr: >-
+          len(x) == 1 and x[0]['quantity'] == 1
+          and any(
+            p.id == x[0]['product_id'] and p.category == target['category']
+            and 50.0 <= p.price <= 100.0
+            and p.rating == max(
+              q.rating for q in initial.products
+              if q.category == target['category'] and 50.0 <= q.price <= 100.0
+            )
+            for p in initial.products
+          )
       status: {eq: confirmed}
       shipping_address_id: {expr: "any(a.id == x and a.full_name == 'Jordan Parker'
           and a.street_address == '742 Evergreen Terrace' for a in state.addresses)"}
@@ -116,8 +127,20 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['best_value_id'] for it in (a.items
-      or []))"
+    # Tie-tolerant: allow new orders containing any qualifying highest-rated product.
+    filter: >-
+      not any(
+        any(
+          p.id == it.get('product_id') and p.category == target['category']
+          and 50.0 <= p.price <= 100.0
+          and p.rating == max(
+            q.rating for q in initial.products
+            if q.category == target['category'] and 50.0 <= q.price <= 100.0
+          )
+          for p in initial.products
+        )
+        for it in (a.items or [])
+      )
     preserve: ALL
   - collection: state.products
     preserve: ALL

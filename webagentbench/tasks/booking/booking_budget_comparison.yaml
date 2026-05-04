@@ -20,6 +20,13 @@ secondary_primitives: []
 start_path: /home
 seed:
   distractors: 10
+  # Skip the real-hotels distractor pool: the prompt is an open-ended
+  # "find the best in Rome" search and the real-hotels JSON contains many
+  # Rome hotels (some with higher review scores than the seeded winner).
+  # Real-hotel pricing is procedurally generated, so a real candidate could
+  # satisfy the budget+free-cancel constraints with a higher score and the
+  # grader's hard-coded property_id lock would mark a correct answer wrong.
+  skip_real_hotels: true
   actors: {}
   steps:
   - use: compare_properties

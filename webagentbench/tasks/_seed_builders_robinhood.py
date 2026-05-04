@@ -61,6 +61,7 @@ class ResolvedActor:
 
 _ETF_SYMBOLS: set[str] = {
     "SPY", "QQQ", "VTI", "VXUS", "BND", "SCHD", "VOO", "IWM", "GLD", "TLT",
+    "XLK", "SMH", "VEA", "VTIP",
 }
 
 # ---------------------------------------------------------------------------
@@ -317,6 +318,18 @@ _STOCK_SEED_DATA: list[dict[str, Any]] = [
     {"symbol": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "sector": "ETF", "industry": "Long-Term Bonds",
      "about": "TLT tracks an index of U.S. Treasury bonds with remaining maturities greater than twenty years.",
      "base_price": 95.0, "pe": 0.0, "eps": 0.0, "div_yield": 3.80, "market_cap": 40e9},
+    {"symbol": "XLK", "name": "Technology Select Sector SPDR Fund", "sector": "ETF", "industry": "Sector Technology",
+     "about": "XLK tracks the Technology Select Sector Index, providing concentrated exposure to U.S. large-cap technology stocks.",
+     "base_price": 205.0, "pe": 0.0, "eps": 0.0, "div_yield": 0.65, "market_cap": 65e9},
+    {"symbol": "SMH", "name": "VanEck Semiconductor ETF", "sector": "ETF", "industry": "Sector Semiconductors",
+     "about": "SMH tracks the MVIS US Listed Semiconductor 25 Index, providing exposure to the largest U.S. semiconductor companies.",
+     "base_price": 230.0, "pe": 0.0, "eps": 0.0, "div_yield": 0.55, "market_cap": 22e9},
+    {"symbol": "VEA", "name": "Vanguard FTSE Developed Markets ETF", "sector": "ETF", "industry": "International",
+     "about": "VEA tracks the FTSE Developed All Cap ex US Index, providing exposure to large- mid- and small-cap stocks in developed markets outside the U.S.",
+     "base_price": 48.0, "pe": 0.0, "eps": 0.0, "div_yield": 3.10, "market_cap": 105e9},
+    {"symbol": "VTIP", "name": "Vanguard Short-Term Inflation-Protected Securities ETF", "sector": "ETF", "industry": "Inflation-Protected Bonds",
+     "about": "VTIP tracks an index of U.S. Treasury inflation-protected securities with maturities of less than five years.",
+     "base_price": 49.0, "pe": 0.0, "eps": 0.0, "div_yield": 3.50, "market_cap": 14e9},
 
     # ── Additional Consumer Cyclical / Defensive ───────────────────────
     {"symbol": "LOW", "name": "Lowe's Companies, Inc.", "sector": "Consumer Cyclical", "industry": "Home Improvement",
@@ -1999,9 +2012,14 @@ def build_earnings_calendar(ctx: RobinhoodSeedContext, params: dict[str, Any]) -
         if stock and stock.eps:
             eps_est = Decimal(str(round(float(stock.eps) * ctx.rng.uniform(0.95, 1.10), 2)))
 
-        # Ensure include_symbols get earnings within 3 days (for pause eligibility)
+        # Ensure include_symbols land in the near future (for pause eligibility).
+        # Honor an explicit small ``days_ahead`` if the caller asked for tighter
+        # bounds (e.g. tasks that say "earnings tomorrow" use days_ahead=1) —
+        # previously this branch always used randint(1, 3) which contradicted
+        # the prompt for tomorrow-only tasks.
         if sym in include_set:
-            event_date = (ctx.now + timedelta(days=ctx.rng.randint(1, 3))).date()
+            include_upper = max(1, min(3, days_ahead))
+            event_date = (ctx.now + timedelta(days=ctx.rng.randint(1, include_upper))).date()
         else:
             event_date = (ctx.now + timedelta(days=ctx.rng.randint(1, days_ahead))).date()
         time = ctx.rng.choice(["before_market", "after_market"])

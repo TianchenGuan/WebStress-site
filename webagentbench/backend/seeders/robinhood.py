@@ -31,10 +31,16 @@ def derive_anchor_time(seed: int) -> datetime:
 
     Using today keeps future-dated data (option expirations, upcoming events)
     actually in the future regardless of when the benchmark is run. The seed
-    provides a ±24-hour jitter so different seeds don't collide.
+    provides per-seed jitter so different seeds don't collide, but the jitter
+    is constrained to keep ``anchor.date()`` equal to today's UTC date — a
+    ±24h jitter could otherwise push the anchor onto yesterday or tomorrow,
+    shifting "in the next N days" boundaries by a full day relative to what
+    the human annotator sees on the wall clock (the bug behind seeing
+    "5.10 is 7 days after 5.2").
     """
-    today = datetime.now(timezone.utc).replace(hour=10, minute=0, second=0, microsecond=0)
-    offset = timedelta(hours=(seed % 48) - 24)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Jitter only within the same UTC day: 0..23 hours plus 0..59 minutes.
+    offset = timedelta(hours=seed % 24, minutes=(seed // 24) % 60)
     return today + offset
 
 

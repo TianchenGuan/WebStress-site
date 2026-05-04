@@ -7,22 +7,14 @@ instruction_template: 'You are returning from 2 weeks away. Process your entire 
 
 
   RULE 1 -- SPAM DELETION: A reference email from it-admin@thornton.com with subject
-  "Blocked Sender Domains" lists 5 blocked domains: dailyoffers.net, prizecentral.net,
-  phish-alerts.thornton.com, adreach.net, worldrewards.net. Delete all emails where
-  the From-address domain matches any of these 5 domains.
+  "Blocked Sender Domains" lists blocked domains. Delete all emails where the From-address
+  domain matches any domain on that blocklist.
 
 
   RULE 2 -- ESCALATION FORWARDING: A handoff email from backup@thornton.com with subject
-  "Handoff Notes -- Your Escalations" identifies exactly 3 threads by their subject
-  lines and assigns a delegate for each:
-
-  - Thread "Datacenter Migration Blockers" -> forward to infra-lead@thornton.com
-
-  - Thread "Q2 Revenue Shortfall" -> forward to cfo-office@thornton.com
-
-  - Thread "Customer Complaint #8842" -> forward to support-mgr@thornton.com
-
-  Forward the most recent message in each of these 3 threads to the specified delegate.
+  "Handoff Notes -- Your Escalations" identifies threads to escalate and assigns
+  a delegate for each. Forward the most recent message in each listed thread to the
+  delegate specified in the handoff email.
 
 
   RULE 3 -- PERSONAL REPLIES: Reply to exactly 2 emails:
@@ -60,8 +52,7 @@ instruction_template: 'You are returning from 2 weeks away. Process your entire 
   - Filter B: subject contains ''review'' -> star and add label ''Action Item''.
 
 
-  Do NOT act on the two reference emails (blocklist and handoff) or any email that
-  does not match any rule. Leave unmatched emails in inbox as-is.'
+  Leave unmatched emails in inbox as-is.'
 difficulty: frontier
 time_limit_seconds: 720
 expected_steps: 85

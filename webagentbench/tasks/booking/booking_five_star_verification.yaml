@@ -145,9 +145,20 @@ seed:
 canonical_diff:
   create:
     - entity: Reservation
-      desc: Book the verified 5-star Tokyo hotel Executive Suite for 4 nights
+      desc: Book any verified 5-star Tokyo hotel (spa+pool, review >9.0) Executive Suite for 4 nights
       properties:
-        property_id: {expr: "x == target['property_id']"}
+        # Tie-tolerant: accept ANY property in initial state matching the
+        # task constraints (5-star, Tokyo, has Spa & Pool, review_score > 9.0).
+        # The seeded "property_id" target is just one valid winner; under
+        # default seed there are 8 properties tied at the top of this filter.
+        property_id:
+          expr: >-
+            any(
+              p.id == x and p.city == 'Tokyo' and p.star_rating == 5
+              and 'Spa' in (p.amenities or []) and 'Pool' in (p.amenities or [])
+              and (p.review_score or 0) > 9.0
+              for p in initial.properties
+            )
         property_name: {any: true}
         room_type_id: {any: true}
         room_type_name: {eq: "Executive Suite"}
@@ -175,7 +186,15 @@ canonical_diff:
         rating_submitted: {any: true}
   invariant:
     - collection: state.reservations
-      filter: "a.property_id != target['property_id']"
+      # Allow new reservations at ANY 5-star Tokyo hotel with Spa+Pool and review>9.0
+      # (matches the tie-tolerant create predicate above).
+      filter: >-
+        not any(
+          p.id == a.property_id and p.city == 'Tokyo' and p.star_rating == 5
+          and 'Spa' in (p.amenities or []) and 'Pool' in (p.amenities or [])
+          and (p.review_score or 0) > 9.0
+          for p in initial.properties
+        )
       preserve: ALL
     - collection: state.properties
       preserve: ALL

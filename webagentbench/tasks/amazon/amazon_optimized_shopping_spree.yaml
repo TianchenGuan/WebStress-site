@@ -1,14 +1,12 @@
 task_id: amazon_optimized_shopping_spree
 env_id: amazon
 title: Buy 5 Items from 5 Categories Under $500
-instruction_template: 'Find and purchase exactly these 5 highest-rated items, one
-  from each of 5 different categories: Electronics — "Wireless Noise-Cancelling Headphones";
-  Books — "The Art of Problem Solving"; Home & Kitchen — "Stainless Steel Cookware
-  Set"; Sports & Outdoors — "Yoga Mat Premium Non-Slip"; Office Supplies — "Ergonomic
-  Standing Desk Converter". Each item is rated at least 4.0 and your total order must
-  stay under $500. Add one of each to your cart, verify the total is under $500, then
-  complete checkout using the shipping address for Jordan Parker at 742 Evergreen
-  Terrace and the Visa card ending in 4242.
+instruction_template: 'Find and purchase exactly 5 items, one from each of these
+  5 categories: Electronics, Books, Home & Kitchen, Sports & Outdoors, and Office
+  Supplies. From each category pick the highest-rated item that has a rating of at
+  least 4.0, and ensure your total order stays under $500. Add one of each to your
+  cart, verify the total is under $500, then complete checkout using the shipping
+  address for Jordan Parker at 742 Evergreen Terrace and the Visa card ending in 4242.
 
   '
 difficulty: hard
@@ -19,6 +17,15 @@ primary_primitives:
 start_path: /
 seed:
   distractors: 18
+  # Skip the real-products distractor pool: amazon_real_products.json holds
+  # dozens of items per category at the 4.6 catalog rating cap, so the
+  # seeded 5 featured winners can be tied (or beaten) by catalog entries
+  # in the same category. The grader hard-codes the 5 featured product_ids
+  # via a set-equality check, so any catalog-tied alternative would grade
+  # as fail. Combined with the bumped featured ratings below (>=4.7), this
+  # guarantees each featured product is the unique highest-rated in its
+  # category for the prompt's filter.
+  skip_real_products: true
   actors: {}
   steps:
   - use: featured_product
@@ -27,7 +34,7 @@ seed:
       brand: Sony
       category: Electronics
       price: 129.99
-      rating: 4.7
+      rating: 4.8
       features:
       - Active noise cancellation
       - 30-hour battery life
@@ -44,7 +51,7 @@ seed:
       brand: Princeton Press
       category: Books
       price: 18.99
-      rating: 4.5
+      rating: 4.9
       features:
       - Hardcover edition
       - 400 pages
@@ -61,7 +68,7 @@ seed:
       brand: Cuisinart
       category: Home & Kitchen
       price: 89.99
-      rating: 4.3
+      rating: 4.8
       features:
       - 10-piece set
       - Dishwasher safe
@@ -78,7 +85,7 @@ seed:
       brand: Manduka
       category: Sports & Outdoors
       price: 54.99
-      rating: 4.6
+      rating: 4.9
       features:
       - 6mm thick
       - Non-slip surface
@@ -95,7 +102,7 @@ seed:
       brand: FlexiSpot
       category: Office Supplies
       price: 159.99
-      rating: 4.4
+      rating: 4.8
       features:
       - Height adjustable
       - Dual monitor support

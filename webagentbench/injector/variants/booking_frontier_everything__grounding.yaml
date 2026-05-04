@@ -1,12 +1,47 @@
 variant_id: booking_frontier_everything__grounding_v1
 base_task_id: booking_frontier_everything
 target_primitive: grounding
-description: Scrambled ARIA labels and injected near-miss decoy elements make the
-  correct UI targets harder to identify.
+description: >
+  Two near-miss decoy Barcelona hotels share the target's name prefix so the
+  agent must compare exact name + amenities + score to pick the correct
+  property for the booking step. ARIA labels are scrambled and card layouts
+  are shuffled to remove weak structural cues. The decoys + visual noise
+  create a clear visible signal so a human can also notice the intervention.
 injections:
+- layer: seed
+  params:
+    action: add_confusing_decoys
+    decoys:
+    - type: property
+      name: Barcelona Beachfront Palace Suites
+      city: Barcelona
+      country: Spain
+      property_type: Hotel
+      star_rating: 5
+      review_score: 9.0
+      review_count: 2810
+      price: 305.0
+      description: Nearly identical name with slightly different review profile.
+    - type: property
+      name: Barcelona Beachfront Palace Residences
+      city: Barcelona
+      country: Spain
+      property_type: Hotel
+      star_rating: 5
+      review_score: 9.1
+      review_count: 3210
+      price: 320.0
+      description: Same name prefix; tempts a name-only match.
 - layer: client
   params:
     action: scramble_aria
     selector: '[aria-label], [role=button]'
     behavior:
       mode: persistent
+- layer: client
+  params:
+    action: inject_visual_noise
+    mutations:
+    - selector: '.bk-card-body'
+      behavior: shuffle_child_order
+      probability: 0.3

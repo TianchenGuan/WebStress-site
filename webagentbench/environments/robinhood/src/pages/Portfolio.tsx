@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { preserveQueryParams } from "@webagentbench/shared";
 
 import { useRobinhoodLayout } from "../context";
 import type { Position, PortfolioData } from "../types";
@@ -9,12 +7,14 @@ import { StockChart } from "../components/StockChart";
 import { CategoryChips, getDiscoverChips } from "../components/CategoryChips";
 import { NewsCard } from "../components/NewsCard";
 
+const POSITIONS_PREVIEW_COUNT = 8;
+
 export function PortfolioPage() {
   const { api, account, liveTick } = useRobinhoodLayout();
-  const location = useLocation();
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAllPositions, setShowAllPositions] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,14 +83,25 @@ export function PortfolioPage() {
       <section className="rh-portfolio__positions" aria-label="Positions">
         <div className="rh-portfolio__positions-header">
           <h2>Stocks</h2>
-          <Link to={preserveQueryParams("/orders", location.search)} className="rh-link">
-            Show More
-          </Link>
+          {positions.length > POSITIONS_PREVIEW_COUNT && (
+            <button
+              type="button"
+              className="rh-link"
+              aria-expanded={showAllPositions}
+              aria-label={showAllPositions ? "Show fewer positions" : "Show more positions"}
+              onClick={() => setShowAllPositions((v) => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              {showAllPositions ? "Show Less" : "Show More"}
+            </button>
+          )}
         </div>
         {positions.length === 0 ? (
           <div className="rh-empty">No positions yet</div>
         ) : (
-          positions.map((p) => <PositionRow key={p.id} position={p} />)
+          (showAllPositions ? positions : positions.slice(0, POSITIONS_PREVIEW_COUNT)).map((p) => (
+            <PositionRow key={p.id} position={p} />
+          ))
         )}
       </section>
 

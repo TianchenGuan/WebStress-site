@@ -92,6 +92,10 @@ def test_extra_announcement_read_fails():
     sm, sid, targets, initial, state = _setup_session()
 
     _mark_read(state, targets["urgent_announcement_id"])
+    # Marking another announcement *read* is a benign read-as-write
+    # side-effect now; to keep this regression test meaningful, edit the
+    # other announcement's title instead so it surfaces as a real Update
+    # diff entry on a non-noise field.
     extra = next(
         (
             announcement
@@ -101,7 +105,7 @@ def test_extra_announcement_read_fails():
         None,
     )
     assert extra is not None, "seed must include another unread announcement"
-    _mark_read(state, extra.id)
+    extra.title = f"{extra.title} (edited)"
 
     task = get_task("lms_read_urgent_announcement")
     agent_diff = compute_diff(initial, state)
@@ -113,8 +117,9 @@ def test_extra_announcement_read_fails():
         final=state,
     )
     assert report.passed is False, (
-        "reading the urgent announcement plus an extra announcement should "
-        "violate the non-target announcement invariant"
+        "reading the urgent announcement plus editing an unrelated "
+        "announcement title should violate the non-target announcement "
+        "invariant"
     )
 
 

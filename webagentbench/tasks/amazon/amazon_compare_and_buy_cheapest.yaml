@@ -46,10 +46,24 @@ seed:
 canonical_diff:
   create:
   - entity: Order
-    desc: Order placed for the cheapest eligible product (single item, qty 1)
+    desc: Order placed for any cheapest eligible product (single item, qty 1)
     properties:
+      # Tie-tolerant: accept ANY product whose name matches the search query,
+      # has rating >= 4.0, and whose price equals the minimum price among
+      # qualifying products. Multiple products may tie at the lowest price.
       items:
-        expr: "len(x) == 1 and x[0]['product_id'] == target['cheapest_product_id'] and x[0]['quantity'] == 1"
+        expr: >-
+          len(x) == 1 and x[0]['quantity'] == 1
+          and any(
+            p.id == x[0]['product_id']
+            and target['search_query'].lower() in p.name.lower()
+            and p.rating >= 4.0
+            and p.price == min(
+              q.price for q in initial.products
+              if target['search_query'].lower() in q.name.lower() and q.rating >= 4.0
+            )
+            for p in initial.products
+          )
       status: {eq: confirmed}
       shipping_address_id:
         expr: "any(a.id == x and a.full_name == target['shipping_name'] and a.street_address == target['shipping_street'] for a in state.addresses)"
@@ -65,7 +79,21 @@ canonical_diff:
       discount: {any: true}
   invariant:
   - collection: state.orders
-    filter: "not any(it.get('product_id') == target['cheapest_product_id'] for it in (a.items or []))"
+    # Tie-tolerant: allow new orders containing ANY cheapest qualifying product.
+    filter: >-
+      not any(
+        any(
+          p.id == it.get('product_id')
+          and target['search_query'].lower() in p.name.lower()
+          and p.rating >= 4.0
+          and p.price == min(
+            q.price for q in initial.products
+            if target['search_query'].lower() in q.name.lower() and q.rating >= 4.0
+          )
+          for p in initial.products
+        )
+        for it in (a.items or [])
+      )
     preserve: ALL
   - collection: state.products
     preserve: ALL

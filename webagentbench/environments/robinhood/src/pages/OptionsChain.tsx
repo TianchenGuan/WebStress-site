@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button, preserveQueryParams } from "@webagentbench/shared";
 
 import { useRobinhoodLayout } from "../context";
@@ -9,6 +9,7 @@ import { OptionsTable } from "../components/OptionsTable";
 export function OptionsChainPage() {
   const { symbol } = useParams<{ symbol: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const { api } = useRobinhoodLayout();
   const [contracts, setContracts] = useState<OptionsContract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,23 @@ export function OptionsChainPage() {
       {contracts.length === 0 ? (
         <div className="rh-empty">No options contracts available for {symbol}</div>
       ) : (
-        <OptionsTable contracts={contracts} optionType={activeTab} />
+        <OptionsTable
+          contracts={contracts}
+          optionType={activeTab}
+          onSelect={(contract) => {
+            const params = new URLSearchParams();
+            params.set("contract_id", contract.contract_id);
+            params.set("option_type", contract.option_type);
+            params.set("strike", contract.strike);
+            params.set("expiration", contract.expiration);
+            navigate(
+              preserveQueryParams(
+                `/stocks/${symbol}/options/trade?${params.toString()}`,
+                location.search,
+              ),
+            );
+          }}
+        />
       )}
     </div>
   );

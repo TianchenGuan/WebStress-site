@@ -19,6 +19,13 @@ secondary_primitives: []
 start_path: /home
 seed:
   distractors: 12
+  # Skip the real-hotels distractor pool: the prompt is an open-ended
+  # "find the highest-rated London hotel meeting these constraints" search.
+  # Real-hotel rooms are generated procedurally and may satisfy all six
+  # constraints (4+ stars, pool, <$300, free-cancel, breakfast, ≤2km) with
+  # a higher review score than the seeded winner, which would make the
+  # grader's hard-coded property_id lock reject a correct answer.
+  skip_real_hotels: true
   actors: {}
   steps:
   - use: featured_property

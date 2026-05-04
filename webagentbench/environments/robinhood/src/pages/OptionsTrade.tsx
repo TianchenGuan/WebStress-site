@@ -112,6 +112,35 @@ function buildStrategyLegs(
   }
 }
 
+function findClosestContract(
+  contracts: OptionsContract[],
+  filter: { strike?: string; expiration?: string; option_type?: string },
+): OptionsContract | null {
+  const matchType = contracts.filter((c) =>
+    !filter.option_type || c.option_type === filter.option_type,
+  );
+  if (matchType.length === 0) return null;
+
+  const matchExp = filter.expiration
+    ? matchType.filter((c) => c.expiration === filter.expiration)
+    : matchType;
+  const pool = matchExp.length > 0 ? matchExp : matchType;
+
+  if (filter.strike !== undefined) {
+    const target = Number.parseFloat(filter.strike);
+    if (!Number.isNaN(target)) {
+      let best = pool[0];
+      let bestDist = Math.abs(Number.parseFloat(best.strike) - target);
+      for (const c of pool) {
+        const d = Math.abs(Number.parseFloat(c.strike) - target);
+        if (d < bestDist) { best = c; bestDist = d; }
+      }
+      return best;
+    }
+  }
+  return pool[0];
+}
+
 export function OptionsTradePage() {
   const { symbol } = useParams<{ symbol: string }>();
   const location = useLocation();
@@ -122,6 +151,12 @@ export function OptionsTradePage() {
   const [strategy, setStrategy] = useState<StrategyValue>("single");
   const [draftLegs, setDraftLegs] = useState<DraftLeg[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contextBanner, setContextBanner] = useState<string | null>(null);
+  // Per-leg type filter ("any" | "call" | "put") to make the contract dropdown navigable.
+  const [legTypeFilter, setLegTypeFilter] = useState<Record<number, "any" | "call" | "put">>({});
+
+  // Parse incoming intent (close, roll, preselected contract) once contracts have loaded.
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
   useEffect(() => {
     if (!symbol) return;
@@ -130,7 +165,86 @@ export function OptionsTradePage() {
       .then((nextContracts) => {
         if (cancelled) return;
         setContracts(nextContracts);
-        setDraftLegs(buildStrategyLegs("single", nextContracts));
+
+        // Intent params from links (Close / Roll / preselect a contract from the chain).
+        const action = searchParams.get("action"); // "close" | "roll" | null
+        const presetContractId = searchParams.get("contract_id");
+        const presetStrike = searchParams.get("strike") ?? undefined;
+        const presetExpiration = searchParams.get("expiration") ?? undefined;
+        const presetOptionType = searchParams.get("option_type") ?? undefined;
+        const positionSide = searchParams.get("position_side"); // "long" | "short"
+        const presetSideParam = searchParams.get("side"); // optional explicit side
+        const presetQuantity = searchParams.get("quantity");
+
+        // Resolve target contract by id; if not present, pick the nearest by strike+expiration.
+        const targetContract =
+          (presetContractId ? nextContracts.find((c) => c.contract_id === presetContractId) : null) ??
+          findClosestContract(nextContracts, {
+            strike: presetStrike,
+            expiration: presetExpiration,
+            option_type: presetOptionType,
+          });
+
+        if (action === "close" && targetContract) {
+          // Close = opposite side of the position.
+          const closeSide: "buy" | "sell" = positionSide === "long" ? "sell" : "buy";
+          setStrategy("single");
+          setDraftLegs([{
+            contractId: targetContract.contract_id,
+            side: closeSide,
+            quantity: presetQuantity ?? "1",
+          }]);
+          setContextBanner(
+            `Closing ${positionSide ?? ""} ${targetContract.option_type.toUpperCase()} $${Number.parseFloat(targetContract.strike).toFixed(2)} exp ${targetContract.expiration} (${closeSide} to close).`,
+          );
+        } else if (action === "roll" && targetContract) {
+          // Roll = leg 1 closes the existing position; leg 2 opens a new one at the same strike but next expiration.
+          const closeSide: "buy" | "sell" = positionSide === "long" ? "sell" : "buy";
+          const openSide: "buy" | "sell" = closeSide === "buy" ? "sell" : "buy";
+          // Find a later expiration with the same option_type for the new leg.
+          const sameType = nextContracts.filter((c) => c.option_type === targetContract.option_type);
+          const laterExpirations = [...new Set(sameType.map((c) => c.expiration))]
+            .filter((e) => e > targetContract.expiration)
+            .sort();
+          let openLegContract: OptionsContract | null = null;
+          if (laterExpirations.length > 0) {
+            openLegContract = findClosestContract(sameType, {
+              strike: targetContract.strike,
+              expiration: laterExpirations[0],
+              option_type: targetContract.option_type,
+            });
+          }
+          setStrategy("vertical"); // multi-leg shell so the user has 2 legs immediately
+          const legs: DraftLeg[] = [
+            {
+              contractId: targetContract.contract_id,
+              side: closeSide,
+              quantity: presetQuantity ?? "1",
+            },
+          ];
+          if (openLegContract) {
+            legs.push({
+              contractId: openLegContract.contract_id,
+              side: openSide,
+              quantity: presetQuantity ?? "1",
+            });
+          }
+          setDraftLegs(legs);
+          setContextBanner(
+            `Rolling ${positionSide ?? ""} ${targetContract.option_type.toUpperCase()} $${Number.parseFloat(targetContract.strike).toFixed(2)} exp ${targetContract.expiration}: leg 1 closes (${closeSide}), leg 2 opens (${openSide}) at the next expiration. Adjust strike/expiration as needed.`,
+          );
+        } else if (targetContract) {
+          // Plain preselect (e.g. clicked a row in the chain).
+          const presetSide: "buy" | "sell" = presetSideParam === "sell" ? "sell" : "buy";
+          setStrategy("single");
+          setDraftLegs([{
+            contractId: targetContract.contract_id,
+            side: presetSide,
+            quantity: presetQuantity ?? "1",
+          }]);
+        } else {
+          setDraftLegs(buildStrategyLegs("single", nextContracts));
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -139,12 +253,21 @@ export function OptionsTradePage() {
     return () => {
       cancelled = true;
     };
-  }, [api, symbol]);
+  }, [api, symbol, searchParams]);
 
   const contractsById = useMemo(
     () => Object.fromEntries(contracts.map((contract) => [contract.contract_id, contract])),
     [contracts],
   );
+
+  const sortedContracts = useMemo(() => {
+    // Group: option_type, then expiration ascending, then strike ascending.
+    return [...contracts].sort((a, b) => {
+      if (a.option_type !== b.option_type) return a.option_type.localeCompare(b.option_type);
+      if (a.expiration !== b.expiration) return a.expiration.localeCompare(b.expiration);
+      return Number.parseFloat(a.strike) - Number.parseFloat(b.strike);
+    });
+  }, [contracts]);
 
   const netPremium = draftLegs.reduce((total, leg) => {
     const contract = contractsById[leg.contractId];
@@ -230,6 +353,12 @@ export function OptionsTradePage() {
         <h1>Trade {symbol} Options</h1>
       </div>
 
+      {contextBanner ? (
+        <div className="rh-options-trade__banner" role="status" aria-live="polite">
+          {contextBanner}
+        </div>
+      ) : null}
+
       <div className="rh-order-form__field">
         <label htmlFor="opt-strategy">Strategy</label>
         <select
@@ -244,12 +373,14 @@ export function OptionsTradePage() {
       </div>
 
       <div className="rh-options-trade__helper">
-        Strategy presets populate a real leg editor. You can adjust contracts, sides, and quantities before submitting.
+        Pick a strategy preset or build a custom multi-leg order. Each leg has a Type filter (Calls/Puts) so you can find the right strike quickly. Click "Add Leg" to combine up to 4 legs.
       </div>
 
       <div className="rh-options-trade__legs">
         {draftLegs.map((leg, index) => {
           const contract = contractsById[leg.contractId];
+          const filter = legTypeFilter[index] ?? "any";
+          const visibleContracts = sortedContracts.filter((c) => filter === "any" || c.option_type === filter);
           return (
             <div key={`${leg.contractId}-${index}`} className="rh-options-trade__leg-card">
               <div className="rh-options-trade__leg-header">
@@ -278,13 +409,25 @@ export function OptionsTradePage() {
                   </select>
                 </div>
                 <div className="rh-order-form__field">
+                  <label htmlFor={`opt-leg-type-${index}`}>Type</label>
+                  <select
+                    id={`opt-leg-type-${index}`}
+                    value={filter}
+                    onChange={(e) => setLegTypeFilter((prev) => ({ ...prev, [index]: e.target.value as "any" | "call" | "put" }))}
+                  >
+                    <option value="any">Any</option>
+                    <option value="call">Calls</option>
+                    <option value="put">Puts</option>
+                  </select>
+                </div>
+                <div className="rh-order-form__field">
                   <label htmlFor={`opt-leg-contract-${index}`}>Contract</label>
                   <select
                     id={`opt-leg-contract-${index}`}
                     value={leg.contractId}
                     onChange={(e) => handleLegChange(index, { contractId: e.target.value })}
                   >
-                    {contracts.map((entry) => (
+                    {visibleContracts.map((entry) => (
                       <option key={entry.contract_id} value={entry.contract_id}>
                         {contractLabel(entry)}
                       </option>
@@ -317,7 +460,7 @@ export function OptionsTradePage() {
       </div>
 
       <div className="rh-options-trade__actions">
-        <Button variant="secondary" disabled={draftLegs.length >= 4} onClick={handleAddLeg}>
+        <Button variant="secondary" disabled={draftLegs.length >= 4} onClick={handleAddLeg} aria-label="Add a new leg to this order">
           Add Leg
         </Button>
         <Button variant="secondary" onClick={() => resetForStrategy(strategy)}>

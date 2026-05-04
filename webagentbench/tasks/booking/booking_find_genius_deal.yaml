@@ -21,6 +21,14 @@ primary_primitives:
 start_path: /home
 seed:
   distractors: 8
+  # Skip the real-hotels distractor pool: booking_real_hotels.json contains
+  # several Barcelona Genius properties (e.g. "Chic & Basic Born", 20%) which
+  # can produce alternative "cheapest Genius ≤ $800" answers and conflict
+  # with the grader's fixed-property_id lock below. The seed already provides
+  # a controlled comparison set (winner + two zero-Genius decoys + one
+  # higher-discount-but-resort-fee fee-trap), so disabling the pool keeps the
+  # search space deterministic without changing the intended difficulty.
+  skip_real_hotels: true
   actors: {}
   steps:
   - use: featured_property

@@ -132,10 +132,16 @@ def test_extra_mutation_fails():
         file_name="catch_up.pdf",
         submitted_at=_session_start(targets) + timedelta(hours=1),
     )
-    _mark_read(state, targets["latest_announcement_id"])
+    # Inject a *real* unrelated mutation (title rewrite) rather than a benign
+    # is_read flip: opening an unrelated announcement is now treated as a
+    # read-as-write side-effect and exempted from the "Preserve announcements"
+    # invariant. We mutate a non-noise field to keep this regression test
+    # meaningful.
+    other = state.get_announcement(targets["latest_announcement_id"])
+    other.title = f"{other.title} (edited)"
 
     report = _matcher_report(initial, state, targets)
     assert report.passed is False, (
-        "submitting the homework and marking the announcement read should violate "
-        "the non-target invariant"
+        "submitting the homework and editing an unrelated announcement title "
+        "should violate the non-target invariant"
     )

@@ -215,16 +215,107 @@ def _filter_matches(
     entry: DiffEntry,
     targets: Mapping[str, Any],
     final: Any = None,
+    initial: Any = None,
 ) -> bool:
     if not filter_expr:
         return True
     try:
         return bool(safe_eval(
             filter_expr,
-            {"a": EntityView(_entry_dict_for_filter(entry, final)), "target": targets},
+            {
+                "a": EntityView(_entry_dict_for_filter(entry, final)),
+                "target": targets,
+                # Expose initial/final state and a top-level state alias so
+                # invariant filters can reason about the seed (e.g. "any
+                # property in initial.properties matches the task constraints").
+                # This is needed for tie-tolerant graders: a single canonical
+                # winner_id may not exist when several candidates tie at the
+                # top of the X-est ranking.
+                "initial": initial,
+                "final": final,
+                "state": final,
+            },
         ))
     except SafeEvalError:
         return False
+
+
+# ---------------------------------------------------------------------------
+# Read-as-write filter
+# ---------------------------------------------------------------------------
+#
+# Several envs treat "view a message" as a server-side state mutation:
+# opening an email/notification flips ``is_read: false → true`` (and similar
+# read-receipt flags). When an annotator browses through the inbox while
+# completing a task they leave a trail of these flips on messages they never
+# intended to act on. The diff records each as an ``Update`` entry on the
+# ``messages`` / ``emails`` / ``notifications`` collections, and a vanilla
+# ``preserve: ALL`` invariant flags every one as a violation — even though
+# from the user's perspective the only intentional mutation was the action
+# the task asked for.
+#
+# To filter these benign side-effects out of invariant checks (without
+# breaking positive ``update`` checks that still rely on the ``is_read``
+# flip), we centralise the rule here: an Update entry is "read side-effect
+# only" when every changed field is a known read-receipt flag transitioning
+# towards the "viewed" value. Create/Delete entries are always real
+# mutations, so they are never skipped.
+
+# Boolean read-receipt fields. Only ``False → True`` (or ``None → True``)
+# counts as a benign view side-effect. Going the other way (mark-as-unread)
+# is an intentional state change and is NOT skipped.
+_READ_NOISE_BOOL_FIELDS: frozenset[str] = frozenset({
+    "is_read",
+    "is_seen",
+    "read",
+    "seen",
+    "viewed",
+    "is_viewed",
+    "opened",
+})
+
+# Datetime / "last accessed" fields whose update is purely a server-side
+# bookkeeping touch — any change is treated as benign noise.
+_READ_NOISE_TIMESTAMP_FIELDS: frozenset[str] = frozenset({
+    "last_accessed",
+    "last_accessed_at",
+    "last_viewed",
+    "last_viewed_at",
+    "viewed_at",
+    "read_at",
+    "opened_at",
+    "last_seen_at",
+})
+
+
+def _is_read_side_effect_update(entry: DiffEntry) -> bool:
+    """Return True if ``entry`` is an ``Update`` whose only changes are
+    benign read-as-write side-effects (e.g. ``is_read: false → true``).
+
+    Used by the ``preserve: ALL`` invariant sweep and the unaccounted
+    collateral sweep to skip entries that look like mutations to the diff
+    layer but are merely the natural consequence of the user opening a
+    message. The matcher's positive-update path is unaffected: a YAML that
+    requires ``is_read: {eq: true}`` still needs the agent to flip it on the
+    targeted entity.
+    """
+    if not isinstance(entry, Update):
+        return False
+    if not entry.field_changes:
+        # No-op updates are vacuously benign.
+        return True
+    for field_name, (before, after) in entry.field_changes.items():
+        if field_name in _READ_NOISE_BOOL_FIELDS:
+            if before is False and after is True:
+                continue
+            if before is None and after is True:
+                continue
+            return False
+        if field_name in _READ_NOISE_TIMESTAMP_FIELDS:
+            # Any datetime change on these fields is benign noise.
+            continue
+        return False
+    return True
 
 
 def _updated_entity_dicts(update: Update, initial: Any, final: Any) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -375,7 +466,13 @@ def _match_block(
             entry.entity == collection
             and (entry.entity, entry.entity_id) not in ctx.matched
             and (entry.entity, entry.entity_id) not in ctx.near_misses
-            and _filter_matches(get_field(inv, "filter"), entry, targets, final)
+            # Skip read-as-write side-effects: opening a message flips
+            # ``is_read: false → true``, which the diff layer records as an
+            # Update but the invariant sweep should not flag as a real
+            # mutation. Positive ``update`` matchers still see the flip; only
+            # the "preserve" sweep is relaxed.
+            and not _is_read_side_effect_update(entry)
+            and _filter_matches(get_field(inv, "filter"), entry, targets, final, initial)
             for entry in agent_diff
         )
         desc = f"Preserve {get_field(inv, 'collection')}"
@@ -444,10 +541,18 @@ def _match_block(
             # in _match_entry — skip the second penalty here.
             if (entry.entity, entry.entity_id) in ctx.near_misses:
                 continue
+            # Read-as-write side-effects (e.g. opening an unrelated message
+            # flipped is_read) are not real mutations from the user's
+            # perspective. The invariant sweep already skips them; the
+            # collateral sweep should too, otherwise a task that omits an
+            # invariant on the messages collection would pile up
+            # "unaccounted update" penalties on every browsed message.
+            if _is_read_side_effect_update(entry):
+                continue
             if entry.entity in full_invariant_cols:
                 continue
             filtered = filtered_by_col.get(entry.entity, [])
-            if any(_filter_matches(get_field(inv, "filter"), entry, targets, final) for inv in filtered):
+            if any(_filter_matches(get_field(inv, "filter"), entry, targets, final, initial) for inv in filtered):
                 continue
             if entry.entity in comprehensive_cols:
                 continue

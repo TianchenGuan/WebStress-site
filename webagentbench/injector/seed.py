@@ -2264,12 +2264,22 @@ def _rh_add_confusing_positions(state: Any, params: dict[str, Any], *, rng=None)
     """Add positions in confusingly similar stocks to stress Grounding.
 
     Honors ``multiplier`` / ``cap`` to replicate the positions list.
+
+    If a position references a symbol that is not yet in ``state.stocks``,
+    a minimal Stock entry is inserted so the symbol's detail page renders
+    instead of returning a "Stock not found" empty state.
     """
     if not hasattr(state, "positions"):
         return
-    from webagentbench.backend.models.robinhood import Position, TaxLot
+    from webagentbench.backend.models.robinhood import (
+        HistoricalPrice,
+        Position,
+        Stock,
+        TaxLot,
+    )
     from webagentbench.backend.models.base import utc_now
     from decimal import Decimal
+    from datetime import timedelta
     import random as _random
     _rng = rng or _random.Random(42)
 
@@ -2293,6 +2303,54 @@ def _rh_add_confusing_positions(state: Any, params: dict[str, Any], *, rng=None)
         price = Decimal(str(spec.get("price", getattr(stock, "price", "100.00"))))
         qty = Decimal(str(spec.get("quantity", 10)))
         cost = Decimal(str(spec.get("cost_basis", str(price))))
+
+        # If the underlying stock entry does not exist, create a minimal one
+        # so that clicking through the position to the symbol detail page
+        # doesn't 404 / show "Stock not found".
+        if stock is None and hasattr(state, "stocks"):
+            now = utc_now()
+            historical: list[HistoricalPrice] = []
+            p = float(price)
+            for i in range(90, 0, -1):
+                p *= (1 + _rng.uniform(-0.02, 0.02))
+                historical.append(HistoricalPrice(
+                    date=(now - timedelta(days=i)).date(),
+                    close=Decimal(str(round(p, 2))),
+                ))
+            closes = [float(h.close) for h in historical] or [float(price)]
+            high_52 = Decimal(str(round(max(closes) * 1.10, 2)))
+            low_52 = Decimal(str(round(min(closes) * 0.90, 2)))
+            sector = spec.get("sector", "ETF")
+            new_stock = Stock(
+                symbol=symbol,
+                name=spec.get("name", symbol),
+                asset_type="etf" if sector == "ETF" else "stock",
+                price=price,
+                previous_close=price,
+                day_change=Decimal("0"),
+                day_change_pct=Decimal("0"),
+                bid=price - Decimal("0.01"),
+                ask=price + Decimal("0.01"),
+                bid_size=_rng.randint(100, 5000),
+                ask_size=_rng.randint(100, 5000),
+                volume=int(_rng.randint(1_000_000, 10_000_000)),
+                avg_volume=int(_rng.randint(1_000_000, 10_000_000)),
+                market_cap=Decimal(str(int(float(price) * 1e9))),
+                pe_ratio=None,
+                eps=None,
+                dividend_yield=None,
+                fifty_two_week_high=high_52,
+                fifty_two_week_low=low_52,
+                sector=sector,
+                industry=spec.get("industry", sector),
+                about=spec.get(
+                    "about",
+                    f"{symbol} is a publicly traded security included in this benchmark scenario.",
+                ),
+                historical_prices=historical,
+            )
+            state.stocks.append(new_stock)
+
         state.positions.append(Position(
             id=f"pos_decoy_{_rng.randint(10000, 99999)}",
             symbol=symbol,
