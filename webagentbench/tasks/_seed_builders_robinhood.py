@@ -767,7 +767,9 @@ def build_portfolio_diverse(ctx: RobinhoodSeedContext, params: dict[str, Any]) -
             else:
                 cost_mult = ctx.rng.uniform(0.60, 0.98)  # below current = gain
             cost_per = Decimal(str(round(float(stock.price) * cost_mult, 2)))
-            days_ago = ctx.rng.randint(30 + lot_i * 60, 120 + lot_i * 120)
+            # Baseline portfolio lots predate the wash-sale window; tasks that
+            # need recent purchases add them explicitly via transaction_ledger.
+            days_ago = ctx.rng.randint(31 + lot_i * 60, 120 + lot_i * 120)
             lots.append(TaxLot(
                 shares=shares,
                 cost_per_share=cost_per,
@@ -1671,9 +1673,9 @@ def build_transaction_ledger(ctx: RobinhoodSeedContext, params: dict[str, Any]) 
 
     recent_buy_symbols_used: list[str] = []
     if include_recent_buys:
-        candidate_symbols = recent_buy_symbols or list({
+        candidate_symbols = recent_buy_symbols or [
             position.symbol for position in ctx.base.get("positions", [])
-        })[:3] or list(symbols[:3])
+        ] or list(symbols[:3])
         if recent_buy_count is not None:
             candidate_symbols = list(candidate_symbols)[: int(recent_buy_count)]
         for idx, sym in enumerate(candidate_symbols):
@@ -1695,8 +1697,6 @@ def build_transaction_ledger(ctx: RobinhoodSeedContext, params: dict[str, Any]) 
             recent_buy_symbols_used.append(sym)
 
     mismatch_symbol = quantity_mismatch_stock
-    if mismatch_symbol is None and ctx.base.get("positions"):
-        mismatch_symbol = ctx.base["positions"][0].symbol
     if mismatch_symbol:
         stock = ctx.get_stock_from_base(mismatch_symbol)
         base_price = float(stock.price) if stock else 100.0
