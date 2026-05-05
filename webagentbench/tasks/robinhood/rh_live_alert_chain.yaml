@@ -27,6 +27,7 @@ seed:
     outputs: []
   - use: portfolio_diverse
     params:
+      position_count: 8
       tech_heavy: true
     outputs: []
   targets: {}
@@ -53,12 +54,12 @@ canonical_diff:
       status: {any: true}
       created_at: {any: true}
   - entity: orders
-    desc: 5 NVDA shares bought after alert triggered (tech ≤ 60% branch)
+    desc: NVDA sell filled after alert triggered to reduce Technology concentration
     properties:
       symbol: {eq: NVDA}
-      side: {eq: buy}
-      quantity: {eq: 5}
-      status: {any: true}
+      side: {eq: sell}
+      quantity: {any: true}
+      status: {eq: filled}
       order_type: {any: true}
       filled_quantity: {any: true}
       filled_price: {any: true}
@@ -69,16 +70,16 @@ canonical_diff:
       time_in_force: {any: true}
       extended_hours: {any: true}
   - entity: transactions
-    desc: Buy transaction recorded for NVDA
+    desc: Sell transaction recorded for NVDA
     properties:
-      type: {eq: buy}
+      type: {eq: sell}
       symbol: {eq: NVDA}
       quantity: {any: true}
       amount: {any: true}
       description: {any: true}
       timestamp: {any: true}
   - entity: notifications
-    desc: Order fill notifications fired by the NVDA buy
+    desc: Order fill notifications fired by the NVDA sell
     bijection:
       over: "[n for n in state.notifications if n.id not in [ix.id for ix in initial.notifications]]"
       variable: v
@@ -91,23 +92,24 @@ canonical_diff:
       action_url: {any: true}
   update:
   - entity: positions
-    desc: Existing NVDA position increased by buy (if held before)
+    desc: Existing NVDA position reduced by sell
     bijection:
       over: "[p for p in initial.positions if p.symbol == 'NVDA']"
       variable: v
     where:
       id: {expr: "x == v.id"}
     changes:
-      quantity: {any: true}
+      quantity: {expr: "x < v.quantity"}
   - entity: positions
     desc: Non-NVDA holdings only receive backend mark-to-market refreshes
     bijection:
-      over: "[p for p in initial.positions if p.symbol != 'NVDA' and state.get_position(p.symbol) is not None and state.get_position(p.symbol).total_return != p.total_return]"
+      over: "[p for p in initial.positions if p.symbol != 'NVDA' and any(sp.id == p.id and (sp.total_return != p.total_return or sp.total_return_pct != p.total_return_pct) for sp in state.positions)]"
       variable: v
     where:
       id: {expr: "x == v.id"}
     changes:
       total_return: {any: true}
+      total_return_pct: {any: true}
   invariant:
   - collection: state.positions
     filter: "a.symbol != 'NVDA'"
@@ -141,28 +143,28 @@ canonical_diff:
       <= Decimal(str(a.target_price)) <= Decimal('905') and a.status ==
       'triggered' for a in state.price_alerts)
     severity: critical
-  - desc: NVDA response buy filled for 5 shares
-    expr: any(o.symbol == 'NVDA' and o.side == 'buy' and o.quantity ==
-      Decimal('5') and o.status == 'filled' and o.filled_quantity == o.quantity
-      for o in state.orders)
+  - desc: Technology concentration requires the sell branch for this seed
+    expr: initial.sector_pct('Technology') > Decimal('60')
     severity: critical
-  - desc: NVDA buy branch is valid for the seed and waits for the alert trigger
-    expr: initial.sector_pct('Technology') <= Decimal('60') and any(a.symbol ==
-      'NVDA' and a.condition == 'above' and a.triggered_at is not None and
-      any(o.symbol == 'NVDA' and o.side == 'buy' and o.created_at >
+  - desc: NVDA response sell filled after the alert trigger
+    expr: any(a.symbol == 'NVDA' and a.condition == 'above' and a.triggered_at
+      is not None and any(o.symbol == 'NVDA' and o.side == 'sell' and
+      o.order_type == 'market' and o.quantity > Decimal('0') and o.status ==
+      'filled' and o.filled_quantity == o.quantity and o.created_at >
       a.triggered_at for o in state.orders) for a in state.price_alerts)
     severity: critical
+  - desc: Technology concentration is brought to at or below 50% of total account value
+    expr: (state.total_position_value() + state.cash_balance) > Decimal('0') and
+      (state.sector_value('Technology') / (state.total_position_value() +
+      state.cash_balance)) * Decimal('100') <= Decimal('50')
+    severity: critical
   - desc: Non-NVDA positions keep identity and holdings unchanged
-    expr: all((state.get_position(p.symbol) is None) or
-      (state.get_position(p.symbol).id == p.id and
-      state.get_position(p.symbol).quantity == p.quantity and
-      state.get_position(p.symbol).avg_cost_basis == p.avg_cost_basis and
-      state.get_position(p.symbol).current_price == p.current_price and
-      state.get_position(p.symbol).day_change_pct == p.day_change_pct and
-      state.get_position(p.symbol).asset_type == p.asset_type and
-      state.get_position(p.symbol).name == p.name and
-      state.get_position(p.symbol).lots == p.lots) for p in initial.positions if
-      p.symbol != 'NVDA')
+    expr: all(any(sp.id == p.id and sp.symbol == p.symbol and sp.quantity ==
+      p.quantity and sp.avg_cost_basis == p.avg_cost_basis and sp.current_price
+      == p.current_price and sp.day_change_pct == p.day_change_pct and
+      sp.asset_type == p.asset_type and sp.name == p.name and sp.lots == p.lots
+      for sp in state.positions) for p in initial.positions if p.symbol !=
+      'NVDA')
     severity: critical
 secondary_primitives: []
 primitive_thesis: Measures planning, patience, state_tracking, grounding,
