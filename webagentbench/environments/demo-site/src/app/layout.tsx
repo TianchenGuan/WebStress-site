@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WebAgentBench",
+  title: "WebStress",
   description: "A benchmark for evaluating web agents on cognitive primitives",
 };
 

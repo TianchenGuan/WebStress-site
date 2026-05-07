@@ -153,7 +153,7 @@ def build_summary(
             "model": agent_info.get("model", "gpt-5.4"),
             "provider": agent_info.get("provider", "openai"),
         },
-        "benchmark": "WebAgentBench",
+        "benchmark": "WebStress",
         "version": "3.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "aggregate": {

@@ -1,4 +1,4 @@
-"""Composable seed runners for WebAgentBench environments.
+"""Composable seed runners for WebStress environments.
 
 Each environment registers a :class:`SeedRunner`-compatible callable in
 :data:`SEEDER_REGISTRY`.  ``SessionManager`` dispatches to the correct

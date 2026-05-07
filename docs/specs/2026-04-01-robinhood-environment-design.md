@@ -2,13 +2,13 @@
 
 **Date**: 2026-04-01
 **Status**: Approved
-**Scope**: New WebAgentBench environment simulating Robinhood brokerage — full data model, 50 tasks across 5 difficulty levels, 16-page React frontend, 45 API endpoints.
+**Scope**: New WebStress environment simulating Robinhood brokerage — full data model, 50 tasks across 5 difficulty levels, 16-page React frontend, 45 API endpoints.
 
 ---
 
 ## 1. Overview
 
-A faithful Robinhood web clone as a new WebAgentBench environment (`env_id: robinhood`). The environment simulates a full brokerage platform: portfolio management, stock/options trading, order management, transfers, tax documents, recurring investments, watchlists, notifications, and account settings.
+A faithful Robinhood web clone as a new WebStress environment (`env_id: robinhood`). The environment simulates a full brokerage platform: portfolio management, stock/options trading, order management, transfers, tax documents, recurring investments, watchlists, notifications, and account settings.
 
 **Goals:**
 - 50 high-quality tasks across 5 difficulty levels (easy/medium/hard/expert/frontier, 10 each)

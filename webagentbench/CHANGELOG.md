@@ -1,4 +1,4 @@
-# WebAgentBench Changelog
+# WebStress Changelog
 
 This changelog spans two benchmark eras:
 
@@ -188,11 +188,11 @@ evaluation path. The legacy expression-string evaluator is removed.
 - kept the harness validity fixes from the revalidation pass:
   - DOM checks are captured and enforced during agent runs
   - raw `benchmark_state` is stored in result artifacts for auditing
-- adapted `agent_eval.py` to the latest shared indexed-ref runtime while preserving WebAgentBench-specific evaluation behavior:
+- adapted `agent_eval.py` to the latest shared indexed-ref runtime while preserving WebStress-specific evaluation behavior:
   - shared prompt/parser/action execution from `shared.format` and `shared.playwright_adapter`
   - Qwen3 OpenAI-compatible provider fix (`enable_thinking=false`)
   - stored `agent.messages`, `trajectory[*].targets`, and top-level `page_meta`
-- patched the shared runtime for WebAgentBench compatibility:
+- patched the shared runtime for WebStress compatibility:
   - Playwright snapshot lines like `'button "Section 2: Projects"'` are normalized into real clickable refs
   - page scroll state now emits `[-- more content below --]` hints
   - escaped accessibility names such as `e.g. 31.5"` resolve correctly

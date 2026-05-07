@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prepare evaluation results as static JSON for the demo site.
 
-Reads a WebAgentBench result JSON and produces:
+Reads a WebStress result JSON and produces:
   - public/results/summary.json     — model metadata, aggregate stats, per-task scores
   - public/results/trajectories/<task_id>.json — simplified per-task trajectories
 
@@ -340,7 +340,7 @@ def main():
     summary = {
         "source_file": result_path.name,
         "agent": data.get("agent", {}),
-        "benchmark": data.get("benchmark", "WebAgentBench"),
+        "benchmark": data.get("benchmark", "WebStress"),
         "version": data.get("version", ""),
         "timestamp": data.get("timestamp", ""),
         "aggregate": {

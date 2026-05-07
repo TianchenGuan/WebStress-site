@@ -1,4 +1,4 @@
-# WebAgentBench — Human Recording Plan Status
+# WebStress — Human Recording Plan Status
 
 **Decision: Option A — keep v1 plan as-is.**
 **Audited: 2026-04-30 against HEAD `e3d33cd2`** (post benchmark-hardening pass).

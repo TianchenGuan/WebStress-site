@@ -1,5 +1,5 @@
 """
-WebAgentBench runtime utilities.
+WebStress runtime utilities.
 
 This module now contains only shared helpers for starting the benchmark
 server, fetching the manifest, and printing aggregate result summaries for

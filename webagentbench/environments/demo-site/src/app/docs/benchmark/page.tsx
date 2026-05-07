@@ -12,7 +12,7 @@ export default function BenchmarkDocsPage() {
       </h1>
       <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-12 max-w-[580px]">
         Task structure, seeded environments, difficulty tiers, version history, and how to run
-        the current WebAgentBench stack.
+        the current WebStress stack.
       </p>
 
       {/* Task Structure */}
@@ -221,7 +221,7 @@ export default function BenchmarkDocsPage() {
           Version History
         </h2>
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-5">
-          WebAgentBench has gone through ten versioned releases. Major milestones are listed below;
+          WebStress has gone through ten versioned releases. Major milestones are listed below;
           see <code className="font-mono text-[13px] text-[var(--text-primary)] bg-[var(--surface)] px-1.5 py-0.5 rounded">webagentbench/CHANGELOG.md</code> for the full per-release notes.
         </p>
         <div className="border border-[var(--border)] rounded-xl overflow-hidden text-[13px]">
@@ -275,7 +275,7 @@ export default function BenchmarkDocsPage() {
           Running the Benchmark
         </h2>
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-5">
-          WebAgentBench evaluations are driven by{" "}
+          WebStress evaluations are driven by{" "}
           <code className="font-mono text-[13px] text-[var(--text-primary)] bg-[var(--surface)] px-1.5 py-0.5 rounded">webagentbench/agent_eval.py</code>. It
           spins up a local FastAPI server, initializes seeded sessions, then runs the agent against
           the live DOM via Playwright.

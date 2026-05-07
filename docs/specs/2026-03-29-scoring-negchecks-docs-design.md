@@ -1,7 +1,7 @@
 # Design: Criteria Weights, Negative Checks Page, and Documentation Hub
 
 **Date:** 2026-03-29
-**Scope:** WebAgentBench demo site (`webagentbench/environments/demo-site/`)
+**Scope:** WebStress demo site (`webagentbench/environments/demo-site/`)
 
 ---
 
@@ -115,7 +115,7 @@ interface NegativeCheckEntry {
 /docs/scoring          — evaluation & scoring mechanics
 /docs/primitives       — 12 cognitive primitives taxonomy
 /docs/architecture     — system architecture
-/docs/benchmark        — WebAgentBench specifics
+/docs/benchmark        — WebStress specifics
 /docs/training         — training pipeline
 ```
 
@@ -152,7 +152,7 @@ Sub-pages use fixed routes (not dynamic `[param]` segments), so they are statica
 
 #### `/docs` (landing)
 - Hero: "Documentation" heading with one-line description
-- Three cards linking to the main subsystem docs: LLMOS Simulator, WebAgentBench, Training Pipeline
+- Three cards linking to the main subsystem docs: LLMOS Simulator, WebStress, Training Pipeline
 - Quick links to all sub-pages
 
 #### `/docs/scoring`

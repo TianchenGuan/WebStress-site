@@ -22,7 +22,7 @@ function BookingLauncher() {
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
       <h1>Booking Environment</h1>
-      <p>Launch a task from the <a href="/launch">WebAgentBench launcher</a>.</p>
+      <p>Launch a task from the <a href="/launch">WebStress launcher</a>.</p>
     </div>
   );
 }

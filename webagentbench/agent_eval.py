@@ -1,6 +1,6 @@
-"""WebAgentBench evaluation using BrowserGym environments.
+"""WebStress evaluation using BrowserGym environments.
 
-Runs an LLM agent against WebAgentBench tasks using the standard BrowserGym
+Runs an LLM agent against WebStress tasks using the standard BrowserGym
 observation and action format — identical to WebArena, WorkArena, etc.
 
 Usage:
@@ -594,10 +594,10 @@ def run_evaluation(
             ensure_controller_secret()
             _server_proc = start_server(server_host, server_port)
             if not wait_for_server(server_host, server_port):
-                raise RuntimeError("WebAgentBench server failed to start")
+                raise RuntimeError("WebStress server failed to start")
         elif not os.environ.get("WEBAGENTBENCH_CONTROLLER_SECRET"):
             raise RuntimeError(
-                "A WebAgentBench server is already running but WEBAGENTBENCH_CONTROLLER_SECRET "
+                "A WebStress server is already running but WEBAGENTBENCH_CONTROLLER_SECRET "
                 "is not set. Export the same secret or use a free port."
             )
 
@@ -657,7 +657,7 @@ def _write_results(results, model, provider, output_path, degradation=None):
     times = [r.get("agent", {}).get("elapsed_seconds", 0) for r in results]
     steps = [r.get("agent", {}).get("steps", 0) for r in results]
     output: dict[str, Any] = {
-        "benchmark": "WebAgentBench",
+        "benchmark": "WebStress",
         "version": _MANIFEST["version"],
         "format": "browsergym",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -694,7 +694,7 @@ def _print_summary(results):
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="WebAgentBench Evaluation (BrowserGym)", epilog=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="WebStress Evaluation (BrowserGym)", epilog=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", required=True)
     parser.add_argument("--provider", default="openai", choices=["vllm", "openai", "gemini", "bedrock"])
     parser.add_argument("--api-base-url", default=None)

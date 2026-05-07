@@ -1,6 +1,6 @@
-# WebAgentBench
+# WebStress
 
-WebAgentBench is a self-contained benchmark for evaluating web agents through interaction inside seeded application environments. This checkout contains the active benchmark runtime, task registry, evaluator stack, trajectory tooling, and React frontends for the environments exposed by `manifest.json`.
+WebStress is a self-contained benchmark for evaluating web agents through interaction inside seeded application environments. This checkout contains the active benchmark runtime, task registry, evaluator stack, trajectory tooling, and React frontends for the environments exposed by `manifest.json`.
 
 Task definitions live under `tasks/<env>/`, benchmark frontends live under `environments/<env>/`, and the FastAPI backend mounts environment APIs under `/api/env/<env>`. Historical notes about the retired page-based benchmark are still kept for reference, but the active code in this tree is the current multi-environment benchmark.
 

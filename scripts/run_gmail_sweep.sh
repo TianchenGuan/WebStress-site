@@ -361,7 +361,7 @@ steps = [r.get("agent", {}).get("steps", 0) for r in all_results]
 errors = [r for r in all_results if "Error" in r["evaluation"].get("reasoning", "")]
 
 output = {
-    "benchmark": "WebAgentBench",
+    "benchmark": "WebStress",
     "environment": "gmail",
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": "PLACEHOLDER_MODEL", "provider": "PLACEHOLDER_PROVIDER"},

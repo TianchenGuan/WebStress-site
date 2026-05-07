@@ -1,6 +1,6 @@
 # Eval Hardening Playbook
 
-Concrete patterns for tightening task evaluation across any WebAgentBench environment.
+Concrete patterns for tightening task evaluation across any WebStress environment.
 
 Complements [TASK_GENERATION_STANDARD.md](../../webagentbench/share_docs/TASK_GENERATION_STANDARD.md) (principles) and [task-design.md](task-design.md) (anatomy & seed design) with **copy-applicable patterns** for writing robust checks.
 

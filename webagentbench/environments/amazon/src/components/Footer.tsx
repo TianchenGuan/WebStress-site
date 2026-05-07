@@ -33,7 +33,7 @@ export function Footer() {
       </div>
       <div className="amazon-footer__bottom">
         <span className="amazon-footer__logo">amazon</span>
-        <span className="amazon-footer__note">WebAgentBench Simulated Environment</span>
+        <span className="amazon-footer__note">WebStress Simulated Environment</span>
       </div>
     </footer>
   );

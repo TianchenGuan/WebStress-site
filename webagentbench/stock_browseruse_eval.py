@@ -1,4 +1,4 @@
-"""Stock browser-use harness for WebAgentBench.
+"""Stock browser-use harness for WebStress.
 
 Uses upstream `browser_use.Agent` without customization — stock system prompt,
 vision, thinking (AgentBrain), and action registry minus a few dangerous or
@@ -869,7 +869,7 @@ async def run_episode(
     # If None, screenshots are embedded inline as base64 data URIs (legacy).
     trajectory_dir: "Path | None" = None,
 ) -> dict:
-    """Run one WebAgentBench task through the stock browser-use agent."""
+    """Run one WebStress task through the stock browser-use agent."""
     from browser_use import Agent, Browser, Controller
     from .tasks._registry import get_task as _get_task
 
@@ -908,7 +908,7 @@ async def run_episode(
     #    task URL before agent.run() (see step 7); `directly_open_url=False`
     #    keeps browser-use from trying to queue a banned `navigate` action.
     goal_text = (
-        "You are already on the WebAgentBench booking site. Complete the "
+        "You are already on the WebStress booking site. Complete the "
         f"following task on the current page.\n\n"
         f"TASK:\n{instruction}\n\n"
         "RULES:\n"
@@ -1343,7 +1343,7 @@ async def run_evaluation(
 def main():
     logging.basicConfig(level=logging.INFO)
     p = argparse.ArgumentParser(
-        description="WebAgentBench evaluation via stock browser-use Agent",
+        description="WebStress evaluation via stock browser-use Agent",
     )
     p.add_argument("--model", required=True, help="e.g. gemini-3-flash-preview")
     p.add_argument("--provider", default="gemini",

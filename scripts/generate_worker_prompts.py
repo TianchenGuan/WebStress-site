@@ -1,6 +1,6 @@
 """Generate pre-filled worker audit prompts.
 
-Splits all WebAgentBench tasks across N workers in contiguous env-grouped
+Splits all WebStress tasks across N workers in contiguous env-grouped
 chunks (so each worker mostly stays in 1-2 envs), attaches every degradation
 variant whose base task the worker owns, and inlines every task / variant
 YAML directly into the generated prompt. The output is a self-contained

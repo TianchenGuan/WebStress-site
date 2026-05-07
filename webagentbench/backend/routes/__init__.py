@@ -1,4 +1,4 @@
-"""FastAPI route registration for advanced WebAgentBench environments."""
+"""FastAPI route registration for advanced WebStress environments."""
 
 from fastapi import FastAPI
 

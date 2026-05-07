@@ -11,7 +11,7 @@ export default function EnvironmentsPage() {
         Environments
       </h1>
       <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-12 max-w-[580px]">
-        WebAgentBench uses fully interactive environment simulations with in-memory state.
+        WebStress uses fully interactive environment simulations with in-memory state.
         The adapter pattern allows new domains to be added without changing the agent or
         evaluation infrastructure.
       </p>

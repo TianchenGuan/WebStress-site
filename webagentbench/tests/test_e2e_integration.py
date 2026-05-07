@@ -1,4 +1,4 @@
-"""End-to-end integration tests for the WebAgentBench stress-test pipeline.
+"""End-to-end integration tests for the WebStress stress-test pipeline.
 
 Uses Starlette TestClient to run the full ASGI app (including middleware)
 in-process.  No browser required — these tests cover the server-side path

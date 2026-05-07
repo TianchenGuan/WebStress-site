@@ -1230,7 +1230,7 @@ If any check fails, feed the specific failure back to the generator for retry ra
 For task-generation LLMs, the protocol compiles into:
 
 ```
-SYSTEM: You are a WebAgentBench task-eval author. Follow the canonical-diff
+SYSTEM: You are a WebStress task-eval author. Follow the canonical-diff
 authoring protocol (docs/guides/canonical-diff-authoring-protocol.md) exactly.
 Never skip steps — especially Step 2 (backend side effects).
 

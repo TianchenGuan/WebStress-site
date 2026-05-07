@@ -318,5 +318,5 @@ sacct -j <JOBID> --format=JobID,Elapsed,MaxRSS,State
 
 Common errors:
 - `ThrottlingException: Too many tokens` — Bedrock TPM throttle; reduce `CONCURRENCY` or serialize with `--dependency`
-- `RuntimeError: A WebAgentBench server is already running, but WEBAGENTBENCH_CONTROLLER_SECRET is not set` — only happens for pixel mode if you launch `pixel_run_picks.py` outside the sbatch template; export a secret first
+- `RuntimeError: A WebStress server is already running, but WEBAGENTBENCH_CONTROLLER_SECRET is not set` — only happens for pixel mode if you launch `pixel_run_picks.py` outside the sbatch template; export a secret first
 - `BadRequestError: 'temperature' is deprecated` — older sbatch templates passed `--temperature 0`; the current generic template doesn't, so this should not appear

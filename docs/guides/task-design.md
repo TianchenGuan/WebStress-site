@@ -1,6 +1,6 @@
 # Task Design Guide
 
-Best practices for designing, implementing, and validating WebAgentBench tasks. Drawn from lessons across the Gmail (80 tasks) and Robinhood (65 tasks) environments.
+Best practices for designing, implementing, and validating WebStress tasks. Drawn from lessons across the Gmail (80 tasks) and Robinhood (65 tasks) environments.
 
 > **Format note (2026-04-21):** The active evaluator only reads `canonical_diff`
 > blocks; the legacy `eval.checks` / `eval.negative_checks` path has been

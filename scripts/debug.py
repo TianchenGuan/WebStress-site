@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WebAgentBench task debugger — observe, act, verify.
+WebStress task debugger — observe, act, verify.
 
 Works with any environment (Gmail, Robinhood, etc.) by auto-detecting
 from the task_id prefix or an explicit --env flag.
@@ -582,7 +582,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False, env_
 def main():
     global _SESSION_OVERRIDE
 
-    p = argparse.ArgumentParser(description="WebAgentBench task debugger")
+    p = argparse.ArgumentParser(description="WebStress task debugger")
     p.add_argument("--env", choices=["gmail", "robinhood", "rh", "lms", "patient_portal", "pp"],
                    help="Force environment (auto-detected from task_id if omitted)")
     p.add_argument("-s", "--session", help="Session file path (isolates parallel agents)")

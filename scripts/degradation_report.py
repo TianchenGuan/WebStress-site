@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean-solve-gated degradation report for WebAgentBench sweeps.
+"""Clean-solve-gated degradation report for WebStress sweeps.
 
 Joins clean ↔ intervention runs by ``task_id`` across one or more model
 ``summary.json`` files, then reports per-primitive / per-layer / per-env

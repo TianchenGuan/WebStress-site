@@ -165,7 +165,7 @@ cleanup() {
 
 require_pnpm() {
   if ! command -v pnpm &>/dev/null; then
-    echo "ERROR: pnpm is required for the WebAgentBench frontend workflow."
+    echo "ERROR: pnpm is required for the WebStress frontend workflow."
     echo "Install pnpm or expose it on PATH, then rerun this script."
     exit 1
   fi
@@ -363,7 +363,7 @@ start_dev() {
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  WebAgentBench is running!"
+  echo "  WebStress is running!"
   echo ""
   echo "  Launcher:  http://localhost:$BACKEND_PORT/launch"
   echo "  Backend:   http://localhost:$BACKEND_PORT/"

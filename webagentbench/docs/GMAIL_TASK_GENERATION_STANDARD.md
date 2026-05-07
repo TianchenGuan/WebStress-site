@@ -1,6 +1,6 @@
 # Gmail Task Generation Standard
 
-This document defines the quality bar, authoring rules, and batch-generation pipeline for Gmail environment tasks in WebAgentBench.
+This document defines the quality bar, authoring rules, and batch-generation pipeline for Gmail environment tasks in WebStress.
 
 It is written for scaling the Gmail suite from the current task set to a much larger portfolio without collapsing into shallow, repetitive, or ambiguously scored tasks.
 

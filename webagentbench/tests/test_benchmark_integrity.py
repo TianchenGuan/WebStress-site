@@ -25,9 +25,9 @@ from webagentbench.tasks._schema import Check, EvalConfig, NegativeCheck
 from webagentbench.tasks._registry import get_task
 
 try:
-    from webagentbench.browsergym_task import WebAgentBenchTask
+    from webagentbench.browsergym_task import WebStressTask
 except ModuleNotFoundError as exc:
-    WebAgentBenchTask = None
+    WebStressTask = None
     _BROWSERGYM_IMPORT_ERROR = exc
 else:
     _BROWSERGYM_IMPORT_ERROR = None
@@ -401,9 +401,9 @@ def test_search_and_star_passes_when_target_starred() -> None:
     assert after["success"] is True
 
 
-@pytest.mark.skipif(WebAgentBenchTask is None, reason="browsergym is not installed")
+@pytest.mark.skipif(WebStressTask is None, reason="browsergym is not installed")
 def test_browsergym_task_rejects_stale_server_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
-    task = WebAgentBenchTask(seed=42, task_id="gmail_search_and_star", server_port=8099)
+    task = WebStressTask(seed=42, task_id="gmail_search_and_star", server_port=8099)
     monkeypatch.setenv("WEBAGENTBENCH_CONTROLLER_SECRET", "test-controller-secret")
 
     monkeypatch.setattr("webagentbench.runner.wait_for_server", lambda host, port, timeout=2: True)

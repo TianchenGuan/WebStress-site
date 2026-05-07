@@ -1,4 +1,4 @@
-"""WebAgentBench task evaluator — delegates to eval_core.
+"""WebStress task evaluator — delegates to eval_core.
 
 All evaluation logic lives in ``webagentbench.eval_core``. This module
 preserves the public ``evaluate()`` signature and the Gmail-specific

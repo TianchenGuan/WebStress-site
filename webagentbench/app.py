@@ -1,5 +1,5 @@
 """
-WebAgentBench — FastAPI application for advanced environments.
+WebStress — FastAPI application for advanced environments.
 
 Serves:
 - Advanced environment APIs under /api/env/*
@@ -308,7 +308,7 @@ def build_manifest() -> dict:
     """Build the public manifest from YAML registry + environment metadata."""
     manifest = {
         "version": MANIFEST_TEMPLATE.get("version", "2.0.0"),
-        "benchmark": MANIFEST_TEMPLATE.get("benchmark", "WebAgentBench"),
+        "benchmark": MANIFEST_TEMPLATE.get("benchmark", "WebStress"),
         "description": MANIFEST_TEMPLATE.get("description", ""),
         "primitives": MANIFEST_TEMPLATE.get("primitives", []),
     }
@@ -356,7 +356,7 @@ async def _app_lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="WebAgentBench",
+    title="WebStress",
     description=description,
     version=MANIFEST_VERSION,
     lifespan=_app_lifespan,
@@ -431,7 +431,7 @@ async def index():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WebAgentBench</title>
+    <title>WebStress</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -531,7 +531,7 @@ async def index():
 <body>
     <div class="header">
         <div class="header-inner">
-            <h1>WebAgentBench</h1>
+            <h1>WebStress</h1>
             <div class="header-stats">
                 <div><span>{ENVIRONMENT_COUNT}</span> environments</div>
                 <div><span>{ENV_TASK_COUNT}</span> tasks</div>
@@ -862,7 +862,7 @@ async def list_trajectories():
     ) or '<tr><td colspan="3" style="padding:30px;color:#656d76;text-align:center">No trajectories yet. Generate one with <code>python -m webagentbench.scripts.run_bedrock_subset</code> or <code>python -m webagentbench.visualize &lt;results.json&gt;</code>.</td></tr>'
 
     html = f"""<!DOCTYPE html>
-<html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Trajectories — WebAgentBench</title>
+<html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Trajectories — WebStress</title>
 <style>
   body {{ font-family:-apple-system,sans-serif; max-width:900px; margin:0 auto; padding:2rem; color:#1f2328; }}
   a {{ color:#0969da; text-decoration:none; }} a:hover {{ text-decoration:underline; }}
@@ -1000,7 +1000,7 @@ if __name__ == "__main__":
     import argparse
     import uvicorn
 
-    parser = argparse.ArgumentParser(description="WebAgentBench server")
+    parser = argparse.ArgumentParser(description="WebStress server")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8080, help="Port to bind (default: 8080)")
     parser.add_argument("--reload", action="store_true", default=True, help="Enable autoreload (default: on)")

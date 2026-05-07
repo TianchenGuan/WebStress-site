@@ -30,10 +30,10 @@ export default function DocsLandingPage() {
         Documentation
       </p>
       <h1 className="text-[clamp(1.8rem,3vw,2.5rem)] font-medium tracking-tight leading-[1.2] mb-4">
-        WebAgentBench Documentation
+        WebStress Documentation
       </h1>
       <p className="text-[16px] text-[var(--text-secondary)] leading-[1.75] max-w-[540px] mb-12">
-        WebAgentBench is a research benchmark for evaluating web agents in seeded, stateful web
+        WebStress is a research benchmark for evaluating web agents in seeded, stateful web
         environments. These docs cover the benchmark contract, scoring model, runtime
         architecture, and cognitive primitive taxonomy used to analyze agent behavior.
       </p>

@@ -1,4 +1,4 @@
-# WebAgentBench — Human Recording Setup
+# WebStress — Human Recording Setup
 
 > For P1 / P2 / P3 / P4 (full-load) and D1 / D2 / D3 / D4 (duplicate).
 

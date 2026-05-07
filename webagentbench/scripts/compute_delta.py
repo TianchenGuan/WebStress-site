@@ -122,7 +122,7 @@ def compute_delta(
 def print_report(report: dict) -> None:
     """Print a formatted console report."""
     print(f"\n{'=' * 70}")
-    print("WebAgentBench Δ-Primitive Diagnostic Report")
+    print("WebStress Δ-Primitive Diagnostic Report")
     print(f"{'=' * 70}")
     print(f"Standard: {report['standard_file']}")
     print(f"Degraded: {', '.join(report['degraded_files'])}")

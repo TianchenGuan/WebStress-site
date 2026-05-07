@@ -1,10 +1,10 @@
-# WebAgentBench Complex Environments - Current Architecture And Phased Plan
+# WebStress Complex Environments - Current Architecture And Phased Plan
 
 Updated: 2026-03-13
 
 ## 1. Executive Summary
 
-WebAgentBench has moved beyond the original single-page HTML benchmarks, but the repository is still in a **Gmail-first rollout**, not a full five-environment release.
+WebStress has moved beyond the original single-page HTML benchmarks, but the repository is still in a **Gmail-first rollout**, not a full five-environment release.
 
 As of 2026-03-13, the codebase ships:
 

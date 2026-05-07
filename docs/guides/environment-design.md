@@ -1,6 +1,6 @@
 # Environment Design Guide
 
-Best practices for building new WebAgentBench environments. Covers architecture, state modeling, seed builders, frontend design, API routes, and the degradation injection system. Drawn from lessons across the Gmail and Robinhood environments.
+Best practices for building new WebStress environments. Covers architecture, state modeling, seed builders, frontend design, API routes, and the degradation injection system. Drawn from lessons across the Gmail and Robinhood environments.
 
 ---
 

@@ -72,7 +72,7 @@ def evaluate(
     targets: Mapping[str, Any] | None = None,
     trajectory: Any = None,
 ) -> dict[str, Any]:
-    """Evaluate a WebAgentBench task via canonical_diff matching.
+    """Evaluate a WebStress task via canonical_diff matching.
 
     The legacy ``eval.checks`` / ``negative_checks`` path has been removed.
     Every task must declare a ``canonical_diff`` block.

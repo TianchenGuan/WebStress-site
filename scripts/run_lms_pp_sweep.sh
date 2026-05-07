@@ -339,7 +339,7 @@ for env, rs in by_env.items():
     }
 
 output = {
-    "benchmark": "WebAgentBench",
+    "benchmark": "WebStress",
     "environments": ["lms", "patient_portal"],
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": model, "provider": provider},

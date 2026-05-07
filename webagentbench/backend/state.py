@@ -30,7 +30,7 @@ STATE_TYPES: dict[str, type[BaseEnvState]] = {
 
 
 class SessionManager:
-    """In-memory session state for advanced WebAgentBench environments."""
+    """In-memory session state for advanced WebStress environments."""
 
     def __init__(self):
         self._sessions: dict[str, BaseEnvState] = {}

@@ -1,4 +1,4 @@
-"""Pixel-mode (vision-only) WebAgentBench harness.
+"""Pixel-mode (vision-only) WebStress harness.
 
 Drives WAB tasks through a BrowserGym env using a coord-action VLM agent
 (`PixelLLMAgent`). Exposes an `async run_episode()` with the same shape as

@@ -1,7 +1,7 @@
-"""BrowserGym-native environment for WebAgentBench.
+"""BrowserGym-native environment for WebStress.
 
 Creates a standard BrowserGym ``BrowserEnv`` backed by
-``WebAgentBenchTask``. Agents interact using BrowserGym's observation
+``WebStressTask``. Agents interact using BrowserGym's observation
 dict and Python function-call action strings — identical to WebArena,
 WorkArena, and other BrowserGym benchmarks.
 
@@ -44,7 +44,7 @@ from typing import Any
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.core.env import BrowserEnv
 
-from .browsergym_task import WebAgentBenchTask
+from .browsergym_task import WebStressTask
 
 
 def make_env(
@@ -57,14 +57,14 @@ def make_env(
     viewport: tuple[int, int] | None = None,
     **kwargs: Any,
 ) -> BrowserEnv:
-    """Create a BrowserGym environment for a WebAgentBench task.
+    """Create a BrowserGym environment for a WebStress task.
 
     Args:
         task_id: Gmail task ID (e.g. "gmail_board_briefing_prep").
         degradation: Path to degradation variant YAML (stress-test mode).
         headless: Run browser in headless mode.
-        server_host: WebAgentBench server host.
-        server_port: WebAgentBench server port.
+        server_host: WebStress server host.
+        server_port: WebStress server port.
         action_subsets: BrowserGym action subsets. Default: ["bid", "chat", "infeas"].
         **kwargs: Additional kwargs passed to BrowserEnv.
 
@@ -86,7 +86,7 @@ def make_env(
         task_kwargs["viewport"] = viewport
 
     return BrowserEnv(
-        task_entrypoint=WebAgentBenchTask,
+        task_entrypoint=WebStressTask,
         task_kwargs=task_kwargs,
         headless=headless,
         action_mapping=action_set.to_python_code,

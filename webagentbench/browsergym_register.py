@@ -1,4 +1,4 @@
-"""Register all WebAgentBench tasks with BrowserGym.
+"""Register all WebStress tasks with BrowserGym.
 
 After importing this module, tasks are available as:
     env = gym.make("browsergym/webagentbench.gmail_board_briefing_prep")
@@ -15,7 +15,7 @@ _registered = False
 
 
 def register_all() -> int:
-    """Register all WebAgentBench tasks with BrowserGym. Returns count. Idempotent."""
+    """Register all WebStress tasks with BrowserGym. Returns count. Idempotent."""
     global _registered
     if _registered:
         return 0
@@ -23,7 +23,7 @@ def register_all() -> int:
 
     from browsergym.core.registration import register_task
 
-    from .browsergym_task import WebAgentBenchTask
+    from .browsergym_task import WebStressTask
     from .tasks._registry import load_all_tasks
 
     count = 0
@@ -31,7 +31,7 @@ def register_all() -> int:
         try:
             register_task(
                 id=f"webagentbench.{task_id}",
-                task_class=WebAgentBenchTask,
+                task_class=WebStressTask,
                 task_kwargs={"task_id": task_id},
             )
             count += 1
@@ -45,6 +45,6 @@ def register_all() -> int:
 try:
     count = register_all()
     if count:
-        logger.info("Registered %d WebAgentBench tasks with BrowserGym", count)
+        logger.info("Registered %d WebStress tasks with BrowserGym", count)
 except Exception:
     pass

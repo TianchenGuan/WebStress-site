@@ -1,6 +1,10 @@
-# WebAgentBench
+# WebStress
 
-This repository is the main development branch for WebAgentBench, a benchmark for evaluating web agents in seeded, stateful web application environments. The repo now keeps only benchmark-related code: environment frontends, backend routes, task definitions, evaluators, trajectory tooling, visualization, and benchmark test coverage.
+This repository is the main development branch for WebStress, a benchmark for evaluating web agents in seeded, stateful web application environments. The repo now keeps only benchmark-related code: environment frontends, backend routes, task definitions, evaluators, trajectory tooling, visualization, and benchmark test coverage.
+
+> The Python package + filesystem layout still lives under `webagentbench/`
+> for legacy compatibility — only the public-facing branding has been updated
+> to **WebStress**. Imports stay as `from webagentbench.X import …`.
 
 ## Repository Map
 

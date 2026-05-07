@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-liner launcher for annotators doing the WebAgentBench-Human-140 study.
+# One-liner launcher for annotators doing the WebStress-Human-140 study.
 #
 # Usage:
 #   ./scripts/human-record.sh <annotator> [--env <id>|all]

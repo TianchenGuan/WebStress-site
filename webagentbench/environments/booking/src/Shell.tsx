@@ -57,7 +57,7 @@ function Navbar() {
 function Footer() {
   return (
     <footer className="bk-footer">
-      <p>Simulated Booking.com environment for WebAgentBench</p>
+      <p>Simulated Booking.com environment for WebStress</p>
       <p style={{ marginTop: 4, opacity: 0.7 }}>
         This is a benchmark environment. No real bookings are made.
       </p>

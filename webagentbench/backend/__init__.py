@@ -1,4 +1,4 @@
-"""Advanced environment backend package for WebAgentBench."""
+"""Advanced environment backend package for WebStress."""
 
 from __future__ import annotations
 

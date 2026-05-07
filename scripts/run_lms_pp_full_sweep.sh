@@ -296,7 +296,7 @@ for r in deg_results:
     by_env_deg.setdefault(env, []).append(r)
 
 output = {
-    "benchmark": "WebAgentBench (LMS+PP full: baseline + degradations)",
+    "benchmark": "WebStress (LMS+PP full: baseline + degradations)",
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": model, "provider": provider},
     "config": {"seed": seed, "workers": workers, "max_steps": max_steps,

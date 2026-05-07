@@ -1,5 +1,5 @@
 """
-WebAgentBench: self-contained web pages for evaluating agent cognitive primitives.
+WebStress: self-contained web pages for evaluating agent cognitive primitives.
 
 Standalone benchmark — no LLMOS dependencies.
 """

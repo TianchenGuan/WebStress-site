@@ -87,7 +87,7 @@ export function Nav() {
       scrolled ? "py-2.5 bg-[var(--bg)]/90 shadow-[0_1px_0_0_var(--border)]" : "py-4 bg-[var(--bg)]/80"
     } ${hidden ? "-translate-y-full" : "translate-y-0"}`}>
       <Link href="/" className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight no-underline">
-        WebAgentBench
+        WebStress
       </Link>
       <div ref={containerRef} className="relative flex items-center gap-1 bg-[var(--surface-raised)] rounded-xl p-1">
         {/* Sliding pill indicator */}

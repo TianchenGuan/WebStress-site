@@ -1,7 +1,7 @@
-"""Vision-only (pixel) VLM agent for WebAgentBench BrowserGym environments.
+"""Vision-only (pixel) VLM agent for WebStress BrowserGym environments.
 
 This is a lightweight port of InterfaceGym's `OpenRouterAgent` adapted to the
-WebAgentBench `LLMAgent` interface (act(obs) -> str). The agent:
+WebStress `LLMAgent` interface (act(obs) -> str). The agent:
 
   * reads ONLY `obs["screenshot"]` plus task goal and chat history
   * IGNORES `obs["axtree_txt"]`, `obs["dom_object"]`, etc.
@@ -515,7 +515,7 @@ class PixelLLMAgent:
         if "openrouter.ai" in resolved_url:
             client_kwargs["default_headers"] = {
                 "HTTP-Referer": "https://github.com/anthropics/webagentbench",
-                "X-Title": "WebAgentBench Pixel Harness",
+                "X-Title": "WebStress Pixel Harness",
             }
         self.client = openai.OpenAI(**client_kwargs)
         self._openai_module = openai

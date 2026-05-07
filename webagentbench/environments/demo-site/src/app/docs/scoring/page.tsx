@@ -12,7 +12,7 @@ export default function ScoringDocsPage() {
         Scoring
       </h1>
       <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-12 max-w-[580px]">
-        How WebAgentBench turns a trajectory into a single number between 0 and 1.
+        How WebStress turns a trajectory into a single number between 0 and 1.
       </p>
 
       {/* Formula */}

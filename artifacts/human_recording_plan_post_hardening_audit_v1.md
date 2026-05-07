@@ -1,4 +1,4 @@
-# WebAgentBench — v1 Human Recording Plan Post-Hardening Audit
+# WebStress — v1 Human Recording Plan Post-Hardening Audit
 
 **Audit date:** 2026-04-30  
 **HEAD commit:** `e3d33cd2`  

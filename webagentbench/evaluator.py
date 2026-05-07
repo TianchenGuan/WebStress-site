@@ -1,5 +1,5 @@
 """
-WebAgentBench — Server-side evaluation logic.
+WebStress — Server-side evaluation logic.
 
 Evaluates agent performance by checking window.__benchmarkState against
 the success criteria defined in manifest.json.

@@ -1,4 +1,4 @@
-"""State models for advanced WebAgentBench environments."""
+"""State models for advanced WebStress environments."""
 
 from .base import AuditEntry, BaseEntity, BaseEnvState
 from .gmail import (

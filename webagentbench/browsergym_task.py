@@ -1,7 +1,7 @@
-"""BrowserGym AbstractBrowserTask implementation for WebAgentBench.
+"""BrowserGym AbstractBrowserTask implementation for WebStress.
 
 Each Gmail task is an AbstractBrowserTask that:
-  1. Starts the WebAgentBench FastAPI server
+  1. Starts the WebStress FastAPI server
   2. Creates a session with seeded state (+ optional degradation)
   3. Navigates the Playwright page to the Gmail SPA
   4. Validates by calling the server-side evaluator
@@ -54,21 +54,21 @@ def _assert_server_matches_local_manifest(base_url: str, host: str, port: int) -
         health = _http_json(f"{base_url}/health")
     except Exception as exc:  # pragma: no cover - defensive guard for non-benchmark servers
         raise RuntimeError(
-            f"Service already running on {host}:{port} did not return a valid WebAgentBench health response. "
+            f"Service already running on {host}:{port} did not return a valid WebStress health response. "
             "Choose a free port or restart the benchmark server."
         ) from exc
 
     remote_fingerprint = health.get("manifest_fingerprint")
     if remote_fingerprint != MANIFEST_FINGERPRINT:
         raise RuntimeError(
-            f"WebAgentBench server already running on {host}:{port} does not match the local benchmark manifest "
+            f"WebStress server already running on {host}:{port} does not match the local benchmark manifest "
             f"({remote_fingerprint or 'missing'} != {MANIFEST_FINGERPRINT}). "
             "Choose a free port or restart the benchmark server."
         )
 
 
-class WebAgentBenchTask(AbstractBrowserTask):
-    """A single WebAgentBench task, compatible with BrowserGym's BrowserEnv."""
+class WebStressTask(AbstractBrowserTask):
+    """A single WebStress task, compatible with BrowserGym's BrowserEnv."""
 
     @classmethod
     def get_task_id(cls):
@@ -124,7 +124,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         if wait_for_server(self.server_host, self.server_port, timeout=2):
             if not os.environ.get("WEBAGENTBENCH_CONTROLLER_SECRET"):
                 raise RuntimeError(
-                    "A WebAgentBench server is already running, but WEBAGENTBENCH_CONTROLLER_SECRET "
+                    "A WebStress server is already running, but WEBAGENTBENCH_CONTROLLER_SECRET "
                     "is not set in this process. Export the same secret or use a free port."
                 )
             _assert_server_matches_local_manifest(self._bench_url, self.server_host, self.server_port)
@@ -132,7 +132,7 @@ class WebAgentBenchTask(AbstractBrowserTask):
         ensure_controller_secret()
         self._server_proc = start_server(self.server_host, self.server_port)
         if not wait_for_server(self.server_host, self.server_port):
-            raise RuntimeError("WebAgentBench server failed to start")
+            raise RuntimeError("WebStress server failed to start")
         _assert_server_matches_local_manifest(self._bench_url, self.server_host, self.server_port)
 
     def setup(self, page: playwright.sync_api.Page) -> tuple[str, dict]:

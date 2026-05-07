@@ -1,4 +1,4 @@
-"""Unified WebAgentBench evaluator.
+"""Unified WebStress evaluator.
 
 Single evaluation path: every task's ``canonical_diff`` block is matched
 against the computed state diff. Legacy ``eval.checks`` / ``negative_checks``

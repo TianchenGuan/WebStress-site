@@ -1718,14 +1718,14 @@ export function BenchmarkToolbar({ envId, sessionId }: BenchmarkToolbarProps) {
       <button
         type="button"
         className="wab-bench-toolbar__tab"
-        aria-label="Toggle WebAgentBench toolbar"
+        aria-label="Toggle WebStress toolbar"
         onClick={() => setOpen((current) => !current)}
       >
         WAB
       </button>
       <section className={`wab-bench-toolbar__panel${open ? " wab-bench-toolbar__panel--open" : ""}`}>
         <header className="wab-bench-toolbar__header">
-          <span className="wab-bench-toolbar__label">WebAgentBench</span>
+          <span className="wab-bench-toolbar__label">WebStress</span>
           <button
             type="button"
             className="wab-bench-toolbar__close"

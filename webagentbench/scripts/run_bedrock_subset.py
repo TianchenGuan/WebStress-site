@@ -167,7 +167,7 @@ def _merge(results: list[dict], *, model: str, provider: str) -> dict:
     times = [r.get("agent", {}).get("elapsed_seconds", 0) for r in results]
 
     return {
-        "benchmark": "WebAgentBench",
+        "benchmark": "WebStress",
         "version": manifest.get("version", ""),
         "format": "browsergym",
         "timestamp": datetime.now(timezone.utc).isoformat(),

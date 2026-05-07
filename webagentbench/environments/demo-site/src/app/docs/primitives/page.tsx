@@ -98,7 +98,7 @@ export default function PrimitivesPage() {
         Cognitive Primitives
       </h1>
       <p className="text-[16px] text-[var(--text-secondary)] leading-[1.75] max-w-[600px] mb-12">
-        WebAgentBench organizes web agent capabilities into 12 cognitive primitives — the atomic
+        WebStress organizes web agent capabilities into 12 cognitive primitives — the atomic
         skills required to complete realistic browser tasks. Each benchmark page is designed to
         stress one or more of these primitives, enabling precise diagnosis of where and why agents
         fail.

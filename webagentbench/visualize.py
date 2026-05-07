@@ -1,5 +1,5 @@
 """
-Visualize WebAgentBench agent trajectories alongside live pages.
+Visualize WebStress agent trajectories alongside live pages.
 
 Generates a self-contained HTML file that shows:
 - The actual benchmark page in an iframe (left)
@@ -8,7 +8,7 @@ Generates a self-contained HTML file that shows:
 - Summary dashboard with pass/fail, scores, primitives
 - Prompt drawer showing the exact prompts fed to the agent
 
-Requires the WebAgentBench server to be running for the iframe pages.
+Requires the WebStress server to be running for the iframe pages.
 
 Usage:
     # Generate visualization (auto-starts server, opens browser)
@@ -234,7 +234,7 @@ def generate_html(data: dict, server_url: str, *, trajectory_base_dir: "Path | N
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WebAgentBench — {html.escape(model)}</title>
+<title>WebStress — {html.escape(model)}</title>
 <style>
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 html, body {{ height: 100%; overflow: clip; }}
@@ -538,7 +538,7 @@ body {{
 <body>
 
 <div class="topbar">
-    <h1>WebAgentBench</h1>
+    <h1>WebStress</h1>
     <span class="model">{html.escape(model)} &middot; {html.escape(provider)}</span>
     <div class="mode-toggle">
         <button id="modeView" class="active" onclick="setMode('view')">View</button>
@@ -1686,17 +1686,17 @@ if (RESULTS.length > 0) void selectPage(0);
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Visualize WebAgentBench agent trajectories",
+        description="Visualize WebStress agent trajectories",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument("file", help="Result JSON file to visualize")
     parser.add_argument("--output", "-o", help="Output HTML path (default: <input>_viz.html)")
     parser.add_argument("--server-url", default="http://127.0.0.1:8080",
-                        help="WebAgentBench server URL (default: http://127.0.0.1:8080)")
+                        help="WebStress server URL (default: http://127.0.0.1:8080)")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open browser")
     parser.add_argument("--no-server", action="store_true",
-                        help="Don't auto-start the WebAgentBench server")
+                        help="Don't auto-start the WebStress server")
     args = parser.parse_args()
 
     # Load results
@@ -1747,7 +1747,7 @@ def main():
             print(f"Server already running at {args.server_url}")
             server_ok = True
         else:
-            print(f"Starting WebAgentBench server on {args.server_url}...")
+            print(f"Starting WebStress server on {args.server_url}...")
             server_proc = start_server(host, port)
             if not wait_for_server(host, port):
                 print("ERROR: Server failed to start", file=sys.stderr)

@@ -1,4 +1,4 @@
-"""Unified task definition framework for WebAgentBench.
+"""Unified task definition framework for WebStress.
 
 All active tasks are defined as YAML files, validated by Pydantic models,
 and loaded into a cached registry at startup.

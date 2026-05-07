@@ -1,4 +1,4 @@
-"""Generate a `picks` JSON array of WebAgentBench runs.
+"""Generate a `picks` JSON array of WebStress runs.
 
 Each pick is a ``{"task_id", "variant_filename", "env", "diff", "cond"}`` entry
 consumed by ``scripts/run_picks.py`` to drive a batch evaluation run.

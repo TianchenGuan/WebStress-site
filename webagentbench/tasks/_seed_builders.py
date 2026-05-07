@@ -1,4 +1,4 @@
-"""Composable seed builder framework for WebAgentBench.
+"""Composable seed builder framework for WebStress.
 
 Provides :class:`SeedContext` (the mutable accumulator threaded through every
 builder step) and a registry of reusable builder functions that generate

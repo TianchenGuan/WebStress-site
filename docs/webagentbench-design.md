@@ -1,11 +1,11 @@
-# WebAgentBench: Design Document
+# WebStress: Design Document
 
 **Challenging Web Pages for Agent Primitive Evaluation**
 
 | | |
 |---|---|
 | **Project** | LLMOS — LLM-based OS Simulator |
-| **Component** | WebAgentBench evaluation suite |
+| **Component** | WebStress evaluation suite |
 | **Status** | Proposed |
 | **Date** | 2026-02-07 |
 
@@ -26,9 +26,9 @@
 
 ## 1. Executive Summary
 
-WebAgentBench is a benchmark of 10 self-contained web pages, each designed to test specific *agent primitives* — the atomic cognitive capabilities that web agents need to complete realistic tasks. The benchmark is motivated by a growing body of evidence that frontier agents achieve only 30–61% success on real-world web tasks [1, 2], with critical blind spots in backtracking, adversarial robustness, error recovery, and constraint satisfaction that existing benchmarks either do not isolate or do not measure at all.
+WebStress is a benchmark of 10 self-contained web pages, each designed to test specific *agent primitives* — the atomic cognitive capabilities that web agents need to complete realistic tasks. The benchmark is motivated by a growing body of evidence that frontier agents achieve only 30–61% success on real-world web tasks [1, 2], with critical blind spots in backtracking, adversarial robustness, error recovery, and constraint satisfaction that existing benchmarks either do not isolate or do not measure at all.
 
-Unlike WebArena [2] or Mind2Web [3], which evaluate end-to-end task completion on live or semi-live websites, WebAgentBench takes a *unit-testing* approach: each page is a controlled experiment targeting 1–2 primary primitives, with deterministic success criteria. This makes failures *diagnostic* — when an agent fails Page 3 (Dark Pattern Checkout), we know the bottleneck is adversarial robustness, not navigation or typing.
+Unlike WebArena [2] or Mind2Web [3], which evaluate end-to-end task completion on live or semi-live websites, WebStress takes a *unit-testing* approach: each page is a controlled experiment targeting 1–2 primary primitives, with deterministic success criteria. This makes failures *diagnostic* — when an agent fails Page 3 (Dark Pattern Checkout), we know the bottleneck is adversarial robustness, not navigation or typing.
 
 The benchmark ships as static HTML/CSS/JS served by FastAPI, requires no external services, and integrates with LLMOS's existing `BenchmarkAdapter` interface for automated evaluation.
 
@@ -62,7 +62,7 @@ These numbers tell us *that* agents fail, but not *why*. A 40% failure rate on a
 
 The gap is clear: **no existing benchmark isolates agent primitives as independent, testable units.** Roder et al. (2025) make this point explicitly, arguing that "current evaluations focus on end-to-end task success, obscuring how and why agents fail" and proposing modular decomposition of agent pipelines [17].
 
-WebAgentBench fills this gap by designing each page to be a *minimal, controlled test* of specific primitives.
+WebStress fills this gap by designing each page to be a *minimal, controlled test* of specific primitives.
 
 ### 2.3 Agents Are Alarmingly Vulnerable to Environmental Perturbations
 
@@ -279,7 +279,7 @@ Each of the 10 pages is designed around a specific research finding about agent 
 
 ### 5.1 Design Principles
 
-WebAgentBench's evaluation is designed around three principles:
+WebStress's evaluation is designed around three principles:
 
 1. **Deterministic success criteria.** Every page has a programmatically verifiable success condition — no human judgment required. This enables automated regression testing as agents improve.
 
@@ -318,8 +318,8 @@ The `js_eval` mode is primary; `dom_check` provides a fallback for agents that c
 
 The benchmark adapter follows the existing `BenchmarkAdapter` pattern:
 
-- **`WebAgentBenchTaskProvider`** loads tasks from `manifest.json`, supports filtering by primitive or difficulty, and maps to the `Task` dataclass in `llmos/interfaces/task_provider.py`.
-- **`WebAgentBenchEvaluator`** checks success criteria and produces `EvalResult` objects compatible with `llmos/interfaces/evaluator.py`.
+- **`WebStressTaskProvider`** loads tasks from `manifest.json`, supports filtering by primitive or difficulty, and maps to the `Task` dataclass in `llmos/interfaces/task_provider.py`.
+- **`WebStressEvaluator`** checks success criteria and produces `EvalResult` objects compatible with `llmos/interfaces/evaluator.py`.
 - The `/benchmark/{page_id}/evaluate` endpoint enables both programmatic evaluation (from the adapter) and manual testing (via curl/browser).
 
 ---
@@ -368,7 +368,7 @@ Each page tests 1–2 primary primitives (**P**) and may secondarily exercise ot
 
 ### 7.1 Known Limitations
 
-**Static pages vs. live web.** WebAgentBench uses self-contained pages, not live websites. This provides reproducibility and determinism but sacrifices ecological validity — real websites have login flows, CAPTCHAs, A/B testing, and third-party scripts that our pages do not model. WebArena [2] and Online-Mind2Web [1] remain essential for end-to-end evaluation on realistic sites.
+**Static pages vs. live web.** WebStress uses self-contained pages, not live websites. This provides reproducibility and determinism but sacrifices ecological validity — real websites have login flows, CAPTCHAs, A/B testing, and third-party scripts that our pages do not model. WebArena [2] and Online-Mind2Web [1] remain essential for end-to-end evaluation on realistic sites.
 
 **Single-page scope.** Each page tests 1–2 primitives in isolation. Real tasks require *composing* primitives — backtracking while maintaining memory while handling errors. Our benchmark does not measure composition effects. A future version could include multi-page scenarios that require 3+ primitives simultaneously.
 

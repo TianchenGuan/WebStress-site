@@ -6,7 +6,7 @@ export default function ArchitecturePage() {
       </p>
       <h1 className="text-2xl font-medium tracking-tight mb-3">Architecture</h1>
       <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-12">
-        WebAgentBench is organized around a seeded-session runtime: YAML tasks define goals and
+        WebStress is organized around a seeded-session runtime: YAML tasks define goals and
         checks, Python backends materialize environment state, and React frontends expose live UIs
         that agents operate through the browser.
       </p>

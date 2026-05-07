@@ -435,7 +435,7 @@ async def run_episode(
     degradation_config: Any | None = None,
     verbose: bool = True,
 ) -> dict:
-    """Run one browser-use agent episode on a WebAgentBench task.
+    """Run one browser-use agent episode on a WebStress task.
 
     Returns a result dict compatible with agent_eval's output format.
     """
@@ -1105,7 +1105,7 @@ def _write_results(
     times = [r.get("agent", {}).get("elapsed_seconds", 0) for r in results]
     steps = [r.get("agent", {}).get("steps", 0) for r in results]
     output: dict[str, Any] = {
-        "benchmark": "WebAgentBench",
+        "benchmark": "WebStress",
         "version": _MANIFEST["version"],
         "format": "browser-use",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1146,7 +1146,7 @@ def _print_summary(results: list[dict]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="WebAgentBench Evaluation (browser-use harness)",
+        description="WebStress Evaluation (browser-use harness)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--model", required=True)

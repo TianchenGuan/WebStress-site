@@ -1,4 +1,4 @@
-"""Helpers for task-oriented WebAgentBench result artifacts.
+"""Helpers for task-oriented WebStress result artifacts.
 
 The active benchmark is environment/task based, but older result files may
 still use page-era field names such as ``page_id`` or ``page_meta``.  This

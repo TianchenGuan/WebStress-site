@@ -1,4 +1,4 @@
-"""Task definition schema for WebAgentBench YAML tasks.
+"""Task definition schema for WebStress YAML tasks.
 
 Provides the :class:`TaskDefinition` dataclass that mirrors the structure of
 ``webagentbench/tasks/gmail/*.yaml`` files.
@@ -104,7 +104,7 @@ class EvalConfig:
 
 @dataclass
 class TaskDefinition:
-    """Structured representation of a WebAgentBench task YAML file."""
+    """Structured representation of a WebStress task YAML file."""
 
     task_id: str
     env_id: str = "gmail"

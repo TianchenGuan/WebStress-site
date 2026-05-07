@@ -1,4 +1,4 @@
-"""Canonical cognitive primitive taxonomy for WebAgentBench.
+"""Canonical cognitive primitive taxonomy for WebStress.
 
 Seven orthogonal primitives derived from empirical failure analysis of
 WebArena, OSWorld, and AgentBench traces. See Claude.html for the full

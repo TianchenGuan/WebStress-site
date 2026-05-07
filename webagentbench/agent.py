@@ -3,7 +3,7 @@
 Receives BrowserGym observation dicts, outputs BrowserGym action strings
 (Python function calls like ``click('a51')``, ``fill('b22', 'hello')``).
 
-Compatible with any BrowserGym environment (WebArena, WorkArena, WebAgentBench).
+Compatible with any BrowserGym environment (WebArena, WorkArena, WebStress).
 
 Usage:
     from webagentbench.agent import LLMAgent

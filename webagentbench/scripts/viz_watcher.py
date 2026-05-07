@@ -148,7 +148,7 @@ def _envelope(results: list[dict], model: str, provider: str, manifest_version: 
     steps = [r.get("agent", {}).get("steps", 0) for r in results]
     times = [r.get("agent", {}).get("elapsed_seconds", 0) for r in results]
     return {
-        "benchmark": "WebAgentBench",
+        "benchmark": "WebStress",
         "version": manifest_version,
         "format": "browsergym",
         "timestamp": datetime.now(timezone.utc).isoformat(),

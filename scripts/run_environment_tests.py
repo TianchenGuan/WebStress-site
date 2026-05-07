@@ -69,7 +69,7 @@ def _run(label: str, command: list[str], cwd: Path | None = None) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run WebAgentBench environment tests.")
+    parser = argparse.ArgumentParser(description="Run WebStress environment tests.")
     parser.add_argument(
         "--backend-only",
         action="store_true",

@@ -1,4 +1,4 @@
-# WebAgentBench — Annotator Guidelines
+# WebStress — Annotator Guidelines
 
 This is the how-to-behave guide. For the how-to-install/run guide, see [`README.md`](./README.md).
 
@@ -8,7 +8,7 @@ This is the how-to-behave guide. For the how-to-install/run guide, see [`README.
 
 ## 0. Why we are collecting these traces
 
-These recordings are used to measure the human side of WebAgentBench.
+These recordings are used to measure the human side of WebStress.
 
 Each trace helps us compute:
 

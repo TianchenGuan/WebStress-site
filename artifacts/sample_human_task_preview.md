@@ -1,4 +1,4 @@
-# WebAgentBench — Sample Human Task Previews
+# WebStress — Sample Human Task Previews
 
 Generated 2026-04-30 by `webagentbench/human/preview_assignment.py --launch-probe` against current HEAD.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare WebAgentBench evaluation results with statistical significance testing.
+"""Compare WebStress evaluation results with statistical significance testing.
 
 Supports two modes:
 
@@ -237,7 +237,7 @@ def compare_multi(scores_a: dict[str, list[float]], scores_b: dict[str, list[flo
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare WebAgentBench evaluation results with statistical testing.",
+        description="Compare WebStress evaluation results with statistical testing.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
