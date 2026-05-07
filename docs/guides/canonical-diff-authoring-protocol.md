@@ -4,7 +4,7 @@
 
 **Audience:** Task authors (human and LLM-driven generators), task reviewers, regression auditors, anyone fixing a buggy canonical_diff.
 
-**Companion docs:** [`task-design.md`](task-design.md) (task anatomy), [`eval-hardening-playbook.md`](eval-hardening-playbook.md) (predicate idioms — patterns this protocol now structurally enforces), [`booking-env-canonical-diff-cheatsheet.md`](booking-env-canonical-diff-cheatsheet.md) (Booking-specific notes), [`canonical-diff-migration-procedure.md`](canonical-diff-migration-procedure.md) (procedure for converting legacy `eval.checks` → `canonical_diff`).
+**Companion docs:** [`task-design.md`](task-design.md) (task anatomy), [`eval-hardening-playbook.md`](eval-hardening-playbook.md) (predicate idioms — patterns this protocol now structurally enforces), [`booking-env-canonical-diff-cheatsheet.md`](booking-env-canonical-diff-cheatsheet.md) (Booking-specific notes).
 
 ---
 

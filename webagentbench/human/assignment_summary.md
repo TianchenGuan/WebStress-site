@@ -4,8 +4,7 @@ This file summarizes the task assignment generated from `webagentbench_human_pan
 
 The full WebStress benchmark currently has **519 base tasks** across 7 sandbox websites
 (full agent evaluation = 519 × 2 = 1038 task-conditions). The human plan covers a curated
-140-base-task panel — 4 base tasks per environment × difficulty cell. See [`PLAN_STATUS.md`](./PLAN_STATUS.md)
-for the audited frozen state.
+140-base-task panel — 4 base tasks per environment × difficulty cell.
 
 ## Interpretation
 

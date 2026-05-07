@@ -260,7 +260,7 @@ def print_report(task_id: str, results: list[StageResult]) -> None:
     if failed:
         first = failed[0]
         print(f"  First failing stage: {first.stage} ({first.name})")
-        print(f"  See docs/guides/canonical-diff-migration-procedure.md §4.1 for the ")
+        print(f"  See docs/guides/canonical-diff-authoring-protocol.md for the ")
         print(f"  triage decision tree — hazard class likely to match this failure.")
     else:
         skipped = [r for r in results if r.skipped]

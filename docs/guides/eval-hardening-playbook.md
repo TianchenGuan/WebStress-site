@@ -11,8 +11,7 @@ Complements [TASK_GENERATION_STANDARD.md](../../webagentbench/share_docs/TASK_GE
 > apply unchanged to canonical_diff `{expr: "..."}` predicates and
 > `constraints:` blocks. When porting a check expression: drop the surrounding
 > `- expr:` + `desc:` envelope and paste the expression into an `{expr}`
-> predicate or a `constraints` entry. For canonical_diff-specific bug classes
-> see [canonical-diff-migration-hazards.md](canonical-diff-migration-hazards.md).
+> predicate or a `constraints` entry.
 
 ---
 

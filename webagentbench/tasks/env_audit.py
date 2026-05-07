@@ -10,8 +10,8 @@ Usage:
     python -m webagentbench.tasks.env_audit patient_portal
     python -m webagentbench.tasks.env_audit patient_portal --json
 
-See docs/guides/canonical-diff-migration-hazards.md for the hazard catalogue
-and docs/guides/canonical-diff-migration-procedure.md §4.2 for how findings
+See docs/guides/canonical-diff-authoring-protocol.md for the hazard catalogue
+and docs/guides/canonical-diff-authoring-protocol.md for how findings
 translate into pre-migration fixes.
 """
 
@@ -378,7 +378,7 @@ def print_report(env_id: str, findings: list[Finding]) -> None:
     print("  - Review `warn` findings alongside each task that touches the ")
     print("    relevant collection / field.")
     print("  - `info` findings are already handled; listed for cross-reference.")
-    print("  See docs/guides/canonical-diff-migration-procedure.md §4.2 for how")
+    print("  See docs/guides/canonical-diff-authoring-protocol.md for how")
     print("  findings translate into pre-migration fixes.")
     print("=" * 72)
 

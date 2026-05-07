@@ -209,7 +209,7 @@ def test_wrong_field_fails():
     # TODO(author): same structure as test_correct_trajectory_passes but
     # mutate one field to an invalid value (e.g. wrong provider_id, past date,
     # wrong status). See hazard Class 4 (identity test) in
-    # docs/guides/canonical-diff-migration-hazards.md for guidance.
+    # docs/guides/canonical-diff-authoring-protocol.md for guidance.
 
     task = get_task({task_id!r})
     agent_diff = compute_diff(initial, state)

@@ -47,7 +47,7 @@ class TaskStatus:
         # The parametrized battery in test_adversarial_battery.py covers every
         # task with a canonical_diff block; per-task adversarial files are only
         # required for oneof-branch logic the generic synthesizer can't express
-        # (see docs/guides/canonical-diff-migration-procedure.md §2.3). So the
+        # (see docs/guides/canonical-diff-authoring-protocol.md). So the
         # canonical_diff test is the only per-task test we require.
         if self.has_canonical_diff and self.has_canonical_diff_test:
             return "migrated"

@@ -43,8 +43,6 @@ Core implementation and validation files:
 - `tests/test_scoring_audit.py`
 - `tests/test_gmail_seed_stability.py`
 
-For a short map of the retired page benchmark and other legacy references still kept for history, see [share_docs/PAST_IMPLEMENTATIONS.md](share_docs/PAST_IMPLEMENTATIONS.md).
-
 ## Testing
 
 Python benchmark and integrity suite:

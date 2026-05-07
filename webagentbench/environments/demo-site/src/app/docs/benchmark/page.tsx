@@ -221,8 +221,7 @@ export default function BenchmarkDocsPage() {
           Version History
         </h2>
         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.7] mb-5">
-          WebStress has gone through ten versioned releases. Major milestones are listed below;
-          see <code className="font-mono text-[13px] text-[var(--text-primary)] bg-[var(--surface)] px-1.5 py-0.5 rounded">webagentbench/CHANGELOG.md</code> for the full per-release notes.
+          WebStress has gone through ten versioned releases. Major milestones are listed below.
         </p>
         <div className="border border-[var(--border)] rounded-xl overflow-hidden text-[13px]">
           <table className="w-full">
