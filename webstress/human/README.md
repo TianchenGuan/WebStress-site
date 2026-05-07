@@ -15,8 +15,8 @@ The launcher handles everything: start backend + env dev servers, open a dashboa
 ## TL;DR
 
 ```bash
-git clone git@github.com:<org>/LLMOS.git
-cd LLMOS
+git clone git@github.com:<org>/WEBSTRESS.git
+cd WEBSTRESS
 ./scripts/webstress.sh build          # one-time: install deps + build SPAs
 ./scripts/human-record.sh <YourName>      # e.g. P1, P2, P3, P4, D1, D2, D3, D4
 # Browser opens automatically at http://localhost:8080/static/human.html?annotator=<YourName>

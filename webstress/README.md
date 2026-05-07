@@ -273,7 +273,7 @@ or timeout mid-sweep still leaves every completed task inspectable on disk.
 #SBATCH --error=/usr/xtmp/%u/wab-logs/%x-%j.err
 
 set -euo pipefail
-cd /home/users/$USER/projects/LLMOS
+cd /home/users/$USER/projects/WEBSTRESS
 source .venv/bin/activate
 set -a; source webstress/.env; set +a
 
@@ -711,7 +711,7 @@ Either generate one with `scripts/gen_picks.py` or hand-write a list, e.g.:
 #SBATCH --array=0-2          # ← N-1 where N = picks in your JSON
 
 set -euo pipefail
-cd "${WAB_ROOT:-/home/users/$USER/projects/LLMOS}"
+cd "${WAB_ROOT:-/home/users/$USER/projects/WEBSTRESS}"
 source .venv/bin/activate
 set -a; source webstress/.env; set +a
 

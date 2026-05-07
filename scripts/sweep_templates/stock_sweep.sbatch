@@ -34,7 +34,7 @@ export TORCH_HOME=/usr/xtmp/$USER/.cache/torch
 export PIP_CACHE_DIR=/usr/xtmp/$USER/.cache/pip
 mkdir -p /usr/xtmp/$USER/wab-logs "$HF_HOME" "$PIP_CACHE_DIR"
 
-ROOT="${LLMOS_ROOT:-$HOME/projects/LLMOS}"
+ROOT="${WEBSTRESS_ROOT:-$HOME/projects/WEBSTRESS}"
 cd "$ROOT"
 source .venv/bin/activate
 set -a; source webstress/.env; set +a

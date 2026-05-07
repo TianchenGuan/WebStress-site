@@ -4,7 +4,7 @@ WebStress — Server-side evaluation logic.
 Evaluates agent performance by checking window.__benchmarkState against
 the success criteria defined in manifest.json.
 
-No LLMOS dependencies — fully standalone.
+No WEBSTRESS dependencies — fully standalone.
 """
 
 from typing import Any
