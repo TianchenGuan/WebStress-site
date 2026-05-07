@@ -151,7 +151,7 @@ Current task authors should design against the implemented surface first. New fe
 
 ## 4. Primitive Design Rules
 
-Use the benchmark primitives from [manifest.json](/Users/michael/Documents/GitHub/LLMOS/webagentbench/manifest.json).
+Use the benchmark primitives from [`webagentbench/manifest.json`](../manifest.json).
 
 ### 4.1 Exploration
 

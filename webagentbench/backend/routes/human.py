@@ -1,8 +1,8 @@
 """Human recording mode: annotator-facing assignment list + trace save.
 
 Flow:
-  1. Annotator opens /static/human.html?annotator=Weili.
-  2. Frontend calls GET /api/human/assignments?annotator=Weili and renders the
+  1. Annotator opens /static/human.html?annotator=P1.
+  2. Frontend calls GET /api/human/assignments?annotator=P1 and renders the
      filtered list (no primitive labels / expected steps / variant internals).
   3. Annotator clicks "start cold attempt on <task>". The frontend POSTs to
      /api/env/{env}/session with task_id + seed=42 (+ variant_filename when

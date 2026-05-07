@@ -21,10 +21,10 @@ for the audited frozen state.
 
 | Annotator | Primary task-conditions | Attempts | Clean | Intervention | Env portfolio | Difficulty balance |
 |---|---:|---:|---:|---:|---|---|
-| Weili | 70 | 140 | 35 | 35 | amazon: 20, booking: 10, lms: 20, reddit: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
-| Michael | 70 | 140 | 35 | 35 | booking: 15, gmail: 15, reddit: 20, robinhood: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
-| Xunjian | 70 | 140 | 35 | 35 | booking: 15, gmail: 15, patient_portal: 20, robinhood: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
-| Tianchen | 70 | 140 | 35 | 35 | amazon: 20, gmail: 10, lms: 20, patient_portal: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
+| P1 | 70 | 140 | 35 | 35 | amazon: 20, booking: 10, lms: 20, reddit: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
+| P2 | 70 | 140 | 35 | 35 | booking: 15, gmail: 15, reddit: 20, robinhood: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
+| P3 | 70 | 140 | 35 | 35 | booking: 15, gmail: 15, patient_portal: 20, robinhood: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
+| P4 | 70 | 140 | 35 | 35 | amazon: 20, gmail: 10, lms: 20, patient_portal: 20 | easy: 14, medium: 14, hard: 14, expert: 14, frontier: 14 |
 
 Each full-load annotator has exactly **70 primary task-conditions**, exactly **35 clean + 35 intervention**, and exactly **14 task-conditions per difficulty**. This also gives exactly **7 clean and 7 intervention task-conditions at every difficulty** for each full-load annotator.
 
@@ -33,23 +33,23 @@ Each full-load annotator has exactly **70 primary task-conditions**, exactly **3
 
 | Environment | Primary annotators | Split |
 |---|---|---|
-| amazon | Tianchen, Weili | Tianchen: 20, Weili: 20 |
-| booking | Michael, Xunjian, Weili | Michael: 15, Xunjian: 15, Weili: 10 |
-| gmail | Xunjian, Michael, Tianchen | Xunjian: 15, Michael: 15, Tianchen: 10 |
-| lms | Tianchen, Weili | Tianchen: 20, Weili: 20 |
-| patient_portal | Xunjian, Tianchen | Xunjian: 20, Tianchen: 20 |
-| reddit | Weili, Michael | Weili: 20, Michael: 20 |
-| robinhood | Michael, Xunjian | Michael: 20, Xunjian: 20 |
+| amazon | P4, P1 | P4: 20, P1: 20 |
+| booking | P2, P3, P1 | P2: 15, P3: 15, P1: 10 |
+| gmail | P3, P2, P4 | P3: 15, P2: 15, P4: 10 |
+| lms | P4, P1 | P4: 20, P1: 20 |
+| patient_portal | P3, P4 | P3: 20, P4: 20 |
+| reddit | P1, P2 | P1: 20, P2: 20 |
+| robinhood | P2, P3 | P2: 20, P3: 20 |
 
 
 ## Limited-load duplicate annotators
 
 | Annotator | Duplicate task-conditions | Attempts | Clean | Intervention | Difficulty balance | Environments |
 |---|---:|---:|---:|---:|---|---|
-| Keagan | 9 | 18 | 4 | 5 | easy: 2, medium: 2, hard: 1, expert: 2, frontier: 2 | amazon: 1, booking: 1, gmail: 1, lms: 1, patient_portal: 1, reddit: 2, robinhood: 2 |
-| Kyle | 9 | 18 | 4 | 5 | easy: 2, medium: 2, hard: 2, expert: 1, frontier: 2 | amazon: 1, booking: 1, gmail: 2, lms: 2, patient_portal: 1, reddit: 1, robinhood: 1 |
-| Royce | 9 | 18 | 5 | 4 | easy: 2, medium: 2, hard: 2, expert: 2, frontier: 1 | amazon: 1, booking: 2, gmail: 1, lms: 1, patient_portal: 2, reddit: 1, robinhood: 1 |
-| Daisy | 8 | 16 | 4 | 4 | easy: 1, medium: 1, hard: 2, expert: 2, frontier: 2 | amazon: 2, booking: 1, gmail: 1, lms: 1, patient_portal: 1, reddit: 1, robinhood: 1 |
+| D1 | 9 | 18 | 4 | 5 | easy: 2, medium: 2, hard: 1, expert: 2, frontier: 2 | amazon: 1, booking: 1, gmail: 1, lms: 1, patient_portal: 1, reddit: 2, robinhood: 2 |
+| D2 | 9 | 18 | 4 | 5 | easy: 2, medium: 2, hard: 2, expert: 1, frontier: 2 | amazon: 1, booking: 1, gmail: 2, lms: 2, patient_portal: 1, reddit: 1, robinhood: 1 |
+| D3 | 9 | 18 | 5 | 4 | easy: 2, medium: 2, hard: 2, expert: 2, frontier: 1 | amazon: 1, booking: 2, gmail: 1, lms: 1, patient_portal: 2, reddit: 1, robinhood: 1 |
+| D4 | 8 | 16 | 4 | 4 | easy: 1, medium: 1, hard: 2, expert: 2, frontier: 2 | amazon: 2, booking: 1, gmail: 1, lms: 1, patient_portal: 1, reddit: 1, robinhood: 1 |
 
 Each limited-load annotator gets at least one duplicate task-condition from every environment. The duplicate subset is for estimating human-reference stability and task ambiguity, not for changing the primary reference unless adjudication finds a shorter valid warm trace.
 

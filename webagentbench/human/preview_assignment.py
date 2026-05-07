@@ -10,11 +10,11 @@ Shows two sections per assignment:
 
 Usage:
     python webagentbench/human/preview_assignment.py \\
-        --annotator Weili --role primary --index 0
+        --annotator P1 --role primary --index 0
     python webagentbench/human/preview_assignment.py \\
-        --annotator Keagan --role duplicate --index 0
+        --annotator D1 --role duplicate --index 0
     python webagentbench/human/preview_assignment.py \\
-        --annotator Tianchen --role primary --index 5 --launch-probe \\
+        --annotator P4 --role primary --index 5 --launch-probe \\
         --backend-url http://127.0.0.1:8080
 
 `--launch-probe` POSTs `/api/env/{env}/session` to verify the task-condition
@@ -251,7 +251,7 @@ def main() -> None:
                "cleanly against a running backend (no actual recording).",
     )
     p.add_argument("--annotator", required=True,
-                   help="Annotator name (case-insensitive). e.g. Weili, Keagan.")
+                   help="Annotator name (case-insensitive). e.g. P1, D1.")
     p.add_argument("--role", choices=["primary", "duplicate"], default="primary",
                    help="Assignment role to filter by.")
     p.add_argument("--index", type=int, default=0,

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Upload an annotator's traces/<Name>/ subdir to PrimBench/<initials>_annotation.
+"""Upload an annotator's traces/<Name>/ subdir to <hf-org>/<annotator-id>_annotation.
 
-Mirrors PrimBench/XJ_annotation layout: files sit at repo root with `primary/`
-and `progress.json` directly under root (no <Name>/ prefix). HF auto-creates
-.gitattributes on repo creation.
+Files sit at repo root with `primary/` and `progress.json` directly under root
+(no <Name>/ prefix). HF auto-creates .gitattributes on repo creation.
 
 Idempotent: re-running uploads only changed files. Safe to invoke after filling
 in additional post_task_form.json entries.
@@ -19,12 +18,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--annotator", required=True, help="e.g. Tianchen")
-    ap.add_argument("--repo-id", required=True, help="e.g. PrimBench/TG_annotation")
+    ap.add_argument("--annotator", required=True, help="e.g. P4")
+    ap.add_argument("--repo-id", required=True, help="e.g. <hf-org>/<annotator-id>_annotation")
     ap.add_argument(
         "--path-in-repo",
         default="",
-        help="prefix in HF repo, e.g. '' (root, matches XJ) or 'Tianchen'",
+        help="prefix in HF repo, e.g. '' (root) or '<annotator-id>'",
     )
     ap.add_argument("--private", action="store_true", default=True)
     ap.add_argument("--public", dest="private", action="store_false")

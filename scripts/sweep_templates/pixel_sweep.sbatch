@@ -45,7 +45,7 @@ export TORCH_HOME=/usr/xtmp/$USER/.cache/torch
 export PIP_CACHE_DIR=/usr/xtmp/$USER/.cache/pip
 mkdir -p /usr/xtmp/$USER/wab-logs "$HF_HOME" "$PIP_CACHE_DIR"
 
-ROOT=/home/users/tg295/projects/LLMOS
+ROOT="${LLMOS_ROOT:-$HOME/projects/LLMOS}"
 cd "$ROOT"
 source .venv/bin/activate
 set -a; source webagentbench/.env; set +a

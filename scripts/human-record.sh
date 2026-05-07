@@ -5,8 +5,8 @@
 #   ./scripts/human-record.sh <annotator> [--env <id>|all]
 #
 # Examples:
-#   ./scripts/human-record.sh Weili              # all 7 envs
-#   ./scripts/human-record.sh Weili --env booking  # just booking
+#   ./scripts/human-record.sh P1              # all 7 envs
+#   ./scripts/human-record.sh P1 --env booking  # just booking
 #
 # What it does:
 #   1. Validates the annotator name against the assignment YAML.
@@ -24,8 +24,8 @@ if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 Usage:
   ./scripts/human-record.sh <annotator> [--env <id>|all]
 
-<annotator> must be one of: Weili, Michael, Xunjian, Tianchen,
-                            Keagan, Kyle, Royce, Daisy
+<annotator> must be one of: P1, P2, P3, P4,
+                            D1, D2, D3, D4
 EOF
   exit 1
 fi
@@ -52,7 +52,7 @@ while [ $# -gt 0 ]; do
 done
 
 # --- Validate annotator against the assignment YAML ---
-KNOWN="Weili Michael Xunjian Tianchen Keagan Kyle Royce Daisy"
+KNOWN="P1 P2 P3 P4 D1 D2 D3 D4"
 if ! echo " $KNOWN " | grep -q " $ANNOTATOR "; then
   echo "ERROR: unknown annotator '$ANNOTATOR'" >&2
   echo "Must be one of: $KNOWN" >&2

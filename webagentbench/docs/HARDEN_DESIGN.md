@@ -455,8 +455,7 @@ keep state_tracking and rely on per-item flag mismatch).
 
 After each group is rewritten:
 ```bash
-source /Users/xunjianyin/Documents/projects/LLMOS/.venv/bin/activate
-cd /Users/xunjianyin/Documents/projects/LLMOS
+source .venv/bin/activate
 python -m pytest -q webagentbench/tests/test_task_linter.py webagentbench/tests/test_benchmark_integrity.py
 ```
 

@@ -32,7 +32,7 @@ Referenced but absent from repo:
 |---|:---:|
 | Every primary base has both clean+intervention by different annotators | passed |
 | No primary annotator records environment they designed | passed |
-| Duplicate annotators ⊆ {Keagan, Kyle, Royce, Daisy} | passed |
+| Duplicate annotators ⊆ {D1, D2, D3, D4} | passed |
 | Duplicate annotator ≠ primary for same task-condition | passed |
 | Duplicate count = 35 task-conditions | passed |
 

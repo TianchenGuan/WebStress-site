@@ -1,6 +1,6 @@
 # WebAgentBench — Human Recording Setup
 
-> For Weili / Michael / Xunjian / Tianchen (full-load) and Keagan / Kyle / Royce / Daisy (duplicate).
+> For P1 / P2 / P3 / P4 (full-load) and D1 / D2 / D3 / D4 (duplicate).
 
 **Two docs:**
 - **This file (README.md)** — install + launch + submit traces. The *how-to-run* guide.
@@ -18,7 +18,7 @@ The launcher handles everything: start backend + env dev servers, open a dashboa
 git clone git@github.com:<org>/LLMOS.git
 cd LLMOS
 ./scripts/webagentbench.sh build          # one-time: install deps + build SPAs
-./scripts/human-record.sh <YourName>      # e.g. Weili, Michael, Xunjian, Tianchen, Keagan, Kyle, Royce, Daisy
+./scripts/human-record.sh <YourName>      # e.g. P1, P2, P3, P4, D1, D2, D3, D4
 # Browser opens automatically at http://localhost:8080/static/human.html?annotator=<YourName>
 # When done:
 git add webagentbench/human/traces/<YourName>/
@@ -51,19 +51,19 @@ This installs all env dependencies and builds static bundles. You only need to r
 
 ```bash
 ./scripts/human-record.sh <YourName>
-# e.g. ./scripts/human-record.sh Tianchen
+# e.g. ./scripts/human-record.sh P4
 ```
 
 By default this starts all 7 env dev servers so you can jump between websites without restarting. If you want to record only one env at a time:
 
 ```bash
-./scripts/human-record.sh Tianchen --env booking
+./scripts/human-record.sh P4 --env booking
 ```
 
 The script prints your assignment portfolio up front:
 
 ```
-  Annotator:     Tianchen
+  Annotator:     P4
   Assignments:   70 task-conditions (primary + duplicate)
   Attempts:      140 (cold + warm each)
   Env portfolio: {'amazon': 20, 'gmail': 10, 'lms': 20, 'patient_portal': 20}
@@ -72,7 +72,7 @@ The script prints your assignment portfolio up front:
 …then opens your browser to:
 
 ```
-http://localhost:8080/static/human.html?annotator=Tianchen
+http://localhost:8080/static/human.html?annotator=P4
 ```
 
 Leave the terminal running; Ctrl-C when you're done for the day.
@@ -131,7 +131,7 @@ If you redo the same assignment later and Evaluate cleanly, the new save overwri
 - **No DevTools inspection.** Don't open F12 to read task state or variant YAMLs.
 - **Keep the env tab focused during the attempt.** Clicks elsewhere aren't recorded.
 - **Don't resize the env window mid-attempt.** Viewport is captured once at save time; consistency matters across your cold+warm pair.
-- **If something feels broken** (eval returns an unexpected fail, instruction references a missing element, intervention does nothing): click **Abandon**, mention it in the post-task form's "suspected bug" checkbox on a later attempt, or ping Tianchen.
+- **If something feels broken** (eval returns an unexpected fail, instruction references a missing element, intervention does nothing): click **Abandon**, mention it in the post-task form's "suspected bug" checkbox on a later attempt, or ping the project maintainer.
 
 ---
 
@@ -146,7 +146,7 @@ git commit -m "human: <YourName> week N traces (X assignments, Y attempts)"
 git push origin HEAD
 ```
 
-Open a PR against `main`. Tianchen merges and aggregates. Don't touch anyone else's subdirectory.
+Open a PR against `main`. The project maintainer merges and aggregates. Don't touch anyone else's subdirectory.
 
 Expected PR size:
 - Full-load weekly target: ~10–15 assignments (20–30 attempts).
@@ -158,13 +158,13 @@ Expected PR size:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| "No assignments for annotator 'X'" | Name typo | Use exactly: Weili, Michael, Xunjian, Tianchen, Keagan, Kyle, Royce, Daisy (case-insensitive). |
+| "No assignments for annotator 'X'" | Name typo | Use exactly: P1, P2, P3, P4, D1, D2, D3, D4 (case-insensitive). |
 | Popup blocked notice | Browser blocked popups | Allow popups for `localhost` in browser settings, then click Start again. |
 | Control tab shows "Env tab unresponsive" | You closed the env tab | Click **Reopen env tab** in the warn banner. |
 | Env tab shows "Not Found" | Env SPA isn't running | Check the launcher terminal for `[frontend:<env>]` lines. If missing, rerun `./scripts/webagentbench.sh build` then retry. |
 | Evaluate returned error after 15s | Env tab isn't posting the trace back (possibly refreshed by hand) | Click Abandon, start over. |
 | Browser didn't auto-open | Headless env / xdg-open missing | Copy the URL printed by the launcher manually. |
-| Suspected task bug | Ambiguous instruction, evaluator bug, broken intervention | Abandon the attempt. On a future attempt of the same task (or a different clean/intervention pair on the same base task), tick "suspected bug" in the post-task form and add a note. Ping Tianchen with the `aid`. |
+| Suspected task bug | Ambiguous instruction, evaluator bug, broken intervention | Abandon the attempt. On a future attempt of the same task (or a different clean/intervention pair on the same base task), tick "suspected bug" in the post-task form and add a note. Ping the maintainer with the `aid`. |
 | `git status` shows leftover trace files after I abandoned | Expected — Abandon stamps `"abandoned": true` into metadata but keeps the files for analysis. | Commit them as-is. See [§3 "What Abandon does to your trace files"](#what-abandon-does-to-your-trace-files). |
 
 ---
@@ -206,4 +206,4 @@ webagentbench/human/
 
 The `trace.json` is the primary artifact for analysis: DOM events from `trajectory-recorder.js` (clicks / inputs / scrolls / navigations) plus the server-side audit_log plus the evaluator verdict. Metadata carries annotator / attempt / timing / variant / viewport info.
 
-Questions → #webagentbench Slack, or ping Tianchen directly.
+Questions → #webagentbench Slack, or ping the project maintainer.

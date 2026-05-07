@@ -32,9 +32,7 @@ import yaml
 from collections import defaultdict
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent / "Documents/GitHub/LLMOS"
-if not (REPO / "webagentbench").is_dir():
-    REPO = Path("/Users/michael/Documents/GitHub/LLMOS")
+REPO = Path(__file__).resolve().parent.parent
 TASKS = REPO / "webagentbench" / "tasks"
 
 # ── Heuristic helpers ─────────────────────────────────────────────────────

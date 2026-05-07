@@ -16,7 +16,7 @@ import type { Patient, Provider } from "./types";
 // internal SPA navigation MUST keep `control=on` or BenchmarkToolbar's
 // recorder/heartbeat will silently die. Bug history: a custom session-only
 // preserve here caused all in-task navigations on patient_portal to drop the
-// recorder; ~45 task-conditions across Tianchen/Xunjian/duplicate annotators
+// recorder; ~45 task-conditions across P4/P3/duplicate annotators
 // were affected before this was caught.
 const preserveSession = preserveQueryParams;
 

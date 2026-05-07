@@ -31,8 +31,8 @@ The study has two annotator tiers. Check which one you are:
 
 | Your role | Who | Load | Notes |
 |---|---|---|---|
-| **Primary (full-load)** | Weili, Michael, Xunjian, Tianchen | 70 task-conditions each → 140 attempts (cold + warm) | You cover both clean + intervention across 3–4 environments. You are the primary human reference. |
-| **Duplicate (limited-load, Amazon team)** | Keagan, Kyle, Royce, Daisy | 8–9 task-conditions each → 16–18 attempts | You re-record a subset of task-conditions that a primary annotator already did. This is a **lightweight duplicate-human stability audit** — 35 duplicated task-conditions in total (one per environment × difficulty cell), split across the four of you. Your traces are compared against the primary annotator's to estimate human-reference stability and catch task ambiguity. You don't need to match what the primary did — just record naturally. |
+| **Primary (full-load)** | P1, P2, P3, P4 | 70 task-conditions each → 140 attempts (cold + warm) | You cover both clean + intervention across 3–4 environments. You are the primary human reference. |
+| **Duplicate (limited-load, Amazon team)** | D1, D2, D3, D4 | 8–9 task-conditions each → 16–18 attempts | You re-record a subset of task-conditions that a primary annotator already did. This is a **lightweight duplicate-human stability audit** — 35 duplicated task-conditions in total (one per environment × difficulty cell), split across the four of you. Your traces are compared against the primary annotator's to estimate human-reference stability and catch task ambiguity. You don't need to match what the primary did — just record naturally. |
 
 Both tiers use the same launcher and follow the same rules below. The dashboard automatically filters to your assigned set when you type your name.
 
@@ -72,7 +72,7 @@ A **failed cold attempt is still useful data**. Save it; don't hide it. Warm is 
 6. Do **not** open DevTools, task YAML files, source code, evaluator checks, or backend API docs.
 7. Do **not** ask another annotator or the task designer for task solutions before recording.
 
-If the env tab ever shows primitive labels, intervention names, expected steps, seed digits, or evaluator internals — stop and report UI leakage to Tianchen. You should only see the website and the task instruction.
+If the env tab ever shows primitive labels, intervention names, expected steps, seed digits, or evaluator internals — stop and report UI leakage to the project maintainer. You should only see the website and the task instruction.
 
 ---
 
@@ -170,7 +170,7 @@ After the warm attempt saves, you see two buttons:
 - **Alternate strategy** that obviously-works but feels different from what the task probably intended
 - **Intervention felt contrived / unfair / not human-reasonable**
 
-For those cases, either fill the form **or** drop a short message on the `#webagentbench-human-traces` Slack channel. Slack is fine if you're on a roll and don't want to lose focus — just include the `aid` (shown on each card) and a one-liner. Tianchen triages both.
+For those cases, either fill the form **or** drop a short message on the `#webagentbench-human-traces` Slack channel. Slack is fine if you're on a roll and don't want to lose focus — just include the `aid` (shown on each card) and a one-liner. The project maintainer triages both.
 
 Everything in the form itself is still optional — submit with only the checkbox ticked, or only a one-line comment, or ratings only. Whatever fits what you want to say.
 
@@ -183,7 +183,7 @@ Everything in the form itself is still optional — submit with only the checkbo
 | **Suspected bug** | The UI, evaluator, reset, or task setup seemed broken. |
 | **Ambiguous instruction** | The instruction could reasonably be read in multiple ways. |
 | **Alternate valid strategy** | You found another reasonable solution path. |
-| **Comments** | Anything specific worth Tianchen's attention. |
+| **Comments** | Anything specific worth the maintainer's attention. |
 
 Good comments are specific:
 
@@ -205,7 +205,7 @@ git commit -m "human: <YourName> batch <N> (<count> assignments)"
 git push origin HEAD
 ```
 
-Open a PR against `main`. Tianchen aggregates.
+Open a PR against `main`. The project maintainer aggregates.
 
 **Don't touch anyone else's subdirectory under `traces/`.**
 
@@ -244,4 +244,4 @@ No. Pause == redo. Assignment rolls back to not-started if you abandon mid-flow.
 Your call. Full-load annotators have 70 assignments total. At ~8 minutes/assignment (cold+warm) that's ~9 hours of recording. Splitting into 5–10 sessions of 1–2 hours is reasonable. Duplicate annotators only have 8–9 assignments — one afternoon is plenty.
 
 **Who to contact for bugs?**
-`#webagentbench-human-traces` on Slack, or Tianchen directly. Include the `aid` (shown on each card) and a one-line description. See §6 for what counts as "please flag this".
+`#webagentbench-human-traces` on Slack, or the project maintainer directly. Include the `aid` (shown on each card) and a one-line description. See §6 for what counts as "please flag this".
