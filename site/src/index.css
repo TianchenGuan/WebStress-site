@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: theme("fontFamily.sans");
+  }
+  body {
+    @apply text-ink bg-cream;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 {
+    @apply font-serif tracking-tight;
+  }
+  code, pre, kbd {
+    font-family: theme("fontFamily.mono");
+  }
+  pre {
+    @apply bg-white border border-border rounded-md p-4 text-[13px] overflow-x-auto;
+  }
+  :where(p, li) code {
+    @apply px-1 py-0.5 rounded bg-accent-soft/40 text-[0.9em];
+  }
+  a {
+    @apply text-accent underline-offset-2;
+  }
+  a:hover {
+    @apply underline;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-border rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)];
+  }
+  .pill {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
+  }
+  .stat-num {
+    @apply font-serif text-3xl font-semibold;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium border border-border bg-white hover:bg-accent-soft/30 no-underline transition;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 no-underline transition;
+  }
+}

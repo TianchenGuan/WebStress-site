@@ -1,0 +1,107 @@
+[
+  {
+    "primitive": "grounding",
+    "label": "Grounding",
+    "definition": "Identifying and selecting the right visible object among distractors, decoys, and adversarial content.",
+    "what_it_targets": "Disambiguation under decoys, look-alike labels, phishing-style content, and visually crowded surfaces.",
+    "typical_families": [
+      "Decoys & aliases",
+      "Adversarial content",
+      "Label misbinding"
+    ],
+    "example_task_id": "amazon_add_single_item",
+    "example_intervention_summary": "Composite degradation: (a) pack-size siblings (2-pack bundle and travel-edition) match brand/rating/thumbnail; (b) the first cart-add call silently no-ops, so the agent must both ground on the exact single-unit target AND verify the add actually landed before reporting done.",
+    "task_count": 168,
+    "intervention_count": 168
+  },
+  {
+    "primitive": "planning",
+    "label": "Planning",
+    "definition": "Executing a multi-step ordering or dependency, and revising the plan as new information arrives.",
+    "what_it_targets": "Out-of-order timestamps, missing prerequisites, hidden ordering constraints.",
+    "typical_families": [
+      "Timestamp scramble",
+      "Prerequisite hiding",
+      "Contradictory update"
+    ],
+    "example_task_id": "amazon_budget_split_gift_orders",
+    "example_intervention_summary": "Wrong-category decoys priced just inside the per-order cap surface in search \u2014 cheap enough to feel like the right move for the budget split, but they fail the \"at least one product from the {category}\" clause. The agent must plan its two orders so each has a genuine in-category item, even if a cheaper cross-category alternative would satisfy the cap more comfortably.",
+    "task_count": 54,
+    "intervention_count": 52
+  },
+  {
+    "primitive": "state_tracking",
+    "label": "State tracking",
+    "definition": "Maintaining task-relevant state across pages, updates, and out-of-order events.",
+    "what_it_targets": "Shuffled lists, contradictory partial updates, split information across screens.",
+    "typical_families": [
+      "Ordering shuffle",
+      "Contradictory update",
+      "Split information"
+    ],
+    "example_task_id": "amazon_cart_recover_from_oos",
+    "example_intervention_summary": "Two-layer cart-mutation verification trap (Recipe A adapted): both /cart/add POSTs and /cart/{id} DELETEs silent-fail on their first attempt, returning a fake 200 with a templated cart_item body that echoes the agent's request. The agent's \"remove OOS, add in-stock replacement\" workflow appears to succeed at every step but the real cart state never changes \u2014 OOS items remain, no replacements land. canonical_diff requires both `create[CartItem]` (in-stock, same category, not in oos_product_ids) AND `delete[CartItem]` (id in oos_cart_item_ids); both predicates fail unless the agent verifies cart state via re-read after each write and retries.",
+    "task_count": 81,
+    "intervention_count": 82
+  },
+  {
+    "primitive": "backtracking",
+    "label": "Backtracking",
+    "definition": "Detecting a blocked or wrong path, reverting to a prior decision point, and trying an alternative.",
+    "what_it_targets": "401 session expiry, 409 conflicts, planted wrong answers, transient 5xx errors.",
+    "typical_families": [
+      "Transient error",
+      "Optimistic conflict",
+      "Planted wrong answer"
+    ],
+    "example_task_id": "amazon_account_overhaul_and_shop",
+    "example_intervention_summary": "The first two address POSTs return a fake 200 with a realistic address body but never persist on the backend. The agent must verify the exact address exists via re-read (not by trusting the success toast) before declaring done.",
+    "task_count": 83,
+    "intervention_count": 83
+  },
+  {
+    "primitive": "patience",
+    "label": "Patience",
+    "definition": "Calibrating retry timing under slow, flaky, or rate-limited conditions.",
+    "what_it_targets": "Tail latency, progressive delay, 429 with Retry-After, stuck loaders.",
+    "typical_families": [
+      "Latency",
+      "Rate limit",
+      "Stuck loader"
+    ],
+    "example_task_id": "amazon_complete_shopping_journey",
+    "example_intervention_summary": "A cookie-consent modal appears on the second navigation. The close button is tiny and Escape dismisses the modal. Agent must dismiss, not interact, to keep the task on track.",
+    "task_count": 25,
+    "intervention_count": 25
+  },
+  {
+    "primitive": "exploration",
+    "label": "Exploration",
+    "definition": "Finding alternative affordances when the obvious path is closed, hidden, or low-salience.",
+    "what_it_targets": "Restricted affordance sets, hidden prerequisites, intercepting overlays.",
+    "typical_families": [
+      "Hidden/restricted affordance",
+      "Prerequisite hiding",
+      "Intercepting overlay"
+    ],
+    "example_task_id": "amazon_order_audit_correction",
+    "example_intervention_summary": "Order detail pages return placeholder stale data on the first 3 views, and the order list endpoint has a 3-second delay. The agent must persist in exploring order details despite incomplete initial data and slow loading.",
+    "task_count": 38,
+    "intervention_count": 38
+  },
+  {
+    "primitive": "verification",
+    "label": "Verification",
+    "definition": "Confirming that the backend state actually changed after an action, rather than trusting a rendered confirmation.",
+    "what_it_targets": "Fabricated-success HTTP responses, misleading 'Saved' toasts, silent writes, save drift.",
+    "typical_families": [
+      "Fabricated success",
+      "Stale response",
+      "Deceptive banner"
+    ],
+    "example_task_id": "amazon_buy_highest_rated",
+    "example_intervention_summary": "Three near-duplicate Sports & Outdoors SKUs share the target Premium Yoga Mat's brand and thumbnail and tie at exactly the target's 4.95 top rating. Sort-by-rating produces a four-way tie at the top, so the agent must compare review_count or canonical product_id to break the tie. The first two cart-add calls silently no-op so the agent must verify the cart actually changed before checkout.",
+    "task_count": 70,
+    "intervention_count": 71
+  }
+]
