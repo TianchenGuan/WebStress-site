@@ -14,6 +14,7 @@ import EnvironmentDetail from "./routes/EnvironmentDetail";
 import Results from "./routes/Results";
 import Docs from "./routes/Docs";
 import DocsSetup from "./routes/DocsSetup";
+import Demo from "./routes/Demo";
 import NotFound from "./routes/NotFound";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/environments" element={<Environments />} />
           <Route path="/environments/:env" element={<EnvironmentDetail />} />
           <Route path="/results" element={<Results />} />
+          <Route path="/demo" element={<Demo />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/docs/setup" element={<DocsSetup />} />
           <Route path="*" element={<NotFound />} />

@@ -8,6 +8,7 @@ import {
   pillColorForDifficulty,
   pillColorForPrimitive,
 } from "../lib/format";
+import { HAS_LIVE_DEMO, liveDemoTaskUrl } from "../lib/config";
 import Pill from "../components/Pill";
 
 export default function TaskDetail() {
@@ -68,6 +69,33 @@ export default function TaskDetail() {
           <Pill className="bg-navy/10 border-navy/40 text-navy">Duplicate audit</Pill>
         )}
       </div>
+
+      {HAS_LIVE_DEMO && (
+        <section className="card mb-6 bg-accent-soft/30 border-accent/40">
+          <h2 className="text-sm uppercase tracking-wider text-accent mb-2">
+            Try this task live
+          </h2>
+          <p className="text-sm text-ink/85 leading-relaxed mb-3">
+            Play this task in either condition (clean or intervention) on the
+            hosted WebStress demo. The demo runs the same FastAPI backend
+            and React SPAs you'd get locally; every visitor gets a fresh
+            seeded session.
+          </p>
+          <a
+            href={liveDemoTaskUrl()}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary"
+          >
+            Open in live demo&nbsp;<span aria-hidden>→</span>
+          </a>
+          <p className="mt-3 text-xs text-muted">
+            The launcher opens in a new tab; pick this task by its
+            <code className="mx-1">task_id</code>{" "}
+            ({entry.task_id}) and seed = 42.
+          </p>
+        </section>
+      )}
 
       <section className="card mb-6">
         <h2 className="text-sm uppercase tracking-wider text-muted mb-2">

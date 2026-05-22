@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { HAS_LIVE_DEMO, LIVE_DEMO_URL } from "../lib/config";
 
 const STATS: { value: string; label: string; sub?: string }[] = [
   { value: "519", label: "Paired tasks", sub: "clean + intervention" },
@@ -52,6 +53,11 @@ export default function Home() {
             <a className="btn-primary" href="#paper">Paper</a>
             <a className="btn" href="https://github.com/Arvid-pku/WebStress" target="_blank" rel="noreferrer">Code</a>
             <Link className="btn" to="/tasks">Explore Tasks</Link>
+            {HAS_LIVE_DEMO && (
+              <a className="btn" href={`${LIVE_DEMO_URL}/launch`} target="_blank" rel="noreferrer">
+                Try the live demo&nbsp;<span aria-hidden>→</span>
+              </a>
+            )}
             <Link className="btn" to="/results">View Results</Link>
             <Link className="btn" to="/docs">Documentation</Link>
           </div>
