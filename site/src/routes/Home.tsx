@@ -5,7 +5,7 @@ import { HOMEPAGE_FEATURED } from "../lib/featured";
 import { loadTasks } from "../lib/data";
 import type { TaskEntry } from "../data/types";
 import { ENV_LABELS, pillColorForDifficulty } from "../lib/format";
-import { liveDemoTaskUrl } from "../lib/config";
+import { playDemo } from "../lib/config";
 import Pill from "../components/Pill";
 
 const STATS: { value: string; label: string; sub?: string }[] = [
@@ -152,14 +152,13 @@ export default function Home() {
                   <p className="text-sm text-ink/75 leading-relaxed flex-1 mb-4">
                     {demo.blurb}
                   </p>
-                  <a
-                    href={liveDemoTaskUrl(demo.task_id, demo.cond)}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => playDemo(demo.task_id, demo.cond)}
                     className="btn-primary text-sm self-start"
                   >
                     Play&nbsp;<span aria-hidden>→</span>
-                  </a>
+                  </button>
                 </div>
               ))}
             </div>

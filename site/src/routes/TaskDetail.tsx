@@ -8,7 +8,7 @@ import {
   pillColorForDifficulty,
   pillColorForPrimitive,
 } from "../lib/format";
-import { HAS_LIVE_DEMO, LIVE_DEMO_URL, liveDemoTaskUrl } from "../lib/config";
+import { HAS_LIVE_DEMO, LIVE_DEMO_URL, playDemo } from "../lib/config";
 import { FEATURED_TASK_IDS } from "../lib/featured";
 import Pill from "../components/Pill";
 
@@ -83,23 +83,21 @@ export default function TaskDetail() {
             control panel with the instruction and a score button.
           </p>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={liveDemoTaskUrl(entry.task_id, "clean")}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => playDemo(entry.task_id, "clean")}
               className="btn-primary"
             >
               Play clean&nbsp;<span aria-hidden>→</span>
-            </a>
+            </button>
             {entry.has_intervention && (
-              <a
-                href={liveDemoTaskUrl(entry.task_id, "intervention")}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => playDemo(entry.task_id, "intervention")}
                 className="btn"
               >
                 Play intervention&nbsp;<span aria-hidden>→</span>
-              </a>
+              </button>
             )}
           </div>
         </section>

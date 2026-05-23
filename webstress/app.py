@@ -388,21 +388,26 @@ async def control_panel(env_id: str, session_id: str) -> HTMLResponse:
     return HTMLResponse(content=path.read_text())
 
 
-@app.get("/play", response_class=HTMLResponse)
-async def play(task: str, cond: str = "clean", seed: int = 42) -> HTMLResponse:
-    """One-click launch entry-point used by the public site.
+# cid → {session_id, env_id, start_path, created_at}. Used to bind the
+# two tabs the public site opens (bench + control) to a single session.
+# Whichever tab arrives first creates the session and stores its info
+# here; the second tab reads from this cache and skips creation.
+import asyncio as _asyncio_play
+import time as _time_play
+_PLAY_CID_CACHE: dict[str, dict] = {}
+_PLAY_CID_LOCKS: dict[str, _asyncio_play.Lock] = {}
+_PLAY_CID_TTL_SEC = 300
 
-    Creates a session for ``task`` (clean or paired-intervention) without
-    routing the visitor through the chooser UI in ``/launch``. Returns a
-    tiny launching screen that opens the benchmark SPA in a new tab and
-    redirects the current tab to the control panel.
-    """
-    try:
-        task_def = get_task(task)
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Unknown task: {task}")
-    env_id = task_def.env_id
 
+def _play_cache_evict_stale() -> None:
+    cutoff = _time_play.time() - _PLAY_CID_TTL_SEC
+    for k in [k for k, v in _PLAY_CID_CACHE.items() if v.get("created_at", 0) < cutoff]:
+        _PLAY_CID_CACHE.pop(k, None)
+        _PLAY_CID_LOCKS.pop(k, None)
+
+
+async def _play_resolve_session(task: str, cond: str, seed: int, env_id: str) -> dict:
+    """Create a session via the env's POST handler. Returns the cache entry."""
     payload: dict[str, object] = {"task_id": task, "seed": seed}
     if cond == "intervention":
         variants_dir = BASE_DIR / "injector" / "variants"
@@ -428,8 +433,71 @@ async def play(task: str, cond: str = "clean", seed: int = 42) -> HTMLResponse:
             detail=f"Session creation failed: {resp.text[:300]}",
         )
     data = resp.json()
-    session_id = data["session_id"]
-    start_path = data.get("start_path") or "/"
+    return {
+        "session_id": data["session_id"],
+        "env_id": env_id,
+        "start_path": data.get("start_path") or "/",
+        "created_at": _time_play.time(),
+    }
+
+
+@app.get("/play")
+async def play(
+    task: str,
+    cond: str = "clean",
+    seed: int = 42,
+    cid: str | None = None,
+    mode: str | None = None,
+):
+    """One-click launch entry-point used by the public site.
+
+    Two call patterns:
+
+    * **Dual-tab (recommended).** The site click-handler synchronously
+      opens two windows with the same ``cid`` and ``mode=bench`` /
+      ``mode=control``. The first to arrive creates the session under
+      ``cid``; the second reuses it. Each tab is 302-redirected to its
+      respective URL (benchmark SPA or control panel). No "Launching…"
+      screen, no popup-blocker issues — both windows are opened from
+      the original user gesture.
+
+    * **Single-tab fallback.** No ``cid`` provided. Returns a tiny
+      HTML page that creates the session and tries to ``window.open``
+      the bench tab while redirecting the current tab to the control
+      panel — works when the user lands here from a bare URL (no
+      site-side dual-open), but the popup blocker may block the
+      second tab.
+    """
+    try:
+        task_def = get_task(task)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown task: {task}")
+    env_id = task_def.env_id
+
+    # ── Dual-tab path ────────────────────────────────────────────────
+    if cid and mode in {"bench", "control"}:
+        _play_cache_evict_stale()
+        lock = _PLAY_CID_LOCKS.setdefault(cid, _asyncio_play.Lock())
+        async with lock:
+            info = _PLAY_CID_CACHE.get(cid)
+            if info is None:
+                info = await _play_resolve_session(task, cond, seed, env_id)
+                _PLAY_CID_CACHE[cid] = info
+
+        sid = info["session_id"]
+        start_path = info["start_path"]
+        if mode == "bench":
+            sep = "&" if "?" in start_path else "?"
+            return RedirectResponse(
+                f"/env/{env_id}{start_path}{sep}session={sid}&control=on",
+                status_code=302,
+            )
+        return RedirectResponse(f"/control/{env_id}/{sid}", status_code=302)
+
+    # ── Single-tab fallback (HTML launching screen) ──────────────────
+    info = await _play_resolve_session(task, cond, seed, env_id)
+    session_id = info["session_id"]
+    start_path = info["start_path"]
     sep = "&" if "?" in start_path else "?"
     bench_url = f"/env/{env_id}{start_path}{sep}session={session_id}&control=on"
     control_url = f"/control/{env_id}/{session_id}"

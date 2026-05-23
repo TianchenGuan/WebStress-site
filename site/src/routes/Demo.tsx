@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { loadTasks } from "../lib/data";
 import type { TaskEntry } from "../data/types";
 import { ENV_LABELS, pillColorForDifficulty } from "../lib/format";
-import { HAS_LIVE_DEMO, LIVE_DEMO_URL, liveDemoTaskUrl } from "../lib/config";
+import { HAS_LIVE_DEMO, LIVE_DEMO_URL, playDemo } from "../lib/config";
 import { FEATURED_DEMOS } from "../lib/featured";
 import Pill from "../components/Pill";
 
@@ -174,27 +174,27 @@ function DemoCard({
         {demo.blurb}
       </p>
       <div className="flex flex-wrap gap-2">
-        <a
-          href={liveDemoTaskUrl(demo.task_id, demo.cond)}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={() => playDemo(demo.task_id, demo.cond)}
           className="btn-primary"
         >
           Play now ({demo.cond})&nbsp;<span aria-hidden>→</span>
-        </a>
+        </button>
         {demo.show_paired && (
-          <a
-            href={liveDemoTaskUrl(
-              demo.task_id,
-              demo.cond === "intervention" ? "clean" : "intervention",
-            )}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={() =>
+              playDemo(
+                demo.task_id,
+                demo.cond === "intervention" ? "clean" : "intervention",
+              )
+            }
             className="btn"
           >
             {demo.cond === "intervention" ? "Clean" : "Intervention"}&nbsp;
             <span aria-hidden>→</span>
-          </a>
+          </button>
         )}
       </div>
     </div>
