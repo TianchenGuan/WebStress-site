@@ -68,7 +68,26 @@ export function playDemo(
   // token applies to both window.open calls.
   const benchWin = window.open(benchUrl, "_blank", "noopener");
   const controlWin = window.open(controlUrl, "_blank", "noopener");
-  return Boolean(benchWin && controlWin);
+  // Popup-blocker fallback. Mobile Safari + some Chrome configs allow
+  // exactly one popup per gesture and silently null the second call.
+  // When that happens, take the current tab to the missing URL so the
+  // visitor still lands somewhere useful — they can switch to the tab
+  // that did open to play. We prefer to give up the current tab to the
+  // control panel (which has the instruction + Evaluate) and keep the
+  // benchmark in its own window.
+  if (!controlWin && benchWin) {
+    window.location.href = controlUrl;
+    return true;
+  }
+  if (!benchWin && controlWin) {
+    window.location.href = benchUrl;
+    return true;
+  }
+  if (!benchWin && !controlWin) {
+    window.location.href = controlUrl;
+    return false;
+  }
+  return true;
 }
 
 export const HAS_LIVE_DEMO: boolean = Boolean(LIVE_DEMO_URL);

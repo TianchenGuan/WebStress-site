@@ -410,9 +410,12 @@ async def _play_resolve_session(task: str, cond: str, seed: int, env_id: str) ->
     """Create a session via the env's POST handler. Returns the cache entry."""
     payload: dict[str, object] = {"task_id": task, "seed": seed}
     if cond == "intervention":
+        # Scan ALL variants — patient_portal uses pp_*.yaml and robinhood
+        # uses rh_*.yaml, so an env_id-prefixed glob would miss them.
+        # 519 files; the cost is dominated by yaml.safe_load, not the listing.
         variants_dir = BASE_DIR / "injector" / "variants"
         match: str | None = None
-        for fp in sorted(variants_dir.glob(f"{env_id}_*.yaml")):
+        for fp in sorted(variants_dir.glob("*.yaml")):
             try:
                 data = yaml.safe_load(fp.read_text()) or {}
             except Exception:
@@ -487,9 +490,14 @@ async def play(
         sid = info["session_id"]
         start_path = info["start_path"]
         if mode == "bench":
+            # Dual-tab mode: bench is pure SPA, the dedicated control panel
+            # tab holds the Record/Evaluate buttons. We deliberately omit
+            # &control=on, which would draw the in-bench floating toolbar —
+            # redundant with the separate control tab and the UX the user
+            # specifically asked us to drop.
             sep = "&" if "?" in start_path else "?"
             return RedirectResponse(
-                f"/env/{env_id}{start_path}{sep}session={sid}&control=on",
+                f"/env/{env_id}{start_path}{sep}session={sid}",
                 status_code=302,
             )
         # Control tab gets ?demo=1 so it shows the "recording is not saved"
