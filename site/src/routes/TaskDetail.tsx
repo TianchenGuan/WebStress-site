@@ -8,7 +8,8 @@ import {
   pillColorForDifficulty,
   pillColorForPrimitive,
 } from "../lib/format";
-import { HAS_LIVE_DEMO, liveDemoTaskUrl } from "../lib/config";
+import { HAS_LIVE_DEMO, LIVE_DEMO_URL, liveDemoTaskUrl } from "../lib/config";
+import { FEATURED_TASK_IDS } from "../lib/featured";
 import Pill from "../components/Pill";
 
 export default function TaskDetail() {
@@ -70,15 +71,16 @@ export default function TaskDetail() {
         )}
       </div>
 
-      {HAS_LIVE_DEMO && (
+      {HAS_LIVE_DEMO && FEATURED_TASK_IDS.has(entry.task_id) && (
         <section className="card mb-6 bg-accent-soft/30 border-accent/40">
           <h2 className="text-sm uppercase tracking-wider text-accent mb-2">
             Try this task live
           </h2>
           <p className="text-sm text-ink/85 leading-relaxed mb-3">
-            Play this task on the hosted WebStress demo. The demo runs the
-            same FastAPI backend and React SPAs you'd get locally; every
-            visitor gets a fresh seeded session.
+            This task is in the curated demo set. One click creates a
+            seeded session on the hosted FastAPI backend, opens the
+            benchmark SPA in a new tab, and turns this tab into a small
+            control panel with the instruction and a score button.
           </p>
           <div className="flex flex-wrap gap-2">
             <a
@@ -87,7 +89,7 @@ export default function TaskDetail() {
               rel="noreferrer"
               className="btn-primary"
             >
-              Open clean condition&nbsp;<span aria-hidden>→</span>
+              Play clean&nbsp;<span aria-hidden>→</span>
             </a>
             {entry.has_intervention && (
               <a
@@ -96,15 +98,30 @@ export default function TaskDetail() {
                 rel="noreferrer"
                 className="btn"
               >
-                Open intervention condition&nbsp;<span aria-hidden>→</span>
+                Play intervention&nbsp;<span aria-hidden>→</span>
               </a>
             )}
           </div>
-          <p className="mt-3 text-xs text-muted">
-            The launcher opens in a new tab with this task pre-selected at
-            seed = 42. Click <strong>Launch</strong> on that page to start
-            the session.
+        </section>
+      )}
+
+      {HAS_LIVE_DEMO && !FEATURED_TASK_IDS.has(entry.task_id) && (
+        <section className="card mb-6 bg-cream border-border">
+          <p className="text-sm text-ink/80 leading-relaxed">
+            This task isn't in the curated{" "}
+            <Link to="/demo">demo set</Link> on the hosted backend.
+            To try it, either{" "}
+            <Link to="/docs/setup">run WebStress locally</Link> or open
+            the launcher and pick it manually:
           </p>
+          <a
+            href={`${LIVE_DEMO_URL}/launch?task=${encodeURIComponent(entry.task_id)}&seed=42`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn mt-3"
+          >
+            Open in launcher&nbsp;<span aria-hidden>→</span>
+          </a>
         </section>
       )}
 

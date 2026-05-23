@@ -2037,14 +2037,36 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
     min_score_achievable = "false"
 
     # ── final_exam_assignment_id: ID of a final exam assignment (single) ──
-    # Prefer not_submitted so the task can submit study_plan.pdf.
+    # Prefer the target_course_id's final exam so tasks like
+    # lms_minimum_final_score (whose instruction names a specific course) stay
+    # internally consistent: instruction says "in CS101" → final exam target is
+    # CS101's final, not some other course's exam picked by iteration order.
+    # The reset block below will force it to not_submitted if needed.
+    _grade_book_target_cid = ctx.outputs.get("target_course_id", "")
     final_exam_assignment_id = ""
-    for a in assignments:
-        if a["type"] == "exam" and a["weight_category"] == "final" and a["submission_status"] == "not_submitted":
-            final_exam_assignment_id = a["id"]
-            break
+    if _grade_book_target_cid:
+        # Target-course final: prefer not_submitted, then any status
+        for a in assignments:
+            if (a["course_id"] == _grade_book_target_cid
+                    and a["type"] == "exam"
+                    and a["weight_category"] == "final"
+                    and a["submission_status"] == "not_submitted"):
+                final_exam_assignment_id = a["id"]
+                break
+        if not final_exam_assignment_id:
+            for a in assignments:
+                if (a["course_id"] == _grade_book_target_cid
+                        and a["type"] == "exam"
+                        and a["weight_category"] == "final"):
+                    final_exam_assignment_id = a["id"]
+                    break
     if not final_exam_assignment_id:
-        # Fallback: any final exam regardless of status
+        # No target course (or target has no final): fall back to any final exam
+        for a in assignments:
+            if a["type"] == "exam" and a["weight_category"] == "final" and a["submission_status"] == "not_submitted":
+                final_exam_assignment_id = a["id"]
+                break
+    if not final_exam_assignment_id:
         for a in assignments:
             if a["type"] == "exam" and a["weight_category"] == "final":
                 final_exam_assignment_id = a["id"]
@@ -2063,15 +2085,22 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 break
 
     # ── Guarantee final_exam_assignment_id is submittable ──
-    # If the selected final exam is already submitted with no remaining attempts,
-    # force-reset it to not_submitted so the task (submit study_plan.pdf) is solvable.
+    # The task may need to submit study_plan.pdf to this final exam. When the
+    # final belongs to the target course (the selection above), force-reset it
+    # to not_submitted unconditionally so the task is always solvable. For
+    # non-target finals (fallback path) only reset if there are no remaining
+    # attempts, to avoid disturbing fixtures other tasks rely on.
     if final_exam_assignment_id:
         fa = next((a for a in assignments if a["id"] == final_exam_assignment_id), None)
         if fa and fa["submission_status"] not in ("not_submitted",):
-            # Check if there are remaining attempts
-            if fa.get("attempt_count", 0) >= fa.get("max_attempts", 1):
-                # No attempts left — reset to not_submitted so the agent can submit
-                old_score = fa.get("score")
+            is_target_final = (
+                _grade_book_target_cid
+                and fa["course_id"] == _grade_book_target_cid
+            )
+            needs_reset = is_target_final or (
+                fa.get("attempt_count", 0) >= fa.get("max_attempts", 1)
+            )
+            if needs_reset:
                 fa["submission_status"] = "not_submitted"
                 fa["score"] = None
                 fa["file_name"] = None
@@ -2321,7 +2350,7 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
     # The lms_multi_course_thresholds task requires at least 1 impossible course for the
     # eval check to be satisfiable. If randomness produced all achievable courses, force
     # the first achievable course (that has remaining assignments) to be impossible by
-    # reducing its existing grade scores to near-zero, making need > 100%.
+    # reducing its existing grade scores so need > 100%.
     if not impossible_course_ids and len(achievable_course_ids) >= 2:
         # Find first achievable course with remaining assignments AND existing grades
         victim_cid = None
@@ -2333,12 +2362,16 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 victim_cid = cid
                 break
         if victim_cid is not None:
-            # Set all active grade scores to 1% of points_possible, making fp ≈ 1%
-            # so need ≈ (80*tw - fp) / xc >> 100 for any course with ≥1 remaining assignment
+            # Set all active grade scores to 25% of points_possible. Realistic
+            # "struggling student" range — for any sane weight distribution
+            # (final weight ∈ [0.2, 0.3], remaining weight ≥ 0.7) the required
+            # final score still exceeds 100%, so the course remains impossible.
+            # Previously this was 1%, which looked like a data bug to annotators
+            # (an annotator flagged this as "The score is 0.96%, there's a bug!!!!").
             for g in ctx.base["grades"]:
                 if g["course_id"] == victim_cid and not g["is_dropped"]:
                     pts = Decimal(str(g["points_possible"]))
-                    g["score"] = float((pts * Decimal("0.01")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                    g["score"] = float((pts * Decimal("0.25")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
             # NOTE: Do NOT update assignment["score"] — grade records and assignment
             # records serve different purposes. grade_book weighted-score computation
             # uses grade records only. Assignment records' score field is used by
@@ -2356,8 +2389,9 @@ def _build_grade_book(ctx: LMSSeedContext, params: dict[str, Any]) -> dict[str, 
                 next_unsubmitted_ids.remove(victim_nu["id"])
             impossible_course_ids.append(victim_cid)
             impossible_b_course_ids.append(victim_cid)
-            # Update current_weighted_scores for the victim course
-            current_weighted_scores[victim_cid] = "1.00"
+            # Update current_weighted_scores for the victim course (matches the
+            # 25% per-grade score set above).
+            current_weighted_scores[victim_cid] = "25.00"
 
     impossible_b_enrollment_ids: list[str] = []
     for cid in impossible_b_course_ids:

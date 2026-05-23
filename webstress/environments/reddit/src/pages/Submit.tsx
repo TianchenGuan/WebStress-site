@@ -5,7 +5,7 @@ import { Button, preserveQueryParams } from "@webstress/shared";
 import { useRedditLayout } from "../context";
 
 export function SubmitPage() {
-  const { api, notify } = useRedditLayout();
+  const { api, notify, profile } = useRedditLayout();
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
@@ -33,8 +33,11 @@ export function SubmitPage() {
         flair_text: flairText || undefined,
         is_spoiler: isSpoiler,
       });
+      // Fallback author_name to the current user when the backend response
+      // omits it — keeps the optimistic preview readable instead of "u/".
+      const previewPost = post.author_name ? post : { ...post, author_name: profile?.username ?? post.author_name };
       notify("Post submitted!");
-      navigate(preserveQueryParams(`/post/${post.id}`, location.search), { state: { postPreview: post } });
+      navigate(preserveQueryParams(`/post/${post.id}`, location.search), { state: { postPreview: previewPost } });
     } catch {
       notify("Failed to submit post. Make sure the subreddit name is correct.");
     } finally {

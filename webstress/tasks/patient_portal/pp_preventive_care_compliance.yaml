@@ -3,11 +3,12 @@ env_id: patient_portal
 title: Preventive Care Compliance Plan
 instruction_template: 'Review your Applicable Screenings list in the profile and schedule
   an appointment for every screening whose status is "Overdue" (next_due date has
-  passed). For each overdue screening, schedule exactly one appointment and include
-  the screening name in the appointment reason. If an overdue screening requires a
-  specialist referral, the seeded referral is already approved — you do not need to
-  request or modify any referral. Do not schedule screenings whose status is "Current".
-  Do not send any messages.'
+  passed). For each overdue screening, schedule exactly one appointment, include
+  the screening name in the appointment reason, AND confirm the appointment after
+  scheduling (specialist screening appointments require an explicit confirmation
+  step). If an overdue screening requires a specialist referral, the seeded referral
+  is already approved — you do not need to request or modify any referral. Do not
+  schedule screenings whose status is "Current". Do not send any messages.'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -24,6 +25,13 @@ seed:
       - High Cholesterol
       insurance_tier: standard
       overdue_screening_count: 2
+      # B-1 confirmation workflow: screening appointments at cardiology /
+      # radiology / dermatology specialist providers land in
+      # confirmation_state="pending"; agent must POST /confirm after scheduling.
+      auto_confirm_specialties:
+      - cardiology
+      - radiology
+      - dermatology
     outputs:
     - pcp_id
     - pcp_name
@@ -110,6 +118,12 @@ canonical_diff:
         status: {eq: "scheduled"}
         reason:
           expr: "v.lower() in (x or '').lower()"
+        # Specialist screening appointments must be confirmed via the
+        # two-step schedule + confirm workflow. PCP screenings (when no
+        # specialist is involved) skip this check because their
+        # confirmation_state stays "not_required".
+        confirmation_state:
+          expr: 'x in ("confirmed", "not_required")'
         provider_id: {any: true}
         datetime: {any: true}
         type: {any: true}

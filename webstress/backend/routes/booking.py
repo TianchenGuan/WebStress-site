@@ -359,6 +359,14 @@ async def get_session(
     )
 
 
+@router.get("/degradation/{session_id}")
+def get_client_degradation(session_id: str) -> dict[str, Any]:
+    """Return client-layer degradation injections for a session as executable JS."""
+    from ...injector.middleware import get_client_injections
+    injections = get_client_injections(session_id)
+    return {"session_id": session_id, "client_injections": injections}
+
+
 @router.post("/session/{session_id}/reset")
 async def reset_session(
     session_id: str,

@@ -13,10 +13,18 @@ injections:
     - PUT
     - DELETE
     fail_count: 2
+    # Echo the client's submitted fields so the fake "success" response looks
+    # like a real persisted contact (Alice keeps her real name/email; only the
+    # note appears updated to what the agent just typed). Omitting `id` keeps
+    # the frontend's existing record id when it spreads the response in.
+    # Previously this hardcoded em-dashes ("\u2014@example.com"), which surfaced
+    # as nonsense data on Alice's contact card after a silently-failed write.
     response_body:
       contact:
-        id: contact_a8c4d219
-        name: "\u2014"
-        email: "\u2014@example.com"
+        name: '{request.name}'
+        email: '{request.email}'
+        company: '{request.company}'
+        note: '{request.note}'
+        is_vip: '{request.is_vip}'
     behavior:
       mode: once

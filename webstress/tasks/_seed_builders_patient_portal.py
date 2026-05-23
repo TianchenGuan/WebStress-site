@@ -75,6 +75,10 @@ _PROVIDER_NAMES: dict[str, list[str]] = {
         "Dr. Paul Hoffman", "Dr. Natalie Russo", "Dr. Gregory Lin",
         "Dr. Catherine Stone", "Dr. Derek Foster",
     ],
+    "phlebotomy": [
+        "Outpatient Lab Services", "Clinical Laboratory",
+        "Diagnostic Lab Center", "Pre-Op Lab Suite",
+    ],
     "billing": [
         "Billing Department", "Claims Office", "Patient Accounts",
     ],
@@ -91,6 +95,7 @@ _SPECIALTY_DEPARTMENTS: dict[str, str] = {
     "orthopedics": "Orthopedics",
     "neurology": "Neurology",
     "radiology": "Radiology",
+    "phlebotomy": "Laboratory",
     "billing": "Billing",
     "admin": "Administration",
 }
@@ -446,6 +451,12 @@ def build_patient_profile(ctx: PatientPortalSeedContext, params: dict[str, Any])
     }
 
     ctx.base["patient"] = patient_dict
+    # B-1: opt-in confirmation workflow. Specialties listed here trigger the
+    # create_appointment route to land new appointments in
+    # confirmation_state="pending" so the agent must complete a two-step
+    # schedule+confirm workflow. Empty list = legacy behavior.
+    if "auto_confirm_specialties" in params:
+        ctx.base["auto_confirm_specialties"] = list(params["auto_confirm_specialties"] or [])
 
     # Compute the overdue subset — every screening whose next_due has already
     # passed relative to the seeded clock. Consumers (e.g. the
@@ -744,6 +755,13 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
     include_specialist = params.get("include_specialist", True)
     conflict_pair = params.get("conflict_pair", False)
     target_specialty: str | None = params.get("target_specialty")
+    # B-1: per-specialty list of specialties whose upcoming appointments
+    # should be created with `requires_confirmation=True`. Default empty
+    # list preserves backward compatibility — existing tasks remain
+    # confirmation-free unless they opt in.
+    confirmation_specialties: list[str] = list(
+        params.get("requires_confirmation_specialties", []) or []
+    )
 
     if "appointments" not in ctx.base:
         ctx.base["appointments"] = []
@@ -815,6 +833,7 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
         apt_type = ctx.rng.choice(["in-person", "telehealth"])
         booked_at = ctx.now - timedelta(days=ctx.rng.randint(1, 14))
 
+        needs_confirm = prov.get("specialty") in confirmation_specialties
         apt_dict = {
             "id": apt_id,
             "provider_id": prov["id"],
@@ -826,6 +845,8 @@ def build_appointment_history(ctx: PatientPortalSeedContext, params: dict[str, A
             "linked_referral_id": None,
             "booked_at": booked_at.isoformat(),
             "location": "Main Campus" if apt_type == "in-person" else "Telehealth",
+            "requires_confirmation": needs_confirm,
+            "confirmation_state": "pending" if needs_confirm else "not_required",
         }
         _link_matching_referral(apt_dict, prov)
         ctx.base["appointments"].append(apt_dict)

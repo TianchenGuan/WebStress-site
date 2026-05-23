@@ -1,14 +1,14 @@
 """Task discovery, loading, validation, and indexing.
 
-All YAML files under this package directory are loaded and validated once
-at import time via :func:`load_all_tasks`.  The resulting
-:class:`TaskDefinition` objects are cached for the lifetime of the process.
+All YAML files under this package directory are loaded and validated and
+cached, with the cache invalidated whenever any task YAML's mtime changes —
+so editing a task during a dev session reflects on the next session-create
+without needing to restart uvicorn.
 """
 
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -18,10 +18,26 @@ from ._schema import TaskDefinition
 TASKS_DIR = Path(__file__).parent
 logger = logging.getLogger(__name__)
 
+_TASK_INDEX: dict[str, TaskDefinition] | None = None
+_TASK_INDEX_MAX_MTIME: float = 0.0
+_TASKS_BY_ENV: dict[str, list[TaskDefinition]] | None = None
 
-@lru_cache(maxsize=1)
+
+def _yaml_max_mtime() -> float:
+    """Largest mtime across all task YAMLs. Cheap (~5ms for 500 files)."""
+    return max(
+        (p.stat().st_mtime for p in TASKS_DIR.rglob("*.yaml") if not p.name.startswith("_")),
+        default=0.0,
+    )
+
+
 def load_all_tasks() -> dict[str, TaskDefinition]:
-    """Discover and load all YAML task files.  Called once at startup."""
+    """Discover and load all YAML task files. Reloads if any YAML changed."""
+    global _TASK_INDEX, _TASK_INDEX_MAX_MTIME, _TASKS_BY_ENV
+    current_mtime = _yaml_max_mtime()
+    if _TASK_INDEX is not None and current_mtime <= _TASK_INDEX_MAX_MTIME:
+        return _TASK_INDEX
+
     index: dict[str, TaskDefinition] = {}
     sources: dict[str, Path] = {}
 
@@ -48,6 +64,9 @@ def load_all_tasks() -> dict[str, TaskDefinition]:
     for task in index.values():
         _validate_canonical_diff_refs(task)
     logger.info("Loaded %d tasks from %s", len(index), TASKS_DIR)
+    _TASK_INDEX = index
+    _TASK_INDEX_MAX_MTIME = current_mtime
+    _TASKS_BY_ENV = None  # invalidate derived cache
     return index
 
 
@@ -154,12 +173,16 @@ def get_task(task_id: str) -> TaskDefinition:
     return load_all_tasks()[task_id]
 
 
-@lru_cache(maxsize=1)
 def tasks_by_env() -> dict[str, list[TaskDefinition]]:
     """Group all tasks by ``env_id``."""
+    global _TASKS_BY_ENV
+    tasks = load_all_tasks()  # may invalidate _TASKS_BY_ENV if YAMLs changed
+    if _TASKS_BY_ENV is not None:
+        return _TASKS_BY_ENV
     groups: dict[str, list[TaskDefinition]] = {}
-    for task in load_all_tasks().values():
+    for task in tasks.values():
         groups.setdefault(task.env_id, []).append(task)
+    _TASKS_BY_ENV = groups
     return groups
 
 

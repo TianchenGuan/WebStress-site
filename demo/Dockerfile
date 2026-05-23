@@ -7,18 +7,18 @@
 #   2. python stage: pip install runtime deps, copy the built SPAs over,
 #      run uvicorn on port 7860 (HF Space default).
 #
-# HF Space rebuilds when this Dockerfile or the source changes. Sessions
-# live in process memory and are wiped on restart — that's the intended
-# behaviour for a public demo (no PII retained, every visitor gets a
-# fresh seed).
+# Source: WebStress-site fork on GitHub. Push to that repo, then trigger a
+# Factory rebuild on HF Space (Settings → Restart) to pull the new code.
+# Bump CACHE_BUSTER below to force a fresh clone on the next build.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — build the 7 React SPAs
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:24-bookworm-slim AS frontend
 
-ARG WEBSTRESS_REPO=https://github.com/Arvid-pku/WebStress.git
+ARG WEBSTRESS_REPO=https://github.com/TianchenGuan/WebStress-site.git
 ARG WEBSTRESS_REF=main
+ARG CACHE_BUSTER=2026-05-23-1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates curl \
@@ -27,7 +27,8 @@ RUN apt-get update \
  && corepack prepare pnpm@10.15.0 --activate
 
 WORKDIR /build
-RUN git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
+RUN echo "cache-buster=${CACHE_BUSTER}" \
+ && git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
 
 # Install + build all 7 environment SPAs. Outputs land in
 # webstress/static/envs/<env>/ via each env's `vite build` step.
@@ -40,8 +41,9 @@ RUN cd webstress/environments \
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-ARG WEBSTRESS_REPO=https://github.com/Arvid-pku/WebStress.git
+ARG WEBSTRESS_REPO=https://github.com/TianchenGuan/WebStress-site.git
 ARG WEBSTRESS_REF=main
+ARG CACHE_BUSTER=2026-05-23-1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -61,7 +63,10 @@ RUN pip install --no-cache-dir \
       python-dotenv
 
 # Pull the WebStress source at build time (same ref as the frontend stage).
-RUN git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
+# The cache-buster echo above already forced a fresh layer if the value
+# changed, so this clone re-runs cleanly.
+RUN echo "cache-buster=${CACHE_BUSTER}" \
+ && git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
 
 # Bring the pre-built SPAs over from the frontend stage.
 COPY --from=frontend /build/webstress/static/envs /app/webstress/static/envs

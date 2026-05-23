@@ -3,9 +3,10 @@ env_id: patient_portal
 title: Post-Accident Care Coordination
 instruction_template: 'After an accident, coordinate the following care workstreams
   using only appointments and referrals: 1) Schedule exactly one orthopedic follow-up
-  appointment with reason "Post-accident orthopedic follow-up", 2) Request exactly
-  one new radiology referral from your PCP with reason "Post-accident MRI evaluation",
-  3) Schedule exactly one PCP appointment with reason "Disability documentation visit".'
+  appointment with reason "Post-accident orthopedic follow-up" and CONFIRM it (specialist
+  appointments require an explicit confirmation step), 2) Request exactly one new
+  radiology referral from your PCP with reason "Post-accident MRI evaluation", 3)
+  Schedule exactly one PCP appointment with reason "Disability documentation visit".'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -23,6 +24,10 @@ seed:
       allergies:
       - Codeine
       insurance_tier: standard
+      # B-1: new orthopedic appointments land in confirmation_state="pending";
+      # the agent must call POST /appointments/{id}/confirm to finish.
+      auto_confirm_specialties:
+      - orthopedics
     outputs:
     - pcp_id
     - pcp_name
@@ -96,12 +101,17 @@ canonical_diff:
   #       reason exactly "Disability documentation visit".
   create:
     - entity: Appointment
-      desc: "Schedule one orthopedic follow-up appointment"
+      desc: "Schedule and CONFIRM one orthopedic follow-up appointment"
       properties:
         status: {eq: "scheduled"}
         provider_id:
           expr: "x in target['ortho_provider_ids']"
         reason: {eq: "Post-accident orthopedic follow-up"}
+        # Specialist appointment must be confirmed (two-step workflow).
+        # `auto_confirm_specialties` puts new specialist appointments in
+        # confirmation_state="pending" — the agent must POST /confirm to
+        # transition to "confirmed".
+        confirmation_state: {eq: "confirmed"}
         datetime: {any: true}
         type: {any: true}
         notes: {any: true}

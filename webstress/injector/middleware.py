@@ -153,8 +153,9 @@ def _render_request_template(value: Any, request_body: Any) -> Any:
     - Whole-string placeholders (``"{request.quantity}"``) preserve the source's type
       (so an int request field becomes an int in the rendered body).
     - Inline placeholders (``"cart_{request.product_id}"``) stringify each resolution.
-    - Unresolvable paths leave the original placeholder text in place — the agent then
-      sees the raw ``{request.X}`` token, which is a useful signal during authoring.
+    - Unresolvable paths render as ``null`` for whole-string placeholders and empty
+      string for inline ones — keeping raw ``{request.X}`` tokens would leak into
+      user-visible UI when a variant echoes the client request back as a fake success.
     - When ``request_body`` is None or not a mapping, the value is returned unchanged.
     """
     if request_body is None or not isinstance(request_body, (dict, list)):
@@ -169,14 +170,14 @@ def _render_request_template(value: Any, request_body: Any) -> Any:
     if not matches:
         return value
     if len(matches) == 1 and matches[0].group(0) == value:
-        resolved = _resolve_request_path(request_body, matches[0].group(1))
-        return resolved if resolved is not None else value
+        # Whole-string placeholder → preserve resolved type, or None if unresolved.
+        return _resolve_request_path(request_body, matches[0].group(1))
     out: list[str] = []
     cursor = 0
     for m in matches:
         out.append(value[cursor:m.start()])
         resolved = _resolve_request_path(request_body, m.group(1))
-        out.append(str(resolved) if resolved is not None else m.group(0))
+        out.append("" if resolved is None else str(resolved))
         cursor = m.end()
     out.append(value[cursor:])
     return "".join(out)

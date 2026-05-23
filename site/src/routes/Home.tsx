@@ -1,5 +1,12 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { HAS_LIVE_DEMO, LIVE_DEMO_URL } from "../lib/config";
+import { HAS_LIVE_DEMO } from "../lib/config";
+import { HOMEPAGE_FEATURED } from "../lib/featured";
+import { loadTasks } from "../lib/data";
+import type { TaskEntry } from "../data/types";
+import { ENV_LABELS, pillColorForDifficulty } from "../lib/format";
+import { liveDemoTaskUrl } from "../lib/config";
+import Pill from "../components/Pill";
 
 const STATS: { value: string; label: string; sub?: string }[] = [
   { value: "519", label: "Paired tasks", sub: "clean + intervention" },
@@ -30,6 +37,16 @@ const KEY_RESULTS: { headline: string; detail: string }[] = [
 ];
 
 export default function Home() {
+  const [tasks, setTasks] = useState<TaskEntry[] | null>(null);
+  useEffect(() => {
+    loadTasks().then(setTasks).catch(() => setTasks([]));
+  }, []);
+  const featuredEntries = useMemo(() => {
+    if (!tasks) return [];
+    const byId = new Map(tasks.map((t) => [t.task_id, t]));
+    return HOMEPAGE_FEATURED.map((d) => ({ demo: d, entry: byId.get(d.task_id) || null }));
+  }, [tasks]);
+
   return (
     <div>
       {/* Hero */}
@@ -54,9 +71,9 @@ export default function Home() {
             <a className="btn" href="https://github.com/Arvid-pku/WebStress" target="_blank" rel="noreferrer">Code</a>
             <Link className="btn" to="/tasks">Explore Tasks</Link>
             {HAS_LIVE_DEMO && (
-              <a className="btn" href={`${LIVE_DEMO_URL}/launch`} target="_blank" rel="noreferrer">
-                Try the live demo&nbsp;<span aria-hidden>→</span>
-              </a>
+              <Link className="btn" to="/demo">
+                Play featured demos&nbsp;<span aria-hidden>→</span>
+              </Link>
             )}
             <Link className="btn" to="/results">View Results</Link>
             <Link className="btn" to="/docs">Documentation</Link>
@@ -94,6 +111,61 @@ export default function Home() {
           forged "Saved" toast over a silently dropped write counts as a failure.
         </p>
       </section>
+
+      {/* Featured demos */}
+      {HAS_LIVE_DEMO && featuredEntries.length > 0 && (
+        <section className="bg-cream/40 border-y border-border">
+          <div className="max-w-6xl mx-auto px-6 py-14">
+            <div className="flex items-baseline justify-between flex-wrap gap-2 mb-6">
+              <h2 className="text-2xl">Featured demos</h2>
+              <Link to="/demo" className="text-sm text-accent no-underline hover:underline">
+                See all featured&nbsp;→
+              </Link>
+            </div>
+            <p className="text-ink/75 max-w-prose mb-6 text-sm leading-relaxed">
+              Hand-picked from the Human-140 panel. One click launches the
+              task on the hosted backend — no chooser UI, no setup.
+            </p>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {featuredEntries.map(({ demo, entry }) => (
+                <div key={demo.task_id} className="card flex flex-col">
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {entry?.env_id && (
+                      <Pill className="bg-accent-soft/40 border-accent-soft text-ink">
+                        {ENV_LABELS[entry.env_id]}
+                      </Pill>
+                    )}
+                    {entry?.difficulty && (
+                      <Pill className={pillColorForDifficulty(entry.difficulty)}>
+                        {entry.difficulty}
+                      </Pill>
+                    )}
+                  </div>
+                  <h3 className="text-base leading-snug mb-2">
+                    <Link
+                      to={`/tasks/${demo.task_id}`}
+                      className="no-underline hover:text-accent"
+                    >
+                      {entry?.title ?? demo.task_id}
+                    </Link>
+                  </h3>
+                  <p className="text-sm text-ink/75 leading-relaxed flex-1 mb-4">
+                    {demo.blurb}
+                  </p>
+                  <a
+                    href={liveDemoTaskUrl(demo.task_id, demo.cond)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary text-sm self-start"
+                  >
+                    Play&nbsp;<span aria-hidden>→</span>
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Key results */}
       <section className="bg-white border-y border-border">

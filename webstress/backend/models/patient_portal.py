@@ -87,6 +87,17 @@ class Appointment(BaseEntity):
     pre_auth_status: str = "not_required"
     booked_at: datetime = Field(default_factory=utc_now)
     location: str = ""
+    # B-1 expansion: confirmation workflow + cancellation reason.
+    # ``requires_confirmation`` is set by the seed builder for high-stakes
+    # appointments (e.g. specialist visits, procedures). When True the
+    # appointment lands in ``confirmation_state: "pending"`` and the SPA
+    # surfaces a Confirm button; the backend exposes
+    # POST /appointments/{id}/confirm to transition pending -> confirmed.
+    requires_confirmation: bool = False
+    confirmation_state: str = "not_required"  # not_required | pending | confirmed
+    confirmed_at: datetime | None = None
+    # Cancel endpoint accepts an optional reason which is recorded here.
+    cancellation_reason: str | None = None
 
 
 class Prescription(BaseEntity):
@@ -193,6 +204,12 @@ class PatientPortalState(BaseEnvState):
     claims: list[InsuranceClaim] = Field(default_factory=list)
     immunizations: list[Immunization] = Field(default_factory=list)
     pharmacies: list[Pharmacy] = Field(default_factory=list)
+
+    # B-1 expansion: specialties whose newly-created appointments auto-land
+    # in confirmation_state="pending". Empty list (the default) preserves
+    # the legacy "schedule = done" semantics. Task seed builders populate
+    # this list to opt the session into a two-step schedule + confirm flow.
+    auto_confirm_specialties: list[str] = Field(default_factory=list)
 
     _next_id: int = PrivateAttr(default=1)
     _initial_snapshot: dict[str, Any] | None = PrivateAttr(default=None)

@@ -72,6 +72,12 @@ class RescheduleAppointmentRequest(SessionScopedRequest):
     new_type: str | None = None
 
 
+class CancelAppointmentRequest(SessionScopedRequest):
+    # Optional cancellation reason. The default-None preserves backward
+    # compatibility with callers that POST the legacy session-only payload.
+    reason: str | None = None
+
+
 class SendMessageRequest(SessionScopedRequest):
     provider_id: str
     subject: str
@@ -562,7 +568,10 @@ def create_appointment(
         kw in _reason_lower
         for kw in ("echocardiogram", "echo", "cardiac echo", "cardiac ultrasound")
     )
-    if provider.specialty not in ("pcp", "billing", "admin") and not _is_immunization_appt and not _is_echo_appt:
+    # Phlebotomy / outpatient lab also bypasses the referral chain — patients
+    # routinely walk into the lab with a standing order or self-pay request,
+    # no referral needed.
+    if provider.specialty not in ("pcp", "billing", "admin", "phlebotomy") and not _is_immunization_appt and not _is_echo_appt:
         approved_referral = next(
             (r for r in state.referrals
              if r.to_specialty == provider.specialty and r.status == "approved"),
@@ -607,7 +616,11 @@ def create_appointment(
     # Consume the slot
     provider.available_slots.remove(matching_slot)
 
-    # Create the appointment
+    # Create the appointment. If the provider's specialty appears in
+    # ``state.auto_confirm_specialties`` (opt-in via seed builder), the
+    # appointment lands as awaiting confirmation — the agent must call
+    # POST /appointments/{id}/confirm to finish the workflow.
+    auto_confirm = provider.specialty in (state.auto_confirm_specialties or [])
     apt_id = state._gen_id("apt")
     apt = Appointment(
         id=apt_id,
@@ -620,6 +633,8 @@ def create_appointment(
         linked_referral_id=body.linked_referral_id,
         booked_at=utc_now(),
         location="Main Campus" if (body.type or matching_slot.type) == "in-person" else "Telehealth",
+        requires_confirmation=auto_confirm,
+        confirmation_state="pending" if auto_confirm else "not_required",
     )
     state.appointments.append(apt)
 
@@ -635,7 +650,7 @@ def create_appointment(
 @router.post("/appointments/{apt_id}/cancel")
 def cancel_appointment(
     apt_id: str,
-    body: SessionScopedRequest,
+    body: CancelAppointmentRequest,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _pp_state(session_manager, body.session_id)
@@ -645,16 +660,60 @@ def cancel_appointment(
     if apt.status != "scheduled":
         raise HTTPException(status_code=422, detail=f"Appointment is {apt.status}, not scheduled")
 
+    reason = (body.reason or "").strip() or None
+
     def _do_cancel(s: PatientPortalState) -> Appointment:
         apt_obj = s.get_appointment(apt_id)
         apt_obj.status = "cancelled"
+        if reason:
+            apt_obj.cancellation_reason = reason
         return apt_obj
 
     result = _mutate(
         session_manager, body.session_id,
         "patient_portal.appointment.cancel",
-        {"appointment_id": apt_id},
+        {"appointment_id": apt_id, "reason": reason},
         _do_cancel,
+    )
+    return result.model_dump(mode="json")
+
+
+@router.post("/appointments/{apt_id}/confirm")
+def confirm_appointment(
+    apt_id: str,
+    body: SessionScopedRequest,
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> dict[str, Any]:
+    """Transition a pending-confirmation appointment to confirmed.
+
+    Only valid when ``requires_confirmation`` is True and
+    ``confirmation_state`` is ``"pending"``. The seed builder marks
+    high-stakes appointments (specialist visits, procedures) as requiring
+    confirmation so the agent must complete a two-step workflow rather than
+    a single book-and-forget action.
+    """
+    state = _pp_state(session_manager, body.session_id)
+    apt = state.get_appointment(apt_id)
+    if apt is None:
+        raise HTTPException(status_code=404, detail=f"Appointment {apt_id} not found")
+    if not apt.requires_confirmation:
+        raise HTTPException(status_code=422, detail="Appointment does not require confirmation")
+    if apt.confirmation_state == "confirmed":
+        raise HTTPException(status_code=422, detail="Appointment already confirmed")
+    if apt.status != "scheduled":
+        raise HTTPException(status_code=422, detail=f"Appointment is {apt.status}, not scheduled")
+
+    def _do_confirm(s: PatientPortalState) -> Appointment:
+        apt_obj = s.get_appointment(apt_id)
+        apt_obj.confirmation_state = "confirmed"
+        apt_obj.confirmed_at = utc_now()
+        return apt_obj
+
+    result = _mutate(
+        session_manager, body.session_id,
+        "patient_portal.appointment.confirm",
+        {"appointment_id": apt_id},
+        _do_confirm,
     )
     return result.model_dump(mode="json")
 

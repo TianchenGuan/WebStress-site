@@ -4,8 +4,10 @@ title: Insurance Plan Change with Rx Audit
 instruction_template: 'Your insurance has changed to a new plan. Complete the transition
   by: 1) Updating your insurance plan details to plan name "Aetna PPO Silver", member
   ID "AET-5529103", and group number "GRP-88914", 2) Setting the mail-order pharmacy
-  already in your pharmacy list as the default pharmacy for the new plan. Do not send
-  any messages, do not cancel appointments, and do not discontinue any medications.'
+  already in your pharmacy list as the default pharmacy for the new plan, 3) Transferring
+  every active prescription to the new mail-order pharmacy so refills route through the
+  new plan. Do not send any messages, do not cancel appointments, and do not discontinue
+  any medications.'
 difficulty: frontier
 time_limit_seconds: 600
 expected_steps: 55
@@ -52,6 +54,11 @@ seed:
     params:
       active_count: 5
       expired_count: 1
+      # Force every active rx to the default (retail) pharmacy so the
+      # mail-order transfer required by the task instruction is a real
+      # state change for every prescription (not a no-op for rxs already at
+      # the mail-order pharmacy).
+      active_at_default_only: true
     outputs:
     - active_rx_ids
   - use: appointment_history
@@ -100,6 +107,17 @@ canonical_diff:
         expr: "x == initial.patient.email"
       name:
         expr: "x == initial.patient.name"
+  - entity: Prescription
+    desc: Every active prescription transferred to the new mail-order pharmacy
+    bijection:
+      over: "target['active_rx_ids']"
+      variable: v
+    where:
+      id:
+        expr: "x == v"
+    changes:
+      pharmacy_id:
+        expr: "x == target['mail_order_pharmacy_id']"
   invariant:
   - collection: state.pharmacies
     filter: a.id != target['default_pharmacy_id'] and a.id != target['mail_order_pharmacy_id']

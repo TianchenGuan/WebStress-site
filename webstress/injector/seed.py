@@ -861,6 +861,7 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
 
     if hasattr(state, "patient") and hasattr(state, "providers") and hasattr(state, "claims"):
         from webstress.backend.models.patient_portal import (
+            Appointment,
             ClinicalMessage,
             Immunization,
             InsuranceClaim,
@@ -1014,6 +1015,64 @@ def _add_confusing_decoys(state: Any, params: dict[str, Any], *, rng=None) -> No
                     pharmacy.cost_per_90day_supply,
                 )
                 state.pharmacies.insert(0, pharmacy)
+                continue
+
+            if dtype == "appointment":
+                provider = _pick_provider(spec)
+                if provider is None:
+                    continue
+                # Resolve datetime: explicit `datetime` wins, otherwise build from
+                # `days_ahead` (negative ⇒ past) + `hour` relative to *now*.
+                # This lets variant YAMLs avoid hardcoding absolute dates that go
+                # stale (same authoring-bug class we hit on RH options expiration).
+                dt_value = _coerce_timestamp(spec.get("datetime"))
+                if dt_value is None:
+                    days_ahead = spec.get("days_ahead")
+                    hour = int(spec.get("hour", 10))
+                    base = datetime.now(timezone.utc).replace(
+                        hour=hour, minute=0, second=0, microsecond=0,
+                    )
+                    if days_ahead is not None:
+                        dt_value = base + timedelta(days=int(days_ahead))
+                    elif appointment_template is not None:
+                        # Fall back to copying the template's datetime so the
+                        # decoy at least lands somewhere realistic.
+                        dt_value = appointment_template.datetime
+                    else:
+                        dt_value = base + timedelta(days=7)
+                # `type` is the decoy dispatcher key — use `appointment_type`
+                # (or legacy `apt_type`) for the in-person/telehealth value so
+                # YAML doesn't collide on the same field name.
+                apt_kind = spec.get("appointment_type", spec.get("apt_type", "in-person"))
+                if appointment_template is not None:
+                    appointment = appointment_template.model_copy(deep=True)
+                    appointment.id = _state_next_id(state, "apt", rng=_rng, fallback_seed=124)
+                else:
+                    appointment = Appointment(
+                        id=_state_next_id(state, "apt", rng=_rng, fallback_seed=124),
+                        provider_id=provider.id,
+                        datetime=dt_value,
+                        type=apt_kind,
+                        status=spec.get("status", "scheduled"),
+                        reason=spec.get("reason", "Follow-up"),
+                    )
+                appointment.provider_id = provider.id
+                appointment.datetime = dt_value
+                appointment.type = apt_kind
+                appointment.status = spec.get("status", "scheduled")
+                appointment.reason = spec.get("reason", appointment.reason)
+                appointment.notes = spec.get("notes", appointment.notes)
+                appointment.linked_referral_id = spec.get(
+                    "linked_referral_id", appointment.linked_referral_id
+                )
+                appointment.pre_auth_status = spec.get(
+                    "pre_auth_status", appointment.pre_auth_status
+                )
+                appointment.location = spec.get(
+                    "location",
+                    "Main Campus" if appointment.type == "in-person" else "Telehealth",
+                )
+                state.appointments.append(appointment)
                 continue
 
             if dtype == "lab_result":
@@ -2176,6 +2235,10 @@ def _rh_add_noise_orders(state: Any, params: dict[str, Any], *, rng=None) -> Non
     """Add distractor pending orders to stress State Tracking.
 
     Honors ``multiplier`` / ``cap`` to replicate the orders list.
+    Supports ``symbols_from_target: <key>`` to pull a list of symbols from the
+    seed's resolved targets — lets variants target whichever symbols the seed
+    actually picked (e.g. the loser symbols for tax-loss harvesting), instead
+    of hardcoding symbols that may not match the seed's portfolio.
     """
     if not hasattr(state, "orders"):
         return
@@ -2190,6 +2253,33 @@ def _rh_add_noise_orders(state: Any, params: dict[str, Any], *, rng=None) -> Non
     if multiplier > 1 and noise_orders:
         cap = int(params.get("cap", _MULTIPLIER_CAP_DEFAULTS["rh_noise_orders"]))
         noise_orders = _replicate_with_multiplier(noise_orders, multiplier, cap)
+    # Resolve symbol source: literal list OR a target key.
+    symbols_from_target = params.get("symbols_from_target")
+    if not noise_orders and symbols_from_target:
+        targets = getattr(state, "resolved_targets", {}) or {}
+        target_val = targets.get(symbols_from_target) or []
+        if isinstance(target_val, str):
+            # Some renderers stringify lists — try to coerce.
+            try:
+                import ast
+                target_val = ast.literal_eval(target_val)
+            except Exception:
+                target_val = []
+        symbols = list(target_val) if isinstance(target_val, (list, tuple)) else []
+        count = int(params.get("count", len(symbols)))
+        for i in range(count):
+            if not symbols:
+                break
+            symbol = symbols[i % len(symbols)]
+            stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
+            base_price = Decimal(str(getattr(stock, "price", "100.00")))
+            noise_orders.append({
+                "symbol": symbol,
+                "side": params.get("side", "buy" if i % 2 == 0 else "sell"),
+                "order_type": params.get("order_type", "limit"),
+                "quantity": params.get("quantity", (i % 4) + 1),
+                "limit_price": params.get("limit_price", str(base_price)),
+            })
     if not noise_orders and params.get("symbols"):
         symbols = params.get("symbols", [])
         count = int(params.get("count", len(symbols)))
@@ -2235,7 +2325,12 @@ def _rh_add_noise_orders(state: Any, params: dict[str, Any], *, rng=None) -> Non
 
 
 def _rh_add_misleading_alert(state: Any, params: dict[str, Any], *, rng=None) -> None:
-    """Add a price alert that could mislead the agent (Backtracking)."""
+    """Add a price alert that could mislead the agent (Backtracking).
+
+    Supports ``symbols_from_target: <key>`` paired with ``alert_template`` to
+    expand a single alert spec across the seed's chosen symbols (e.g. a
+    "below 90% of last close" template applied to every loser symbol).
+    """
     if not hasattr(state, "price_alerts"):
         return
     from webstress.backend.models.robinhood import PriceAlert
@@ -2247,6 +2342,32 @@ def _rh_add_misleading_alert(state: Any, params: dict[str, Any], *, rng=None) ->
     alert_specs = params.get("alerts") or params.get("alert") or [params]
     if isinstance(alert_specs, dict):
         alert_specs = [alert_specs]
+
+    # Expand a single template across symbols pulled from a target list.
+    symbols_from_target = params.get("symbols_from_target")
+    if symbols_from_target and params.get("alert_template"):
+        targets = getattr(state, "resolved_targets", {}) or {}
+        target_val = targets.get(symbols_from_target) or []
+        if isinstance(target_val, str):
+            try:
+                import ast
+                target_val = ast.literal_eval(target_val)
+            except Exception:
+                target_val = []
+        template = params.get("alert_template") or {}
+        alert_specs = []
+        for symbol in target_val if isinstance(target_val, (list, tuple)) else []:
+            stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
+            base_price = Decimal(str(getattr(stock, "price", "100.00")))
+            below_pct = Decimal(str(template.get("below_pct", "0.90")))
+            spec = dict(template)
+            spec["symbol"] = symbol
+            spec.setdefault("condition", "below")
+            spec.setdefault(
+                "target_price",
+                str((base_price * below_pct).quantize(Decimal("0.01"))),
+            )
+            alert_specs.append(spec)
 
     for alert_spec in alert_specs:
         state.price_alerts.append(PriceAlert(
@@ -2299,6 +2420,16 @@ def _rh_add_confusing_positions(state: Any, params: dict[str, Any], *, rng=None)
         symbol = spec.get("symbol")
         if not symbol:
             continue
+
+        # Options spec: dispatch to the options-position branch. Detected by
+        # presence of `option_type` (call/put). Previously these specs were
+        # silently treated as stock positions (`strike`/`expiration`/`option_type`
+        # dropped), so options-confusion variants did nothing — an annotator flagged
+        # "didn't really feel any intervention" on rh_options_roll_strategy etc.
+        if spec.get("option_type"):
+            _rh_add_confusing_options_position(state, spec, rng=_rng)
+            continue
+
         stock = state.get_stock(symbol) if hasattr(state, "get_stock") else None
         price = Decimal(str(spec.get("price", getattr(stock, "price", "100.00"))))
         qty = Decimal(str(spec.get("quantity", 10)))
@@ -2363,6 +2494,97 @@ def _rh_add_confusing_positions(state: Any, params: dict[str, Any], *, rng=None)
             total_return=(price - cost) * qty,
             total_return_pct=((price - cost) / cost * 100) if cost else Decimal("0"),
             lots=[TaxLot(shares=qty, cost_per_share=cost, acquired_date=utc_now().date())],
+        ))
+
+
+def _rh_add_confusing_options_position(state: Any, spec: dict[str, Any], *, rng) -> None:
+    """Inject a single confusing options position (and matching contract).
+
+    Spec fields:
+      symbol (required)
+      option_type: 'call' | 'put' (required for this dispatch)
+      side: 'buy' | 'sell' (default 'sell'; mapped to position_side long/short)
+      strike: Decimal-like (required)
+      expiration: 'YYYY-MM-DD' (absolute) OR
+      expiration_days: int (relative to today; preferred — avoids stale-date drift)
+      quantity: int contracts (default 1)
+      average_cost / avg_cost: Decimal-like (premium paid per contract)
+    """
+    from webstress.backend.models.robinhood import (
+        Greeks,
+        OptionsContract,
+        OptionsPosition,
+    )
+    from webstress.backend.models.base import utc_now
+    from decimal import Decimal
+    from datetime import date as _date, timedelta as _td
+
+    symbol = spec.get("symbol")
+    if not symbol:
+        return
+    option_type = spec.get("option_type")
+    if option_type not in ("call", "put"):
+        return
+
+    # Resolve expiration: prefer relative offset to keep variants time-invariant.
+    if "expiration_days" in spec:
+        exp_date = utc_now().date() + _td(days=int(spec["expiration_days"]))
+    else:
+        raw_exp = spec.get("expiration")
+        if isinstance(raw_exp, _date):
+            exp_date = raw_exp
+        elif isinstance(raw_exp, str):
+            exp_date = _date.fromisoformat(raw_exp)
+        else:
+            return
+        # Defence: variants used to ship hardcoded 2025 dates that silently
+        # vanished in 2026. Refuse to inject already-expired contracts so the
+        # author sees the bug on the next session-create.
+        if exp_date <= utc_now().date():
+            return
+
+    strike = Decimal(str(spec.get("strike", "100.00")))
+    raw_side = (spec.get("side") or "sell").lower()
+    position_side = "short" if raw_side == "sell" else "long"
+    quantity = int(spec.get("quantity", 1))
+    avg_cost = Decimal(str(spec.get("average_cost", spec.get("avg_cost", "1.00"))))
+
+    contract_id = f"opt_decoy_{rng.randint(100000, 999999)}"
+    bid = (avg_cost * Decimal("0.95")).quantize(Decimal("0.01"))
+    ask = (avg_cost * Decimal("1.05")).quantize(Decimal("0.01"))
+
+    # Register the contract in options_chains so the chain page sees it.
+    if hasattr(state, "options_chains"):
+        chain = state.options_chains.setdefault(symbol, [])
+        chain.append(OptionsContract(
+            contract_id=contract_id,
+            underlying=symbol,
+            option_type=option_type,
+            strike=strike,
+            expiration=exp_date,
+            bid=bid,
+            ask=ask,
+            last_price=avg_cost,
+            volume=rng.randint(10, 5000),
+            open_interest=rng.randint(100, 50000),
+            implied_volatility=Decimal(str(round(rng.uniform(0.20, 0.60), 4))),
+            greeks=Greeks(),
+        ))
+
+    if hasattr(state, "options_positions"):
+        state.options_positions.append(OptionsPosition(
+            id=f"opt_pos_decoy_{rng.randint(10000, 99999)}",
+            contract_id=contract_id,
+            underlying_symbol=symbol,
+            position_side=position_side,
+            option_type=option_type,
+            strike_price=strike,
+            expiration_date=exp_date,
+            quantity=quantity,
+            avg_cost=avg_cost,
+            current_premium=avg_cost,
+            greeks=Greeks(),
+            status="open",
         ))
 
 

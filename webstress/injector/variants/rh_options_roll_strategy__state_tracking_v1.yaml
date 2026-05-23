@@ -11,24 +11,30 @@ injections:
     action: add_confusing_positions
     multiplier: 2
     positions:
+    # Decoy short call at a strike near the real expiring call, but different
+    # expiration — easy to mistakenly close.
     - symbol: MSFT
       option_type: call
       side: sell
       strike: "365.00"
-      expiration: "2025-05-16"
+      expiration_days: 10
       quantity: 1
       average_cost: "7.20"
+    # Decoy short call at the next monthly — could be mistaken for the
+    # already-opened "new" leg.
     - symbol: MSFT
       option_type: call
       side: sell
       strike: "370.00"
-      expiration: "2025-06-20"
+      expiration_days: 45
       quantity: 1
       average_cost: "5.40"
+    # Decoy long call (buy side) with same near-term expiry as the real one —
+    # tests whether the agent reads position_side / side correctly.
     - symbol: MSFT
       option_type: call
       side: buy
       strike: "355.00"
-      expiration: "2025-05-09"
+      expiration_days: 3
       quantity: 2
       average_cost: "8.90"

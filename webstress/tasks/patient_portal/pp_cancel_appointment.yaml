@@ -1,7 +1,7 @@
 task_id: pp_cancel_appointment
 env_id: patient_portal
 title: Cancel an Upcoming Appointment
-instruction_template: Cancel your upcoming appointment with {target.provider_name} on {target.apt_date}.
+instruction_template: 'Cancel your upcoming appointment with {target.provider_name} on {target.apt_date}. Provide a brief cancellation reason when cancelling.'
 difficulty: easy
 time_limit_seconds: 120
 expected_steps: 4
@@ -49,13 +49,15 @@ seed:
 canonical_diff:
   update:
   - entity: Appointment
-    desc: Cancel the specified appointment
+    desc: Cancel the specified appointment with a non-empty cancellation reason
     where:
       id:
         expr: x == target['target_apt_id']
     changes:
       status:
         eq: cancelled
+      cancellation_reason:
+        expr: "x is not None and len(x.strip()) > 0"
   invariant:
   - collection: state.appointments
     filter: a.id != target['target_apt_id']

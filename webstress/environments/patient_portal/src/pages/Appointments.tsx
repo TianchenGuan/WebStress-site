@@ -26,6 +26,10 @@ export function AppointmentsPage() {
   const [rescheduleSlot, setRescheduleSlot] = useState("");
   const [rescheduleType, setRescheduleType] = useState("in-person");
 
+  // Cancellation modal state
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+
   const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
   const providerSpecialty = (id: string) => providers.find((p) => p.id === id)?.specialty ?? "";
 
@@ -74,13 +78,33 @@ export function AppointmentsPage() {
 
   useEffect(() => { void loadSlots(); }, [loadSlots]);
 
-  const handleCancel = async (aptId: string) => {
+  const handleCancel = (aptId: string) => {
+    // Open the inline cancellation form. Replaces an earlier window.prompt()
+    // implementation that auto-dismissed in headless / agent contexts.
+    setCancelId(aptId);
+    setCancelReason("");
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!cancelId) return;
     try {
-      await api.cancelAppointment(aptId);
+      await api.cancelAppointment(cancelId, { reason: cancelReason.trim() || undefined });
       notify("Appointment cancelled");
+      setCancelId(null);
+      setCancelReason("");
       void loadAppointments();
     } catch {
       notify("Failed to cancel appointment");
+    }
+  };
+
+  const handleConfirm = async (aptId: string) => {
+    try {
+      await api.confirmAppointment(aptId);
+      notify("Appointment confirmed");
+      void loadAppointments();
+    } catch {
+      notify("Failed to confirm appointment");
     }
   };
 
@@ -177,12 +201,33 @@ export function AppointmentsPage() {
                   <td>{providerName(apt.provider_id)}</td>
                   <td>{providerSpecialty(apt.provider_id)}</td>
                   <td>{apt.type}</td>
-                  <td><span className={`pp-status-badge pp-status-badge--${apt.status}`}>{apt.status}</span></td>
+                  <td>
+                    <span className={`pp-status-badge pp-status-badge--${apt.status}`}>{apt.status}</span>
+                    {apt.requires_confirmation && (
+                      <span
+                        className={`pp-status-badge pp-status-badge--confirm-${apt.confirmation_state}`}
+                        aria-label={`Confirmation status: ${apt.confirmation_state}`}
+                        style={{ marginLeft: 6 }}
+                      >
+                        {apt.confirmation_state === "confirmed" ? "Confirmed" : "Awaiting confirmation"}
+                      </span>
+                    )}
+                  </td>
                   <td aria-label={`Pre-authorization status: ${apt.pre_auth_status}`}><span className={`pp-status-badge pp-status-badge--${apt.pre_auth_status}`}>{apt.pre_auth_status}</span></td>
                   <td>{apt.reason}</td>
                   <td>{apt.linked_referral_id ?? "None"}</td>
                   <td>{apt.location}</td>
                   <td>
+                    {apt.requires_confirmation && apt.confirmation_state === "pending" && (
+                      <button
+                        type="button"
+                        aria-label={`Confirm appointment with ${providerName(apt.provider_id)}`}
+                        className="pp-btn pp-btn--primary pp-btn--sm"
+                        onClick={() => handleConfirm(apt.id)}
+                      >
+                        Confirm
+                      </button>
+                    )}
                     <button
                       type="button"
                       aria-label={`Cancel appointment with ${providerName(apt.provider_id)}`}
@@ -254,6 +299,42 @@ export function AppointmentsPage() {
                 onClick={() => { setRescheduleId(null); setRescheduleSlot(""); setRescheduleType("in-person"); }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {cancelId && (
+          <div className="pp-form-section" aria-label="Cancel appointment form">
+            <h4>Cancel Appointment</h4>
+            <div className="pp-form-field">
+              <label htmlFor="cancel-reason">Reason (optional)</label>
+              <input
+                id="cancel-reason"
+                type="text"
+                aria-label="Cancellation reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Conflict with work meeting"
+                style={{ width: "100%", maxWidth: 420 }}
+              />
+            </div>
+            <div className="pp-form-actions" style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button
+                type="button"
+                className="pp-btn pp-btn--danger"
+                aria-label="Confirm cancellation"
+                onClick={handleCancelConfirm}
+              >
+                Confirm Cancellation
+              </button>
+              <button
+                type="button"
+                className="pp-btn pp-btn--secondary"
+                aria-label="Dismiss cancellation"
+                onClick={() => { setCancelId(null); setCancelReason(""); }}
+              >
+                Keep Appointment
               </button>
             </div>
           </div>

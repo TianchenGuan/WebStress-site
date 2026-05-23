@@ -34,7 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from .backend.routes import mount_environment_routes
 from .backend.security import CONTROLLER_SECRET_ENV
 from .backend.state import SessionManager
-from .tasks._registry import tasks_by_env
+from .tasks._registry import get_task, tasks_by_env
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
@@ -388,6 +388,111 @@ async def control_panel(env_id: str, session_id: str) -> HTMLResponse:
     return HTMLResponse(content=path.read_text())
 
 
+@app.get("/play", response_class=HTMLResponse)
+async def play(task: str, cond: str = "clean", seed: int = 42) -> HTMLResponse:
+    """One-click launch entry-point used by the public site.
+
+    Creates a session for ``task`` (clean or paired-intervention) without
+    routing the visitor through the chooser UI in ``/launch``. Returns a
+    tiny launching screen that opens the benchmark SPA in a new tab and
+    redirects the current tab to the control panel.
+    """
+    try:
+        task_def = get_task(task)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown task: {task}")
+    env_id = task_def.env_id
+
+    payload: dict[str, object] = {"task_id": task, "seed": seed}
+    if cond == "intervention":
+        variants_dir = BASE_DIR / "injector" / "variants"
+        match: str | None = None
+        for fp in sorted(variants_dir.glob(f"{env_id}_*.yaml")):
+            try:
+                data = yaml.safe_load(fp.read_text()) or {}
+            except Exception:
+                continue
+            if data.get("base_task_id") == task:
+                match = fp.name
+                break
+        if not match:
+            raise HTTPException(status_code=404, detail=f"No intervention variant for: {task}")
+        payload["variant_filename"] = match
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://internal") as client:
+        resp = await client.post(f"/api/env/{env_id}/session", json=payload)
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Session creation failed: {resp.text[:300]}",
+        )
+    data = resp.json()
+    session_id = data["session_id"]
+    start_path = data.get("start_path") or "/"
+    sep = "&" if "?" in start_path else "?"
+    bench_url = f"/env/{env_id}{start_path}{sep}session={session_id}&control=on"
+    control_url = f"/control/{env_id}/{session_id}"
+
+    title_safe = (task_def.title or task).replace("<", "&lt;").replace(">", "&gt;")
+    cond_label = "intervention" if cond == "intervention" else "clean"
+    html = (PLAY_TEMPLATE
+            .replace("__TITLE__", title_safe)
+            .replace("__COND__", cond_label)
+            .replace("__BENCH_URL__", json.dumps(bench_url))
+            .replace("__CONTROL_URL__", json.dumps(control_url))
+            .replace("__BENCH_HREF__", bench_url)
+            .replace("__ENV_ID__", env_id))
+    return HTMLResponse(content=html)
+
+
+PLAY_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Launching __TITLE__</title>
+  <style>
+    body { background:#0d1117; color:#fafaf7; font-family:system-ui,-apple-system,sans-serif;
+           display:grid; place-items:center; height:100vh; margin:0; }
+    .panel { text-align:center; padding:2rem; max-width:32rem; }
+    h1 { font-weight:300; font-size:1.4rem; margin:0 0 .25rem; }
+    .badge { display:inline-block; background:#1f2937; color:#9aa4b2; font-size:.7rem;
+             text-transform:uppercase; letter-spacing:.1em; padding:.2rem .6rem;
+             border-radius:999px; margin-bottom:1rem; }
+    p { color:#9aa4b2; font-size:.9rem; margin:.25rem 0; line-height:1.5; }
+    a { color:#d9684a; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .dots { margin:1rem 0; }
+    .dot { display:inline-block; width:7px; height:7px; border-radius:50%;
+           background:#d9684a; margin:0 3px; animation: bounce 1.4s infinite; }
+    .dot:nth-child(2) { animation-delay:.2s }
+    .dot:nth-child(3) { animation-delay:.4s }
+    @keyframes bounce {
+      0%, 80%, 100% { transform:scale(.5); opacity:.4 }
+      40% { transform:scale(1); opacity:1 }
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <span class="badge">__COND__ condition</span>
+    <h1>Launching __TITLE__</h1>
+    <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <p>Opening the benchmark SPA in a new tab. This tab will become the control panel where you can see the task instruction and score your attempt.</p>
+    <p style="margin-top:1.25rem">Browser blocked the popup?
+       <a href="__BENCH_HREF__" target="_blank" rel="noreferrer">Open benchmark manually</a>.</p>
+  </div>
+  <script>
+    var benchUrl = __BENCH_URL__;
+    var controlUrl = __CONTROL_URL__;
+    var envId = "__ENV_ID__";
+    window.open(benchUrl, 'wab-bench-' + envId);
+    setTimeout(function() { window.location.replace(controlUrl); }, 400);
+  </script>
+</body>
+</html>"""
+
+
 @app.get("/", response_class=HTMLResponse)
 @app.get("/launch", response_class=HTMLResponse)
 async def index():
@@ -626,6 +731,11 @@ async def index():
     if (_stored.search) document.getElementById('search').value = _stored.search;
     if (_stored.seed) document.getElementById('seed').value = _stored.seed;
 
+    // URL ?env=<id> overrides localStorage so deep links land on the right tab.
+    var _urlParams = new URLSearchParams(window.location.search);
+    var _envFromUrl = _urlParams.get('env');
+    if (_envFromUrl) selectedEnv = _envFromUrl;
+
     function saveFilters() {{
         try {{
             localStorage.setItem('wab_filters', JSON.stringify({{
@@ -829,6 +939,38 @@ async def index():
             .catch(function() {{ return []; }});
     }})).then(function(results) {{
         for (var i = 0; i < results.length; i++) allVariants = allVariants.concat(results[i]);
+
+        // ── Deep-link from URL: ?task=<task_id>&cond=clean|intervention&seed=<n> ──
+        // Pre-select a task (and optionally pick the first intervention variant)
+        // so the site can hand a visitor straight onto the launch panel.
+        var taskFromUrl = _urlParams.get('task');
+        var seedFromUrl = _urlParams.get('seed');
+        if (seedFromUrl && /^\d+$/.test(seedFromUrl)) {{
+            document.getElementById('seed').value = seedFromUrl;
+            saveFilters();
+        }}
+        if (taskFromUrl) {{
+            var matchEnv = null, matchTask = null;
+            ENV_DATA.forEach(function(e) {{
+                e.tasks.forEach(function(t) {{
+                    if (t.task_id === taskFromUrl) {{ matchEnv = e; matchTask = t; }}
+                }});
+            }});
+            if (matchEnv && matchTask) {{
+                selectEnv(matchEnv.env_id);
+                selectTask(matchTask.task_id, matchEnv.env_id, matchTask);
+                if (_urlParams.get('cond') === 'intervention') {{
+                    var v = allVariants.find(function(x) {{ return x.base_task_id === taskFromUrl; }});
+                    if (v) {{
+                        var variantSel = document.getElementById('variant');
+                        variantSel.value = v.filename;
+                        variantSel.dispatchEvent(new Event('change'));
+                    }}
+                }}
+                var selRow = document.querySelector('.task-table tr.selected');
+                if (selRow) selRow.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+            }}
+        }}
     }});
 
     // ── Initial render ──

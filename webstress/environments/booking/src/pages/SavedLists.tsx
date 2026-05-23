@@ -125,12 +125,15 @@ export default function SavedLists() {
               <div key={list.id} className="bk-card" style={{ overflow: "visible" }}>
                 {/* List header */}
                 <div
+                  className="bk-saved-list-header"
                   style={{
                     padding: 16,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     cursor: "pointer",
+                    background: isExpanded ? "var(--bk-gray-50)" : undefined,
+                    transition: "background 120ms ease",
                   }}
                   onClick={() => setExpandedId(isExpanded ? null : list.id)}
                   role="button"

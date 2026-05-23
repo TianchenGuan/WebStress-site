@@ -7,31 +7,28 @@ export const LIVE_DEMO_URL: string =
   "https://tianchenguan-webstress-demo.hf.space";
 
 /**
- * Build a deep-link into the launcher that lands the visitor with the
- * given task pre-selected. The launcher reads `?task=<id>`, `?cond=`,
- * and `?seed=` from the URL on page load.
+ * One-click launch URL for the hosted demo. Hitting this URL creates a
+ * session server-side and returns a tiny launching screen that opens
+ * the benchmark SPA in a new tab and redirects the current tab to the
+ * control panel — bypassing the chooser UI at /launch entirely.
  *
  *   liveDemoTaskUrl("gmail_star_email")
- *     → ".../launch?task=gmail_star_email&seed=42"
+ *     → ".../play?task=gmail_star_email&cond=clean&seed=42"
  *   liveDemoTaskUrl("gmail_star_email", "intervention")
- *     → ".../launch?task=...&cond=intervention&seed=42"
- *
- * The visitor still has to click the Launch button — we deliberately
- * don't auto-launch (so they can flip clean ↔ intervention or change
- * the seed before committing).
+ *     → ".../play?task=...&cond=intervention&seed=42"
  */
 export function liveDemoTaskUrl(
   taskId?: string,
-  cond?: "clean" | "intervention",
+  cond: "clean" | "intervention" = "clean",
   seed: number = 42,
 ): string {
   if (!LIVE_DEMO_URL) return "";
   if (!taskId) return `${LIVE_DEMO_URL}/launch`;
   const params = new URLSearchParams();
   params.set("task", taskId);
-  if (cond === "intervention") params.set("cond", "intervention");
+  params.set("cond", cond);
   params.set("seed", String(seed));
-  return `${LIVE_DEMO_URL}/launch?${params.toString()}`;
+  return `${LIVE_DEMO_URL}/play?${params.toString()}`;
 }
 
 export const HAS_LIVE_DEMO: boolean = Boolean(LIVE_DEMO_URL);

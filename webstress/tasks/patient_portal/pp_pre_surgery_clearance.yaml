@@ -3,11 +3,12 @@ env_id: patient_portal
 title: Pre-Surgery Clearance Workflow
 instruction_template: 'Complete pre-surgery clearance for your upcoming orthopedic
   procedure using appointments only: 1) Schedule exactly one pre-operative lab appointment
-  with reason "Pre-operative lab work", 2) Schedule exactly one PCP appointment with
-  reason "Surgical clearance visit", 3) Verify the surgery referral''s pre-authorization
-  status is approved, 4) Schedule exactly one orthopedic procedure appointment only
-  after the lab appointment and at least 7 days later. Use the appointment reason
-  exactly "Orthopedic procedure clearance". Do not send any messages.'
+  with a phlebotomy / laboratory provider, using reason "Pre-operative lab work",
+  2) Schedule exactly one PCP appointment with reason "Surgical clearance visit",
+  3) Verify the surgery referral''s pre-authorization status is approved, 4) Schedule
+  exactly one orthopedic procedure appointment only after the lab appointment and
+  at least 7 days later. Use the appointment reason exactly "Orthopedic procedure
+  clearance". Do not send any messages.'
 difficulty: expert
 time_limit_seconds: 480
 expected_steps: 35
@@ -27,15 +28,17 @@ seed:
     - pcp_name
   - use: provider_directory
     params:
-      count: 6
+      count: 7
       specialties:
       - pcp
       - orthopedics
+      - phlebotomy
       - radiology
       - billing
       must_include:
       - pcp
       - orthopedics
+      - phlebotomy
     outputs:
     - provider_ids
     - providers_by_specialty
@@ -71,17 +74,19 @@ seed:
     pcp_id: '{output.pcp_id}'
     pcp_name: '{output.pcp_name}'
     ortho_provider_ids: '{output.providers_by_specialty.orthopedics}'
+    lab_provider_ids: '{output.providers_by_specialty.phlebotomy}'
     prior_auth_ref_id: '{output.prior_auth_ref_id}'
     approved_ref_ids: '{output.approved_ref_ids}'
     upcoming_ids: '{output.upcoming_ids}'
 canonical_diff:
   create:
     - entity: Appointment
-      desc: "Schedule one pre-operative lab appointment"
+      desc: "Schedule one pre-operative lab appointment with a phlebotomy/lab provider"
       properties:
         status: {eq: "scheduled"}
         reason: {eq: "Pre-operative lab work"}
-        provider_id: {any: true}
+        provider_id:
+          expr: "x in target['lab_provider_ids']"
         datetime: {any: true}
         type: {any: true}
         notes: {any: true}

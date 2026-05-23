@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: cc-by-4.0
-short_description: Try the WebStress benchmark live — 519 paired clean/intervention tasks across 7 environments.
+short_description: Live demo for the WebStress web-agent benchmark.
 ---
 
 # WebStress live demo

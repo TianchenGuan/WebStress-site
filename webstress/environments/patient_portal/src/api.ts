@@ -61,8 +61,11 @@ export function createPatientPortalApi(request: RequestFn) {
     createAppointment: (body: { provider_id: string; slot_datetime: string; type: string; reason?: string; notes?: string; linked_referral_id?: string }) =>
       request<Appointment>("appointments/create", { method: "POST", body }),
 
-    cancelAppointment: (aptId: string) =>
-      request<Appointment>(`appointments/${aptId}/cancel`, { method: "POST" }),
+    cancelAppointment: (aptId: string, body?: { reason?: string }) =>
+      request<Appointment>(`appointments/${aptId}/cancel`, { method: "POST", body: body ?? {} }),
+
+    confirmAppointment: (aptId: string) =>
+      request<Appointment>(`appointments/${aptId}/confirm`, { method: "POST" }),
 
     rescheduleAppointment: (aptId: string, body: { new_slot_datetime: string; new_type?: string }) =>
       request<Appointment>(`appointments/${aptId}/reschedule`, { method: "POST", body }),

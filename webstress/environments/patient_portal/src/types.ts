@@ -69,6 +69,10 @@ export interface Appointment {
   pre_auth_status: string;
   booked_at: string;
   location: string;
+  requires_confirmation: boolean;
+  confirmation_state: string;
+  confirmed_at: string | null;
+  cancellation_reason: string | null;
 }
 
 export interface Prescription {

@@ -252,6 +252,7 @@ export default function PropertyDetail() {
                           )
                         );
                         setSaveDropdownOpen(false);
+                        notify(`Saved to "${list.name}"`, property.name);
                       }}
                     >
                       {list.name} {alreadySaved ? "(saved)" : ""}
@@ -271,6 +272,7 @@ export default function PropertyDetail() {
                     setSavedLists((prev) => [...prev, updated]);
                     input.value = "";
                     setSaveDropdownOpen(false);
+                    notify(`Saved to "${name}"`, property.name);
                   }}
                   style={{ display: "flex", gap: 6 }}
                 >
