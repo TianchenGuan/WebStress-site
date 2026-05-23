@@ -76,23 +76,34 @@ export default function TaskDetail() {
             Try this task live
           </h2>
           <p className="text-sm text-ink/85 leading-relaxed mb-3">
-            Play this task in either condition (clean or intervention) on the
-            hosted WebStress demo. The demo runs the same FastAPI backend
-            and React SPAs you'd get locally; every visitor gets a fresh
-            seeded session.
+            Play this task on the hosted WebStress demo. The demo runs the
+            same FastAPI backend and React SPAs you'd get locally; every
+            visitor gets a fresh seeded session.
           </p>
-          <a
-            href={liveDemoTaskUrl()}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-primary"
-          >
-            Open in live demo&nbsp;<span aria-hidden>→</span>
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={liveDemoTaskUrl(entry.task_id, "clean")}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-primary"
+            >
+              Open clean condition&nbsp;<span aria-hidden>→</span>
+            </a>
+            {entry.has_intervention && (
+              <a
+                href={liveDemoTaskUrl(entry.task_id, "intervention")}
+                target="_blank"
+                rel="noreferrer"
+                className="btn"
+              >
+                Open intervention condition&nbsp;<span aria-hidden>→</span>
+              </a>
+            )}
+          </div>
           <p className="mt-3 text-xs text-muted">
-            The launcher opens in a new tab; pick this task by its
-            <code className="mx-1">task_id</code>{" "}
-            ({entry.task_id}) and seed = 42.
+            The launcher opens in a new tab with this task pre-selected at
+            seed = 42. Click <strong>Launch</strong> on that page to start
+            the session.
           </p>
         </section>
       )}
