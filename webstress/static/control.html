@@ -78,6 +78,31 @@
   .eval-result { margin-top: 14px; padding: 14px; border-radius: 6px; font-size: 14px; }
   .eval-result.pass { background: #dafbe1; border: 1px solid #1a7f37; color: #0a4f1b; }
   .eval-result.fail { background: #ffebe9; border: 1px solid #cf222e; color: #82071e; }
+  .demo-notice {
+    background: #fff8e1;
+    border: 1px solid #e0c068;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #5b4a1c;
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .demo-notice .icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e0c068;
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    line-height: 18px;
+    font-size: 12px;
+  }
   .eval-score { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
   .eval-checks { list-style: none; padding: 0; margin: 0; }
   .eval-checks li { padding: 4px 0; font-size: 13px; }
@@ -191,6 +216,15 @@
 
 <div class="container">
 
+  <div id="demo-notice" class="demo-notice" hidden>
+    <span class="icon">i</span>
+    <div>
+      <strong>Demo mode.</strong> The Record and Evaluate buttons below show how a real WebStress session works,
+      but your recording is not saved — sessions live in memory only and are wiped on container restart.
+      Evaluate still grades your attempt against the live backend state so you can see the same pass/fail signal an agent would.
+    </div>
+  </div>
+
   <div class="card">
     <h2>Task</h2>
     <div id="task-title" class="task-title">Loading…</div>
@@ -256,6 +290,13 @@
   var recordStartMs = 0;
 
   document.getElementById("session-id").textContent = "Session: " + SESSION_ID;
+
+  // Reveal the demo-mode banner when the visitor landed here from /play.
+  // /play appends ?demo=1 to the control URL so the local control panel
+  // (where recordings ARE persisted to disk) doesn't show the notice.
+  if (new URLSearchParams(window.location.search).get("demo") === "1") {
+    document.getElementById("demo-notice").hidden = false;
+  }
 
   // --- Load env manifest to find benchmark URL ---
   function loadManifest() {

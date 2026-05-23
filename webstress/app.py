@@ -492,7 +492,9 @@ async def play(
                 f"/env/{env_id}{start_path}{sep}session={sid}&control=on",
                 status_code=302,
             )
-        return RedirectResponse(f"/control/{env_id}/{sid}", status_code=302)
+        # Control tab gets ?demo=1 so it shows the "recording is not saved"
+        # banner. Local users hitting /control/... directly don't see it.
+        return RedirectResponse(f"/control/{env_id}/{sid}?demo=1", status_code=302)
 
     # ── Single-tab fallback (HTML launching screen) ──────────────────
     info = await _play_resolve_session(task, cond, seed, env_id)
@@ -500,7 +502,7 @@ async def play(
     start_path = info["start_path"]
     sep = "&" if "?" in start_path else "?"
     bench_url = f"/env/{env_id}{start_path}{sep}session={session_id}&control=on"
-    control_url = f"/control/{env_id}/{session_id}"
+    control_url = f"/control/{env_id}/{session_id}?demo=1"
 
     title_safe = (task_def.title or task).replace("<", "&lt;").replace(">", "&gt;")
     cond_label = "intervention" if cond == "intervention" else "clean"
