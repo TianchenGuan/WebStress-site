@@ -244,7 +244,10 @@ export default function Results() {
               <h2 className="text-xl mb-3">From the paper</h2>
               <div className="space-y-6">
                 {data.figures.map((f) => (
-                  <figure key={f.src} className="card">
+                  <figure
+                    key={f.src}
+                    className="card grid md:grid-cols-[1.7fr_1fr] gap-5 md:gap-7 items-center"
+                  >
                     <img
                       src={f.src}
                       alt={f.caption}
@@ -253,7 +256,7 @@ export default function Results() {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
-                    <figcaption className="text-sm text-ink/75 mt-3 leading-relaxed">
+                    <figcaption className="text-sm text-ink/80 leading-relaxed">
                       {f.caption}
                     </figcaption>
                   </figure>
