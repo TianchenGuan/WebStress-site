@@ -1,12 +1,19 @@
 task_id: lms_complete_prerequisite_module
 env_id: lms
-title: Complete Prerequisite Module to Unlock Next
-instruction_template: In {target.course_code}, complete module "{target.module_title}"
-  so that the next module in the sequence becomes unlocked. Make sure all content
-  items in the module are completed before marking it done.
-difficulty: medium
-time_limit_seconds: 180
-expected_steps: 10
+title: Derive and Advance the Real Prerequisite Segment
+instruction_template: In {target.course_code} there are several modules marked "available"
+  in the module list, but only some of them actually belong to the course's required prerequisite
+  chain. Following the prerequisite links (NOT the displayed order and NOT the "available"
+  badge), identify the next two consecutive modules in that chain that still need to be done,
+  and complete exactly those two — in prerequisite order, so the first one satisfies the
+  later one's unlock condition (the later module is gated by a minimum-score requirement that
+  completing its predecessor fulfils). For each of the two chain modules, mark every content
+  item complete before marking the module itself done. Do NOT complete any other module —
+  in particular, several "available" modules in this course are optional supplements that are
+  NOT part of the chain; completing one of those is an error. Do not send any messages.
+difficulty: hard
+time_limit_seconds: 300
+expected_steps: 20
 primary_primitives:
 - planning
 start_path: /courses
@@ -19,7 +26,7 @@ seed:
     - student_id
   - use: course_catalog
     params:
-      count: 2
+      count: 3
       must_include:
       - CS101
     outputs:
@@ -30,43 +37,72 @@ seed:
     params: {}
     outputs:
     - enrollment_ids
+  - use: assignment_battery
+    params:
+      per_course_count: 5
+      graded_fraction: 0.4
+    outputs:
+    - assignment_ids
   - use: module_sequence
     params:
-      count: 4
-      chain_type: linear
+      count: 5
+      chain_type: mixed
       completed_count: 1
+      chain_segment: 2
+      decoy_count: 3
     outputs:
     - module_ids
     - next_available_module_id
     - first_locked_module_id
+    - next_chain_module_ids
+    - cascade_unlocked_module_id
+    - decoy_module_ids
   targets:
     course_code: '{output.course_code}'
     target_course_id: '{output.target_course_id}'
+    module_ids: '{output.module_ids}'
     next_available_module_id: '{output.next_available_module_id}'
     first_locked_module_id: '{output.first_locked_module_id}'
-    module_title: Module 2
+    next_chain_module_ids: '{output.next_chain_module_ids}'
+    cascade_unlocked_module_id: '{output.cascade_unlocked_module_id}'
+    decoy_module_ids: '{output.decoy_module_ids}'
+    completed_module_id: '{output.module_ids[0]}'
 
 canonical_diff:
   update:
   - entity: Module
-    desc: Complete the specified module after finishing all of its content items
+    desc: Complete exactly the two consecutive chain modules of the next prerequisite segment
+      (the next available chain module and its min-score-gated successor), each only after all
+      of its content items are marked complete — derived from the prerequisite links, not the
+      decoys that merely show as available
+    bijection:
+      over: "target['next_chain_module_ids'].split(',')"
+      variable: v
     where:
       id:
-        expr: "x == target['next_available_module_id']"
+        expr: "x == v"
     changes:
       status: {eq: completed}
       content_items:
-        expr: "all(item.get('completed') is True for item in x)"
+        expr: "len(x) >= 2 and all(item.get('completed') is True for item in x)"
   - entity: Module
-    desc: Unlock the next module in the sequence
+    desc: The single chain module immediately downstream of the completed segment becomes
+      available via the server cascade
     where:
       id:
-        expr: "x == target['first_locked_module_id']"
+        expr: "x == target['cascade_unlocked_module_id']"
     changes:
       status: {eq: available}
   invariant:
     - collection: state.modules
-      filter: "a.id not in [target['next_available_module_id'], target['first_locked_module_id']]"
+      # The only modules whose state may legitimately change are the two segment modules
+      # (next_chain_module_ids) plus the single chain module the server auto-unlocks
+      # (cascade_unlocked_module_id: locked -> available the instant the segment's last module
+      # is completed). Every other module — index 0 (already completed), later locked chain
+      # modules, and the three off-chain "available" decoy supplements — must stay frozen.
+      # comprehensive:true whitelists exactly the cascade transition so it is not a false
+      # positive.
+      filter: "a.id not in (target['next_chain_module_ids'].split(',') + [target['cascade_unlocked_module_id']])"
       preserve: ALL
       comprehensive: true
     - collection: state.courses
@@ -94,12 +130,23 @@ canonical_diff:
   constraints:
   - desc: Agent did not send messages
     expr: "len(state.sent_messages) == 0"
-    severity: medium
+    severity: critical
+  - desc: Both modules of the next prerequisite segment were completed
+    expr: "len([m for m in state.modules if m.status == 'completed' and m.id in target['next_chain_module_ids'].split(',')]) == 2"
+    severity: critical
+  - desc: No module outside the prerequisite segment was completed — completing any off-chain
+      "available" supplement, the cascade-unlocked successor, or any later chain module is a
+      hard failure (only the pre-existing completed module and the two segment modules may be done)
+    expr: "len([m for m in state.modules if m.status == 'completed' and m.id not in (target['next_chain_module_ids'].split(',') + [target['module_ids'].split(',')[0]])]) == 0"
+    severity: critical
   named_invariants:
+  - name: Agent completed exactly the two-module prerequisite segment
+    ref: update[0]
+    severity: critical
   - name: Agent did not modify other modules
     ref: invariant[0]
-    severity: high
-  - name: Agent unlocked the next module
+    severity: critical
+  - name: Agent unlocked the downstream chain module via the cascade
     ref: update[1]
     severity: high
   - name: Agent did not modify course records
@@ -110,7 +157,7 @@ canonical_diff:
     severity: high
   - name: Agent did not modify assignments
     ref: invariant[3]
-    severity: medium
+    severity: high
   - name: Agent did not modify discussions
     ref: invariant[4]
     severity: medium
