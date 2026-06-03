@@ -5,6 +5,7 @@ import { preserveQueryParams } from "@webstress/shared";
 import type { Product, SearchResult } from "../types";
 import { useAmazonLayout } from "../context";
 import { StarRating } from "../components/StarRating";
+import { useFallbackImage } from "../imageFallbacks";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Featured" },
@@ -46,10 +47,8 @@ function SearchResultItem({ product }: { product: Product }) {
           <img
             src={product.image_url}
             alt={product.name}
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
+            loading="eager"
+            onError={(e) => useFallbackImage(e, product)}
           />
         </Link>
       </div>

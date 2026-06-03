@@ -4,6 +4,7 @@ import { preserveQueryParams } from "@webstress/shared";
 
 import type { CartItem as CartItemType } from "../types";
 import { useAmazonLayout } from "../context";
+import { useFallbackImage } from "../imageFallbacks";
 
 interface CartItemProps {
   item: CartItemType;
@@ -48,11 +49,12 @@ export function CartItemRow({ item }: CartItemProps) {
           <img
             src={item.image_url}
             alt={item.product_name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.classList.add("visible");
-            }}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            onError={(e) => useFallbackImage(e, {
+              name: item.product_name,
+              category: item.category,
+              subcategory: item.subcategory,
+            })}
           />
         ) : null}
         <div className={`cart-item__image-placeholder ${item.image_url ? "" : "visible"}`}>

@@ -5,16 +5,64 @@ import { preserveQueryParams } from "@webstress/shared";
 import type { Product } from "../types";
 import { useAmazonLayout } from "../context";
 import { ProductCard } from "../components/ProductCard";
+import { amazonCategoryImage } from "../imageFallbacks";
 
 const CATEGORIES = [
-  { name: "Electronics", label: "Electronics", color: "#232f3e" },
-  { name: "Books", label: "Books", color: "#3b4a5c" },
-  { name: "Clothing", label: "Clothing", color: "#48647f" },
-  { name: "Home & Kitchen", label: "Home", color: "#6e8ea8" },
-  { name: "Sports & Outdoors", label: "Sports", color: "#3b6e5c" },
-  { name: "Toys & Games", label: "Toys", color: "#8e5c3b" },
-  { name: "Health & Beauty", label: "Beauty", color: "#8e3b6e" },
-  { name: "Office Supplies", label: "Office", color: "#3b8e5c" },
+  { name: "Electronics", label: "Electronics" },
+  { name: "Books", label: "Books" },
+  { name: "Clothing", label: "Clothing" },
+  { name: "Home & Kitchen", label: "Home" },
+  { name: "Sports & Outdoors", label: "Sports" },
+  { name: "Toys & Games", label: "Toys" },
+  { name: "Health & Beauty", label: "Beauty" },
+  { name: "Office Supplies", label: "Office" },
+];
+
+const HERO_CATEGORIES = [
+  {
+    title: "Save on tech essentials",
+    linkText: "Shop electronics",
+    category: "Electronics",
+    items: [
+      { label: "Audio", image: "/static/product-images/amazon/electronics-audio.svg" },
+      { label: "Computer", image: "/static/product-images/amazon/electronics-computer.svg" },
+      { label: "Storage", image: "/static/product-images/amazon/electronics-storage.svg" },
+      { label: "Accessories", image: "/static/product-images/amazon/electronics-accessory.svg" },
+    ],
+  },
+  {
+    title: "Refresh your home",
+    linkText: "Shop home",
+    category: "Home & Kitchen",
+    items: [
+      { label: "Cookware", image: "/static/product-images/amazon/kitchen-cookware.svg" },
+      { label: "Drinkware", image: "/static/product-images/amazon/kitchen-drinkware.svg" },
+      { label: "Appliances", image: "/static/product-images/amazon/home-appliance.svg" },
+      { label: "Groceries", image: "/static/product-images/amazon/grocery.svg" },
+    ],
+  },
+  {
+    title: "Fitness and wellness finds",
+    linkText: "Shop fitness",
+    category: "Sports & Outdoors",
+    items: [
+      { label: "Training", image: "/static/product-images/amazon/sports-fitness.svg" },
+      { label: "Yoga", image: "/static/product-images/amazon/sports-yoga.svg" },
+      { label: "Wearables", image: "/static/product-images/amazon/wearable.svg" },
+      { label: "Vitamins", image: "/static/product-images/amazon/health-beauty.svg" },
+    ],
+  },
+  {
+    title: "Work and school supplies",
+    linkText: "Shop office",
+    category: "Office Supplies",
+    items: [
+      { label: "Supplies", image: "/static/product-images/amazon/office-supplies.svg" },
+      { label: "Furniture", image: "/static/product-images/amazon/office-furniture.svg" },
+      { label: "Books", image: "/static/product-images/amazon/book.svg" },
+      { label: "Bags", image: "/static/product-images/amazon/bag.svg" },
+    ],
+  },
 ];
 
 export function HomePage() {
@@ -43,11 +91,12 @@ export function HomePage() {
 
   return (
     <div className="home-page">
-      {/* Hero banner */}
-      <section className="home-hero" aria-label="Welcome banner">
+      <section className="home-hero" aria-label="Featured shopping departments">
+        <span className="home-hero__arrow home-hero__arrow--left" aria-hidden="true" />
+        <span className="home-hero__arrow home-hero__arrow--right" aria-hidden="true" />
         <div className="home-hero__content">
-          <h1>Welcome to Amazon</h1>
-          <p>Shop millions of products with fast delivery</p>
+          <h1>Fast delivery on everyday finds</h1>
+          <p>Shop benchmark essentials across electronics, home, office, fitness, and more.</p>
           <div className="home-hero__cta">
             <Link
               to={preserveQueryParams("/deals", location.search)}
@@ -57,9 +106,41 @@ export function HomePage() {
             </Link>
           </div>
         </div>
+        <div className="home-hero__visual">
+          <img src="/static/product-images/amazon/electronics-audio.svg" alt="" />
+          <img src="/static/product-images/amazon/kitchen-cookware.svg" alt="" />
+          <img src="/static/product-images/amazon/sports-fitness.svg" alt="" />
+        </div>
       </section>
 
-      {/* Category grid */}
+      <section className="home-promo-grid" aria-label="Featured departments">
+        {HERO_CATEGORIES.map((promo) => (
+          <article key={promo.title} className="home-promo-card">
+            <h2>{promo.title}</h2>
+            <div className="home-promo-card__tiles">
+              {promo.items.map((item) => (
+                <Link
+                  key={item.label}
+                  to={preserveQueryParams(`/search?q=&category=${encodeURIComponent(promo.category)}`, location.search)}
+                  className="home-promo-card__tile"
+                >
+                  <span className="home-promo-card__image">
+                    <img src={item.image} alt="" loading="lazy" />
+                  </span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+            <Link
+              to={preserveQueryParams(`/search?q=&category=${encodeURIComponent(promo.category)}`, location.search)}
+              className="home-promo-card__link"
+            >
+              {promo.linkText}
+            </Link>
+          </article>
+        ))}
+      </section>
+
       <section className="home-categories" aria-label="Shop by category">
         <h2 className="home-section__title">Shop by Category</h2>
         <div className="home-categories__grid">
@@ -70,8 +151,13 @@ export function HomePage() {
               className="home-category-card"
               aria-label={`Browse ${cat.name}`}
             >
-              <div className="home-category-card__square" style={{ backgroundColor: cat.color }}>
-                <span className="home-category-card__square-text">{cat.label.charAt(0)}</span>
+              <div className="home-category-card__square">
+                <img
+                  src={amazonCategoryImage(cat.name)}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                />
               </div>
               <span className="home-category-card__name">{cat.label}</span>
             </Link>

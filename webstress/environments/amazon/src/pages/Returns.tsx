@@ -4,6 +4,7 @@ import { preserveQueryParams } from "@webstress/shared";
 
 import type { ReturnRequest, Order } from "../types";
 import { useAmazonLayout } from "../context";
+import { useFallbackImage } from "../imageFallbacks";
 
 function statusColor(status: string): string {
   switch (status.toLowerCase()) {
@@ -94,6 +95,23 @@ export function ReturnsPage() {
               </div>
               <div className="returns-card__body">
                 <div className="returns-card__product">
+                  <div className="returns-card__product-image">
+                    {ret.image_url ? (
+                      <img
+                        src={ret.image_url}
+                        alt={ret.product_name}
+                        onError={(e) => useFallbackImage(e, {
+                          name: ret.product_name,
+                          category: ret.category,
+                          subcategory: ret.subcategory,
+                        })}
+                      />
+                    ) : (
+                      <div className="cart-item__image-placeholder visible">
+                        <span>{(ret.product_name ?? "P")[0]}</span>
+                      </div>
+                    )}
+                  </div>
                   <strong>{ret.product_name}</strong>
                 </div>
                 <div className="returns-card__reason">

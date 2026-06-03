@@ -7,7 +7,6 @@ deterministic test data for Amazon benchmark tasks.
 
 from __future__ import annotations
 
-import hashlib
 import random
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -23,6 +22,10 @@ from webstress.backend.models.amazon import (
     Product,
     ProductVariant,
     Review,
+)
+from webstress.backend.amazon_images import (
+    resolve_amazon_product_image,
+    resolve_amazon_product_metadata,
 )
 
 
@@ -573,8 +576,9 @@ class AmazonSeedContext:
         image_url: str | None = None,
     ) -> Product:
         cat_data = _CATEGORY_DATA.get(category, _CATEGORY_DATA["Electronics"])
-        sub = subcategory or self.rng.choice(cat_data["subcategories"])
+        random_sub = subcategory or self.rng.choice(cat_data["subcategories"])
         chosen_brand = brand or self.rng.choice(cat_data["brands"])
+        sub = random_sub
 
         if name is None:
             template = self.rng.choice(cat_data["templates"])
@@ -588,10 +592,14 @@ class AmazonSeedContext:
                 fmt_kwargs["noun"] = self.rng.choice(cat_data.get("nouns", ["Item"]))
             name = template.format(**fmt_kwargs)
 
+        metadata = resolve_amazon_product_metadata(name=name, category=category)
+        sub = str(metadata.get("subcategory") or random_sub)
+
         if price is None:
             price = round(self.rng.uniform(9.99, 199.99), 2)
 
         if description is None:
+            generated_description: str
             desc_templates = cat_data.get("desc_templates")
             if desc_templates:
                 adj = self.rng.choice(cat_data["adjectives"])
@@ -611,23 +619,28 @@ class AmazonSeedContext:
                     fmt_kwargs_desc["noun"] = self.rng.choice(cat_data["nouns"]).lower()
                 template_desc = self.rng.choice(desc_templates)
                 try:
-                    description = template_desc.format(**fmt_kwargs_desc)
+                    generated_description = template_desc.format(**fmt_kwargs_desc)
                 except KeyError:
-                    description = (
+                    generated_description = (
                         f"High-quality {sub.lower()} from {chosen_brand}. "
                         f"Designed for everyday use with premium materials "
                         f"and attention to detail."
                     )
             else:
-                description = (
+                generated_description = (
                     f"High-quality {sub.lower()} from {chosen_brand}. "
                     f"Designed for everyday use with premium materials and "
                     f"attention to detail."
                 )
+            description = str(metadata.get("description") or generated_description)
 
         if features is None:
             pool = cat_data.get("features", [])
-            features = self.rng.sample(pool, k=min(3, len(pool)))
+            generated_features = self.rng.sample(pool, k=min(3, len(pool)))
+            if isinstance(metadata.get("features"), list):
+                features = [str(item) for item in metadata["features"]]
+            else:
+                features = generated_features
 
         return Product(
             id=self.next_id("product"),
@@ -643,7 +656,12 @@ class AmazonSeedContext:
             review_count=review_count if review_count is not None else self.rng.randint(10, 5000),
             in_stock=in_stock,
             stock_quantity=stock_quantity,
-            image_url=image_url or f"https://picsum.photos/seed/{hashlib.md5(name.encode()).hexdigest()[:8]}/400/400",
+            image_url=resolve_amazon_product_image(
+                name=name,
+                category=category,
+                subcategory=sub,
+                provided_url=image_url,
+            ),
             features=features,
             variants=variants or [],
             seller=seller,

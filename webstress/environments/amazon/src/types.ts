@@ -37,6 +37,8 @@ export interface CartItem {
   quantity: number;
   unit_price: number;
   image_url?: string;
+  category?: string;
+  subcategory?: string;
   prime_eligible?: boolean;
   in_stock?: boolean;
 }
@@ -87,6 +89,8 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   image_url?: string;
+  category?: string;
+  subcategory?: string;
 }
 
 export interface Review {
@@ -153,6 +157,9 @@ export interface ReturnRequest {
   order_item_index: number;
   product_id: string;
   product_name: string;
+  image_url?: string;
+  category?: string;
+  subcategory?: string;
   reason: string;
   status: string;
   refund_amount: number;

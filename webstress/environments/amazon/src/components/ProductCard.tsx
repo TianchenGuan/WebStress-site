@@ -3,6 +3,7 @@ import { preserveQueryParams } from "@webstress/shared";
 
 import type { Product } from "../types";
 import { StarRating } from "./StarRating";
+import { useFallbackImage } from "../imageFallbacks";
 
 interface ProductCardProps {
   product: Product;
@@ -33,12 +34,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <img
             src={product.image_url}
             alt={product.name}
-            loading="lazy"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.classList.add("visible");
-            }}
+            loading="eager"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            onError={(e) => useFallbackImage(e, product)}
           />
           <span className="product-card__image-fallback">{product.category?.[0] ?? "P"}</span>
         </div>

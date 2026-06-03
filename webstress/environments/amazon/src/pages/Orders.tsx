@@ -4,6 +4,7 @@ import { preserveQueryParams } from "@webstress/shared";
 
 import type { Order, Address } from "../types";
 import { useAmazonLayout } from "../context";
+import { useFallbackImage } from "../imageFallbacks";
 
 export function OrdersPage() {
   const { api, notify } = useAmazonLayout();
@@ -145,11 +146,15 @@ export function OrdersPage() {
                             <img
                               src={item.image_url}
                               alt={item.product_name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                              onError={(e) => useFallbackImage(e, {
+                                name: item.product_name,
+                                category: item.category,
+                                subcategory: item.subcategory,
+                              })}
                             />
                           ) : (
-                            <div className="cart-item__image-placeholder"><span>{(item.product_name ?? "P")[0]}</span></div>
+                            <div className="cart-item__image-placeholder visible"><span>{(item.product_name ?? "P")[0]}</span></div>
                           )}
                         </div>
                         <div className="order-card__item-info">

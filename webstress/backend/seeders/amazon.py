@@ -40,6 +40,16 @@ _REAL_PRODUCTS_PATH = Path(__file__).parent.parent.parent / "tasks" / "amazon_re
 _REAL_PRODUCTS: dict[str, list[dict[str, Any]]] = {}
 if _REAL_PRODUCTS_PATH.exists():
     _REAL_PRODUCTS = json.loads(_REAL_PRODUCTS_PATH.read_text())
+_REAL_PRODUCT_IMAGE_COUNTS: dict[str, int] = {}
+_REAL_PRODUCT_IMAGE_CATEGORIES: dict[str, set[str]] = {}
+for _category, _items in _REAL_PRODUCTS.items():
+    for _item in _items:
+        _image = _item.get("image")
+        if _image:
+            _REAL_PRODUCT_IMAGE_COUNTS[_image] = _REAL_PRODUCT_IMAGE_COUNTS.get(_image, 0) + 1
+            _REAL_PRODUCT_IMAGE_CATEGORIES.setdefault(_image, set()).add(_category)
+
+_MAX_REAL_IMAGE_REUSE = 2
 
 _TEMPLATE_RE = re.compile(r"\{(actor|output)\.([^}]+)\}")
 _EXACT_REF_RE = re.compile(r"^\{(actor|output)\.([^}]+)\}$")
@@ -689,6 +699,11 @@ class AmazonSeedRunner:
                     # with larger discounts always win.
                     list_price = round(price * ctx.rng.uniform(1.10, 1.40), 2) if ctx.rng.random() < 0.25 else None
                     real_image = rp.get("image") or None
+                    if real_image and (
+                        _REAL_PRODUCT_IMAGE_COUNTS.get(real_image, 0) > _MAX_REAL_IMAGE_REUSE
+                        or len(_REAL_PRODUCT_IMAGE_CATEGORIES.get(real_image, set())) > 1
+                    ):
+                        real_image = None
                     prod = ctx.product(
                         name=name[:120],  # Truncate very long names
                         category=cat,

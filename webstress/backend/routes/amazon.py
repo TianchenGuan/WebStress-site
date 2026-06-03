@@ -618,13 +618,40 @@ def get_product(
 
 
 def _enrich_cart_item(state: AmazonState, item_data: dict[str, Any]) -> dict[str, Any]:
-    """Add image_url, prime_eligible, and in_stock from the product to a cart item dict."""
+    """Add product display fields to a cart item dict."""
     product = state.get_product(item_data.get("product_id", ""))
     if product is not None:
         item_data["image_url"] = product.image_url
+        item_data["category"] = product.category
+        item_data["subcategory"] = product.subcategory
         item_data["prime_eligible"] = product.prime_eligible
         item_data["in_stock"] = product.in_stock
     return item_data
+
+
+def _enrich_order(state: AmazonState, order_data: dict[str, Any]) -> dict[str, Any]:
+    """Add product display fields to serialized order items without changing stored order state."""
+    for item in order_data.get("items", []):
+        if not isinstance(item, dict):
+            continue
+        product = state.get_product(item.get("product_id", ""))
+        if product is not None:
+            if not item.get("image_url"):
+                item["image_url"] = product.image_url
+            item["category"] = product.category
+            item["subcategory"] = product.subcategory
+    return order_data
+
+
+def _enrich_return(state: AmazonState, return_data: dict[str, Any]) -> dict[str, Any]:
+    """Add product display fields to serialized returns for order/returns pages."""
+    product = state.get_product(return_data.get("product_id", ""))
+    if product is not None:
+        if not return_data.get("image_url"):
+            return_data["image_url"] = product.image_url
+        return_data["category"] = product.category
+        return_data["subcategory"] = product.subcategory
+    return return_data
 
 
 @router.get("/cart")
@@ -719,7 +746,7 @@ def place_order(
         },
         do_checkout,
     )
-    return {"order": result.model_dump(mode="json")}
+    return {"order": _enrich_order(state, result.model_dump(mode="json"))}
 
 
 @router.get("/orders")
@@ -730,7 +757,7 @@ def list_orders(
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _amazon_state(session_manager, session_id)
-    items = [order.model_dump(mode="json") for order in state.orders]
+    items = [_enrich_order(state, order.model_dump(mode="json")) for order in state.orders]
     return _paginate(items, page, page_size)
 
 
@@ -749,7 +776,7 @@ def get_order(
         if len(state.viewed_order_ids) > 50:
             state.viewed_order_ids = state.viewed_order_ids[:50]
         state.touch()
-    return {"order": order.model_dump(mode="json")}
+    return {"order": _enrich_order(state, order.model_dump(mode="json"))}
 
 
 # ---------------------------------------------------------------------------
@@ -1116,7 +1143,7 @@ def list_returns(
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> dict[str, Any]:
     state = _amazon_state(session_manager, session_id)
-    items = [r.model_dump(mode="json") for r in state.returns]
+    items = [_enrich_return(state, r.model_dump(mode="json")) for r in state.returns]
     return {"items": items, "total": len(items)}
 
 
@@ -1133,7 +1160,7 @@ def create_return(
         {"order_id": body.order_id, "order_item_index": body.order_item_index, "reason": body.reason},
         lambda s: s.request_return(body.order_id, body.order_item_index, body.reason),
     )
-    return {"return": result.model_dump(mode="json")}
+    return {"return": _enrich_return(state, result.model_dump(mode="json"))}
 
 
 @router.get("/returns/{return_id}")
@@ -1146,7 +1173,7 @@ def get_return(
     ret = next((r for r in state.returns if r.id == return_id), None)
     if ret is None:
         raise HTTPException(status_code=404, detail=f"Unknown return id: {return_id}")
-    return {"return": ret.model_dump(mode="json")}
+    return {"return": _enrich_return(state, ret.model_dump(mode="json"))}
 
 
 @router.put("/returns/{return_id}")

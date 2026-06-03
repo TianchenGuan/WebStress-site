@@ -4,6 +4,7 @@ import { preserveQueryParams } from "@webstress/shared";
 
 import type { Order } from "../types";
 import { useAmazonLayout } from "../context";
+import { useFallbackImage } from "../imageFallbacks";
 
 const RETURN_REASONS = [
   { value: "defective", label: "Item is defective or doesn't work" },
@@ -167,7 +168,23 @@ export function ReturnFormPage() {
             <div className="return-form__preview">
               <h3>Return Preview</h3>
               <div className="return-form__preview-item">
-                <div className="cart-item__image-placeholder"><span>P</span></div>
+                <div className="return-form__preview-image">
+                  {selectedOrder.items[selectedItemIndex].image_url ? (
+                    <img
+                      src={selectedOrder.items[selectedItemIndex].image_url}
+                      alt={selectedOrder.items[selectedItemIndex].product_name}
+                      onError={(e) => useFallbackImage(e, {
+                        name: selectedOrder.items[selectedItemIndex].product_name,
+                        category: selectedOrder.items[selectedItemIndex].category,
+                        subcategory: selectedOrder.items[selectedItemIndex].subcategory,
+                      })}
+                    />
+                  ) : (
+                    <div className="cart-item__image-placeholder visible">
+                      <span>{(selectedOrder.items[selectedItemIndex].product_name ?? "P")[0]}</span>
+                    </div>
+                  )}
+                </div>
                 <div>
                   <strong>{selectedOrder.items[selectedItemIndex].product_name}</strong>
                   <div>Price: ${(selectedOrder.items[selectedItemIndex].unit_price ?? 0).toFixed(2)}</div>

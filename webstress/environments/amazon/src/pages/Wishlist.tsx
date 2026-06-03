@@ -5,6 +5,7 @@ import { preserveQueryParams } from "@webstress/shared";
 import type { Product } from "../types";
 import { useAmazonLayout } from "../context";
 import { StarRating } from "../components/StarRating";
+import { useFallbackImage } from "../imageFallbacks";
 
 export function WishlistPage() {
   const { api, refreshCart, notify } = useAmazonLayout();
@@ -80,11 +81,11 @@ export function WishlistPage() {
                     <img
                       src={product.image_url}
                       alt={productName}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                      onError={(e) => useFallbackImage(e, product)}
                     />
                   ) : (
-                    <div className="cart-item__image-placeholder"><span>{productName[0]}</span></div>
+                    <div className="cart-item__image-placeholder visible"><span>{productName[0]}</span></div>
                   )}
                 </div>
                 <div className="wishlist-card__info">

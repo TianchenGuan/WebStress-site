@@ -5,6 +5,7 @@ import { preserveQueryParams } from "@webstress/shared";
 import type { Product } from "../types";
 import { useAmazonLayout } from "../context";
 import { StarRating } from "../components/StarRating";
+import { useFallbackImage } from "../imageFallbacks";
 
 export function DealsPage() {
   const { api } = useAmazonLayout();
@@ -85,14 +86,14 @@ export function DealsPage() {
                 <div className="deals-card__image">
                   {product.image_url ? (
                     <img
+                      className="deals-card__product-image"
                       src={product.image_url}
                       alt={product.name}
-                      loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      loading="eager"
+                      onError={(e) => useFallbackImage(e, product)}
                     />
                   ) : (
-                    <div className="product-card__image-placeholder">
+                    <div className="product-card__image-placeholder visible">
                       {product.category.charAt(0).toUpperCase()}
                     </div>
                   )}

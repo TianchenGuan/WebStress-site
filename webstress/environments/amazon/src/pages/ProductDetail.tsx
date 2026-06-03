@@ -5,6 +5,7 @@ import { preserveQueryParams } from "@webstress/shared";
 import type { Product, Review, ProductQuestion } from "../types";
 import { useAmazonLayout } from "../context";
 import { StarRating } from "../components/StarRating";
+import { useFallbackImage } from "../imageFallbacks";
 
 function getDeliveryDate(): string {
   const d = new Date();
@@ -299,12 +300,8 @@ export function ProductDetailPage() {
           <img
             src={product.image_url}
             alt={product.name}
-            loading="lazy"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.classList.add("visible");
-            }}
+            loading="eager"
+            onError={(e) => useFallbackImage(e, product)}
           />
           <div className="product-detail__image-placeholder">
             <span>{product.category.charAt(0).toUpperCase()}</span>
