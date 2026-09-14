@@ -2,7 +2,7 @@
 """Build the public task index JSON consumed by the website.
 
 Reads task YAMLs, intervention variants, the Human-140 panel, and the
-assignments ledger from `../webstress/` (relative to the site root) and
+assignments ledger from `../breakingweb/` (relative to the site root) and
 emits four sanitized JSON files under `public/data/`:
 
   - tasks_index.json     (one entry per base task; intervention paired in)
@@ -28,7 +28,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 SITE = HERE.parent
 FORK_ROOT = SITE.parent
-BENCH = FORK_ROOT / "webstress"
+BENCH = FORK_ROOT / "breakingweb"
 OUT = SITE / "public" / "data"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -144,7 +144,7 @@ def normalize_instruction(text: str) -> str:
 
 
 def load_human140_set() -> set[str]:
-    panel = BENCH / "human" / "webstress_human_panel_v2_140.yaml"
+    panel = BENCH / "human" / "breakingweb_human_panel_v2_140.yaml"
     if not panel.exists():
         # legacy filename
         panel = BENCH / "human" / "webagentbench_human_panel_v2_140.yaml"
@@ -163,7 +163,7 @@ def load_duplicate_audit_set() -> set[str]:
     # Two sources: the panel YAML records the 35 duplicated task-conditions,
     # and the assignments YAML records the duplicate annotator assignments.
     out: set[str] = set()
-    panel = BENCH / "human" / "webstress_human_panel_v2_140.yaml"
+    panel = BENCH / "human" / "breakingweb_human_panel_v2_140.yaml"
     if not panel.exists():
         panel = BENCH / "human" / "webagentbench_human_panel_v2_140.yaml"
     if panel.exists():
@@ -186,7 +186,7 @@ def main() -> int:
     if not BENCH.exists():
         sys.exit(
             f"missing benchmark at {BENCH}.\n"
-            "Site assumes the WebStress benchmark code is checked out alongside as `webstress/`."
+            "Site assumes the BreakingWeb benchmark code is checked out alongside as `breakingweb/`."
         )
 
     h140 = load_human140_set()

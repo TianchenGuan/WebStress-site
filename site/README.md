@@ -1,9 +1,9 @@
-# WebStress site
+# BreakingWeb site
 
-The public project website for **WebStress** — the benchmark for diagnosing
+The public project website for **BreakingWeb** — the benchmark for diagnosing
 web-agent failures with matched clean/intervention task pairs.
 
-Deployed at **[webstress.dev](https://webstress.dev)** via Vercel.
+Deployed at **[breakingweb.dev](https://breakingweb.dev)** via Vercel.
 
 ## Stack
 
@@ -32,7 +32,7 @@ WebStress-site/site/
 │   ├── figures/               # paper figures rendered to PNG
 │   └── favicon.svg
 ├── scripts/
-│   ├── build_public_task_index.py        # reads ../webstress/* → public/data/
+│   ├── build_public_task_index.py        # reads ../breakingweb/* → public/data/
 │   ├── build_public_results_summary.py   # writes results_summary.json
 │   └── check_public_export.py            # safety-scans public/data/*.json
 ├── src/
@@ -80,7 +80,7 @@ npm run preview
 ```
 
 The data-build step expects the benchmark repo to be checked out at
-`../webstress/` relative to this site folder. In your TianchenGuan/WebStress-site
+`../breakingweb/` relative to this site folder. In your TianchenGuan/WebStress-site
 fork that is true by default (the fork is a copy of the benchmark repo
 with the website added under `site/`).
 
@@ -101,8 +101,8 @@ npm run dev
    + Vite build in one go).
 5. **Output Directory**: `dist/` (the Vite default; Vercel detects this).
 6. **Environment Variables**: none — the site is fully static.
-7. **Domain**: in the project's *Domains* tab, add `webstress.dev` and
-   `www.webstress.dev`. Vercel will give you the DNS records to point at
+7. **Domain**: in the project's *Domains* tab, add `breakingweb.dev` and
+   `www.breakingweb.dev`. Vercel will give you the DNS records to point at
    Vercel's nameservers (or A / CNAME records, depending on your registrar).
 
 After the first deploy, every push to `main` in
@@ -136,9 +136,9 @@ npm run build:data
 npm run check:public
 ```
 
-`build:data` reads from `../webstress/tasks/<env>/*.yaml`,
-`../webstress/injector/variants/*.yaml`, and
-`../webstress/human/{webstress_human_panel_v2_140,assignments_v1}.yaml`,
+`build:data` reads from `../breakingweb/tasks/<env>/*.yaml`,
+`../breakingweb/injector/variants/*.yaml`, and
+`../breakingweb/human/{breakingweb_human_panel_v2_140,assignments_v1}.yaml`,
 and writes sanitized JSON into `public/data/`. Only public-safe fields
 are emitted (see `src/data/types.ts` for the exact shape).
 

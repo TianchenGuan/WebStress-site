@@ -60,7 +60,7 @@ export default function Home() {
             <span className="text-accent">matched clean / intervention tasks</span>.
           </h1>
           <p className="mt-6 max-w-prose text-lg text-ink/80 leading-relaxed">
-            WebStress runs each task twice: once in a clean environment and once
+            BreakingWeb runs each task twice: once in a clean environment and once
             with a controlled intervention that targets one primary cognitive
             primitive. The paired drop between the two runs estimates how
             sensitive an agent is to that primitive, while the rest of the
@@ -196,7 +196,7 @@ export default function Home() {
           <p className="text-sm text-muted mt-1">Anonymous submission to NeurIPS 2026 · under review</p>
           <p className="text-sm text-ink/75 mt-3 leading-relaxed">
             Cognitive primitives such as planning, exploration, and backtracking
-            are widely regarded as core to competent web agents. WebStress casts
+            are widely regarded as core to competent web agents. BreakingWeb casts
             capability evaluation as a controlled comparison: each task is
             paired with a targeted intervention, and the paired drop estimates
             sensitivity to one primary target primitive.

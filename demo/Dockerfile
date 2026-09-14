@@ -1,9 +1,9 @@
-# WebStress demo backend — a single-process FastAPI app serving the seven
+# BreakingWeb demo backend — a single-process FastAPI app serving the seven
 # environment SPAs at /env/<env_id>/. Deployed as a Hugging Face Docker
 # Space (free CPU-basic tier is enough for low-traffic demos).
 #
 # Build flow:
-#   1. node stage: pnpm install + pnpm build the 7 SPAs → webstress/static/envs/
+#   1. node stage: pnpm install + pnpm build the 7 SPAs → breakingweb/static/envs/
 #   2. python stage: pip install runtime deps, copy the built SPAs over,
 #      run uvicorn on port 7860 (HF Space default).
 #
@@ -16,9 +16,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:24-bookworm-slim AS frontend
 
-ARG WEBSTRESS_REPO=https://github.com/TianchenGuan/WebStress-site.git
-ARG WEBSTRESS_REF=main
-ARG CACHE_BUSTER=2026-05-23-1
+ARG BREAKINGWEB_REPO=https://github.com/TianchenGuan/WebStress-site.git
+ARG BREAKINGWEB_REF=main
+ARG CACHE_BUSTER=2026-09-14-1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates curl \
@@ -28,11 +28,11 @@ RUN apt-get update \
 
 WORKDIR /build
 RUN echo "cache-buster=${CACHE_BUSTER}" \
- && git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
+ && git clone --depth 1 --branch "${BREAKINGWEB_REF}" "${BREAKINGWEB_REPO}" .
 
 # Install + build all 7 environment SPAs. Outputs land in
-# webstress/static/envs/<env>/ via each env's `vite build` step.
-RUN cd webstress/environments \
+# breakingweb/static/envs/<env>/ via each env's `vite build` step.
+RUN cd breakingweb/environments \
  && pnpm install --frozen-lockfile \
  && pnpm build
 
@@ -41,9 +41,9 @@ RUN cd webstress/environments \
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-ARG WEBSTRESS_REPO=https://github.com/TianchenGuan/WebStress-site.git
-ARG WEBSTRESS_REF=main
-ARG CACHE_BUSTER=2026-05-23-1
+ARG BREAKINGWEB_REPO=https://github.com/TianchenGuan/WebStress-site.git
+ARG BREAKINGWEB_REF=main
+ARG CACHE_BUSTER=2026-09-14-1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -62,21 +62,21 @@ RUN pip install --no-cache-dir \
       httpx \
       python-dotenv
 
-# Pull the WebStress source at build time (same ref as the frontend stage).
+# Pull the BreakingWeb source at build time (same ref as the frontend stage).
 # The cache-buster echo above already forced a fresh layer if the value
 # changed, so this clone re-runs cleanly.
 RUN echo "cache-buster=${CACHE_BUSTER}" \
- && git clone --depth 1 --branch "${WEBSTRESS_REF}" "${WEBSTRESS_REPO}" .
+ && git clone --depth 1 --branch "${BREAKINGWEB_REF}" "${BREAKINGWEB_REPO}" .
 
 # Bring the pre-built SPAs over from the frontend stage.
-COPY --from=frontend /build/webstress/static/envs /app/webstress/static/envs
+COPY --from=frontend /build/breakingweb/static/envs /app/breakingweb/static/envs
 
-ENV WEBSTRESS_AUTO_BUILD_FRONTENDS=0
-ENV WEBSTRESS_PORT=7860
+ENV BREAKINGWEB_AUTO_BUILD_FRONTENDS=0
+ENV BREAKINGWEB_PORT=7860
 EXPOSE 7860
 
 # HF Space convention: process listens on $PORT (default 7860) and dies
 # cleanly on SIGTERM.
-CMD ["python", "-m", "uvicorn", "webstress.app:app", \
+CMD ["python", "-m", "uvicorn", "breakingweb.app:app", \
      "--host", "0.0.0.0", "--port", "7860", \
      "--proxy-headers", "--forwarded-allow-ips=*"]

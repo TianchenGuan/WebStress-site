@@ -16,7 +16,7 @@ export default function Layout() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
           <Link to="/" className="no-underline text-ink hover:text-accent">
             <span className="font-serif text-xl font-bold tracking-tight">
-              WebStress
+              BreakingWeb
             </span>
             <span className="ml-2 text-xs uppercase tracking-widest text-muted">
               Benchmark
@@ -47,7 +47,7 @@ export default function Layout() {
       <footer className="border-t border-border mt-12 py-8 bg-white">
         <div className="max-w-6xl mx-auto px-6 text-xs text-muted flex flex-wrap items-center justify-between gap-4">
           <div>
-            WebStress benchmark · NeurIPS 2026 submission
+            BreakingWeb benchmark · NeurIPS 2026 submission
             <span className="mx-2">·</span>
             <a
               href="https://github.com/Arvid-pku/WebStress"

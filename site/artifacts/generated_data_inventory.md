@@ -6,7 +6,7 @@ Output dir: `WebStress-site/site/public/data/`
 
 | File | Bytes | Entries | Source YAML | Sanitization notes |
 |---|---:|---:|---|---|
-| `tasks_index.json` | 701,211 | 519 | `webstress/tasks/<env>/*.yaml` + `webstress/injector/variants/*.yaml` + Human-140 panel + assignments | `canonical_diff`, `seed`, latent `target`, evaluator predicates stripped. Instruction template kept; placeholder tokens like `{target.x}` left in as cosmetic markers. |
+| `tasks_index.json` | 701,211 | 519 | `breakingweb/tasks/<env>/*.yaml` + `breakingweb/injector/variants/*.yaml` + Human-140 panel + assignments | `canonical_diff`, `seed`, latent `target`, evaluator predicates stripped. Instruction template kept; placeholder tokens like `{target.x}` left in as cosmetic markers. |
 | `primitives.json` | 6,175 | 7 | hand-curated cards (paper §2.1) + counts derived from tasks index | none — definitions are intentionally publishable |
 | `environments.json` | 3,751 | 7 | hand-curated descriptions + counts derived from tasks index | none — descriptions are intentionally publishable |
 | `results_summary.json` | 8,597 | 9 agent rows | hardcoded from paper Tables 2 + 4 | only paper-published numbers; no per-trajectory data |
@@ -38,7 +38,7 @@ Output dir: `WebStress-site/site/public/data/`
   // Human study
   human140: boolean,             // appears in the 140-task primary panel
   duplicate_audit: boolean,      // appears in the 35-condition audit
-  source_path: string,           // "webstress/tasks/<env>/<task>.yaml"
+  source_path: string,           // "breakingweb/tasks/<env>/<task>.yaml"
 }
 ```
 
@@ -75,13 +75,13 @@ rendered from the corresponding paper PDF.
 - Per-task viewport screenshots: not generated. The benchmark harness
   produces screenshots during human / agent recording, but those are
   pseudonymized-only-by-folder-structure and currently live in
-  `webstress/human/traces/<annotator>/` (gitignored). Shipping them
+  `breakingweb/human/traces/<annotator>/` (gitignored). Shipping them
   would require a personal-information audit. Punted to a future
   iteration.
 - Paper PDF (`paper/main.pdf`): not copied into `public/`. The paper
   is anonymous-NeurIPS-under-review and the in-tree copy is the
   authors' working draft. When the camera-ready exists, drop it at
-  `public/webstress-neurips2026.pdf` and link it from the landing-page
+  `public/breakingweb-neurips2026.pdf` and link it from the landing-page
   "Paper" button.
 
 ## Regeneration

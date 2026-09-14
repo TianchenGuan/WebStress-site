@@ -34,7 +34,7 @@ export default function Demo() {
         <div className="card mb-8 bg-cream border-border">
           <p className="text-sm text-ink/85 leading-relaxed">
             The hosted demo is offline at the moment. You can still run
-            WebStress locally — see <Link to="/docs/setup">docs / setup</Link>.
+            BreakingWeb locally — see <Link to="/docs/setup">docs / setup</Link>.
           </p>
         </div>
       )}
@@ -73,7 +73,7 @@ export default function Demo() {
           The featured set above is curated. The full 519-task explorer
           lives at <Link to="/tasks">/tasks</Link> — every task is
           documented, but only featured ones expose a one-click play
-          button. To run the others you can either spin up WebStress
+          button. To run the others you can either spin up BreakingWeb
           locally, or open the launcher and pick manually:
         </p>
         <a
@@ -116,7 +116,7 @@ export default function Demo() {
 
       <h2 className="text-xl mt-10 mb-3">Responsible use</h2>
       <p className="text-sm text-ink/85 leading-relaxed">
-        WebStress interventions are designed for sandbox benchmark
+        BreakingWeb interventions are designed for sandbox benchmark
         environments. They should not be used to build deceptive
         interfaces or agents that exploit real users. The released
         stressor catalog (phishing-style email bodies, fabricated-success

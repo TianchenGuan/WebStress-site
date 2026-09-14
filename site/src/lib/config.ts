@@ -1,10 +1,10 @@
-// Public URL of the hosted WebStress demo (a FastAPI app + 7 environment
+// Public URL of the hosted BreakingWeb demo (a FastAPI app + 7 environment
 // SPAs deployed as a Hugging Face Docker Space). Empty string disables
 // the "Try in live demo" links across the site — flip it on once the
 // Space is up. See ../../../demo/DEPLOY.md for the deploy recipe.
 export const LIVE_DEMO_URL: string =
   // import.meta.env.VITE_LIVE_DEMO_URL ?? ""
-  "https://tianchenguan-webstress-demo.hf.space";
+  "https://tianchenguan-breakingweb-demo.hf.space";
 
 /**
  * Single-tab fallback URL — drops the visitor on the /play launching

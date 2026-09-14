@@ -11,8 +11,8 @@
     ],
     "example_task_id": "amazon_add_single_item",
     "example_intervention_summary": "Composite degradation: (a) pack-size siblings (2-pack bundle and travel-edition) match brand/rating/thumbnail; (b) the first cart-add call silently no-ops, so the agent must both ground on the exact single-unit target AND verify the add actually landed before reporting done.",
-    "task_count": 168,
-    "intervention_count": 168
+    "task_count": 166,
+    "intervention_count": 167
   },
   {
     "primitive": "planning",
@@ -27,7 +27,7 @@
     "example_task_id": "amazon_budget_split_gift_orders",
     "example_intervention_summary": "Wrong-category decoys priced just inside the per-order cap surface in search \u2014 cheap enough to feel like the right move for the budget split, but they fail the \"at least one product from the {category}\" clause. The agent must plan its two orders so each has a genuine in-category item, even if a cheaper cross-category alternative would satisfy the cap more comfortably.",
     "task_count": 54,
-    "intervention_count": 52
+    "intervention_count": 51
   },
   {
     "primitive": "state_tracking",
@@ -41,8 +41,8 @@
     ],
     "example_task_id": "amazon_cart_recover_from_oos",
     "example_intervention_summary": "Two-layer cart-mutation verification trap (Recipe A adapted): both /cart/add POSTs and /cart/{id} DELETEs silent-fail on their first attempt, returning a fake 200 with a templated cart_item body that echoes the agent's request. The agent's \"remove OOS, add in-stock replacement\" workflow appears to succeed at every step but the real cart state never changes \u2014 OOS items remain, no replacements land. canonical_diff requires both `create[CartItem]` (in-stock, same category, not in oos_product_ids) AND `delete[CartItem]` (id in oos_cart_item_ids); both predicates fail unless the agent verifies cart state via re-read after each write and retries.",
-    "task_count": 81,
-    "intervention_count": 82
+    "task_count": 85,
+    "intervention_count": 85
   },
   {
     "primitive": "backtracking",
@@ -71,7 +71,7 @@
     ],
     "example_task_id": "amazon_complete_shopping_journey",
     "example_intervention_summary": "A cookie-consent modal appears on the second navigation. The close button is tiny and Escape dismisses the modal. Agent must dismiss, not interact, to keep the task on track.",
-    "task_count": 25,
+    "task_count": 24,
     "intervention_count": 25
   },
   {
@@ -101,7 +101,7 @@
     ],
     "example_task_id": "amazon_buy_highest_rated",
     "example_intervention_summary": "Three near-duplicate Sports & Outdoors SKUs share the target Premium Yoga Mat's brand and thumbnail and tie at exactly the target's 4.95 top rating. Sort-by-rating produces a four-way tie at the top, so the agent must compare review_count or canonical product_id to break the tie. The first two cart-add calls silently no-op so the agent must verify the cart actually changed before checkout.",
-    "task_count": 70,
-    "intervention_count": 71
+    "task_count": 69,
+    "intervention_count": 70
   }
 ]

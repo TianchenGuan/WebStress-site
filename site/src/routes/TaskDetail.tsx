@@ -109,7 +109,7 @@ export default function TaskDetail() {
             This task isn't in the curated{" "}
             <Link to="/demo">demo set</Link> on the hosted backend.
             To try it, either{" "}
-            <Link to="/docs/setup">run WebStress locally</Link> or open
+            <Link to="/docs/setup">run BreakingWeb locally</Link> or open
             the launcher and pick it manually:
           </p>
           <a

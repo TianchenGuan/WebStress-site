@@ -1,5 +1,5 @@
 ---
-title: WebStress Demo
+title: BreakingWeb Demo
 emoji: 🌐
 colorFrom: gray
 colorTo: red
@@ -7,12 +7,12 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: cc-by-4.0
-short_description: Live demo for the WebStress web-agent benchmark.
+short_description: Live demo for the BreakingWeb web-agent benchmark.
 ---
 
-# WebStress live demo
+# BreakingWeb live demo
 
-This is the live human-play backend for [WebStress](https://webstress.dev) —
+This is the live human-play backend for [BreakingWeb](https://breakingweb.dev) —
 a benchmark of 519 paired clean / intervention tasks across 7 self-hosted
 web environments (Gmail, Amazon, Reddit, Robinhood, Booking, LMS,
 Patient Portal).
@@ -28,8 +28,8 @@ Open `/launch` to pick a task and try it in either condition:
 - ✅ Serves the seven environment SPAs at `/env/<env_id>/` with deterministic
   seeded state per session.
 - ✅ Lets you record your own play trace via the launcher's two-tab control UI.
-- ❌ Does **not** run agent evaluations. Use the WebStress repo locally for that
-  — see [the setup docs](https://webstress.dev/docs/setup).
+- ❌ Does **not** run agent evaluations. Use the BreakingWeb repo locally for that
+  — see [the setup docs](https://breakingweb.dev/docs/setup).
 - ❌ Does **not** persist sessions across container restarts. Every restart
   wipes all in-flight sessions; no PII is retained.
 
@@ -46,7 +46,7 @@ Open `/launch` to pick a task and try it in either condition:
 - The control-secret-protected `/control/...` routes (interventions,
   evaluator dumps, audit logs) are reachable only with the
   `X-WAB-Controller-Secret` header. The harness sets it via env var
-  `WEBSTRESS_CONTROLLER_SECRET`; if unset, the routes 401 — that's the
+  `BREAKINGWEB_CONTROLLER_SECRET`; if unset, the routes 401 — that's the
   intended demo posture (human play only).
 
 ## Build args (advanced)
@@ -56,8 +56,8 @@ pinned commit:
 
 ```bash
 docker build \
-    --build-arg WEBSTRESS_REPO=https://github.com/Arvid-pku/WebStress.git \
-    --build-arg WEBSTRESS_REF=main \
+    --build-arg BREAKINGWEB_REPO=https://github.com/Arvid-pku/WebStress.git \
+    --build-arg BREAKINGWEB_REF=main \
     .
 ```
 

@@ -1,13 +1,13 @@
-# Deploying the WebStress demo to Hugging Face Spaces
+# Deploying the BreakingWeb demo to Hugging Face Spaces
 
 Step-by-step recipe to get a public live-play backend up at, e.g.,
-`https://tianchenguan-webstress-demo.hf.space`.
+`https://tianchenguan-breakingweb-demo.hf.space`.
 
 ## 1. Create the Space
 
 1. Go to <https://huggingface.co/new-space>.
 2. **Owner**: your HF account (e.g. `TianchenGuan`).
-3. **Space name**: `webstress-demo` (lowercase, hyphenated).
+3. **Space name**: `breakingweb-demo` (lowercase, hyphenated).
 4. **SDK**: Docker.
 5. **Visibility**: Public.
 6. **Hardware**: CPU basic (free).
@@ -17,15 +17,15 @@ Don't pick a Docker template — we ship our own Dockerfile.
 ## 2. Push the demo content
 
 ```bash
-git clone https://huggingface.co/spaces/<your-user>/webstress-demo
-cd webstress-demo
+git clone https://huggingface.co/spaces/<your-user>/breakingweb-demo
+cd breakingweb-demo
 
 # Copy the two files from WebStress-site/demo/ into the Space repo root.
 cp /path/to/WebStress-site/demo/Dockerfile .
 cp /path/to/WebStress-site/demo/README.md .
 
 git add Dockerfile README.md
-git commit -m "init: WebStress demo Dockerfile + Space metadata"
+git commit -m "init: BreakingWeb demo Dockerfile + Space metadata"
 git push
 ```
 
@@ -35,7 +35,7 @@ Space UI to follow along — expect:
 - ~30 s pulling base images
 - ~2–4 min `pnpm install` + `pnpm build` (7 SPAs)
 - ~30 s `pip install`
-- ~10 s `git clone` of the WebStress repo
+- ~10 s `git clone` of the BreakingWeb repo
 - ~5 s container start
 
 So roughly **5 minutes total** for the first build. Subsequent builds
@@ -46,12 +46,12 @@ So roughly **5 minutes total** for the first build. Subsequent builds
 Once the Space says **Running**:
 
 ```bash
-curl -sI https://<your-user>-webstress-demo.hf.space/launch
+curl -sI https://<your-user>-breakingweb-demo.hf.space/launch
 # HTTP/2 200
 ```
 
-Open `https://<your-user>-webstress-demo.hf.space/launch` in a browser
-— you should see the WebStress task launcher. Pick a task (Gmail or
+Open `https://<your-user>-breakingweb-demo.hf.space/launch` in a browser
+— you should see the BreakingWeb task launcher. Pick a task (Gmail or
 Amazon for fastest demo), click *Launch*, and the env tab should open
 on the simulated site.
 
@@ -60,7 +60,7 @@ on the simulated site.
 Edit `WebStress-site/site/src/lib/config.ts`:
 
 ```ts
-export const LIVE_DEMO_URL = "https://<your-user>-webstress-demo.hf.space";
+export const LIVE_DEMO_URL = "https://<your-user>-breakingweb-demo.hf.space";
 ```
 
 Then rebuild + push:
@@ -78,13 +78,13 @@ The "Try this task in the live demo →" buttons on
 
 ## 5. Optional: custom subdomain
 
-If you want `demo.webstress.dev` instead of the long HF URL:
+If you want `demo.breakingweb.dev` instead of the long HF URL:
 
-1. In Vercel (where `webstress.dev` is served from), add a CNAME record
-   under DNS: `demo` → `<your-user>-webstress-demo.hf.space`.
-2. In the HF Space settings, add `demo.webstress.dev` to *Custom
+1. In Vercel (where `breakingweb.dev` is served from), add a CNAME record
+   under DNS: `demo` → `<your-user>-breakingweb-demo.hf.space`.
+2. In the HF Space settings, add `demo.breakingweb.dev` to *Custom
    domains*. HF will issue a TLS cert via Let's Encrypt.
-3. Bump `LIVE_DEMO_URL` to `https://demo.webstress.dev` and redeploy
+3. Bump `LIVE_DEMO_URL` to `https://demo.breakingweb.dev` and redeploy
    the site.
 
 ## Troubleshooting
@@ -98,8 +98,8 @@ If you want `demo.webstress.dev` instead of the long HF URL:
 - **`/control/...` returns 401**. By design — the demo doesn't expose
   the intervention controller. Human play through `/launch` works
   without the secret.
-- **Frontend bundle missing**. Look for `WEBSTRESS_AUTO_BUILD_FRONTENDS=0`
-  in the Space logs. If the build stage failed, the `webstress/static/envs/`
+- **Frontend bundle missing**. Look for `BREAKINGWEB_AUTO_BUILD_FRONTENDS=0`
+  in the Space logs. If the build stage failed, the `breakingweb/static/envs/`
   copy was empty and the launcher will say "Environment backend exists
   but the frontend bundle has not been built." Trigger a rebuild from
   the Space *Settings* → *Factory rebuild*.
