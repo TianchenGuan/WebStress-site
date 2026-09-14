@@ -14,6 +14,7 @@ const EXTERNAL_LINKS: { href: string; label: string; description: string }[] = [
   { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/degradation-design.md", label: "Intervention design", description: "How interventions compose across the four injection layers." },
   { href: "https://github.com/Arvid-pku/WebStress/blob/main/breakingweb/human/GUIDELINES.md", label: "Human study protocol", description: "Recording instrument, trace cleaning rules, post-task rating rubric." },
   { href: "https://github.com/Arvid-pku/WebStress/blob/main/breakingweb/docs/RUNNING_SWEEPS.md", label: "Running paper-grade sweeps", description: "Browser-Use harness, slurm templates, per-model viewports." },
+  { href: "https://huggingface.co/BreakingWeb", label: "Agent trajectories (Hugging Face)", description: "Per-episode JSON + screenshots for every paper sweep: primbench-results-v2 (text agents) and primbench-results-v3 (Sonnet 4.6, Opus 4.7 retry pass, pixel agents)." },
 ];
 
 export default function Docs() {

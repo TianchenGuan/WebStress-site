@@ -5,6 +5,20 @@ web-agent failures with matched clean/intervention task pairs.
 
 Deployed at **[breakingweb.app](https://breakingweb.app)** via Vercel.
 
+## Where everything lives
+
+| Piece | Location |
+|---|---|
+| Website (this folder) | https://www.breakingweb.app — Vercel, repo `TianchenGuan/WebStress-site`, root `site/` |
+| Benchmark code | https://github.com/Arvid-pku/WebStress (this fork tracks it as `upstream`) |
+| Live demo backend | HF Space `TianchenGuan/breakingweb-demo` → https://tianchenguan-breakingweb-demo.hf.space (Dockerfile in `../demo/`) |
+| Agent trajectories | HF org https://huggingface.co/BreakingWeb — `primbench-results-v2` (text agents), `primbench-results-v3` (Sonnet 4.6, Opus 4.7 retry, pixel agents); annotation datasets are private |
+| HF org card text | `../demo/hf_org_card.md` (paste into org Settings → Organization card) |
+
+Every one of these links back to the others: site footer + Docs + Results
+page → GitHub/HF/demo; GitHub README → site/HF/demo; HF dataset cards and
+the Space README → site/GitHub. Keep them in sync when a URL changes.
+
 ## Stack
 
 - **Vite + React + TypeScript** (Vite 5, React 18)

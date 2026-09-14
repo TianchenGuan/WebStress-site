@@ -61,8 +61,12 @@ docker build \
     .
 ```
 
-## Source
+## Links
 
+- Website & results explorer: <https://www.breakingweb.app>
 - Benchmark code: <https://github.com/Arvid-pku/WebStress>
+- Agent trajectories on Hugging Face: <https://huggingface.co/BreakingWeb>
+  ([primbench-results-v2](https://huggingface.co/datasets/BreakingWeb/primbench-results-v2) — text agents;
+  [primbench-results-v3](https://huggingface.co/datasets/BreakingWeb/primbench-results-v3) — Sonnet 4.6, Opus 4.7 retry, pixel agents)
 - Website + this demo Dockerfile: <https://github.com/TianchenGuan/WebStress-site>
-- Paper: anonymous NeurIPS 2026 submission (under review)
+- Paper: NeurIPS 2026 Datasets & Benchmarks submission (under review)

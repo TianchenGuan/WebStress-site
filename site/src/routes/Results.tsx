@@ -3,7 +3,9 @@ import { loadResults } from "../lib/data";
 import type { ResultsSummary } from "../data/types";
 import { PRIMITIVE_LABELS, PRIMITIVE_ORDER } from "../lib/format";
 
-const HUGGINGFACE_ORG_URL = "https://huggingface.co/PrimBench";
+const HUGGINGFACE_ORG_URL = "https://huggingface.co/BreakingWeb";
+const HF_DATASET_V2 = "https://huggingface.co/datasets/BreakingWeb/primbench-results-v2";
+const HF_DATASET_V3 = "https://huggingface.co/datasets/BreakingWeb/primbench-results-v3";
 
 function deltaCell(d: number): string {
   if (d <= 0) return "bg-sage/15 text-sage";
@@ -52,13 +54,14 @@ export default function Results() {
                 rel="noreferrer"
                 className="text-accent underline-offset-2 hover:underline"
               >
-                PrimBench
+                BreakingWeb
               </a>{" "}
-              organization on Hugging Face. Each model's full 519-clean +
-              519-intervention sweep — including action traces, evaluator
-              verdicts, and the rule-based failure-mode classifier output —
-              ships as a Parquet dataset you can pull directly with{" "}
-              <code>datasets.load_dataset</code>.
+              organization on Hugging Face. Each sweep ships as one directory
+              per agent: <code>summary.json</code>, <code>run_manifest.json</code>,
+              and <code>tasks/&lt;task_id&gt;__&lt;cond&gt;/trajectory.json</code>{" "}
+              (action trace + evaluator verdict) with step screenshots. Pull
+              them with <code>huggingface_hub.snapshot_download</code>; skip{" "}
+              <code>*.png</code> unless you need the screenshots.
             </p>
             <a
               href={HUGGINGFACE_ORG_URL}
@@ -66,7 +69,7 @@ export default function Results() {
               rel="noreferrer"
               className="btn-primary inline-flex items-center gap-2"
             >
-              <span aria-hidden>🤗</span> Browse PrimBench on Hugging Face&nbsp;
+              <span aria-hidden>🤗</span> Browse BreakingWeb on Hugging Face&nbsp;
               <span aria-hidden>→</span>
             </a>
           </div>
@@ -74,16 +77,17 @@ export default function Results() {
             <strong className="text-ink">What's there:</strong>
             <ul className="mt-1.5 space-y-0.5 list-disc pl-5">
               <li>
-                <code>primbench-results-v3</code> — scored agent runs (172k
-                trajectories).
+                <a href={HF_DATASET_V2} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>primbench-results-v2</code></a>{" "}
+                — Browser-Use text agents: Gemini 3.1 Pro, Gemini 3 Flash,
+                GPT-5.4, GPT-5.4 mini, Opus 4.7, Qwen3-VL-235B.
               </li>
               <li>
-                <code>primbench-results-v2</code> — earlier snapshot kept for
-                reproducibility.
+                <a href={HF_DATASET_V3} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>primbench-results-v3</code></a>{" "}
+                — Sonnet 4.6, the Opus 4.7 60-step retry pass, and the three
+                pixel-mode agents.
               </li>
               <li>
-                Per-annotator human panels (gated; request access from the org
-                page).
+                Human-panel annotation data is private; contact the authors.
               </li>
             </ul>
           </div>

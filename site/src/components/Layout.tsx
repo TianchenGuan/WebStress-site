@@ -58,6 +58,15 @@ export default function Layout() {
               GitHub
             </a>
             <span className="mx-2">·</span>
+            <a
+              href="https://huggingface.co/BreakingWeb"
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted hover:text-accent"
+            >
+              Hugging Face
+            </a>
+            <span className="mx-2">·</span>
             <Link to="/docs" className="text-muted hover:text-accent">
               Documentation
             </Link>
