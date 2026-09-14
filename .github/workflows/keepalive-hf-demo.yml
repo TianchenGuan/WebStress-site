@@ -1,0 +1,58 @@
+name: Keep HF demo Space awake
+
+# Free Hugging Face Spaces (CPU basic) go to sleep after 48h without HTTP
+# traffic and take ~1 min to wake up on the next visit. Pinging /health every
+# 12h keeps the live demo warm at zero cost.
+#
+# Caveats:
+#  * GitHub pauses scheduled workflows after 60 days with no commits to the
+#    repo; a commit or a manual "Run workflow" re-enables them.
+#  * The Space URL is read from site/src/lib/config.ts (LIVE_DEMO_URL), so
+#    renaming the Space only requires updating that one file.
+
+on:
+  schedule:
+    - cron: "17 */12 * * *"   # 00:17 and 12:17 UTC (off the hour: :00 jobs get delayed)
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/keepalive-hf-demo.yml"   # smoke-test on edit
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: site/src/lib/config.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve demo URL from site config
+        id: url
+        run: |
+          # Only look at the assignment line (a bare quoted string), not comments.
+          URL=$(grep -E '^\s*"https://[^"]+"' site/src/lib/config.ts \
+                | grep -oE 'https://[a-z0-9-]+\.hf\.space' | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::no *.hf.space URL found in site/src/lib/config.ts"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Pinging $URL/health"
+
+      - name: Ping /health (retry while the Space wakes up)
+        run: |
+          for i in $(seq 1 8); do
+            body=$(curl -sS --max-time 60 "${{ steps.url.outputs.url }}/health" || true)
+            echo "attempt $i: ${body:0:200}"
+            if echo "$body" | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::Space did not answer /health with status ok after 8 attempts (~5 min)"
+          exit 1

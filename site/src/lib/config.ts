@@ -6,7 +6,7 @@ export const LIVE_DEMO_URL: string =
   // import.meta.env.VITE_LIVE_DEMO_URL ?? ""
   // NOTE: the HF Space is still named `webstress-demo`; once it is renamed
   // to `breakingweb-demo` (Space settings -> Rename), switch this to
-  // https://tianchenguan-breakingweb-demo.hf.space — the old hostname 404s
+  // the tianchenguan-breakingweb-demo.hf.space host — the old hostname 404s
   // after a rename.
   "https://tianchenguan-webstress-demo.hf.space";
 
