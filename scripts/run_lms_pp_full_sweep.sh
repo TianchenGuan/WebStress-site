@@ -29,7 +29,7 @@ REASONING="${REASONING:-medium}"
 HARNESS="${HARNESS:-browser-use}"
 BASELINE_ONLY="${BASELINE_ONLY:-0}"
 DEGRADATIONS_ONLY="${DEGRADATIONS_ONLY:-0}"
-OUTDIR="results/webstress"
+OUTDIR="results/breakingweb"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_TAG="${MODEL//\//_}_lms_pp_full_${TIMESTAMP}"
 RUNDIR="$OUTDIR/$RUN_TAG"
@@ -91,7 +91,7 @@ diff_order = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
 base_tasks = []
 if not degradations_only:
     for env in ["lms", "patient_portal"]:
-        for f in sorted(Path(f"webstress/tasks/{env}").glob("*.yaml")):
+        for f in sorted(Path(f"breakingweb/tasks/{env}").glob("*.yaml")):
             if f.name.startswith("_"): continue
             data = yaml.safe_load(f.read_text())
             base_tasks.append((
@@ -104,7 +104,7 @@ if not degradations_only:
 # Collect LMS/PP variants
 variants = []
 if not baseline_only:
-    vdir = Path("webstress/injector/variants")
+    vdir = Path("breakingweb/injector/variants")
     for f in sorted(vdir.glob("*.yaml")):
         if not (f.name.startswith("lms_") or f.name.startswith("pp_")):
             continue
@@ -115,7 +115,7 @@ if not baseline_only:
         base_id = v.get("base_task_id", "")
         # Difficulty of the base task
         base_env = "lms" if base_id.startswith("lms_") else "patient_portal"
-        base_path = Path(f"webstress/tasks/{base_env}/{base_id}.yaml")
+        base_path = Path(f"breakingweb/tasks/{base_env}/{base_id}.yaml")
         base_diff = "hard"
         if base_path.exists():
             base_diff = yaml.safe_load(base_path.read_text()).get("difficulty", "hard")
@@ -140,7 +140,7 @@ for w in range(workers):
         out = f"{rundir}/w{w}_item{idx:03d}.json"
         if kind == "task":
             cmds.append(
-                f"PYTHONUNBUFFERED=1 python -m webstress.agent_eval "
+                f"PYTHONUNBUFFERED=1 python -m breakingweb.agent_eval "
                 f"--model {shlex.quote(model)} --provider {shlex.quote(provider)} "
                 f"--api-key \"${{OPENAI_API_KEY}}\" "
                 f"--tasks {shlex.quote(task_id)} "
@@ -151,7 +151,7 @@ for w in range(workers):
             )
         else:  # variant
             cmds.append(
-                f"PYTHONUNBUFFERED=1 python -m webstress.agent_eval "
+                f"PYTHONUNBUFFERED=1 python -m breakingweb.agent_eval "
                 f"--model {shlex.quote(model)} --provider {shlex.quote(provider)} "
                 f"--api-key \"${{OPENAI_API_KEY}}\" "
                 f"--degradation {shlex.quote(variant_name)} "
@@ -296,7 +296,7 @@ for r in deg_results:
     by_env_deg.setdefault(env, []).append(r)
 
 output = {
-    "benchmark": "WebStress (LMS+PP full: baseline + degradations)",
+    "benchmark": "BreakingWeb (LMS+PP full: baseline + degradations)",
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": model, "provider": provider},
     "config": {"seed": seed, "workers": workers, "max_steps": max_steps,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-liner launcher for annotators doing the WebStress-Human-140 study.
+# One-liner launcher for annotators doing the BreakingWeb-Human-140 study.
 #
 # Usage:
 #   ./scripts/human-record.sh <annotator> [--env <id>|all]
@@ -59,7 +59,7 @@ if ! echo " $KNOWN " | grep -q " $ANNOTATOR "; then
   exit 1
 fi
 
-ASSIGN_YAML="$ROOT/webstress/human/assignments_v1.yaml"
+ASSIGN_YAML="$ROOT/breakingweb/human/assignments_v1.yaml"
 if [ ! -f "$ASSIGN_YAML" ]; then
   echo "ERROR: missing $ASSIGN_YAML" >&2
   exit 1
@@ -77,7 +77,7 @@ if command -v python >/dev/null 2>&1; then
 import sys, yaml
 from collections import Counter
 annotator = sys.argv[1]
-with open("webstress/human/assignments_v1.yaml") as f:
+with open("breakingweb/human/assignments_v1.yaml") as f:
     data = yaml.safe_load(f)
 primary = data.get("condition_assignments") or []
 dup = data.get("duplicate_condition_assignments") or []
@@ -93,13 +93,13 @@ print()
 PY
 fi
 
-BROWSER_URL="http://localhost:${WEBSTRESS_PORT:-8080}/static/human.html?annotator=${ANNOTATOR}"
+BROWSER_URL="http://localhost:${BREAKINGWEB_PORT-${WEBSTRESS_PORT:-8080}}/static/human.html?annotator=${ANNOTATOR}"
 echo "  UI will be at:  ${BROWSER_URL}"
-echo "  Traces go to:   webstress/human/traces/${ANNOTATOR}/"
-echo "  Commit + PR:    git add webstress/human/traces/${ANNOTATOR}/"
+echo "  Traces go to:   breakingweb/human/traces/${ANNOTATOR}/"
+echo "  Commit + PR:    git add breakingweb/human/traces/${ANNOTATOR}/"
 echo
 
-# --- Build --env args for webstress.sh ---
+# --- Build --env args for breakingweb.sh ---
 SUBARGS=(dev)
 if [ "$ENV_FLAG" = "all" ]; then
   SUBARGS+=(--env all)
@@ -108,11 +108,11 @@ else
 fi
 
 # Delay browser-open until the backend is actually healthy; the inner
-# webstress.sh already opens /launch, but we want /static/human.html.
+# breakingweb.sh already opens /launch, but we want /static/human.html.
 (
   sleep 4
   for _ in 1 2 3 4 5; do
-    if curl -sf "http://localhost:${WEBSTRESS_PORT:-8080}/health" >/dev/null 2>&1; then
+    if curl -sf "http://localhost:${BREAKINGWEB_PORT-${WEBSTRESS_PORT:-8080}}/health" >/dev/null 2>&1; then
       break
     fi
     sleep 2
@@ -127,4 +127,4 @@ fi
 # Prevent the inner script from launching the default /launch browser window
 # since we already open /static/human.html above.
 SUBARGS+=(--no-open)
-exec ./scripts/webstress.sh "${SUBARGS[@]}"
+exec ./scripts/breakingweb.sh "${SUBARGS[@]}"

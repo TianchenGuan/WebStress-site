@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WebStress task debugger — observe, act, verify.
+BreakingWeb task debugger — observe, act, verify.
 
 Works with any environment (Gmail, Robinhood, etc.) by auto-detecting
 from the task_id prefix or an explicit --env flag.
@@ -48,7 +48,7 @@ class EnvConfig:
     name: str
     api_prefix: str          # e.g. "/api/env/gmail"
     frontend_base: str       # e.g. "/env/gmail"
-    task_dir: str            # e.g. "webstress/tasks/gmail"
+    task_dir: str            # e.g. "breakingweb/tasks/gmail"
     variant_glob: str        # e.g. "gmail_*.yaml"
     task_prefix: str         # e.g. "gmail_"
     session_file: str        # e.g. "scripts/.gmail_session.json"
@@ -60,7 +60,7 @@ GMAIL = EnvConfig(
     name="gmail",
     api_prefix="/api/env/gmail",
     frontend_base="/env/gmail",
-    task_dir="webstress/tasks/gmail",
+    task_dir="breakingweb/tasks/gmail",
     variant_glob="gmail_*.yaml",
     task_prefix="gmail_",
     session_file="scripts/.gmail_session.json",
@@ -83,7 +83,7 @@ ROBINHOOD = EnvConfig(
     name="robinhood",
     api_prefix="/api/env/robinhood",
     frontend_base="/env/robinhood",
-    task_dir="webstress/tasks/robinhood",
+    task_dir="breakingweb/tasks/robinhood",
     variant_glob="rh_*.yaml",
     task_prefix="rh_",
     session_file="scripts/.rh_session.json",
@@ -111,7 +111,7 @@ LMS = EnvConfig(
     name="lms",
     api_prefix="/api/env/lms",
     frontend_base="/env/lms",
-    task_dir="webstress/tasks/lms",
+    task_dir="breakingweb/tasks/lms",
     variant_glob="lms_*.yaml",
     task_prefix="lms_",
     session_file="scripts/.lms_session.json",
@@ -136,7 +136,7 @@ PATIENT_PORTAL = EnvConfig(
     name="patient_portal",
     api_prefix="/api/env/patient_portal",
     frontend_base="/env/patient_portal",
-    task_dir="webstress/tasks/patient_portal",
+    task_dir="breakingweb/tasks/patient_portal",
     variant_glob="pp_*.yaml",
     task_prefix="pp_",
     session_file="scripts/.pp_session.json",
@@ -527,7 +527,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False, env_
                 jobs.extend(({"task_id": tid, "variant_filename": None}, env) for tid in base_ids)
 
         if include_variants or variants_only:
-            variant_dir = Path("webstress/injector/variants")
+            variant_dir = Path("breakingweb/injector/variants")
             for f in sorted(variant_dir.glob(env.variant_glob)):
                 data = yaml.safe_load(f.read_text()) or {}
                 jobs.append((
@@ -582,7 +582,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False, env_
 def main():
     global _SESSION_OVERRIDE
 
-    p = argparse.ArgumentParser(description="WebStress task debugger")
+    p = argparse.ArgumentParser(description="BreakingWeb task debugger")
     p.add_argument("--env", choices=["gmail", "robinhood", "rh", "lms", "patient_portal", "pp"],
                    help="Force environment (auto-detected from task_id if omitted)")
     p.add_argument("-s", "--session", help="Session file path (isolates parallel agents)")

@@ -38,7 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from webstress.stock_browseruse_eval import (  # noqa: E402
+from breakingweb.stock_browseruse_eval import (  # noqa: E402
     _task_slug,
     run_episode,
     write_run_artifacts,
@@ -141,10 +141,10 @@ async def _main() -> None:
     p.add_argument("--max-actions-per-step", type=int, default=4)
     p.add_argument(
         "--output-dir",
-        default="webstress/results/run_picks_out",
+        default="breakingweb/results/run_picks_out",
         help="directory for run artifacts: summary.json, run_manifest.json, "
              "tasks/<task_id>__<cond>/trajectory.json + screenshots/ "
-             "(default: webstress/results/run_picks_out)",
+             "(default: breakingweb/results/run_picks_out)",
     )
     p.add_argument("--limit", type=int, default=None)
     p.add_argument(
