@@ -8,11 +8,11 @@ Principle: **observe** via browser screenshot, **act** via API, **verify** via e
 ```bash
 # Server must be running (restart to pick up YAML changes)
 lsof -i :8080 -t | xargs kill 2>/dev/null; sleep 1
-python -m webstress.app --host 127.0.0.1 --port 8080 &
+python -m breakingweb.app --host 127.0.0.1 --port 8080 &
 sleep 3
 
 # Frontend must be built (only after editing React source)
-cd webstress/environments/robinhood && npx vite build && cd -
+cd breakingweb/environments/robinhood && npx vite build && cd -
 ```
 
 ## Phase 1: Batch Smoke Test
@@ -164,7 +164,7 @@ Sessions are server-side isolated — each `start` creates an independent sessio
 ```bash
 # Always restart server after editing Python or YAML
 lsof -i :8080 -t | xargs kill 2>/dev/null; sleep 1
-python -m webstress.app --host 127.0.0.1 --port 8080 &
+python -m breakingweb.app --host 127.0.0.1 --port 8080 &
 sleep 3
 
 # Re-run the relevant sweep to confirm

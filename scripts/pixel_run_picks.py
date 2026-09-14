@@ -1,7 +1,7 @@
 """Pixel-mode (vision-only) picks runner — clone of `run_picks.py`.
 
 Same JSON picks-file format as `run_picks.py`. Difference: dispatches to
-`webstress.pixel_eval.run_episode` (BrowserGym + PixelLLMAgent, coord
+`breakingweb.pixel_eval.run_episode` (BrowserGym + PixelLLMAgent, coord
 action_space, screenshot-only obs) instead of the stock browser-use harness.
 
 See `scripts/run_picks.py` for the picks-file shape and output layout —
@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from webstress.pixel_eval import (  # noqa: E402
+from breakingweb.pixel_eval import (  # noqa: E402
     _task_slug,
     run_episode,
     write_run_artifacts,
@@ -117,7 +117,7 @@ async def _main() -> None:
     p.add_argument("--timeout", type=int, default=1200)
     p.add_argument(
         "--output-dir",
-        default="webstress/results/pixel_run_picks_out",
+        default="breakingweb/results/pixel_run_picks_out",
     )
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--concurrency", type=int, default=1)

@@ -17,8 +17,8 @@
 #   MODEL=gpt-4o ./scripts/run_gmail_sweep.sh       # different model
 #
 # Monitor progress (from another terminal):
-#   tail -f results/webstress/<run_tag>_progress.log
-#   watch -n5 cat results/webstress/<run_tag>_scoreboard.txt
+#   tail -f results/breakingweb/<run_tag>_progress.log
+#   watch -n5 cat results/breakingweb/<run_tag>_scoreboard.txt
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -34,7 +34,7 @@ TIMEOUT="${TIMEOUT:-300}"
 SMOKE_ONLY="${SMOKE_ONLY:-0}"
 REASONING="${REASONING:-medium}"
 HARNESS="${HARNESS:-browsergym}"
-OUTDIR="results/webstress"
+OUTDIR="results/breakingweb"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_TAG="${MODEL//\//_}_gmail_${TIMESTAMP}"
 RUNDIR="$OUTDIR/$RUN_TAG"
@@ -98,7 +98,7 @@ echo "caffeinate PID: $CAFF_PID" | tee -a "$PROGRESS"
 # ── Start server if not running ──────────────────────────────────────
 if ! lsof -i ":$PORT" -sTCP:LISTEN &>/dev/null; then
     echo "Starting server on port $PORT..." | tee -a "$PROGRESS"
-    python -m uvicorn webstress.app:app \
+    python -m uvicorn breakingweb.app:app \
         --host 0.0.0.0 --port "$PORT" \
         --log-level warning &
     SERVER_PID=$!
@@ -131,7 +131,7 @@ if [[ -n "$HARNESS" && "$HARNESS" != "browsergym" ]]; then
     HARNESS_FLAG="--harness $HARNESS"
 fi
 
-python -m webstress.agent_eval \
+python -m breakingweb.agent_eval \
     --model "$MODEL" \
     --provider "$PROVIDER" \
     --api-key "$OPENAI_API_KEY" \
@@ -176,7 +176,7 @@ TOTAL=$(python3 -c "
 import yaml
 from pathlib import Path
 count = 0
-for f in sorted(Path('webstress/tasks/gmail').glob('*.yaml')):
+for f in sorted(Path('breakingweb/tasks/gmail').glob('*.yaml')):
     if f.name.startswith('_'): continue
     count += 1
 print(count)
@@ -201,7 +201,7 @@ reasoning, harness = sys.argv[9], sys.argv[10]
 
 diff_order = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
 tasks = []
-for f in sorted(Path("webstress/tasks/gmail").glob("*.yaml")):
+for f in sorted(Path("breakingweb/tasks/gmail").glob("*.yaml")):
     if f.name.startswith("_"): continue
     data = yaml.safe_load(f.read_text())
     tasks.append((diff_order.get(data.get("difficulty", "hard"), 3), data["task_id"]))
@@ -215,7 +215,7 @@ for w in range(workers):
     script_path.write_text(f"""#!/bin/bash
 set -a && source .env && set +a
 source .venv/bin/activate 2>/dev/null || true
-PYTHONUNBUFFERED=1 python -m webstress.agent_eval \\
+PYTHONUNBUFFERED=1 python -m breakingweb.agent_eval \\
     --model {shlex.quote(model)} \\
     --provider {shlex.quote(provider)} \\
     --api-key "${{OPENAI_API_KEY}}" \\
@@ -361,7 +361,7 @@ steps = [r.get("agent", {}).get("steps", 0) for r in all_results]
 errors = [r for r in all_results if "Error" in r["evaluation"].get("reasoning", "")]
 
 output = {
-    "benchmark": "WebStress",
+    "benchmark": "BreakingWeb",
     "environment": "gmail",
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": "PLACEHOLDER_MODEL", "provider": "PLACEHOLDER_PROVIDER"},

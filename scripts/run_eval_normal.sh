@@ -26,7 +26,7 @@ TASKS=(
   gmail_inbox_zero_automation gmail_label_hierarchy_reorg
 )
 
-UV_CACHE_DIR=/tmp/uv-cache uv run python -m webstress.agent_eval \
+UV_CACHE_DIR=/tmp/uv-cache uv run python -m breakingweb.agent_eval \
   --model gpt-5.4 \
   --provider openai \
   --api-key "${OPENAI_API_KEY:-}" \
@@ -35,5 +35,5 @@ UV_CACHE_DIR=/tmp/uv-cache uv run python -m webstress.agent_eval \
   --timeout 180 \
   --seed 42 \
   --server-port 8080 \
-  --output results/webstress/gpt54_normal_30tasks.json \
-  2>&1 | tee results/webstress/gpt54_normal_30tasks.log
+  --output results/breakingweb/gpt54_normal_30tasks.json \
+  2>&1 | tee results/breakingweb/gpt54_normal_30tasks.log
