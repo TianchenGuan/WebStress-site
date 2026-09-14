@@ -4,11 +4,10 @@
 // Space is up. See ../../../demo/DEPLOY.md for the deploy recipe.
 export const LIVE_DEMO_URL: string =
   // import.meta.env.VITE_LIVE_DEMO_URL ?? ""
-  // NOTE: the HF Space is still named `webstress-demo`; once it is renamed
-  // to `breakingweb-demo` (Space settings -> Rename), switch this to
-  // the tianchenguan-breakingweb-demo.hf.space host — the old hostname 404s
-  // after a rename.
-  "https://tianchenguan-webstress-demo.hf.space";
+  // HF Space TianchenGuan/breakingweb-demo (renamed from webstress-demo on
+  // 2026-09-14; the old hostname 404s). Lives under the personal namespace
+  // because Docker Spaces inside an org require a paid HF Team plan.
+  "https://tianchenguan-breakingweb-demo.hf.space";
 
 /**
  * Single-tab fallback URL — drops the visitor on the /play launching

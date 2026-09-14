@@ -113,9 +113,12 @@ After the first deploy, every push to `main` in
 The "Play" / "Try in live demo" buttons open a hosted instance of the
 benchmark backend plus the 7 environment SPAs, running as a Docker Space.
 
-- **Space:** `TianchenGuan/webstress-demo`, served at
-  `https://tianchenguan-webstress-demo.hf.space`. It has *not* been renamed
-  to `breakingweb-demo` yet; after a rename the old hostname 404s.
+- **Space:** `TianchenGuan/breakingweb-demo`, served at
+  `https://tianchenguan-breakingweb-demo.hf.space` (renamed from
+  `webstress-demo` on 2026-09-14; the old hostname 404s, the old repo URL
+  redirects). It stays under the personal namespace, not the `BreakingWeb`
+  org: Hugging Face only hosts Docker Spaces inside an organization on a
+  paid Team/Enterprise plan (the move returns HTTP 402).
 - **Single source of truth for the URL:** `LIVE_DEMO_URL` in
   `src/lib/config.ts`. Set it to `""` to hide every demo link on the site.
 - **Build recipe** (Dockerfile, Space README front-matter, verification,
