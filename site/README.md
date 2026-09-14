@@ -108,6 +108,45 @@ npm run dev
 After the first deploy, every push to `main` in
 `TianchenGuan/WebStress-site` triggers a redeploy automatically.
 
+## Live demo (Hugging Face Space)
+
+The "Play" / "Try in live demo" buttons open a hosted instance of the
+benchmark backend plus the 7 environment SPAs, running as a Docker Space.
+
+- **Space:** `TianchenGuan/webstress-demo`, served at
+  `https://tianchenguan-webstress-demo.hf.space`. It has *not* been renamed
+  to `breakingweb-demo` yet; after a rename the old hostname 404s.
+- **Single source of truth for the URL:** `LIVE_DEMO_URL` in
+  `src/lib/config.ts`. Set it to `""` to hide every demo link on the site.
+- **Build recipe** (Dockerfile, Space README front-matter, verification,
+  rename and custom-subdomain steps): [`../demo/DEPLOY.md`](../demo/DEPLOY.md).
+- The Dockerfile clones `Arvid-pku/WebStress` at image-build time, so the
+  Space needs a **Factory rebuild** (Space settings) to pick up benchmark
+  changes. Do not use the Space's hardware for anything but the demo.
+
+### Keep-alive cron (why the demo does not go to sleep)
+
+The Space runs on free *CPU basic* hardware. Hugging Face puts free Spaces
+to sleep after 48 h without HTTP traffic and takes about a minute to wake
+them; a Pro account does not change this, only paid hardware offers a
+"never sleep" setting.
+
+[`.github/workflows/keepalive-hf-demo.yml`](../.github/workflows/keepalive-hf-demo.yml)
+(repo root, not `site/`) keeps the demo warm for free: it requests
+`<LIVE_DEMO_URL>/health` at 00:17 and 12:17 UTC, retries for up to 5 min
+while the Space wakes, and fails (GitHub emails the repo owner) if
+`/health` never returns `"status":"ok"`.
+
+- It parses the URL from the `LIVE_DEMO_URL` assignment line in
+  `src/lib/config.ts`, so renaming the Space means editing that one line
+  and nothing else.
+- It also runs on every push that touches the workflow file (smoke test)
+  and can be started by hand from the repo's *Actions* tab → *Run workflow*.
+- GitHub disables scheduled workflows after 60 days without commits to the
+  repo. Any commit, or one manual run from the Actions tab, re-enables it.
+- If the demo is ever moved to paid hardware with sleep disabled, delete
+  the workflow.
+
 ## What should not go into `public/`
 
 The website is fully static and the `public/` directory ships verbatim to
