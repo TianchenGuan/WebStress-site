@@ -10,15 +10,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_TESTS = [
-    ROOT / "webstress/tests/test_gmail_feature_support.py",
-    ROOT / "webstress/tests/test_gmail_mailbox_contract.py",
+    ROOT / "breakingweb/tests/test_gmail_feature_support.py",
+    ROOT / "breakingweb/tests/test_gmail_mailbox_contract.py",
 ]
 LOCAL_NODE_CANDIDATES = sorted(
     (ROOT / ".tools").glob("node-v*/bin/node"),
     reverse=True,
 )
 NODE_CANDIDATES = [
-    os.environ.get("WEBSTRESS_NODE"),
+    os.environ.get("BREAKINGWEB_NODE", os.environ.get("WEBSTRESS_NODE")),
     *map(str, LOCAL_NODE_CANDIDATES),
     shutil.which("node"),
     str(Path.home() / ".lmstudio/.internal/utils/node"),
@@ -28,9 +28,9 @@ PYTHON_CANDIDATES = [
     str(Path.home() / "miniconda3/bin/python3.13"),
     shutil.which("python3"),
 ]
-VITEST_BIN = ROOT / "webstress/environments/node_modules/.pnpm/node_modules/.bin/vitest"
-VITEST_ENTRY = ROOT / "webstress/environments/node_modules/.pnpm/node_modules/vitest/vitest.mjs"
-GMAIL_VITEST_CONFIG = ROOT / "webstress/environments/gmail/vitest.config.ts"
+VITEST_BIN = ROOT / "breakingweb/environments/node_modules/.pnpm/node_modules/.bin/vitest"
+VITEST_ENTRY = ROOT / "breakingweb/environments/node_modules/.pnpm/node_modules/vitest/vitest.mjs"
+GMAIL_VITEST_CONFIG = ROOT / "breakingweb/environments/gmail/vitest.config.ts"
 
 
 def _is_executable(path: str | None) -> bool:
@@ -69,7 +69,7 @@ def _run(label: str, command: list[str], cwd: Path | None = None) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run WebStress environment tests.")
+    parser = argparse.ArgumentParser(description="Run BreakingWeb environment tests.")
     parser.add_argument(
         "--backend-only",
         action="store_true",
@@ -118,7 +118,7 @@ def main() -> int:
             failures += _run(
                 "gmail frontend unit tests",
                 command,
-                cwd=ROOT / "webstress/environments/gmail",
+                cwd=ROOT / "breakingweb/environments/gmail",
             )
 
     if failures == 0:

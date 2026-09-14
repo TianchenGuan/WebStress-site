@@ -26,10 +26,10 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 SWEEP_DIR = REPO_ROOT / "results" / "webstress" / "bu_sweep_20260405_012047"
-TASK_YAML_DIR = REPO_ROOT / "webstress" / "tasks" / "gmail"
+TASK_YAML_DIR = REPO_ROOT / "breakingweb" / "tasks" / "gmail"
 DEMO_RESULTS_DIR = (
     REPO_ROOT
-    / "webstress"
+    / "breakingweb"
     / "environments"
     / "demo-site"
     / "public"
@@ -38,7 +38,7 @@ DEMO_RESULTS_DIR = (
 )
 INDEX_PATH = (
     REPO_ROOT
-    / "webstress"
+    / "breakingweb"
     / "environments"
     / "demo-site"
     / "public"
@@ -153,7 +153,7 @@ def build_summary(
             "model": agent_info.get("model", "gpt-5.4"),
             "provider": agent_info.get("provider", "openai"),
         },
-        "benchmark": "WebStress",
+        "benchmark": "BreakingWeb",
         "version": "3.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "aggregate": {

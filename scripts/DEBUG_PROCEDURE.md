@@ -9,12 +9,12 @@ Environments: Gmail, Robinhood (auto-detected from task_id prefix).
 ```bash
 # Server must be running (restart to pick up YAML/Python changes)
 lsof -i :8080 -t | xargs kill 2>/dev/null; sleep 1
-python -m webstress.app --host 127.0.0.1 --port 8080 &
+python -m breakingweb.app --host 127.0.0.1 --port 8080 &
 sleep 3
 
 # Frontend must be built (only after editing React source)
-cd webstress/environments/gmail && npx vite build && cd -
-cd webstress/environments/robinhood && npx vite build && cd -
+cd breakingweb/environments/gmail && npx vite build && cd -
+cd breakingweb/environments/robinhood && npx vite build && cd -
 ```
 
 ## Phase 1: Batch Smoke Test
@@ -201,7 +201,7 @@ DEBUG_SESSION_FILE=/tmp/agent_1.json python scripts/debug.py check
 ```bash
 # Always restart server after editing Python or YAML
 lsof -i :8080 -t | xargs kill 2>/dev/null; sleep 1
-python -m webstress.app --host 127.0.0.1 --port 8080 &
+python -m breakingweb.app --host 127.0.0.1 --port 8080 &
 sleep 3
 
 # Re-run batch to confirm

@@ -2,4 +2,4 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-exec ./scripts/webstress.sh "${@:-dev}"
+exec ./scripts/breakingweb.sh "${@:-dev}"
