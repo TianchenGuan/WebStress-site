@@ -314,7 +314,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False):
 
     jobs: list[dict[str, str | None]] = []
     if not task_ids or not variants_only:
-        task_dir = Path("webstress/tasks/robinhood")
+        task_dir = Path("breakingweb/tasks/robinhood")
         discovered_task_ids = []
         for f in sorted(task_dir.glob("*.yaml")):
             if f.name.startswith("_"):
@@ -325,7 +325,7 @@ def batch(task_ids, workers=8, include_variants=False, variants_only=False):
         if not variants_only:
             jobs.extend({"task_id": tid, "variant_filename": None} for tid in base_ids)
     if include_variants or variants_only:
-        variant_dir = Path("webstress/injector/variants")
+        variant_dir = Path("breakingweb/injector/variants")
         for f in sorted(variant_dir.glob("rh_*.yaml")):
             data = yaml.safe_load(f.read_text()) or {}
             jobs.append({

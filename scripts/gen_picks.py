@@ -1,4 +1,4 @@
-"""Generate a `picks` JSON array of WebStress runs.
+"""Generate a `picks` JSON array of BreakingWeb runs.
 
 Each pick is a ``{"task_id", "variant_filename", "env", "diff", "cond"}`` entry
 consumed by ``scripts/run_picks.py`` to drive a batch evaluation run.
@@ -6,8 +6,8 @@ consumed by ``scripts/run_picks.py`` to drive a batch evaluation run.
 Subsets
 -------
   all        — **agent benchmark default**. Enumerate every task under
-               ``webstress/tasks/<env>/*.yaml`` (519 base tasks) and every
-               intervention variant under ``webstress/injector/variants/
+               ``breakingweb/tasks/<env>/*.yaml`` (519 base tasks) and every
+               intervention variant under ``breakingweb/injector/variants/
                *.yaml`` (~530). Produces 519 clean + 530 intervention picks.
   primary    — 140 base-task subset used by the *human* annotator panel.
                Not the agent sweep; here only to reproduce the human-panel
@@ -21,8 +21,8 @@ Filters (apply to any subset):
   --cond {clean,intervention,both}   only keep this condition (default: both)
 
 Sources of truth:
-  --subset all:        webstress/tasks/<env>/*.yaml + injector/variants/*.yaml
-  --subset primary/duplicate/both: webstress/human/assignments_v1.yaml
+  --subset all:        breakingweb/tasks/<env>/*.yaml + injector/variants/*.yaml
+  --subset primary/duplicate/both: breakingweb/human/assignments_v1.yaml
 """
 
 from __future__ import annotations
@@ -33,9 +33,9 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ASSIGNMENTS = REPO_ROOT / "webstress" / "human" / "assignments_v1.yaml"
-TASKS_DIR = REPO_ROOT / "webstress" / "tasks"
-VARIANTS_DIR = REPO_ROOT / "webstress" / "injector" / "variants"
+ASSIGNMENTS = REPO_ROOT / "breakingweb" / "human" / "assignments_v1.yaml"
+TASKS_DIR = REPO_ROOT / "breakingweb" / "tasks"
+VARIANTS_DIR = REPO_ROOT / "breakingweb" / "injector" / "variants"
 
 
 def _parse_flow_rows(section_text: str) -> list[dict]:
@@ -161,8 +161,8 @@ def _enumerate_tasks_and_variants() -> list[dict]:
 
     Returns a list of pick dicts with clean picks first, then intervention.
 
-    For each ``webstress/tasks/<env>/<task_id>.yaml`` emit one clean pick.
-    For each ``webstress/injector/variants/<variant>.yaml`` read its
+    For each ``breakingweb/tasks/<env>/<task_id>.yaml`` emit one clean pick.
+    For each ``breakingweb/injector/variants/<variant>.yaml`` read its
     ``base_task_id`` field; look up the base task's env + difficulty and emit
     an intervention pick. Variants whose ``base_task_id`` has no matching
     base task YAML are skipped with a warning.

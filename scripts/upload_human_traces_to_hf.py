@@ -30,7 +30,7 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    src = REPO_ROOT / "webstress" / "human" / "traces" / args.annotator
+    src = REPO_ROOT / "breakingweb" / "human" / "traces" / args.annotator
     if not src.is_dir():
         sys.exit(f"missing source dir: {src}")
 

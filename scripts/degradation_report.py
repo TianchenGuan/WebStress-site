@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean-solve-gated degradation report for WebStress sweeps.
+"""Clean-solve-gated degradation report for BreakingWeb sweeps.
 
 Joins clean ↔ intervention runs by ``task_id`` across one or more model
 ``summary.json`` files, then reports per-primitive / per-layer / per-env
@@ -35,7 +35,7 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_VARIANTS_DIR = REPO_ROOT / "webstress" / "injector" / "variants"
+DEFAULT_VARIANTS_DIR = REPO_ROOT / "breakingweb" / "injector" / "variants"
 
 
 @dataclass(frozen=True)

@@ -13,8 +13,8 @@
 #   SMOKE_ONLY=1 ./scripts/run_lms_pp_sweep.sh      # 2-task smoke only
 #
 # Monitor (from another terminal):
-#   tail -f results/webstress/<run_tag>/progress.log
-#   watch -n5 cat results/webstress/<run_tag>/scoreboard.txt
+#   tail -f results/breakingweb/<run_tag>/progress.log
+#   watch -n5 cat results/breakingweb/<run_tag>/scoreboard.txt
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,7 +33,7 @@ SMOKE_ONLY="${SMOKE_ONLY:-0}"
 REASONING="${REASONING:-medium}"
 HARNESS="${HARNESS:-browser-use}"
 ENVIRONMENTS=(lms patient_portal)
-OUTDIR="results/webstress"
+OUTDIR="results/breakingweb"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_TAG="${MODEL//\//_}_lms_pp_${TIMESTAMP}"
 RUNDIR="$OUTDIR/$RUN_TAG"
@@ -103,7 +103,7 @@ if [[ -n "$HARNESS" && "$HARNESS" != "browsergym" ]]; then
     HARNESS_FLAG="--harness $HARNESS"
 fi
 
-python -m webstress.agent_eval \
+python -m breakingweb.agent_eval \
     --model "$MODEL" \
     --provider "$PROVIDER" \
     --api-key "$OPENAI_API_KEY" \
@@ -145,7 +145,7 @@ import yaml
 from pathlib import Path
 count = 0
 for env in ['lms', 'patient_portal']:
-    for f in sorted(Path(f'webstress/tasks/{env}').glob('*.yaml')):
+    for f in sorted(Path(f'breakingweb/tasks/{env}').glob('*.yaml')):
         if f.name.startswith('_'): continue
         count += 1
 print(count)
@@ -171,7 +171,7 @@ reasoning, harness = sys.argv[9], sys.argv[10]
 diff_order = {"easy": 0, "medium": 1, "hard": 2, "expert": 3, "frontier": 4}
 tasks = []
 for env in ["lms", "patient_portal"]:
-    for f in sorted(Path(f"webstress/tasks/{env}").glob("*.yaml")):
+    for f in sorted(Path(f"breakingweb/tasks/{env}").glob("*.yaml")):
         if f.name.startswith("_"): continue
         data = yaml.safe_load(f.read_text())
         tasks.append((diff_order.get(data.get("difficulty", "hard"), 3), data["task_id"]))
@@ -185,7 +185,7 @@ for w in range(workers):
     script_path.write_text(f"""#!/bin/bash
 set -a && source .env && set +a
 source .venv/bin/activate 2>/dev/null || true
-PYTHONUNBUFFERED=1 python -m webstress.agent_eval \\
+PYTHONUNBUFFERED=1 python -m breakingweb.agent_eval \\
     --model {shlex.quote(model)} \\
     --provider {shlex.quote(provider)} \\
     --api-key "${{OPENAI_API_KEY}}" \\
@@ -339,7 +339,7 @@ for env, rs in by_env.items():
     }
 
 output = {
-    "benchmark": "WebStress",
+    "benchmark": "BreakingWeb",
     "environments": ["lms", "patient_portal"],
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "agent": {"model": model, "provider": provider},

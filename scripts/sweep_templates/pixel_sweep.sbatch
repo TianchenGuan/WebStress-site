@@ -10,7 +10,7 @@
 
 # Generic pixel-mode (BrowserGym + PixelLLMAgent) sweep template. Pass
 # model + provider + picks via env vars. Examples in
-# webstress/docs/RUNNING_SWEEPS.md.
+# breakingweb/docs/RUNNING_SWEEPS.md.
 #
 # Per-model viewport is auto-applied:
 #   Claude  → 1024 × 768 (Anthropic XGA recommendation)
@@ -45,10 +45,10 @@ export TORCH_HOME=/usr/xtmp/$USER/.cache/torch
 export PIP_CACHE_DIR=/usr/xtmp/$USER/.cache/pip
 mkdir -p /usr/xtmp/$USER/wab-logs "$HF_HOME" "$PIP_CACHE_DIR"
 
-ROOT="${WEBSTRESS_ROOT:-$HOME/projects/WEBSTRESS}"
+ROOT="${BREAKINGWEB_ROOT-${WEBSTRESS_ROOT:-$HOME/projects/BreakingWeb}}"
 cd "$ROOT"
 source .venv/bin/activate
-set -a; source webstress/.env; set +a
+set -a; source breakingweb/.env; set +a
 
 BACKEND_PORT=$(( 9400 + (SLURM_JOB_ID % 600) ))
 N_PICKS=$(python3 -c "import json; print(len(json.load(open('$PICKS'))))")
@@ -58,12 +58,12 @@ echo "Picks: $PICKS"
 echo "Output: /usr/xtmp/$USER/wab-runs/pixel-${OUTNAME}-${SLURM_JOB_ID}"
 
 # Pixel mode goes through BrowserGym _ensure_server() which requires
-# WEBSTRESS_CONTROLLER_SECRET when an externally-managed server is
+# BREAKINGWEB_CONTROLLER_SECRET when an externally-managed server is
 # detected (anti-collision guard).
-export WEBSTRESS_CONTROLLER_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
-export WEBSTRESS_AUTO_BUILD_FRONTENDS=0
+export BREAKINGWEB_CONTROLLER_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
+export BREAKINGWEB_AUTO_BUILD_FRONTENDS=0
 
-python -m uvicorn webstress.app:app \
+python -m uvicorn breakingweb.app:app \
   --host 127.0.0.1 --port "$BACKEND_PORT" --log-level warning \
   > /usr/xtmp/$USER/wab-logs/backend-${SLURM_JOB_ID}.log 2>&1 &
 BPID=$!

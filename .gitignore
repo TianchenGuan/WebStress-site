@@ -50,8 +50,8 @@ sonnet_4_6_full_openrouter3/
 trajectory/
 history/
 raw_instructions/
-# NOTE: webstress/human/traces/ is explicitly tracked (annotator recordings).
-# Agent trajectories (webstress/trajectories/, gold_trajectories/) remain ignored below.
+# NOTE: breakingweb/human/traces/ is explicitly tracked (annotator recordings).
+# Agent trajectories (breakingweb/trajectories/, gold_trajectories/) remain ignored below.
 
 # Local planning scratch files
 task_plan.md
@@ -81,16 +81,16 @@ scripts/debug_screenshots/
 
 # Frontend and generated benchmark assets
 *.tsbuildinfo
-webstress/static/*.html
-!webstress/static/docs.html
-!webstress/static/control.html
-!webstress/static/human.html
-!webstress/static/human_control.html
-webstress/static/envs/
-webstress/static/.frontend-build.lock
-webstress/trajectories/*
-webstress/.codex
-webstress/.playwright-mcp/*
+breakingweb/static/*.html
+!breakingweb/static/docs.html
+!breakingweb/static/control.html
+!breakingweb/static/human.html
+!breakingweb/static/human_control.html
+breakingweb/static/envs/
+breakingweb/static/.frontend-build.lock
+breakingweb/trajectories/*
+breakingweb/.codex
+breakingweb/.playwright-mcp/*
 .vercel
 .claude/
 
@@ -108,16 +108,29 @@ docs/worker_prompts/*/
 # Local model run archives + their extracted contents
 opus_4_7_anthropic_full.tar.gz
 sonnet_4_6_full_openrouter.tar.gz
-webstress/results/opus_4_7_anthropic_full/
-webstress/results/sonnet_4_6_full_openrouter3/
+breakingweb/results/opus_4_7_anthropic_full/
+breakingweb/results/sonnet_4_6_full_openrouter3/
 
 # Local notes
 RUNNING_EVALS.md
 
 # In-progress human trajectory recordings + their finalized gold outputs
 # (re-include when the recording session is done and we want to commit them).
-webstress/human/traces/
-webstress/gold_trajectories/
+breakingweb/human/traces/
+breakingweb/gold_trajectories/
+
+# Internal bug-fix tracking doc — contains raw annotator names + free-text
+# rubric comments. Local-only; the backup lives at ~/BUG_FIX_PLAN.md.bak.
+breakingweb/human/BUG_FIX_PLAN.md
+
+# Local artifacts left at the previous package path after updating.
+webstress/
+
+# Pre-rebrand orphaned copy of the codebase (`webagentbench/` is now
+# `webstress/` per commit bf314904). Some annotators continue recording
+# against the old path during the transition — ignore the entire folder
+# so it does not clutter `git status`.
+webagentbench/
 
 # NeurIPS 2026 paper draft + its source archive (kept locally, not in git).
 # paper/ holds the LaTeX source uploaded to Overleaf; paper_workspace/ holds
@@ -125,4 +138,5 @@ webstress/gold_trajectories/
 # fragments, and case-study raw artefacts that drive paper/figures/.
 paper/
 paper_workspace/
+paper.bak.*/
 _NeurIPS_2026__Primitive_Webagent_Benchmark*.zip

@@ -31,14 +31,14 @@ sweep_start_server() {
     # lsof hangs on some macOS socket-table configurations — use pkill instead
     if nc -z 127.0.0.1 "$port" 2>/dev/null; then
         echo "Killing existing server on port $port..." | tee -a "$progress"
-        pkill -f "uvicorn.*webstress" 2>/dev/null || true
+        pkill -f "uvicorn.*breakingweb" 2>/dev/null || true
         sleep 2
-        pkill -9 -f "uvicorn.*webstress" 2>/dev/null || true
+        pkill -9 -f "uvicorn.*breakingweb" 2>/dev/null || true
         sleep 1
     fi
 
     echo "Starting fresh server on port $port..." | tee -a "$progress"
-    python -m uvicorn webstress.app:app \
+    python -m uvicorn breakingweb.app:app \
         --host 0.0.0.0 --port "$port" --log-level warning &
     SERVER_PID=$!
     local i
