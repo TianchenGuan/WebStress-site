@@ -12,7 +12,7 @@ short_description: Live demo for the BreakingWeb web-agent benchmark.
 
 # BreakingWeb live demo
 
-This is the live human-play backend for [BreakingWeb](https://breakingweb.dev) —
+This is the live human-play backend for [BreakingWeb](https://breakingweb.app) —
 a benchmark of 519 paired clean / intervention tasks across 7 self-hosted
 web environments (Gmail, Amazon, Reddit, Robinhood, Booking, LMS,
 Patient Portal).
@@ -29,7 +29,7 @@ Open `/launch` to pick a task and try it in either condition:
   seeded state per session.
 - ✅ Lets you record your own play trace via the launcher's two-tab control UI.
 - ❌ Does **not** run agent evaluations. Use the BreakingWeb repo locally for that
-  — see [the setup docs](https://breakingweb.dev/docs/setup).
+  — see [the setup docs](https://breakingweb.app/docs/setup).
 - ❌ Does **not** persist sessions across container restarts. Every restart
   wipes all in-flight sessions; no PII is retained.
 

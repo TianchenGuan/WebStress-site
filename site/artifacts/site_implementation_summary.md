@@ -2,7 +2,7 @@
 
 Date: 2026-05-22
 Site root: `WebStress-site/site/`
-Deploy target: `breakingweb.dev` (Vercel, Root Directory = `site/`)
+Deploy target: `breakingweb.app` (Vercel, Root Directory = `site/`)
 
 ## Framework
 
@@ -96,7 +96,7 @@ and 8 site files scanned. See
 4. **Build Command**: `npm run predeploy`
 5. **Output Directory**: `dist/`
 6. **Environment Variables**: none
-7. **Domains** tab: add `breakingweb.dev` + `www.breakingweb.dev`,
+7. **Domains** tab: add `breakingweb.app` + `www.breakingweb.app`,
    follow Vercel's DNS instructions.
 
 ## Verified locally
@@ -112,7 +112,7 @@ and 8 site files scanned. See
 ## Author decisions remaining
 
 - Whether to use the staging Vercel URL (`breakingweb-site-*.vercel.app`)
-  or wait for the `breakingweb.dev` domain to point at Vercel before
+  or wait for the `breakingweb.app` domain to point at Vercel before
   flipping the canonical URL on the README and the open-graph tags.
 - Whether to expose the `paper_workspace/` aggregate trajectory CSV
   on the site (currently hidden — it lives only in the local checkout

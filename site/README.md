@@ -3,7 +3,7 @@
 The public project website for **BreakingWeb** — the benchmark for diagnosing
 web-agent failures with matched clean/intervention task pairs.
 
-Deployed at **[breakingweb.dev](https://breakingweb.dev)** via Vercel.
+Deployed at **[breakingweb.app](https://breakingweb.app)** via Vercel.
 
 ## Stack
 
@@ -101,8 +101,8 @@ npm run dev
    + Vite build in one go).
 5. **Output Directory**: `dist/` (the Vite default; Vercel detects this).
 6. **Environment Variables**: none — the site is fully static.
-7. **Domain**: in the project's *Domains* tab, add `breakingweb.dev` and
-   `www.breakingweb.dev`. Vercel will give you the DNS records to point at
+7. **Domain**: in the project's *Domains* tab, add `breakingweb.app` and
+   `www.breakingweb.app`. Vercel will give you the DNS records to point at
    Vercel's nameservers (or A / CNAME records, depending on your registrar).
 
 After the first deploy, every push to `main` in

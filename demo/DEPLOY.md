@@ -78,13 +78,13 @@ The "Try this task in the live demo →" buttons on
 
 ## 5. Optional: custom subdomain
 
-If you want `demo.breakingweb.dev` instead of the long HF URL:
+If you want `demo.breakingweb.app` instead of the long HF URL:
 
-1. In Vercel (where `breakingweb.dev` is served from), add a CNAME record
+1. In Vercel (where `breakingweb.app` is served from), add a CNAME record
    under DNS: `demo` → `<your-user>-breakingweb-demo.hf.space`.
-2. In the HF Space settings, add `demo.breakingweb.dev` to *Custom
+2. In the HF Space settings, add `demo.breakingweb.app` to *Custom
    domains*. HF will issue a TLS cert via Let's Encrypt.
-3. Bump `LIVE_DEMO_URL` to `https://demo.breakingweb.dev` and redeploy
+3. Bump `LIVE_DEMO_URL` to `https://demo.breakingweb.app` and redeploy
    the site.
 
 ## Troubleshooting
