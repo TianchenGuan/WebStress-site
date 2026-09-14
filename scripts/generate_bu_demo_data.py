@@ -25,7 +25,7 @@ import yaml
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-SWEEP_DIR = REPO_ROOT / "results" / "webstress" / "bu_sweep_20260405_012047"
+SWEEP_DIR = REPO_ROOT / "results" / "breakingweb" / "bu_sweep_20260405_012047"
 TASK_YAML_DIR = REPO_ROOT / "breakingweb" / "tasks" / "gmail"
 DEMO_RESULTS_DIR = (
     REPO_ROOT
