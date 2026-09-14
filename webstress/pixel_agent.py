@@ -533,12 +533,17 @@ class PixelLLMAgent:
         bearer = api_key or os.environ.get("AWS_BEDROCK_API_KEY") or os.environ.get(
             "AWS_BEARER_TOKEN_BEDROCK"
         )
-        if not bearer:
+        if bearer:
+            os.environ.setdefault("AWS_BEARER_TOKEN_BEDROCK", bearer)
+        elif not os.environ.get("AWS_PROFILE"):
+            # No bearer token and no profile for boto3 to resolve SigV4 creds from.
             raise RuntimeError(
                 "Bedrock pixel agent requires AWS_BEDROCK_API_KEY (a long-term "
-                "bearer token issued via the Bedrock console) or AWS_BEARER_TOKEN_BEDROCK."
+                "bearer token issued via the Bedrock console), AWS_BEARER_TOKEN_BEDROCK, "
+                "or an AWS_PROFILE boto3 can resolve SigV4 credentials from."
             )
-        os.environ.setdefault("AWS_BEARER_TOKEN_BEDROCK", bearer)
+        # With AWS_PROFILE set and no bearer token, fall through: boto3 resolves
+        # SigV4 credentials from the profile exactly as the text harness does.
         region = os.environ.get("AWS_BEDROCK_REGION", "us-east-1")
         self.bedrock_client = boto3.client("bedrock-runtime", region_name=region)
         self._boto3_module = boto3

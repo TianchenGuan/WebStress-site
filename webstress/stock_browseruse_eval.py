@@ -844,6 +844,7 @@ async def run_episode(
     model: str,
     provider: str = "gemini",
     variant_filename: str | None = None,
+    env_seed: int | None = None,
     server_host: str = "127.0.0.1",
     backend_port: int = 8080,
     frontend_port: int = 8084,
@@ -884,6 +885,10 @@ async def run_episode(
     session_payload: dict[str, Any] = {"task_id": task_id}
     if variant_filename:
         session_payload["variant_filename"] = variant_filename
+    # Omitted unless explicitly requested, so the backend keeps its own default
+    # (42) and every existing sweep reproduces byte-for-byte.
+    if env_seed is not None:
+        session_payload["seed"] = env_seed
     created = _http_json(
         f"{backend}/api/env/{env_id}/session",
         method="POST",

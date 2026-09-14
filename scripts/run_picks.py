@@ -95,6 +95,7 @@ async def _run_one(
                 model=args.model,
                 provider=args.provider,
                 variant_filename=pick.get("variant_filename"),
+                env_seed=pick.get("seed"),
                 server_host=args.server_host,
                 backend_port=args.backend_port,
                 frontend_port=args.frontend_port,
