@@ -5,16 +5,16 @@ const DOC_LINKS: { to: string; label: string; description: string }[] = [
 ];
 
 const EXTERNAL_LINKS: { href: string; label: string; description: string }[] = [
-  { href: "https://github.com/Arvid-pku/WebStress#readme", label: "README", description: "Top-level repo overview, quickstart, repo layout." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/breakingweb/README.md", label: "Benchmark internals", description: "FastAPI app layout, environment SPAs, controller endpoints, evaluator." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/task-design.md", label: "Task design guide", description: "How to design a new base task, instruction grammar, seed builders." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/environment-design.md", label: "Environment design guide", description: "How to build a new self-hosted environment SPA + backend." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/canonical-diff-authoring-protocol.md", label: "Canonical-diff scoring", description: "How tasks are graded against backend state (positive obligations + negative invariants)." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/eval-hardening-playbook.md", label: "Eval hardening playbook", description: "Predicate idioms for writing robust evaluator rules." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/docs/guides/degradation-design.md", label: "Intervention design", description: "How interventions compose across the four injection layers." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/breakingweb/human/GUIDELINES.md", label: "Human study protocol", description: "Recording instrument, trace cleaning rules, post-task rating rubric." },
-  { href: "https://github.com/Arvid-pku/WebStress/blob/main/breakingweb/docs/RUNNING_SWEEPS.md", label: "Running paper-grade sweeps", description: "Browser-Use harness, slurm templates, per-model viewports." },
-  { href: "https://huggingface.co/BreakingWeb", label: "Agent trajectories (Hugging Face)", description: "Per-episode JSON + screenshots for every paper sweep: primbench-results-v2 (text agents) and primbench-results-v3 (Sonnet 4.6, Opus 4.7 retry pass, pixel agents)." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb#readme", label: "README", description: "Top-level repo overview, quickstart, repo layout." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/breakingweb/README.md", label: "Benchmark internals", description: "FastAPI app layout, environment SPAs, controller endpoints, evaluator." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/docs/guides/task-design.md", label: "Task design guide", description: "How to design a new base task, instruction grammar, seed builders." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/docs/guides/environment-design.md", label: "Environment design guide", description: "How to build a new self-hosted environment SPA + backend." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/docs/guides/canonical-diff-authoring-protocol.md", label: "Canonical-diff scoring", description: "How tasks are graded against backend state (positive obligations + negative invariants)." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/docs/guides/eval-hardening-playbook.md", label: "Eval hardening playbook", description: "Predicate idioms for writing robust evaluator rules." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/docs/guides/degradation-design.md", label: "Intervention design", description: "How interventions compose across the four injection layers." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/breakingweb/human/GUIDELINES.md", label: "Human study protocol", description: "Recording instrument, trace cleaning rules, post-task rating rubric." },
+  { href: "https://github.com/Arvid-pku/BreakingWeb/blob/main/breakingweb/docs/RUNNING_SWEEPS.md", label: "Running paper-grade sweeps", description: "Browser-Use harness, slurm templates, per-model viewports." },
+  { href: "https://huggingface.co/BreakingWeb", label: "Evaluation artifacts (Hugging Face)", description: "Released evaluation artifacts are available on Hugging Face under BreakingWeb: breakingweb-results-v2 (Browser-Use trajectories, six models) and breakingweb-results-v3 (Sonnet 4.6, additional Opus 4.7 runs, screenshot-only BrowserGym trajectories). See the dataset cards for their contents." },
 ];
 
 export default function Docs() {

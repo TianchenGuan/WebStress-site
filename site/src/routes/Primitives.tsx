@@ -22,10 +22,9 @@ export default function Primitives() {
       <header className="mb-8">
         <h1 className="text-3xl mb-2">The seven cognitive primitives</h1>
         <p className="text-ink/75 max-w-prose">
-          BreakingWeb decomposes web-agent competence into seven primitives. Each
+          BreakingWeb describes each intervention with one of seven primitives. Each
           intervention variant declares one <strong>primary target primitive</strong>{" "}
-          disjoint from the primitives the base task already exercises, so the
-          paired drop estimates the agent's sensitivity to that single capability.
+          disjoint from the primitives the base task already exercises. The paired performance drop measures the cost of the intervention. Primitive labels describe the primary recovery demand; recovery may involve multiple capabilities.
         </p>
       </header>
 

@@ -514,7 +514,7 @@ class PixelLLMAgent:
         }
         if "openrouter.ai" in resolved_url:
             client_kwargs["default_headers"] = {
-                "HTTP-Referer": "https://github.com/Arvid-pku/WebStress",
+                "HTTP-Referer": "https://github.com/Arvid-pku/BreakingWeb",
                 "X-Title": "BreakingWeb Pixel Harness",
             }
         self.client = openai.OpenAI(**client_kwargs)

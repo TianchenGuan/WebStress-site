@@ -154,15 +154,15 @@ SUMMARY = {
     "figures": [
         {
             "src": "/figures/fig_results_overview.png",
-            "caption": "Per-(model, primitive) intervention pass rate and matched paired drop. Backtracking and verification are the most-affected primitives across the six text-mode agents (Table 2 / Figure 4).",
+            "caption": "Intervention effects: (a) mean paired canonical-diff score drop by model and primary primitive; (b) the five intervention families with the largest total failure mass; (c) intervention pass rate by environment and model.",
         },
         {
             "src": "/figures/fig_failure_landscape.png",
-            "caption": "Failure landscape. Text agents are dominated by belief failures (the agent declares done on an unmutated backend); vision agents are dominated by action failures (the agent gets stuck on the page).",
+            "caption": "Failure landscape. Text agents are dominated by belief failures (the agent declares success although the required goal state was not reached); vision agents are dominated by action failures (the agent gets stuck on the page).",
         },
         {
             "src": "/figures/fig_agent_vs_human.png",
-            "caption": "Human-vs-agent comparison on Human-140 intervention runs. Warm humans hold near 75% pass rate; the strongest text agent reaches 44.5%; the strongest vision agent reaches 15.8%.",
+            "caption": "Completion-time distributions for successful intervention runs, with median times and intervention pass rates shown in the legend.",
         },
     ],
 }

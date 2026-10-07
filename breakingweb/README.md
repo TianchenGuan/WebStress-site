@@ -4,7 +4,7 @@ BreakingWeb constructs challenging browser-use tasks through controlled, recover
 
 This checkout contains the active benchmark runtime, 519 base tasks, 535 intervention variants, evaluator stack, trajectory tooling, and React frontends for the seven environments exposed by `manifest.json`. The paper reports a 519-pair evaluation selection.
 
-Task definitions live under `tasks/<env>/`, benchmark frontends live under `environments/<env>/`, and the FastAPI backend mounts environment APIs under `/api/env/<env>`. Historical notes about the retired page-based benchmark are still kept for reference, but the active code in this tree is the current multi-environment benchmark.
+Task definitions live under `tasks/<env>/`, benchmark frontends live under `environments/<env>/`, and the FastAPI backend mounts environment APIs under `/api/env/<env>`.
 
 ## Current Scope
 
@@ -23,16 +23,7 @@ Current tasks are primarily outcome-validated:
 
 ## Task Authoring
 
-The normative task-quality bar for this repo is [share_docs/TASK_GENERATION_STANDARD.md](share_docs/TASK_GENERATION_STANDARD.md).
-
-For new environments, start from [share_docs/TASK_ENVIRONMENT_SUPPLEMENT_TEMPLATE.md](share_docs/TASK_ENVIRONMENT_SUPPLEMENT_TEMPLATE.md) and keep the resulting supplement subordinate to the repo-wide standard.
-
-Use that document as the authoritative standard for:
-
-- objective, non-equivocal task instructions
-- robust, outcome-grounded grading
-- format-tolerant evaluation for tasks with multiple valid correct outputs
-- decoy and negative-check coverage
+Task definitions specify public instructions, seeded state, positive obligations, and protected-state invariants. Validate new tasks against the schema and evaluator tests below.
 
 Core implementation and validation files:
 
@@ -45,11 +36,6 @@ Core implementation and validation files:
 - `tests/test_scoring_audit.py`
 - `tests/test_gmail_seed_stability.py`
 
-## Migrating from WebStress
-
-Use the `breakingweb` Python package, `breakingweb/` source paths, and `scripts/breakingweb.sh` launcher. Update former `webstress` imports and `python -m webstress...` commands; `scripts/webstress.sh` forwards to the new launcher. BrowserGym IDs use `browsergym/breakingweb.<task_id>`.
-
-`BREAKINGWEB_*` variables take precedence over the corresponding `WEBSTRESS_*` fallbacks. An explicitly empty new variable remains authoritative. Copy existing local `.env`, results, and human traces into the corresponding new paths without overwriting newer destination files. Local artifacts are not moved automatically. Reinstall frontend dependencies, rebuild the frontends, and restart the server so the harness and server use the same manifest. See the [repository migration notes](../README.md#migrating-from-webstress). The remote remains [Arvid-pku/WebStress](https://github.com/Arvid-pku/WebStress).
 
 ## Testing
 
@@ -282,7 +268,7 @@ or timeout mid-sweep still leaves every completed task inspectable on disk.
 #SBATCH --error=/usr/xtmp/%u/wab-logs/%x-%j.err
 
 set -euo pipefail
-cd /home/users/$USER/projects/BREAKINGWEB
+cd "${BREAKINGWEB_ROOT:?Set BREAKINGWEB_ROOT to your checkout}"
 source .venv/bin/activate
 set -a; source breakingweb/.env; set +a
 
@@ -720,7 +706,7 @@ Either generate one with `scripts/gen_picks.py` or hand-write a list, e.g.:
 #SBATCH --array=0-2          # ← N-1 where N = picks in your JSON
 
 set -euo pipefail
-cd "${WAB_ROOT:-/home/users/$USER/projects/BREAKINGWEB}"
+cd "${BREAKINGWEB_ROOT:?Set BREAKINGWEB_ROOT to your checkout}"
 source .venv/bin/activate
 set -a; source breakingweb/.env; set +a
 
@@ -805,26 +791,10 @@ as of this writing. Auth uses the long-term API key
 (`AWS_BEDROCK_API_KEY` in `.env`) which `pixel_agent.py` mirrors into
 `AWS_BEARER_TOKEN_BEDROCK` (the env var boto3 reads).
 
-## Running Production Sweeps
+## Running sweeps
 
-For full BreakingWeb sweeps with any model + provider (Bedrock, native Anthropic,
-native OpenAI, native Gemini, OpenRouter), use the two generic sbatch templates
-under `scripts/sweep_templates/` and consult [`docs/RUNNING_SWEEPS.md`](docs/RUNNING_SWEEPS.md)
-for prerequisites, the 5 canonical sweeps to run, and post-sweep aggregation.
+The workspace provides [text](../scripts/sweep_templates/stock_sweep.sbatch) and [pixel](../scripts/sweep_templates/pixel_sweep.sbatch) Slurm templates. Set `MODEL`, `PROVIDER`, `PICKS`, and `BREAKINGWEB_ROOT` to match your model, task selection, and checkout. Adapt the Slurm account, partition, and storage settings to your cluster.
 
-Quick example — stock browser-use × sonnet-4-6:
-```bash
-MODEL=us.anthropic.claude-sonnet-4-6 PROVIDER=bedrock \
-  PICKS=scripts/sweep_picks/primbench_v2_full.json \
-  sbatch scripts/sweep_templates/stock_sweep.sbatch
-```
+## Evaluation artifacts
 
-## Results And Artifacts
-
-Sample review artifacts checked into this repo live under [results/breakingweb/](results/breakingweb/). For the current local artifact layout and naming, see [results/breakingweb/README.md](results/breakingweb/README.md).
-
-These checked-in JSON files are examples and review artifacts, not a canonical leaderboard for the benchmark.
-
-## Historical Note
-
-Older changelog sections and result tables refer to the retired page-based benchmark (`v1`-`v10`). They are kept as archival context, not as the description of the active Gmail benchmark in this checkout.
+Evaluation runs write `run_manifest.json`, `summary.json`, and per-task trajectory files. Published artifacts are available in [breakingweb-results-v2](https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v2) and [breakingweb-results-v3](https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v3).

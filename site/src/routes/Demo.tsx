@@ -125,9 +125,8 @@ export default function Demo() {
       </p>
 
       <p className="mt-10 text-xs text-muted">
-        Hosting: a Docker Space on Hugging Face's free CPU-basic tier.
-        Goes to sleep after ~48 h of inactivity and cold-starts (15–30 s)
-        on the next visit.
+        The demo may take a short time to start after inactivity. Sessions
+        are temporary.
       </p>
     </div>
   );

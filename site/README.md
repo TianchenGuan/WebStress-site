@@ -10,10 +10,11 @@ Deployed at **[breakingweb.app](https://breakingweb.app)** via Vercel.
 | Piece | Location |
 |---|---|
 | Website (this folder) | https://www.breakingweb.app — Vercel, repo `TianchenGuan/WebStress-site`, root `site/` |
-| Benchmark code | https://github.com/Arvid-pku/WebStress (this fork tracks it as `upstream`) |
+| Benchmark code | https://github.com/Arvid-pku/BreakingWeb (this fork tracks it as `upstream`) |
 | Live demo backend | HF Space `TianchenGuan/breakingweb-demo` → https://tianchenguan-breakingweb-demo.hf.space (Dockerfile in `../demo/`) |
-| Agent trajectories | HF org https://huggingface.co/BreakingWeb — `primbench-results-v2` (text agents), `primbench-results-v3` (Sonnet 4.6, Opus 4.7 retry, pixel agents); annotation datasets are private |
-| HF org card text | `../demo/hf_org_card.md` (paste into org Settings → Organization card) |
+| Evaluation artifacts | HF org https://huggingface.co/BreakingWeb — `breakingweb-results-v2` (Browser-Use trajectories, six models), `breakingweb-results-v3` (Sonnet 4.6, additional Opus 4.7 runs, screenshot-only BrowserGym); annotation datasets are private |
+| HF org card | HF Space `BreakingWeb/README` (https://huggingface.co/spaces/BreakingWeb/README) — edit its README.md |
+| Paper | https://arxiv.org/abs/2609.35814 — BibTeX at https://arxiv.org/bibtex/2609.35814 |
 
 Every one of these links back to the others: site footer + Docs + Results
 page → GitHub/HF/demo; GitHub README → site/HF/demo; HF dataset cards and
@@ -137,7 +138,7 @@ benchmark backend plus the 7 environment SPAs, running as a Docker Space.
   `src/lib/config.ts`. Set it to `""` to hide every demo link on the site.
 - **Build recipe** (Dockerfile, Space README front-matter, verification,
   rename and custom-subdomain steps): [`../demo/DEPLOY.md`](../demo/DEPLOY.md).
-- The Dockerfile clones `Arvid-pku/WebStress` at image-build time, so the
+- The Dockerfile clones `Arvid-pku/BreakingWeb` at image-build time, so the
   Space needs a **Factory rebuild** (Space settings) to pick up benchmark
   changes. Do not use the Space's hardware for anything but the demo.
 

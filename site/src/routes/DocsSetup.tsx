@@ -19,7 +19,7 @@ export default function DocsSetup() {
 
       <section className="mb-8">
         <h2 className="text-lg mb-2">Install</h2>
-        <pre>{`git clone https://github.com/Arvid-pku/WebStress.git
+        <pre>{`git clone https://github.com/Arvid-pku/BreakingWeb.git
 cd BreakingWeb
 
 uv sync                                       # install Python deps

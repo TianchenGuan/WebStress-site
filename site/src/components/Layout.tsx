@@ -47,10 +47,19 @@ export default function Layout() {
       <footer className="border-t border-border mt-12 py-8 bg-white">
         <div className="max-w-6xl mx-auto px-6 text-xs text-muted flex flex-wrap items-center justify-between gap-4">
           <div>
-            BreakingWeb benchmark · NeurIPS 2026 submission
+            BreakingWeb benchmark
             <span className="mx-2">·</span>
             <a
-              href="https://github.com/Arvid-pku/WebStress"
+              href="https://arxiv.org/abs/2609.35814"
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted hover:text-accent"
+            >
+              arXiv:2609.35814
+            </a>
+            <span className="mx-2">·</span>
+            <a
+              href="https://github.com/Arvid-pku/BreakingWeb"
               target="_blank"
               rel="noreferrer"
               className="text-muted hover:text-accent"

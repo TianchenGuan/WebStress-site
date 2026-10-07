@@ -4,8 +4,9 @@ import type { ResultsSummary } from "../data/types";
 import { PRIMITIVE_LABELS, PRIMITIVE_ORDER } from "../lib/format";
 
 const HUGGINGFACE_ORG_URL = "https://huggingface.co/BreakingWeb";
-const HF_DATASET_V2 = "https://huggingface.co/datasets/BreakingWeb/primbench-results-v2";
-const HF_DATASET_V3 = "https://huggingface.co/datasets/BreakingWeb/primbench-results-v3";
+const HF_DATASET_V2 = "https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v2";
+const HF_DATASET_V3 = "https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v3";
+const HUMAN_PROTOCOL_URL = "https://github.com/Arvid-pku/BreakingWeb/blob/main/breakingweb/human/GUIDELINES.md";
 
 function deltaCell(d: number): string {
   if (d <= 0) return "bg-sage/15 text-sage";
@@ -32,9 +33,8 @@ export default function Results() {
         <p className="text-ink/75 max-w-prose">
           Headline numbers from the paper sweep: six Browser-Use text agents and
           three BrowserGym vision-based agents, evaluated on the full
-          519-clean + 519-intervention pair set at seed 42. The paired drop
-          estimates sensitivity to each primitive; cell shading scales with the
-          drop magnitude in percentage points.
+          519-clean + 519-intervention pair set at seed 42. The paired performance drop measures the cost of the intervention. Primitive labels describe the primary recovery demand; recovery may involve multiple capabilities. Cell shading
+          scales with the drop magnitude in percentage points.
         </p>
       </header>
 
@@ -43,11 +43,10 @@ export default function Results() {
         <div className="flex flex-wrap items-start gap-4">
           <div className="flex-1 min-w-[18rem]">
             <h2 className="text-sm uppercase tracking-wider text-accent mb-2">
-              Raw trajectories + scored runs
+              Released evaluation artifacts
             </h2>
             <p className="text-sm text-ink/85 leading-relaxed mb-3">
-              The aggregated tables on this page are computed from per-trajectory
-              JSON bundles released under the{" "}
+              Released evaluation artifacts are available on Hugging Face under{" "}
               <a
                 href={HUGGINGFACE_ORG_URL}
                 target="_blank"
@@ -55,13 +54,12 @@ export default function Results() {
                 className="text-accent underline-offset-2 hover:underline"
               >
                 BreakingWeb
-              </a>{" "}
-              organization on Hugging Face. Each sweep ships as one directory
-              per agent: <code>summary.json</code>, <code>run_manifest.json</code>,
-              and <code>tasks/&lt;task_id&gt;__&lt;cond&gt;/trajectory.json</code>{" "}
-              (action trace + evaluator verdict) with step screenshots. Pull
-              them with <code>huggingface_hub.snapshot_download</code>; skip{" "}
-              <code>*.png</code> unless you need the screenshots.
+              </a>
+              . Each run directory holds <code>run_manifest.json</code>,{" "}
+              <code>summary.json</code>, and{" "}
+              <code>tasks/&lt;task_id&gt;__&lt;cond&gt;/trajectory.json</code> with step
+              screenshots. See the dataset cards for their contents and download
+              instructions.
             </p>
             <a
               href={HUGGINGFACE_ORG_URL}
@@ -77,17 +75,23 @@ export default function Results() {
             <strong className="text-ink">What's there:</strong>
             <ul className="mt-1.5 space-y-0.5 list-disc pl-5">
               <li>
-                <a href={HF_DATASET_V2} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>primbench-results-v2</code></a>{" "}
-                — Browser-Use text agents: Gemini 3.1 Pro, Gemini 3 Flash,
-                GPT-5.4, GPT-5.4 mini, Opus 4.7, Qwen3-VL-235B.
+                <a href={HF_DATASET_V2} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>breakingweb-results-v2</code></a>{" "}
+                — Browser-Use trajectories for Gemini 3.1 Pro, Gemini 3 Flash,
+                GPT-5.4, GPT-5.4 mini, Claude Opus 4.7, and Qwen3-VL-235B.
               </li>
               <li>
-                <a href={HF_DATASET_V3} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>primbench-results-v3</code></a>{" "}
-                — Sonnet 4.6, the Opus 4.7 60-step retry pass, and the three
-                pixel-mode agents.
+                <a href={HF_DATASET_V3} target="_blank" rel="noreferrer" className="text-accent hover:underline"><code>breakingweb-results-v3</code></a>{" "}
+                — Claude Sonnet 4.6, additional Claude Opus 4.7 runs, and
+                screenshot-only BrowserGym trajectories for Gemini 3.1 Pro,
+                GPT-5.4, and Claude Opus 4.7.
               </li>
               <li>
-                Human-panel annotation data is private; contact the authors.
+                The{" "}
+                <a href={HUMAN_PROTOCOL_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                  human evaluation protocol
+                </a>{" "}
+                is available in the repository. Individual human traces and
+                annotations are not included in the public release.
               </li>
             </ul>
           </div>
@@ -108,7 +112,7 @@ export default function Results() {
         <HeadlineCard
           label="Text failures"
           value={data ? `${data.headline.text_belief_failure_share_pct}%` : "75%"}
-          sub="Belief failures (declared done on unmutated backend)."
+          sub="Belief failures (declared success although the required goal state was not reached)."
         />
         <HeadlineCard
           label="Vision failures"
@@ -204,12 +208,13 @@ export default function Results() {
           <section className="mb-10">
             <h2 className="text-xl mb-3">Failure class by harness</h2>
             <p className="text-sm text-muted mb-3 max-w-prose">
-              Rule-based classifier output over the {(
+              Rule-based classifier output over{" "}
+              {(
                 data.failure_class_by_harness.text.n +
                 data.failure_class_by_harness.vision.n
               ).toLocaleString()}{" "}
-              failed intervention trajectories. Text and vision harnesses fail
-              in opposite ways.
+              classified intervention failures, excluding residual harness-halt
+              cases. Text and vision harnesses fail in opposite ways.
             </p>
             <div className="card overflow-x-auto p-0">
               <table className="w-full text-sm">
@@ -273,16 +278,17 @@ export default function Results() {
 
       <p className="mt-8 text-xs text-muted">
         Detailed per-(env, primitive, model) numbers and the rule-based
-        failure-mode classifier definition appear in the paper appendix. The
-        raw trajectories backing every cell on this page are on{" "}
+        failure-mode classifier definition appear in the paper appendix.
+        Released evaluation artifacts are available on Hugging Face under{" "}
         <a
           href={HUGGINGFACE_ORG_URL}
           target="_blank"
           rel="noreferrer"
           className="text-accent hover:underline"
         >
-          Hugging Face / PrimBench
-        </a>.
+          BreakingWeb
+        </a>
+        . See the dataset cards for their contents.
       </p>
     </div>
   );

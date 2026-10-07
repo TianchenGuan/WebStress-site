@@ -68,7 +68,7 @@ export const FEATURED_DEMOS: FeaturedDemo[] = [
     task_id: "amazon_buy_highest_rated",
     cond: "clean",
     blurb:
-      "Find and buy the highest-rated product in a given category. An annotator literally called it 'one of the few tasks that can be demonstrated cleanly.'",
+      "Find and purchase the highest-rated product in the requested category.",
     homepage: true,
   },
   {
@@ -93,7 +93,7 @@ export const FEATURED_DEMOS: FeaturedDemo[] = [
     task_id: "gmail_cross_functional_distribution",
     cond: "clean",
     blurb:
-      "Parse a structured monthly status email into five labeled sections and forward each section to the right downstream team. Frontier state-tracking task — annotators rated this one of the cleanest frontier tasks in the panel.",
+      "Split a monthly status email into five labeled sections and forward each section to the appropriate team.",
     homepage: true,
   },
   {

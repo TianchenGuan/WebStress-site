@@ -2,17 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { HAS_LIVE_DEMO } from "../lib/config";
 import { HOMEPAGE_FEATURED } from "../lib/featured";
-import { loadTasks } from "../lib/data";
-import type { TaskEntry } from "../data/types";
+import { loadResults, loadTasks } from "../lib/data";
+import type { AgentRow, ResultsSummary, TaskEntry } from "../data/types";
 import { ENV_LABELS, pillColorForDifficulty } from "../lib/format";
 import { playDemo } from "../lib/config";
 import Pill from "../components/Pill";
 
+const ARXIV_URL = "https://arxiv.org/abs/2609.35814";
+const ARXIV_BIBTEX_URL = "https://arxiv.org/bibtex/2609.35814";
+const GITHUB_URL = "https://github.com/Arvid-pku/BreakingWeb";
+
 const STATS: { value: string; label: string; sub?: string }[] = [
   { value: "519", label: "Paired tasks", sub: "clean + intervention" },
   { value: "7", label: "Environments", sub: "self-hosted web apps" },
-  { value: "7", label: "Cognitive primitives" },
-  { value: "519", label: "Intervention variants", sub: "1 per base task" },
+  { value: "29", label: "Intervention families" },
+  { value: "7", label: "Cognitive primitives", sub: "primary recovery demand" },
   { value: "6 / 3", label: "Text / vision agents" },
   { value: "Human-140", label: "Human panel", sub: "cold + warm" },
 ];
@@ -20,32 +24,38 @@ const STATS: { value: string; label: string; sub?: string }[] = [
 const KEY_RESULTS: { headline: string; detail: string }[] = [
   {
     headline: "Text agents lose 18–28 pp under intervention.",
-    detail: "Every text-mode agent drops between 17.9 and 27.6 percentage points on the paired intervention condition. Backtracking and verification are the most-affected primitives across model families.",
+    detail: "Every text-mode agent drops between 17.9 and 27.6 percentage points in pass rate on the intervention condition. Backtracking and verification interventions cost the most across model families.",
   },
   {
-    headline: "Text failures are mostly belief failures.",
-    detail: "75% of failed text-mode runs end with the agent declaring done on a task whose external state never reached the goal — a fabricated-success toast over a silently dropped write is the dominant failure pattern.",
+    headline: "Most text failures are belief failures.",
+    detail: "75% of classified text-mode intervention failures end with the agent declaring success although the required goal state was not reached.",
   },
   {
-    headline: "Vision failures are more action failures.",
-    detail: "Vision-only agents invert the picture: 57% of failures are action failures (the agent gets stuck retrying the action surface) and overreach drops below 1%, because the agent rarely reaches the point where positive criteria pass at all.",
+    headline: "Vision failures are action failures.",
+    detail: "For screenshot-only agents, 57% of classified intervention failures are action failures: the agent gets stuck on the action surface before any success criterion is met.",
   },
   {
-    headline: "Warm humans lose only 5.7 pp.",
-    detail: "Warm human references on the same intervention catalog drop from 80.7% to 75.0% pass rate — a 3–5× smaller drop than text agents, and roughly 10× smaller than vision agents.",
+    headline: "Warm humans lose 5.7 pp.",
+    detail: "On Human-140, warm human pass rate decreases from 80.7% to 75.0%, a drop of 5.7 percentage points.",
   },
 ];
 
 export default function Home() {
   const [tasks, setTasks] = useState<TaskEntry[] | null>(null);
+  const [results, setResults] = useState<ResultsSummary | null>(null);
   useEffect(() => {
     loadTasks().then(setTasks).catch(() => setTasks([]));
+    loadResults().then(setResults).catch(() => setResults(null));
   }, []);
   const featuredEntries = useMemo(() => {
     if (!tasks) return [];
     const byId = new Map(tasks.map((t) => [t.task_id, t]));
     return HOMEPAGE_FEATURED.map((d) => ({ demo: d, entry: byId.get(d.task_id) || null }));
   }, [tasks]);
+  const leaderboard = useMemo<AgentRow[]>(() => {
+    if (!results) return [];
+    return [...results.agents].sort((a, b) => b.total_iv_pass - a.total_iv_pass);
+  }, [results]);
 
   return (
     <div>
@@ -53,22 +63,20 @@ export default function Home() {
       <section className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <p className="text-xs uppercase tracking-widest text-accent mb-4">
-            NeurIPS 2026 submission · under review
+            arXiv:2609.35814 · 2026
           </p>
           <h1 className="text-4xl md:text-5xl leading-tight max-w-4xl">
-            Diagnosing web-agent failures with{" "}
-            <span className="text-accent">matched clean / intervention tasks</span>.
+            Constructing challenging browser-use tasks by{" "}
+            <span className="text-accent">controlled environment interventions</span>.
           </h1>
           <p className="mt-6 max-w-prose text-lg text-ink/80 leading-relaxed">
-            BreakingWeb runs each task twice: once in a clean environment and once
-            with a controlled intervention that targets one primary cognitive
-            primitive. The paired drop between the two runs estimates how
-            sensitive an agent is to that primitive, while the rest of the
-            instruction, environment, and scoring rule are held fixed.
+            BreakingWeb runs each task twice: once in a clean self-hosted web
+            app and once with a controlled, recoverable intervention, while the
+            instruction, environment, and scoring rule are held fixed. The paired performance drop measures the cost of the intervention. Primitive labels describe the primary recovery demand; recovery may involve multiple capabilities.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <a className="btn-primary" href="#paper">Paper</a>
-            <a className="btn" href="https://github.com/Arvid-pku/WebStress" target="_blank" rel="noreferrer">Code</a>
+            <a className="btn-primary" href={ARXIV_URL} target="_blank" rel="noreferrer">Paper</a>
+            <a className="btn" href={GITHUB_URL} target="_blank" rel="noreferrer">Code</a>
             <Link className="btn" to="/tasks">Explore Tasks</Link>
             {HAS_LIVE_DEMO && (
               <Link className="btn" to="/demo">
@@ -94,23 +102,52 @@ export default function Home() {
         </div>
       </section>
 
-      {/* What it does */}
-      <section className="max-w-6xl mx-auto px-6 py-14">
-        <h2 className="text-2xl mb-4">Why paired clean / intervention?</h2>
-        <p className="text-ink/85 max-w-prose leading-relaxed">
-          An end-to-end task score tells you that a 15-step booking failed; it
-          doesn't tell you whether the agent misread the page, lost a sub-goal,
-          or trusted a fake confirmation. Holding the base task fixed and
-          varying one stressor at a time turns <em>"agent A scores 40%"</em>{" "}
-          into <em>"agent A loses 27 pp on backtracking and 18 pp on verification,
-          almost nothing on planning."</em> That is the signal a developer or
-          trainer needs to know which capability to fix.
-        </p>
-        <p className="text-ink/85 max-w-prose leading-relaxed mt-4">
-          Runs are graded against live backend state, not the rendered DOM, so a
-          forged "Saved" toast over a silently dropped write counts as a failure.
-        </p>
-      </section>
+      {/* Leaderboard */}
+      {leaderboard.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-14">
+          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+            <h2 className="text-2xl">Leaderboard</h2>
+            <Link to="/results" className="text-sm text-accent no-underline hover:underline">
+              Per-primitive breakdown&nbsp;→
+            </Link>
+          </div>
+          <p className="text-sm text-muted mb-4 max-w-prose">
+            Pass rate on the full 519-pair set at seed 42, sorted by intervention
+            pass rate. Runs are graded against the live backend state, so a forged
+            "Saved" toast over a silently dropped write counts as a failure.
+          </p>
+          <div className="card p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-cream/60 text-left border-b border-border text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Agent</th>
+                  <th className="px-4 py-3">Observation</th>
+                  <th className="px-4 py-3 text-right">Clean pass %</th>
+                  <th className="px-4 py-3 text-right">Intervention pass %</th>
+                  <th className="px-4 py-3 text-right">Drop (pp)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((row, i) => (
+                  <tr key={row.model} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-3 text-muted">{i + 1}</td>
+                    <td className="px-4 py-3 font-mono text-[13px]">{row.model.replace(/^v-/, "")}</td>
+                    <td className="px-4 py-3">
+                      <Pill className={row.harness === "text" ? "bg-accent-soft/40 border-accent-soft text-ink" : "bg-navy/10 border-navy/30 text-navy"}>
+                        {row.harness === "text" ? "text (a11y tree)" : "vision (screenshots)"}
+                      </Pill>
+                    </td>
+                    <td className="px-4 py-3 text-right">{row.total_clean_pass.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{row.total_iv_pass.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-right text-accent">↓{row.total_delta_p.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Featured demos */}
       {HAS_LIVE_DEMO && featuredEntries.length > 0 && (
@@ -123,8 +160,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="text-ink/75 max-w-prose mb-6 text-sm leading-relaxed">
-              Hand-picked from the Human-140 panel. One click launches the
-              task on the hosted backend — no chooser UI, no setup.
+              One click launches the task on the hosted backend.
             </p>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {featuredEntries.map(({ demo, entry }) => (
@@ -191,18 +227,23 @@ export default function Home() {
         <h2 className="text-2xl mb-4">Read the paper</h2>
         <div className="card max-w-3xl">
           <p className="text-base font-medium">
-            Beyond Task Success: Probing Cognitive Primitives in Web Agents
+            <a href={ARXIV_URL} target="_blank" rel="noreferrer" className="no-underline hover:text-accent">
+              Constructing Challenging Browser-Use Tasks by Controlled Environment Interventions
+            </a>
           </p>
-          <p className="text-sm text-muted mt-1">Anonymous submission to NeurIPS 2026 · under review</p>
+          <p className="text-sm text-muted mt-1">Xunjian Yin et al. · arXiv:2609.35814 · 2026</p>
           <p className="text-sm text-ink/75 mt-3 leading-relaxed">
-            Cognitive primitives such as planning, exploration, and backtracking
-            are widely regarded as core to competent web agents. BreakingWeb casts
-            capability evaluation as a controlled comparison: each task is
-            paired with a targeted intervention, and the paired drop estimates
-            sensitivity to one primary target primitive.
+            BreakingWeb constructs challenging browser-use tasks by applying
+            controlled, recoverable interventions to self-hosted web environments.
+            Each clean/intervention pair preserves the user instruction, latent
+            target, and backend success criterion. The paired performance drop measures the cost of the intervention. Primitive labels describe the primary recovery demand; recovery may involve multiple capabilities.
           </p>
-          <p className="mt-4 text-sm text-muted">
-            Citation: anonymous until decision. License: TBD pending de-anonymisation.
+          <p className="mt-4 text-sm">
+            <a href={ARXIV_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">arXiv</a>
+            <span className="mx-2 text-muted">·</span>
+            <a href={ARXIV_BIBTEX_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">BibTeX</a>
+            <span className="mx-2 text-muted">·</span>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">Code</a>
           </p>
         </div>
       </section>

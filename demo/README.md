@@ -38,8 +38,8 @@ Open `/launch` to pick a task and try it in either condition:
 - The container builds the 7 React SPAs at image-build time, then runs
   a single FastAPI process under `uvicorn`. Build takes ~5 min on the
   HF Space free CPU tier.
-- HF Spaces sleep after 48 h of inactivity and cold-start on the next
-  visit (~15–30 s warm-up).
+- The demo may take a short time to start after inactivity. Sessions are
+  temporary.
 - Free-tier resource ceiling is shared CPU + 16 GB RAM, which is
   comfortable for low-traffic single-process FastAPI. Concurrent
   sessions stay separated by `session_id`.
@@ -56,7 +56,7 @@ pinned commit:
 
 ```bash
 docker build \
-    --build-arg BREAKINGWEB_REPO=https://github.com/Arvid-pku/WebStress.git \
+    --build-arg BREAKINGWEB_REPO=https://github.com/Arvid-pku/BreakingWeb.git \
     --build-arg BREAKINGWEB_REF=main \
     .
 ```
@@ -64,9 +64,9 @@ docker build \
 ## Links
 
 - Website & results explorer: <https://www.breakingweb.app>
-- Benchmark code: <https://github.com/Arvid-pku/WebStress>
+- Benchmark code: <https://github.com/Arvid-pku/BreakingWeb>
 - Agent trajectories on Hugging Face: <https://huggingface.co/BreakingWeb>
-  ([primbench-results-v2](https://huggingface.co/datasets/BreakingWeb/primbench-results-v2) — text agents;
-  [primbench-results-v3](https://huggingface.co/datasets/BreakingWeb/primbench-results-v3) — Sonnet 4.6, Opus 4.7 retry, pixel agents)
+  ([breakingweb-results-v2](https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v2) — Browser-Use trajectories, six models;
+  [breakingweb-results-v3](https://huggingface.co/datasets/BreakingWeb/breakingweb-results-v3) — Sonnet 4.6, additional Opus 4.7 runs, screenshot-only BrowserGym trajectories)
 - Website + this demo Dockerfile: <https://github.com/TianchenGuan/WebStress-site>
-- Paper: NeurIPS 2026 Datasets & Benchmarks submission (under review)
+- Paper: [Constructing Challenging Browser-Use Tasks by Controlled Environment Interventions](https://arxiv.org/abs/2609.35814) (arXiv:2609.35814)
