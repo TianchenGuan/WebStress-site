@@ -63,7 +63,7 @@ export default function Home() {
       <section className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <p className="text-xs uppercase tracking-widest text-accent mb-4">
-            arXiv:2609.35814 · 2026
+            NeurIPS 2026 · Datasets &amp; Benchmarks Track
           </p>
           <h1 className="text-4xl md:text-5xl leading-tight max-w-4xl">
             Constructing challenging browser-use tasks by{" "}
@@ -231,7 +231,7 @@ export default function Home() {
               Constructing Challenging Browser-Use Tasks by Controlled Environment Interventions
             </a>
           </p>
-          <p className="text-sm text-muted mt-1">Xunjian Yin et al. · arXiv:2609.35814 · 2026</p>
+          <p className="text-sm text-muted mt-1">Xunjian Yin et al. · NeurIPS 2026, Datasets &amp; Benchmarks Track</p>
           <p className="text-sm text-ink/75 mt-3 leading-relaxed">
             BreakingWeb constructs challenging browser-use tasks by applying
             controlled, recoverable interventions to self-hosted web environments.
@@ -239,7 +239,7 @@ export default function Home() {
             target, and backend success criterion. The paired performance drop measures the cost of the intervention. Primitive labels describe the primary recovery demand; recovery may involve multiple capabilities.
           </p>
           <p className="mt-4 text-sm">
-            <a href={ARXIV_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">arXiv</a>
+            <a href={ARXIV_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">Paper</a>
             <span className="mx-2 text-muted">·</span>
             <a href={ARXIV_BIBTEX_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">BibTeX</a>
             <span className="mx-2 text-muted">·</span>

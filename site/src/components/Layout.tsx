@@ -55,7 +55,7 @@ export default function Layout() {
               rel="noreferrer"
               className="text-muted hover:text-accent"
             >
-              arXiv:2609.35814
+              NeurIPS 2026
             </a>
             <span className="mx-2">·</span>
             <a
